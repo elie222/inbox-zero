@@ -11,7 +11,7 @@ import { useNotification } from "@/components/NotificationProvider";
 import { postRequest } from "@/utils/api";
 
 export default function Home() {
-  const { data, isLoading, error } = useSWR<ThreadsResponse>(
+  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
     "/api/google/threads"
   );
 
@@ -28,31 +28,35 @@ export default function Home() {
               <List
                 items={data.threads.map((t) => ({
                   id: t.id || "",
-                  text: t.snippet || "",
+                  text: t.id + ": " + t.snippet || "",
                 }))}
                 onArchive={async (id) => {
                   const body: ArchiveBody = { id };
 
                   try {
                     await postRequest("/api/google/threads/archive", body);
-                    const response = await fetch("/api/google/threads/archive", {
-                      method: "POST",
-                      body: JSON.stringify(body),
+                    const response = await fetch(
+                      "/api/google/threads/archive",
+                      {
+                        method: "POST",
+                        body: JSON.stringify(body),
+                      }
+                    );
+
+                    showNotification({
+                      type: "success",
+                      title: "Success",
+                      description: "The thread was archived.",
                     });
-                    console.log("🚀 ~ file: page.tsx:42 ~ onArchive={ ~ response:", response)
                   } catch (error) {
-                    return showNotification({
+                    showNotification({
                       type: "error",
                       title: "Error archiving thread",
                       description: "There was an error archiving the thread.",
                     });
+                  } finally {
+                    mutate();
                   }
-
-                  showNotification({
-                    type: "success",
-                    title: "Success",
-                    description: "The thread was archived.",
-                  });
                 }}
               />
             )}

@@ -1,7 +1,12 @@
+import useSWR from "swr";
+import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "./Button";
+import { ThreadResponse } from "@/app/api/google/threads/[id]/route";
+
+type Item = { id: string; text: string };
 
 export function List(props: {
-  items: { id: string; text: string }[];
+  items: Item[];
   onArchive: (id: string) => void;
 }) {
   const { items } = props;
@@ -9,23 +14,38 @@ export function List(props: {
   return (
     <ul role="list" className="divide-y divide-gray-800">
       {items.map((item) => (
-        <li key={item.id} className="flex justify-between gap-x-6 py-5">
-          <div className="flex gap-x-4">
-            {/* <img className="h-12 w-12 flex-none rounded-full bg-gray-800" src={person.imageUrl} alt="" /> */}
-            <div className="min-w-0 flex-auto">
-              <p className="text-sm font-semibold leading-6 text-white">
-                {item.text}
-              </p>
-              {/* <p className="mt-1 truncate text-xs leading-5 text-gray-400">{person.email}</p> */}
-            </div>
-          </div>
-          <div className="hidden sm:flex sm:flex-col sm:items-end">
-            <p className="text-sm leading-6 text-white">
-              <Button onClick={() => props.onArchive(item.id)}>Archive</Button>
-            </p>
-          </div>
-        </li>
+        <ListItem key={item.id} item={item} onArchive={props.onArchive} />
       ))}
     </ul>
+  );
+}
+
+function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
+  const { item, onArchive } = props;
+
+  const { data, isLoading, error } = useSWR<ThreadResponse>(
+    `/api/google/threads/${item.id}`
+  );
+
+  return (
+    <li className="flex py-5">
+      <div className="max-w-full">
+        <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
+          {item.text}
+        </p>
+        <LoadingContent loading={isLoading} error={error}>
+          {data && (
+            <p className="mt-1 truncate text-xs leading-5 text-gray-400 break-words whitespace-pre-wrap">
+              {data.thread.messages?.[0]?.text.substring(0, 280) || "No message text"}
+            </p>
+          )}
+        </LoadingContent>
+      </div>
+      <div className="hidden sm:flex sm:flex-col sm:items-end">
+        <p className="text-sm leading-6 text-white">
+          <Button onClick={() => onArchive(item.id)}>Archive</Button>
+        </p>
+      </div>
+    </li>
   );
 }
