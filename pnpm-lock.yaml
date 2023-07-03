@@ -7,7 +7,28 @@ settings:
 dependencies:
   '@google-cloud/local-auth':
     specifier: 2.1.0
-    version: 2.1.0
+    version: 2.1.0(encoding@0.1.13)
+  '@headlessui/react':
+    specifier: ^1.7.15
+    version: 1.7.15(react-dom@18.2.0)(react@18.2.0)
+  '@heroicons/react':
+    specifier: ^2.0.18
+    version: 2.0.18(react@18.2.0)
+  '@tanstack/react-query':
+    specifier: ^4.29.19
+    version: 4.29.19(react-dom@18.2.0)(react@18.2.0)
+  '@trpc/client':
+    specifier: ^10.33.0
+    version: 10.33.0(@trpc/server@10.33.0)
+  '@trpc/next':
+    specifier: ^10.33.0
+    version: 10.33.0(@tanstack/react-query@4.29.19)(@trpc/client@10.33.0)(@trpc/react-query@10.33.0)(@trpc/server@10.33.0)(next@13.4.7)(react-dom@18.2.0)(react@18.2.0)
+  '@trpc/react-query':
+    specifier: ^10.33.0
+    version: 10.33.0(@tanstack/react-query@4.29.19)(@trpc/client@10.33.0)(@trpc/server@10.33.0)(react-dom@18.2.0)(react@18.2.0)
+  '@trpc/server':
+    specifier: ^10.33.0
+    version: 10.33.0
   '@types/node':
     specifier: 20.3.3
     version: 20.3.3
@@ -20,6 +41,12 @@ dependencies:
   cal-sans:
     specifier: ^1.0.1
     version: 1.0.1
+  clsx:
+    specifier: ^1.2.1
+    version: 1.2.1
+  encoding:
+    specifier: ^0.1.13
+    version: 0.1.13
   eslint:
     specifier: 8.44.0
     version: 8.44.0
@@ -28,7 +55,7 @@ dependencies:
     version: 13.4.7(eslint@8.44.0)(typescript@5.1.6)
   googleapis:
     specifier: '105'
-    version: 105.0.0
+    version: 105.0.0(encoding@0.1.13)
   next:
     specifier: 13.4.7
     version: 13.4.7(react-dom@18.2.0)(react@18.2.0)
@@ -41,9 +68,18 @@ dependencies:
   react-dom:
     specifier: 18.2.0
     version: 18.2.0(react@18.2.0)
+  react-hook-form:
+    specifier: ^7.45.1
+    version: 7.45.1(react@18.2.0)
+  swr:
+    specifier: ^2.2.0
+    version: 2.2.0(react@18.2.0)
   typescript:
     specifier: 5.1.6
     version: 5.1.6
+  zod:
+    specifier: ^3.21.4
+    version: 3.21.4
 
 devDependencies:
   autoprefixer:
@@ -112,17 +148,37 @@ packages:
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dev: false
 
-  /@google-cloud/local-auth@2.1.0:
+  /@google-cloud/local-auth@2.1.0(encoding@0.1.13):
     resolution: {integrity: sha512-ymZ1XuyKcRcro0aiMYz3hVGbZ+QZmN5V1Eyjvw2k1xqq76PwmDer0DIPxdxkLzfW9Inr8+g+MS9t9fZ7dOlTOQ==}
     engines: {node: '>=12.0.0'}
     dependencies:
       arrify: 2.0.1
-      google-auth-library: 8.9.0
+      google-auth-library: 8.9.0(encoding@0.1.13)
       open: 7.4.2
       server-destroy: 1.0.1
     transitivePeerDependencies:
       - encoding
       - supports-color
+    dev: false
+
+  /@headlessui/react@1.7.15(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-OTO0XtoRQ6JPB1cKNFYBZv2Q0JMqMGNhYP1CjPvcJvjz8YGokz8oAj89HIYZGN0gZzn/4kk9iUpmMF4Q21Gsqw==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: ^16 || ^17 || ^18
+      react-dom: ^16 || ^17 || ^18
+    dependencies:
+      client-only: 0.0.1
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
+  /@heroicons/react@2.0.18(react@18.2.0):
+    resolution: {integrity: sha512-7TyMjRrZZMBPa+/5Y8lN0iyvUU/01PeMGX2+RE7cQWpEUIcb4QotzUObFkJDejj/HUH4qjP/eQ0gzzKs2f+6Yw==}
+    peerDependencies:
+      react: '>= 16'
+    dependencies:
+      react: 18.2.0
     dev: false
 
   /@humanwhocodes/config-array@0.11.10:
@@ -312,6 +368,77 @@ packages:
     resolution: {integrity: sha512-sJ902EfIzn1Fa+qYmjdQqh8tPsoxyBz+8yBKC2HKUxyezKJFwPGOn7pv4WY6QuQW//ySQi5lJjA/ZT9sNWWNTg==}
     dependencies:
       tslib: 2.6.0
+    dev: false
+
+  /@tanstack/query-core@4.29.19:
+    resolution: {integrity: sha512-uPe1DukeIpIHpQi6UzIgBcXsjjsDaLnc7hF+zLBKnaUlh7jFE/A+P8t4cU4VzKPMFB/C970n/9SxtpO5hmIRgw==}
+    dev: false
+
+  /@tanstack/react-query@4.29.19(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-XiTIOHHQ5Cw1WUlHaD4fmVUMhoWjuNJlAeJGq7eM4BraI5z7y8WkZO+NR8PSuRnQGblpuVdjClQbDFtwxTtTUw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@tanstack/query-core': 4.29.19
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      use-sync-external-store: 1.2.0(react@18.2.0)
+    dev: false
+
+  /@trpc/client@10.33.0(@trpc/server@10.33.0):
+    resolution: {integrity: sha512-gHKe/5MEdoi1HEF7gsviFdHC7IyVRYjS39C0uXYHlM9rJ9It+KQpz8+wu9XkORte/lbBCScOGOPLNqb5IvSF/g==}
+    peerDependencies:
+      '@trpc/server': 10.33.0
+    dependencies:
+      '@trpc/server': 10.33.0
+    dev: false
+
+  /@trpc/next@10.33.0(@tanstack/react-query@4.29.19)(@trpc/client@10.33.0)(@trpc/react-query@10.33.0)(@trpc/server@10.33.0)(next@13.4.7)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-x2aRwGbXd+8Yk3WxVGF5IDWu9f/m2Na68FTU7df8WoJ4Il8T79Blr3i2CrpGrLZ25KyAJ34Mpqtaxwb1dUct0g==}
+    peerDependencies:
+      '@tanstack/react-query': ^4.18.0
+      '@trpc/client': 10.33.0
+      '@trpc/react-query': 10.33.0
+      '@trpc/server': 10.33.0
+      next: 13.4.7
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@tanstack/react-query': 4.29.19(react-dom@18.2.0)(react@18.2.0)
+      '@trpc/client': 10.33.0(@trpc/server@10.33.0)
+      '@trpc/react-query': 10.33.0(@tanstack/react-query@4.29.19)(@trpc/client@10.33.0)(@trpc/server@10.33.0)(react-dom@18.2.0)(react@18.2.0)
+      '@trpc/server': 10.33.0
+      next: 13.4.7(react-dom@18.2.0)(react@18.2.0)
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      react-ssr-prepass: 1.5.0(react@18.2.0)
+    dev: false
+
+  /@trpc/react-query@10.33.0(@tanstack/react-query@4.29.19)(@trpc/client@10.33.0)(@trpc/server@10.33.0)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-SPqw7aJxiYIx4hhaNIGl2fQvQeiz0eo3QpWm0oYyE5f24+TBfyK+jrDGMQt+020cuPb+QNfrxCJFGsXYT0410w==}
+    peerDependencies:
+      '@tanstack/react-query': ^4.18.0
+      '@trpc/client': 10.33.0
+      '@trpc/server': 10.33.0
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@tanstack/react-query': 4.29.19(react-dom@18.2.0)(react@18.2.0)
+      '@trpc/client': 10.33.0(@trpc/server@10.33.0)
+      '@trpc/server': 10.33.0
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
+  /@trpc/server@10.33.0:
+    resolution: {integrity: sha512-3EN7hiYFy1FsMqGIHEkRqtjxLhTRc/E73mdE+F/vqJWNwigM8UmAvZgFC0YTw87PYpztYzA1vxxK7LQfhXHeog==}
     dev: false
 
   /@types/json5@0.0.29:
@@ -690,6 +817,11 @@ packages:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
     dev: false
 
+  /clsx@1.2.1:
+    resolution: {integrity: sha512-EcR6r5a8bj6pu3ycsa/E/cKVGuTgZJZdsyUYHOksG/UHIiKfjxzRxYJpyVBwYaQeOvghal9fcc4PidlgzugAQg==}
+    engines: {node: '>=6'}
+    dev: false
+
   /color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
     engines: {node: '>=7.0.0'}
@@ -841,6 +973,12 @@ packages:
 
   /emoji-regex@9.2.2:
     resolution: {integrity: sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg==}
+    dev: false
+
+  /encoding@0.1.13:
+    resolution: {integrity: sha512-ETBauow1T35Y/WZMkio9jiM0Z5xjHHmJ4XmjZOq1l/dXz3lr2sRn87nJy20RupqSh1F2m3HHPSp8ShIPQJrJ3A==}
+    dependencies:
+      iconv-lite: 0.6.3
     dev: false
 
   /enhanced-resolve@5.15.0:
@@ -1335,24 +1473,24 @@ packages:
     resolution: {integrity: sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==}
     dev: false
 
-  /gaxios@5.1.2:
+  /gaxios@5.1.2(encoding@0.1.13):
     resolution: {integrity: sha512-mPyw3qQq6qoHWTe27CrzhSj7XYKVStTGrpP92a91FfogBWOd9BMW8GT5yS5WhEYGw02AgB1fVQVSAO+JKiQP0w==}
     engines: {node: '>=12'}
     dependencies:
       extend: 3.0.2
       https-proxy-agent: 5.0.1
       is-stream: 2.0.1
-      node-fetch: 2.6.12
+      node-fetch: 2.6.12(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
       - supports-color
     dev: false
 
-  /gcp-metadata@5.3.0:
+  /gcp-metadata@5.3.0(encoding@0.1.13):
     resolution: {integrity: sha512-FNTkdNEnBdlqF2oatizolQqNANMrcqJt6AAYt99B3y1aLLC8Hc5IOBb+ZnnzllodEEf6xMBp6wRcBbc16fa65w==}
     engines: {node: '>=12'}
     dependencies:
-      gaxios: 5.1.2
+      gaxios: 5.1.2(encoding@0.1.13)
       json-bigint: 1.0.0
     transitivePeerDependencies:
       - encoding
@@ -1473,7 +1611,7 @@ packages:
       slash: 4.0.0
     dev: false
 
-  /google-auth-library@8.9.0:
+  /google-auth-library@8.9.0(encoding@0.1.13):
     resolution: {integrity: sha512-f7aQCJODJFmYWN6PeNKzgvy9LI2tYmXnzpNDHEjG5sDNPgGb2FXQyTBnXeSH+PAtpKESFD+LmHw3Ox3mN7e1Fg==}
     engines: {node: '>=12'}
     dependencies:
@@ -1481,9 +1619,9 @@ packages:
       base64-js: 1.5.1
       ecdsa-sig-formatter: 1.0.11
       fast-text-encoding: 1.0.6
-      gaxios: 5.1.2
-      gcp-metadata: 5.3.0
-      gtoken: 6.1.2
+      gaxios: 5.1.2(encoding@0.1.13)
+      gcp-metadata: 5.3.0(encoding@0.1.13)
+      gtoken: 6.1.2(encoding@0.1.13)
       jws: 4.0.0
       lru-cache: 6.0.0
     transitivePeerDependencies:
@@ -1499,13 +1637,13 @@ packages:
       node-forge: 1.3.1
     dev: false
 
-  /googleapis-common@6.0.4:
+  /googleapis-common@6.0.4(encoding@0.1.13):
     resolution: {integrity: sha512-m4ErxGE8unR1z0VajT6AYk3s6a9gIMM6EkDZfkPnES8joeOlEtFEJeF8IyZkb0tjPXkktUfYrE4b3Li1DNyOwA==}
     engines: {node: '>=12.0.0'}
     dependencies:
       extend: 3.0.2
-      gaxios: 5.1.2
-      google-auth-library: 8.9.0
+      gaxios: 5.1.2(encoding@0.1.13)
+      google-auth-library: 8.9.0(encoding@0.1.13)
       qs: 6.11.2
       url-template: 2.0.8
       uuid: 9.0.0
@@ -1514,12 +1652,12 @@ packages:
       - supports-color
     dev: false
 
-  /googleapis@105.0.0:
+  /googleapis@105.0.0(encoding@0.1.13):
     resolution: {integrity: sha512-wH/jU/6QpqwsjTKj4vfKZz97ne7xT7BBbKwzQEwnbsG8iH9Seyw19P+AuLJcxNNrmgblwLqfr3LORg4Okat1BQ==}
     engines: {node: '>=12.0.0'}
     dependencies:
-      google-auth-library: 8.9.0
-      googleapis-common: 6.0.4
+      google-auth-library: 8.9.0(encoding@0.1.13)
+      googleapis-common: 6.0.4(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -1539,11 +1677,11 @@ packages:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
     dev: false
 
-  /gtoken@6.1.2:
+  /gtoken@6.1.2(encoding@0.1.13):
     resolution: {integrity: sha512-4ccGpzz7YAr7lxrT2neugmXQ3hP9ho2gcaityLVkiUecAiwiy60Ii8gRbZeOsXV19fYaRjgBSshs8kXw+NKCPQ==}
     engines: {node: '>=12.0.0'}
     dependencies:
-      gaxios: 5.1.2
+      gaxios: 5.1.2(encoding@0.1.13)
       google-p12-pem: 4.0.1
       jws: 4.0.0
     transitivePeerDependencies:
@@ -1607,6 +1745,13 @@ packages:
   /human-signals@4.3.1:
     resolution: {integrity: sha512-nZXjEF2nbo7lIw3mgYjItAfgQXog3OjJogSbKa2CQIIvSGWcKgeJnQlNXip6NglNzYH45nSRiEVimMvYL8DDqQ==}
     engines: {node: '>=14.18.0'}
+    dev: false
+
+  /iconv-lite@0.6.3:
+    resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
+    engines: {node: '>=0.10.0'}
+    dependencies:
+      safer-buffer: 2.1.2
     dev: false
 
   /ignore@5.2.4:
@@ -2053,7 +2198,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /node-fetch@2.6.12:
+  /node-fetch@2.6.12(encoding@0.1.13):
     resolution: {integrity: sha512-C/fGU2E8ToujUivIO0H+tpQ6HWo4eEmchoPIoXtxCrVghxdKq+QOHqEZW7tuP3KlV3bC8FRMO5nMCC7Zm1VP6g==}
     engines: {node: 4.x || >=6.0.0}
     peerDependencies:
@@ -2062,6 +2207,7 @@ packages:
       encoding:
         optional: true
     dependencies:
+      encoding: 0.1.13
       whatwg-url: 5.0.0
     dev: false
 
@@ -2431,8 +2577,25 @@ packages:
       scheduler: 0.23.0
     dev: false
 
+  /react-hook-form@7.45.1(react@18.2.0):
+    resolution: {integrity: sha512-6dWoFJwycbuFfw/iKMcl+RdAOAOHDiF11KWYhNDRN/OkUt+Di5qsZHwA0OwsVnu9y135gkHpTw9DJA+WzCeR9w==}
+    engines: {node: '>=12.22.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18
+    dependencies:
+      react: 18.2.0
+    dev: false
+
   /react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
+    dev: false
+
+  /react-ssr-prepass@1.5.0(react@18.2.0):
+    resolution: {integrity: sha512-yFNHrlVEReVYKsLI5lF05tZoHveA5pGzjFbFJY/3pOqqjGOmMmqx83N4hIjN2n6E1AOa+eQEUxs3CgRnPmT0RQ==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
     dev: false
 
   /react@18.2.0:
@@ -2527,6 +2690,10 @@ packages:
       call-bind: 1.0.2
       get-intrinsic: 1.2.1
       is-regex: 1.1.4
+    dev: false
+
+  /safer-buffer@2.1.2:
+    resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
     dev: false
 
   /scheduler@0.23.0:
@@ -2702,6 +2869,15 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  /swr@2.2.0(react@18.2.0):
+    resolution: {integrity: sha512-AjqHOv2lAhkuUdIiBu9xbuettzAzWXmCEcLONNKJRba87WAefz8Ca9d6ds/SzrPc235n1IxWYdhJ2zF3MNUaoQ==}
+    peerDependencies:
+      react: ^16.11.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
+      use-sync-external-store: 1.2.0(react@18.2.0)
+    dev: false
+
   /synckit@0.8.5:
     resolution: {integrity: sha512-L1dapNV6vu2s/4Sputv8xGsCdAVlb5nRDMFU/E27D44l5U6cw1g0dGd45uLc+OXjNMmF4ntiMdCimzcjFKQI8Q==}
     engines: {node: ^14.18.0 || >=16.0.0}
@@ -2869,6 +3045,14 @@ packages:
 
   /url-template@2.0.8:
     resolution: {integrity: sha512-XdVKMF4SJ0nP/O7XIPB0JwAEuT9lDIYnNsK8yGVe43y0AWoKeJNdv3ZNWh7ksJ6KqQFjOO6ox/VEitLnaVNufw==}
+    dev: false
+
+  /use-sync-external-store@1.2.0(react@18.2.0):
+    resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
     dev: false
 
   /util-deprecate@1.0.2:

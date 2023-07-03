@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "bradlc.vscode-tailwindcss",
+    "austenc.tailwind-docs",
+    "prisma.prisma",
+    "formulahendry.auto-rename-tag",
+    "wmaurer.change-case",
+    "mikestead.dotenv",
+    "github.vscode-pull-request-github",
+    "cardinal90.multi-cursor-case-preserve",
+    "chakrounanas.turbo-console-log",
+    "Orta.vscode-jest"
+  ]
+}
