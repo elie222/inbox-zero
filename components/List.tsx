@@ -6,13 +6,23 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "./Button";
 import { ThreadResponse } from "@/app/api/google/threads/[id]/route";
 import { postRequest } from "@/utils/api";
-import { ClassifyThreadResponse } from "@/app/api/ai/classify/route";
+import {
+  ClassifyThreadBody,
+  ClassifyThreadResponse,
+} from "@/app/api/ai/classify/route";
 import { useNotification } from "@/components/NotificationProvider";
-import { ArchiveBody } from "@/app/api/google/threads/archive/route";
+import {
+  ArchiveBody,
+  ArchiveResponse,
+} from "@/app/api/google/threads/archive/route";
 import { Tag } from "@/components/Tag";
 import { Linkify } from "@/components/Linkify";
-import { PlanResponse } from "@/app/api/ai/plan/route";
+import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
 import { useGmail } from "@/components/GmailProvider";
+import {
+  DraftEmailBody,
+  DraftEmailResponse,
+} from "@/app/api/google/draft/route";
 
 type Item = { id: string; text: string };
 
@@ -97,6 +107,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
                 <Plan message={data.thread.messages?.[0]?.text || ""} />
                 <ResponseMessage
                   message={data.thread.messages?.[0]?.text || ""}
+                  threadId={data.thread.id || ""}
                 />
               </div>
             </>
@@ -145,12 +156,12 @@ function Categorise(props: { message: string }) {
 
   const onClickCategorise = useCallback(async () => {
     setIsLoadingCategory(true);
-    const category = await postRequest<ClassifyThreadResponse>(
-      "/api/ai/classify",
-      {
-        message: props.message,
-      }
-    );
+    const category = await postRequest<
+      ClassifyThreadResponse,
+      ClassifyThreadBody
+    >("/api/ai/classify", {
+      message: props.message,
+    });
 
     setCategory(category.message);
     setIsLoadingCategory(false);
@@ -181,7 +192,7 @@ function Plan(props: { message: string }) {
 
   const onClickPlan = useCallback(async () => {
     setIsLoadingPlan(true);
-    const plan = await postRequest<PlanResponse>("/api/ai/plan", {
+    const plan = await postRequest<PlanResponse, PlanBody>("/api/ai/plan", {
       message: props.message,
     });
 
@@ -208,7 +219,7 @@ function Plan(props: { message: string }) {
   );
 }
 
-function ResponseMessage(props: { message: string }) {
+function ResponseMessage(props: { message: string; threadId: string }) {
   const { showNotification } = useNotification();
 
   const { messages, handleSubmit, isLoading } = useChat({
@@ -249,6 +260,38 @@ function ResponseMessage(props: { message: string }) {
       {!!messages.length && (
         <div>Response: {messages[messages.length - 1].content}</div>
       )}
+      <Button
+        color="white"
+        size="xs"
+        loading={isLoading}
+        onClick={async () => {
+          try {
+            const draft = await postRequest<DraftEmailResponse, DraftEmailBody>(
+              "/api/google/draft",
+              {
+                subject: "Re: " + props.message.substring(0, 20),
+                body: messages[messages.length - 1].content,
+                threadId: props.threadId,
+              }
+            );
+            console.log("🚀 ~ file: List.tsx:300 ~ draft:", draft);
+
+            showNotification({
+              type: "success",
+              title: "Success",
+              description: "Draft created.",
+            });
+          } catch (error) {
+            showNotification({
+              type: "error",
+              title: "Error",
+              description: "There was an error creating the draft.",
+            });
+          }
+        }}
+      >
+        Create Draft
+      </Button>
     </>
   );
 }
@@ -262,11 +305,10 @@ async function onArchive(options: {
   const body: ArchiveBody = { id };
 
   try {
-    await postRequest("/api/google/threads/archive", body);
-    await fetch("/api/google/threads/archive", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
+    await postRequest<ArchiveResponse, ArchiveBody>(
+      "/api/google/threads/archive",
+      body
+    );
 
     showNotification({
       type: "success",

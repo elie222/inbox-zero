@@ -1,8 +1,8 @@
 import { ErrorMessage, captureException, isErrorMessage } from "@/utils/error";
 
-export async function postRequest<T>(
+export async function postRequest<T, S = any>(
   url: string,
-  data: any,
+  data: S,
   method?: 'POST' | 'DELETE'
 ): Promise<T | ErrorMessage> {
   try {
