@@ -1,15 +1,11 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { Configuration, OpenAIApi } from "openai-edge";
+import { openai } from "@/app/api/ai/openai";
 
 const classifyThreadBody = z.object({ message: z.string() });
 export type ClassifyThreadBody = z.infer<typeof classifyThreadBody>;
 export type ClassifyThreadResponse = Awaited<ReturnType<typeof classify>>;
 
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(config);
 
 export const runtime = "edge";
 

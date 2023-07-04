@@ -1,15 +1,10 @@
 import { z } from "zod";
-import { Configuration, OpenAIApi } from "openai-edge";
 import { OpenAIStream, StreamingTextResponse } from "ai";
+import { openai } from "@/app/api/ai/openai";
 
 const respondBody = z.object({ message: z.string() });
 export type RespondBody = z.infer<typeof respondBody>;
 export type RespondResponse = Awaited<ReturnType<typeof respond>>;
-
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(config);
 
 export const runtime = "edge";
 
