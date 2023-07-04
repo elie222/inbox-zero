@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { Fragment, useState } from "react";
 import { Dialog, Menu, Transition } from "@headlessui/react";
@@ -19,6 +19,7 @@ import {
   MagnifyingGlassIcon,
 } from "@heroicons/react/20/solid";
 import clsx from "clsx";
+import { LogIn } from "@/components/LogIn";
 
 const navigation = [
   { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
@@ -296,7 +297,10 @@ export function SideNav(props: { children: React.ReactNode }) {
                   name="search"
                 />
               </form>
+
               <div className="flex items-center gap-x-4 lg:gap-x-6">
+              <LogIn />
+
                 <button
                   type="button"
                   className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
@@ -365,8 +369,8 @@ export function SideNav(props: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <main className="py-10">
-            <div className="">{props.children}</div>
+          <main>
+            <div>{props.children}</div>
           </main>
         </div>
       </div>

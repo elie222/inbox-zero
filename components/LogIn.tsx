@@ -10,6 +10,7 @@ export function LogIn(props: {}) {
 
   return (
     <Button
+    color="transparent"
       loading={loading}
       onClick={async () => {
         setLoading(true);
