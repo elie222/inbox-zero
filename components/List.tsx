@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useChat } from "ai/react";
 import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -31,8 +31,6 @@ function ListItem(props: { item: Item; refetch: () => void }) {
   const { data, isLoading, error } = useSWR<ThreadResponse>(
     `/api/google/threads/${item.id}`
   );
-  const [category, setCategory] = useState<string>();
-  const [isLoadingCategory, setIsLoadingCategory] = useState(false);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [viewFullMessage, setViewFullMessage] = useState(false);
   const { showNotification } = useNotification();
@@ -60,6 +58,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
                   !viewFullMessage && (
                     <Button
                       color="white"
+                      size="xs"
                       onClick={() => {
                         setViewFullMessage(true);
                       }}
@@ -67,25 +66,8 @@ function ListItem(props: { item: Item; refetch: () => void }) {
                       View Full
                     </Button>
                   )}
-                <Button
-                  color="white"
-                  loading={isLoadingCategory}
-                  onClick={async () => {
-                    setIsLoadingCategory(true);
-                    const category = await postRequest<ClassifyThreadResponse>(
-                      "/api/ai/classify",
-                      {
-                        message: data.thread.messages?.[0]?.text || "",
-                      }
-                    );
 
-                    setCategory(category.message);
-                    setIsLoadingCategory(false);
-                  }}
-                >
-                  Categorise
-                </Button>
-                {category && <div>Category: {category}</div>}
+                <Categorise message={data.thread.messages?.[0]?.text || ""} />
                 <ResponseMessage
                   message={data.thread.messages?.[0]?.text || ""}
                 />
@@ -96,6 +78,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
       </div>
       <div className="">
         <Button
+          size="xs"
           loading={isLoadingArchive}
           onClick={() => {
             onArchive({
@@ -110,6 +93,42 @@ function ListItem(props: { item: Item; refetch: () => void }) {
         </Button>
       </div>
     </li>
+  );
+}
+
+function Categorise(props: { message: string }) {
+  const [category, setCategory] = useState<string>();
+  const [isLoadingCategory, setIsLoadingCategory] = useState(false);
+
+  const onClickCategorise = useCallback(async () => {
+    setIsLoadingCategory(true);
+    const category = await postRequest<ClassifyThreadResponse>(
+      "/api/ai/classify",
+      {
+        message: props.message,
+      }
+    );
+
+    setCategory(category.message);
+    setIsLoadingCategory(false);
+  }, [props.message]);
+
+  useEffect(() => {
+    onClickCategorise();
+  }, [onClickCategorise]);
+
+  return (
+    <>
+      <Button
+        color="white"
+        size="xs"
+        loading={isLoadingCategory}
+        onClick={onClickCategorise}
+      >
+        Categorise
+      </Button>
+      {category && <div>Category: {category}</div>}
+    </>
   );
 }
 
@@ -147,7 +166,7 @@ function ResponseMessage(props: { message: string }) {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <Button color="white" type="submit" loading={isLoading}>
+        <Button color="white" size="xs" type="submit" loading={isLoading}>
           Respond
         </Button>
       </form>
