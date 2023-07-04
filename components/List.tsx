@@ -25,6 +25,8 @@ export function List(props: {
   );
 }
 
+const TRUCATE_LENGTH = 280;
+
 function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
   const { item, onArchive } = props;
 
@@ -32,6 +34,8 @@ function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
     `/api/google/threads/${item.id}`
   );
   const [category, setCategory] = useState<string>();
+  const [isLoadingCategory, setIsLoadingCategory] = useState(false);
+  const [viewFullMessage, setViewFullMessage] = useState(false);
 
   return (
     <li className="flex py-5 text-white">
@@ -43,13 +47,31 @@ function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
           {data && (
             <>
               <p className="mt-1 truncate text-xs leading-5 text-gray-400 break-words whitespace-pre-wrap">
-                {data.thread.messages?.[0]?.text.substring(0, 280) ||
-                  "No message text"}
+                {viewFullMessage
+                  ? data.thread.messages?.[0]?.text
+                  : data.thread.messages?.[0]?.text.substring(
+                      0,
+                      TRUCATE_LENGTH
+                    ) || "No message text"}
               </p>
               <div className="space-x-2">
+                {(data.thread.messages?.[0]?.text?.length || 0) >
+                  TRUCATE_LENGTH &&
+                  !viewFullMessage && (
+                    <Button
+                      color="white"
+                      onClick={() => {
+                        setViewFullMessage(true);
+                      }}
+                    >
+                      View Full
+                    </Button>
+                  )}
                 <Button
                   color="white"
+                  loading={isLoadingCategory}
                   onClick={async () => {
+                    setIsLoadingCategory(true);
                     const category = await postRequest<ClassifyThreadResponse>(
                       "/api/ai/classify",
                       {
@@ -58,6 +80,7 @@ function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
                     );
 
                     setCategory(category.message);
+                    setIsLoadingCategory(false);
                   }}
                 >
                   Categorise
@@ -112,7 +135,7 @@ function ResponseMessage(props: { message: string }) {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <Button color="white" type="submit">
+        <Button color="white" type="submit" loading={isLoading}>
           Respond
         </Button>
       </form>

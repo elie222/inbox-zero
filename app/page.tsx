@@ -29,10 +29,12 @@ export default function Home() {
           <LoadingContent loading={isLoading} error={error}>
             {data && (
               <List
-                items={data.threads.map((t) => ({
-                  id: t.id || "",
-                  text: t.id + ": " + t.snippet || "",
-                }))}
+                items={
+                  data.threads?.map((t) => ({
+                    id: t.id || "",
+                    text: t.id + ": " + t.snippet || "",
+                  })) || []
+                }
                 onArchive={async (id) => {
                   const body: ArchiveBody = { id };
 
