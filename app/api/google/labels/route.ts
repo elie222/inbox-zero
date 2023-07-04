@@ -1,25 +1,21 @@
-import { google, Auth } from "googleapis";
+import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import { client } from "../client";
 
-async function listLabels(auth: Auth.OAuth2Client) {
-  const gmail = google.gmail({ version: "v1", auth });
+// const labelsQuery = z.object({});
+// export type LabelsQuery = z.infer<typeof labelsQuery>;
+export type LabelsResponse = Awaited<ReturnType<typeof getLabels>>;
+
+async function getLabels() {
+  const gmail = google.gmail({ version: "v1", auth: client });
   const res = await gmail.users.labels.list({ userId: "me" });
   const labels = res.data.labels;
-  if (!labels || labels.length === 0) {
-    console.log("No labels found.");
-    return;
-  }
-  console.log("Labels:");
-  labels.forEach((label) => {
-    console.log(`- ${label.name}`);
-  });
 
-  return labels;
+  return { labels };
 }
 
 export async function GET() {
-  const labels = await listLabels(client);
+  const labels = await getLabels();
 
-  return NextResponse.json({ labels });
+  return NextResponse.json(labels);
 }

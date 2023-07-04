@@ -7,6 +7,8 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Container } from "@/components/Container";
 import { LogIn } from "@/components/LogIn";
+import { EmailList } from "@/components/EmailList";
+import { Button } from "@/components/Button";
 
 export default function Home() {
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
@@ -15,9 +17,14 @@ export default function Home() {
 
   return (
     <SessionProvider>
-      <h1 className="text-xl">Welcome to Inbox Zero AI</h1>
+      {/* <EmailList /> */}
 
       <LogIn />
+
+      <div className="flex justify-between">
+        <div className=""></div>
+        <Button size='xs' onClick={() => {}}>Plan AI</Button>
+      </div>
 
       <div className="bg-gray-900">
         <Container>
@@ -37,7 +44,7 @@ export default function Home() {
         </Container>
       </div>
 
-      <Auth />
+      {/* <Auth /> */}
     </SessionProvider>
   );
 }

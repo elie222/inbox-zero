@@ -3,6 +3,7 @@ import "../globals.css";
 import { Inter } from "next/font/google";
 import { NotificationProvider } from "@/components/NotificationProvider";
 import { SideNav } from "@/components/SideNav";
+import { GmailProvider } from "@/components/GmailProvider";
 // import localFont from "next/font/local";
 
 const inter = Inter({
@@ -32,9 +33,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <SWRProvider>
-          <NotificationProvider>
-            <SideNav>{children}</SideNav>
-          </NotificationProvider>
+          <GmailProvider>
+            <NotificationProvider>
+              <SideNav>{children}</SideNav>
+            </NotificationProvider>
+          </GmailProvider>
         </SWRProvider>
       </body>
     </html>

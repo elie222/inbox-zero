@@ -10,6 +10,8 @@ import { useNotification } from "@/components/NotificationProvider";
 import { ArchiveBody } from "@/app/api/google/threads/archive/route";
 import { Tag } from "@/components/Tag";
 import { Linkify } from "@/components/Linkify";
+import { PlanResponse } from "@/app/api/ai/plan/route";
+import { useGmail } from "@/components/GmailProvider";
 
 type Item = { id: string; text: string };
 
@@ -43,6 +45,13 @@ function ListItem(props: { item: Item; refetch: () => void }) {
     data?.thread.messages?.[0]?.payload?.headers?.find((h) => h.name === "From")
       ?.value || "";
   const labelIds = data?.thread.messages?.[0]?.labelIds || [];
+  const gmail = useGmail();
+  const labels = labelIds.map((label) => {
+    const l = gmail.labels?.[label];
+    console.log("🚀 ~ file: List.tsx:51 ~ labels ~ l:", l)
+    if (l?.type === "system") return l.name.toLowerCase();
+    return gmail.labels?.[label].name || label;
+  });
 
   return (
     <li className="flex py-5 text-white">
@@ -50,11 +59,11 @@ function ListItem(props: { item: Item; refetch: () => void }) {
         <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
           From: {from}
         </p>
-        <p className="flex space-x-2">
-          {labelIds.map((label) => (
-            <Tag key={label}>{label.toLowerCase()}</Tag>
+        <div className="flex space-x-2">
+          {labels.map((label) => (
+            <Tag key={label}>{label}</Tag>
           ))}
-        </p>
+        </div>
         <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
           {item.text}
         </p>
@@ -86,7 +95,8 @@ function ListItem(props: { item: Item; refetch: () => void }) {
                     </Button>
                   )}
 
-                <Categorise message={data.thread.messages?.[0]?.text || ""} />
+                {/* <Categorise message={data.thread.messages?.[0]?.text || ""} /> */}
+                <Plan message={data.thread.messages?.[0]?.text || ""} />
                 <ResponseMessage
                   message={data.thread.messages?.[0]?.text || ""}
                 />
@@ -98,6 +108,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
       <div className="">
         <div className="flex space-x-2">
           <Button
+            color="white"
             size="xs"
             loading={isLoadingArchive}
             onClick={() => {
@@ -162,6 +173,39 @@ function Categorise(props: { message: string }) {
         Categorise
       </Button>
       {category && <div>Category: {category}</div>}
+    </>
+  );
+}
+
+function Plan(props: { message: string }) {
+  const [plan, setPlan] = useState<string>();
+  const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+
+  const onClickPlan = useCallback(async () => {
+    setIsLoadingPlan(true);
+    const plan = await postRequest<PlanResponse>("/api/ai/plan", {
+      message: props.message,
+    });
+
+    setPlan(plan.message);
+    setIsLoadingPlan(false);
+  }, [props.message]);
+
+  // useEffect(() => {
+  //   onClickPlan();
+  // }, [onClickPlan]);
+
+  return (
+    <>
+      <Button
+        color="white"
+        size="xs"
+        loading={isLoadingPlan}
+        onClick={onClickPlan}
+      >
+        Plan
+      </Button>
+      {plan && <div>Plan: {plan}</div>}
     </>
   );
 }
