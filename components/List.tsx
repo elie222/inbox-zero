@@ -31,12 +31,10 @@ const TRUCATE_LENGTH = 280;
 
 function ListItem(props: { item: Item; refetch: () => void }) {
   const { item } = props;
-  console.log("🚀 ~ file: List.tsx:30 ~ ListItem ~ item:", item);
 
   const { data, isLoading, error } = useSWR<ThreadResponse>(
     `/api/google/threads/${item.id}`
   );
-  console.log("🚀 ~ file: List.tsx:33 ~ ListItem ~ data:", data);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [viewFullMessage, setViewFullMessage] = useState(false);
   const { showNotification } = useNotification();
@@ -48,7 +46,6 @@ function ListItem(props: { item: Item; refetch: () => void }) {
   const gmail = useGmail();
   const labels = labelIds.map((label) => {
     const l = gmail.labels?.[label];
-    console.log("🚀 ~ file: List.tsx:51 ~ labels ~ l:", l)
     if (l?.type === "system") return l.name.toLowerCase();
     return gmail.labels?.[label].name || label;
   });
