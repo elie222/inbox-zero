@@ -28,6 +28,8 @@
     "eslint-config-next": "13.4.7",
     "googleapis": "105",
     "he": "^1.2.0",
+    "linkify-react": "^4.1.1",
+    "linkifyjs": "^4.1.1",
     "next": "13.4.7",
     "next-auth": "^4.22.1",
     "openai-edge": "^1.1.1",

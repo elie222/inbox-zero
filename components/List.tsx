@@ -8,6 +8,8 @@ import { postRequest } from "@/utils/api";
 import { ClassifyThreadResponse } from "@/app/api/ai/classify/route";
 import { useNotification } from "@/components/NotificationProvider";
 import { ArchiveBody } from "@/app/api/google/threads/archive/route";
+import { Tag } from "@/components/Tag";
+import { Linkify } from "@/components/Linkify";
 
 type Item = { id: string; text: string };
 
@@ -27,17 +29,33 @@ const TRUCATE_LENGTH = 280;
 
 function ListItem(props: { item: Item; refetch: () => void }) {
   const { item } = props;
+  console.log("🚀 ~ file: List.tsx:30 ~ ListItem ~ item:", item);
 
   const { data, isLoading, error } = useSWR<ThreadResponse>(
     `/api/google/threads/${item.id}`
   );
+  console.log("🚀 ~ file: List.tsx:33 ~ ListItem ~ data:", data);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [viewFullMessage, setViewFullMessage] = useState(false);
   const { showNotification } = useNotification();
 
+  const from =
+    data?.thread.messages?.[0]?.payload?.headers?.find((h) => h.name === "From")
+      ?.value || "";
+  const labelIds = data?.thread.messages?.[0]?.labelIds || [];
+
   return (
     <li className="flex py-5 text-white">
       <div className="max-w-full">
+        <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
+          From: {from}
+        </p>
+        <p className="flex space-x-2">
+          {/* Labels: {labelIds.join(", ")} */}
+          {labelIds.map((label) => (
+            <Tag key={label}>{label.toLowerCase()}</Tag>
+          ))}
+        </p>
         <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
           {item.text}
         </p>
@@ -45,12 +63,14 @@ function ListItem(props: { item: Item; refetch: () => void }) {
           {data && (
             <>
               <p className="mt-1 truncate text-xs leading-5 text-gray-400 break-words whitespace-pre-wrap">
-                {viewFullMessage
-                  ? data.thread.messages?.[0]?.text
-                  : data.thread.messages?.[0]?.text.substring(
-                      0,
-                      TRUCATE_LENGTH
-                    ) || "No message text"}
+                <Linkify>
+                  {viewFullMessage
+                    ? data.thread.messages?.[0]?.text
+                    : data.thread.messages?.[0]?.text.substring(
+                        0,
+                        TRUCATE_LENGTH
+                      ) || "No message text"}
+                </Linkify>
               </p>
               <div className="space-x-2">
                 {(data.thread.messages?.[0]?.text?.length || 0) >

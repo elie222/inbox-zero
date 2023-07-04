@@ -27,7 +27,7 @@ export default function Home() {
                 items={
                   data.threads?.map((t) => ({
                     id: t.id || "",
-                    text: t.id + ": " + t.snippet || "",
+                    text: t.snippet || "",
                   })) || []
                 }
                 refetch={mutate}
