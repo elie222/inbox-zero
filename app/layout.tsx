@@ -1,6 +1,4 @@
 import "./globals.css";
-import "cal-sans";
-import './home.css';
 import { Inter } from "next/font/google";
 // import localFont from "next/font/local";
 

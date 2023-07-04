@@ -1,6 +1,7 @@
+import "cal-sans";
+import "./home.css";
 import {
   ArrowPathIcon,
-  ChevronRightIcon,
   CloudArrowUpIcon,
   Cog6ToothIcon,
   FingerPrintIcon,
@@ -224,7 +225,7 @@ export default function Home() {
                 src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
                 alt="Your Company"
               />
-              <div className="mt-24 sm:mt-32 lg:mt-16">
+              {/* <div className="mt-24 sm:mt-32 lg:mt-16">
                 <a href="#" className="inline-flex space-x-6">
                   <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-sm font-semibold leading-6 text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
                     Latest updates
@@ -237,18 +238,18 @@ export default function Home() {
                     />
                   </span>
                 </a>
-              </div>
+              </div> */}
               <h1 className="mt-10 text-4xl font-bold text-white sm:text-6xl">
                 Reach Inbox Zero in minutes, daily
               </h1>
               <p className="mt-6 text-lg leading-8 text-gray-300">
-                Inbox Zero utilises the power of AI to help you achieve Inbox
-                Zero daily. What previously would have taken hours, now takes
-                minutes. Replace your VA with Inbox Zero.
+                Inbox Zero uses the power of AI to help you achieve Inbox Zero,
+                daily. What previously tool hours, now takes minutes. Replace
+                your VA with Inbox Zero.
               </p>
               <div className="mt-10 flex items-center gap-x-6">
                 <a
-                  href="#"
+                  href="/app"
                   className="rounded-md bg-indigo-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
                 >
                   Get started
