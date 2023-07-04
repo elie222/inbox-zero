@@ -1,0 +1,4 @@
+/* assign the Cal Sans font-family */
+h1, h2, h3 {
+  font-family: "Cal Sans" !important;
+}

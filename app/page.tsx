@@ -170,7 +170,7 @@ const footerNavigation = {
   ],
 };
 
-export default function Example() {
+export default function Home() {
   return (
     <div className="bg-gray-900">
       <main>
@@ -238,13 +238,13 @@ export default function Example() {
                   </span>
                 </a>
               </div>
-              <h1 className="mt-10 text-4xl font-bold tracking-tight text-white sm:text-6xl">
-                Deploy to the cloud with confidence
+              <h1 className="mt-10 text-4xl font-bold text-white sm:text-6xl">
+                Reach Inbox Zero in minutes, daily
               </h1>
               <p className="mt-6 text-lg leading-8 text-gray-300">
-                Anim aute id magna aliqua ad ad non deserunt sunt. Qui irure qui
-                lorem cupidatat commodo. Elit sunt amet fugiat veniam occaecat
-                fugiat aliqua.
+                Inbox Zero utilises the power of AI to help you achieve Inbox
+                Zero daily. What previously would have taken hours, now takes
+                minutes. Replace your VA with Inbox Zero.
               </p>
               <div className="mt-10 flex items-center gap-x-6">
                 <a
