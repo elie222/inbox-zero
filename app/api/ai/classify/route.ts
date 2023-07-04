@@ -18,7 +18,7 @@ async function classify(body: ClassifyThreadBody) {
     model: "gpt-3.5-turbo-16k",
     messages: [{
       role: 'system',
-      content: 'The following is a conversation with an AI assistant that helps classify emails into different categories. The user will send email messages and it is your job to return the category of the email. Categories to use are: "spam", "personal", "work", "promotions", "social", "requires_response"',
+      content: 'The following is a conversation with an AI assistant that helps classify emails into different categories. The user will send email messages and it is your job to return the category of the email. Categories to use are: "spam", "promotions", "social", "requires_response", "receipts", "newsletter", "app_update"',
     }, {
       role: 'user',
       content: `Please classify this email using a one-word response:\n\n###\n\n${body.message}`,

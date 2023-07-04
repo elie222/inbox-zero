@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useChat } from "ai/react";
 import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "./Button";
 import { ThreadResponse } from "@/app/api/google/threads/[id]/route";
 import { postRequest } from "@/utils/api";
 import { ClassifyThreadResponse } from "@/app/api/ai/classify/route";
+import { useNotification } from "@/components/NotificationProvider";
 
 type Item = { id: string; text: string };
 
@@ -44,21 +46,27 @@ function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
                 {data.thread.messages?.[0]?.text.substring(0, 280) ||
                   "No message text"}
               </p>
-              <Button
-                onClick={async () => {
-                  const category = await postRequest<ClassifyThreadResponse>(
-                    "/api/ai/classify",
-                    {
-                      message: data.thread.messages?.[0]?.text || "",
-                    }
-                  );
+              <div className="space-x-2">
+                <Button
+                  color="white"
+                  onClick={async () => {
+                    const category = await postRequest<ClassifyThreadResponse>(
+                      "/api/ai/classify",
+                      {
+                        message: data.thread.messages?.[0]?.text || "",
+                      }
+                    );
 
-                  setCategory(category.message);
-                }}
-              >
-                Categorise
-              </Button>
-              {category && <div>Category: {category}</div>}
+                    setCategory(category.message);
+                  }}
+                >
+                  Categorise
+                </Button>
+                {category && <div>Category: {category}</div>}
+                <ResponseMessage
+                  message={data.thread.messages?.[0]?.text || ""}
+                />
+              </div>
             </>
           )}
         </LoadingContent>
@@ -67,5 +75,50 @@ function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
         <Button onClick={() => onArchive(item.id)}>Archive</Button>
       </div>
     </li>
+  );
+}
+
+function ResponseMessage(props: { message: string }) {
+  const { showNotification } = useNotification();
+
+  const { messages, handleSubmit, isLoading } = useChat({
+    api: "/api/ai/respond",
+    body: { message: props.message },
+    initialInput: " ", // to allow submit to happen. not used
+    onResponse: (response) => {
+      if (response.status === 429) {
+        showNotification({
+          type: "error",
+          description: "You have reached your request limit for the day.",
+        });
+        // va.track("Rate limited");
+        return;
+      } else {
+        // va.track("Response requested");
+      }
+    },
+    onError: (error) => {
+      showNotification({
+        type: "error",
+        description: `There was an error: ${error.message}`,
+      });
+      // va.track("Response errored", {
+      //   input,
+      //   error: error.message,
+      // });
+    },
+  });
+
+  return (
+    <>
+      <form onSubmit={handleSubmit}>
+        <Button color="white" type="submit">
+          Respond
+        </Button>
+      </form>
+      {!!messages.length && (
+        <div>Response: {messages[messages.length - 1].content}</div>
+      )}
+    </>
   );
 }
