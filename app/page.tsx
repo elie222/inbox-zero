@@ -9,6 +9,7 @@ import { Container } from "@/components/Container";
 import { ArchiveBody } from "@/app/api/google/threads/archive/route";
 import { useNotification } from "@/components/NotificationProvider";
 import { postRequest } from "@/utils/api";
+import { LogIn } from "@/components/LogIn";
 
 export default function Home() {
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
@@ -20,6 +21,8 @@ export default function Home() {
   return (
     <SessionProvider>
       <h1 className="text-xl">Welcome to Inbox Zero AI</h1>
+
+      <LogIn />
 
       <div className="bg-gray-900">
         <Container>

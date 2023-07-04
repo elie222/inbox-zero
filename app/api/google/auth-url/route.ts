@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SCOPES, client } from "../client";
+import { SCOPES, client } from "@/app/api/google/client";
 
 export async function GET() {
   const url = client.generateAuthUrl({

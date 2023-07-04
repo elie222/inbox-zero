@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
+import he from 'he';
 import { client } from "@/app/api/google/client";
 
 const threadQuery = z.object({ id: z.string() });
@@ -30,5 +31,5 @@ export async function GET(request: Request, { params }: { params: ThreadQuery })
 }
 
 function decodeMessage(data: string) {
-  return atob(data.replace(/-/g, '+').replace(/_/g, '/'));
+  return he.decode(atob(data.replace(/-/g, '+').replace(/_/g, '/')));
 }
