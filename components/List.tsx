@@ -7,19 +7,17 @@ import { ThreadResponse } from "@/app/api/google/threads/[id]/route";
 import { postRequest } from "@/utils/api";
 import { ClassifyThreadResponse } from "@/app/api/ai/classify/route";
 import { useNotification } from "@/components/NotificationProvider";
+import { ArchiveBody } from "@/app/api/google/threads/archive/route";
 
 type Item = { id: string; text: string };
 
-export function List(props: {
-  items: Item[];
-  onArchive: (id: string) => void;
-}) {
+export function List(props: { items: Item[]; refetch: () => void }) {
   const { items } = props;
 
   return (
     <ul role="list" className="divide-y divide-gray-800">
       {items.map((item) => (
-        <ListItem key={item.id} item={item} onArchive={props.onArchive} />
+        <ListItem key={item.id} item={item} refetch={props.refetch} />
       ))}
     </ul>
   );
@@ -27,15 +25,17 @@ export function List(props: {
 
 const TRUCATE_LENGTH = 280;
 
-function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
-  const { item, onArchive } = props;
+function ListItem(props: { item: Item; refetch: () => void }) {
+  const { item } = props;
 
   const { data, isLoading, error } = useSWR<ThreadResponse>(
     `/api/google/threads/${item.id}`
   );
   const [category, setCategory] = useState<string>();
   const [isLoadingCategory, setIsLoadingCategory] = useState(false);
+  const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [viewFullMessage, setViewFullMessage] = useState(false);
+  const { showNotification } = useNotification();
 
   return (
     <li className="flex py-5 text-white">
@@ -95,7 +95,19 @@ function ListItem(props: { item: Item; onArchive: (id: string) => void }) {
         </LoadingContent>
       </div>
       <div className="">
-        <Button onClick={() => onArchive(item.id)}>Archive</Button>
+        <Button
+          loading={isLoadingArchive}
+          onClick={() => {
+            onArchive({
+              id: item.id,
+              showNotification,
+              refetch: props.refetch,
+            });
+            setIsLoadingArchive(true);
+          }}
+        >
+          Archive
+        </Button>
       </div>
     </li>
   );
@@ -144,4 +156,35 @@ function ResponseMessage(props: { message: string }) {
       )}
     </>
   );
+}
+
+async function onArchive(options: {
+  id: string;
+  showNotification: (options: any) => void;
+  refetch: () => void;
+}) {
+  const { id, showNotification, refetch } = options;
+  const body: ArchiveBody = { id };
+
+  try {
+    await postRequest("/api/google/threads/archive", body);
+    await fetch("/api/google/threads/archive", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    showNotification({
+      type: "success",
+      title: "Success",
+      description: "The thread was archived.",
+    });
+  } catch (error) {
+    showNotification({
+      type: "error",
+      title: "Error archiving thread",
+      description: "There was an error archiving the thread.",
+    });
+  } finally {
+    refetch();
+  }
 }
