@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useChat } from "ai/react";
 import useSWR from "swr";
+import { capitalCase } from "capital-case";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "./Button";
 import { ThreadResponse } from "@/app/api/google/threads/[id]/route";
@@ -46,7 +47,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
   const gmail = useGmail();
   const labels = labelIds.map((label) => {
     const l = gmail.labels?.[label];
-    if (l?.type === "system") return l.name.toLowerCase();
+    if (l?.type === "system") return capitalCase(l.name);
     return gmail.labels?.[label].name || label;
   });
 
