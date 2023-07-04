@@ -1,8 +1,6 @@
-import { SWRProvider } from "@/utils/SWR";
-import "../globals.css";
+import "./globals.css";
 import "cal-sans";
 import { Inter } from "next/font/google";
-import { NotificationProvider } from "@/components/NotificationProvider";
 // import localFont from "next/font/local";
 
 const inter = Inter({
@@ -30,11 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <SWRProvider>
-          <NotificationProvider>{children}</NotificationProvider>
-        </SWRProvider>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
