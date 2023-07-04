@@ -51,7 +51,6 @@ function ListItem(props: { item: Item; refetch: () => void }) {
           From: {from}
         </p>
         <p className="flex space-x-2">
-          {/* Labels: {labelIds.join(", ")} */}
           {labelIds.map((label) => (
             <Tag key={label}>{label.toLowerCase()}</Tag>
           ))}
@@ -97,20 +96,35 @@ function ListItem(props: { item: Item; refetch: () => void }) {
         </LoadingContent>
       </div>
       <div className="">
-        <Button
-          size="xs"
-          loading={isLoadingArchive}
-          onClick={() => {
-            onArchive({
-              id: item.id,
-              showNotification,
-              refetch: props.refetch,
-            });
-            setIsLoadingArchive(true);
-          }}
-        >
-          Archive
-        </Button>
+        <div className="flex space-x-2">
+          <Button
+            size="xs"
+            loading={isLoadingArchive}
+            onClick={() => {
+              onArchive({
+                id: item.id,
+                showNotification,
+                refetch: props.refetch,
+              });
+              setIsLoadingArchive(true);
+            }}
+          >
+            Archive
+          </Button>
+          <Button
+            color="white"
+            size="xs"
+            onClick={() => {
+              // open in gmail
+              window.open(
+                `https://mail.google.com/mail/u/0/#inbox/${item.id}`,
+                "_blank"
+              );
+            }}
+          >
+            Open
+          </Button>
+        </div>
       </div>
     </li>
   );
