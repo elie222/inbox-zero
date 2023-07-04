@@ -55,11 +55,12 @@ function ListItem(props: { item: Item; refetch: () => void }) {
       ?.value || "";
   const labelIds = data?.thread.messages?.[0]?.labelIds || [];
   const gmail = useGmail();
-  const labels = labelIds.map((label) => {
-    const l = gmail.labels?.[label];
-    if (l?.type === "system") return capitalCase(l.name);
-    return gmail.labels?.[label].name || label;
-  });
+  const labels = labelIds
+    .map((labelId) => {
+      // filtering for Boolean on next line to remove undefined
+      return gmail.labels?.[labelId]!;
+    })
+    .filter(Boolean);
 
   return (
     <li className="flex py-5 text-white">
@@ -69,7 +70,9 @@ function ListItem(props: { item: Item; refetch: () => void }) {
         </p>
         <div className="flex space-x-2">
           {labels.map((label) => (
-            <Tag key={label}>{label}</Tag>
+            <Tag key={label.name} customColors={label.color}>
+              {label?.type === "system" ? capitalCase(label.name) : label.name}
+            </Tag>
           ))}
         </div>
         <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
@@ -282,6 +285,7 @@ function ResponseMessage(props: { message: string; threadId: string }) {
               description: "Draft created.",
             });
           } catch (error) {
+            console.error(error);
             showNotification({
               type: "error",
               title: "Error",

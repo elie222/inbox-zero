@@ -4,7 +4,17 @@ import { LabelsResponse } from "@/app/api/google/labels/route";
 import { createContext, useContext, useMemo } from "react";
 import useSWR from "swr";
 
-type Label = Record<string, { name: string; type?: string | null }>;
+type Label = Record<
+  string,
+  {
+    name: string;
+    type?: string | null;
+    color?: {
+      textColor?: string | null;
+      backgroundColor?: string | null;
+    };
+  }
+>;
 
 interface Context {
   labels?: Label;
@@ -18,11 +28,16 @@ export const useGmail = () => useContext<Context>(GmailContext);
 
 export function GmailProvider(props: { children: React.ReactNode }) {
   const { data } = useSWR<LabelsResponse>("/api/google/labels");
+  console.log("🚀 ~ file: GmailProvider.tsx:21 ~ GmailProvider ~ data:", data);
 
   const labels = useMemo(() => {
     return data?.labels?.reduce((acc, label) => {
       if (label.id && label.name) {
-        acc[label.id] = { name: label.name, type: label.type };
+        acc[label.id] = {
+          name: label.name,
+          type: label.type,
+          color: label.color,
+        };
       }
       return acc;
     }, {} as Label);
