@@ -14,6 +14,7 @@
     "@heroicons/react": "^2.0.18",
     "@tailwindcss/forms": "^0.5.3",
     "@tanstack/react-query": "^4.29.19",
+    "@tippyjs/react": "^4.2.6",
     "@trpc/client": "^10.33.0",
     "@trpc/next": "^10.33.0",
     "@trpc/react-query": "^10.33.0",
@@ -28,6 +29,7 @@
     "encoding": "^0.1.13",
     "eslint": "8.44.0",
     "eslint-config-next": "13.4.7",
+    "gmail-api-parse-message": "^2.1.2",
     "googleapis": "105",
     "he": "^1.2.0",
     "linkify-react": "^4.1.1",
@@ -38,6 +40,7 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hook-form": "^7.45.1",
+    "server-only": "^0.0.1",
     "swr": "^2.2.0",
     "typescript": "5.1.6",
     "zod": "^3.21.4"

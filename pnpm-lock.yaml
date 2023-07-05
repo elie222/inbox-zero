@@ -20,6 +20,9 @@ dependencies:
   '@tanstack/react-query':
     specifier: ^4.29.19
     version: 4.29.19(react-dom@18.2.0)(react@18.2.0)
+  '@tippyjs/react':
+    specifier: ^4.2.6
+    version: 4.2.6(react-dom@18.2.0)(react@18.2.0)
   '@trpc/client':
     specifier: ^10.33.0
     version: 10.33.0(@trpc/server@10.33.0)
@@ -62,6 +65,9 @@ dependencies:
   eslint-config-next:
     specifier: 13.4.7
     version: 13.4.7(eslint@8.44.0)(typescript@5.1.6)
+  gmail-api-parse-message:
+    specifier: ^2.1.2
+    version: 2.1.2
   googleapis:
     specifier: '105'
     version: 105.0.0(encoding@0.1.13)
@@ -92,6 +98,9 @@ dependencies:
   react-hook-form:
     specifier: ^7.45.1
     version: 7.45.1(react@18.2.0)
+  server-only:
+    specifier: ^0.0.1
+    version: 0.0.1
   swr:
     specifier: ^2.2.0
     version: 2.2.0(react@18.2.0)
@@ -404,6 +413,10 @@ packages:
       tslib: 2.6.0
     dev: false
 
+  /@popperjs/core@2.11.8:
+    resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
+    dev: false
+
   /@rushstack/eslint-patch@1.3.2:
     resolution: {integrity: sha512-V+MvGwaHH03hYhY+k6Ef/xKd6RYlc4q8WBx+2ANmipHJcKuktNcI/NgEsJgdSUF6Lw32njT6OnrRsKYCdgHjYw==}
     dev: false
@@ -443,6 +456,17 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       use-sync-external-store: 1.2.0(react@18.2.0)
+    dev: false
+
+  /@tippyjs/react@4.2.6(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-91RicDR+H7oDSyPycI13q3b7o4O60wa2oRbjlz2fyRLmHImc4vyDwuUP8NtZaN0VARJY5hybvDYrFzhY9+Lbyw==}
+    peerDependencies:
+      react: '>=16.8'
+      react-dom: '>=16.8'
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      tippy.js: 6.3.7
     dev: false
 
   /@trpc/client@10.33.0(@trpc/server@10.33.0):
@@ -861,6 +885,10 @@ packages:
 
   /balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
+
+  /base-64@0.1.0:
+    resolution: {integrity: sha512-Y5gU45svrR5tI2Vt/X9GPd3L0HNIKzGu202EjxrXMpuc2V2CiKgemAbUUsqYmZJvPtCXoUKjNZwBJzsNScUbXA==}
+    dev: false
 
   /base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
@@ -1779,6 +1807,12 @@ packages:
       ignore: 5.2.4
       merge2: 1.4.1
       slash: 4.0.0
+    dev: false
+
+  /gmail-api-parse-message@2.1.2:
+    resolution: {integrity: sha512-d0JlbAAwnH2btAVQClS70dTmzvTk4wrPey+mQsTcRb7YpynOC2ACn8jOELe7GkiMyMY3Ymk9aw/CpdUlmvUofg==}
+    dependencies:
+      base-64: 0.1.0
     dev: false
 
   /google-auth-library@8.9.0(encoding@0.1.13):
@@ -2920,6 +2954,10 @@ packages:
     resolution: {integrity: sha512-rb+9B5YBIEzYcD6x2VKidaa+cqYBJQKnU4oe4E3ANwRRN56yk/ua1YCJT1n21NTS8w6CcOclAKNP3PhdCXKYtQ==}
     dev: false
 
+  /server-only@0.0.1:
+    resolution: {integrity: sha512-qepMx2JxAa5jjfzxG79yPPq+8BuFToHd1hm7kI+Z4zAq1ftQiP7HcxMhDDItrbtwVeLg/cY2JnKnrcFkmiswNA==}
+    dev: false
+
   /shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
     engines: {node: '>=8'}
@@ -3171,6 +3209,12 @@ packages:
     resolution: {integrity: sha512-RVZSIV5IG10Hk3enotrhvz0T9em6cyHBLkH/YAZuKqd8hRkKhSfCGIcP2KUY0EPxndzANBmNllzWPwak+bheSw==}
     dependencies:
       any-promise: 1.3.0
+
+  /tippy.js@6.3.7:
+    resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
+    dependencies:
+      '@popperjs/core': 2.11.8
+    dev: false
 
   /titleize@3.0.0:
     resolution: {integrity: sha512-KxVu8EYHDPBdUYdKZdKtU2aj2XfEx9AfjXxE/Aj0vT06w2icA09Vus1rh6eSu1y01akYg6BjIK/hxyLJINoMLQ==}

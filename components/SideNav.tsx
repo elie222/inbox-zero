@@ -328,24 +328,6 @@ export function SideNav(props: { children: React.ReactNode }) {
   );
 }
 
-// function Auth() {
-//   console.log("🚀 ~ file: page.tsx:65 ~ Auth ~ session:", session)
-//   if (session) {
-//     return (
-//       <>
-//         Signed in as {session.user?.email} <br />
-//         <button onClick={() => signOut()}>Sign out</button>
-//       </>
-//     );
-//   }
-//   return (
-//     <>
-//       Not signed in <br />
-//       <button onClick={() => signIn()}>Sign in</button>
-//     </>
-//   );
-// }
-
 const userNavigation = [
   // { name: "Your profile", href: "#" },
   { name: "Sign out", href: "#", onClick: () => signOut() },

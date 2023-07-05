@@ -28,7 +28,6 @@ export const useGmail = () => useContext<Context>(GmailContext);
 
 export function GmailProvider(props: { children: React.ReactNode }) {
   const { data } = useSWR<LabelsResponse>("/api/google/labels");
-  console.log("🚀 ~ file: GmailProvider.tsx:21 ~ GmailProvider ~ data:", data);
 
   const labels = useMemo(() => {
     return data?.labels?.reduce((acc, label) => {

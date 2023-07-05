@@ -14,7 +14,7 @@ export function ButtonGroup(props: {
   return (
     <span className="isolate inline-flex rounded-md shadow-sm">
       {props.buttons.map((button, index) => (
-        <Tooltip content={button.tooltip} key={button.text}>
+        <Tooltip content={button.tooltip} key={button.text || button.tooltip}>
           <Button
             text={button.text}
             icon={button.icon}
