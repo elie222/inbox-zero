@@ -26,7 +26,8 @@ type Color =
   | 'gradient'
   | 'green'
   | 'light-green'
-  | 'purple';
+  | 'purple'
+  | 'black';
 type Size = 'xs' | 'sm' | 'md' | 'xl' | 'circle';
 
 export const Button = (props: ButtonProps) => {
@@ -61,6 +62,7 @@ export const Button = (props: ButtonProps) => {
           'w-full': full,
 
           'bg-blue-600 text-white hover:bg-blue-700': color === 'primary',
+          'bg-gray-900 text-white hover:bg-gray-700': color === 'black',
           'bg-red-100 text-gray-900 hover:bg-red-200': color === 'red',
           'border border-gray-100 bg-white text-gray-700 hover:bg-gray-50': color === 'white',
           'border border-blue-600 bg-white text-blue-600 hover:border-x-0 hover:bg-gradient-to-r hover:from-sky-500 hover:to-blue-600 hover:text-white':
