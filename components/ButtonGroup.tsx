@@ -1,5 +1,6 @@
-import { Tooltip } from "@/components/Tooltip";
 import clsx from "clsx";
+import { forwardRef } from "react";
+import { Tooltip } from "@/components/Tooltip";
 
 export function ButtonGroup(props: {
   buttons: {
@@ -14,7 +15,7 @@ export function ButtonGroup(props: {
   return (
     <span className="isolate inline-flex rounded-md shadow-sm">
       {props.buttons.map((button, index) => (
-        <Tooltip content={button.tooltip} key={button.text || button.tooltip}>
+        <Tooltip content={button.tooltip} key={button.text || button.tooltip} useRef>
           <Button
             text={button.text}
             icon={button.icon}
@@ -29,12 +30,15 @@ export function ButtonGroup(props: {
   );
 }
 
-function Button(props: {
-  position: "left" | "center" | "right";
-  text?: string;
-  icon?: React.ReactNode;
-  onClick: () => void;
-}) {
+const Button = forwardRef(function Button(
+  props: {
+    position: "left" | "center" | "right";
+    text?: string;
+    icon?: React.ReactNode;
+    onClick: () => void;
+  },
+  ref?: React.Ref<HTMLButtonElement>
+) {
   return (
     <button
       type="button"
@@ -44,9 +48,10 @@ function Button(props: {
         props.position === "right" && "rounded-r-md",
         (props.position === "center" || props.position === "right") && "-ml-px"
       )}
+      ref={ref}
     >
       {props.icon}
       {props.text}
     </button>
   );
-}
+});
