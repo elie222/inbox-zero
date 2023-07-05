@@ -20,6 +20,8 @@ import {
 } from "@heroicons/react/20/solid";
 import clsx from "clsx";
 import { LogIn } from "@/components/LogIn";
+import { signIn, signOut, useSession } from "next-auth/react";
+import { Button } from "@/components/Button";
 
 const navigation = [
   { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
@@ -33,10 +35,6 @@ const teams = [
   { id: 1, name: "Heroicons", href: "#", initial: "H", current: false },
   { id: 2, name: "Tailwind Labs", href: "#", initial: "T", current: false },
   { id: 3, name: "Workcation", href: "#", initial: "W", current: false },
-];
-const userNavigation = [
-  { name: "Your profile", href: "#" },
-  { name: "Sign out", href: "#" },
 ];
 
 export function SideNav(props: { children: React.ReactNode }) {
@@ -299,7 +297,7 @@ export function SideNav(props: { children: React.ReactNode }) {
               </form>
 
               <div className="flex items-center gap-x-4 lg:gap-x-6">
-              <LogIn />
+                <LogIn />
 
                 <button
                   type="button"
@@ -316,55 +314,7 @@ export function SideNav(props: { children: React.ReactNode }) {
                 />
 
                 {/* Profile dropdown */}
-                <Menu as="div" className="relative">
-                  <Menu.Button className="-m-1.5 flex items-center p-1.5">
-                    <span className="sr-only">Open user menu</span>
-                    <img
-                      className="h-8 w-8 rounded-full bg-gray-50"
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                      alt=""
-                    />
-                    <span className="hidden lg:flex lg:items-center">
-                      <span
-                        className="ml-4 text-sm font-semibold leading-6 text-gray-900"
-                        aria-hidden="true"
-                      >
-                        Tom Cook
-                      </span>
-                      <ChevronDownIcon
-                        className="ml-2 h-5 w-5 text-gray-400"
-                        aria-hidden="true"
-                      />
-                    </span>
-                  </Menu.Button>
-                  <Transition
-                    as={Fragment}
-                    enter="transition ease-out duration-100"
-                    enterFrom="transform opacity-0 scale-95"
-                    enterTo="transform opacity-100 scale-100"
-                    leave="transition ease-in duration-75"
-                    leaveFrom="transform opacity-100 scale-100"
-                    leaveTo="transform opacity-0 scale-95"
-                  >
-                    <Menu.Items className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
-                      {userNavigation.map((item) => (
-                        <Menu.Item key={item.name}>
-                          {({ active }) => (
-                            <a
-                              href={item.href}
-                              className={clsx(
-                                active ? "bg-gray-50" : "",
-                                "block px-3 py-1 text-sm leading-6 text-gray-900"
-                              )}
-                            >
-                              {item.name}
-                            </a>
-                          )}
-                        </Menu.Item>
-                      ))}
-                    </Menu.Items>
-                  </Transition>
-                </Menu>
+                <ProfileDropdown />
               </div>
             </div>
           </div>
@@ -376,4 +326,92 @@ export function SideNav(props: { children: React.ReactNode }) {
       </div>
     </>
   );
+}
+
+// function Auth() {
+//   console.log("🚀 ~ file: page.tsx:65 ~ Auth ~ session:", session)
+//   if (session) {
+//     return (
+//       <>
+//         Signed in as {session.user?.email} <br />
+//         <button onClick={() => signOut()}>Sign out</button>
+//       </>
+//     );
+//   }
+//   return (
+//     <>
+//       Not signed in <br />
+//       <button onClick={() => signIn()}>Sign in</button>
+//     </>
+//   );
+// }
+
+const userNavigation = [
+  // { name: "Your profile", href: "#" },
+  { name: "Sign out", href: "#", onClick: () => signOut() },
+];
+
+function ProfileDropdown() {
+  const { data: session } = useSession();
+
+  if (session?.user) {
+    return (
+      <Menu as="div" className="relative">
+        <Menu.Button className="-m-1.5 flex items-center p-1.5">
+          <span className="sr-only">Open user menu</span>
+          {!!session.user.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className="h-8 w-8 rounded-full bg-gray-50"
+              src={session.user.image}
+              alt=""
+            />
+          )}
+          <span className="hidden lg:flex lg:items-center">
+            <span
+              className="ml-4 text-sm font-semibold leading-6 text-gray-900"
+              aria-hidden="true"
+            >
+              {session.user.name}
+            </span>
+            <ChevronDownIcon
+              className="ml-2 h-5 w-5 text-gray-400"
+              aria-hidden="true"
+            />
+          </span>
+        </Menu.Button>
+        <Transition
+          as={Fragment}
+          enter="transition ease-out duration-100"
+          enterFrom="transform opacity-0 scale-95"
+          enterTo="transform opacity-100 scale-100"
+          leave="transition ease-in duration-75"
+          leaveFrom="transform opacity-100 scale-100"
+          leaveTo="transform opacity-0 scale-95"
+        >
+          <Menu.Items className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
+            {userNavigation.map((item) => (
+              <Menu.Item key={item.name}>
+                {({ active }) => (
+                  <a
+                    href={item.href}
+                    className={clsx(
+                      active ? "bg-gray-50" : "",
+                      "block px-3 py-1 text-sm leading-6 text-gray-900"
+                    )}
+                    onClick={item.onClick}
+                  >
+                    {item.name}
+                  </a>
+                )}
+              </Menu.Item>
+            ))}
+          </Menu.Items>
+        </Transition>
+      </Menu>
+    );
+  }
+
+  // return <LogIn />;
+  return <Button color="transparent" onClick={() => signIn()}>Sign in</Button>;
 }

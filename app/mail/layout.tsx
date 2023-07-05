@@ -1,9 +1,10 @@
-import { SWRProvider } from "@/utils/SWR";
+import { SWRProvider } from "@/providers/SWRProvider";
 import "../globals.css";
 import { Inter } from "next/font/google";
-import { NotificationProvider } from "@/components/NotificationProvider";
+import { NotificationProvider } from "@/providers/NotificationProvider";
 import { SideNav } from "@/components/SideNav";
-import { GmailProvider } from "@/components/GmailProvider";
+import { GmailProvider } from "@/providers/GmailProvider";
+import { SessionProvider } from "@/providers/SessionProvider";
 // import localFont from "next/font/local";
 
 const inter = Inter({
@@ -35,7 +36,9 @@ export default function RootLayout({
         <SWRProvider>
           <GmailProvider>
             <NotificationProvider>
-              <SideNav>{children}</SideNav>
+              <SessionProvider>
+                <SideNav>{children}</SideNav>
+              </SessionProvider>
             </NotificationProvider>
           </GmailProvider>
         </SWRProvider>
