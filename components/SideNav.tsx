@@ -19,7 +19,6 @@ import {
   MagnifyingGlassIcon,
 } from "@heroicons/react/20/solid";
 import clsx from "clsx";
-import { LogIn } from "@/components/LogIn";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/Button";
 
@@ -299,8 +298,6 @@ export function SideNav(props: { children: React.ReactNode }) {
               </form>
 
               <div className="flex items-center gap-x-4 lg:gap-x-6">
-                <LogIn />
-
                 <button
                   type="button"
                   className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
@@ -396,7 +393,6 @@ function ProfileDropdown() {
     );
   }
 
-  // return <LogIn />;
   return (
     <Button
       color="transparent"
