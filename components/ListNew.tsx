@@ -138,10 +138,9 @@ function EmailListItem(props: { email: Thread }) {
             </div>
           </div>
 
-          <div className="min-w-[500px]">
-            {/* <Input type="text" name="message" as="textarea" /> */}
+          {/* <div className="min-w-[500px]">
             <SendEmailForm />
-          </div>
+          </div> */}
 
           {/* <div className="flex items-center gap-x-4">
             <div className="hidden sm:flex sm:flex-col sm:items-end">
@@ -195,7 +194,7 @@ const SendEmailForm = () => {
   );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)}>
       <Input
         type="text"
         as="textarea"
@@ -205,9 +204,14 @@ const SendEmailForm = () => {
         registerProps={register("message", { required: true })}
         error={errors.message}
       />
-      <Button type="submit" color="gradient" full loading={isSubmitting}>
-        Send
-      </Button>
+      <div className="flex mt-2">
+        <Button type="submit" color="transparent" loading={isSubmitting}>
+          Send
+        </Button>
+        <Button color="transparent" loading={isSubmitting}>
+          Save Draft
+        </Button>
+      </div>
     </form>
   );
 };
