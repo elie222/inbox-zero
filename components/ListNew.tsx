@@ -37,6 +37,8 @@ import { Badge } from "@/components/Badge";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Input } from "@/components/Input";
 import { formatShortDate } from "@/utils/date";
+import { fetcher } from "@/providers/SWRProvider";
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -66,6 +68,8 @@ function EmailList(props: { emails: Thread[] }) {
 function EmailListItem(props: { email: Thread }) {
   const { email } = props;
 
+  const lastMessage = email.thread.messages?.[email.thread.messages.length - 1];
+
   return (
     <li className="relative py-3 hover:bg-gray-50">
       <div className="px-4 sm:px-6 lg:px-8">
@@ -89,14 +93,7 @@ function EmailListItem(props: { email: Thread }) {
 
           <div className="flex items-center">
             <div className="text-sm leading-5 text-gray-500 font-medium flex-shrink-0">
-              {formatShortDate(
-                new Date(
-                  +(
-                    email.thread.messages?.[email.thread.messages.length - 1]
-                      ?.internalDate || ""
-                  )
-                )
-              )}
+              {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
             </div>
             <div className="ml-3">
               <ButtonGroup
@@ -144,8 +141,15 @@ function EmailListItem(props: { email: Thread }) {
                 ]}
               />
 
-              <div className="mt-1">
+              {/* <div className="mt-1">
                 <Badge color="green">Plan: Archive</Badge>
+              </div> */}
+
+              <div className="mt-1">
+                <Plan
+                  id={email.id || ""}
+                  message={lastMessage?.parsedMessage.textPlain || ""}
+                />
               </div>
             </div>
           </div>
@@ -231,4 +235,34 @@ const SendEmailForm = () => {
 function fromName(email: string) {
   // converts "John Doe <john.doe@gmail>" to "John Doe"
   return capitalCase(email.split("<")[0]);
+}
+
+function Plan(props: { id: string; message: string }) {
+  const { data, isLoading, error } = useSWR<PlanResponse>(
+    `/api/ai/plan?id=${props.id}`,
+    (url) => {
+      const body: PlanBody = { id: props.id, message: props.message };
+      return fetcher(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+  );
+
+  if (data?.plan.plan === "error") {
+    console.log(data?.plan.response);
+  }
+
+  return (
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<LoadingMiniSpinner />}
+    >
+      <Badge color="green">
+        Plan: {data?.plan.plan} `{data?.plan.label}`
+      </Badge>
+    </LoadingContent>
+  );
 }

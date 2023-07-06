@@ -108,6 +108,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
 
                 {/* <Categorise message={data.thread.messages?.[0]?.text || ""} /> */}
                 <Plan
+                  id={data.thread.id || ""}
                   message={
                     data.thread.messages?.[0]?.parsedMessage.textPlain || ""
                   }
@@ -195,19 +196,20 @@ function Categorise(props: { message: string }) {
   );
 }
 
-function Plan(props: { message: string }) {
+function Plan(props: { id: string; message: string }) {
   const [plan, setPlan] = useState<string>();
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
 
   const onClickPlan = useCallback(async () => {
     setIsLoadingPlan(true);
     const plan = await postRequest<PlanResponse, PlanBody>("/api/ai/plan", {
+      id: props.id,
       message: props.message,
     });
 
-    setPlan(plan.message);
+    // setPlan(plan.message);
     setIsLoadingPlan(false);
-  }, [props.message]);
+  }, [props.id, props.message]);
 
   // useEffect(() => {
   //   onClickPlan();

@@ -10,7 +10,7 @@ export const runtime = "edge";
 
 async function respond(body: RespondBody) {
   const response = await openai.createChatCompletion({
-    model: "gpt-3.5-turbo-16k",
+    model: "gpt-4",
     messages: [{
       role: 'system',
       content: 'You are an AI assistant that helps the user respond to their emails. You are friendly, concise, and informal. The user will send you email messages and it is your job to write a response to them.',

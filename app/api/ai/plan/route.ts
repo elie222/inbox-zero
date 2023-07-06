@@ -2,16 +2,26 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { openai } from "@/app/api/ai/openai";
 import { generalPrompt } from "@/utils/config";
+import { redis } from "@/utils/redis";
+import { withRetry } from "@/utils/retry";
 
-const planBody = z.object({ message: z.string() });
+const planBody = z.object({ id: z.string(), message: z.string() });
 export type PlanBody = z.infer<typeof planBody>;
 export type PlanResponse = Awaited<ReturnType<typeof plan>>;
 
+const planSchema = z.object({
+  category: z.string(),
+  plan: z.string(),
+  response: z.string().nullish(),
+  label: z.string().nullish(),
+});
+export type Plan = z.infer<typeof planSchema>;
+
 export const runtime = "edge";
 
-async function plan(body: PlanBody) {
+async function getPlan(message: string) {
   const response = await openai.createChatCompletion({
-    model: "gpt-3.5-turbo-16k",
+    model: "gpt-4",
     messages: [{
       role: 'system',
       content: `You are an AI assistant that helps people get to inbox zero quickly by responding, archiving and labelling emails on the user's behalf.
@@ -39,16 +49,31 @@ If you have decided to label the email, you must include a "label" field with th
       content: `
 Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
 
-The email in question is:\n\n###\n\n${body.message}
+The email in question is:\n\n###\n\n${message}
 `
     }],
   });
   const json = await response.json();
-  const message: string = json?.choices?.[0]?.message?.content;
-  console.log("🚀 ~ file: route.ts:48 ~ plan ~ message:", message)
-
-  return { message };
+  return json;
 }
+
+const plan = withRetry(async function plan(body: PlanBody) {
+  // TODO secure this endpoint so people can't just ask for any id (and see the response from gpt)
+
+  // check cache
+  const cacheKey = `plan:${body.id}`
+  const data = await redis.get<Plan>(cacheKey);
+  if (data) return { plan: data };
+
+  let json = await getPlan(body.message);
+  const planString: string = json?.choices?.[0]?.message?.content;
+  const planJson = planSchema.parse(planString);
+
+  // return cached result
+  await redis.set(cacheKey, planJson);
+
+  return { plan: planJson };
+});
 
 export async function POST(request: Request) {
   const json = await request.json();

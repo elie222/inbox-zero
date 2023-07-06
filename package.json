@@ -22,6 +22,7 @@
     "@types/node": "20.3.3",
     "@types/react": "18.2.14",
     "@types/react-dom": "18.2.6",
+    "@upstash/redis": "^1.22.0",
     "ai": "^2.1.14",
     "cal-sans": "^1.0.1",
     "capital-case": "^1.0.4",

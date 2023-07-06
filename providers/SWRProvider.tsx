@@ -4,8 +4,8 @@ import { useCallback, useState, createContext, useContext } from "react";
 import { SWRConfig, mutate } from "swr";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
+export const fetcher = async (url: string, init?: RequestInit | undefined) => {
+  const res = await fetch(url, init);
 
   // If the status code is not in the range 200-299,
   // we still try to parse and throw it.
