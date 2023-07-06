@@ -36,6 +36,7 @@ import { ButtonGroup } from "@/components/ButtonGroup";
 import { Badge } from "@/components/Badge";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Input } from "@/components/Input";
+import { formatShortDate } from "@/utils/date";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -64,13 +65,12 @@ function EmailList(props: { emails: Thread[] }) {
 
 function EmailListItem(props: { email: Thread }) {
   const { email } = props;
-  console.log("🚀 ~ file: ListNew.tsx:64 ~ EmailListItem ~ email:", email);
 
   return (
-    <li className="relative py-5 hover:bg-gray-50">
+    <li className="relative py-3 hover:bg-gray-50">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex justify-between gap-x-6">
-          <div className="flex gap-x-4">
+          <div className="flex gap-x-4 flex-1">
             <div className="min-w-0 flex-auto">
               <p className="text-sm font-semibold leading-6 text-gray-900">
                 {/* <span className="absolute inset-x-0 -top-px bottom-0" /> */}
@@ -87,54 +87,66 @@ function EmailListItem(props: { email: Thread }) {
             </div>
           </div>
 
-          <div className="">
-            <ButtonGroup
-              buttons={[
-                {
-                  tooltip: "Expand",
-                  onClick: () => {},
-                  icon: (
-                    <ArrowsPointingOutIcon
-                      className="h-5 w-5 text-gray-700"
-                      aria-hidden="true"
-                    />
-                  ),
-                },
-                {
-                  tooltip: "AI Categorise",
-                  onClick: () => {},
-                  icon: (
-                    <TagIcon
-                      className="h-5 w-5 text-gray-700"
-                      aria-hidden="true"
-                    />
-                  ),
-                },
-                {
-                  tooltip: "Generate AI response",
-                  onClick: () => {},
-                  icon: (
-                    <SparklesIcon
-                      className="h-5 w-5 text-gray-700"
-                      aria-hidden="true"
-                    />
-                  ),
-                },
-                {
-                  tooltip: "Archive",
-                  onClick: () => {},
-                  icon: (
-                    <ArchiveBoxArrowDownIcon
-                      className="h-5 w-5 text-gray-700"
-                      aria-hidden="true"
-                    />
-                  ),
-                },
-              ]}
-            />
+          <div className="flex items-center">
+            <div className="text-sm leading-5 text-gray-500 font-medium flex-shrink-0">
+              {formatShortDate(
+                new Date(
+                  +(
+                    email.thread.messages?.[email.thread.messages.length - 1]
+                      ?.internalDate || ""
+                  )
+                )
+              )}
+            </div>
+            <div className="ml-3">
+              <ButtonGroup
+                buttons={[
+                  {
+                    tooltip: "Expand",
+                    onClick: () => {},
+                    icon: (
+                      <ArrowsPointingOutIcon
+                        className="h-5 w-5 text-gray-700"
+                        aria-hidden="true"
+                      />
+                    ),
+                  },
+                  {
+                    tooltip: "AI Categorise",
+                    onClick: () => {},
+                    icon: (
+                      <TagIcon
+                        className="h-5 w-5 text-gray-700"
+                        aria-hidden="true"
+                      />
+                    ),
+                  },
+                  {
+                    tooltip: "Generate AI response",
+                    onClick: () => {},
+                    icon: (
+                      <SparklesIcon
+                        className="h-5 w-5 text-gray-700"
+                        aria-hidden="true"
+                      />
+                    ),
+                  },
+                  {
+                    tooltip: "Archive",
+                    onClick: () => {},
+                    icon: (
+                      <ArchiveBoxArrowDownIcon
+                        className="h-5 w-5 text-gray-700"
+                        aria-hidden="true"
+                      />
+                    ),
+                  },
+                ]}
+              />
 
-            <div className="mt-1">
-              <Badge color="green">Plan: Archive</Badge>
+              <div className="mt-1">
+                <Badge color="green">Plan: Archive</Badge>
+              </div>
             </div>
           </div>
 
