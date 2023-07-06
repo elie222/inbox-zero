@@ -5,12 +5,6 @@ import { isErrorMessage } from "@/utils/error";
 import { useChat } from "ai/react";
 import useSWR from "swr";
 import { capitalCase } from "capital-case";
-import {
-  ArchiveBoxArrowDownIcon,
-  ArrowsPointingOutIcon,
-  SparklesIcon,
-  TagIcon,
-} from "@heroicons/react/24/outline";
 import { ListHeading } from "@/components/ListHeading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ThreadResponse } from "@/app/api/google/threads/[id]/route";
@@ -96,61 +90,10 @@ function EmailListItem(props: { email: Thread }) {
               {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
             </div>
             <div className="ml-3">
-              <ButtonGroup
-                buttons={[
-                  {
-                    tooltip: "Expand",
-                    onClick: () => {},
-                    icon: (
-                      <ArrowsPointingOutIcon
-                        className="h-5 w-5 text-gray-700"
-                        aria-hidden="true"
-                      />
-                    ),
-                  },
-                  {
-                    tooltip: "AI Categorise",
-                    onClick: () => {},
-                    icon: (
-                      <TagIcon
-                        className="h-5 w-5 text-gray-700"
-                        aria-hidden="true"
-                      />
-                    ),
-                  },
-                  {
-                    tooltip: "Generate AI response",
-                    onClick: () => {},
-                    icon: (
-                      <SparklesIcon
-                        className="h-5 w-5 text-gray-700"
-                        aria-hidden="true"
-                      />
-                    ),
-                  },
-                  {
-                    tooltip: "Archive",
-                    onClick: () => {},
-                    icon: (
-                      <ArchiveBoxArrowDownIcon
-                        className="h-5 w-5 text-gray-700"
-                        aria-hidden="true"
-                      />
-                    ),
-                  },
-                ]}
+              <Plan
+                id={email.id || ""}
+                message={lastMessage?.parsedMessage.textPlain || ""}
               />
-
-              {/* <div className="mt-1">
-                <Badge color="green">Plan: Archive</Badge>
-              </div> */}
-
-              <div className="mt-1">
-                <Plan
-                  id={email.id || ""}
-                  message={lastMessage?.parsedMessage.textPlain || ""}
-                />
-              </div>
             </div>
           </div>
 
