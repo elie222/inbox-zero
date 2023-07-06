@@ -10,7 +10,7 @@ import {
   ClassifyThreadBody,
   ClassifyThreadResponse,
 } from "@/app/api/ai/classify/route";
-import { useNotification } from "@/components/NotificationProvider";
+import { useNotification } from "@/providers/NotificationProvider";
 import {
   ArchiveBody,
   ArchiveResponse,
@@ -18,7 +18,7 @@ import {
 import { Tag } from "@/components/Tag";
 import { Linkify } from "@/components/Linkify";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
-import { useGmail } from "@/components/GmailProvider";
+import { useGmail } from "@/providers/GmailProvider";
 import {
   DraftEmailBody,
   DraftEmailResponse,
@@ -84,16 +84,16 @@ function ListItem(props: { item: Item; refetch: () => void }) {
               <p className="mt-1 truncate text-xs leading-5 text-gray-400 break-words whitespace-pre-wrap">
                 <Linkify>
                   {viewFullMessage
-                    ? data.thread.messages?.[0]?.text
-                    : data.thread.messages?.[0]?.text.substring(
+                    ? data.thread.messages?.[0]?.parsedMessage.textPlain
+                    : data.thread.messages?.[0]?.parsedMessage.textPlain.substring(
                         0,
                         TRUCATE_LENGTH
                       ) || "No message text"}
                 </Linkify>
               </p>
               <div className="space-x-2">
-                {(data.thread.messages?.[0]?.text?.length || 0) >
-                  TRUCATE_LENGTH &&
+                {(data.thread.messages?.[0]?.parsedMessage.textPlain?.length ||
+                  0) > TRUCATE_LENGTH &&
                   !viewFullMessage && (
                     <Button
                       color="white"
@@ -107,9 +107,15 @@ function ListItem(props: { item: Item; refetch: () => void }) {
                   )}
 
                 {/* <Categorise message={data.thread.messages?.[0]?.text || ""} /> */}
-                <Plan message={data.thread.messages?.[0]?.text || ""} />
+                <Plan
+                  message={
+                    data.thread.messages?.[0]?.parsedMessage.textPlain || ""
+                  }
+                />
                 <ResponseMessage
-                  message={data.thread.messages?.[0]?.text || ""}
+                  message={
+                    data.thread.messages?.[0]?.parsedMessage.textPlain || ""
+                  }
                   threadId={data.thread.id || ""}
                 />
               </div>

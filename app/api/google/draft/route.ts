@@ -1,15 +1,16 @@
 import { z } from "zod";
-import { google } from "googleapis";
+import { Auth, google } from "googleapis";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { client } from "@/app/api/google/client";
+import { getSession } from "@/utils/auth";
+import { getClient } from "@/utils/google";
 
 const draftEmailBody = z.object({ subject: z.string(), body: z.string(), threadId: z.string() });
 export type DraftEmailBody = z.infer<typeof draftEmailBody>;
 export type DraftEmailResponse = Awaited<ReturnType<typeof draftEmail>>;
 
-async function draftEmail(body: DraftEmailBody) {
-  const gmail = google.gmail({ version: "v1", auth: client });
+async function draftEmail(body: DraftEmailBody, auth: Auth.OAuth2Client) {
+  const gmail = google.gmail({ version: "v1", auth });
 
   const email = 'eliesteinbock@gmail.com';
 
@@ -42,7 +43,11 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = draftEmailBody.parse(json);
 
-  const draft = await draftEmail(body);
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Not authenticated" })
+  const auth = getClient(session);
+
+  const draft = await draftEmail(body, auth);
 
   return NextResponse.json(draft);
 })

@@ -106,6 +106,7 @@ export function SideNav(props: { children: React.ReactNode }) {
                   {/* Sidebar component, swap this element with another sidebar if you like */}
                   <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring-1 ring-white/10">
                     <div className="flex h-16 shrink-0 items-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         className="h-8 w-auto"
                         src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
@@ -188,6 +189,7 @@ export function SideNav(props: { children: React.ReactNode }) {
           {/* Sidebar component, swap this element with another sidebar if you like */}
           <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
             <div className="flex h-16 shrink-0 items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className="h-8 w-auto"
                 src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
@@ -334,7 +336,7 @@ const userNavigation = [
 ];
 
 function ProfileDropdown() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   if (session?.user) {
     return (
@@ -395,5 +397,13 @@ function ProfileDropdown() {
   }
 
   // return <LogIn />;
-  return <Button color="transparent" onClick={() => signIn()}>Sign in</Button>;
+  return (
+    <Button
+      color="transparent"
+      onClick={() => signIn()}
+      loading={status === "loading"}
+    >
+      Sign in
+    </Button>
+  );
 }
