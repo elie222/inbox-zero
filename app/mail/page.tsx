@@ -34,21 +34,7 @@ export default function Home() {
         /> */}
 
         <LoadingContent loading={isLoading} error={error}>
-          {data && (
-            <List
-              emails={
-                data?.threads?.map((t) => ({
-                  ...t,
-                  id: t.id || "",
-                  subject: t.snippet || "",
-                  snippet: t.snippet || "",
-                  from: "Elie",
-                  date: "Today",
-                })) || []
-              }
-              refetch={mutate}
-            />
-          )}
+          {data && <List emails={data?.threads || []} refetch={mutate} />}
         </LoadingContent>
       </div>
     </>
