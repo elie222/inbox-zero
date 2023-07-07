@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
+import Image from "next/image";
+import Confetti from "react-dom-confetti";
 import { Button } from "@/components/Button";
 import { isErrorMessage } from "@/utils/error";
 import { useChat } from "ai/react";
@@ -34,18 +36,66 @@ import { formatShortDate } from "@/utils/date";
 import { fetcher } from "@/providers/SWRProvider";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { type Plan } from "@/utils/plan";
+import { FilterArgs, FilterFunction } from "@/utils/filters";
+import { getCelebrationImage } from "@/utils/celebration";
 
 type Thread = ThreadsResponse["threads"][0];
 
-export function List(props: { emails: Thread[]; refetch: () => void }) {
-  const { emails } = props;
+export function List(props: {
+  emails: Thread[];
+  filter: FilterFunction;
+  filterArgs: FilterArgs;
+  refetch: () => void;
+}) {
+  const { emails, filter, filterArgs } = props;
+  const filteredEmails = useMemo(() => {
+    return emails.filter((email) => filter(email, filterArgs));
+  }, [emails, filter, filterArgs]);
+
+  console.log(
+    "🚀 ~ file: ListNew.tsx:51 ~ filteredEmails ~ filteredEmails:",
+    filteredEmails.length
+  );
+
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    setActive(true);
+  }, []);
 
   return (
     <div>
       <div className="py-4 border-b border-gray-200">
         <ListHeading />
       </div>
-      <EmailList emails={emails} />
+      {filteredEmails.length ? (
+        <EmailList emails={filteredEmails} />
+      ) : (
+        <>
+          <div className="flex items-center justify-center mt-20 text-lg font-semibold text-gray-900">
+            Congrats! You made it to Inbox Zero!
+          </div>
+          <div className="flex items-center justify-center">
+            <Confetti
+              active={active}
+              config={{
+                duration: 5_000,
+                elementCount: 500,
+                spread: 200,
+              }}
+            />
+          </div>
+          <div className="mt-8 flex items-center justify-center">
+            <Image
+              src={getCelebrationImage()}
+              width={400}
+              height={400}
+              alt="Congrats!"
+              unoptimized
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
