@@ -10,7 +10,7 @@ import {
   Cog6ToothIcon,
   DocumentDuplicateIcon,
   FolderIcon,
-  HomeIcon,
+  InboxIcon,
   UsersIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -20,17 +20,17 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/Button";
 
 const navigation = [
-  { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
-  { name: "Team", href: "#", icon: UsersIcon, current: false },
-  { name: "Projects", href: "#", icon: FolderIcon, current: false },
-  { name: "Calendar", href: "#", icon: CalendarIcon, current: false },
-  { name: "Documents", href: "#", icon: DocumentDuplicateIcon, current: false },
-  { name: "Reports", href: "#", icon: ChartPieIcon, current: false },
+  { name: "Mail", href: "/mail", icon: InboxIcon, current: true },
+  { name: "Label newsletters", href: "#", icon: UsersIcon, current: false },
+  { name: "Label receipts", href: "#", icon: FolderIcon, current: false },
+  { name: "Requires response", href: "#", icon: CalendarIcon, current: false },
+  // { name: "Documents", href: "#", icon: DocumentDuplicateIcon, current: false },
+  // { name: "Reports", href: "#", icon: ChartPieIcon, current: false },
 ];
-const teams = [
-  { id: 1, name: "Heroicons", href: "#", initial: "H", current: false },
-  { id: 2, name: "Tailwind Labs", href: "#", initial: "T", current: false },
-  { id: 3, name: "Workcation", href: "#", initial: "W", current: false },
+const promptHistory = [
+  { id: 1, name: "Find calendar invites", href: "#", initial: "H", current: false },
+  { id: 2, name: "Messages to James", href: "#", initial: "T", current: false },
+  { id: 3, name: "Support emails", href: "#", initial: "W", current: false },
 ];
 
 export function SideNav(props: { children: React.ReactNode }) {
@@ -136,10 +136,10 @@ export function SideNav(props: { children: React.ReactNode }) {
                         </li>
                         <li>
                           <div className="text-xs font-semibold leading-6 text-gray-400">
-                            Your teams
+                            Prompt history
                           </div>
                           <ul role="list" className="-mx-2 mt-2 space-y-1">
-                            {teams.map((team) => (
+                            {promptHistory.map((team) => (
                               <li key={team.name}>
                                 <a
                                   href={team.href}
@@ -219,10 +219,10 @@ export function SideNav(props: { children: React.ReactNode }) {
                 </li>
                 <li>
                   <div className="text-xs font-semibold leading-6 text-gray-400">
-                    Your teams
+                    Prompt history
                   </div>
                   <ul role="list" className="-mx-2 mt-2 space-y-1">
-                    {teams.map((team) => (
+                    {promptHistory.map((team) => (
                       <li key={team.name}>
                         <a
                           href={team.href}
