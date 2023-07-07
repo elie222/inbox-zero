@@ -33,6 +33,7 @@ import { Input } from "@/components/Input";
 import { formatShortDate } from "@/utils/date";
 import { fetcher } from "@/providers/SWRProvider";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { type Plan } from "@/utils/plan";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -90,9 +91,10 @@ function EmailListItem(props: { email: Thread }) {
               {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
             </div>
             <div className="ml-3">
-              <Plan
+              <PlanBadge
                 id={email.id || ""}
                 message={lastMessage?.parsedMessage.textPlain || ""}
+                plan={email.plan}
               />
             </div>
           </div>
@@ -180,9 +182,10 @@ function fromName(email: string) {
   return capitalCase(email.split("<")[0]);
 }
 
-function Plan(props: { id: string; message: string }) {
+function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
+  // skip fetching plan if we have it already
   const { data, isLoading, error } = useSWR<PlanResponse>(
-    `/api/ai/plan?id=${props.id}`,
+    !props.plan && `/api/ai/plan?id=${props.id}`,
     (url) => {
       const body: PlanBody = { id: props.id, message: props.message };
       return fetcher(url, {
@@ -193,8 +196,10 @@ function Plan(props: { id: string; message: string }) {
     }
   );
 
-  if (data?.plan.plan === "error") {
-    console.log(data?.plan.response);
+  const plan = props.plan || data?.plan;
+
+  if (plan?.plan === "error") {
+    console.log(plan?.response);
   }
 
   return (
@@ -203,9 +208,13 @@ function Plan(props: { id: string; message: string }) {
       error={error}
       loadingComponent={<LoadingMiniSpinner />}
     >
-      <Badge color="green">
-        Plan: {data?.plan.plan} `{data?.plan.label}`
-      </Badge>
+      {plan?.plan === "error" ? (
+        <Badge color="red">Error: {plan?.plan}</Badge>
+      ) : (
+        <Badge color="green">
+          Plan: {plan?.plan} `{plan?.label}`
+        </Badge>
+      )}
     </LoadingContent>
   );
 }

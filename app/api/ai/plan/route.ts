@@ -2,26 +2,18 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { openai } from "@/app/api/ai/openai";
 import { generalPrompt } from "@/utils/config";
-import { redis } from "@/utils/redis";
-import { withRetry } from "@/utils/retry";
+import { getPlan, planSchema, savePlan } from "@/utils/plan";
 
 const planBody = z.object({ id: z.string(), message: z.string() });
 export type PlanBody = z.infer<typeof planBody>;
 export type PlanResponse = Awaited<ReturnType<typeof plan>>;
 
-const planSchema = z.object({
-  category: z.string(),
-  plan: z.string(),
-  response: z.string().nullish(),
-  label: z.string().nullish(),
-});
-export type Plan = z.infer<typeof planSchema>;
-
 export const runtime = "edge";
 
-async function getPlan(message: string) {
+async function calculatePlan(message: string) {
   const response = await openai.createChatCompletion({
-    model: "gpt-4",
+    model: "gpt-3.5-turbo-16k",
+    max_tokens: 400,
     messages: [{
       role: 'system',
       content: `You are an AI assistant that helps people get to inbox zero quickly by responding, archiving and labelling emails on the user's behalf.
@@ -57,23 +49,31 @@ The email in question is:\n\n###\n\n${message}
   return json;
 }
 
-const plan = withRetry(async function plan(body: PlanBody) {
+// const plan = withRetry(
+async function plan(body: PlanBody) {
   // TODO secure this endpoint so people can't just ask for any id (and see the response from gpt)
 
   // check cache
-  const cacheKey = `plan:${body.id}`
-  const data = await redis.get<Plan>(cacheKey);
-  if (data) return { plan: data };
+  const data = await getPlan({ threadId: body.id })
+  // if (data) return { plan: data };
 
-  let json = await getPlan(body.message);
+  let json = await calculatePlan(body.message);
   const planString: string = json?.choices?.[0]?.message?.content;
-  const planJson = planSchema.parse(planString);
 
-  // return cached result
-  await redis.set(cacheKey, planJson);
+  if (!planString) {
+    console.error('plan string undefined')
+    console.error('length', body.message.length)
+    console.error('json', json)
+  }
+  if (json.error?.type === 'tokens') return { plan: undefined };
+  const planJson = planSchema.parse(JSON.parse(planString));
+
+  // cache result
+  await savePlan({ threadId: body.id, plan: planJson });
 
   return { plan: planJson };
-});
+}
+// );
 
 export async function POST(request: Request) {
   const json = await request.json();
