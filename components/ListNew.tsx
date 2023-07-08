@@ -1,43 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
-import { Button } from "@/components/Button";
-import { isErrorMessage } from "@/utils/error";
-import { useChat } from "ai/react";
-import useSWR from "swr";
 import { capitalCase } from "capital-case";
-import { ListHeading } from "@/components/ListHeading";
-import { LoadingContent } from "@/components/LoadingContent";
-import { ThreadResponse } from "@/app/api/google/threads/[id]/route";
-import { postRequest } from "@/utils/api";
-import {
-  ClassifyThreadBody,
-  ClassifyThreadResponse,
-} from "@/app/api/ai/classify/route";
-import { useNotification } from "@/providers/NotificationProvider";
-import {
-  ArchiveBody,
-  ArchiveResponse,
-} from "@/app/api/google/threads/archive/route";
-import { Tag } from "@/components/Tag";
-import { Linkify } from "@/components/Linkify";
+import { useCallback, useMemo } from "react";
+import { SubmitHandler, useForm } from "react-hook-form";
+import useSWR from "swr";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
-import { useGmail } from "@/providers/GmailProvider";
-import {
-  DraftEmailBody,
-  DraftEmailResponse,
-} from "@/app/api/google/draft/route";
-import { ButtonGroup } from "@/components/ButtonGroup";
-import { Badge } from "@/components/Badge";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
-import { Input } from "@/components/Input";
-import { formatShortDate } from "@/utils/date";
-import { fetcher } from "@/providers/SWRProvider";
-import { LoadingMiniSpinner } from "@/components/Loading";
-import { type Plan } from "@/utils/plan";
-import { FilterArgs, FilterFunction } from "@/utils/filters";
-import { getCelebrationImage } from "@/utils/celebration";
-import { GroupHeading } from "@/components/GroupHeading";
+import { Badge } from "@/components/Badge";
+import { Button } from "@/components/Button";
 import { Celebration } from "@/components/Celebration";
+import { GroupHeading } from "@/components/GroupHeading";
+import { Input } from "@/components/Input";
+import { LoadingMiniSpinner } from "@/components/Loading";
+import { LoadingContent } from "@/components/LoadingContent";
+import { useNotification } from "@/providers/NotificationProvider";
+import { fetcher } from "@/providers/SWRProvider";
+import { formatShortDate } from "@/utils/date";
+import { FilterArgs, FilterFunction } from "@/utils/filters";
+import { type Plan } from "@/utils/plan";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -57,7 +35,10 @@ export function List(props: {
   return (
     <div>
       <div className="py-4 border-b border-gray-200">
-        <GroupHeading text='Label and archive all newsletter emails' buttons={[]} />
+        <GroupHeading
+          text="Label and archive all newsletter emails"
+          buttons={[]}
+        />
       </div>
       {filteredEmails.length ? (
         <EmailList emails={filteredEmails} />
