@@ -1,6 +1,6 @@
 import clsx from "clsx";
 
-type Color =
+export type Color =
   | "gray"
   | "red"
   | "yellow"

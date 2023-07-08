@@ -4,7 +4,7 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
-import { Badge } from "@/components/Badge";
+import { Badge, Color } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Celebration } from "@/components/Celebration";
 import { GroupHeading } from "@/components/GroupHeading";
@@ -21,14 +21,16 @@ type Thread = ThreadsResponse["threads"][0];
 
 export function List(props: {
   emails: Thread[];
-  filter: FilterFunction;
-  filterArgs: FilterArgs;
+  filter?: FilterFunction;
+  filterArgs?: FilterArgs;
   refetch: () => void;
 }) {
   const { emails, filter, filterArgs } = props;
   const filteredEmails = useMemo(() => {
+    if (!filter) return emails;
+
     return emails.filter((email) =>
-      filter({ ...email.plan, threadId: email.id! }, filterArgs)
+      filter({ ...(email.plan || {}), threadId: email.id! }, filterArgs)
     );
   }, [emails, filter, filterArgs]);
 
@@ -37,7 +39,12 @@ export function List(props: {
       <div className="py-4 border-b border-gray-200">
         <GroupHeading
           text="Label and archive all newsletter emails"
-          buttons={[]}
+          buttons={[
+            {
+              label: "Execute",
+              onClick: () => {},
+            },
+          ]}
         />
       </div>
       {filteredEmails.length ? (
@@ -207,13 +214,37 @@ function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
       error={error}
       loadingComponent={<LoadingMiniSpinner />}
     >
-      {plan?.action === "error" ? (
-        <Badge color="red">Error: {plan?.action}</Badge>
-      ) : (
-        <Badge color="green">
-          Plan: {plan?.action} `{plan?.label}`
-        </Badge>
-      )}
+      {!!plan && <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>}
     </LoadingContent>
   );
+}
+
+function getActionMessage(plan: Plan | null): string {
+  switch (plan?.action) {
+    case "respond":
+      return "Respond";
+    case "archive":
+      return "Archive";
+    case "label":
+      return `Label as ${plan.label}`;
+    case "error":
+      return "Error";
+    default:
+      return "Error";
+  }
+}
+
+function getActionColor(plan: Plan | null): Color {
+  switch (plan?.action) {
+    case "respond":
+      return "green";
+    case "archive":
+      return "yellow";
+    case "label":
+      return "blue";
+    case "error":
+      return "red";
+    default:
+      return "gray";
+  }
 }

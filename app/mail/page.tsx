@@ -25,8 +25,8 @@ export default function Home() {
           {data && (
             <List
               emails={data?.threads || []}
-              filter={getFilterFunction("label")}
-              filterArgs={{ label: "newsletter" }}
+              // filter={getFilterFunction("label")}
+              // filterArgs={{ label: "newsletter" }}
               refetch={mutate}
             />
           )}

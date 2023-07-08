@@ -31,6 +31,7 @@ async function getThreads(auth: Auth.OAuth2Client) {
       snippet: he.decode(t.snippet || ""),
       thread: { ...thread.data, messages },
       plan: await getPlan({ threadId: id })
+      // plan: undefined,
     }
   }) || []);
 
