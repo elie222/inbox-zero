@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { redis } from '@/utils/redis';
 
 export const planSchema = z.object({
-  category: z.string(),
-  plan: z.string(),
+  category: z.string().nullish(),
+  action: z.string().nullish(),
   response: z.string().nullish(),
   label: z.string().nullish(),
 });

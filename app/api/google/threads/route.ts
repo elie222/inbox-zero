@@ -13,7 +13,7 @@ export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
 async function getThreads(auth: Auth.OAuth2Client) {
   const gmail = google.gmail({ version: "v1", auth });
-  const res = await gmail.users.threads.list({ userId: "me", labelIds: ["INBOX"], maxResults: 10 });
+  const res = await gmail.users.threads.list({ userId: "me", labelIds: ["INBOX"], maxResults: 20 });
   // const threads = res.data.threads?.map(t => {
   //   return {
   //     ...t,

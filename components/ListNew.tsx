@@ -49,7 +49,9 @@ export function List(props: {
 }) {
   const { emails, filter, filterArgs } = props;
   const filteredEmails = useMemo(() => {
-    return emails.filter((email) => filter(email, filterArgs));
+    return emails.filter((email) =>
+      filter({ ...email.plan, threadId: email.id! }, filterArgs)
+    );
   }, [emails, filter, filterArgs]);
 
   console.log(
@@ -248,7 +250,7 @@ function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
 
   const plan = props.plan || data?.plan;
 
-  if (plan?.plan === "error") {
+  if (plan?.action === "error") {
     console.log(plan?.response);
   }
 
@@ -258,11 +260,11 @@ function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
       error={error}
       loadingComponent={<LoadingMiniSpinner />}
     >
-      {plan?.plan === "error" ? (
-        <Badge color="red">Error: {plan?.plan}</Badge>
+      {plan?.action === "error" ? (
+        <Badge color="red">Error: {plan?.action}</Badge>
       ) : (
         <Badge color="green">
-          Plan: {plan?.plan} `{plan?.label}`
+          Plan: {plan?.action} `{plan?.label}`
         </Badge>
       )}
     </LoadingContent>
