@@ -7,12 +7,18 @@ import {
 } from "@heroicons/react/24/outline";
 import { ButtonGroup } from "@/components/ButtonGroup";
 
-export function ActionButtons() {
+export function ActionButtons(props: { threadId: string }) {
   const buttons = useMemo(
     () => [
       {
         tooltip: "Expand",
-        onClick: () => {},
+        onClick: () => {
+          // open in gmail
+          window.open(
+            `https://mail.google.com/mail/u/0/#inbox/${props.threadId}`,
+            "_blank"
+          );
+        },
         icon: (
           <ArrowsPointingOutIcon
             className="h-5 w-5 text-gray-700"
@@ -43,7 +49,7 @@ export function ActionButtons() {
         ),
       },
     ],
-    []
+    [props.threadId]
   );
 
   return <ButtonGroup buttons={buttons} />;

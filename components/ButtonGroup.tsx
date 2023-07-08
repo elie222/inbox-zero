@@ -15,7 +15,11 @@ export function ButtonGroup(props: {
   return (
     <span className="isolate inline-flex rounded-md shadow-sm">
       {props.buttons.map((button, index) => (
-        <Tooltip content={button.tooltip} key={button.text || button.tooltip} useRef>
+        <Tooltip
+          key={button.text || button.tooltip}
+          content={button.tooltip}
+          useRef
+        >
           <Button
             text={button.text}
             icon={button.icon}
@@ -30,17 +34,23 @@ export function ButtonGroup(props: {
   );
 }
 
+interface ButtonProps
+  extends React.DetailedHTMLProps<
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
+    HTMLButtonElement
+  > {
+  position: "left" | "center" | "right";
+  text?: string;
+  icon?: React.ReactNode;
+}
+
 const Button = forwardRef(function Button(
-  props: {
-    position: "left" | "center" | "right";
-    text?: string;
-    icon?: React.ReactNode;
-    onClick: () => void;
-  },
+  props: ButtonProps,
   ref?: React.Ref<HTMLButtonElement>
 ) {
   return (
     <button
+      {...props}
       type="button"
       className={clsx(
         "relative inline-flex items-center bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-10",

@@ -16,6 +16,7 @@ import { fetcher } from "@/providers/SWRProvider";
 import { formatShortDate } from "@/utils/date";
 import { FilterArgs, FilterFunction } from "@/utils/filters";
 import { type Plan } from "@/utils/plan";
+import { ActionButtons } from "@/components/ActionButtons";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -93,7 +94,8 @@ function EmailListItem(props: { email: Thread }) {
           </div>
 
           <div className="flex items-center">
-            <div className="text-sm leading-5 text-gray-500 font-medium flex-shrink-0">
+            <ActionButtons threadId={email.id!} />
+            <div className="text-sm leading-5 text-gray-500 font-medium flex-shrink-0 ml-3">
               {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
             </div>
             <div className="ml-3">
@@ -214,7 +216,9 @@ function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
       error={error}
       loadingComponent={<LoadingMiniSpinner />}
     >
-      {!!plan && <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>}
+      {!!plan && (
+        <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>
+      )}
     </LoadingContent>
   );
 }
