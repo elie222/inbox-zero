@@ -1,4 +1,3 @@
-import { capitalCase } from "capital-case";
 import { useCallback, useMemo } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
@@ -43,7 +42,11 @@ export function List(props: {
           text={props.prompt || ""}
           buttons={[
             {
-              label: "Execute",
+              label: "Label All",
+              onClick: () => {},
+            },
+            {
+              label: "Label + Archive All",
               onClick: () => {},
             },
           ]}
@@ -188,7 +191,7 @@ const SendEmailForm = () => {
 
 function fromName(email: string) {
   // converts "John Doe <john.doe@gmail>" to "John Doe"
-  return capitalCase(email.split("<")[0]);
+  return email.split("<")[0];
 }
 
 function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
