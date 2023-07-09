@@ -5,11 +5,15 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useNotification } from "@/providers/NotificationProvider";
+import { useGmail } from "@/providers/GmailProvider";
+import { Tag } from "@/components/Tag";
+import { capitalCase } from "capital-case";
 
 export default function Settings() {
   return (
     <FormWrapper>
       <SettingsForm />
+      <LabelsSection />
       <DeleteSection />
     </FormWrapper>
   );
@@ -81,6 +85,29 @@ Some rules to follow:
     </form>
   );
 };
+
+function LabelsSection() {
+  const { labels } = useGmail();
+
+  return (
+    <FormSection>
+      <FormSectionLeft
+        title="Labels"
+        description="The labels in your inbox help you organize your emails. You can create new labels, edit existing ones, or delete them."
+      />
+
+      <div className="flex items-start md:col-span-2">
+        <div className="grid grid-cols-2 gap-2 w-full md:grid-cols-3">
+          {Object.values(labels || {}).map((label) => (
+            <Tag key={label.name} customColors={label.color}>
+              {label?.type === "system" ? capitalCase(label.name) : label.name}
+            </Tag>
+          ))}
+        </div>
+      </div>
+    </FormSection>
+  );
+}
 
 function DeleteSection() {
   return (

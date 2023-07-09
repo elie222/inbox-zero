@@ -11,7 +11,7 @@ export async function createFilterFromPrompt(body: PromptQuery) {
     model: "gpt-4",
     messages: [{
       role: 'system',
-      content: 'You are an AI assistant to help people manage their emails.',
+      content: `You are an AI assistant to help people manage their emails. Valid labels are ${body.labels}`,
     }, {
       role: 'user',
       content: `Choose the filter function to call on the following prompt and you will then receive the filtered emails:\n\n###\n\n${body.message}`,
@@ -19,6 +19,7 @@ export async function createFilterFromPrompt(body: PromptQuery) {
     functions: filterFunctions,
     function_call: 'auto',
   });
+
   const json: ChatCompletionResponse = await response.json();
 
   const filter = json?.choices?.[0]?.message.function_call as ChatCompletionRequestMessageFunctionCall;

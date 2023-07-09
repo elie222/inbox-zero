@@ -1,9 +1,11 @@
+import { useGmail } from "@/providers/GmailProvider";
 import { usePromptContext } from "@/providers/PromptProvider";
 import { createFilterFromPrompt } from "@/utils/actions";
 import { SparklesIcon } from "@heroicons/react/20/solid";
 
 export function PromptBar(props: {}) {
   const { setPrompt, setFunction } = usePromptContext();
+  const { labels } = useGmail();
 
   return (
     <form
@@ -13,7 +15,10 @@ export function PromptBar(props: {}) {
 
         setPrompt(promptMessage);
 
-        const res = await createFilterFromPrompt({ message: promptMessage });
+        const res = await createFilterFromPrompt({
+          message: promptMessage,
+          labels: Object.values(labels || {}).map((label) => label.name),
+        });
 
         setFunction({
           name: res.filter.name || "",
