@@ -5,6 +5,7 @@ import { filterFunctions } from "@/utils/filters";
 import { ChatCompletionResponse } from "@/utils/types";
 import { type PromptQuery } from "@/app/api/ai/prompt/route";
 import { ChatCompletionRequestMessageFunctionCall } from "openai-edge";
+import { createLabel } from "@/app/api/google/labels/create/route";
 
 export async function createFilterFromPrompt(body: PromptQuery) {
   const response = await openai.createChatCompletion({
@@ -25,4 +26,8 @@ export async function createFilterFromPrompt(body: PromptQuery) {
   const filter = json?.choices?.[0]?.message.function_call as ChatCompletionRequestMessageFunctionCall;
 
   return { filter };
+}
+
+export async function createLabelAction(name: string) {
+  await createLabel({ name })
 }

@@ -2,12 +2,16 @@
 
 import { useCallback } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
+import { PlusSmallIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useNotification } from "@/providers/NotificationProvider";
 import { useGmail } from "@/providers/GmailProvider";
 import { Tag } from "@/components/Tag";
 import { capitalCase } from "capital-case";
+import { SectionDescription, SectionHeader } from "@/components/Typography";
+import { recommendedLabels } from "@/utils/label";
+import { createLabelAction } from "@/utils/actions";
 
 export default function Settings() {
   return (
@@ -88,6 +92,14 @@ Some rules to follow:
 
 function LabelsSection() {
   const { labels } = useGmail();
+  const { showNotification } = useNotification();
+
+  const recommendedLabelsToCreate = recommendedLabels.filter(
+    (label) =>
+      !Object.values(labels || {})
+        .map((l) => l.name.toLowerCase())
+        .find((l) => l.indexOf(label.toLowerCase()) > -1)
+  );
 
   return (
     <FormSection>
@@ -97,12 +109,58 @@ function LabelsSection() {
       />
 
       <div className="flex items-start md:col-span-2">
-        <div className="grid grid-cols-2 gap-2 w-full md:grid-cols-3">
-          {Object.values(labels || {}).map((label) => (
-            <Tag key={label.name} customColors={label.color}>
-              {label?.type === "system" ? capitalCase(label.name) : label.name}
-            </Tag>
-          ))}
+        <div className="w-full">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            {Object.values(labels || {}).map((label) => (
+              <Tag key={label.name} customColors={label.color}>
+                {label?.type === "system"
+                  ? capitalCase(label.name)
+                  : label.name}
+              </Tag>
+            ))}
+          </div>
+
+          {!!recommendedLabelsToCreate.length && (
+            <div className="mt-8">
+              <SectionHeader>Suggested Labels</SectionHeader>
+              <SectionDescription>
+                Labels we suggest adding to organise your emails.
+              </SectionDescription>
+              <div className="mt-2">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                  {recommendedLabelsToCreate.map((label) => (
+                    <button
+                      key={label}
+                      className="group"
+                      onClick={async () => {
+                        try {
+                          await createLabelAction(label);
+                          showNotification({
+                            type: "success",
+                            description: `Label "${label}" created!`,
+                          });
+                        } catch (error) {
+                          showNotification({
+                            type: "error",
+                            description: `Failed to create label "${label}"`,
+                          });
+                        }
+                      }}
+                    >
+                      <Tag>
+                        <div className="relative flex items-center justify-center w-full">
+                          {label}
+                          <span className="absolute right-0 hidden group-hover:block">
+                            <PlusSmallIcon className="h-4 w-4 text-gray-500" />
+                          </span>
+                        </div>
+                      </Tag>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </FormSection>
@@ -141,10 +199,8 @@ function FormSection(props: { children: React.ReactNode }) {
 function FormSectionLeft(props: { title: string; description: string }) {
   return (
     <div>
-      <h2 className="text-base font-semibold leading-7">{props.title}</h2>
-      <p className="mt-1 text-sm leading-6 text-gray-700">
-        {props.description}
-      </p>
+      <SectionHeader>{props.title}</SectionHeader>
+      <SectionDescription>{props.description}</SectionDescription>
     </div>
   );
 }
