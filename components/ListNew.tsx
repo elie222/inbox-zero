@@ -22,6 +22,7 @@ type Thread = ThreadsResponse["threads"][0];
 
 export function List(props: {
   emails: Thread[];
+  prompt?: string;
   filter?: FilterFunction;
   filterArgs?: FilterArgs;
   refetch: () => void;
@@ -39,7 +40,7 @@ export function List(props: {
     <div>
       <div className="py-4 border-b border-gray-200">
         <GroupHeading
-          text="Label and archive all newsletter emails"
+          text={props.prompt || ""}
           buttons={[
             {
               label: "Execute",

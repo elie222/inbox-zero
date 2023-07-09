@@ -5,6 +5,7 @@ import { NotificationProvider } from "@/providers/NotificationProvider";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
+import { PromptProvider } from "@/providers/PromptProvider";
 // import localFont from "next/font/local";
 
 const inter = Inter({
@@ -37,7 +38,9 @@ export default function RootLayout({
           <GmailProvider>
             <NotificationProvider>
               <SessionProvider>
-                <SideNavWithTopNav>{children}</SideNavWithTopNav>
+                <PromptProvider>
+                  <SideNavWithTopNav>{children}</SideNavWithTopNav>
+                </PromptProvider>
               </SessionProvider>
             </NotificationProvider>
           </GmailProvider>

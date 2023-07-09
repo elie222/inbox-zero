@@ -6,7 +6,55 @@ export type FilterFunction = (plan?: PlanWithThread, args?: FilterArgs) => boole
 export type FilterArgs = any;
 export type Filters = 'label' | 'to_respond' | 'by_id';
 
-export const filters: Filters[] = ['label', 'to_respond', 'by_id'];
+export const filterFunctions: {
+  name: Filters;
+  description: string;
+  parameters: object;
+}[] = [
+    {
+      name: "label",
+      description:
+        "Finds all emails with a specific label.  Returns true if the email has the label, false otherwise.",
+      parameters: {
+        type: "object",
+        properties: {
+          label: {
+            type: "string",
+            description: "The name of the label.",
+          },
+        },
+        required: ["label"],
+      },
+    },
+    {
+      name: "to_respond",
+      description:
+        "Finds all emails that require a response.  Returns true if the email requires a response, false otherwise.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+    {
+      name: "by_id",
+      description:
+        "Finds emails by a specific id.  Returns true if the email has the id, false otherwise.",
+      parameters: {
+        type: "object",
+        properties: {
+          ids: {
+            type: "array",
+            items: {
+              type: "string"
+            },
+            description: "An array of ids to match against.",
+          },
+        },
+        required: [],
+      },
+    },
+  ];
 
 export const label: FilterFunction = (plan?: PlanWithThread, args?: { label: string }) => {
   return plan?.label === args?.label;
