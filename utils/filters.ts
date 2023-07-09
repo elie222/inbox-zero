@@ -57,7 +57,7 @@ export const filterFunctions: {
   ];
 
 export const label: FilterFunction = (plan?: PlanWithThread, args?: { label: string }) => {
-  return plan?.label === args?.label;
+  return plan?.label?.toLowerCase() === args?.label.toLowerCase();
 }
 
 export const to_respond: FilterFunction = (plan?: PlanWithThread) => {
