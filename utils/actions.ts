@@ -6,6 +6,7 @@ import { ChatCompletionResponse } from "@/utils/types";
 import { type PromptQuery } from "@/app/api/ai/prompt/route";
 import { ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { createLabel } from "@/app/api/google/labels/create/route";
+import { labelThread } from "@/app/api/google/threads/label/route";
 
 export async function createFilterFromPrompt(body: PromptQuery) {
   const response = await openai.createChatCompletion({
@@ -34,4 +35,18 @@ export async function createFilterFromPrompt(body: PromptQuery) {
 
 export async function createLabelAction(name: string) {
   await createLabel({ name });
+}
+
+export async function labelThreadsAction(options: {
+  labelId: string;
+  threadIds: string[];
+}) {
+  return await Promise.all(
+    options.threadIds.map((threadId) => {
+      labelThread({
+        labelId: options.labelId,
+        threadId,
+      });
+    })
+  );
 }

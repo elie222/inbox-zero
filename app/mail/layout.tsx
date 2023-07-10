@@ -1,11 +1,11 @@
 import "../globals.css";
-import { SWRProvider } from "@/providers/SWRProvider";
 import { Inter } from "next/font/google";
 import { NotificationProvider } from "@/providers/NotificationProvider";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { PromptProvider } from "@/providers/PromptProvider";
+import { SWRProvider } from "@/providers/SWRProvider";
 // import localFont from "next/font/local";
 
 const inter = Inter({

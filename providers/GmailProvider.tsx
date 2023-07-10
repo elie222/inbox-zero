@@ -5,6 +5,7 @@ import { createContext, useContext, useMemo } from "react";
 import useSWR from "swr";
 
 type Label = {
+  id: string;
   name: string;
   type?: string | null;
   color?: {
@@ -32,6 +33,7 @@ export function GmailProvider(props: { children: React.ReactNode }) {
     return data?.labels?.reduce((acc, label) => {
       if (label.id && label.name) {
         acc[label.id] = {
+          id: label.id,
           name: label.name,
           type: label.type,
           color: label.color,

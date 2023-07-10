@@ -45,6 +45,7 @@
     "react-dom-confetti": "^0.2.0",
     "react-hook-form": "^7.45.1",
     "server-only": "^0.0.1",
+    "sonner": "^0.6.0",
     "swr": "^2.2.0",
     "typescript": "5.1.6",
     "zod": "^3.21.4"

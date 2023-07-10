@@ -16,6 +16,9 @@ import { formatShortDate } from "@/utils/date";
 import { FilterArgs, FilterFunction } from "@/utils/filters";
 import { type Plan } from "@/utils/plan";
 import { ActionButtons } from "@/components/ActionButtons";
+import { labelThreadsAction } from "@/utils/actions";
+import { useGmail } from "@/providers/GmailProvider";
+import { toast } from "sonner";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -35,6 +38,8 @@ export function List(props: {
     );
   }, [emails, filter, filterArgs]);
 
+  const { labels } = useGmail();
+
   return (
     <div>
       <div className="border-b border-gray-200 py-4">
@@ -43,11 +48,34 @@ export function List(props: {
           buttons={[
             {
               label: "Label All",
-              onClick: () => {},
+              onClick: async () => {
+                const label = Object.values(labels || {})?.find(
+                  (label) => label.name === props.filterArgs.label
+                );
+
+                if (!label) {
+                  console.log("Label not found", props.filterArgs.label);
+                  return;
+                }
+
+                try {
+                  await labelThreadsAction({
+                    labelId: label?.id!,
+                    threadIds: filteredEmails.map((email) => email.id!),
+                  });
+                  toast.success("Success", {
+                    description: `Labeled all emails ${label.name}.`,
+                  });
+                } catch (error) {}
+              },
             },
             {
               label: "Label + Archive All",
-              onClick: () => {},
+              onClick: () => {
+                toast.success("Success", {
+                  description: "Labeled and archived all emails.",
+                });
+              },
             },
           ]}
         />

@@ -12,6 +12,7 @@ import { capitalCase } from "capital-case";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
 import { recommendedLabels } from "@/utils/label";
 import { createLabelAction } from "@/utils/actions";
+import { toast } from "sonner";
 
 export default function Settings() {
   return (
@@ -176,7 +177,12 @@ function DeleteSection() {
       />
 
       <form className="flex items-start md:col-span-2">
-        <Button color="red" type="submit">
+        <Button
+          color="red"
+          onClick={() => {
+            toast.error("TODO");
+          }}
+        >
           Yes, delete my account
         </Button>
       </form>
