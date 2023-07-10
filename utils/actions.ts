@@ -11,6 +11,9 @@ import { type PromptQuery } from "@/app/api/ai/prompt/route";
 import { ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { createLabel } from "@/app/api/google/labels/create/route";
 import { labelThread } from "@/app/api/google/threads/label/route";
+import prisma from "@/utils/prisma";
+import { getSession } from "@/utils/auth";
+import { z } from "zod";
 
 export async function createFilterFromPrompt(body: PromptQuery) {
   const response = await openai.createChatCompletion({
@@ -18,7 +21,9 @@ export async function createFilterFromPrompt(body: PromptQuery) {
     messages: [
       {
         role: "system",
-        content: `You are an AI assistant to help people manage their emails. Valid labels are ${body.labels}`,
+        content: `You are an AI assistant to help people manage their emails. Valid labels are: ${body.labels.join(
+          ", "
+        )}`,
       },
       {
         role: "user",
@@ -67,4 +72,19 @@ export async function labelThreadsAction(options: {
       });
     })
   );
+}
+
+const saveAboutBody = z.object({
+  about: z.string(),
+});
+export type SaveAboutBody = z.infer<typeof saveAboutBody>;
+
+export async function saveAboutAction(options: { about: string }) {
+  const session = await getSession();
+  if (!session?.user) throw new Error("Not logged in");
+
+  await prisma.user.update({
+    where: { email: session.user.email },
+    data: { about: options.about },
+  });
 }

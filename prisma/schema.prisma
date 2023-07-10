@@ -50,9 +50,14 @@ model User {
   accounts      Account[]
   sessions      Session[]
 
-  userSettings    UserSettings?
+  // additional fields
+  about               String?
+  storePromptHistory  Boolean @default(true)
+  labelOnSystemAction Boolean @default(true)
+
   promptHistory   PromptHistory[]
   promptFavorites PromptFavorite[]
+  labels          Label[]
 }
 
 // not in use as it's only used for passwordless login
@@ -62,16 +67,6 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-model UserSettings {
-  id                 String   @id @default(cuid())
-  updatedAt          DateTime @updatedAt
-  userId             String   @unique
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  about              String?
-  labelsForPrompts   String[]
-  storePromptHistory Boolean  @default(true)
 }
 
 model PromptHistory {
@@ -90,4 +85,17 @@ model PromptFavorite {
   prompt    String
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Label {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String
+  description String? // used in prompts
+  enabled     Boolean  @default(true)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
 }
