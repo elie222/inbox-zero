@@ -1,12 +1,13 @@
 "use server";
 
+import { NotLoggedIn } from "@/components/ErrorDisplay";
 import { Stats } from "@/components/Stats";
 import { getSession } from "@/utils/auth";
 import { getUsage } from "@/utils/redis/usage";
 
 export default async function Usage() {
   const session = await getSession();
-  if (!session?.user) return <div>Not logged in.</div>;
+  if (!session?.user) return <NotLoggedIn></NotLoggedIn>;
 
   const usage = await getUsage({ email: session.user.email });
 
