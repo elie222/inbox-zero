@@ -1,8 +1,8 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import { getServerSession, type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-// import { PrismaAdapter } from "@next-auth/prisma-adapter";
-// import prisma from "@/lib/prisma";
+import prisma from "@/utils/prisma";
 
 const VERCEL_DEPLOYMENT = !!process.env.VERCEL_URL;
 
@@ -38,7 +38,7 @@ export const authOptions: NextAuthOptions = {
   //   verifyRequest: `/login`,
   //   error: "/login", // Error code passed in query string as ?error=
   // },
-  // adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as any,
   session: { strategy: "jwt" },
   cookies: {
     sessionToken: {

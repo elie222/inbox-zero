@@ -14,7 +14,13 @@ export function SideNavWithTopNav(props: { children: React.ReactNode }) {
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}
     >
-      <Toaster expand position="top-right" closeButton richColors />
+      <Toaster
+        expand
+        position="top-right"
+        closeButton
+        richColors
+        theme="light"
+      />
       {props.children}
     </SideNav>
   );
