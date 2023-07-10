@@ -8,7 +8,7 @@ generator client {
   output   = "../node_modules/.prisma/client"
 }
 
-// Account, User, Session, VerificationToken based on: https://authjs.dev/reference/adapter/prisma
+// Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
 model Account {
   id                String   @id @default(cuid())
   createdAt         DateTime @default(now())
@@ -30,10 +30,9 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
+// not in use. we only use jwt for sessions
 model Session {
   id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
   sessionToken String   @unique
   userId       String
   expires      DateTime
@@ -56,9 +55,8 @@ model User {
   promptFavorites PromptFavorite[]
 }
 
+// not in use as it's only used for passwordless login
 model VerificationToken {
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
   identifier String
   token      String   @unique
   expires    DateTime

@@ -72,15 +72,11 @@ export const authOptions: NextAuthOptions = {
         ...session.user,
         // @ts-expect-error
         id: token.sub,
-        // @ts-expect-error
-        username: token?.user?.username || token?.user?.gh_username,
       };
 
       // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
-      // @ts-expect-error
-      session.accessToken = token?.accessToken;
-      // @ts-expect-error
-      session.refreshToken = token?.refreshToken;
+      session.accessToken = token?.accessToken as string | undefined;
+      session.refreshToken = token?.refreshToken as string | undefined;
 
       return session;
     },
@@ -92,12 +88,11 @@ export function getSession() {
     user: {
       id: string;
       name: string;
-      username: string;
       email: string;
       image: string;
     };
-    accessToken: string;
-    refreshToken: string;
+    accessToken?: string;
+    refreshToken?: string;
   } | null>;
 }
 
