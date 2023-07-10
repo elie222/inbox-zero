@@ -88,3 +88,12 @@ export async function saveAboutAction(options: { about: string }) {
     data: { about: options.about },
   });
 }
+
+export async function deleteAccountAction() {
+  const session = await getSession();
+  if (!session?.user) throw new Error("Not logged in");
+
+  await prisma.user.delete({
+    where: { email: session.user.email },
+  });
+}

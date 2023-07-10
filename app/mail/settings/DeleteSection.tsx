@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
-import { toastError } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { deleteAccountAction } from "@/utils/actions";
 
 export function DeleteSection() {
   return (
@@ -15,8 +16,19 @@ export function DeleteSection() {
       <form className="flex items-start md:col-span-2">
         <Button
           color="red"
-          onClick={() => {
-            toastError({ description: "TODO" });
+          onClick={async () => {
+            const yes = window.confirm(
+              "Are you sure you want to delete your account?"
+            );
+
+            if (!yes) return;
+
+            try {
+              await deleteAccountAction();
+              toastSuccess({ description: "Account deleted!" });
+            } catch (error) {
+              toastError({ description: "Error deleting account." });
+            }
           }}
         >
           Yes, delete my account
