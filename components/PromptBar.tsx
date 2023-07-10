@@ -1,11 +1,18 @@
+import { useHotkeys } from "react-hotkeys-hook";
 import { useGmail } from "@/providers/GmailProvider";
 import { usePromptContext } from "@/providers/PromptProvider";
 import { createFilterFromPrompt } from "@/utils/actions";
 import { SparklesIcon } from "@heroicons/react/20/solid";
+import { useRef } from "react";
 
 export function PromptBar(props: {}) {
   const { setPrompt, setFunction } = usePromptContext();
   const { labels } = useGmail();
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  useHotkeys("meta+k", () => {
+    inputRef.current?.focus();
+  });
 
   return (
     <form
@@ -20,10 +27,15 @@ export function PromptBar(props: {}) {
           labels: Object.values(labels || {}).map((label) => label.name),
         });
 
-        setFunction({
-          name: res.filter.name || "",
-          args: res.filter.arguments ? JSON.parse(res.filter.arguments) : "",
-        });
+        if (res.filter) {
+          setFunction({
+            name: res.filter.name || "",
+            args: res.filter.arguments ? JSON.parse(res.filter.arguments) : "",
+          });
+        } else {
+          console.log("no filter");
+          console.log(JSON.stringify(res, null, 2));
+        }
       }}
     >
       <label htmlFor="prompt-field" className="sr-only">
@@ -40,6 +52,7 @@ export function PromptBar(props: {}) {
         type="text"
         name="prompt"
         autoComplete="off"
+        ref={inputRef}
       />
     </form>
   );

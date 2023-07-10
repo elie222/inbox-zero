@@ -46,6 +46,7 @@
     "react-dom": "18.2.0",
     "react-dom-confetti": "^0.2.0",
     "react-hook-form": "^7.45.1",
+    "react-hotkeys-hook": "^4.4.1",
     "server-only": "^0.0.1",
     "sonner": "^0.6.0",
     "swr": "^2.2.0",

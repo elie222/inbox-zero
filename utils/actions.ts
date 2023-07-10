@@ -2,7 +2,11 @@
 
 import { openai } from "@/app/api/ai/openai";
 import { filterFunctions } from "@/utils/filters";
-import { ChatCompletionResponse } from "@/utils/types";
+import {
+  ChatCompletionError,
+  ChatCompletionResponse,
+  isChatCompletionError,
+} from "@/utils/types";
 import { type PromptQuery } from "@/app/api/ai/prompt/route";
 import { ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { createLabel } from "@/app/api/google/labels/create/route";
@@ -25,10 +29,22 @@ export async function createFilterFromPrompt(body: PromptQuery) {
     function_call: "auto",
   });
 
-  const json: ChatCompletionResponse = await response.json();
+  const json: ChatCompletionResponse | ChatCompletionError =
+    await response.json();
 
-  const filter = json?.choices?.[0]?.message
-    .function_call as ChatCompletionRequestMessageFunctionCall;
+  if (isChatCompletionError(json)) {
+    console.error(json);
+
+    return { filter: undefined };
+  }
+
+  const filter = json?.choices?.[0]?.message.function_call as
+    | ChatCompletionRequestMessageFunctionCall
+    | undefined;
+
+  if (!filter) {
+    console.log("Unable to create filter:", JSON.stringify(json, null, 2));
+  }
 
   return { filter };
 }
