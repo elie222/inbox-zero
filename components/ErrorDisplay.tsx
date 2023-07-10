@@ -36,10 +36,11 @@ export const NotLoggedIn = (props: {}) => {
       <div className="text-lg text-gray-700">You are not signed in 😞</div>
       <div className="mt-8">
         <Image
-          src="https://illustrations.popsy.co/amber/falling.svg"
+          src="/images/falling.svg"
           alt=""
           width={400}
           height={400}
+          unoptimized
         />
       </div>
     </div>
