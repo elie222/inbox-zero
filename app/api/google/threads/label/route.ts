@@ -5,7 +5,11 @@ import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
 import { withError } from "@/utils/middleware";
 
-const labelThreadBody = z.object({ threadId: z.string(), labelId: z.string() });
+const labelThreadBody = z.object({
+  threadId: z.string(),
+  labelId: z.string(),
+  archive: z.boolean(),
+});
 export type LabelThreadBody = z.infer<typeof labelThreadBody>;
 export type LabelThreadResponse = Awaited<ReturnType<typeof labelThread>>;
 
@@ -20,6 +24,7 @@ export async function labelThread(body: LabelThreadBody) {
     id: body.threadId,
     requestBody: {
       addLabelIds: [body.labelId],
+      removeLabelIds: body.archive ? ["INBOX"] : [],
     },
   });
   const thread = res.data;

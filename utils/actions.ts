@@ -40,12 +40,14 @@ export async function createLabelAction(name: string) {
 export async function labelThreadsAction(options: {
   labelId: string;
   threadIds: string[];
+  archive: boolean;
 }) {
   return await Promise.all(
     options.threadIds.map((threadId) => {
       labelThread({
         labelId: options.labelId,
         threadId,
+        archive: options.archive,
       });
     })
   );

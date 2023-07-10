@@ -12,7 +12,7 @@ import { capitalCase } from "capital-case";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
 import { recommendedLabels } from "@/utils/label";
 import { createLabelAction } from "@/utils/actions";
-import { toast } from "sonner";
+import { toastError } from "@/components/Toast";
 
 export default function Settings() {
   return (
@@ -180,7 +180,7 @@ function DeleteSection() {
         <Button
           color="red"
           onClick={() => {
-            toast.error("TODO");
+            toastError({ description: "TODO" });
           }}
         >
           Yes, delete my account

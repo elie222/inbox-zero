@@ -18,7 +18,7 @@ import { type Plan } from "@/utils/plan";
 import { ActionButtons } from "@/components/ActionButtons";
 import { labelThreadsAction } from "@/utils/actions";
 import { useGmail } from "@/providers/GmailProvider";
-import { toast } from "sonner";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -39,45 +39,61 @@ export function List(props: {
   }, [emails, filter, filterArgs]);
 
   const { labels } = useGmail();
+  const label = useMemo(() => {
+    return Object.values(labels || {})?.find(
+      (label) => label.name === props.filterArgs?.label
+    );
+  }, [labels, props.filterArgs?.label]);
 
   return (
     <div>
       <div className="border-b border-gray-200 py-4">
         <GroupHeading
           text={props.prompt || ""}
-          buttons={[
-            {
-              label: "Label All",
-              onClick: async () => {
-                const label = Object.values(labels || {})?.find(
-                  (label) => label.name === props.filterArgs.label
-                );
-
-                if (!label) {
-                  console.log("Label not found", props.filterArgs.label);
-                  return;
-                }
-
-                try {
-                  await labelThreadsAction({
-                    labelId: label?.id!,
-                    threadIds: filteredEmails.map((email) => email.id!),
-                  });
-                  toast.success("Success", {
-                    description: `Labeled all emails ${label.name}.`,
-                  });
-                } catch (error) {}
-              },
-            },
-            {
-              label: "Label + Archive All",
-              onClick: () => {
-                toast.success("Success", {
-                  description: "Labeled and archived all emails.",
-                });
-              },
-            },
-          ]}
+          buttons={
+            label
+              ? [
+                  {
+                    label: "Label All",
+                    onClick: async () => {
+                      try {
+                        await labelThreadsAction({
+                          labelId: label?.id!,
+                          threadIds: filteredEmails.map((email) => email.id!),
+                          archive: false,
+                        });
+                        toastSuccess({
+                          description: `Labeled emails "${label.name}".`,
+                        });
+                      } catch (error) {
+                        toastError({
+                          description: `There was an error labeling emails "${label.name}".`,
+                        });
+                      }
+                    },
+                  },
+                  {
+                    label: "Label + Archive All",
+                    onClick: async () => {
+                      try {
+                        await labelThreadsAction({
+                          labelId: label?.id!,
+                          threadIds: filteredEmails.map((email) => email.id!),
+                          archive: true,
+                        });
+                        toastSuccess({
+                          description: `Labeled and archived emails "${label.name}".`,
+                        });
+                      } catch (error) {
+                        toastError({
+                          description: `There was an error labeling and archiving emails "${label.name}".`,
+                        });
+                      }
+                    },
+                  },
+                ]
+              : []
+          }
         />
       </div>
       {filteredEmails.length ? (

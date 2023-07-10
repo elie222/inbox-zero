@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { SideNav } from "@/components/SideNav";
 import { TopNav } from "@/components/TopNav";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/Toast";
 
 export function SideNavWithTopNav(props: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
