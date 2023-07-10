@@ -14,7 +14,7 @@ import { useNotification } from "@/providers/NotificationProvider";
 import { fetcher } from "@/providers/SWRProvider";
 import { formatShortDate } from "@/utils/date";
 import { FilterArgs, FilterFunction } from "@/utils/filters";
-import { type Plan } from "@/utils/plan";
+import { type Plan } from "@/utils/redis/plan";
 import { ActionButtons } from "@/components/ActionButtons";
 import { labelThreadsAction } from "@/utils/actions";
 import { useGmail } from "@/providers/GmailProvider";
@@ -47,55 +47,57 @@ export function List(props: {
 
   return (
     <div>
-      <div className="border-b border-gray-200 py-4">
-        <GroupHeading
-          text={props.prompt || ""}
-          buttons={
-            label
-              ? [
-                  {
-                    label: "Label All",
-                    onClick: async () => {
-                      try {
-                        await labelThreadsAction({
-                          labelId: label?.id!,
-                          threadIds: filteredEmails.map((email) => email.id!),
-                          archive: false,
-                        });
-                        toastSuccess({
-                          description: `Labeled emails "${label.name}".`,
-                        });
-                      } catch (error) {
-                        toastError({
-                          description: `There was an error labeling emails "${label.name}".`,
-                        });
-                      }
+      {!!(props.prompt || props.filter) && (
+        <div className="border-b border-gray-200 py-4">
+          <GroupHeading
+            text={props.prompt || ""}
+            buttons={
+              label
+                ? [
+                    {
+                      label: "Label All",
+                      onClick: async () => {
+                        try {
+                          await labelThreadsAction({
+                            labelId: label?.id!,
+                            threadIds: filteredEmails.map((email) => email.id!),
+                            archive: false,
+                          });
+                          toastSuccess({
+                            description: `Labeled emails "${label.name}".`,
+                          });
+                        } catch (error) {
+                          toastError({
+                            description: `There was an error labeling emails "${label.name}".`,
+                          });
+                        }
+                      },
                     },
-                  },
-                  {
-                    label: "Label + Archive All",
-                    onClick: async () => {
-                      try {
-                        await labelThreadsAction({
-                          labelId: label?.id!,
-                          threadIds: filteredEmails.map((email) => email.id!),
-                          archive: true,
-                        });
-                        toastSuccess({
-                          description: `Labeled and archived emails "${label.name}".`,
-                        });
-                      } catch (error) {
-                        toastError({
-                          description: `There was an error labeling and archiving emails "${label.name}".`,
-                        });
-                      }
+                    {
+                      label: "Label + Archive All",
+                      onClick: async () => {
+                        try {
+                          await labelThreadsAction({
+                            labelId: label?.id!,
+                            threadIds: filteredEmails.map((email) => email.id!),
+                            archive: true,
+                          });
+                          toastSuccess({
+                            description: `Labeled and archived emails "${label.name}".`,
+                          });
+                        } catch (error) {
+                          toastError({
+                            description: `There was an error labeling and archiving emails "${label.name}".`,
+                          });
+                        }
+                      },
                     },
-                  },
-                ]
-              : []
-          }
-        />
-      </div>
+                  ]
+                : []
+            }
+          />
+        </div>
+      )}
       {filteredEmails.length ? (
         <EmailList emails={filteredEmails} />
       ) : (

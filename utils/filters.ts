@@ -1,4 +1,4 @@
-import { Plan } from "@/utils/plan";
+import { Plan } from "@/utils/redis/plan";
 
 type PlanWithThread = Plan & { threadId: string };
 

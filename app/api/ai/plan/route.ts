@@ -1,14 +1,25 @@
+import "server-only";
+
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { openai } from "@/app/api/ai/openai";
 import { generalPrompt } from "@/utils/config";
-import { getPlan, planSchema, savePlan } from "@/utils/plan";
+import { getPlan, planSchema, savePlan } from "@/utils/redis/plan";
+import { saveUsage } from "@/utils/redis/usage";
+import {
+  ChatCompletionError,
+  ChatCompletionResponse,
+  isChatCompletionError,
+} from "@/utils/types";
+import { getSession } from "@/utils/auth";
 
 const planBody = z.object({ id: z.string(), message: z.string() });
 export type PlanBody = z.infer<typeof planBody>;
 export type PlanResponse = Awaited<ReturnType<typeof plan>>;
 
-export const runtime = "edge";
+// Next Auth does not support edge runtime but will do soon:
+// https://github.com/vercel/next.js/issues/50444#issuecomment-1602746782
+// export const runtime = "edge";
 
 async function calculatePlan(message: string) {
   const response = await openai.createChatCompletion({
@@ -47,17 +58,22 @@ An example response to label an email as a newsletter is:
         content: `
 Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
 
-The email:\n\n###\n\n${message.substring(0, 6000)}
+The email:\n\n###\n\n${message.substring(0, 3000)}
 `,
       },
     ],
   });
-  const json = await response.json();
+  const json: ChatCompletionResponse | ChatCompletionError =
+    await response.json();
   return json;
 }
 
 // const plan = withRetry(
 async function plan(body: PlanBody) {
+  const session = await getSession();
+
+  if (!session?.user.email) return;
+
   // TODO secure this endpoint so people can't just ask for any id (and see the response from gpt)
 
   // check cache
@@ -65,6 +81,9 @@ async function plan(body: PlanBody) {
   // if (data) return { plan: data };
 
   let json = await calculatePlan(body.message);
+
+  if (isChatCompletionError(json)) return { plan: undefined };
+
   const planString: string = json?.choices?.[0]?.message?.content;
 
   if (!planString) {
@@ -72,11 +91,16 @@ async function plan(body: PlanBody) {
     console.error("length", body.message.length);
     console.error("json", json);
   }
-  if (json.error?.type === "tokens") return { plan: undefined };
+
   const planJson = planSchema.parse(JSON.parse(planString));
 
   // cache result
   await savePlan({ threadId: body.id, plan: planJson });
+
+  await saveUsage({
+    email: session.user.email,
+    tokensUsed: json.usage.total_tokens,
+  });
 
   return { plan: planJson };
 }

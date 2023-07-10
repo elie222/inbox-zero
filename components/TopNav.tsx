@@ -8,7 +8,7 @@ import { Button } from "@/components/Button";
 import { PromptBar } from "@/components/PromptBar";
 
 const userNavigation = [
-  // { name: "Your profile", href: "#" },
+  { name: "Usage", href: "/mail/usage" },
   { name: "Sign out", href: "#", onClick: () => signOut() },
 ];
 

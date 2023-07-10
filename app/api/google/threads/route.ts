@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
-import { getPlan } from "@/utils/plan";
+import { getPlan } from "@/utils/redis/plan";
 
 // const threadsQuery = z.object({ slug: z.string() });
 // export type ThreadsQuery = z.infer<typeof threadsQuery>;
