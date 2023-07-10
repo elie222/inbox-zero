@@ -1,13 +1,13 @@
-import React, { Fragment, useCallback } from 'react';
-import { Transition } from '@headlessui/react';
+import React, { Fragment, useCallback } from "react";
+import { Transition } from "@headlessui/react";
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
   InformationCircleIcon,
-} from '@heroicons/react/24/outline';
-import { XMarkIcon } from '@heroicons/react/20/solid';
+} from "@heroicons/react/24/outline";
+import { XMarkIcon } from "@heroicons/react/20/solid";
 
-type NotificationType = 'success' | 'error' | 'info';
+type NotificationType = "success" | "error" | "info";
 
 export interface NotificationItem {
   title?: string;
@@ -50,9 +50,12 @@ export function Notification(props: {
                   </div>
                   <div className="ml-3 w-0 flex-1 pt-0.5">
                     <p className="text-sm font-medium text-gray-900">
-                      {notification?.title || getDefaultTitle(notification?.type)}
+                      {notification?.title ||
+                        getDefaultTitle(notification?.type)}
                     </p>
-                    <p className="mt-1 text-sm text-gray-500">{notification?.description}</p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {notification?.description}
+                    </p>
                   </div>
                   <div className="ml-4 flex flex-shrink-0">
                     <button
@@ -77,18 +80,30 @@ export function Notification(props: {
 function NotificationIcon(props: { type?: NotificationType }) {
   const { type } = props;
 
-  if (type === 'success')
-    return <CheckCircleIcon className="h-6 w-6 text-green-400" aria-hidden="true" />;
-  if (type === 'error')
-    return <ExclamationCircleIcon className="h-6 w-6 text-red-400" aria-hidden="true" />;
-  if (type === 'info')
-    return <InformationCircleIcon className="h-6 w-6 text-blue-400" aria-hidden="true" />;
+  if (type === "success")
+    return (
+      <CheckCircleIcon className="h-6 w-6 text-green-400" aria-hidden="true" />
+    );
+  if (type === "error")
+    return (
+      <ExclamationCircleIcon
+        className="h-6 w-6 text-red-400"
+        aria-hidden="true"
+      />
+    );
+  if (type === "info")
+    return (
+      <InformationCircleIcon
+        className="h-6 w-6 text-blue-400"
+        aria-hidden="true"
+      />
+    );
 
   return null;
 }
 
 function getDefaultTitle(type?: NotificationType) {
-  if (type === 'success') return 'Success';
-  if (type === 'error') return 'Error';
-  if (type === 'info') return 'Info';
+  if (type === "success") return "Success";
+  if (type === "error") return "Error";
+  if (type === "info") return "Info";
 }

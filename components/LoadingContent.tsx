@@ -1,7 +1,7 @@
-import React from 'react';
-import { Loading } from './Loading';
-import { ErrorDisplay } from './ErrorDisplay';
-import { ErrorMessage } from '@/utils/error';
+import React from "react";
+import { Loading } from "./Loading";
+import { ErrorDisplay } from "./ErrorDisplay";
+import { ErrorMessage } from "@/utils/error";
 
 interface LoadingContentProps {
   loading: boolean;

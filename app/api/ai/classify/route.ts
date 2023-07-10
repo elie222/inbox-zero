@@ -11,13 +11,17 @@ export const runtime = "edge";
 async function classify(body: ClassifyThreadBody) {
   const response = await openai.createChatCompletion({
     model: "gpt-4",
-    messages: [{
-      role: 'system',
-      content: 'You are an AI assistant that helps classify emails into different categories. The user will send email messages and it is your job to return the category of the email. Categories to use are: "spam", "promotions", "social", "requires_response", "requires_action", "receipts", "newsletter", "app_update", "terms_and_conditions_update"',
-    }, {
-      role: 'user',
-      content: `Please classify this email using a one-word response:\n\n###\n\n${body.message}`,
-    }],
+    messages: [
+      {
+        role: "system",
+        content:
+          'You are an AI assistant that helps classify emails into different categories. The user will send email messages and it is your job to return the category of the email. Categories to use are: "spam", "promotions", "social", "requires_response", "requires_action", "receipts", "newsletter", "app_update", "terms_and_conditions_update"',
+      },
+      {
+        role: "user",
+        content: `Please classify this email using a one-word response:\n\n###\n\n${body.message}`,
+      },
+    ],
   });
   const json = await response.json();
   const message: string = json?.choices?.[0]?.message?.content;

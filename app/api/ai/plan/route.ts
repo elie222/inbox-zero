@@ -14,9 +14,10 @@ async function calculatePlan(message: string) {
   const response = await openai.createChatCompletion({
     model: "gpt-3.5-turbo",
     max_tokens: 400,
-    messages: [{
-      role: 'system',
-      content: `You are an AI assistant that helps people get to inbox zero quickly by responding, archiving and labelling emails on the user's behalf.
+    messages: [
+      {
+        role: "system",
+        content: `You are an AI assistant that helps people get to inbox zero quickly by responding, archiving and labelling emails on the user's behalf.
 The user will send email messages and it is your job to return the category of the email.
 You will always return valid JSON as a response.
 The JSON should contain the following fields:
@@ -36,17 +37,20 @@ An example response to label an email as a newsletter is:
   "label": "newsletter"
 }
 `,
-    }, {
-      role: 'user',
-      content: `${generalPrompt}`,
-    }, {
-      role: 'user',
-      content: `
+      },
+      {
+        role: "user",
+        content: `${generalPrompt}`,
+      },
+      {
+        role: "user",
+        content: `
 Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
 
 The email:\n\n###\n\n${message.substring(0, 6000)}
-`
-    }],
+`,
+      },
+    ],
   });
   const json = await response.json();
   return json;
@@ -64,11 +68,11 @@ async function plan(body: PlanBody) {
   const planString: string = json?.choices?.[0]?.message?.content;
 
   if (!planString) {
-    console.error('plan string undefined')
-    console.error('length', body.message.length)
-    console.error('json', json)
+    console.error("plan string undefined");
+    console.error("length", body.message.length);
+    console.error("json", json);
   }
-  if (json.error?.type === 'tokens') return { plan: undefined };
+  if (json.error?.type === "tokens") return { plan: undefined };
   const planJson = planSchema.parse(JSON.parse(planString));
 
   // cache result

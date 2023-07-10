@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { createContext, useCallback, useContext, useState } from "react";
 import { Notification, NotificationItem } from "@/components/Notification";

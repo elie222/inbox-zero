@@ -1,1 +1,1 @@
-declare module 'gmail-api-parse-message';
+declare module "gmail-api-parse-message";

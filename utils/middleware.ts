@@ -1,6 +1,6 @@
-import { ZodError } from 'zod';
-import { NextResponse } from 'next/server';
-import { captureException } from '@/utils/error';
+import { ZodError } from "zod";
+import { NextResponse } from "next/server";
+import { captureException } from "@/utils/error";
 
 export type NextHandler = (req: Request) => Promise<unknown>;
 
@@ -14,7 +14,10 @@ export function withError(handler: NextHandler): NextHandler {
           console.error(`Error for url: ${req.url}:`);
           console.error(error);
         }
-        return NextResponse.json({ erro: { issues: error.issues } }, { status: 400 });
+        return NextResponse.json(
+          { erro: { issues: error.issues } },
+          { status: 400 }
+        );
       }
       captureException(error);
       console.error(`Error for url: ${req.url}:`);

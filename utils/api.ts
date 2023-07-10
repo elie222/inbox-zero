@@ -3,23 +3,25 @@ import { ErrorMessage, captureException, isErrorMessage } from "@/utils/error";
 export async function postRequest<T, S = any>(
   url: string,
   data: S,
-  method?: 'POST' | 'DELETE'
+  method?: "POST" | "DELETE"
 ): Promise<T | ErrorMessage> {
   try {
     const res = await fetch(url, {
-      method: method || 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: method || "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     return await res.json();
   } catch (error) {
     captureException(error);
     if (isErrorMessage(error)) {
-      if (error.message === 'Failed to fetch' || !navigator.onLine)
-        return { message: 'Please check that you are connected to the Internet.' };
+      if (error.message === "Failed to fetch" || !navigator.onLine)
+        return {
+          message: "Please check that you are connected to the Internet.",
+        };
       return error;
     }
-    return { message: 'An error occurred' };
+    return { message: "An error occurred" };
   }
 }
 
@@ -30,6 +32,6 @@ export async function getRequest<T>(url: string): Promise<T | ErrorMessage> {
   } catch (error) {
     captureException(error);
     if (isErrorMessage(error)) return error;
-    return { message: 'An error occurred' };
+    return { message: "An error occurred" };
   }
 }

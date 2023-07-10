@@ -12,7 +12,7 @@ export function Celebration(props: {}) {
 
   return (
     <>
-      <div className="flex items-center justify-center mt-20 text-lg font-semibold text-gray-900">
+      <div className="mt-20 flex items-center justify-center text-lg font-semibold text-gray-900">
         Congrats! You made it to Inbox Zero!
       </div>
       <div className="flex items-center justify-center">

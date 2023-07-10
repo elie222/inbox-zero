@@ -1,4 +1,8 @@
-export function withRetry<T>(fn: (...args: any[]) => Promise<T>, retries = 3, delay = 20) {
+export function withRetry<T>(
+  fn: (...args: any[]) => Promise<T>,
+  retries = 3,
+  delay = 20
+) {
   return async function (...args: any[]) {
     let lastError;
     for (let i = 0; i < retries; i++) {
@@ -14,5 +18,5 @@ export function withRetry<T>(fn: (...args: any[]) => Promise<T>, retries = 3, de
 }
 
 function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

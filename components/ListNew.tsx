@@ -37,7 +37,7 @@ export function List(props: {
 
   return (
     <div>
-      <div className="py-4 border-b border-gray-200">
+      <div className="border-b border-gray-200 py-4">
         <GroupHeading
           text={props.prompt || ""}
           buttons={[
@@ -80,26 +80,27 @@ function EmailListItem(props: { email: Thread }) {
     <li className="relative py-3 hover:bg-gray-50">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex justify-between gap-x-6">
-          <div className="flex gap-x-4 flex-1">
+          <div className="flex flex-1 gap-x-4">
             <div className="min-w-0 flex-auto">
-              <p className="text-sm font-semibold leading-6 text-gray-900">
-                {/* <span className="absolute inset-x-0 -top-px bottom-0" /> */}
-                {fromName(
-                  email.thread?.messages?.[0]?.parsedMessage.headers.from
-                )}
-                <span className="ml-4 text-gray-500 font-normal">
+              <p className="text-sm leading-6">
+                <span className="font-semibold text-gray-900">
+                  {fromName(
+                    email.thread?.messages?.[0]?.parsedMessage.headers.from
+                  )}
+                </span>
+                <span className="ml-4 font-medium text-gray-700">
                   {email.thread?.messages?.[0]?.parsedMessage.headers.subject}
                 </span>
-              </p>
-              <p className="mt-1 flex text-xs leading-5 text-gray-500">
-                {email.snippet}
+                <span className="ml-8 font-normal leading-5 text-gray-500">
+                  {email.snippet}
+                </span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center">
             <ActionButtons threadId={email.id!} />
-            <div className="text-sm leading-5 text-gray-500 font-medium flex-shrink-0 ml-3">
+            <div className="ml-3 flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
               {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
             </div>
             <div className="ml-3">
@@ -177,7 +178,7 @@ const SendEmailForm = () => {
         registerProps={register("message", { required: true })}
         error={errors.message}
       />
-      <div className="flex mt-2">
+      <div className="mt-2 flex">
         <Button type="submit" color="transparent" loading={isSubmitting}>
           Send
         </Button>

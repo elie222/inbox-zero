@@ -7,13 +7,12 @@ import GoogleProvider from "next-auth/providers/google";
 const VERCEL_DEPLOYMENT = !!process.env.VERCEL_URL;
 
 const SCOPES = [
-  'https://www.googleapis.com/auth/userinfo.profile',
-  'https://www.googleapis.com/auth/userinfo.email',
+  "https://www.googleapis.com/auth/userinfo.profile",
+  "https://www.googleapis.com/auth/userinfo.email",
 
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/gmail.modify",
 ];
-
 
 const authorizationUrl = new URL(
   "https://accounts.google.com/o/oauth2/v2/auth"

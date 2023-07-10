@@ -65,7 +65,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
   return (
     <li className="flex py-5 text-white">
       <div className="max-w-full">
-        <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
+        <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-white">
           From: {from}
         </p>
         <div className="flex space-x-2">
@@ -75,13 +75,13 @@ function ListItem(props: { item: Item; refetch: () => void }) {
             </Tag>
           ))}
         </div>
-        <p className="text-sm font-semibold leading-6 text-white break-words whitespace-pre-wrap">
+        <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-white">
           {item.text}
         </p>
         <LoadingContent loading={isLoading} error={error}>
           {data && (
             <>
-              <p className="mt-1 truncate text-xs leading-5 text-gray-400 break-words whitespace-pre-wrap">
+              <p className="mt-1 truncate whitespace-pre-wrap break-words text-xs leading-5 text-gray-400">
                 <Linkify>
                   {viewFullMessage
                     ? data.thread.messages?.[0]?.parsedMessage.textPlain

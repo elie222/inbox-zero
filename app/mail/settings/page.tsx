@@ -148,7 +148,7 @@ function LabelsSection() {
                       }}
                     >
                       <Tag>
-                        <div className="relative flex items-center justify-center w-full">
+                        <div className="relative flex w-full items-center justify-center">
                           {label}
                           <span className="absolute right-0 hidden group-hover:block">
                             <PlusSmallIcon className="h-4 w-4 text-gray-500" />

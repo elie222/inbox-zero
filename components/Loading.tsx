@@ -1,30 +1,33 @@
-import clsx from 'clsx';
-import React from 'react';
+import clsx from "clsx";
+import React from "react";
 
 interface LoadingProps {
-  size?: 'xs' | 'sm' | 'md' | 'xl';
+  size?: "xs" | "sm" | "md" | "xl";
   inline?: boolean;
 }
 
-export const Loading: React.FC<LoadingProps> = props => {
-  const { size = 'md' } = props;
+export const Loading: React.FC<LoadingProps> = (props) => {
+  const { size = "md" } = props;
   return (
     <div
       className={clsx({
-        'p-0': size === 'xs',
-        'p-4': size === 'sm',
-        'p-8': size === 'md',
-        'p-16': size === 'xl',
+        "p-0": size === "xs",
+        "p-4": size === "sm",
+        "p-8": size === "md",
+        "p-16": size === "xl",
       })}
     >
       <div className="flex items-center justify-center">
         <div
-          className={clsx('animate-spin rounded-full border-b-2 border-blue-500', {
-            'h-5 w-5': size === 'xs',
-            'h-8 w-8': size === 'sm',
-            'h-16 w-16': size === 'md',
-            'h-32 w-32': size === 'xl',
-          })}
+          className={clsx(
+            "animate-spin rounded-full border-b-2 border-blue-500",
+            {
+              "h-5 w-5": size === "xs",
+              "h-8 w-8": size === "sm",
+              "h-16 w-16": size === "md",
+              "h-32 w-32": size === "xl",
+            }
+          )}
         ></div>
       </div>
     </div>

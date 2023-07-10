@@ -4,13 +4,16 @@ export function formatShortDate(date: Date) {
 
   const today = new Date();
 
-  const isToday = date.getDate() === today.getDate() &&
+  const isToday =
+    date.getDate() === today.getDate() &&
     date.getMonth() === today.getMonth() &&
     date.getFullYear() === today.getFullYear();
 
   if (isToday) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } else {
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }).toLocaleUpperCase();
+    return date
+      .toLocaleDateString([], { month: "short", day: "numeric" })
+      .toLocaleUpperCase();
   }
 }

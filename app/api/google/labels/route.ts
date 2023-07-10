@@ -17,7 +17,7 @@ async function getLabels(auth: Auth.OAuth2Client) {
 
 export async function GET() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" })
+  if (!session) return NextResponse.json({ error: "Not authenticated" });
   const auth = getClient(session);
 
   const labels = await getLabels(auth);

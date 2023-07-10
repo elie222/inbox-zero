@@ -1,7 +1,7 @@
-import React, { HTMLInputTypeAttribute } from 'react';
-import { FieldError } from 'react-hook-form';
-import clsx from 'clsx';
-import { MinusCircleIcon, PlusCircleIcon } from '@heroicons/react/20/solid';
+import React, { HTMLInputTypeAttribute } from "react";
+import { FieldError } from "react-hook-form";
+import clsx from "clsx";
+import { MinusCircleIcon, PlusCircleIcon } from "@heroicons/react/20/solid";
 
 export interface InputProps {
   name: string;
@@ -26,7 +26,7 @@ export interface InputProps {
 }
 
 export const Input = (props: InputProps) => {
-  const Component = props.as || 'input';
+  const Component = props.as || "input";
 
   const errorMessage = getErrorMessage(props.error?.type, props.error?.message);
 
@@ -45,9 +45,12 @@ export const Input = (props: InputProps) => {
 
   return (
     <div
-      className={clsx(props.condensed && 'mt-6 grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6')}
+      className={clsx(
+        props.condensed &&
+          "mt-6 grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6"
+      )}
     >
-      <div className={clsx(props.condensed && 'sm:col-span-4')}>
+      <div className={clsx(props.condensed && "sm:col-span-4")}>
         {props.labelComponent ? (
           props.labelComponent
         ) : (
@@ -77,10 +80,15 @@ export const Input = (props: InputProps) => {
               />
             )}
 
-            <AddRemoveButtons onClickAdd={props.onClickAdd} onClickRemove={props.onClickRemove} />
+            <AddRemoveButtons
+              onClickAdd={props.onClickAdd}
+              onClickRemove={props.onClickRemove}
+            />
           </div>
 
-          {props.explainText ? <ExplainText>{props.explainText}</ExplainText> : null}
+          {props.explainText ? (
+            <ExplainText>{props.explainText}</ExplainText>
+          ) : null}
           {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
         </div>
       </div>
@@ -88,23 +96,32 @@ export const Input = (props: InputProps) => {
   );
 };
 
-type LabelProps = Pick<InputProps, 'name' | 'label'>;
+type LabelProps = Pick<InputProps, "name" | "label">;
 
 export const Label = (props: LabelProps) => {
   return (
-    <label htmlFor={props.name} className="block text-sm font-medium text-gray-700">
+    <label
+      htmlFor={props.name}
+      className="block text-sm font-medium text-gray-700"
+    >
       {props.label}
     </label>
   );
 };
 
 export const ExplainText = (props: { children: React.ReactNode }) => {
-  return <div className="mt-1 text-sm leading-snug text-gray-400">{props.children}</div>;
+  return (
+    <div className="mt-1 text-sm leading-snug text-gray-400">
+      {props.children}
+    </div>
+  );
 };
 
 export const ErrorMessage = (props: { message: string }) => {
   return (
-    <div className="mt-0.5 text-sm font-semibold leading-snug text-red-400">{props.message}</div>
+    <div className="mt-0.5 text-sm font-semibold leading-snug text-red-400">
+      {props.message}
+    </div>
   );
 };
 
@@ -114,7 +131,11 @@ const InputWithLeftFixedText = (props: {
   condensed?: boolean;
 }) => {
   return (
-    <div className={clsx('flex rounded-md shadow-sm', { 'max-w-lg': props.condensed })}>
+    <div
+      className={clsx("flex rounded-md shadow-sm", {
+        "max-w-lg": props.condensed,
+      })}
+    >
       <span className="inline-flex max-w-[150px] flex-shrink items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:max-w-full sm:text-sm">
         {props.leftText}
       </span>
@@ -133,8 +154,8 @@ const InputWithRightFixedText = (props: {
 }) => {
   return (
     <div
-      className={clsx('flex rounded-md shadow-sm', {
-        'max-w-lg': props.condensed,
+      className={clsx("flex rounded-md shadow-sm", {
+        "max-w-lg": props.condensed,
       })}
     >
       <input
@@ -195,10 +216,13 @@ export function LabelWithRightButton(
   );
 }
 
-function getErrorMessage(errorType?: FieldError['type'], errorMessage?: FieldError['message']) {
-  if (errorType === 'required') return 'This field is required';
-  if (errorType === 'minLength') return 'This field is too short';
-  if (errorType === 'maxLength') return 'This field is too long';
+function getErrorMessage(
+  errorType?: FieldError["type"],
+  errorMessage?: FieldError["message"]
+) {
+  if (errorType === "required") return "This field is required";
+  if (errorType === "minLength") return "This field is too short";
+  if (errorType === "maxLength") return "This field is too long";
 
   return errorMessage;
 }

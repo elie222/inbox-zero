@@ -11,14 +11,18 @@ export const runtime = "edge";
 async function respond(body: RespondBody) {
   const response = await openai.createChatCompletion({
     model: "gpt-4",
-    messages: [{
-      role: 'system',
-      content: 'You are an AI assistant that helps the user respond to their emails. You are friendly, concise, and informal. The user will send you email messages and it is your job to write a response to them.',
-    }, {
-      role: 'user',
-      content: `Please write a response for to this email for me:\n\n###\n\n${body.message}`,
-    }],
-    stream: true
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are an AI assistant that helps the user respond to their emails. You are friendly, concise, and informal. The user will send you email messages and it is your job to write a response to them.",
+      },
+      {
+        role: "user",
+        content: `Please write a response for to this email for me:\n\n###\n\n${body.message}`,
+      },
+    ],
+    stream: true,
   });
   return response;
 }

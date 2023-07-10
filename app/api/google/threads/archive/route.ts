@@ -17,8 +17,8 @@ async function archiveEmail(body: ArchiveBody, auth: Auth.OAuth2Client) {
     id: body.id,
     requestBody: {
       removeLabelIds: ["INBOX"],
-    }
-  })
+    },
+  });
 
   return { thread };
 }
@@ -28,10 +28,10 @@ export const POST = withError(async (request: Request) => {
   const body = archiveBody.parse(json);
 
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" })
+  if (!session) return NextResponse.json({ error: "Not authenticated" });
   const auth = getClient(session);
 
   const thread = await archiveEmail(body, auth);
 
   return NextResponse.json(thread);
-})
+});

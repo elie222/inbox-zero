@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { Fragment } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import clsx from 'clsx';
+import React, { Fragment } from "react";
+import { Dialog, Transition } from "@headlessui/react";
+import clsx from "clsx";
 
 export interface ModalProps {
   children: React.ReactNode;
@@ -10,8 +10,8 @@ export interface ModalProps {
   hideModal: () => void;
   fullWidth?: boolean;
   title?: string;
-  size?: 'xl' | '2xl' | '4xl' | '6xl';
-  padding?: 'sm' | 'none';
+  size?: "xl" | "2xl" | "4xl" | "6xl";
+  padding?: "sm" | "none";
   disableOverflowHidden?: boolean;
 }
 
@@ -52,22 +52,28 @@ export function Modal(props: ModalProps) {
             >
               <Dialog.Panel
                 className={clsx(
-                  'w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all',
+                  "w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all",
                   {
-                    'p-6': props.padding === 'sm',
-                    'p-10': !props.padding,
-                    'sm:w-full sm:max-w-xl':
-                      !props.fullWidth && (!props.size || props.size === 'xl'),
-                    'sm:w-full sm:max-w-2xl': !props.fullWidth && props.size === '2xl',
-                    'sm:w-full sm:max-w-4xl': !props.fullWidth && props.size === '4xl',
-                    'sm:w-full sm:max-w-6xl': !props.fullWidth && props.size === '6xl',
-                    'sm:w-full sm:max-w-full': props.fullWidth,
-                    'overflow-hidden': !props.disableOverflowHidden,
+                    "p-6": props.padding === "sm",
+                    "p-10": !props.padding,
+                    "sm:w-full sm:max-w-xl":
+                      !props.fullWidth && (!props.size || props.size === "xl"),
+                    "sm:w-full sm:max-w-2xl":
+                      !props.fullWidth && props.size === "2xl",
+                    "sm:w-full sm:max-w-4xl":
+                      !props.fullWidth && props.size === "4xl",
+                    "sm:w-full sm:max-w-6xl":
+                      !props.fullWidth && props.size === "6xl",
+                    "sm:w-full sm:max-w-full": props.fullWidth,
+                    "overflow-hidden": !props.disableOverflowHidden,
                   }
                 )}
               >
                 {props.title && (
-                  <Dialog.Title as="h3" className="text-xl font-medium leading-6">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-xl font-medium leading-6"
+                  >
                     {props.title}
                   </Dialog.Title>
                 )}
