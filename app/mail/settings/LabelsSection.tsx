@@ -13,5 +13,5 @@ export const LabelsSection = async () => {
     select: { labels: true },
   });
 
-  return <LabelsSectionForm enabledLabels={user.labels} />;
+  return <LabelsSectionForm dbLabels={user.labels} />;
 };

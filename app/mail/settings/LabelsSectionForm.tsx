@@ -13,12 +13,13 @@ import { Tag } from "@/components/Tag";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
-import { useGmail } from "@/providers/GmailProvider";
+import { GmailLabels, useGmail } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabels } from "@/utils/actions";
 import { recommendedLabels } from "@/utils/label";
 import { PlusSmallIcon } from "@heroicons/react/24/outline";
 import { Label } from "@prisma/client";
 import { useMemo } from "react";
+import { LoadingContent } from "@/components/LoadingContent";
 
 type ToggleKey = `toggle-${string}`;
 type DescriptionKey = `description-${string}`;
@@ -26,22 +27,48 @@ type DescriptionKey = `description-${string}`;
 type Inputs = Record<ToggleKey, boolean | undefined | null> &
   Record<DescriptionKey, string | undefined | null>;
 
-export function LabelsSectionForm(props: { enabledLabels: Label[] }) {
-  const { labels } = useGmail();
+export function LabelsSectionForm(props: { dbLabels: Label[] }) {
+  const { labels, labelsIsLoading } = useGmail();
+
+  return (
+    <LoadingContent loading={labelsIsLoading}>
+      {labels && (
+        <LabelsSectionFormInner
+          gmailLabels={labels}
+          dbLabels={props.dbLabels}
+        />
+      )}
+    </LoadingContent>
+  );
+}
+
+function LabelsSectionFormInner(props: {
+  gmailLabels: GmailLabels;
+  dbLabels: Label[];
+}) {
+  const { gmailLabels, dbLabels } = props;
 
   const userLabels = useMemo(() => {
-    return Object.values(labels || {})
+    return Object.values(gmailLabels || {})
       .filter((l) => l.type !== "system")
       .map((l) => {
-        const dbLabel = props.enabledLabels.find((el) => el.name === l.name);
+        const dbLabel = dbLabels.find((el) => el.gmailLabelId === l.id);
 
         return {
           ...dbLabel,
           ...l,
-          enabled: !!dbLabel,
         };
       });
-  }, [labels, props.enabledLabels]);
+  }, [gmailLabels, dbLabels]);
+
+  const defaultValues = Object.fromEntries(
+    userLabels.flatMap((l) => {
+      return [
+        [`toggle-${l.id}`, l.enabled],
+        [`description-${l.id}`, l.description],
+      ];
+    })
+  );
 
   const {
     register,
@@ -50,21 +77,12 @@ export function LabelsSectionForm(props: { enabledLabels: Label[] }) {
     getValues,
     formState: { errors, isSubmitting },
   } = useForm<Inputs>({
-    defaultValues: {
-      ...Object.fromEntries(
-        userLabels.flatMap((l) => {
-          return [
-            [`toggle-${l.id}`, l.enabled],
-            [`description-${l.id}`, l.description],
-          ];
-        })
-      ),
-    },
+    defaultValues,
   });
 
   const recommendedLabelsToCreate = recommendedLabels.filter(
     (label) =>
-      !Object.values(labels || {})
+      !Object.values(gmailLabels || {})
         .map((l) => l.name.toLowerCase())
         .find((l) => l.indexOf(label.toLowerCase()) > -1)
   );
@@ -91,7 +109,6 @@ export function LabelsSectionForm(props: { enabledLabels: Label[] }) {
                   const description = formData.get(
                     `description-${l.id}`
                   ) as string;
-                  console.log(l.id, "t", toggle, description);
 
                   return {
                     ...l,
