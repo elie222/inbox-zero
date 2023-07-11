@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import clsx from "clsx";
 import {
   CalendarIcon,
   Cog6ToothIcon,
@@ -10,7 +11,10 @@ import {
   UsersIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import clsx from "clsx";
+import {
+  PromptHistoryMobile,
+  PromptHistoryDesktop,
+} from "@/components/PromptHistory";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon, current: true },
@@ -19,17 +23,6 @@ const navigation = [
   { name: "Requires response", href: "#", icon: CalendarIcon, current: false },
   // { name: "Documents", href: "#", icon: DocumentDuplicateIcon, current: false },
   // { name: "Reports", href: "#", icon: ChartPieIcon, current: false },
-];
-const promptHistory = [
-  {
-    id: 1,
-    name: "Find calendar invites",
-    href: "#",
-    initial: "H",
-    current: false,
-  },
-  { id: 2, name: "Messages to James", href: "#", initial: "T", current: false },
-  { id: 3, name: "Support emails", href: "#", initial: "W", current: false },
 ];
 
 export function SideNav(props: {
@@ -40,14 +33,6 @@ export function SideNav(props: {
 }) {
   return (
     <>
-      {/*
-        This example requires updating your template:
-
-        ```
-        <html class="h-full bg-white">
-        <body class="h-full">
-        ```
-      */}
       <div>
         <Transition.Root show={props.sidebarOpen} as={Fragment}>
           <Dialog
@@ -108,7 +93,7 @@ export function SideNav(props: {
                       <img
                         className="h-8 w-auto"
                         src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
-                        alt="Your Company"
+                        alt="Inbox Zero"
                       />
                     </div>
                     <nav className="flex flex-1 flex-col">
@@ -136,31 +121,7 @@ export function SideNav(props: {
                             ))}
                           </ul>
                         </li>
-                        <li>
-                          <div className="text-xs font-semibold leading-6 text-gray-400">
-                            Prompt history
-                          </div>
-                          <ul role="list" className="-mx-2 mt-2 space-y-1">
-                            {promptHistory.map((team) => (
-                              <li key={team.name}>
-                                <a
-                                  href={team.href}
-                                  className={clsx(
-                                    team.current
-                                      ? "bg-gray-800 text-white"
-                                      : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                                    "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6"
-                                  )}
-                                >
-                                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">
-                                    {team.initial}
-                                  </span>
-                                  <span className="truncate">{team.name}</span>
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </li>
+                        <PromptHistoryMobile />
                         <li className="mt-auto">
                           <a
                             href="/mail/settings"
@@ -219,31 +180,7 @@ export function SideNav(props: {
                     ))}
                   </ul>
                 </li>
-                <li>
-                  <div className="text-xs font-semibold leading-6 text-gray-400">
-                    Prompt history
-                  </div>
-                  <ul role="list" className="-mx-2 mt-2 space-y-1">
-                    {promptHistory.map((team) => (
-                      <li key={team.name}>
-                        <a
-                          href={team.href}
-                          className={clsx(
-                            team.current
-                              ? "bg-gray-800 text-white"
-                              : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                            "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6"
-                          )}
-                        >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">
-                            {team.initial}
-                          </span>
-                          <span className="truncate">{team.name}</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
+                <PromptHistoryDesktop />
                 <li className="mt-auto">
                   <a
                     href="/mail/settings"

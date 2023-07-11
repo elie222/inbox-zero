@@ -108,12 +108,7 @@ export async function updateLabels(
   const userId = session.user.id;
 
   const enabledLabels = labels.filter((label) => label.enabled);
-  console.log(
-    "🚀 ~ file: actions.ts:109 ~ updateLabels ~ enabledLabels:",
-    enabledLabels
-  );
   const disabledLabels = labels.filter((label) => !label.enabled);
-  // console.log("🚀 ~ file: actions.ts:111 ~ updateLabels ~ disabledLabels:", disabledLabels)
 
   await prisma.$transaction([
     ...enabledLabels.map((label) => {
