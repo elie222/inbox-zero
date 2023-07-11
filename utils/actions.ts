@@ -14,6 +14,7 @@ import { labelThread } from "@/app/api/google/threads/label/route";
 import prisma from "@/utils/prisma";
 import { getSession } from "@/utils/auth";
 import { z } from "zod";
+import { Label } from "@prisma/client";
 
 export async function createFilterFromPrompt(body: PromptQuery) {
   const response = await openai.createChatCompletion({
@@ -96,4 +97,49 @@ export async function deleteAccountAction() {
   await prisma.user.delete({
     where: { email: session.user.email },
   });
+}
+
+export async function updateLabels(
+  labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[]
+) {
+  const session = await getSession();
+  if (!session?.user) throw new Error("Not logged in");
+
+  const userId = session.user.id;
+
+  const enabledLabels = labels.filter((label) => label.enabled);
+  console.log(
+    "🚀 ~ file: actions.ts:109 ~ updateLabels ~ enabledLabels:",
+    enabledLabels
+  );
+  const disabledLabels = labels.filter((label) => !label.enabled);
+  // console.log("🚀 ~ file: actions.ts:111 ~ updateLabels ~ disabledLabels:", disabledLabels)
+
+  await prisma.$transaction([
+    ...enabledLabels.map((label) => {
+      const { name, description, enabled, gmailLabelId } = label;
+
+      return prisma.label.upsert({
+        where: { name_userId: { name, userId } },
+        create: {
+          gmailLabelId,
+          name,
+          description,
+          enabled,
+          user: { connect: { id: userId } },
+        },
+        update: {
+          name,
+          description,
+          enabled,
+        },
+      });
+    }),
+    prisma.label.deleteMany({
+      where: {
+        userId,
+        name: { in: disabledLabels.map((label) => label.name) },
+      },
+    }),
+  ]);
 }

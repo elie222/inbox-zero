@@ -1,18 +1,66 @@
 "use client";
 
-import { PlusSmallIcon } from "@heroicons/react/24/outline";
-import { useGmail } from "@/providers/GmailProvider";
-import { Tag } from "@/components/Tag";
 import { capitalCase } from "capital-case";
-import { SectionDescription, SectionHeader } from "@/components/Typography";
-import { recommendedLabels } from "@/utils/label";
-import { createLabelAction } from "@/utils/actions";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/Button";
+import {
+  FormSection,
+  FormSectionLeft,
+  SubmitButtonWrapper,
+} from "@/components/Form";
+import { Input } from "@/components/Input";
+import { Tag } from "@/components/Tag";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { FormSection, FormSectionLeft } from "@/components/Form";
+import { Toggle } from "@/components/Toggle";
+import { SectionDescription, SectionHeader } from "@/components/Typography";
+import { useGmail } from "@/providers/GmailProvider";
+import { createLabelAction, updateLabels } from "@/utils/actions";
+import { recommendedLabels } from "@/utils/label";
+import { PlusSmallIcon } from "@heroicons/react/24/outline";
 import { Label } from "@prisma/client";
+import { useMemo } from "react";
 
-export function LabelsSectionForm(props: { labels: Label[] }) {
+type ToggleKey = `toggle-${string}`;
+type DescriptionKey = `description-${string}`;
+
+type Inputs = Record<ToggleKey, boolean | undefined | null> &
+  Record<DescriptionKey, string | undefined | null>;
+
+export function LabelsSectionForm(props: { enabledLabels: Label[] }) {
   const { labels } = useGmail();
+
+  const userLabels = useMemo(() => {
+    return Object.values(labels || {})
+      .filter((l) => l.type !== "system")
+      .map((l) => {
+        const dbLabel = props.enabledLabels.find((el) => el.name === l.name);
+
+        return {
+          ...dbLabel,
+          ...l,
+          enabled: !!dbLabel,
+        };
+      });
+  }, [labels, props.enabledLabels]);
+
+  const {
+    register,
+    watch,
+    setValue,
+    getValues,
+    formState: { errors, isSubmitting },
+  } = useForm<Inputs>({
+    defaultValues: {
+      ...Object.fromEntries(
+        userLabels.flatMap((l) => {
+          return [
+            [`toggle-${l.id}`, l.enabled],
+            [`description-${l.id}`, l.description],
+          ];
+        })
+      ),
+    },
+  });
 
   const recommendedLabelsToCreate = recommendedLabels.filter(
     (label) =>
@@ -30,21 +78,118 @@ export function LabelsSectionForm(props: { labels: Label[] }) {
 
       <div className="flex items-start md:col-span-2">
         <div className="w-full">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-            {Object.values(labels || {}).map((label) => (
-              <Tag key={label.name} customColors={label.color}>
-                {label?.type === "system"
-                  ? capitalCase(label.name)
-                  : label.name}
-              </Tag>
-            ))}
+          <SectionHeader>Your Labels</SectionHeader>
+          <SectionDescription>
+            Labels to label your emails with. You can add a description to help
+            the AI decide how to use them. Visit Gmail to add more labels.
+          </SectionDescription>
+          <div className="mt-2">
+            <form
+              action={async (formData: FormData) => {
+                const formLabels = userLabels.map((l) => {
+                  const toggle = getValues(`toggle-${l.id}`);
+                  const description = formData.get(
+                    `description-${l.id}`
+                  ) as string;
+                  console.log(l.id, "t", toggle, description);
+
+                  return {
+                    ...l,
+                    enabled: !!toggle,
+                    description,
+                    gmailLabelId: l.id,
+                  };
+                });
+
+                try {
+                  await updateLabels(formLabels);
+                  toastSuccess({ description: "Updated labels!" });
+                } catch (error) {
+                  console.error(error);
+                  toastError({
+                    description: "There was an error updating your labels.",
+                  });
+                }
+              }}
+            >
+              <div className="space-y-2">
+                {userLabels.map((label) => (
+                  <div
+                    key={label.name}
+                    className="grid grid-cols-4 items-center gap-x-4 gap-y-6"
+                  >
+                    <div className="">
+                      <Tag color="white" customColors={label.color}>
+                        {label?.type === "system"
+                          ? capitalCase(label.name)
+                          : label.name}
+                      </Tag>
+                    </div>
+
+                    <div className="col-span-3 flex items-center space-x-2">
+                      <Toggle
+                        name={`toggle-${label.id}`}
+                        enabled={!!watch(`toggle-${label.id}`)}
+                        onChange={(value) =>
+                          setValue(`toggle-${label.id}`, value)
+                        }
+                        error={errors[`toggle-${label.id}`]}
+                      />
+
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          as="textarea"
+                          rows={2}
+                          name={`description-${label.id}`}
+                          label=""
+                          registerProps={register(`description-${label.id}`)}
+                          error={errors[`description-${label.id}`]}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <SubmitButtonWrapper>
+                <Button
+                  type="submit"
+                  size="sm"
+                  color="black"
+                  loading={isSubmitting}
+                >
+                  Save
+                </Button>
+              </SubmitButtonWrapper>
+            </form>
           </div>
+
+          {/* <>
+            <SectionHeader>Your Gmail Labels</SectionHeader>
+            <SectionDescription>
+              These are all your existing labels.
+            </SectionDescription>
+
+            <div className="mt-2">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {Object.values(labels || {}).map((label) => (
+                  <Tag key={label.name} customColors={label.color}>
+                    {label?.type === "system"
+                      ? capitalCase(label.name)
+                      : label.name}
+                  </Tag>
+                ))}
+              </div>
+            </div>
+          </> */}
 
           {!!recommendedLabelsToCreate.length && (
             <div className="mt-8">
               <SectionHeader>Suggested Labels</SectionHeader>
               <SectionDescription>
-                Labels we suggest adding to organise your emails.
+                Labels we suggest adding to organise your emails. Click a label
+                to add it.
               </SectionDescription>
               <div className="mt-2">
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-3">

@@ -9,6 +9,7 @@ import {
   FormSection,
   FormSectionLeft,
   FormSectionRight,
+  SubmitButtonWrapper,
 } from "@/components/Form";
 
 export const AboutSectionForm = async (props: { about?: string }) => {
@@ -35,7 +36,7 @@ Some rules to follow:
         try {
           const about = formData.get("about") as string;
           await saveAboutAction({ about });
-          toastSuccess({ description: "Updated!" });
+          toastSuccess({ description: "Updated profile!" });
         } catch (error) {
           console.error(error);
           toastError({
@@ -63,7 +64,7 @@ Some rules to follow:
               />
             </div>
           </FormSectionRight>
-          <div className="mt-8 flex">
+          <SubmitButtonWrapper>
             <Button
               type="submit"
               size="sm"
@@ -72,7 +73,7 @@ Some rules to follow:
             >
               Save
             </Button>
-          </div>
+          </SubmitButtonWrapper>
         </div>
       </FormSection>
     </form>
