@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import useSWR from "swr";
 import clsx from "clsx";
 import {
   CalendarIcon,
@@ -15,6 +16,8 @@ import {
   PromptHistoryMobile,
   PromptHistoryDesktop,
 } from "@/components/PromptHistory";
+import { PromptHistoryResponse } from "@/app/api/prompt-history/route";
+import { LoadingContent } from "@/components/LoadingContent";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon, current: true },
@@ -31,6 +34,10 @@ export function SideNav(props: {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 }) {
+  const { data, isLoading, error } = useSWR<PromptHistoryResponse>(
+    "/api/prompt-history"
+  );
+
   return (
     <>
       <div>
@@ -121,7 +128,11 @@ export function SideNav(props: {
                             ))}
                           </ul>
                         </li>
-                        <PromptHistoryMobile />
+                        <LoadingContent loading={isLoading} error={error}>
+                          {data && (
+                            <PromptHistoryMobile history={data.history} />
+                          )}
+                        </LoadingContent>
                         <li className="mt-auto">
                           <a
                             href="/mail/settings"
@@ -180,7 +191,9 @@ export function SideNav(props: {
                     ))}
                   </ul>
                 </li>
-                <PromptHistoryDesktop />
+                <LoadingContent loading={isLoading} error={error}>
+                  {data && <PromptHistoryDesktop history={data.history} />}
+                </LoadingContent>
                 <li className="mt-auto">
                   <a
                     href="/mail/settings"
