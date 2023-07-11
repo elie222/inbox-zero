@@ -78,6 +78,7 @@ CREATE TABLE "Label" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "gmailLabelId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
@@ -106,6 +107,9 @@ CREATE UNIQUE INDEX "PromptHistory_userId_key" ON "PromptHistory"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PromptFavorite_userId_key" ON "PromptFavorite"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Label_gmailLabelId_userId_key" ON "Label"("gmailLabelId", "userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Label_name_userId_key" ON "Label"("name", "userId");
