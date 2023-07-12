@@ -16,6 +16,7 @@ import prisma from "@/utils/prisma";
 import { getSession } from "@/utils/auth";
 import { Label } from "@prisma/client";
 import { deletePromptHistory } from "@/app/api/prompt-history/route";
+import { archiveEmail } from "@/app/api/google/threads/archive/route";
 
 export async function createFilterFromPrompt(body: PromptQuery) {
   const session = await getSession();
@@ -159,4 +160,8 @@ export async function deletePromptHistoryAction(options: { id: string }) {
   if (!session) throw new Error("Not logged in");
 
   return deletePromptHistory({ id: options.id, userId: session.user.id });
+}
+
+export async function archiveAction(options: { threadId: string }) {
+  return await archiveEmail({ id: options.threadId });
 }

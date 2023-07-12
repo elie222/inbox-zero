@@ -9,7 +9,11 @@ const archiveBody = z.object({ id: z.string() });
 export type ArchiveBody = z.infer<typeof archiveBody>;
 export type ArchiveResponse = Awaited<ReturnType<typeof archiveEmail>>;
 
-async function archiveEmail(body: ArchiveBody, auth: Auth.OAuth2Client) {
+export async function archiveEmail(body: ArchiveBody) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authenticated");
+  const auth = getClient(session);
+
   const gmail = google.gmail({ version: "v1", auth });
 
   const thread = await gmail.users.threads.modify({
@@ -27,11 +31,7 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = archiveBody.parse(json);
 
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
-  const auth = getClient(session);
-
-  const thread = await archiveEmail(body, auth);
+  const thread = await archiveEmail(body);
 
   return NextResponse.json(thread);
 });

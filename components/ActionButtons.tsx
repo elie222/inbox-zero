@@ -6,6 +6,12 @@ import {
   TagIcon,
 } from "@heroicons/react/24/outline";
 import { ButtonGroup } from "@/components/ButtonGroup";
+import { LoadingMiniSpinner } from "@/components/Loading";
+import { postRequest } from "@/utils/api";
+import {
+  ArchiveBody,
+  ArchiveResponse,
+} from "@/app/api/google/threads/archive/route";
 
 export function ActionButtons(props: { threadId: string }) {
   const buttons = useMemo(
@@ -40,8 +46,15 @@ export function ActionButtons(props: { threadId: string }) {
       },
       {
         tooltip: "Archive",
-        onClick: () => {},
-        icon: (
+        onClick: () =>
+          // couldn't get server actions to work here
+          postRequest<ArchiveResponse, ArchiveBody>(
+            "/api/google/threads/archive",
+            { id: props.threadId }
+          ),
+        icon: false ? (
+          <LoadingMiniSpinner />
+        ) : (
           <ArchiveBoxArrowDownIcon
             className="h-5 w-5 text-gray-700"
             aria-hidden="true"
