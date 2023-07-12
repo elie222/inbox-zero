@@ -11,6 +11,9 @@ async function getPromptHistory(options: { userId: string }) {
     where: {
       userId: options.userId,
     },
+    orderBy: {
+      createdAt: "desc",
+    },
   });
   return { history };
 }

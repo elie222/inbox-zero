@@ -103,12 +103,6 @@ CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token"
 CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PromptHistory_userId_key" ON "PromptHistory"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "PromptFavorite_userId_key" ON "PromptFavorite"("userId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Label_gmailLabelId_userId_key" ON "Label"("gmailLabelId", "userId");
 
 -- CreateIndex

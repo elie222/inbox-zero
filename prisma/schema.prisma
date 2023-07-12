@@ -73,7 +73,7 @@ model PromptHistory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   prompt    String
-  userId    String   @unique
+  userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -82,7 +82,7 @@ model PromptFavorite {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   prompt    String
-  userId    String   @unique
+  userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

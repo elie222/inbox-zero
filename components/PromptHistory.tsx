@@ -13,7 +13,7 @@ export function PromptHistory(props: {
   history: PromptHistoryItem[];
   refetch: () => void;
 }) {
-  if (!props.history.length) return null;
+  if (!props.history?.length) return null;
 
   return (
     <li>

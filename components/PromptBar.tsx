@@ -1,9 +1,10 @@
+import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useSWRConfig } from "swr";
+import { SparklesIcon } from "@heroicons/react/20/solid";
 import { useGmail } from "@/providers/GmailProvider";
 import { usePromptContext } from "@/providers/PromptProvider";
 import { createFilterFromPrompt } from "@/utils/actions";
-import { SparklesIcon } from "@heroicons/react/20/solid";
-import { useRef } from "react";
 
 export function PromptBar(props: {}) {
   const { setPrompt, setFunction } = usePromptContext();
@@ -13,6 +14,8 @@ export function PromptBar(props: {}) {
   useHotkeys("meta+k", () => {
     inputRef.current?.focus();
   });
+
+  const { mutate } = useSWRConfig();
 
   return (
     <form
@@ -36,6 +39,8 @@ export function PromptBar(props: {}) {
           console.log("no filter");
           console.log(JSON.stringify(res, null, 2));
         }
+
+        mutate("/api/prompt-history");
       }}
     >
       <label htmlFor="prompt-field" className="sr-only">
