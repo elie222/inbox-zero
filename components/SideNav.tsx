@@ -12,10 +12,7 @@ import {
   UsersIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import {
-  PromptHistoryMobile,
-  PromptHistoryDesktop,
-} from "@/components/PromptHistory";
+import { PromptHistory } from "@/components/PromptHistory";
 import { PromptHistoryResponse } from "@/app/api/prompt-history/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
@@ -34,7 +31,7 @@ export function SideNav(props: {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 }) {
-  const { data, isLoading, error } = useSWR<PromptHistoryResponse>(
+  const { data, isLoading, error, mutate } = useSWR<PromptHistoryResponse>(
     "/api/prompt-history"
   );
 
@@ -130,7 +127,10 @@ export function SideNav(props: {
                         </li>
                         <LoadingContent loading={isLoading} error={error}>
                           {data && (
-                            <PromptHistoryMobile history={data.history} />
+                            <PromptHistory
+                              history={data.history}
+                              refetch={mutate}
+                            />
                           )}
                         </LoadingContent>
                         <li className="mt-auto">
@@ -192,7 +192,9 @@ export function SideNav(props: {
                   </ul>
                 </li>
                 <LoadingContent loading={isLoading} error={error}>
-                  {data && <PromptHistoryDesktop history={data.history} />}
+                  {data && (
+                    <PromptHistory history={data.history} refetch={mutate} />
+                  )}
                 </LoadingContent>
                 <li className="mt-auto">
                   <a

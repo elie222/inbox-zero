@@ -1,23 +1,27 @@
 "use server";
 
 import { openai } from "@/app/api/ai/openai";
+import { z } from "zod";
 import { filterFunctions } from "@/utils/filters";
+import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import {
   ChatCompletionError,
   ChatCompletionResponse,
   isChatCompletionError,
 } from "@/utils/types";
 import { type PromptQuery } from "@/app/api/ai/prompt/route";
-import { ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { createLabel } from "@/app/api/google/labels/create/route";
 import { labelThread } from "@/app/api/google/threads/label/route";
 import prisma from "@/utils/prisma";
 import { getSession } from "@/utils/auth";
-import { z } from "zod";
 import { Label } from "@prisma/client";
+import { deletePromptHistory } from "@/app/api/prompt-history/route";
 
 export async function createFilterFromPrompt(body: PromptQuery) {
-  const response = await openai.createChatCompletion({
+  const session = await getSession();
+  if (!session?.user) throw new Error("Not logged in");
+
+  const responsePromise = openai.createChatCompletion({
     model: "gpt-4",
     messages: [
       {
@@ -35,8 +39,17 @@ export async function createFilterFromPrompt(body: PromptQuery) {
     function_call: "auto",
   });
 
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await response.json();
+  // save history in parallel to chat completion
+  const promptHistoryPromise = prisma.promptHistory.create({
+    data: {
+      userId: session.user.id,
+      prompt: body.message,
+    },
+  });
+
+  const json: ChatCompletionResponse | ChatCompletionError = await (
+    await responsePromise
+  ).json();
 
   if (isChatCompletionError(json)) {
     console.error(json);
@@ -51,6 +64,8 @@ export async function createFilterFromPrompt(body: PromptQuery) {
   if (!filter) {
     console.log("Unable to create filter:", JSON.stringify(json, null, 2));
   }
+
+  await promptHistoryPromise;
 
   return { filter };
 }
@@ -137,4 +152,11 @@ export async function updateLabels(
       },
     }),
   ]);
+}
+
+export async function deletePromptHistoryAction(options: { id: string }) {
+  const session = await getSession();
+  if (!session) throw new Error("Not logged in");
+
+  return deletePromptHistory({ id: options.id, userId: session.user.id });
 }

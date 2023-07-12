@@ -23,3 +23,21 @@ export async function GET() {
 
   return NextResponse.json(history);
 }
+
+export async function deletePromptHistory(options: {
+  id: string;
+  userId: string;
+}) {
+  const { id, userId } = options;
+
+  return await prisma.promptHistory.delete({ where: { id, userId } });
+}
+
+export async function DELETE(_request: Request, params: { id: string }) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Not authenticated" });
+
+  await deletePromptHistory({ id: params.id, userId: session.user.id });
+
+  return NextResponse.json({ success: true });
+}
