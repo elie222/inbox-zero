@@ -77,7 +77,7 @@ async function plan(body: PlanBody) {
   // TODO secure this endpoint so people can't just ask for any id (and see the response from gpt)
 
   // check cache
-  // const data = await getPlan({ threadId: body.id })
+  // const data = await getPlan({ email: session.user.email, threadId: body.id })
   // if (data) return { plan: data };
 
   let json = await calculatePlan(body.message);
@@ -95,7 +95,11 @@ async function plan(body: PlanBody) {
   const planJson = planSchema.parse(JSON.parse(planString));
 
   // cache result
-  await savePlan({ threadId: body.id, plan: planJson });
+  await savePlan({
+    email: session.user.email,
+    threadId: body.id,
+    plan: planJson,
+  });
 
   await saveUsage({
     email: session.user.email,

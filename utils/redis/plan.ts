@@ -14,13 +14,20 @@ function getPlanKey(threadId: string) {
   return `plan:${threadId}`;
 }
 
-export async function getPlan(options: { threadId: string }) {
+export async function getPlan(options: { email: string; threadId: string }) {
   const key = getPlanKey(options.threadId);
-  const data = await redis.get<Plan>(key);
-  return data;
+  return redis.hget<Plan>(options.email, key);
 }
 
-export async function savePlan(options: { threadId: string; plan: Plan }) {
+export async function savePlan(options: {
+  email: string;
+  threadId: string;
+  plan: Plan;
+}) {
   const key = getPlanKey(options.threadId);
-  return await redis.set(key, options.plan);
+  return redis.hset(options.email, { [key]: options.plan });
+}
+
+export async function deletePlans(options: { email: string }) {
+  return redis.del(options.email);
 }

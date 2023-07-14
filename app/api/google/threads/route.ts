@@ -1,5 +1,5 @@
 // import { z } from "zod";
-import { google, Auth } from "googleapis";
+import { google } from "googleapis";
 import he from "he";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
@@ -11,7 +11,11 @@ import { getPlan } from "@/utils/redis/plan";
 // export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
-async function getThreads(auth: Auth.OAuth2Client) {
+async function getThreads() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const auth = getClient(session);
+
   const gmail = google.gmail({ version: "v1", auth });
   const res = await gmail.users.threads.list({
     userId: "me",
@@ -35,7 +39,7 @@ async function getThreads(auth: Auth.OAuth2Client) {
         ...t,
         snippet: he.decode(t.snippet || ""),
         thread: { ...thread.data, messages },
-        plan: await getPlan({ threadId: id }),
+        plan: await getPlan({ email: session.user.email, threadId: id }),
         // plan: undefined,
       };
     }) || []
@@ -45,11 +49,7 @@ async function getThreads(auth: Auth.OAuth2Client) {
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
-  const auth = getClient(session);
-
-  const threads = await getThreads(auth);
+  const threads = await getThreads();
 
   return NextResponse.json(threads);
 }
