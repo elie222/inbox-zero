@@ -13,7 +13,7 @@ export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
 async function getThreads() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  if (!session) throw new Error("Not authenticated");
   const auth = getClient(session);
 
   const gmail = google.gmail({ version: "v1", auth });
@@ -49,7 +49,10 @@ async function getThreads() {
 }
 
 export async function GET() {
-  const threads = await getThreads();
-
-  return NextResponse.json(threads);
+  try {
+    const threads = await getThreads();
+    return NextResponse.json(threads);
+  } catch (error) {
+    return NextResponse.json({ error: "Error" });
+  }
 }
