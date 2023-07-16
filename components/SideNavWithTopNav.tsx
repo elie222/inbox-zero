@@ -20,6 +20,7 @@ export function SideNavWithTopNav(props: { children: React.ReactNode }) {
         closeButton
         richColors
         theme="light"
+        visibleToasts={9}
       />
       {props.children}
     </SideNav>
