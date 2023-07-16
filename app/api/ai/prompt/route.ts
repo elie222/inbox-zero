@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
-import { createFilterFromPrompt } from "@/utils/actions";
-import { z } from "zod";
-
-export const promptQuery = z.object({
-  message: z.string(),
-  labels: z.string().array(),
-});
-export type PromptQuery = z.infer<typeof promptQuery>;
-export type PromptResponse = Awaited<ReturnType<typeof prompt>>;
-
-export const runtime = "edge";
+import {
+  createFilterFromPrompt,
+  promptQuery,
+} from "@/app/api/ai/prompt/controller";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

@@ -12,7 +12,7 @@ import {
   SubmitButtonWrapper,
 } from "@/components/Form";
 
-export const AboutSectionForm = async (props: { about?: string }) => {
+export const AboutSectionForm = (props: { about?: string }) => {
   const {
     register,
     formState: { errors, isSubmitting },

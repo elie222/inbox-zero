@@ -4,7 +4,7 @@ import { useSWRConfig } from "swr";
 import { SparklesIcon } from "@heroicons/react/20/solid";
 import { useGmail } from "@/providers/GmailProvider";
 import { usePromptContext } from "@/providers/PromptProvider";
-import { createFilterFromPrompt } from "@/utils/actions";
+import { createFilterFromPrompt } from "@/app/api/ai/prompt/controller";
 
 export function PromptBar(props: {}) {
   const { setPrompt, setFunction } = usePromptContext();

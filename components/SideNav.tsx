@@ -13,7 +13,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { PromptHistory } from "@/components/PromptHistory";
-import { PromptHistoryResponse } from "@/app/api/prompt-history/route";
+import { PromptHistoryResponse } from "@/app/api/prompt-history/controller";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Logo } from "@/components/Logo";
 

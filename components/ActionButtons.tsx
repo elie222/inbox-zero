@@ -11,7 +11,7 @@ import { postRequest } from "@/utils/api";
 import {
   ArchiveBody,
   ArchiveResponse,
-} from "@/app/api/google/threads/archive/route";
+} from "@/app/api/google/threads/archive/controller";
 
 export function ActionButtons(props: { threadId: string }) {
   const buttons = useMemo(

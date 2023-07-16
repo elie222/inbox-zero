@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/utils/auth";
-import prisma from "@/utils/prisma";
-
-export type PromptHistoryResponse = Awaited<
-  ReturnType<typeof getPromptHistory>
->;
-
-async function getPromptHistory(options: { userId: string }) {
-  const history = await prisma.promptHistory.findMany({
-    where: {
-      userId: options.userId,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-  return { history };
-}
+import {
+  deletePromptHistory,
+  getPromptHistory,
+} from "@/app/api/prompt-history/controller";
 
 export async function GET() {
   const session = await getSession();
@@ -25,15 +12,6 @@ export async function GET() {
   const history = await getPromptHistory({ userId: session.user.id });
 
   return NextResponse.json(history);
-}
-
-export async function deletePromptHistory(options: {
-  id: string;
-  userId: string;
-}) {
-  const { id, userId } = options;
-
-  return await prisma.promptHistory.delete({ where: { id, userId } });
 }
 
 export async function DELETE(_request: Request, params: { id: string }) {

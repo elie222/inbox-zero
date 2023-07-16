@@ -14,7 +14,7 @@ import {
 import {
   ArchiveResponse,
   ArchiveBody,
-} from "@/app/api/google/threads/archive/route";
+} from "@/app/api/google/threads/archive/controller";
 import { postRequest } from "@/utils/api";
 
 export function CommandDialogDemo(props: { selected?: string }) {

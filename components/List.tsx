@@ -14,7 +14,7 @@ import { useNotification } from "@/providers/NotificationProvider";
 import {
   ArchiveBody,
   ArchiveResponse,
-} from "@/app/api/google/threads/archive/route";
+} from "@/app/api/google/threads/archive/controller";
 import { Tag } from "@/components/Tag";
 import { Linkify } from "@/components/Linkify";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
