@@ -15,6 +15,7 @@ import {
 import { PromptHistory } from "@/components/PromptHistory";
 import { PromptHistoryResponse } from "@/app/api/prompt-history/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Logo } from "@/components/Logo";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon, current: true },
@@ -92,13 +93,8 @@ export function SideNav(props: {
                   </Transition.Child>
                   {/* Sidebar component, swap this element with another sidebar if you like */}
                   <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring-1 ring-white/10">
-                    <div className="flex h-16 shrink-0 items-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        className="h-8 w-auto"
-                        src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
-                        alt="Inbox Zero"
-                      />
+                    <div className="flex h-16 shrink-0 items-center text-white">
+                      <Logo className="h-4" />
                     </div>
                     <nav className="flex flex-1 flex-col">
                       <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -158,13 +154,8 @@ export function SideNav(props: {
         <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
           {/* Sidebar component, swap this element with another sidebar if you like */}
           <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
-            <div className="flex h-16 shrink-0 items-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className="h-8 w-auto"
-                src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
-                alt="Your Company"
-              />
+            <div className="flex h-16 shrink-0 items-center text-white">
+              <Logo className="h-4" />
             </div>
             <nav className="flex flex-1 flex-col">
               <ul role="list" className="flex flex-1 flex-col gap-y-7">
