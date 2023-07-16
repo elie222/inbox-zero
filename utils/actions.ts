@@ -10,7 +10,7 @@ import { labelThread } from "@/app/api/google/threads/label/controller";
 import { deletePromptHistory } from "@/app/api/prompt-history/controller";
 import { getSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
-import { Label } from "@prisma/client";
+import { type Label } from "@prisma/client";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);

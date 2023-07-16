@@ -1,7 +1,8 @@
 "use client";
 
-import { capitalCase } from "capital-case";
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { capitalCase } from "capital-case";
 import { Button } from "@/components/Button";
 import {
   FormSection,
@@ -9,6 +10,7 @@ import {
   SubmitButtonWrapper,
 } from "@/components/Form";
 import { Input } from "@/components/Input";
+import { LoadingContent } from "@/components/LoadingContent";
 import { Tag } from "@/components/Tag";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
@@ -17,9 +19,7 @@ import { GmailLabels, useGmail } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabels } from "@/utils/actions";
 import { recommendedLabels } from "@/utils/label";
 import { PlusSmallIcon } from "@heroicons/react/24/outline";
-import { Label } from "@prisma/client";
-import { useMemo } from "react";
-import { LoadingContent } from "@/components/LoadingContent";
+import { type Label } from "@prisma/client";
 
 type ToggleKey = `toggle-${string}`;
 type DescriptionKey = `description-${string}`;
