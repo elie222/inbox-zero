@@ -1,6 +1,13 @@
-import { useCallback, useMemo } from "react";
+import {
+  MouseEventHandler,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import clsx from "clsx";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Badge, Color } from "@/components/Badge";
@@ -19,6 +26,8 @@ import { ActionButtons } from "@/components/ActionButtons";
 import { labelThreadsAction } from "@/utils/actions";
 import { useGmail } from "@/providers/GmailProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { CommandDialogDemo } from "@/components/CommandDemo";
+import { SlideOverSheet } from "@/components/SlideOverSheet";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -38,66 +47,102 @@ export function List(props: {
     );
   }, [emails, filter, filterArgs]);
 
-  const { labels } = useGmail();
+  const { labelsArray } = useGmail();
   const label = useMemo(() => {
-    return Object.values(labels || {})?.find(
-      (label) => label.name === props.filterArgs?.label
-    );
-  }, [labels, props.filterArgs?.label]);
+    return labelsArray.find((label) => label.name === props.filterArgs?.label);
+  }, [labelsArray, props.filterArgs?.label]);
 
   return (
     <div>
-      {!!(props.prompt || props.filter) && (
-        <div className="border-b border-gray-200 py-4">
-          <GroupHeading
-            text={props.prompt || ""}
-            buttons={
-              label
-                ? [
-                    {
-                      label: "Label All",
-                      onClick: async () => {
-                        try {
-                          await labelThreadsAction({
-                            labelId: label?.id!,
-                            threadIds: filteredEmails.map((email) => email.id!),
-                            archive: false,
-                          });
-                          toastSuccess({
-                            description: `Labeled emails "${label.name}".`,
-                          });
-                        } catch (error) {
-                          toastError({
-                            description: `There was an error labeling emails "${label.name}".`,
-                          });
-                        }
-                      },
+      <div className="border-b border-gray-200 py-4">
+        <GroupHeading
+          text={props.prompt || ""}
+          buttons={
+            label
+              ? [
+                  {
+                    label: "Label All",
+                    onClick: async () => {
+                      try {
+                        await labelThreadsAction({
+                          labelId: label?.id!,
+                          threadIds: filteredEmails.map((email) => email.id!),
+                          archive: false,
+                        });
+                        toastSuccess({
+                          description: `Labeled emails "${label.name}".`,
+                        });
+                      } catch (error) {
+                        toastError({
+                          description: `There was an error labeling emails "${label.name}".`,
+                        });
+                      }
                     },
-                    {
-                      label: "Label + Archive All",
-                      onClick: async () => {
-                        try {
-                          await labelThreadsAction({
-                            labelId: label?.id!,
-                            threadIds: filteredEmails.map((email) => email.id!),
-                            archive: true,
-                          });
-                          toastSuccess({
-                            description: `Labeled and archived emails "${label.name}".`,
-                          });
-                        } catch (error) {
-                          toastError({
-                            description: `There was an error labeling and archiving emails "${label.name}".`,
-                          });
-                        }
-                      },
+                  },
+                  {
+                    label: "Label + Archive All",
+                    onClick: async () => {
+                      try {
+                        await labelThreadsAction({
+                          labelId: label?.id!,
+                          threadIds: filteredEmails.map((email) => email.id!),
+                          archive: true,
+                        });
+                        toastSuccess({
+                          description: `Labeled and archived emails "${label.name}".`,
+                        });
+                      } catch (error) {
+                        toastError({
+                          description: `There was an error labeling and archiving emails "${label.name}".`,
+                        });
+                      }
                     },
-                  ]
-                : []
-            }
-          />
-        </div>
-      )}
+                  },
+                ]
+              : [
+                  {
+                    label: "Apply AI Suggestions",
+                    onClick: async () => {
+                      try {
+                        for (const email of filteredEmails) {
+                          if (!email.plan) continue;
+                          if (email.plan.action === "archive") {
+                            // TODO
+                          } else if (email.plan.action === "label") {
+                            const labelName = email.plan.label;
+                            const label = labelsArray.find(
+                              (label) => label.name === labelName
+                            );
+                            if (!label) continue;
+
+                            await labelThreadsAction({
+                              labelId: label.id,
+                              threadIds: filteredEmails
+                                .map((email) => email.id!)
+                                .filter(Boolean),
+                              archive: true,
+                            });
+
+                            toastSuccess({
+                              description: `Applied AI suggestion to ${email.thread.messages?.[0]?.parsedMessage.headers.subject}`,
+                            });
+                          }
+                        }
+
+                        toastSuccess({
+                          description: `Applied AI suggestions!`,
+                        });
+                      } catch (error) {
+                        toastError({
+                          description: `There was an error applying the AI suggestions.`,
+                        });
+                      }
+                    },
+                  },
+                ]
+          }
+        />
+      </div>
       {filteredEmails.length ? (
         <EmailList emails={filteredEmails} />
       ) : (
@@ -108,22 +153,89 @@ export function List(props: {
 }
 
 function EmailList(props: { emails: Thread[] }) {
+  // if performance becomes an issue check this:
+  // https://ianobermiller.com/blog/highlight-table-row-column-react#react-state
+  const [hovered, setHovered] = useState<Thread>();
+  const [openedRow, setOpenedRow] = useState<Thread>();
+  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
+  console.log(
+    "🚀 ~ file: ListNew.tsx:124 ~ EmailList ~ openedRow:",
+    openedRow?.snippet
+  );
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown" && e.shiftKey) {
+        setSelectedRows((s) => ({ ...s, [hovered?.id!]: true }));
+        console.log("down");
+      } else if (e.key === "ArrowUp") {
+        console.log("up");
+      }
+    };
+
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, [hovered?.id]);
+
   return (
-    <ul role="list" className="divide-y divide-gray-100">
-      {props.emails.map((email) => (
-        <EmailListItem key={email.id} email={email} />
-      ))}
-    </ul>
+    <>
+      <SlideOverSheet
+        title={
+          openedRow?.thread.messages?.[0]?.parsedMessage.headers.subject || ""
+        }
+        description=""
+        content={
+          <iframe
+            srcDoc={getIframeHtml(
+              openedRow?.thread.messages?.[0].parsedMessage.textHtml || ""
+            )}
+            className="h-full w-full"
+          />
+        }
+      >
+        <ul role="list" className="divide-y divide-gray-100">
+          {props.emails.map((email) => (
+            <EmailListItem
+              key={email.id}
+              email={email}
+              opened={openedRow?.id === email.id}
+              selected={selectedRows[email.id!]}
+              onClick={() => {
+                setOpenedRow(email);
+              }}
+              onMouseEnter={() => setHovered(email)}
+            />
+          ))}
+        </ul>
+      </SlideOverSheet>
+      <CommandDialogDemo selected={hovered?.id || undefined} />
+    </>
   );
 }
 
-function EmailListItem(props: { email: Thread }) {
+function EmailListItem(props: {
+  email: Thread;
+  opened: boolean;
+  selected: boolean;
+  onClick: MouseEventHandler<HTMLLIElement>;
+  onMouseEnter: () => void;
+}) {
   const { email } = props;
 
   const lastMessage = email.thread.messages?.[email.thread.messages.length - 1];
 
   return (
-    <li className="relative py-3 hover:bg-gray-50">
+    <li
+      className={clsx(
+        "relative cursor-pointer border-l-4 py-3 hover:bg-gray-50",
+        {
+          "bg-gray-500": props.selected,
+          "border-l-blue-500 bg-gray-50": props.opened,
+        }
+      )}
+      onClick={props.onClick}
+      onMouseEnter={props.onMouseEnter}
+    >
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex justify-between gap-x-6">
           <div className="flex flex-1 gap-x-4">
@@ -149,7 +261,8 @@ function EmailListItem(props: { email: Thread }) {
             <div className="ml-3 flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
               {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
             </div>
-            <div className="ml-3">
+
+            <div className="ml-3 whitespace-nowrap">
               <PlanBadge
                 id={email.id || ""}
                 message={lastMessage?.parsedMessage.textPlain || ""}
@@ -246,7 +359,10 @@ function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
   const { data, isLoading, error } = useSWR<PlanResponse>(
     !props.plan && `/api/ai/plan?id=${props.id}`,
     (url) => {
-      const body: PlanBody = { id: props.id, message: props.message };
+      const body: PlanBody = {
+        id: props.id,
+        message: props.message,
+      };
       return fetcher(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -302,4 +418,12 @@ function getActionColor(plan: Plan | null): Color {
     default:
       return "gray";
   }
+}
+
+function getIframeHtml(html: string) {
+  // Open all links in a new tab
+  if (html.indexOf("</head>") !== -1)
+    return html.replace("</head>", `<base target="_blank"></head>`);
+
+  return `<head><base target="_blank"></head>${html}`;
 }

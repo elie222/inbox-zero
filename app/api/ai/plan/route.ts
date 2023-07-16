@@ -12,6 +12,7 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 import { getSession } from "@/utils/auth";
+import prisma from "@/utils/prisma";
 
 const planBody = z.object({ id: z.string(), message: z.string() });
 export type PlanBody = z.infer<typeof planBody>;
@@ -21,7 +22,7 @@ export type PlanResponse = Awaited<ReturnType<typeof plan>>;
 // https://github.com/vercel/next.js/issues/50444#issuecomment-1602746782
 // export const runtime = "edge";
 
-async function calculatePlan(message: string) {
+async function calculatePlan(message: string, labels: string[]) {
   const response = await openai.createChatCompletion({
     model: "gpt-3.5-turbo",
     max_tokens: 400,
@@ -34,7 +35,7 @@ You will always return valid JSON as a response.
 The JSON should contain the following fields:
 
 action: "archive", "label", "respond"
-label?: "newsletter", "receipts"
+label?: ${labels.map((l) => `"${l}"`).join(", ")}
 category: "spam", "promotions", "social", "requires_response", "requires_action", "receipts", "newsletter", "app_update", "terms_and_conditions_update"
 response?: string
 
@@ -44,8 +45,8 @@ If you have decided to label the email, you must include a "label" field with th
 An example response to label an email as a newsletter is:
 {
   "action": "label",
-  "category": "newsletter",
-  "label": "newsletter"
+  "category": "CATEGORY",
+  "label": "LABEL"
 }
 `,
       },
@@ -80,7 +81,14 @@ async function plan(body: PlanBody) {
   // const data = await getPlan({ email: session.user.email, threadId: body.id })
   // if (data) return { plan: data };
 
-  let json = await calculatePlan(body.message);
+  const labels = await prisma.label.findMany({
+    where: { userId: session.user.id, enabled: true },
+  });
+
+  let json = await calculatePlan(
+    body.message,
+    labels.map((l) => l.name)
+  );
 
   if (isChatCompletionError(json)) return { plan: undefined };
 

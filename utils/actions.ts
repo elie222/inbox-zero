@@ -162,6 +162,6 @@ export async function deletePromptHistoryAction(options: { id: string }) {
   return deletePromptHistory({ id: options.id, userId: session.user.id });
 }
 
-export async function archiveAction(options: { threadId: string }) {
-  return await archiveEmail({ id: options.threadId });
-}
+// export async function archiveAction(options: { threadId: string }) {
+//   return await archiveEmail({ id: options.threadId });
+// }
