@@ -53,6 +53,7 @@ export async function GET() {
     const threads = await getThreads();
     return NextResponse.json(threads);
   } catch (error) {
-    return NextResponse.json({ error: "Error" });
+    console.error(error);
+    return NextResponse.json({ error });
   }
 }
