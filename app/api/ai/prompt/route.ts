@@ -4,6 +4,8 @@ import {
   promptQuery,
 } from "@/app/api/ai/prompt/controller";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const message = searchParams.get("message");

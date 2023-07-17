@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
 
+export const dynamic = "force-dynamic";
+
 // const labelsQuery = z.object({});
 // export type LabelsQuery = z.infer<typeof labelsQuery>;
 export type LabelsResponse = Awaited<ReturnType<typeof getLabels>>;

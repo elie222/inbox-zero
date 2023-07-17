@@ -5,6 +5,8 @@ import {
   getPromptHistory,
 } from "@/app/api/prompt-history/controller";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });

@@ -7,6 +7,8 @@ import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
 import { getPlan } from "@/utils/redis/plan";
 
+export const dynamic = "force-dynamic";
+
 // const threadsQuery = z.object({ slug: z.string() });
 // export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;

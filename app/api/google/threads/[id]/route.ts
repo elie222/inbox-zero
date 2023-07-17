@@ -6,6 +6,8 @@ import { parseMessage, parseMessages } from "@/utils/mail";
 import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
 
+export const dynamic = "force-dynamic";
+
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
 export type ThreadResponse = Awaited<ReturnType<typeof getThread>>;
