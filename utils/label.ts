@@ -3,3 +3,5 @@ export const recommendedLabels = [
   "Receipt",
   "[InboxZero]/Action",
 ];
+
+export const INBOX_LABEL_ID = "INBOX";

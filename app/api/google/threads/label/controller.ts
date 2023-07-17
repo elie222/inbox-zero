@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { z } from "zod";
 import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
+import { INBOX_LABEL_ID } from "@/utils/label";
 
 export const labelThreadBody = z.object({
   threadId: z.string(),
@@ -22,7 +23,7 @@ export async function labelThread(body: LabelThreadBody) {
     id: body.threadId,
     requestBody: {
       addLabelIds: [body.labelId],
-      removeLabelIds: body.archive ? ["INBOX"] : [],
+      removeLabelIds: body.archive ? [INBOX_LABEL_ID] : [],
     },
   });
   const thread = res.data;

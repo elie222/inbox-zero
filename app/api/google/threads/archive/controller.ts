@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { getSession } from "next-auth/react";
 import { z } from "zod";
 import { getClient } from "@/utils/google";
+import { INBOX_LABEL_ID } from "@/utils/label";
 
 export const archiveBody = z.object({ id: z.string() });
 export type ArchiveBody = z.infer<typeof archiveBody>;
@@ -18,7 +19,7 @@ export async function archiveEmail(body: ArchiveBody) {
     userId: "me",
     id: body.id,
     requestBody: {
-      removeLabelIds: ["INBOX"],
+      removeLabelIds: [INBOX_LABEL_ID],
     },
   });
 

@@ -6,6 +6,7 @@ import { parseMessages } from "@/utils/mail";
 import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
 import { getPlan } from "@/utils/redis/plan";
+import { INBOX_LABEL_ID } from "@/utils/label";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ async function getThreads() {
   const gmail = google.gmail({ version: "v1", auth });
   const res = await gmail.users.threads.list({
     userId: "me",
-    labelIds: ["INBOX"],
+    labelIds: [INBOX_LABEL_ID],
     maxResults: 20,
   });
   // const threads = res.data.threads?.map(t => {

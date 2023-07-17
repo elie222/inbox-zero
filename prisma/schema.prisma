@@ -55,6 +55,7 @@ model User {
   storePromptHistory        Boolean   @default(true)
   labelOnSystemAction       Boolean   @default(true)
   watchEmailsExpirationDate DateTime?
+  lastSyncedHistoryId       String?
 
   promptHistory   PromptHistory[]
   promptFavorites PromptFavorite[]

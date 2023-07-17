@@ -70,11 +70,10 @@ The email:\n\n###\n\n${message.substring(0, 3000)}
 }
 
 // const plan = withRetry(
-async function plan(body: PlanBody) {
-  const session = await getSession();
-
-  if (!session?.user.email) return;
-
+export async function plan(
+  body: PlanBody,
+  user: { id: string; email: string }
+) {
   // TODO secure this endpoint so people can't just ask for any id (and see the response from gpt)
 
   // check cache
@@ -82,7 +81,7 @@ async function plan(body: PlanBody) {
   // if (data) return { plan: data };
 
   const labels = await prisma.label.findMany({
-    where: { userId: session.user.id, enabled: true },
+    where: { userId: user.id, enabled: true },
   });
 
   let json = await calculatePlan(
@@ -104,13 +103,13 @@ async function plan(body: PlanBody) {
 
   // cache result
   await savePlan({
-    email: session.user.email,
+    email: user.email,
     threadId: body.id,
     plan: planJson,
   });
 
   await saveUsage({
-    email: session.user.email,
+    email: user.email,
     tokensUsed: json.usage.total_tokens,
   });
 
@@ -119,9 +118,12 @@ async function plan(body: PlanBody) {
 // );
 
 export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session?.user.email) return;
+
   const json = await request.json();
   const body = planBody.parse(json);
-  const res = await plan(body);
+  const res = await plan(body, session.user);
 
   return NextResponse.json(res);
 }
