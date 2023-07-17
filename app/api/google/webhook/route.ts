@@ -23,13 +23,21 @@ export async function POST(request: Request) {
   });
   if (!account) return;
 
-  const history = await listHistory(
-    { email: decodedData.emailAddress, startHistoryId: decodedData.historyId },
-    account
-  );
-  await planHistory(history || [], account.userId, decodedData.emailAddress);
+  try {
+    const history = await listHistory(
+      {
+        email: decodedData.emailAddress,
+        startHistoryId: decodedData.historyId,
+      },
+      account
+    );
+    await planHistory(history || [], account.userId, decodedData.emailAddress);
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: true });
+  }
 }
 
 async function listHistory(
