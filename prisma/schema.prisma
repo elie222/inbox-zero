@@ -1,6 +1,6 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -51,9 +51,10 @@ model User {
   sessions      Session[]
 
   // additional fields
-  about               String?
-  storePromptHistory  Boolean @default(true)
-  labelOnSystemAction Boolean @default(true)
+  about                     String?
+  storePromptHistory        Boolean   @default(true)
+  labelOnSystemAction       Boolean   @default(true)
+  watchEmailsExpirationDate DateTime?
 
   promptHistory   PromptHistory[]
   promptFavorites PromptFavorite[]

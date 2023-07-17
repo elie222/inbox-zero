@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { Auth, gmail_v1, google } from "googleapis";
+import { Auth, google } from "googleapis";
 import { NextResponse } from "next/server";
-import he from "he";
-import { parseMessage, parseMessages } from "@/utils/mail";
+import { parseMessages } from "@/utils/mail";
 import { getSession } from "@/utils/auth";
 import { getClient } from "@/utils/google";
 
