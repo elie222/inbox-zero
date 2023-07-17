@@ -32,6 +32,8 @@
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
     "cmdk": "^0.2.0",
+    "contentlayer": "^0.3.4",
+    "date-fns": "^2.30.0",
     "encoding": "^0.1.13",
     "eslint": "8.44.0",
     "eslint-config-next": "13.4.9",
@@ -45,6 +47,7 @@
     "lucide-react": "^0.259.0",
     "next": "13.4.9",
     "next-auth": "^4.22.1",
+    "next-contentlayer": "^0.3.4",
     "openai-edge": "^1.2.0",
     "prettier": "^2.8.8",
     "prettier-plugin-tailwindcss": "^0.4.0",
@@ -78,5 +81,16 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@opentelemetry/api": "1.4.1",
+      "@opentelemetry/core": "1.13.0",
+      "@opentelemetry/exporter-trace-otlp-grpc": "0.39.1",
+      "@opentelemetry/resources": "1.13.0",
+      "@opentelemetry/sdk-trace-base": "1.13.0",
+      "@opentelemetry/sdk-trace-node": "1.13.0",
+      "@opentelemetry/semantic-conventions": "1.13.0"
+    }
   }
 }
