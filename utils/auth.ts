@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
           await saveRefreshToken(
             {
               access_token: account.access_token,
-              refresh_token: account.access_token,
+              refresh_token: account.refresh_token,
               expires_at: calculateExpiresAt(
                 account.expires_in as number | undefined
               ),
