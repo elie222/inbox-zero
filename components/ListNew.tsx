@@ -12,7 +12,7 @@ import clsx from "clsx";
 import { capitalCase } from "capital-case";
 import sortBy from "lodash/sortBy";
 import groupBy from "lodash/groupBy";
-import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
+import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Badge, Color } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -32,6 +32,8 @@ import { useGmail } from "@/providers/GmailProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { CommandDialogDemo } from "@/components/CommandDemo";
 import { Tabs } from "@/components/Tabs";
+import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
+import { Tooltip } from "@/components/Tooltip";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -206,6 +208,8 @@ function EmailList(props: { emails: Thread[] }) {
   const [openedRow, setOpenedRow] = useState<Thread>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
+  const closePanel = useCallback(() => setOpenedRow(undefined), []);
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown" && e.shiftKey) {
@@ -242,7 +246,7 @@ function EmailList(props: { emails: Thread[] }) {
         ))}
       </ul>
 
-      {!!openedRow && <EmailPanel row={openedRow} />}
+      {!!openedRow && <EmailPanel row={openedRow} close={closePanel} />}
 
       <CommandDialogDemo selected={hovered?.id || undefined} />
     </div>
@@ -350,7 +354,7 @@ function EmailListItem(props: {
   );
 }
 
-function EmailPanel(props: { row: Thread }) {
+function EmailPanel(props: { row: Thread; close: () => void }) {
   const html = props.row.thread.messages?.[0].parsedMessage.textHtml || "";
 
   const srcDoc = useMemo(() => getIframeHtml(html), [html]);
@@ -362,6 +366,18 @@ function EmailPanel(props: { row: Thread }) {
           {props.row.thread.messages[0].parsedMessage.headers.subject}
         </div>
         <ActionButtons threadId={props.row.id!} />
+        <div className="ml-2 flex items-center">
+          <Tooltip content="Close" useRef>
+            <button
+              type="button"
+              className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              onClick={props.close}
+            >
+              <span className="sr-only">Close</span>
+              <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </div>
       </div>
       <div className="h-full p-2 sm:p-4">
         <iframe srcDoc={srcDoc} className="h-full w-full" />

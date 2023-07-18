@@ -52,10 +52,6 @@ export function GmailProvider(props: { children: React.ReactNode }) {
   const labelsArray = useMemo(() => {
     return Object.values(labels || {});
   }, [labels]);
-  console.log(
-    "🚀 ~ file: GmailProvider.tsx:55 ~ labelsArray ~ labelsArray:",
-    labelsArray
-  );
 
   return (
     <GmailContext.Provider
