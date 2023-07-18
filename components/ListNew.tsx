@@ -31,7 +31,6 @@ import { labelThreadsAction } from "@/utils/actions";
 import { useGmail } from "@/providers/GmailProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { CommandDialogDemo } from "@/components/CommandDemo";
-import { SlideOverSheet } from "@/components/SlideOverSheet";
 import { Tabs } from "@/components/Tabs";
 
 type Thread = ThreadsResponse["threads"][0];
@@ -223,7 +222,7 @@ function EmailList(props: { emails: Thread[] }) {
 
   return (
     <div
-      className={clsx("h-full", {
+      className={clsx("h-full overflow-hidden", {
         "grid grid-cols-2": !!openedRow,
       })}
     >
@@ -243,6 +242,8 @@ function EmailList(props: { emails: Thread[] }) {
       </ul>
 
       {!!openedRow && (
+        // TODO probably better to add the p-8 padding to the html of the iframe
+        // could also only apply bg-white if the html doesn't have a bg color
         <div className="overflow-y-auto border-l border-l-gray-100 bg-white p-8">
           <iframe
             srcDoc={getIframeHtml(

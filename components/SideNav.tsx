@@ -204,11 +204,11 @@ export function SideNav(props: {
           </div>
         </div>
 
-        <div className="h-full lg:pl-72">
+        <main className="flex h-full flex-col lg:pl-72">
           {props.topBar}
 
-          <main className="h-full">{props.children}</main>
-        </div>
+          {props.children}
+        </main>
       </div>
     </>
   );
