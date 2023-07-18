@@ -238,6 +238,7 @@ function EmailList(props: { emails: Thread[] }) {
             email={email}
             opened={openedRow?.id === email.id}
             selected={selectedRows[email.id!]}
+            splitView={!!openedRow}
             onClick={() => {
               setOpenedRow(email);
             }}
@@ -257,10 +258,11 @@ function EmailListItem(props: {
   email: Thread;
   opened: boolean;
   selected: boolean;
+  splitView: boolean;
   onClick: MouseEventHandler<HTMLLIElement>;
   onMouseEnter: () => void;
 }) {
-  const { email } = props;
+  const { email, splitView } = props;
 
   const lastMessage = email.thread.messages?.[email.thread.messages.length - 1];
 
@@ -279,22 +281,36 @@ function EmailListItem(props: {
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex justify-between">
           {/* left */}
-          <div className="flex w-5/6 whitespace-nowrap text-sm leading-6">
+          <div
+            className={clsx(
+              "flex whitespace-nowrap text-sm leading-6",
+              splitView ? "w-2/3" : "w-5/6"
+            )}
+          >
             <div className="w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
               {fromName(
                 email.thread?.messages?.[0]?.parsedMessage.headers.from
               )}
             </div>
-            <div className="ml-4 min-w-0 overflow-hidden font-medium text-gray-700">
-              {email.thread?.messages?.[0]?.parsedMessage.headers.subject}
-            </div>
-            <div className="ml-4 mr-10 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-              {email.snippet}
-            </div>
+            {!splitView && (
+              <>
+                <div className="ml-4 min-w-0 overflow-hidden font-medium text-gray-700">
+                  {email.thread?.messages?.[0]?.parsedMessage.headers.subject}
+                </div>
+                <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+                  {email.snippet}
+                </div>
+              </>
+            )}
           </div>
 
           {/* right */}
-          <div className="flex w-1/6 items-center">
+          <div
+            className={clsx(
+              "flex items-center justify-between",
+              splitView ? "w-1/3" : "w-1/6"
+            )}
+          >
             <div className="relative flex items-center">
               <div className="absolute right-0 z-20 hidden group-hover:block">
                 <ActionButtons threadId={email.id!} />
@@ -317,12 +333,31 @@ function EmailListItem(props: {
               />
             </div>
           </div>
+        </div>
 
-          {/* <div className="min-w-[500px]">
+        {splitView && (
+          <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
+            <div className="min-w-0 overflow-hidden font-medium text-gray-700">
+              {email.thread?.messages?.[0]?.parsedMessage.headers.subject}
+            </div>
+            <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+              {email.snippet}
+            </div>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+{
+  /* <div className="min-w-[500px]">
             <SendEmailForm />
-          </div> */}
+          </div> */
+}
 
-          {/* <div className="flex items-center gap-x-4">
+{
+  /* <div className="flex items-center gap-x-4">
             <div className="hidden sm:flex sm:flex-col sm:items-end">
               <p className="text-sm leading-6 text-gray-900">{person.role}</p>
               {person.lastSeen ? (
@@ -345,11 +380,7 @@ function EmailListItem(props: {
               className="h-5 w-5 flex-none text-gray-400"
               aria-hidden="true"
             />
-          </div> */}
-        </div>
-      </div>
-    </li>
-  );
+          </div> */
 }
 
 function EmailPanel(props: { row: Thread; close: () => void }) {
@@ -363,7 +394,9 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
         <div className="">
           {props.row.thread.messages[0].parsedMessage.headers.subject}
         </div>
-        <ActionButtons threadId={props.row.id!} />
+        <div className="ml-2">
+          <ActionButtons threadId={props.row.id!} />
+        </div>
         <div className="ml-2 flex items-center">
           <Tooltip content="Close" useRef>
             <button
@@ -377,7 +410,7 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
           </Tooltip>
         </div>
       </div>
-      <div className="h-full p-2 sm:p-4">
+      <div className="h-full">
         <iframe srcDoc={srcDoc} className="h-full w-full" />
       </div>
     </div>
