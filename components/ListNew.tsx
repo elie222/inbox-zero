@@ -222,7 +222,11 @@ function EmailList(props: { emails: Thread[] }) {
   }, [hovered?.id]);
 
   return (
-    <div className="grid h-full grid-cols-2">
+    <div
+      className={clsx("h-full", {
+        "grid grid-cols-2": !!openedRow,
+      })}
+    >
       <ul role="list" className="divide-y divide-gray-100 overflow-y-auto">
         {props.emails.map((email) => (
           <EmailListItem
@@ -238,14 +242,16 @@ function EmailList(props: { emails: Thread[] }) {
         ))}
       </ul>
 
-      <div className="overflow-y-auto border-l border-l-gray-100 bg-white">
-        <iframe
-          srcDoc={getIframeHtml(
-            openedRow?.thread.messages?.[0].parsedMessage.textHtml || ""
-          )}
-          className="h-full w-full"
-        />
-      </div>
+      {!!openedRow && (
+        <div className="overflow-y-auto border-l border-l-gray-100 bg-white">
+          <iframe
+            srcDoc={getIframeHtml(
+              openedRow.thread.messages?.[0].parsedMessage.textHtml || ""
+            )}
+            className="h-full w-full"
+          />
+        </div>
+      )}
 
       <CommandDialogDemo selected={hovered?.id || undefined} />
     </div>
@@ -266,7 +272,7 @@ function EmailListItem(props: {
   return (
     <li
       className={clsx(
-        "relative cursor-pointer border-l-4 py-3 hover:bg-gray-50",
+        "group relative cursor-pointer border-l-4 py-3 hover:bg-gray-50",
         {
           "bg-gray-500": props.selected,
           "border-l-blue-500 bg-gray-50": props.opened,
@@ -296,9 +302,13 @@ function EmailListItem(props: {
           </div>
 
           <div className="flex items-center">
-            {/* <ActionButtons threadId={email.id!} /> */}
-            <div className="ml-3 flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
-              {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
+            <div className="relative ml-3 flex items-center">
+              <div className="absolute right-0 z-20 hidden group-hover:block">
+                <ActionButtons threadId={email.id!} />
+              </div>
+              <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
+                {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
+              </div>
             </div>
 
             <div className="ml-3 whitespace-nowrap">
