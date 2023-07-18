@@ -363,7 +363,7 @@ function EmailPanel(props: { row: Thread }) {
         </div>
         <ActionButtons threadId={props.row.id!} />
       </div>
-      <div className="h-full p-2 sm:p-4 md:p-8">
+      <div className="h-full p-2 sm:p-4">
         <iframe srcDoc={srcDoc} className="h-full w-full" />
       </div>
     </div>

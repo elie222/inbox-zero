@@ -38,7 +38,7 @@ export function SideNav(props: {
 
   return (
     <>
-      <div className="h-full overflow-y-hidden">
+      <div className="h-full">
         <Transition.Root show={props.sidebarOpen} as={Fragment}>
           <Dialog
             as="div"
