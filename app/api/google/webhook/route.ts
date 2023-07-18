@@ -83,10 +83,16 @@ async function planHistory(
 
       const parsedMessage = parseMessage(m.message);
 
-      await plan(
-        { message: parsedMessage.textPlain, id: m.message.id },
-        { id: userId, email }
-      );
+      const message =
+        parsedMessage.textPlain ||
+        parsedMessage.textHtml ||
+        parsedMessage.headers.subject;
+
+      if (message) {
+        await plan({ message, id: m.message.id }, { id: userId, email });
+      } else {
+        console.error("No message", parsedMessage);
+      }
     }
   }
 
