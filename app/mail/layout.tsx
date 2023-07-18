@@ -6,26 +6,14 @@ import { SessionProvider } from "@/providers/SessionProvider";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { PromptProvider } from "@/providers/PromptProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
-// import localFont from "next/font/local";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  preload: true,
-  display: "swap",
-});
-// const calFont = localFont({
-//   src: "../fonts/CalSans-SemiBold.woff2",
-//   variable: "--font-cal",
-//   preload: true,
-//   display: "swap",
-// });
 
 export const metadata = {
-  title: "Get Inbox Zero AI",
-  description: "Get to Inbox Zero with AI",
+  title: "Inbox Zero AI",
+  description:
+    "Reach inbox zero in minutes. Inbox Zero uses AI to help you empty your inbox daily. What previously took hours, now takes minutes. Inbox Zero is your VA for emails.",
 };
 
+// NOTE: inherits from top level layout. use groups if we want to break this out
 export default function RootLayout({
   children,
 }: {
@@ -33,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <SWRProvider>
           <GmailProvider>
             <NotificationProvider>

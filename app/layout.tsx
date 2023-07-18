@@ -16,8 +16,9 @@ const inter = Inter({
 // });
 
 export const metadata = {
-  title: "Get Inbox Zero AI",
-  description: "Get to Inbox Zero with AI",
+  title: "Inbox Zero AI",
+  description:
+    "Reach inbox zero in minutes. Inbox Zero uses AI to help you empty your inbox daily. What previously took hours, now takes minutes. Inbox Zero is your VA for emails.",
 };
 
 export default function RootLayout({
@@ -26,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className="h-full">
+      <body className={`h-full ${inter.className}`}>{children}</body>
     </html>
   );
 }
