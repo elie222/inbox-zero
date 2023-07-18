@@ -241,18 +241,7 @@ function EmailList(props: { emails: Thread[] }) {
         ))}
       </ul>
 
-      {!!openedRow && (
-        // TODO probably better to add the p-8 padding to the html of the iframe
-        // could also only apply bg-white if the html doesn't have a bg color
-        <div className="overflow-y-auto border-l border-l-gray-100 bg-white p-8">
-          <iframe
-            srcDoc={getIframeHtml(
-              openedRow.thread.messages?.[0].parsedMessage.textHtml || ""
-            )}
-            className="h-full w-full"
-          />
-        </div>
-      )}
+      {!!openedRow && <EmailPanel row={openedRow} />}
 
       <CommandDialogDemo selected={hovered?.id || undefined} />
     </div>
@@ -360,6 +349,18 @@ function EmailListItem(props: {
   );
 }
 
+function EmailPanel(props: { row: Thread }) {
+  const html = props.row.thread.messages?.[0].parsedMessage.textHtml || "";
+
+  const srcDoc = useMemo(() => getIframeHtml(html), [html]);
+
+  return (
+    <div className="overflow-y-auto border-l border-l-gray-100 p-2 sm:p-4 md:p-8">
+      <iframe srcDoc={srcDoc} className="h-full w-full" />
+    </div>
+  );
+}
+
 type Inputs = { message: string };
 
 const SendEmailForm = () => {
@@ -368,18 +369,15 @@ const SendEmailForm = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<Inputs>();
-  const { showNotification } = useNotification();
+  // const { showNotification } = useNotification();
 
-  const onSubmit: SubmitHandler<Inputs> = useCallback(
-    async (data) => {
-      console.log("🚀 ~ file: ListNew.tsx:187 ~ data:", data);
-      // const res = await updateProfile(data);
-      // if (isErrorMessage(res))
-      //   showNotification({ type: "error", description: `` });
-      // else showNotification({ type: "success", description: `` });
-    },
-    [showNotification]
-  );
+  const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
+    console.log("🚀 ~ file: ListNew.tsx:187 ~ data:", data);
+    // const res = await updateProfile(data);
+    // if (isErrorMessage(res))
+    //   showNotification({ type: "error", description: `` });
+    // else showNotification({ type: "success", description: `` });
+  }, []);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -476,9 +474,27 @@ function getActionColor(plan: Plan | null): Color {
 }
 
 function getIframeHtml(html: string) {
-  // Open all links in a new tab
-  if (html.indexOf("</head>") !== -1)
-    return html.replace("</head>", `<base target="_blank"></head>`);
+  console.log("🚀 ~ file: ListNew.tsx:484 ~ getIframeHtml ~ html:", html);
 
-  return `<head><base target="_blank"></head>${html}`;
+  let htmlWithFontFamily = "";
+  // Set font to sans-serif if font not set
+  if (html.indexOf("font-family") === -1) {
+    htmlWithFontFamily = `<style>* { font-family: sans-serif; }</style>${html}`;
+  } else {
+    htmlWithFontFamily = html;
+  }
+
+  let htmlWithHead = "";
+
+  // Open all links in a new tab
+  if (htmlWithFontFamily.indexOf("</head>") === -1) {
+    htmlWithHead = `<head><base target="_blank"></head>${htmlWithFontFamily}`;
+  } else {
+    htmlWithHead = htmlWithFontFamily.replace(
+      "</head>",
+      `<base target="_blank"></head>`
+    );
+  }
+
+  return htmlWithHead;
 }
