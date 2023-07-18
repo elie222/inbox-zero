@@ -17,7 +17,7 @@ import {
 } from "@/app/api/google/threads/archive/controller";
 import { Tag } from "@/components/Tag";
 import { Linkify } from "@/components/Linkify";
-import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
+import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
 import { useGmail } from "@/providers/GmailProvider";
 import {
   DraftEmailBody,
