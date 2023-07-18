@@ -105,7 +105,7 @@ export function List(props: {
   }, [selectedTab, filteredEmails, tabGroups]);
 
   return (
-    <div>
+    <>
       <div className="border-b border-gray-200 py-2">
         <GroupHeading
           leftContent={<Tabs selected={selectedTab} tabs={tabs} />}
@@ -196,7 +196,7 @@ export function List(props: {
         />
       </div>
       {tabEmails.length ? <EmailList emails={tabEmails} /> : <Celebration />}
-    </div>
+    </>
   );
 }
 
@@ -222,38 +222,33 @@ function EmailList(props: { emails: Thread[] }) {
   }, [hovered?.id]);
 
   return (
-    <>
-      <SlideOverSheet
-        title={
-          openedRow?.thread.messages?.[0]?.parsedMessage.headers.subject || ""
-        }
-        description=""
-        content={
-          <iframe
-            srcDoc={getIframeHtml(
-              openedRow?.thread.messages?.[0].parsedMessage.textHtml || ""
-            )}
-            className="h-full w-full"
+    <div className="grid h-full grid-cols-2">
+      <ul role="list" className="divide-y divide-gray-100 overflow-y-auto">
+        {props.emails.map((email) => (
+          <EmailListItem
+            key={email.id}
+            email={email}
+            opened={openedRow?.id === email.id}
+            selected={selectedRows[email.id!]}
+            onClick={() => {
+              setOpenedRow(email);
+            }}
+            onMouseEnter={() => setHovered(email)}
           />
-        }
-      >
-        <ul role="list" className="divide-y divide-gray-100">
-          {props.emails.map((email) => (
-            <EmailListItem
-              key={email.id}
-              email={email}
-              opened={openedRow?.id === email.id}
-              selected={selectedRows[email.id!]}
-              onClick={() => {
-                setOpenedRow(email);
-              }}
-              onMouseEnter={() => setHovered(email)}
-            />
-          ))}
-        </ul>
-      </SlideOverSheet>
+        ))}
+      </ul>
+
+      <div className="overflow-y-auto border-l border-l-gray-100 bg-white">
+        <iframe
+          srcDoc={getIframeHtml(
+            openedRow?.thread.messages?.[0].parsedMessage.textHtml || ""
+          )}
+          className="h-full w-full"
+        />
+      </div>
+
       <CommandDialogDemo selected={hovered?.id || undefined} />
-    </>
+    </div>
   );
 }
 
@@ -301,7 +296,7 @@ function EmailListItem(props: {
           </div>
 
           <div className="flex items-center">
-            <ActionButtons threadId={email.id!} />
+            {/* <ActionButtons threadId={email.id!} /> */}
             <div className="ml-3 flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
               {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
             </div>

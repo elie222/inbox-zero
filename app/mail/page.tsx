@@ -15,24 +15,22 @@ export default function Home() {
   const { prompt, filterFunction } = usePromptContext();
 
   return (
-    <div className="">
-      <LoadingContent loading={isLoading} error={error}>
-        {data && (
-          <List
-            emails={data?.threads || []}
-            prompt={prompt}
-            filter={
-              filterFunction
-                ? getFilterFunction(filterFunction.name as Filters)
-                : undefined
-            }
-            filterArgs={
-              filterFunction ? { label: filterFunction.args.label } : undefined
-            }
-            refetch={mutate}
-          />
-        )}
-      </LoadingContent>
-    </div>
+    <LoadingContent loading={isLoading} error={error}>
+      {data && (
+        <List
+          emails={data?.threads || []}
+          prompt={prompt}
+          filter={
+            filterFunction
+              ? getFilterFunction(filterFunction.name as Filters)
+              : undefined
+          }
+          filterArgs={
+            filterFunction ? { label: filterFunction.args.label } : undefined
+          }
+          refetch={mutate}
+        />
+      )}
+    </LoadingContent>
   );
 }
