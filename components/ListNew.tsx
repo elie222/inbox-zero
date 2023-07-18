@@ -223,7 +223,8 @@ function EmailList(props: { emails: Thread[] }) {
   return (
     <div
       className={clsx("h-full overflow-hidden", {
-        "grid grid-cols-2": !!openedRow,
+        "grid grid-cols-2": openedRow,
+        "overflow-y-auto": !openedRow,
       })}
     >
       <ul role="list" className="divide-y divide-gray-100 overflow-y-auto">
