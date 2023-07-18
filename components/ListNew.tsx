@@ -356,8 +356,16 @@ function EmailPanel(props: { row: Thread }) {
   const srcDoc = useMemo(() => getIframeHtml(html), [html]);
 
   return (
-    <div className="overflow-y-auto border-l border-l-gray-100 p-2 sm:p-4 md:p-8">
-      <iframe srcDoc={srcDoc} className="h-full w-full" />
+    <div className="border-l border-l-gray-100">
+      <div className="sticky flex items-center justify-between border-b border-b-gray-100 p-4">
+        <div className="">
+          {props.row.thread.messages[0].parsedMessage.headers.subject}
+        </div>
+        <ActionButtons threadId={props.row.id!} />
+      </div>
+      <div className="h-full p-2 sm:p-4 md:p-8">
+        <iframe srcDoc={srcDoc} className="h-full w-full" />
+      </div>
     </div>
   );
 }
