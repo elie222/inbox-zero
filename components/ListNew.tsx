@@ -394,20 +394,20 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
         <div className="">
           {props.row.thread.messages[0].parsedMessage.headers.subject}
         </div>
-        <div className="ml-2">
+        <div className="ml-2 flex items-center ">
           <ActionButtons threadId={props.row.id!} />
-        </div>
-        <div className="ml-2 flex items-center">
-          <Tooltip content="Close" useRef>
-            <button
-              type="button"
-              className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              onClick={props.close}
-            >
-              <span className="sr-only">Close</span>
-              <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </Tooltip>
+          <div className="ml-2 flex items-center">
+            <Tooltip content="Close" useRef>
+              <button
+                type="button"
+                className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                onClick={props.close}
+              >
+                <span className="sr-only">Close</span>
+                <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </div>
       <div className="h-full">
