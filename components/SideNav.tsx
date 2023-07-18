@@ -16,6 +16,7 @@ import { PromptHistory } from "@/components/PromptHistory";
 import { PromptHistoryResponse } from "@/app/api/prompt-history/controller";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Logo } from "@/components/Logo";
+import Link from "next/link";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon, current: true },
@@ -154,9 +155,11 @@ export function SideNav(props: {
         <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
           {/* Sidebar component, swap this element with another sidebar if you like */}
           <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
-            <div className="flex h-16 shrink-0 items-center text-white">
-              <Logo className="h-4" />
-            </div>
+            <Link href="/mail">
+              <div className="flex h-16 shrink-0 items-center text-white">
+                <Logo className="h-4" />
+              </div>
+            </Link>
             <nav className="flex flex-1 flex-col">
               <ul role="list" className="flex flex-1 flex-col gap-y-7">
                 <li>
