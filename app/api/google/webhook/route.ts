@@ -19,7 +19,12 @@ export async function POST(request: Request) {
 
   const account = await prisma.account.findFirst({
     where: { user: { email: decodedData.emailAddress }, provider: "google" },
-    select: { access_token: true, refresh_token: true, userId: true },
+    select: {
+      access_token: true,
+      refresh_token: true,
+      userId: true,
+      user: { select: { lastSyncedHistoryId: true } },
+    },
   });
   if (!account) return;
 
@@ -27,7 +32,8 @@ export async function POST(request: Request) {
     const history = await listHistory(
       {
         email: decodedData.emailAddress,
-        startHistoryId: decodedData.historyId,
+        startHistoryId:
+          account.user.lastSyncedHistoryId || decodedData.historyId,
       },
       account
     );
