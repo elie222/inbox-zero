@@ -1,10 +1,9 @@
 // import { z } from "zod";
-import { google } from "googleapis";
 import he from "he";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { getSession } from "@/utils/auth";
-import { getClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/google";
 import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
 
@@ -17,9 +16,9 @@ export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 async function getThreads() {
   const session = await getSession();
   if (!session) throw new Error("Not authenticated");
-  const auth = getClient(session);
 
-  const gmail = google.gmail({ version: "v1", auth });
+  const gmail = getGmailClient(session);
+
   const res = await gmail.users.threads.list({
     userId: "me",
     labelIds: [INBOX_LABEL_ID],

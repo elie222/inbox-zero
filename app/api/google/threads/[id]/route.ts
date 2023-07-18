@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { Auth, google } from "googleapis";
+import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { getSession } from "@/utils/auth";
-import { getClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/google";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +11,7 @@ const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
 export type ThreadResponse = Awaited<ReturnType<typeof getThread>>;
 
-async function getThread(query: ThreadQuery, auth: Auth.OAuth2Client) {
-  const gmail = google.gmail({ version: "v1", auth });
+async function getThread(query: ThreadQuery, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.threads.get({
     userId: "me",
     id: query.id,
@@ -33,9 +32,10 @@ export async function GET(
 
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
-  const auth = getClient(session);
 
-  const thread = await getThread(query, auth);
+  const gmail = getGmailClient(session);
+
+  const thread = await getThread(query, gmail);
 
   return NextResponse.json(thread);
 }

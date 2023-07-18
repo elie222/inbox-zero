@@ -110,6 +110,11 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  events: {
+    createUser: async (message) => {
+      console.log("createUser", message);
+    },
+  },
 };
 
 /**

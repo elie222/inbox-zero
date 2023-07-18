@@ -1,7 +1,6 @@
-import { google } from "googleapis";
 import { z } from "zod";
 import { getSession } from "@/utils/auth";
-import { getClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/google";
 import { INBOX_LABEL_ID } from "@/utils/label";
 
 export const labelThreadBody = z.object({
@@ -15,9 +14,9 @@ export type LabelThreadResponse = Awaited<ReturnType<typeof labelThread>>;
 export async function labelThread(body: LabelThreadBody) {
   const session = await getSession();
   if (!session) throw new Error("Not authenticated");
-  const auth = getClient(session);
 
-  const gmail = google.gmail({ version: "v1", auth });
+  const gmail = getGmailClient(session);
+
   const res = await gmail.users.threads.modify({
     userId: "me",
     id: body.threadId,

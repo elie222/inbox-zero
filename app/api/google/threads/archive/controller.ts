@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 import { getSession } from "next-auth/react";
 import { z } from "zod";
-import { getClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/google";
 import { INBOX_LABEL_ID } from "@/utils/label";
 
 export const archiveBody = z.object({ id: z.string() });
@@ -11,9 +11,8 @@ export type ArchiveResponse = Awaited<ReturnType<typeof archiveEmail>>;
 export async function archiveEmail(body: ArchiveBody) {
   const session = await getSession();
   if (!session) throw new Error("Not authenticated");
-  const auth = getClient(session);
 
-  const gmail = google.gmail({ version: "v1", auth });
+  const gmail = getGmailClient(session);
 
   const thread = await gmail.users.threads.modify({
     userId: "me",

@@ -17,9 +17,10 @@ import { Toggle } from "@/components/Toggle";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
 import { GmailLabels, useGmail } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabels } from "@/utils/actions";
-import { recommendedLabels } from "@/utils/label";
 import { PlusSmallIcon } from "@heroicons/react/24/outline";
 import { type Label } from "@prisma/client";
+
+const recommendedLabels = ["Newsletter", "Receipt", "Calendar"];
 
 type ToggleKey = `toggle-${string}`;
 type DescriptionKey = `description-${string}`;

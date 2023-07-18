@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { gmail_v1, google } from "googleapis";
-import { getClient } from "@/utils/google";
+import { gmail_v1 } from "googleapis";
+import { getGmailClient } from "@/utils/google";
 import prisma from "@/utils/prisma";
-import { plan } from "@/app/api/ai/plan/route";
+import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID } from "@/utils/label";
 
@@ -29,15 +29,25 @@ export async function POST(request: Request) {
   if (!account) return;
 
   try {
+    const gmail = getGmailClient({
+      accessToken: account.access_token ?? undefined,
+      refreshToken: account.refresh_token ?? undefined,
+    });
+
     const history = await listHistory(
       {
         email: decodedData.emailAddress,
         startHistoryId:
           account.user.lastSyncedHistoryId || decodedData.historyId,
       },
-      account
+      gmail
     );
-    await planHistory(history || [], account.userId, decodedData.emailAddress);
+    await planHistory(
+      history || [],
+      account.userId,
+      decodedData.emailAddress,
+      gmail
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -48,15 +58,9 @@ export async function POST(request: Request) {
 
 async function listHistory(
   options: { email: string; startHistoryId: string },
-  account: { access_token?: string | null; refresh_token?: string | null }
+  gmail: gmail_v1.Gmail
 ) {
   const { startHistoryId } = options;
-
-  const auth = getClient({
-    accessToken: account.access_token ?? undefined,
-    refreshToken: account.refresh_token ?? undefined,
-  });
-  const gmail = google.gmail({ version: "v1", auth });
 
   const history = await gmail.users.history.list({
     userId: "me",
@@ -71,7 +75,8 @@ async function listHistory(
 async function planHistory(
   history: gmail_v1.Schema$History[],
   userId: string,
-  email: string
+  email: string,
+  gmail: gmail_v1.Gmail
 ) {
   if (!history?.length) return;
 
@@ -89,7 +94,7 @@ async function planHistory(
         parsedMessage.headers.subject;
 
       if (message) {
-        await plan({ message, id: m.message.id }, { id: userId, email });
+        await plan({ message, id: m.message.id }, { id: userId, email }, gmail);
       } else {
         console.error("No message", parsedMessage);
       }

@@ -52,14 +52,12 @@ model User {
 
   // additional fields
   about                     String?
-  storePromptHistory        Boolean   @default(true)
-  labelOnSystemAction       Boolean   @default(true)
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
 
-  promptHistory   PromptHistory[]
-  promptFavorites PromptFavorite[]
-  labels          Label[]
+  promptHistory PromptHistory[]
+  // promptFavorites PromptFavorite[]
+  labels        Label[]
 }
 
 // not in use as it's only used for passwordless login
@@ -80,14 +78,14 @@ model PromptHistory {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model PromptFavorite {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  prompt    String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
+// model PromptFavorite {
+//   id        String   @id @default(cuid())
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+//   prompt    String
+//   userId    String
+//   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// }
 
 model Label {
   id           String   @id @default(cuid())
@@ -97,6 +95,7 @@ model Label {
   name         String
   description  String? // used in prompts
   enabled      Boolean  @default(true)
+  isIZLabel    Boolean
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

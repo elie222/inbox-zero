@@ -1,6 +1,6 @@
 import { google } from "googleapis";
 
-export const getClient = (session: {
+const getClient = (session: {
   accessToken?: string;
   refreshToken?: string;
 }) => {
@@ -16,4 +16,14 @@ export const getClient = (session: {
   });
 
   return auth;
+};
+
+export const getGmailClient = (session: {
+  accessToken?: string;
+  refreshToken?: string;
+}) => {
+  const auth = getClient(session);
+  const gmail = google.gmail({ version: "v1", auth });
+
+  return gmail;
 };

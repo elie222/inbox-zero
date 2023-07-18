@@ -1,6 +1,5 @@
-import { google } from "googleapis";
 import { NextResponse } from "next/server";
-import { getClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/google";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
 
@@ -12,11 +11,11 @@ export async function GET() {
   for (const account of accounts) {
     try {
       console.log(account.userId);
-      const auth = getClient({
+
+      const gmail = getGmailClient({
         accessToken: account.access_token ?? undefined,
         refreshToken: account.refresh_token ?? undefined,
       });
-      const gmail = google.gmail({ version: "v1", auth });
 
       await watchEmails(account.userId, gmail);
     } catch (error) {
