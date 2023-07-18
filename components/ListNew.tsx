@@ -243,7 +243,7 @@ function EmailList(props: { emails: Thread[] }) {
       </ul>
 
       {!!openedRow && (
-        <div className="overflow-y-auto border-l border-l-gray-100 bg-white">
+        <div className="overflow-y-auto border-l border-l-gray-100 bg-white p-8">
           <iframe
             srcDoc={getIframeHtml(
               openedRow.thread.messages?.[0].parsedMessage.textHtml || ""
@@ -314,7 +314,12 @@ function EmailListItem(props: {
             <div className="ml-3 whitespace-nowrap">
               <PlanBadge
                 id={email.id || ""}
-                message={lastMessage?.parsedMessage.textPlain || ""}
+                message={
+                  lastMessage?.parsedMessage.textPlain ||
+                  lastMessage?.parsedMessage.textHtml ||
+                  lastMessage?.parsedMessage.headers.subject ||
+                  ""
+                }
                 plan={email.plan}
               />
             </div>
