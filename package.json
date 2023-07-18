@@ -44,6 +44,7 @@
     "linkify-react": "^4.1.1",
     "linkifyjs": "^4.1.1",
     "lint-staged": "^13.2.3",
+    "lodash": "^4.17.21",
     "lucide-react": "^0.259.0",
     "next": "13.4.9",
     "next-auth": "^4.22.1",
@@ -67,6 +68,7 @@
   },
   "devDependencies": {
     "@types/he": "^1.2.0",
+    "@types/lodash": "^4.14.195",
     "@types/node": "20.4.1",
     "@types/react": "18.2.14",
     "@types/react-dom": "18.2.6",

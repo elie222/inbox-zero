@@ -6,8 +6,12 @@ import {
   useState,
 } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import clsx from "clsx";
+import { capitalCase } from "capital-case";
+import sortBy from "lodash/sortBy";
+import groupBy from "lodash/groupBy";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/route";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Badge, Color } from "@/components/Badge";
@@ -28,6 +32,7 @@ import { useGmail } from "@/providers/GmailProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { CommandDialogDemo } from "@/components/CommandDemo";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
+import { Tabs } from "@/components/Tabs";
 
 type Thread = ThreadsResponse["threads"][0];
 
@@ -52,11 +57,58 @@ export function List(props: {
     return labelsArray.find((label) => label.name === props.filterArgs?.label);
   }, [labelsArray, props.filterArgs?.label]);
 
+  const params = useSearchParams();
+  const searchParamAction = params.get("action") || "";
+  const searchParamLabel = params.get("label") || "";
+
+  const selectedTab = useMemo(() => {
+    if (!searchParamAction) return "all";
+    return `${searchParamAction}---${searchParamLabel}`;
+  }, [searchParamAction, searchParamLabel]);
+
+  const tabGroups = useMemo(
+    () =>
+      groupBy(
+        filteredEmails.filter((e) => e.plan?.action),
+        (e) => `${e.plan?.action}---${e.plan?.label || ""}`
+      ),
+    [filteredEmails]
+  );
+
+  const tabs = useMemo(() => {
+    return [
+      { label: "All", value: "all", href: "/mail" },
+      ...sortBy(
+        Object.keys(tabGroups).map((value) => {
+          const count = tabGroups[value].length;
+          const parts = value.split("---");
+          const action = parts[0];
+          const label = parts[1];
+
+          return {
+            label: `${capitalCase(action)}${
+              label ? ` ${label}` : ""
+            } (${count})`,
+            value,
+            href: `?action=${action}&label=${label}`,
+            sortKey: label || "",
+          };
+        }),
+        (t) => t.sortKey
+      ),
+    ];
+  }, [tabGroups]);
+
+  const tabEmails = useMemo(() => {
+    if (!selectedTab || selectedTab === "all") return filteredEmails;
+    return tabGroups[selectedTab] || filteredEmails;
+  }, [selectedTab, filteredEmails, tabGroups]);
+
   return (
     <div>
-      <div className="border-b border-gray-200 py-4">
+      <div className="border-b border-gray-200 py-2">
         <GroupHeading
-          text={props.prompt || ""}
+          leftContent={<Tabs selected={selectedTab} tabs={tabs} />}
           buttons={
             label
               ? [
@@ -143,11 +195,7 @@ export function List(props: {
           }
         />
       </div>
-      {filteredEmails.length ? (
-        <EmailList emails={filteredEmails} />
-      ) : (
-        <Celebration />
-      )}
+      {tabEmails.length ? <EmailList emails={tabEmails} /> : <Celebration />}
     </div>
   );
 }
@@ -158,10 +206,6 @@ function EmailList(props: { emails: Thread[] }) {
   const [hovered, setHovered] = useState<Thread>();
   const [openedRow, setOpenedRow] = useState<Thread>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
-  console.log(
-    "🚀 ~ file: ListNew.tsx:124 ~ EmailList ~ openedRow:",
-    openedRow?.snippet
-  );
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
