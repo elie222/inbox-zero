@@ -11,7 +11,11 @@ import { deletePromptHistory } from "@/app/api/prompt-history/controller";
 import { getSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { type Label } from "@prisma/client";
-import { deleteInboxZeroLabels, deleteUserLabels } from "@/utils/redis/label";
+import {
+  deleteInboxZeroLabels,
+  deleteUserLabels,
+  saveUserLabels,
+} from "@/utils/redis/label";
 import { deletePlans } from "@/utils/redis/plan";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
@@ -104,6 +108,14 @@ export async function updateLabels(
       },
     }),
   ]);
+
+  await saveUserLabels({
+    email: session.user.email,
+    labels: enabledLabels.map((l) => ({
+      ...l,
+      id: l.gmailLabelId,
+    })),
+  });
 }
 
 export async function deletePromptHistoryAction(options: { id: string }) {
