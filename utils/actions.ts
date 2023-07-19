@@ -11,6 +11,8 @@ import { deletePromptHistory } from "@/app/api/prompt-history/controller";
 import { getSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { type Label } from "@prisma/client";
+import { deleteInboxZeroLabels, deleteUserLabels } from "@/utils/redis/label";
+import { deletePlans } from "@/utils/redis/plan";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -58,6 +60,10 @@ export async function deleteAccountAction() {
   await prisma.user.delete({
     where: { email: session.user.email },
   });
+
+  await deleteUserLabels({ email: session.user.email });
+  await deleteInboxZeroLabels({ email: session.user.email });
+  await deletePlans({ email: session.user.email });
 }
 
 export async function updateLabels(

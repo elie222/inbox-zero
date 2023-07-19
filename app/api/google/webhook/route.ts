@@ -42,12 +42,7 @@ export async function POST(request: Request) {
       },
       gmail
     );
-    await planHistory(
-      history || [],
-      account.userId,
-      decodedData.emailAddress,
-      gmail
-    );
+    await planHistory(history || [], account.userId, decodedData.emailAddress);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -75,8 +70,7 @@ async function listHistory(
 async function planHistory(
   history: gmail_v1.Schema$History[],
   userId: string,
-  email: string,
-  gmail: gmail_v1.Gmail
+  email: string
 ) {
   if (!history?.length) return;
 
@@ -94,7 +88,7 @@ async function planHistory(
         parsedMessage.headers.subject;
 
       if (message) {
-        await plan({ message, id: m.message.id }, { id: userId, email }, gmail);
+        await plan({ message, id: m.message.id }, { id: userId, email });
       } else {
         console.error("No message", parsedMessage);
       }

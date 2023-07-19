@@ -9,24 +9,63 @@ const redisLabelSchema = z.object({
 });
 export type RedisLabel = z.infer<typeof redisLabelSchema>;
 
-function getKey(email: string) {
-  return `labels:${email}`;
+function getUserLabelsKey(email: string) {
+  return `labels:user:${email}`;
 }
 
-export async function getLabels(options: { email: string }) {
-  const key = getKey(options.email);
+// user labels
+export async function getUserLabels(options: { email: string }) {
+  const key = getUserLabelsKey(options.email);
   return redis.get<RedisLabel[]>(key);
 }
 
-export async function saveLabels(options: {
+export async function saveUserLabels(options: {
   email: string;
   labels: RedisLabel[];
 }) {
-  const key = getKey(options.email);
+  const key = getUserLabelsKey(options.email);
   return redis.set(key, options.labels);
 }
 
-export async function deleteLabels(options: { email: string }) {
-  const key = getKey(options.email);
+export async function deleteUserLabels(options: { email: string }) {
+  const key = getUserLabelsKey(options.email);
+  return redis.del(key);
+}
+
+// inbox zero labels
+function getInboxZeroLabelsKey(email: string) {
+  return `labels:inboxzero:${email}`;
+}
+
+export type InboxZeroLabelKey =
+  | "archived"
+  | "labeled"
+  | "drafted"
+  | "suggested_label";
+export type InboxZeroLabels = Record<InboxZeroLabelKey, RedisLabel>;
+
+export const inboxZeroLabelKeys: InboxZeroLabelKey[] = [
+  "archived",
+  "labeled",
+  "drafted",
+  "suggested_label",
+];
+
+export async function getInboxZeroLabels(options: { email: string }) {
+  const key = getInboxZeroLabelsKey(options.email);
+  return redis.get<InboxZeroLabels>(key);
+}
+
+export async function saveInboxZeroLabel(options: {
+  email: string;
+  labelKey: string;
+  label: RedisLabel;
+}) {
+  const key = getInboxZeroLabelsKey(options.email);
+  return redis.hset(key, { [options.labelKey]: options.label });
+}
+
+export async function deleteInboxZeroLabels(options: { email: string }) {
+  const key = getInboxZeroLabelsKey(options.email);
   return redis.del(key);
 }

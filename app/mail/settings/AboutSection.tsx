@@ -8,9 +8,11 @@ export const AboutSection = async () => {
 
   if (!session?.user) return <NotLoggedIn />;
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { email: session.user.email },
   });
+
+  if (!user) return <NotLoggedIn />;
 
   return <AboutSectionForm about={user.about ?? undefined} />;
 };

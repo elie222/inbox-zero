@@ -15,8 +15,7 @@ export async function POST(request: Request) {
   const json = await request.json();
   const body = planBody.parse(json);
 
-  const gmail = getGmailClient(session);
-  const res = await plan(body, session.user, gmail);
+  const res = await plan(body, session.user);
 
   return NextResponse.json(res);
 }

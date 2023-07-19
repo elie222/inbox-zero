@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
-import { INBOX_LABEL_ID } from "@/utils/label";
+import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
 
 export const labelThreadBody = z.object({
   threadId: z.string(),
@@ -13,15 +13,21 @@ export type LabelThreadResponse = Awaited<ReturnType<typeof labelThread>>;
 
 export async function labelThread(body: LabelThreadBody) {
   const session = await getSession();
-  if (!session) throw new Error("Not authenticated");
+  if (!session?.user.email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
+
+  const izLabels = await getOrCreateInboxZeroLabels(session.user.email);
 
   const res = await gmail.users.threads.modify({
     userId: "me",
     id: body.threadId,
     requestBody: {
-      addLabelIds: [body.labelId],
+      addLabelIds: [
+        body.labelId,
+        izLabels["labeled"].id,
+        ...(body.archive ? [izLabels["archived"].id] : []),
+      ],
       removeLabelIds: body.archive ? [INBOX_LABEL_ID] : [],
     },
   });

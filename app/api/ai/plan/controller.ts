@@ -10,7 +10,6 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 import { getUserLabels } from "@/utils/label";
-import { gmail_v1 } from "googleapis";
 
 export const planBody = z.object({ id: z.string(), message: z.string() });
 export type PlanBody = z.infer<typeof planBody>;
@@ -32,24 +31,28 @@ You will always return valid JSON as a response.
 The JSON should contain the following fields:
 
 action: "archive", "label", "respond"
-label?: ${labels
-          .map(
-            (l) => `"${l.name}"${l.description ? ` - ${l.description}` : ""}`
-          )
-          .join(", \n")}
+label?: Label
 category: "spam", "promotions", "social", "requires_response", "requires_action", "receipts", "newsletter", "app_update", "terms_and_conditions_update"
 response ?: string
+
+${
+  labels.length
+    ? `Label can be one of the following:
+${labels
+  .map((l) => `"${l.name}"${l.description ? ` - ${l.description}` : ""}`)
+  .join(", \n")}`
+    : ""
+}
 
 If you have decided to respond to the email, you must include a "response" field with the response you want to send.Otherwise the "response" field must be omitted.
 If you have decided to label the email, you must include a "label" field with the label.Otherwise the "label" field must be omitted.
 
 An example response to label an email as a newsletter is:
-          {
-            "action": "label",
-            "category": "CATEGORY",
-            "label": "LABEL"
-          }
-            `,
+{
+  "action": "label",
+  "category": "receipts",
+  "label": ${labels[0].name || "LABEL"}
+}`,
       },
       {
         role: "user",
@@ -73,14 +76,13 @@ The email: \n\n###\n\n${message.substring(0, 3000)}
 
 export async function plan(
   body: PlanBody,
-  user: { id: string; email: string },
-  gmail: gmail_v1.Gmail
+  user: { id: string; email: string }
 ) {
   // check cache
   const data = await getPlan({ email: user.email, threadId: body.id });
   if (data) return { plan: data };
 
-  const labels = await getUserLabels(user.id, gmail);
+  const labels = await getUserLabels(user.id);
 
   let json = await calculatePlan(body.message, labels || []);
 

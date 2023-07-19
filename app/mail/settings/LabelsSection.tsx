@@ -8,10 +8,12 @@ export const LabelsSection = async () => {
 
   if (!session?.user) return <NotLoggedIn />;
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     select: { labels: true },
   });
+
+  if (!user) return <NotLoggedIn />;
 
   return <LabelsSectionForm dbLabels={user.labels} />;
 };
