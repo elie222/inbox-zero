@@ -19,6 +19,15 @@ export async function getUserLabels(options: { email: string }) {
   return redis.get<RedisLabel[]>(key);
 }
 
+export async function saveUserLabel(options: {
+  email: string;
+  label: RedisLabel;
+}) {
+  const existingLabels = await getUserLabels(options);
+  const newLabels = [...(existingLabels ?? []), options.label];
+  return saveUserLabels({ email: options.email, labels: newLabels });
+}
+
 export async function saveUserLabels(options: {
   email: string;
   labels: RedisLabel[];

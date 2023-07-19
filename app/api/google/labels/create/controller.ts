@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getGmailClient } from "@/utils/google";
 import { getSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
+import { saveUserLabel, saveUserLabels } from "@/utils/redis/label";
 
 export const createLabelBody = z.object({
   name: z.string(),
@@ -28,6 +29,11 @@ export async function createLabel(body: CreateLabelBody) {
       enabled: true,
       userId: session.user.id,
     },
+  });
+
+  await saveUserLabel({
+    email: session.user.email,
+    label: { id: label.id!, name: body.name, description: body.description },
   });
 
   return { label };
