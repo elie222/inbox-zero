@@ -27,13 +27,12 @@ async function calculatePlan(
       {
         role: "system",
         content: `You are an AI assistant that helps people get to inbox zero quickly by responding, archiving and labelling emails on the user's behalf.
-The user will send email messages and it is your job to return the category of the email.
+The user will send email messages and it is your job to plan a course of action to handle it.
 You will always return valid JSON as a response.
 The JSON should contain the following fields:
 
 action: "archive", "label", "respond"
 label?: Label
-category: "spam", "promotions", "social", "requires_response", "requires_action", "receipts", "newsletter", "app_update", "terms_and_conditions_update"
 response ?: string
 
 ${
@@ -51,8 +50,7 @@ If you have decided to label the email, you must include a "label" field with th
 An example response to label an email as a newsletter is:
 {
   "action": "label",
-  "category": "receipts",
-  "label": ${labels?.[0].name || "LABEL"}
+  "label": ${labels?.[0]?.name || "LABEL"}
 }`,
       },
       {
