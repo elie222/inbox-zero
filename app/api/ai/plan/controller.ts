@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { openai } from "@/app/api/ai/openai";
-import { generalPrompt } from "@/utils/config";
+import { ACTIONS, generalPrompt } from "@/utils/config";
 import { getPlan, planSchema, savePlan } from "@/utils/redis/plan";
 import { saveUsage } from "@/utils/redis/usage";
 import {
@@ -35,7 +35,7 @@ The user will send email messages and it is your job to plan a course of action 
 You will always return valid JSON as a response.
 The JSON should contain the following fields:
 
-action: "archive", "label", "reply", "to_do"
+action: ${ACTIONS.join(", ")}
 label?: Label
 response ?: string
 

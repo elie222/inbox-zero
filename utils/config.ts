@@ -8,3 +8,5 @@ Some rules to follow:
 * Add the newsletter label to emails that are newsletters.
 * Draft responses to snoozed emails that I haven't received a response to yet.
 `;
+
+export const ACTIONS = ["archive", "label", "reply", "to_do"] as const;
