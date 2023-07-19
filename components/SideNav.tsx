@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Dialog, Transition } from "@headlessui/react";
 import useSWR from "swr";
 import clsx from "clsx";
@@ -16,7 +18,6 @@ import { PromptHistory } from "@/components/PromptHistory";
 import { PromptHistoryResponse } from "@/app/api/prompt-history/controller";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Logo } from "@/components/Logo";
-import Link from "next/link";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon, current: true },
@@ -36,6 +37,8 @@ export function SideNav(props: {
   const { data, isLoading, error, mutate } = useSWR<PromptHistoryResponse>(
     "/api/prompt-history"
   );
+
+  const path = usePathname();
 
   return (
     <>
@@ -169,7 +172,7 @@ export function SideNav(props: {
                         <a
                           href={item.href}
                           className={clsx(
-                            item.current
+                            item.href === path
                               ? "bg-gray-800 text-white"
                               : "text-gray-400 hover:bg-gray-800 hover:text-white",
                             "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6"
