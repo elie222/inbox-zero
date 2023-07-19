@@ -25,31 +25,29 @@ async function calculatePlan(
   labels: { name: string; description?: string | null }[]
 ) {
   const systemMessage = `You are an AI assistant that helps people get to inbox zero quickly by replying, archiving and labelling emails on the user's behalf.
-  The user will send email messages and it is your job to plan a course of action to handle it.
-  You will always return valid JSON as a response.
-  The JSON should contain the following fields:
+The user will send email messages and it is your job to plan a course of action to handle it.
+You will always return valid JSON as a response.
+
+The JSON should contain the following fields:
   
-  action: ${ACTIONS.join(", ")}
-  label?: Label
-  response ?: string
+action: ${ACTIONS.join(", ")}
+label?: LABEL
+response?: string
   
-  ${
-    labels.length
-      ? `Label can be one of the following:
-  ${labels
-    .map((l) => `"${l.name}"${l.description ? ` - ${l.description}` : ""}`)
-    .join(", \n")}`
-      : ""
-  }
+${
+  labels.length
+    ? `LABEL can be one of the following:
+${labels
+  .map((l) => `* ${l.name}${l.description ? ` - ${l.description}` : ""}`)
+  .join(", \n")}`
+    : ""
+}
   
-  If you have decided to respond to the email, you must include a "response" field with the response you want to send.Otherwise the "response" field must be omitted.
-  If you have decided to label the email, you must include a "label" field with the label.Otherwise the "label" field must be omitted.
-  
-  An example response to label an email as a newsletter is:
-  {
-    "action": "label",
-    "label": ${labels?.[0]?.name || "LABEL"}
-  }`;
+If you have decided to respond to the email, you must include a "response" field with the response you want to send.Otherwise the "response" field must be omitted.
+If you have decided to label the email, you must include a "label" field with the label.Otherwise the "label" field must be omitted.
+
+Do not use labels that do not exist.
+`;
 
   const response = await openai.createChatCompletion({
     model: "gpt-3.5-turbo",
