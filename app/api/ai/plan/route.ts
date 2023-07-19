@@ -2,7 +2,6 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { getSession } from "@/utils/auth";
 import { plan, planBody } from "@/app/api/ai/plan/controller";
-import { getGmailClient } from "@/utils/google";
 
 // Next Auth does not support edge runtime but will do soon:
 // https://github.com/vercel/next.js/issues/50444#issuecomment-1602746782

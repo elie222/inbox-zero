@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { openai } from "@/app/api/ai/openai";
-import { ACTIONS, generalPrompt } from "@/utils/config";
+import { ACTIONS, AI_MODEL, generalPrompt } from "@/utils/config";
 import { getPlan, planSchema, savePlan } from "@/utils/redis/plan";
 import { saveUsage } from "@/utils/redis/usage";
 import {
@@ -50,7 +50,7 @@ Do not use labels that do not exist.
 `;
 
   const response = await openai.createChatCompletion({
-    model: "gpt-3.5-turbo",
+    model: AI_MODEL,
     max_tokens: 400,
     messages: [
       {

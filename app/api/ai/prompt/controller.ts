@@ -9,6 +9,7 @@ import {
   ChatCompletionResponse,
   isChatCompletionError,
 } from "@/utils/types";
+import { AI_MODEL } from "@/utils/config";
 
 export const promptQuery = z.object({
   message: z.string(),
@@ -22,7 +23,7 @@ export async function createFilterFromPrompt(body: PromptQuery) {
   if (!session?.user) throw new Error("Not logged in");
 
   const responsePromise = openai.createChatCompletion({
-    model: "gpt-4",
+    model: AI_MODEL,
     messages: [
       {
         role: "system",

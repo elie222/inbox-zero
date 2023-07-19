@@ -488,7 +488,7 @@ function PlanBadge(props: {
   const plan = props.plan || data?.plan;
 
   if (plan?.action === "error") {
-    console.log(plan?.response);
+    console.error(plan?.response);
   }
 
   return (

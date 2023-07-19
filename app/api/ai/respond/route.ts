@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import { openai } from "@/app/api/ai/openai";
+import { AI_MODEL } from "@/utils/config";
 
 const respondBody = z.object({ message: z.string() });
 export type RespondBody = z.infer<typeof respondBody>;
@@ -10,7 +11,7 @@ export const runtime = "edge";
 
 async function respond(body: RespondBody) {
   const response = await openai.createChatCompletion({
-    model: "gpt-4",
+    model: AI_MODEL,
     messages: [
       {
         role: "system",

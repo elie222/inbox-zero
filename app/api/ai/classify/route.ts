@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { openai } from "@/app/api/ai/openai";
+import { AI_MODEL } from "@/utils/config";
 
 const classifyThreadBody = z.object({ message: z.string() });
 export type ClassifyThreadBody = z.infer<typeof classifyThreadBody>;
@@ -10,7 +11,7 @@ export const runtime = "edge";
 
 async function classify(body: ClassifyThreadBody) {
   const response = await openai.createChatCompletion({
-    model: "gpt-4",
+    model: AI_MODEL,
     messages: [
       {
         role: "system",
