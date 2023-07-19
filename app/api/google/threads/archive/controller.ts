@@ -1,7 +1,7 @@
-import { getSession } from "next-auth/react";
 import { z } from "zod";
 import { getGmailClient } from "@/utils/google";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
+import { getSession } from "@/utils/auth";
 
 export const archiveBody = z.object({ id: z.string() });
 export type ArchiveBody = z.infer<typeof archiveBody>;
