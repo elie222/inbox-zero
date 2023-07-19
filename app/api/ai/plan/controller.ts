@@ -19,6 +19,7 @@ async function calculatePlan(
   message: string,
   labels: { name: string; description?: string | null }[]
 ) {
+  console.log("🚀 ~ file: controller.ts:22 ~ labels:", labels);
   const response = await openai.createChatCompletion({
     model: "gpt-3.5-turbo",
     max_tokens: 400,
@@ -51,7 +52,7 @@ An example response to label an email as a newsletter is:
 {
   "action": "label",
   "category": "receipts",
-  "label": ${labels[0].name || "LABEL"}
+  "label": ${labels?.[0].name || "LABEL"}
 }`,
       },
       {
