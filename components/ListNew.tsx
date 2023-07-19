@@ -44,14 +44,14 @@ export function List(props: {
   filterArgs?: FilterArgs;
   refetch: () => void;
 }) {
-  const { emails, filter, filterArgs } = props;
-  const filteredEmails = useMemo(() => {
-    if (!filter) return emails;
+  const { emails: filteredEmails, filter, filterArgs } = props;
+  // const filteredEmails = useMemo(() => {
+  //   if (!filter) return emails;
 
-    return emails.filter((email) =>
-      filter({ ...(email.plan || {}), threadId: email.id! }, filterArgs)
-    );
-  }, [emails, filter, filterArgs]);
+  //   return emails.filter((email) =>
+  //     filter({ ...(email.plan || {}), threadId: email.id! }, filterArgs)
+  //   );
+  // }, [emails, filter, filterArgs]);
 
   const { labelsArray } = useGmail();
   const label = useMemo(() => {
@@ -67,14 +67,12 @@ export function List(props: {
     return `${searchParamAction}---${searchParamLabel}`;
   }, [searchParamAction, searchParamLabel]);
 
-  const tabGroups = useMemo(
-    () =>
-      groupBy(
-        filteredEmails.filter((e) => e.plan?.action),
-        (e) => `${e.plan?.action}---${e.plan?.label || ""}`
-      ),
-    [filteredEmails]
-  );
+  const tabGroups = useMemo(() => {
+    return groupBy(
+      filteredEmails.filter((e) => e.plan?.action),
+      (e) => `${e.plan?.action}---${e.plan?.label || ""}`
+    );
+  }, [filteredEmails]);
 
   const tabs = useMemo(() => {
     return [
@@ -196,12 +194,16 @@ export function List(props: {
           }
         />
       </div>
-      {tabEmails.length ? <EmailList emails={tabEmails} /> : <Celebration />}
+      {tabEmails.length ? (
+        <EmailList emails={tabEmails} refetch={props.refetch} />
+      ) : (
+        <Celebration />
+      )}
     </>
   );
 }
 
-function EmailList(props: { emails: Thread[] }) {
+function EmailList(props: { emails: Thread[]; refetch: () => void }) {
   // if performance becomes an issue check this:
   // https://ianobermiller.com/blog/highlight-table-row-column-react#react-state
   const [hovered, setHovered] = useState<Thread>();
@@ -243,6 +245,7 @@ function EmailList(props: { emails: Thread[] }) {
               setOpenedRow(email);
             }}
             onMouseEnter={() => setHovered(email)}
+            refetchEmails={props.refetch}
           />
         ))}
       </ul>
@@ -261,6 +264,7 @@ function EmailListItem(props: {
   splitView: boolean;
   onClick: MouseEventHandler<HTMLLIElement>;
   onMouseEnter: () => void;
+  refetchEmails: () => void;
 }) {
   const { email, splitView } = props;
 
@@ -329,6 +333,7 @@ function EmailListItem(props: {
                   ""
                 }
                 plan={email.plan}
+                refetchEmails={props.refetchEmails}
               />
             </div>
           </div>
@@ -467,6 +472,7 @@ function PlanBadge(props: {
   subject: string;
   message: string;
   plan?: Plan | null;
+  refetchEmails: () => void;
 }) {
   // skip fetching plan if we have it already
   const { data, isLoading, error } = useSWR<PlanResponse>(
@@ -484,6 +490,12 @@ function PlanBadge(props: {
       });
     }
   );
+
+  const { refetchEmails } = props;
+
+  useEffect(() => {
+    if (!props.plan && data?.plan?.action) refetchEmails();
+  }, [data?.plan?.action, props.plan, refetchEmails]);
 
   const plan = props.plan || data?.plan;
 

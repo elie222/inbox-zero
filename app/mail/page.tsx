@@ -9,7 +9,11 @@ import { usePromptContext } from "@/providers/PromptProvider";
 
 export default function Home() {
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
-    "/api/google/threads"
+    "/api/google/threads",
+    {
+      keepPreviousData: true,
+      dedupingInterval: 1_000,
+    }
   );
 
   const { prompt, filterFunction } = usePromptContext();
