@@ -109,6 +109,10 @@ function ListItem(props: { item: Item; refetch: () => void }) {
                 {/* <Categorise message={data.thread.messages?.[0]?.text || ""} /> */}
                 <Plan
                   id={data.thread.id || ""}
+                  subject={
+                    data.thread.messages?.[0]?.parsedMessage.headers.subject ||
+                    ""
+                  }
                   message={
                     data.thread.messages?.[0]?.parsedMessage.textPlain || ""
                   }
@@ -196,7 +200,7 @@ function Categorise(props: { message: string }) {
   );
 }
 
-function Plan(props: { id: string; message: string }) {
+function Plan(props: { id: string; subject: string; message: string }) {
   const [plan, setPlan] = useState<string>();
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
 
@@ -204,12 +208,13 @@ function Plan(props: { id: string; message: string }) {
     setIsLoadingPlan(true);
     const plan = await postRequest<PlanResponse, PlanBody>("/api/ai/plan", {
       id: props.id,
+      subject: props.subject,
       message: props.message,
     });
 
     // setPlan(plan.message);
     setIsLoadingPlan(false);
-  }, [props.id, props.message]);
+  }, [props.id, props.subject, props.message]);
 
   // useEffect(() => {
   //   onClickPlan();

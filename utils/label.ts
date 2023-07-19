@@ -52,16 +52,18 @@ async function createGmailLabel(options: {
   }
 }
 
-export async function getUserLabels(
-  email: string
-): Promise<RedisLabel[] | null> {
+export async function getUserLabels(options: {
+  email: string;
+}): Promise<RedisLabel[] | null> {
+  const { email } = options;
+
   // 1. check if the labels exist in redis
   const redisLabels = await getRedisUserLabels({ email });
   if (redisLabels?.length) return redisLabels;
 
   // 2. if not check if the labels exist in the db
   const dbLabels = await prisma.label.findMany({
-    where: { user: { email } },
+    where: { user: { email }, enabled: true },
   });
   if (dbLabels.length) {
     await saveUserLabels({ email, labels: dbLabels });

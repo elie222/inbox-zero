@@ -67,7 +67,7 @@ export const label: FilterFunction = (
 };
 
 export const to_respond: FilterFunction = (plan?: PlanWithThread) => {
-  return plan?.action === "respond";
+  return plan?.action === "reply";
 };
 
 export const by_id: FilterFunction = (

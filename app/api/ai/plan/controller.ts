@@ -11,27 +11,31 @@ import {
 } from "@/utils/types";
 import { getUserLabels } from "@/utils/label";
 
-export const planBody = z.object({ id: z.string(), message: z.string() });
+export const planBody = z.object({
+  id: z.string(),
+  subject: z.string(),
+  message: z.string(),
+});
 export type PlanBody = z.infer<typeof planBody>;
 export type PlanResponse = Awaited<ReturnType<typeof plan>>;
 
 async function calculatePlan(
+  subject: string,
   message: string,
   labels: { name: string; description?: string | null }[]
 ) {
-  console.log("🚀 ~ file: controller.ts:22 ~ labels:", labels);
   const response = await openai.createChatCompletion({
     model: "gpt-3.5-turbo",
     max_tokens: 400,
     messages: [
       {
         role: "system",
-        content: `You are an AI assistant that helps people get to inbox zero quickly by responding, archiving and labelling emails on the user's behalf.
+        content: `You are an AI assistant that helps people get to inbox zero quickly by replying, archiving and labelling emails on the user's behalf.
 The user will send email messages and it is your job to plan a course of action to handle it.
 You will always return valid JSON as a response.
 The JSON should contain the following fields:
 
-action: "archive", "label", "respond"
+action: "archive", "label", "reply", "to_do"
 label?: Label
 response ?: string
 
@@ -62,7 +66,9 @@ An example response to label an email as a newsletter is:
         content: `
 Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
 
-The email: \n\n###\n\n${message.substring(0, 3000)}
+The email: \n\n###\n\n
+Subject: ${subject}
+${message.substring(0, 3000)}
         `,
       },
     ],
@@ -81,9 +87,9 @@ export async function plan(
   const data = await getPlan({ email: user.email, threadId: body.id });
   if (data) return { plan: data };
 
-  const labels = await getUserLabels(user.id);
+  const labels = await getUserLabels({ email: user.email });
 
-  let json = await calculatePlan(body.message, labels || []);
+  let json = await calculatePlan(body.subject, body.message, labels || []);
 
   if (isChatCompletionError(json)) return { plan: undefined };
 

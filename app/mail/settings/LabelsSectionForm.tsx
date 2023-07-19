@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { capitalCase } from "capital-case";
+import sortBy from "lodash/sortBy";
 import { Button } from "@/components/Button";
 import {
   FormSection,
@@ -50,16 +51,19 @@ function LabelsSectionFormInner(props: {
   const { gmailLabels, dbLabels } = props;
 
   const userLabels = useMemo(() => {
-    return Object.values(gmailLabels || {})
-      .filter((l) => l.type !== "system")
-      .map((l) => {
-        const dbLabel = dbLabels.find((el) => el.gmailLabelId === l.id);
+    return sortBy(
+      Object.values(gmailLabels || {})
+        .filter((l) => l.type !== "system")
+        .map((l) => {
+          const dbLabel = dbLabels.find((el) => el.gmailLabelId === l.id);
 
-        return {
-          ...dbLabel,
-          ...l,
-        };
-      });
+          return {
+            ...dbLabel,
+            ...l,
+          };
+        }),
+      (l) => (l.enabled ? 0 : 1)
+    );
   }, [gmailLabels, dbLabels]);
 
   const defaultValues = Object.fromEntries(

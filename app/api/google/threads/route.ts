@@ -22,14 +22,8 @@ async function getThreads() {
   const res = await gmail.users.threads.list({
     userId: "me",
     labelIds: [INBOX_LABEL_ID],
-    maxResults: 100,
+    maxResults: 10,
   });
-  // const threads = res.data.threads?.map(t => {
-  //   return {
-  //     ...t,
-  //     snippet: he.decode(t.snippet || "")
-  //   }
-  // });
 
   const threadsWithMessages = await Promise.all(
     res.data.threads?.map(async (t) => {
@@ -42,7 +36,6 @@ async function getThreads() {
         snippet: he.decode(t.snippet || ""),
         thread: { ...thread.data, messages },
         plan: await getPlan({ email: session.user.email, threadId: id }),
-        // plan: undefined as any,
       };
     }) || []
   );

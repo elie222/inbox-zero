@@ -35,7 +35,7 @@ import { Tabs } from "@/components/Tabs";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
 import { Tooltip } from "@/components/Tooltip";
 
-type Thread = ThreadsResponse["threads"][0];
+type Thread = ThreadsResponse["threads"][number];
 
 export function List(props: {
   emails: Thread[];
@@ -288,14 +288,12 @@ function EmailListItem(props: {
             )}
           >
             <div className="w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
-              {fromName(
-                email.thread?.messages?.[0]?.parsedMessage.headers.from
-              )}
+              {fromName(lastMessage.parsedMessage.headers.from)}
             </div>
             {!splitView && (
               <>
                 <div className="ml-4 min-w-0 overflow-hidden font-medium text-gray-700">
-                  {email.thread?.messages?.[0]?.parsedMessage.headers.subject}
+                  {lastMessage.parsedMessage.headers.subject}
                 </div>
                 <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
                   {email.snippet}
@@ -323,6 +321,7 @@ function EmailListItem(props: {
             <div className="ml-3 whitespace-nowrap">
               <PlanBadge
                 id={email.id || ""}
+                subject={lastMessage?.parsedMessage.headers.subject || ""}
                 message={
                   lastMessage?.parsedMessage.textPlain ||
                   lastMessage?.parsedMessage.textHtml ||
@@ -338,7 +337,7 @@ function EmailListItem(props: {
         {splitView && (
           <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
             <div className="min-w-0 overflow-hidden font-medium text-gray-700">
-              {email.thread?.messages?.[0]?.parsedMessage.headers.subject}
+              {lastMessage.parsedMessage.headers.subject}
             </div>
             <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
               {email.snippet}
@@ -384,16 +383,16 @@ function EmailListItem(props: {
 }
 
 function EmailPanel(props: { row: Thread; close: () => void }) {
-  const html = props.row.thread.messages?.[0].parsedMessage.textHtml || "";
+  const lastMessage =
+    props.row.thread.messages?.[props.row.thread.messages.length - 1];
+  const html = lastMessage.parsedMessage.textHtml || "";
 
   const srcDoc = useMemo(() => getIframeHtml(html), [html]);
 
   return (
     <div className="border-l border-l-gray-100">
       <div className="sticky flex items-center justify-between border-b border-b-gray-100 p-4">
-        <div className="">
-          {props.row.thread.messages[0].parsedMessage.headers.subject}
-        </div>
+        <div className="">{lastMessage.parsedMessage.headers.subject}</div>
         <div className="ml-2 flex items-center ">
           <ActionButtons threadId={props.row.id!} />
           <div className="ml-2 flex items-center">
@@ -463,13 +462,19 @@ function fromName(email: string) {
   return email.split("<")[0];
 }
 
-function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
+function PlanBadge(props: {
+  id: string;
+  subject: string;
+  message: string;
+  plan?: Plan | null;
+}) {
   // skip fetching plan if we have it already
   const { data, isLoading, error } = useSWR<PlanResponse>(
     !props.plan && `/api/ai/plan?id=${props.id}`,
     (url) => {
       const body: PlanBody = {
         id: props.id,
+        subject: props.subject,
         message: props.message,
       };
       return fetcher(url, {
@@ -501,12 +506,14 @@ function PlanBadge(props: { id: string; message: string; plan?: Plan | null }) {
 
 function getActionMessage(plan: Plan | null): string {
   switch (plan?.action) {
-    case "respond":
+    case "reply":
       return "Respond";
     case "archive":
       return "Archive";
     case "label":
       return `Label as ${plan.label}`;
+    case "to_do":
+      return `To do`;
     case "error":
       return "Error";
     default:
@@ -516,12 +523,14 @@ function getActionMessage(plan: Plan | null): string {
 
 function getActionColor(plan: Plan | null): Color {
   switch (plan?.action) {
-    case "respond":
+    case "reply":
       return "green";
     case "archive":
       return "yellow";
     case "label":
       return "blue";
+    case "to_do":
+      return "purple";
     case "error":
       return "red";
     default:
