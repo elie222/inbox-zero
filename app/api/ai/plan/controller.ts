@@ -24,8 +24,8 @@ async function calculatePlan(
   message: string,
   labels: { name: string; description?: string | null }[]
 ) {
-  const systemMessage = `You are an AI assistant that helps people get to inbox zero quickly by replying, archiving and labelling emails on the user's behalf.
-The user will send email messages and it is your job to plan a course of action to handle it.
+  const systemMessage = `You are an AI assistant that helps people manage their emails by replying, archiving and labelling emails on the user's behalf.
+The user will send emails and it is your job to plan a course of action to handle them.
 You will always return valid JSON as a response.
 
 The JSON should contain the following fields:
@@ -43,10 +43,9 @@ ${labels
     : ""
 }
   
-If you have decided to respond to the email, you must include a "response" field with the response you want to send.Otherwise the "response" field must be omitted.
-If you have decided to label the email, you must include a "label" field with the label.Otherwise the "label" field must be omitted.
-
-Do not use labels that do not exist.
+If action is "reply", include a "response" field with a response to send.
+If action is "label", include a "label" field with the label from the list of labels above.
+Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
 `;
 
   const response = await openai.createChatCompletion({
@@ -63,10 +62,7 @@ Do not use labels that do not exist.
       },
       {
         role: "user",
-        content: `
-Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
-
-The email: \n\n###\n\n
+        content: `The email:
 Subject: ${subject}
 Body:
 ${message.substring(0, 3000)}
