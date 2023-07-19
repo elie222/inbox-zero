@@ -3,7 +3,7 @@ import { getSession } from "@/utils/auth";
 import {
   deletePromptHistory,
   getPromptHistory,
-} from "@/app/api/prompt-history/controller";
+} from "@/app/api/user/prompt-history/controller";
 
 export const dynamic = "force-dynamic";
 

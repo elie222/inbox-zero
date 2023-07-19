@@ -7,7 +7,7 @@ import {
 } from "@/app/api/ai/prompt/controller";
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import { labelThread } from "@/app/api/google/threads/label/controller";
-import { deletePromptHistory } from "@/app/api/prompt-history/controller";
+import { deletePromptHistory } from "@/app/api/user/prompt-history/controller";
 import { getSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { type Label } from "@prisma/client";
@@ -22,8 +22,11 @@ export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
 }
 
-export async function createLabelAction(name: string) {
-  await createLabel({ name });
+export async function createLabelAction(options: {
+  name: string;
+  description?: string;
+}) {
+  await createLabel(options);
 }
 
 export async function labelThreadsAction(options: {

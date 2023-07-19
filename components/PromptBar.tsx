@@ -40,7 +40,7 @@ export function PromptBar(props: {}) {
           console.log(JSON.stringify(res, null, 2));
         }
 
-        mutate("/api/prompt-history");
+        mutate("/api/user/prompt-history");
       }}
     >
       <label htmlFor="prompt-field" className="sr-only">

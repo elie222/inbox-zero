@@ -15,7 +15,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { PromptHistory } from "@/components/PromptHistory";
-import { PromptHistoryResponse } from "@/app/api/prompt-history/controller";
+import { PromptHistoryResponse } from "@/app/api/user/prompt-history/controller";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Logo } from "@/components/Logo";
 
@@ -35,7 +35,7 @@ export function SideNav(props: {
   setSidebarOpen: (open: boolean) => void;
 }) {
   const { data, isLoading, error, mutate } = useSWR<PromptHistoryResponse>(
-    "/api/prompt-history"
+    "/api/user/prompt-history"
   );
 
   const path = usePathname();

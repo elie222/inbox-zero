@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useCallback, useMemo } from "react";
+import { SubmitHandler, useForm } from "react-hook-form";
+import useSwr, { useSWRConfig } from "swr";
 import { capitalCase } from "capital-case";
 import sortBy from "lodash/sortBy";
 import { Button } from "@/components/Button";
@@ -19,7 +20,14 @@ import { SectionDescription, SectionHeader } from "@/components/Typography";
 import { GmailLabels, useGmail } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabels } from "@/utils/actions";
 import { PlusSmallIcon } from "@heroicons/react/24/outline";
+import { useModal, Modal } from "@/components/Modal";
 import { type Label } from "@prisma/client";
+import { postRequest } from "@/utils/api";
+import {
+  CreateLabelBody,
+  CreateLabelResponse,
+} from "@/app/api/google/labels/create/controller";
+import { UserLabelsResponse } from "@/app/api/user/labels/route";
 
 const recommendedLabels = ["Newsletter", "Receipt", "Calendar"];
 
@@ -28,6 +36,17 @@ type DescriptionKey = `description-${string}`;
 
 type Inputs = Record<ToggleKey, boolean | undefined | null> &
   Record<DescriptionKey, string | undefined | null>;
+
+export const LabelsSection = () => {
+  const { data, isLoading, error } =
+    useSwr<UserLabelsResponse>("/api/user/labels");
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && <LabelsSectionForm dbLabels={data} />}
+    </LoadingContent>
+  );
+};
 
 export function LabelsSectionForm(props: { dbLabels: Label[] }) {
   const { labels, labelsIsLoading } = useGmail();
@@ -103,11 +122,16 @@ function LabelsSectionFormInner(props: {
         <div className="w-full">
           <SectionHeader>Your Labels</SectionHeader>
           <SectionDescription>
-            Labels to label your emails with. You can add a description to help
-            the AI decide how to use them. Visit Gmail to add more labels.
+            Labels help our AI properly categorise your emails. You can add a
+            description to help the AI decide how to make use of each one. We
+            will only make use of enabled labels. Visit Gmail to delete labels.
+            Inbox Zero
           </SectionDescription>
           <div className="mt-2">
+            <AddLabelModal />
+
             <form
+              className="mt-4"
               action={async (formData: FormData) => {
                 const formLabels = userLabels.map((l) => {
                   const toggle = getValues(`toggle-${l.id}`);
@@ -221,7 +245,7 @@ function LabelsSectionFormInner(props: {
                       className="group"
                       onClick={async () => {
                         try {
-                          await createLabelAction(label);
+                          await createLabelAction({ name: label });
                           toastSuccess({
                             description: `Label "${label}" created!`,
                           });
@@ -249,5 +273,96 @@ function LabelsSectionFormInner(props: {
         </div>
       </div>
     </FormSection>
+  );
+}
+
+// server actions was fun to try out but cba to waste time battling with it
+function AddLabelModal() {
+  const { isModalOpen, openModal, closeModal } = useModal();
+
+  const { mutate } = useSWRConfig();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<{ name: string; description: string }>();
+
+  const onSubmit: SubmitHandler<{ name: string; description: string }> =
+    useCallback(
+      async (data) => {
+        const { name, description } = data;
+        try {
+          await postRequest<CreateLabelResponse, CreateLabelBody>(
+            "/api/google/labels/create",
+            {
+              name,
+              description,
+            }
+          );
+
+          toastSuccess({
+            description: `Label "${name}" created!`,
+          });
+
+          // TODO this doesn't work properly. still needs a page refresh
+          // the problem is further up in this file where we're using useGmail
+          // refetch labels
+          mutate("/api/google/labels");
+          mutate("/api/user/labels");
+
+          closeModal();
+        } catch (error) {
+          console.error(`Failed to create label "${name}": ${error}`);
+          toastError({
+            description: `Failed to create label "${name}"`,
+          });
+        }
+      },
+      [closeModal, mutate]
+    );
+
+  return (
+    <>
+      <Button color="black" onClick={() => openModal()}>
+        Add Label
+      </Button>
+      <Modal isOpen={isModalOpen} hideModal={closeModal} title="Add Label">
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-4">
+            <Input
+              type="text"
+              name="name"
+              label="Name"
+              placeholder="e.g. Newsletter"
+              registerProps={register("name")}
+              error={errors.name}
+            />
+
+            <Input
+              type="text"
+              as="textarea"
+              rows={2}
+              name="description"
+              label="Description"
+              placeholder="e.g. Emails from newsletters"
+              registerProps={register("description")}
+              error={errors.description}
+            />
+
+            <SubmitButtonWrapper>
+              <Button
+                type="submit"
+                size="sm"
+                color="black"
+                loading={isSubmitting}
+              >
+                Create
+              </Button>
+            </SubmitButtonWrapper>
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 }

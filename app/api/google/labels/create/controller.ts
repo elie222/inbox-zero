@@ -1,8 +1,12 @@
 import { z } from "zod";
 import { getGmailClient } from "@/utils/google";
 import { getSession } from "@/utils/auth";
+import prisma from "@/utils/prisma";
 
-export const createLabelBody = z.object({ name: z.string() });
+export const createLabelBody = z.object({
+  name: z.string(),
+  description: z.string().nullish(),
+});
 export type CreateLabelBody = z.infer<typeof createLabelBody>;
 export type CreateLabelResponse = Awaited<ReturnType<typeof createLabel>>;
 
@@ -15,6 +19,16 @@ export async function createLabel(body: CreateLabelBody) {
     requestBody: { name: body.name },
   });
   const label = res.data;
+
+  await prisma.label.create({
+    data: {
+      name: body.name,
+      description: body.description,
+      gmailLabelId: label.id!,
+      enabled: true,
+      userId: session.user.id,
+    },
+  });
 
   return { label };
 }
