@@ -315,7 +315,10 @@ function EmailListItem(props: {
           >
             <div className="relative flex items-center">
               <div className="absolute right-0 z-20 hidden group-hover:block">
-                <ActionButtons threadId={email.id!} />
+                <ActionButtons
+                  threadId={email.id!}
+                  onGenerateAiResponse={() => {}}
+                />
               </div>
               <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
                 {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
@@ -395,11 +398,14 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
   const srcDoc = useMemo(() => getIframeHtml(html), [html]);
 
   return (
-    <div className="border-l border-l-gray-100">
+    <div className="flex flex-col border-l border-l-gray-100">
       <div className="sticky flex items-center justify-between border-b border-b-gray-100 p-4">
         <div className="">{lastMessage.parsedMessage.headers.subject}</div>
         <div className="ml-2 flex items-center ">
-          <ActionButtons threadId={props.row.id!} />
+          <ActionButtons
+            threadId={props.row.id!}
+            onGenerateAiResponse={() => {}}
+          />
           <div className="ml-2 flex items-center">
             <Tooltip content="Close" useRef>
               <button
@@ -414,8 +420,15 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
           </div>
         </div>
       </div>
-      <div className="h-full">
-        <iframe srcDoc={srcDoc} className="h-full w-full" />
+      <div className="flex flex-1 flex-col">
+        <div className="flex-1">
+          <iframe srcDoc={srcDoc} className="h-full w-full" />
+        </div>
+        {props.row.plan?.action === "reply" && (
+          <div className="h-64 shrink-0 border-t border-t-gray-100">
+            <SendEmailForm defaultMessage={props.row.plan?.response || ""} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -423,12 +436,16 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
 
 type Inputs = { message: string };
 
-const SendEmailForm = () => {
+const SendEmailForm = (props: { defaultMessage: string }) => {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<Inputs>();
+  } = useForm<Inputs>({
+    defaultValues: {
+      message: props.defaultMessage,
+    },
+  });
   // const { showNotification } = useNotification();
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
@@ -440,13 +457,13 @@ const SendEmailForm = () => {
   }, []);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit(onSubmit)} className="p-4">
       <Input
         type="text"
         as="textarea"
-        rows={4}
+        rows={6}
         name="message"
-        label="Message"
+        label="Reply"
         registerProps={register("message", { required: true })}
         error={errors.message}
       />
@@ -475,6 +492,7 @@ function PlanBadge(props: {
   refetchEmails: () => void;
 }) {
   // skip fetching plan if we have it already
+  // TODO move this higher up the tree. We need to know plans to refetch tabs too
   const { data, isLoading, error } = useSWR<PlanResponse>(
     !props.plan && `/api/ai/plan?id=${props.id}`,
     (url) => {
@@ -551,8 +569,6 @@ function getActionColor(plan: Plan | null): Color {
 }
 
 function getIframeHtml(html: string) {
-  console.log("🚀 ~ file: ListNew.tsx:484 ~ getIframeHtml ~ html:", html);
-
   let htmlWithFontFamily = "";
   // Set font to sans-serif if font not set
   if (html.indexOf("font-family") === -1) {

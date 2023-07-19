@@ -13,7 +13,10 @@ import {
   ArchiveResponse,
 } from "@/app/api/google/threads/archive/controller";
 
-export function ActionButtons(props: { threadId: string }) {
+export function ActionButtons(props: {
+  threadId: string;
+  onGenerateAiResponse: () => void;
+}) {
   const buttons = useMemo(
     () => [
       {
@@ -39,7 +42,7 @@ export function ActionButtons(props: { threadId: string }) {
       },
       {
         tooltip: "Generate AI response",
-        onClick: () => {},
+        onClick: props.onGenerateAiResponse,
         icon: (
           <SparklesIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
