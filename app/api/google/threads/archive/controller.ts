@@ -12,8 +12,7 @@ export async function archiveEmail(body: ArchiveBody) {
   if (!session?.user.email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
-
-  const izLabels = await getOrCreateInboxZeroLabels(session.user.email);
+  const izLabels = await getOrCreateInboxZeroLabels(session.user.email, gmail);
 
   const thread = await gmail.users.threads.modify({
     userId: "me",

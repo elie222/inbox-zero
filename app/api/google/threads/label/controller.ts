@@ -16,8 +16,7 @@ export async function labelThread(body: LabelThreadBody) {
   if (!session?.user.email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
-
-  const izLabels = await getOrCreateInboxZeroLabels(session.user.email);
+  const izLabels = await getOrCreateInboxZeroLabels(session.user.email, gmail);
 
   const res = await gmail.users.threads.modify({
     userId: "me",
