@@ -34,6 +34,12 @@ import { CommandDialogDemo } from "@/components/CommandDemo";
 import { Tabs } from "@/components/Tabs";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
 import { Tooltip } from "@/components/Tooltip";
+import { postRequest } from "@/utils/api";
+import {
+  ArchiveBody,
+  ArchiveResponse,
+} from "@/app/api/google/threads/archive/controller";
+import { isErrorMessage } from "@/utils/error";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -103,6 +109,8 @@ export function List(props: {
     return tabGroups[selectedTab] || filteredEmails;
   }, [selectedTab, filteredEmails, tabGroups]);
 
+  const [applyingAiSuggestions, setApplyingAiSuggestions] = useState(false);
+
   return (
     <>
       <div className="border-b border-gray-200 py-2">
@@ -117,7 +125,7 @@ export function List(props: {
                       try {
                         await labelThreadsAction({
                           labelId: label?.id!,
-                          threadIds: filteredEmails.map((email) => email.id!),
+                          threadIds: tabEmails.map((email) => email.id!),
                           archive: false,
                         });
                         toastSuccess({
@@ -136,7 +144,7 @@ export function List(props: {
                       try {
                         await labelThreadsAction({
                           labelId: label?.id!,
-                          threadIds: filteredEmails.map((email) => email.id!),
+                          threadIds: tabEmails.map((email) => email.id!),
                           archive: true,
                         });
                         toastSuccess({
@@ -154,11 +162,42 @@ export function List(props: {
                   {
                     label: "Apply AI Suggestions",
                     onClick: async () => {
+                      setApplyingAiSuggestions(true);
                       try {
-                        for (const email of filteredEmails) {
+                        for (const email of tabEmails) {
                           if (!email.plan) continue;
+
+                          const subject =
+                            email.thread.messages?.[0]?.parsedMessage.headers
+                              .subject || "";
+
                           if (email.plan.action === "archive") {
-                            // TODO
+                            try {
+                              // had trouble with server actions here
+                              const res = await postRequest<
+                                ArchiveResponse,
+                                ArchiveBody
+                              >("/api/google/threads/archive", {
+                                id: email.id!,
+                              });
+
+                              if (isErrorMessage(res)) {
+                                console.error(res);
+                                toastError({
+                                  description: `Error archiving  ${subject}`,
+                                });
+                              } else {
+                                toastSuccess({
+                                  title: "Archvied!",
+                                  description: `Archived ${subject}`,
+                                });
+                              }
+                            } catch (error) {
+                              console.error(error);
+                              toastError({
+                                description: `Error archiving ${subject}`,
+                              });
+                            }
                           } else if (email.plan.action === "label") {
                             const labelName = email.plan.label;
                             const label = labelsArray.find(
@@ -168,27 +207,27 @@ export function List(props: {
 
                             await labelThreadsAction({
                               labelId: label.id,
-                              threadIds: filteredEmails
-                                .map((email) => email.id!)
-                                .filter(Boolean),
+                              threadIds: [email.id!],
+                              // threadIds: tabEmails
+                              //   .map((email) => email.id!)
+                              //   .filter(Boolean),
                               archive: true,
                             });
 
                             toastSuccess({
-                              description: `Applied AI suggestion to ${email.thread.messages?.[0]?.parsedMessage.headers.subject}`,
+                              title: "Labelled",
+                              description: `Labelled ${subject}`,
                             });
                           }
                         }
-
-                        toastSuccess({
-                          description: `Applied AI suggestions!`,
-                        });
                       } catch (error) {
                         toastError({
                           description: `There was an error applying the AI suggestions.`,
                         });
                       }
+                      setApplyingAiSuggestions(false);
                     },
+                    loading: applyingAiSuggestions,
                   },
                 ]
           }

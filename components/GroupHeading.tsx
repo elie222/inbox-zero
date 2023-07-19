@@ -3,7 +3,7 @@ import React from "react";
 
 export function GroupHeading(props: {
   leftContent: React.ReactNode;
-  buttons: { label: string; onClick: () => void }[];
+  buttons: { label: string; loading?: boolean; onClick: () => void }[];
 }) {
   return (
     <div>
@@ -19,6 +19,7 @@ export function GroupHeading(props: {
               size="sm"
               color="black"
               onClick={button.onClick}
+              loading={button.loading}
             >
               {button.label}
             </Button>

@@ -42,6 +42,10 @@ export async function labelThreadsAction(options: {
   );
 }
 
+// export async function archiveThreadAction(options: { threadId: string }) {
+//   return await archiveEmail({ id: options.threadId })
+// }
+
 const saveAboutBody = z.object({
   about: z.string(),
 });
