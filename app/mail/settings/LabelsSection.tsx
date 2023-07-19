@@ -48,7 +48,7 @@ export const LabelsSection = () => {
   );
 };
 
-export function LabelsSectionForm(props: { dbLabels: Label[] }) {
+function LabelsSectionForm(props: { dbLabels: Label[] }) {
   const { labels, labelsIsLoading } = useGmail();
 
   return (
