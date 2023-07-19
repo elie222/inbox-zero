@@ -38,8 +38,8 @@ CREATE TABLE "User" (
     "emailVerified" TIMESTAMP(3),
     "image" TEXT,
     "about" TEXT,
-    "storePromptHistory" BOOLEAN NOT NULL DEFAULT true,
-    "labelOnSystemAction" BOOLEAN NOT NULL DEFAULT true,
+    "watchEmailsExpirationDate" TIMESTAMP(3),
+    "lastSyncedHistoryId" TEXT,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -60,17 +60,6 @@ CREATE TABLE "PromptHistory" (
     "userId" TEXT NOT NULL,
 
     CONSTRAINT "PromptHistory_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "PromptFavorite" (
-    "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "prompt" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-
-    CONSTRAINT "PromptFavorite_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -116,9 +105,6 @@ ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "PromptHistory" ADD CONSTRAINT "PromptHistory_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PromptFavorite" ADD CONSTRAINT "PromptFavorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Label" ADD CONSTRAINT "Label_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

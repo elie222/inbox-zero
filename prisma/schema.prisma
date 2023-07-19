@@ -56,7 +56,6 @@ model User {
   lastSyncedHistoryId       String?
 
   promptHistory PromptHistory[]
-  // promptFavorites PromptFavorite[]
   labels        Label[]
 }
 
@@ -78,15 +77,6 @@ model PromptHistory {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// model PromptFavorite {
-//   id        String   @id @default(cuid())
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//   prompt    String
-//   userId    String
-//   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-// }
-
 model Label {
   id           String   @id @default(cuid())
   createdAt    DateTime @default(now())
@@ -95,7 +85,6 @@ model Label {
   name         String
   description  String? // used in prompts
   enabled      Boolean  @default(true)
-  isIZLabel    Boolean
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
