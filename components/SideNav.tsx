@@ -20,12 +20,12 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Logo } from "@/components/Logo";
 
 const navigation = [
-  { name: "Mail", href: "/mail", icon: InboxIcon, current: true },
-  { name: "Label newsletters", href: "#", icon: UsersIcon, current: false },
-  { name: "Label receipts", href: "#", icon: FolderIcon, current: false },
-  { name: "Requires response", href: "#", icon: CalendarIcon, current: false },
-  // { name: "Documents", href: "#", icon: DocumentDuplicateIcon, current: false },
-  // { name: "Reports", href: "#", icon: ChartPieIcon, current: false },
+  { name: "Mail", href: "/mail", icon: InboxIcon },
+  { name: "Label newsletters", href: "#", icon: UsersIcon },
+  { name: "Label receipts", href: "#", icon: FolderIcon },
+  { name: "Requires response", href: "#", icon: CalendarIcon },
+  // { name: "Documents", href: "#", icon: DocumentDuplicateIcon },
+  // { name: "Reports", href: "#", icon: ChartPieIcon },
 ];
 
 export function SideNav(props: {
@@ -95,6 +95,7 @@ export function SideNav(props: {
                       </button>
                     </div>
                   </Transition.Child>
+
                   {/* Sidebar component, swap this element with another sidebar if you like */}
                   <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring-1 ring-white/10">
                     <div className="flex h-16 shrink-0 items-center text-white">
@@ -109,7 +110,7 @@ export function SideNav(props: {
                                 <a
                                   href={item.href}
                                   className={clsx(
-                                    item.current
+                                    item.href === path
                                       ? "bg-gray-800 text-white"
                                       : "text-gray-400 hover:bg-gray-800 hover:text-white",
                                     "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6"
@@ -196,7 +197,12 @@ export function SideNav(props: {
                 <li className="mt-auto">
                   <a
                     href="/mail/settings"
-                    className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white"
+                    className={clsx(
+                      "group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
+                      "/mail/settings" === path
+                        ? "bg-gray-800 text-white"
+                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    )}
                   >
                     <Cog6ToothIcon
                       className="h-6 w-6 shrink-0"
