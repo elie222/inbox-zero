@@ -1,7 +1,5 @@
 import { google } from "googleapis";
 
-google.options({ http2: true });
-
 const getClient = (session: {
   accessToken?: string;
   refreshToken?: string;
