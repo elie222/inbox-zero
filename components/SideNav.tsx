@@ -7,11 +7,11 @@ import { Dialog, Transition } from "@headlessui/react";
 import useSWR from "swr";
 import clsx from "clsx";
 import {
+  ArchiveBoxArrowDownIcon,
   CalendarIcon,
   Cog6ToothIcon,
   FolderIcon,
   InboxIcon,
-  UsersIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { PromptHistory } from "@/components/PromptHistory";
@@ -21,7 +21,11 @@ import { Logo } from "@/components/Logo";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon },
-  { name: "Label newsletters", href: "#", icon: UsersIcon },
+  {
+    name: "Bulk Archive",
+    href: "/mail/bulk-archive",
+    icon: ArchiveBoxArrowDownIcon,
+  },
   { name: "Label receipts", href: "#", icon: FolderIcon },
   { name: "Requires response", href: "#", icon: CalendarIcon },
   // { name: "Documents", href: "#", icon: DocumentDuplicateIcon },

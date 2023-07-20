@@ -186,7 +186,7 @@
       "        name=\"address\"",
       "        label=\"Address\"",
       "        registerProps={register('address', { required: true })}",
-      "        error={errors.code}",
+      "        error={errors.address}",
       "      />",
       "      <Button type=\"submit\" color=\"gradient\" full loading={isSubmitting}>",
       "        Add",

@@ -17,22 +17,12 @@ interface ButtonProps
   loading?: boolean;
 }
 
-type Color =
-  | "primary"
-  | "white"
-  | "red"
-  | "transparent"
-  | "ghost"
-  | "gradient"
-  | "green"
-  | "light-green"
-  | "purple"
-  | "black";
+type Color = "primary" | "white" | "red" | "transparent" | "ghost";
 type Size = "xs" | "sm" | "md" | "xl" | "circle";
 
 export const Button = (props: ButtonProps) => {
   const {
-    color,
+    color = "primary",
     size = "md",
     roundedSize = "md",
     full,
@@ -68,22 +58,12 @@ export const Button = (props: ButtonProps) => {
 
           "w-full": full,
 
-          "bg-blue-600 text-white hover:bg-blue-700": color === "primary",
-          "bg-gray-900 text-white hover:bg-gray-700": color === "black",
+          "bg-gray-900 text-white hover:bg-gray-700": color === "primary",
           "bg-red-100 text-gray-900 hover:bg-red-200": color === "red",
           "border border-gray-100 bg-white text-gray-700 hover:bg-gray-50":
             color === "white",
           "border border-blue-600 bg-white text-blue-600 hover:border-x-0 hover:bg-gradient-to-r hover:from-sky-500 hover:to-blue-600 hover:text-white":
             color === "ghost",
-
-          "border-x-0 bg-gradient-to-r from-sky-500 to-blue-600 text-white":
-            color === "gradient" || !color,
-          "border-x-0 bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white":
-            color === "green",
-          "bg-green-200 text-gray-900 hover:bg-green-300":
-            color === "light-green",
-          "border-x-0 bg-gradient-to-r from-purple-500 to-indigo-500 text-white":
-            color === "purple",
         }
       )}
       {...rest}

@@ -199,12 +199,7 @@ function LabelsSectionFormInner(props: {
               </div>
 
               <SubmitButtonWrapper>
-                <Button
-                  type="submit"
-                  size="sm"
-                  color="black"
-                  loading={isSubmitting}
-                >
+                <Button type="submit" size="sm" loading={isSubmitting}>
                   Save
                 </Button>
               </SubmitButtonWrapper>
@@ -324,9 +319,7 @@ function AddLabelModal() {
 
   return (
     <>
-      <Button color="black" onClick={() => openModal()}>
-        Add Label
-      </Button>
+      <Button onClick={() => openModal()}>Add Label</Button>
       <Modal isOpen={isModalOpen} hideModal={closeModal} title="Add Label">
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
@@ -351,12 +344,7 @@ function AddLabelModal() {
             />
 
             <SubmitButtonWrapper>
-              <Button
-                type="submit"
-                size="sm"
-                color="black"
-                loading={isSubmitting}
-              >
+              <Button type="submit" size="sm" loading={isSubmitting}>
                 Create
               </Button>
             </SubmitButtonWrapper>

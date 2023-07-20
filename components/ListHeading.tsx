@@ -30,7 +30,7 @@ export function ListHeading(props: {
           </a>
         </div>
         <div className="ml-auto flex items-center gap-x-1">
-          <Button color="black">Plan</Button>
+          <Button>Plan</Button>
         </div>
         {/* <a
           href="#"

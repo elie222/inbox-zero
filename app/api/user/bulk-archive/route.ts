@@ -1,0 +1,59 @@
+import { z } from "zod";
+import { NextResponse } from "next/server";
+import { gmail_v1 } from "googleapis";
+import { getSession } from "@/utils/auth";
+import { getGmailClient } from "@/utils/google";
+import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
+import { sleep } from "@/utils/sleep";
+
+const bulkArchiveBody = z.object({ daysAgo: z.string() });
+export type BulkArchiveBody = z.infer<typeof bulkArchiveBody>;
+export type BulkArchiveResponse = Awaited<ReturnType<typeof bulkArchive>>;
+
+async function bulkArchive(
+  body: BulkArchiveBody,
+  gmail: gmail_v1.Gmail,
+  email: string
+) {
+  const res = await gmail.users.threads.list({
+    userId: "me",
+    maxResults: 500,
+    q: `older_than:${body.daysAgo}d`,
+    labelIds: [INBOX_LABEL_ID],
+  });
+
+  console.log(`Archiving ${res.data.threads?.length} threads`);
+
+  const izLabels = await getOrCreateInboxZeroLabels(email, gmail);
+
+  for (const thread of res.data.threads || []) {
+    await gmail.users.threads.modify({
+      userId: "me",
+      id: thread.id!,
+      requestBody: {
+        addLabelIds: [izLabels["archived"].id],
+        removeLabelIds: [INBOX_LABEL_ID],
+      },
+    });
+
+    // we're allowed to archive 250/10 = 25 threads per second:
+    // https://developers.google.com/gmail/api/reference/quota
+    await sleep(40); // 1s / 25 = 40ms
+  }
+
+  return { archived: res.data.threads?.length || 0 };
+}
+
+export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Not authenticated" });
+
+  const json = await request.json();
+  const body = bulkArchiveBody.parse(json);
+
+  const gmail = getGmailClient(session);
+
+  const result = await bulkArchive(body, gmail, session.user.email);
+
+  return NextResponse.json(result);
+}
