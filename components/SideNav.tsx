@@ -8,9 +8,7 @@ import useSWR from "swr";
 import clsx from "clsx";
 import {
   ArchiveBoxArrowDownIcon,
-  CalendarIcon,
   Cog6ToothIcon,
-  FolderIcon,
   InboxIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -26,10 +24,6 @@ const navigation = [
     href: "/mail/bulk-archive",
     icon: ArchiveBoxArrowDownIcon,
   },
-  { name: "Label receipts", href: "#", icon: FolderIcon },
-  { name: "Requires response", href: "#", icon: CalendarIcon },
-  // { name: "Documents", href: "#", icon: DocumentDuplicateIcon },
-  // { name: "Reports", href: "#", icon: ChartPieIcon },
 ];
 
 export function SideNav(props: {
