@@ -21,7 +21,6 @@ import { GroupHeading } from "@/components/GroupHeading";
 import { Input } from "@/components/Input";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
-import { useNotification } from "@/providers/NotificationProvider";
 import { fetcher } from "@/providers/SWRProvider";
 import { formatShortDate } from "@/utils/date";
 import { FilterArgs, FilterFunction } from "@/utils/filters";
@@ -465,7 +464,10 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
         </div>
         {props.row.plan?.action === "reply" && (
           <div className="h-64 shrink-0 border-t border-t-gray-100">
-            <SendEmailForm defaultMessage={props.row.plan?.response || ""} />
+            <SendEmailForm
+              threadId={props.row.id!}
+              defaultMessage={props.row.plan?.response || ""}
+            />
           </div>
         )}
       </div>
@@ -473,19 +475,30 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
   );
 }
 
-type Inputs = { message: string };
+type Inputs = { threadId: string; message: string };
 
-const SendEmailForm = (props: { defaultMessage: string }) => {
+const SendEmailForm = (props: { threadId: string; defaultMessage: string }) => {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    reset,
+    getValues,
   } = useForm<Inputs>({
     defaultValues: {
+      threadId: props.threadId,
       message: props.defaultMessage,
     },
   });
-  // const { showNotification } = useNotification();
+
+  useEffect(() => {
+    if (props.threadId !== getValues("threadId")) {
+      reset({
+        threadId: props.threadId,
+        message: props.defaultMessage,
+      });
+    }
+  }, [getValues, props.threadId, props.defaultMessage, reset]);
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
     console.log("🚀 ~ file: ListNew.tsx:187 ~ data:", data);
