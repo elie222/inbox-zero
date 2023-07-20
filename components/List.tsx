@@ -10,7 +10,6 @@ import {
   ClassifyThreadBody,
   ClassifyThreadResponse,
 } from "@/app/api/ai/classify/route";
-import { useNotification } from "@/providers/NotificationProvider";
 import {
   ArchiveBody,
   ArchiveResponse,
@@ -23,6 +22,7 @@ import {
   DraftEmailBody,
   DraftEmailResponse,
 } from "@/app/api/google/draft/route";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 type Item = { id: string; text: string };
 
@@ -48,7 +48,6 @@ function ListItem(props: { item: Item; refetch: () => void }) {
   );
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [viewFullMessage, setViewFullMessage] = useState(false);
-  const { showNotification } = useNotification();
 
   const from =
     data?.thread.messages?.[0]?.payload?.headers?.find((h) => h.name === "From")
@@ -137,7 +136,6 @@ function ListItem(props: { item: Item; refetch: () => void }) {
             onClick={() => {
               onArchive({
                 id: item.id,
-                showNotification,
                 refetch: props.refetch,
               });
               setIsLoadingArchive(true);
@@ -236,16 +234,13 @@ function Plan(props: { id: string; subject: string; message: string }) {
 }
 
 function ResponseMessage(props: { message: string; threadId: string }) {
-  const { showNotification } = useNotification();
-
   const { messages, handleSubmit, isLoading } = useChat({
     api: "/api/ai/respond",
     body: { message: props.message },
     initialInput: " ", // to allow submit to happen. not used
     onResponse: (response) => {
       if (response.status === 429) {
-        showNotification({
-          type: "error",
+        toastError({
           description: "You have reached your request limit for the day.",
         });
         // va.track("Rate limited");
@@ -255,8 +250,7 @@ function ResponseMessage(props: { message: string; threadId: string }) {
       }
     },
     onError: (error) => {
-      showNotification({
-        type: "error",
+      toastError({
         description: `There was an error: ${error.message}`,
       });
       // va.track("Response errored", {
@@ -292,16 +286,12 @@ function ResponseMessage(props: { message: string; threadId: string }) {
             );
             console.log("🚀 ~ file: List.tsx:300 ~ draft:", draft);
 
-            showNotification({
-              type: "success",
-              title: "Success",
+            toastSuccess({
               description: "Draft created.",
             });
           } catch (error) {
             console.error(error);
-            showNotification({
-              type: "error",
-              title: "Error",
+            toastError({
               description: "There was an error creating the draft.",
             });
           }
@@ -313,12 +303,8 @@ function ResponseMessage(props: { message: string; threadId: string }) {
   );
 }
 
-async function onArchive(options: {
-  id: string;
-  showNotification: (options: any) => void;
-  refetch: () => void;
-}) {
-  const { id, showNotification, refetch } = options;
+async function onArchive(options: { id: string; refetch: () => void }) {
+  const { id, refetch } = options;
   const body: ArchiveBody = { id };
 
   try {
@@ -327,15 +313,11 @@ async function onArchive(options: {
       body
     );
 
-    showNotification({
-      type: "success",
-      title: "Success",
+    toastSuccess({
       description: "The thread was archived.",
     });
   } catch (error) {
-    showNotification({
-      type: "error",
-      title: "Error archiving thread",
+    toastError({
       description: "There was an error archiving the thread.",
     });
   } finally {

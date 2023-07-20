@@ -1,6 +1,5 @@
 import "../globals.css";
-import { Inter } from "next/font/google";
-import { NotificationProvider } from "@/providers/NotificationProvider";
+// import { Inter } from "next/font/google";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
@@ -24,13 +23,11 @@ export default function RootLayout({
       <body>
         <SWRProvider>
           <GmailProvider>
-            <NotificationProvider>
-              <SessionProvider>
-                <PromptProvider>
-                  <SideNavWithTopNav>{children}</SideNavWithTopNav>
-                </PromptProvider>
-              </SessionProvider>
-            </NotificationProvider>
+            <SessionProvider>
+              <PromptProvider>
+                <SideNavWithTopNav>{children}</SideNavWithTopNav>
+              </PromptProvider>
+            </SessionProvider>
           </GmailProvider>
         </SWRProvider>
       </body>

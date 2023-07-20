@@ -504,8 +504,8 @@ const SendEmailForm = (props: { threadId: string; defaultMessage: string }) => {
     console.log("🚀 ~ file: ListNew.tsx:187 ~ data:", data);
     // const res = await updateProfile(data);
     // if (isErrorMessage(res))
-    //   showNotification({ type: "error", description: `` });
-    // else showNotification({ type: "success", description: `` });
+    //   toastError({ description: `` });
+    // else toastSuccess({ description: `` });
   }, []);
 
   return (
