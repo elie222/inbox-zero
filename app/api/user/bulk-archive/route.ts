@@ -41,7 +41,7 @@ async function bulkArchive(
     await sleep(40); // 1s / 25 = 40ms
   }
 
-  return { archived: res.data.threads?.length || 0 };
+  return { count: res.data.threads?.length || 0 };
 }
 
 export async function POST(request: Request) {

@@ -6,13 +6,13 @@ import { Container } from "@/components/Container";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/Button";
 import { Select } from "@/components/Select";
-import { useNotification } from "@/providers/NotificationProvider";
 import { isErrorMessage } from "@/utils/error";
 import { postRequest } from "@/utils/api";
 import {
   BulkArchiveBody,
   BulkArchiveResponse,
 } from "@/app/api/user/bulk-archive/route";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 const ageOptions = [
   { label: "1 week", value: 7 },
@@ -31,8 +31,11 @@ export default function BulkArchive(props: {}) {
       <div className="mt-4">
         <SectionDescription>
           Clean up your inbox quickly with our bulk archive tool. This is the
-          quickest way to get your inbox into a manageable state. If you have a
-          lot of emails in your inbox this can take a while.
+          quickest way to get your inbox into a manageable state.
+        </SectionDescription>
+        <SectionDescription>
+          We label all emails we archive so it{"'"}s easy to see what happened.
+          If you have a lot of emails in your inbox this can take a while.
         </SectionDescription>
       </div>
       <div className="mt-4">
@@ -48,21 +51,17 @@ const BulkArchiveForm = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<BulkArchiveBody>();
-  const { showNotification } = useNotification();
 
-  const onSubmit: SubmitHandler<BulkArchiveBody> = useCallback(
-    async (data) => {
-      const res = await postRequest<BulkArchiveResponse, BulkArchiveBody>(
-        "/api/user/bulk-archive",
-        data
-      );
+  const onSubmit: SubmitHandler<BulkArchiveBody> = useCallback(async (data) => {
+    const res = await postRequest<BulkArchiveResponse, BulkArchiveBody>(
+      "/api/user/bulk-archive",
+      data
+    );
 
-      if (isErrorMessage(res))
-        showNotification({ type: "error", description: `` });
-      else showNotification({ type: "success", description: `` });
-    },
-    [showNotification]
-  );
+    if (isErrorMessage(res))
+      toastError({ description: `Error performing bulk archive.` });
+    else toastSuccess({ description: `Archived ${res.count} emails!` });
+  }, []);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
