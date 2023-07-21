@@ -2,7 +2,7 @@
 import he from "he";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
 import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
 async function getThreads() {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);

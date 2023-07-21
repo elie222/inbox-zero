@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { openai } from "@/app/api/ai/openai";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { filterFunctions } from "@/utils/filters";
 import prisma from "@/utils/prisma";
 import {
@@ -19,7 +19,7 @@ export type PromptQuery = z.infer<typeof promptQuery>;
 export type PromptResponse = Awaited<ReturnType<typeof prompt>>;
 
 export async function createFilterFromPrompt(body: PromptQuery) {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session?.user) throw new Error("Not logged in");
 
   const responsePromise = openai.createChatCompletion({

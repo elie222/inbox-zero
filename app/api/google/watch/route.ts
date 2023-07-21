@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
 import { watchEmails } from "./controller";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);

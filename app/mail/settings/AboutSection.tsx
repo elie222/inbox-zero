@@ -1,10 +1,10 @@
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { AboutSectionForm } from "@/app/mail/settings/AboutSectionForm";
 import { NotLoggedIn } from "@/components/ErrorDisplay";
 
 export const AboutSection = async () => {
-  const session = await getSession();
+  const session = await getAuthSession();
 
   if (!session?.user) return <NotLoggedIn />;
 

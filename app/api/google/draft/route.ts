@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { Auth, gmail_v1, google } from "googleapis";
+import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
 
 const draftEmailBody = z.object({
@@ -48,7 +48,7 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = draftEmailBody.parse(json);
 
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);

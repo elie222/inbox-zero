@@ -2,7 +2,7 @@ import { z } from "zod";
 import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function GET(
 ) {
   const query = threadQuery.parse(params);
 
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);

@@ -39,6 +39,10 @@ import {
   ArchiveResponse,
 } from "@/app/api/google/threads/archive/controller";
 import { isErrorMessage } from "@/utils/error";
+import {
+  SendEmailBody,
+  SendEmailResponse,
+} from "@/app/api/google/messages/send/controller";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -108,6 +112,7 @@ export function List(props: {
     return tabGroups[selectedTab] || filteredEmails;
   }, [selectedTab, filteredEmails, tabGroups]);
 
+  const [replanningAiSuggestions, setReplanningAiSuggestions] = useState(false);
   const [applyingAiSuggestions, setApplyingAiSuggestions] = useState(false);
 
   return (
@@ -158,6 +163,55 @@ export function List(props: {
                   },
                 ]
               : [
+                  {
+                    label: "Replan All",
+                    onClick: async () => {
+                      setReplanningAiSuggestions(true);
+                      try {
+                        for (const email of tabEmails) {
+                          if (!email.plan) continue;
+
+                          const emailMessage = email.thread.messages?.[0];
+                          const subject =
+                            emailMessage?.parsedMessage.headers.subject || "";
+                          const message =
+                            emailMessage?.parsedMessage.textPlain ||
+                            emailMessage?.parsedMessage.textHtml ||
+                            "";
+
+                          try {
+                            // had trouble with server actions here
+                            const res = await postRequest<
+                              PlanResponse,
+                              PlanBody
+                            >("/api/ai/plan", {
+                              id: email.id!,
+                              subject,
+                              message,
+                            });
+
+                            if (isErrorMessage(res)) {
+                              console.error(res);
+                              toastError({
+                                description: `Error planning  ${subject}`,
+                              });
+                            }
+                          } catch (error) {
+                            console.error(error);
+                            toastError({
+                              description: `Error archiving ${subject}`,
+                            });
+                          }
+                        }
+                      } catch (error) {
+                        toastError({
+                          description: `There was an error applying the AI suggestions.`,
+                        });
+                      }
+                      setReplanningAiSuggestions(false);
+                    },
+                    loading: replanningAiSuggestions,
+                  },
                   {
                     label: "Apply AI Suggestions",
                     onClick: async () => {
@@ -248,7 +302,11 @@ function EmailList(props: { emails: Thread[]; refetch: () => void }) {
   const [openedRow, setOpenedRow] = useState<Thread>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
+  // could make this row specific in the future
+  const [showReply, setShowReply] = useState(false);
+
   const closePanel = useCallback(() => setOpenedRow(undefined), []);
+  const onShowReply = useCallback(() => setShowReply(true), []);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -279,16 +337,22 @@ function EmailList(props: { emails: Thread[]; refetch: () => void }) {
             opened={openedRow?.id === email.id}
             selected={selectedRows[email.id!]}
             splitView={!!openedRow}
-            onClick={() => {
-              setOpenedRow(email);
-            }}
+            onClick={() => setOpenedRow(email)}
+            onShowReply={onShowReply}
             onMouseEnter={() => setHovered(email)}
             refetchEmails={props.refetch}
           />
         ))}
       </ul>
 
-      {!!openedRow && <EmailPanel row={openedRow} close={closePanel} />}
+      {!!openedRow && (
+        <EmailPanel
+          row={openedRow}
+          showReply={showReply}
+          onShowReply={onShowReply}
+          close={closePanel}
+        />
+      )}
 
       <CommandDialogDemo selected={hovered?.id || undefined} />
     </div>
@@ -301,6 +365,7 @@ function EmailListItem(props: {
   selected: boolean;
   splitView: boolean;
   onClick: MouseEventHandler<HTMLLIElement>;
+  onShowReply: () => void;
   onMouseEnter: () => void;
   refetchEmails: () => void;
 }) {
@@ -355,6 +420,7 @@ function EmailListItem(props: {
               <div className="absolute right-0 z-20 hidden group-hover:block">
                 <ActionButtons
                   threadId={email.id!}
+                  onReply={props.onShowReply}
                   onGenerateAiResponse={() => {}}
                 />
               </div>
@@ -395,45 +461,20 @@ function EmailListItem(props: {
   );
 }
 
-{
-  /* <div className="min-w-[500px]">
-            <SendEmailForm />
-          </div> */
-}
-
-{
-  /* <div className="flex items-center gap-x-4">
-            <div className="hidden sm:flex sm:flex-col sm:items-end">
-              <p className="text-sm leading-6 text-gray-900">{person.role}</p>
-              {person.lastSeen ? (
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Last seen{" "}
-                  <time dateTime={person.lastSeenDateTime}>
-                    {person.lastSeen}
-                  </time>
-                </p>
-              ) : (
-                <div className="mt-1 flex items-center gap-x-1.5">
-                  <div className="flex-none rounded-full bg-emerald-500/20 p-1">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  </div>
-                  <p className="text-xs leading-5 text-gray-500">Online</p>
-                </div>
-              )}
-            </div>
-            <ChevronRightIcon
-              className="h-5 w-5 flex-none text-gray-400"
-              aria-hidden="true"
-            />
-          </div> */
-}
-
-function EmailPanel(props: { row: Thread; close: () => void }) {
+function EmailPanel(props: {
+  row: Thread;
+  showReply: boolean;
+  onShowReply: () => void;
+  close: () => void;
+}) {
   const lastMessage =
     props.row.thread.messages?.[props.row.thread.messages.length - 1];
+
   const html = lastMessage.parsedMessage.textHtml || "";
 
   const srcDoc = useMemo(() => getIframeHtml(html), [html]);
+
+  const showReply = props.showReply || props.row.plan?.action === "reply";
 
   return (
     <div className="flex flex-col border-l border-l-gray-100">
@@ -442,6 +483,7 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
         <div className="ml-2 flex items-center ">
           <ActionButtons
             threadId={props.row.id!}
+            onReply={props.onShowReply}
             onGenerateAiResponse={() => {}}
           />
           <div className="ml-2 flex items-center">
@@ -462,11 +504,14 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
         <div className="flex-1">
           <iframe srcDoc={srcDoc} className="h-full w-full" />
         </div>
-        {props.row.plan?.action === "reply" && (
+        {showReply && (
           <div className="h-64 shrink-0 border-t border-t-gray-100">
             <SendEmailForm
               threadId={props.row.id!}
               defaultMessage={props.row.plan?.response || ""}
+              subject={lastMessage.parsedMessage.headers.subject}
+              to={lastMessage.parsedMessage.headers.from}
+              cc={lastMessage.parsedMessage.headers.cc}
             />
           </div>
         )}
@@ -475,19 +520,28 @@ function EmailPanel(props: { row: Thread; close: () => void }) {
   );
 }
 
-type Inputs = { threadId: string; message: string };
-
-const SendEmailForm = (props: { threadId: string; defaultMessage: string }) => {
+const SendEmailForm = (props: {
+  threadId: string;
+  defaultMessage: string;
+  subject: string;
+  to: string;
+  cc?: string;
+  replyTo?: string;
+}) => {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
     getValues,
-  } = useForm<Inputs>({
+  } = useForm<SendEmailBody>({
     defaultValues: {
       threadId: props.threadId,
       message: props.defaultMessage,
+      subject: props.subject,
+      to: props.to,
+      cc: props.cc,
+      replyTo: props.replyTo,
     },
   });
 
@@ -496,16 +550,27 @@ const SendEmailForm = (props: { threadId: string; defaultMessage: string }) => {
       reset({
         threadId: props.threadId,
         message: props.defaultMessage,
+        subject: props.subject,
+        to: props.to,
+        cc: props.cc,
+        replyTo: props.replyTo,
       });
     }
-  }, [getValues, props.threadId, props.defaultMessage, reset]);
+  }, [props, getValues, reset]);
 
-  const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
-    console.log("🚀 ~ file: ListNew.tsx:187 ~ data:", data);
-    // const res = await updateProfile(data);
-    // if (isErrorMessage(res))
-    //   toastError({ description: `` });
-    // else toastSuccess({ description: `` });
+  const onSubmit: SubmitHandler<SendEmailBody> = useCallback(async (data) => {
+    try {
+      const res = await postRequest<SendEmailResponse, SendEmailBody>(
+        "/api/google/messages/send",
+        data
+      );
+      if (isErrorMessage(res))
+        toastError({ description: `There was an error sending the email :(` });
+      else toastSuccess({ description: `Email sent!` });
+    } catch (error) {
+      console.error(error);
+      toastError({ description: `There was an error sending the email :(` });
+    }
   }, []);
 
   return (
@@ -523,9 +588,9 @@ const SendEmailForm = (props: { threadId: string; defaultMessage: string }) => {
         <Button type="submit" color="transparent" loading={isSubmitting}>
           Send
         </Button>
-        <Button color="transparent" loading={isSubmitting}>
+        {/* <Button color="transparent" loading={isSubmitting}>
           Save Draft
-        </Button>
+        </Button> */}
       </div>
     </form>
   );

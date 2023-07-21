@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { plan, planBody } from "@/app/api/ai/plan/controller";
 
 // Next Auth does not support edge runtime but will do soon:
@@ -8,7 +8,7 @@ import { plan, planBody } from "@/app/api/ai/plan/controller";
 // export const runtime = "edge";
 
 export async function POST(request: Request) {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session?.user.email) return;
 
   const json = await request.json();

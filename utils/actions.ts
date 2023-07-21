@@ -8,7 +8,7 @@ import {
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import { labelThread } from "@/app/api/google/threads/label/controller";
 import { deletePromptHistory } from "@/app/api/user/prompt-history/controller";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { type Label } from "@prisma/client";
 import {
@@ -55,7 +55,7 @@ const saveAboutBody = z.object({
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export async function saveAboutAction(options: { about: string }) {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session?.user) throw new Error("Not logged in");
 
   await prisma.user.update({
@@ -65,7 +65,7 @@ export async function saveAboutAction(options: { about: string }) {
 }
 
 export async function deleteAccountAction() {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session?.user) throw new Error("Not logged in");
 
   await prisma.user.delete({
@@ -80,7 +80,7 @@ export async function deleteAccountAction() {
 export async function updateLabels(
   labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[]
 ) {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session?.user) throw new Error("Not logged in");
 
   const userId = session.user.id;
@@ -126,12 +126,8 @@ export async function updateLabels(
 }
 
 export async function deletePromptHistoryAction(options: { id: string }) {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) throw new Error("Not logged in");
 
   return deletePromptHistory({ id: options.id, userId: session.user.id });
 }
-
-// export async function archiveAction(options: { threadId: string }) {
-//   return await archiveEmail({ id: options.threadId });
-// }

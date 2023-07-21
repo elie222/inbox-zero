@@ -16,7 +16,7 @@ overrides:
 dependencies:
   "@auth/prisma-adapter":
     specifier: ^1.0.1
-    version: 1.0.1(@prisma/client@5.0.0)
+    version: 1.0.1(@prisma/client@5.0.0)(nodemailer@6.9.4)
   "@google-cloud/local-auth":
     specifier: 2.1.1
     version: 2.1.1(encoding@0.1.13)
@@ -115,10 +115,13 @@ dependencies:
     version: 13.4.10(@opentelemetry/api@1.4.1)(react-dom@18.2.0)(react@18.2.0)
   next-auth:
     specifier: ^4.22.3
-    version: 4.22.3(next@13.4.10)(react-dom@18.2.0)(react@18.2.0)
+    version: 4.22.3(next@13.4.10)(nodemailer@6.9.4)(react-dom@18.2.0)(react@18.2.0)
   next-contentlayer:
     specifier: ^0.3.4
     version: 0.3.4(contentlayer@0.3.4)(esbuild@0.18.13)(next@13.4.10)(react-dom@18.2.0)(react@18.2.0)
+  nodemailer:
+    specifier: ^6.9.4
+    version: 6.9.4
   openai-edge:
     specifier: ^1.2.0
     version: 1.2.0
@@ -178,6 +181,9 @@ devDependencies:
   "@types/node":
     specifier: 20.4.2
     version: 20.4.2
+  "@types/nodemailer":
+    specifier: ^6.4.8
+    version: 6.4.8
   "@types/react":
     specifier: 18.2.15
     version: 18.2.15
@@ -213,7 +219,7 @@ packages:
       }
     engines: { node: ">=10" }
 
-  /@auth/core@0.9.0:
+  /@auth/core@0.9.0(nodemailer@6.9.4):
     resolution:
       {
         integrity: sha512-W2WO0WCBg1T3P8+yjQPzurTQhPv6ecBYfJ2oE3uvXPAX5ZLWAMSjKFAIa9oLZy5pwrB+YehJZPnlIxVilhrVcg==,
@@ -227,12 +233,13 @@ packages:
       "@panva/hkdf": 1.1.1
       cookie: 0.5.0
       jose: 4.14.4
+      nodemailer: 6.9.4
       oauth4webapi: 2.3.0
       preact: 10.11.3
       preact-render-to-string: 5.2.3(preact@10.11.3)
     dev: false
 
-  /@auth/prisma-adapter@1.0.1(@prisma/client@5.0.0):
+  /@auth/prisma-adapter@1.0.1(@prisma/client@5.0.0)(nodemailer@6.9.4):
     resolution:
       {
         integrity: sha512-sBp9l/jVr7l9y7rp2Pv6eoP7i8X2CgRNE3jDWJ0B/u+HnKRofXflD1cldPqRSAkJhqH3UxhVtMTEijT9FoofmQ==,
@@ -240,7 +247,7 @@ packages:
     peerDependencies:
       "@prisma/client": ">=2.26.0 || >=3 || >=4"
     dependencies:
-      "@auth/core": 0.9.0
+      "@auth/core": 0.9.0(nodemailer@6.9.4)
       "@prisma/client": 5.0.0(prisma@5.0.0)
     transitivePeerDependencies:
       - nodemailer
@@ -2308,6 +2315,15 @@ packages:
       {
         integrity: sha512-Dd0BYtWgnWJKwO1jkmTrzofjK2QXXcai0dmtzvIBhcA+RsG5h8R3xlyta0kGOZRNfL9GuRtb1knmPEhQrePCEw==,
       }
+
+  /@types/nodemailer@6.4.8:
+    resolution:
+      {
+        integrity: sha512-oVsJSCkqViCn8/pEu2hfjwVO+Gb3e+eTWjg3PcjeFKRItfKpKwHphQqbYmPQrlMk+op7pNNWPbsJIEthpFN/OQ==,
+      }
+    dependencies:
+      "@types/node": 20.4.2
+    dev: true
 
   /@types/parse5@6.0.3:
     resolution:
@@ -6572,7 +6588,7 @@ packages:
       }
     dev: false
 
-  /next-auth@4.22.3(next@13.4.10)(react-dom@18.2.0)(react@18.2.0):
+  /next-auth@4.22.3(next@13.4.10)(nodemailer@6.9.4)(react-dom@18.2.0)(react@18.2.0):
     resolution:
       {
         integrity: sha512-XAgy9xV3J2eJOXrQhmxdjV6MLM29ibm6WtMXc3KY6IPZeApf+SuBuPvlqCUfbu5YsAzlg9WSw6u01dChTfeZOA==,
@@ -6591,6 +6607,7 @@ packages:
       cookie: 0.5.0
       jose: 4.14.4
       next: 13.4.10(@opentelemetry/api@1.4.1)(react-dom@18.2.0)(react@18.2.0)
+      nodemailer: 6.9.4
       oauth: 0.9.15
       openid-client: 5.4.2
       preact: 10.15.1
@@ -6731,6 +6748,14 @@ packages:
         integrity: sha512-QzsYKWhXTWx8h1kIvqfnC++o0pEmpRQA/aenALsL2F4pqNVr7YzcdMlDij5WBnwftRbJCNJL/O7zdKaxKPHqgQ==,
       }
     dev: true
+
+  /nodemailer@6.9.4:
+    resolution:
+      {
+        integrity: sha512-CXjQvrQZV4+6X5wP6ZIgdehJamI63MFoYFGGPtHudWym9qaEHDNdPzaj5bfMCvxG1vhAileSWW90q7nL0N36mA==,
+      }
+    engines: { node: ">=6.0.0" }
+    dev: false
 
   /normalize-path@3.0.0:
     resolution:

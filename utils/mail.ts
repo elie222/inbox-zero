@@ -67,4 +67,7 @@ interface Headers3 {
   subject: string;
   from: string;
   to: string;
+  cc?: string;
+  date: string;
+  [key: string]: string | undefined;
 }

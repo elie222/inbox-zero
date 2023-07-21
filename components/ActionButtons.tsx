@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ArchiveBoxArrowDownIcon,
-  ArrowsPointingOutIcon,
+  ArrowTopRightOnSquareIcon,
+  ChatBubbleBottomCenterIcon,
   SparklesIcon,
-  TagIcon,
 } from "@heroicons/react/24/outline";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
@@ -16,29 +16,44 @@ import {
 export function ActionButtons(props: {
   threadId: string;
   onGenerateAiResponse: () => void;
+  onReply: () => void;
 }) {
+  const openInGmail = useCallback(() => {
+    // open in gmail
+    window.open(
+      `https://mail.google.com/mail/u/0/#inbox/${props.threadId}`,
+      "_blank"
+    );
+  }, [props.threadId]);
+
+  const archive = useCallback(() => {
+    // couldn't get server actions to work here
+    postRequest<ArchiveResponse, ArchiveBody>("/api/google/threads/archive", {
+      id: props.threadId,
+    });
+  }, [props.threadId]);
+
   const buttons = useMemo(
     () => [
       {
-        tooltip: "Expand",
-        onClick: () => {
-          // open in gmail
-          window.open(
-            `https://mail.google.com/mail/u/0/#inbox/${props.threadId}`,
-            "_blank"
-          );
-        },
+        tooltip: "Open in Gmail",
+        onClick: openInGmail,
         icon: (
-          <ArrowsPointingOutIcon
+          <ArrowTopRightOnSquareIcon
             className="h-5 w-5 text-gray-700"
             aria-hidden="true"
           />
         ),
       },
       {
-        tooltip: "AI Categorise",
-        onClick: () => {},
-        icon: <TagIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />,
+        tooltip: "Reply",
+        onClick: props.onReply,
+        icon: (
+          <ChatBubbleBottomCenterIcon
+            className="h-5 w-5 text-gray-700"
+            aria-hidden="true"
+          />
+        ),
       },
       {
         tooltip: "Generate AI response",
@@ -49,12 +64,7 @@ export function ActionButtons(props: {
       },
       {
         tooltip: "Archive",
-        onClick: () =>
-          // couldn't get server actions to work here
-          postRequest<ArchiveResponse, ArchiveBody>(
-            "/api/google/threads/archive",
-            { id: props.threadId }
-          ),
+        onClick: archive,
         icon: false ? (
           <LoadingMiniSpinner />
         ) : (
@@ -65,7 +75,7 @@ export function ActionButtons(props: {
         ),
       },
     ],
-    [props.threadId]
+    [archive, openInGmail, props.onGenerateAiResponse, props.onReply]
   );
 
   return <ButtonGroup buttons={buttons} />;

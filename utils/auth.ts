@@ -212,7 +212,7 @@ async function saveRefreshToken(
   });
 }
 
-export function getSession() {
+export function getAuthSession() {
   return getServerSession(authOptions) as Promise<{
     user: {
       id: string;

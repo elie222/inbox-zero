@@ -1,6 +1,6 @@
 import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
 import { getGmailLabels } from "@/utils/label";
 
@@ -16,7 +16,7 @@ async function getLabels(gmail: gmail_v1.Gmail) {
 }
 
 export async function GET() {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);

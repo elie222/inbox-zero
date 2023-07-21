@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
 import { sleep } from "@/utils/sleep";
@@ -45,7 +45,7 @@ async function bulkArchive(
 }
 
 export async function POST(request: Request) {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();

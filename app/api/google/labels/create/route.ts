@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/utils/auth";
+import { getAuthSession } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
 import {
   createLabel,
@@ -7,7 +7,7 @@ import {
 } from "@/app/api/google/labels/create/controller";
 
 export const POST = withError(async (request: Request) => {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
