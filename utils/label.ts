@@ -15,8 +15,8 @@ import {
 export const inboxZeroLabels: Record<InboxZeroLabelKey, string> = {
   archived: "[InboxZero]/Archived by IZ",
   labeled: "[InboxZero]/Labeled by IZ",
-  drafted: "[InboxZero]/Response Drafted by IZ",
-  suggested_label: "[InboxZero]/Label Suggested by IZ",
+  // drafted: "[InboxZero]/Response Drafted by IZ",
+  // suggested_label: "[InboxZero]/Label Suggested by IZ",
 };
 
 export const INBOX_LABEL_ID = "INBOX";
@@ -41,7 +41,7 @@ async function createGmailLabel(options: {
           backgroundColor: "#000000",
           textColor: "#ffffff",
         },
-        messageListVisibility: "show",
+        messageListVisibility: "hide",
         labelListVisibility: "labelShow",
       },
     });

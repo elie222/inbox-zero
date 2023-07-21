@@ -46,18 +46,16 @@ function getInboxZeroLabelsKey(email: string) {
   return `labels:inboxzero:${email}`;
 }
 
-export type InboxZeroLabelKey =
-  | "archived"
-  | "labeled"
-  | "drafted"
-  | "suggested_label";
+export type InboxZeroLabelKey = "archived" | "labeled";
+// | "drafted"
+// | "suggested_label";
 export type InboxZeroLabels = Record<InboxZeroLabelKey, RedisLabel>;
 
 export const inboxZeroLabelKeys: InboxZeroLabelKey[] = [
   "archived",
   "labeled",
-  "drafted",
-  "suggested_label",
+  // "drafted",
+  // "suggested_label",
 ];
 
 export async function getInboxZeroLabels(options: { email: string }) {
