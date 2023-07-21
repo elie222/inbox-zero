@@ -22,7 +22,7 @@ async function getThreads() {
   const res = await gmail.users.threads.list({
     userId: "me",
     labelIds: [INBOX_LABEL_ID],
-    maxResults: 10,
+    maxResults: 50,
   });
 
   const threadsWithMessages = await Promise.all(
