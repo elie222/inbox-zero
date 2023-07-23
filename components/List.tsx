@@ -23,6 +23,7 @@ import {
   DraftEmailResponse,
 } from "@/app/api/google/draft/route";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { isErrorMessage } from "@/utils/error";
 
 type Item = { id: string; text: string };
 
@@ -174,8 +175,11 @@ function Categorise(props: { message: string }) {
     >("/api/ai/classify", {
       message: props.message,
     });
-
-    setCategory(category.message);
+    if (isErrorMessage(category)) {
+      setCategory(category.error);
+    } else {
+      setCategory(category.message);
+    }
     setIsLoadingCategory(false);
   }, [props.message]);
 
