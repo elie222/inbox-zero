@@ -18,12 +18,25 @@ export default function StatsPage() {
               value: data.emailsReceived24hrs || 0,
             },
             {
-              name: "Archived emails (last 24h)",
-              value: data.emailsArchived24hrs || 0,
+              name: "Inbox emails (last 24h)",
+              value: data.emailsInbox24hrs || 0,
             },
             {
               name: "Emails sent (last 24h)",
               value: data.emailsSent24hrs || 0,
+            },
+
+            {
+              name: "Emails received (last 7d)",
+              value: data.emailsReceived7days || 0,
+            },
+            {
+              name: "Inbox emails (last 7d)",
+              value: data.emailsInbox7days || 0,
+            },
+            {
+              name: "Emails sent (last 7d)",
+              value: data.emailsSent7days || 0,
             },
           ]}
         />

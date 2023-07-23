@@ -14,35 +14,77 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
     now.getMonth(),
     now.getDate() - 1
   );
+  const sevenDaysAgo = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - 7
+  );
 
   const twentyFourHoursAgoInSeconds = Math.floor(
     twentyFourHoursAgo.getTime() / 1000
   );
+  console.log(
+    "🚀 ~ file: route.ts:26 ~ getStats ~ twentyFourHoursAgoInSeconds:",
+    twentyFourHoursAgoInSeconds
+  );
+  const sevenDaysAgoInSeconds = Math.floor(sevenDaysAgo.getTime() / 1000);
+  console.log(
+    "🚀 ~ file: route.ts:30 ~ getStats ~ sevenDaysAgoInSeconds:",
+    sevenDaysAgoInSeconds
+  );
 
-  const [emailsSent24hrs, emailsReceived24hrs, emailsArchived24hrs] =
-    await Promise.all([
-      gmail.users.messages.list({
-        userId: "me",
-        q: `q=in:sent after:${twentyFourHoursAgoInSeconds}`,
-        maxResults: 500,
-      }),
-      // does this include sent?
-      gmail.users.messages.list({
-        userId: "me",
-        q: `after:${twentyFourHoursAgoInSeconds}`,
-        maxResults: 500,
-      }),
-      gmail.users.messages.list({
-        userId: "me",
-        q: `in:archive after:${twentyFourHoursAgoInSeconds}`,
-        maxResults: 500,
-      }),
-    ]);
+  const [
+    emailsReceived24hrs,
+    emailsSent24hrs,
+    emailsInbox24hrs,
+    emailsReceived7days,
+    emailsSent7days,
+    emailsInbox7days,
+  ] = await Promise.all([
+    // does this include sent?
+    gmail.users.messages.list({
+      userId: "me",
+      q: `after:${twentyFourHoursAgoInSeconds}`,
+      maxResults: 500,
+    }),
+    gmail.users.messages.list({
+      userId: "me",
+      q: `in:sent after:${twentyFourHoursAgoInSeconds}`,
+      maxResults: 500,
+    }),
+    gmail.users.messages.list({
+      userId: "me",
+      q: `in:inbox after:${twentyFourHoursAgoInSeconds}`,
+      maxResults: 500,
+    }),
+
+    // 7 days
+    // does this include sent?
+    gmail.users.messages.list({
+      userId: "me",
+      q: `after:${sevenDaysAgoInSeconds}`,
+      maxResults: 500,
+    }),
+    gmail.users.messages.list({
+      userId: "me",
+      q: `in:sent after:${sevenDaysAgoInSeconds}`,
+      maxResults: 500,
+    }),
+    gmail.users.messages.list({
+      userId: "me",
+      q: `in:inbox after:${sevenDaysAgoInSeconds}`,
+      maxResults: 500,
+    }),
+  ]);
 
   return {
     emailsSent24hrs: emailsSent24hrs.data.messages?.length,
     emailsReceived24hrs: emailsReceived24hrs.data.messages?.length,
-    emailsArchived24hrs: emailsArchived24hrs.data.messages?.length,
+    emailsInbox24hrs: emailsInbox24hrs.data.messages?.length,
+
+    emailsSent7days: emailsSent7days.data.messages?.length,
+    emailsReceived7days: emailsReceived7days.data.messages?.length,
+    emailsInbox7days: emailsInbox7days.data.messages?.length,
   };
 }
 
