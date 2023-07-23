@@ -205,7 +205,7 @@
       "",
       "export function ${1:${TM_FILENAME_BASE}}() {",
       "  const url = `\\${BASE_URI}/api/$2`;",
-      "  const res = useSWR<$3Response, { info: ErrorMessage }>(url);",
+      "  const res = useSWR<$3Response, { error: string }>(url);",
       "  return res;",
       "}"
     ]

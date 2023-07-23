@@ -1,20 +1,15 @@
-import { ErrorMessage } from "@/utils/error";
 import { Panel } from "./Panel";
 import Image from "next/image";
 
-export function ErrorDisplay(props: { info?: ErrorMessage }) {
-  if (props.info?.message)
-    return (
-      <NotFound>
-        There was an error loading the page: {props.info.message}
-      </NotFound>
-    );
+export function ErrorDisplay(props: { error: { error?: string } }) {
+  if (props.error.error)
+    return <NotFound>There was an error: {props.error.error}</NotFound>;
 
-  if (props.info) {
+  if (props.error) {
     return (
       <NotFound>
-        There was an error loading the page. Please refresh or contact support
-        if the error persists.
+        There was an error. Please refresh or contact support if the error
+        persists.
       </NotFound>
     );
   }

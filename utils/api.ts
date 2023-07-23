@@ -15,13 +15,13 @@ export async function postRequest<T, S = any>(
   } catch (error) {
     captureException(error);
     if (isErrorMessage(error)) {
-      if (error.message === "Failed to fetch" || !navigator.onLine)
+      if (error.error === "Failed to fetch" || !navigator.onLine)
         return {
-          message: "Please check that you are connected to the Internet.",
+          error: "Please check that you are connected to the Internet.",
         };
       return error;
     }
-    return { message: "An error occurred" };
+    return { error: "An error occurred" };
   }
 }
 
@@ -32,6 +32,6 @@ export async function getRequest<T>(url: string): Promise<T | ErrorMessage> {
   } catch (error) {
     captureException(error);
     if (isErrorMessage(error)) return error;
-    return { message: "An error occurred" };
+    return { error: "An error occurred" };
   }
 }
