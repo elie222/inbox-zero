@@ -90,7 +90,7 @@ async function planHistory(
 
       if (message) {
         await plan(
-          { subject, message, id: m.message.id },
+          { subject, message, id: m.message.id, replan: false },
           { id: userId, email }
         );
       } else {
