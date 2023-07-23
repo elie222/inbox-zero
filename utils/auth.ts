@@ -135,12 +135,6 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   }
 
   try {
-    const url = new URL("https://oauth2.googleapis.com/token");
-    url.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-    url.searchParams.set("client_secret", GOOGLE_CLIENT_SECRET);
-    url.searchParams.set("grant_type", "refresh_token");
-    url.searchParams.set("refresh_token", account.refresh_token);
-
     const response = await fetch("https://oauth2.googleapis.com/token", {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
