@@ -23,15 +23,7 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
   const twentyFourHoursAgoInSeconds = Math.floor(
     twentyFourHoursAgo.getTime() / 1000
   );
-  console.log(
-    "🚀 ~ file: route.ts:26 ~ getStats ~ twentyFourHoursAgoInSeconds:",
-    twentyFourHoursAgoInSeconds
-  );
   const sevenDaysAgoInSeconds = Math.floor(sevenDaysAgo.getTime() / 1000);
-  console.log(
-    "🚀 ~ file: route.ts:30 ~ getStats ~ sevenDaysAgoInSeconds:",
-    sevenDaysAgoInSeconds
-  );
 
   const [
     emailsReceived24hrs,

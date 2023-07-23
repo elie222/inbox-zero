@@ -179,6 +179,9 @@ export function List(props: {
                             emailMessage?.parsedMessage.textHtml ||
                             "";
 
+                          const senderEmail =
+                            emailMessage?.parsedMessage.headers.from || "";
+
                           try {
                             // had trouble with server actions here
                             const res = await postRequest<
@@ -188,6 +191,7 @@ export function List(props: {
                               id: email.id!,
                               subject,
                               message,
+                              senderEmail,
                               replan: true,
                             });
 
@@ -440,6 +444,7 @@ function EmailListItem(props: {
                   lastMessage?.parsedMessage.headers.subject ||
                   ""
                 }
+                senderEmail={lastMessage?.parsedMessage.headers.from || ""}
                 plan={email.plan}
                 refetchEmails={props.refetchEmails}
               />
@@ -606,6 +611,7 @@ function PlanBadge(props: {
   id: string;
   subject: string;
   message: string;
+  senderEmail: string;
   plan?: Plan | null;
   refetchEmails: () => void;
 }) {
@@ -619,6 +625,7 @@ function PlanBadge(props: {
         subject: props.subject,
         message: props.message,
         replan: false,
+        senderEmail: props.senderEmail,
       };
       return fetcher(url, {
         method: "POST",

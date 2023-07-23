@@ -209,6 +209,7 @@ function Plan(props: { id: string; subject: string; message: string }) {
       subject: props.subject,
       message: props.message,
       replan: false,
+      senderEmail: "",
     });
 
     // setPlan(plan.message);

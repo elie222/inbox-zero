@@ -88,9 +88,11 @@ async function planHistory(
         parsedMessage.textHtml ||
         parsedMessage.headers.subject;
 
+      const senderEmail = parsedMessage.headers.from;
+
       if (message) {
         await plan(
-          { subject, message, id: m.message.id, replan: false },
+          { subject, message, id: m.message.id, senderEmail, replan: false },
           { id: userId, email }
         );
       } else {

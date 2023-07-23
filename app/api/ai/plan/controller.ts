@@ -16,6 +16,7 @@ export const planBody = z.object({
   subject: z.string(),
   message: z.string(),
   replan: z.boolean(),
+  senderEmail: z.string(),
 });
 export type PlanBody = z.infer<typeof planBody>;
 export type PlanResponse = Awaited<ReturnType<typeof plan>>;
@@ -23,6 +24,7 @@ export type PlanResponse = Awaited<ReturnType<typeof plan>>;
 async function calculatePlan(
   subject: string,
   message: string,
+  senderEmail: string,
   labels: { name: string; description?: string | null }[]
 ) {
   const systemMessage = `You are an AI assistant that helps people manage their emails by replying, archiving and labelling emails on the user's behalf.
@@ -65,6 +67,7 @@ Do not include any explanations, only provide a RFC8259 compliant JSON response 
         role: "user",
         content: `The email:
 Subject: ${subject}
+From: ${senderEmail}
 Body:
 ${message.substring(0, 3000)}
         `,
@@ -89,7 +92,12 @@ export async function plan(
 
   const labels = await getUserLabels({ email: user.email });
 
-  let json = await calculatePlan(body.subject, body.message, labels || []);
+  let json = await calculatePlan(
+    body.subject,
+    body.message,
+    body.senderEmail,
+    labels || []
+  );
 
   if (isChatCompletionError(json)) return { plan: undefined };
 
