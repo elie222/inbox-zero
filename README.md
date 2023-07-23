@@ -32,3 +32,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+
+## Set up push notifications via Google PubSub to handle emails in real time
+
+Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
+
+1. [Create a topic](https://developers.google.com/gmail/api/guides/push#create_a_topic)
+2. [Create a subscription](https://developers.google.com/gmail/api/guides/push#create_a_subscription)
+3. [Grant publish rights on your topic](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic)
+
+Set env var `GOOGLE_PUBSUB_TOPIC_NAME`.
+When creating the subscription select Push and the url should look something like: `https://getinboxzero.com/api/google/webhook` where the domain is your domain.
