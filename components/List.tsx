@@ -208,6 +208,7 @@ function Plan(props: { id: string; subject: string; message: string }) {
       id: props.id,
       subject: props.subject,
       message: props.message,
+      replan: false,
     });
 
     // setPlan(plan.message);

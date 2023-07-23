@@ -15,6 +15,7 @@ export const planBody = z.object({
   id: z.string(),
   subject: z.string(),
   message: z.string(),
+  replan: z.boolean(),
 });
 export type PlanBody = z.infer<typeof planBody>;
 export type PlanResponse = Awaited<ReturnType<typeof plan>>;
@@ -81,7 +82,9 @@ export async function plan(
   user: { id: string; email: string }
 ) {
   // check cache
-  const data = await getPlan({ email: user.email, threadId: body.id });
+  const data = body.replan
+    ? undefined
+    : await getPlan({ email: user.email, threadId: body.id });
   if (data) return { plan: data };
 
   const labels = await getUserLabels({ email: user.email });

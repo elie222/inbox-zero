@@ -188,6 +188,7 @@ export function List(props: {
                               id: email.id!,
                               subject,
                               message,
+                              replan: true,
                             });
 
                             if (isErrorMessage(res)) {
@@ -617,6 +618,7 @@ function PlanBadge(props: {
         id: props.id,
         subject: props.subject,
         message: props.message,
+        replan: false,
       };
       return fetcher(url, {
         method: "POST",
