@@ -154,7 +154,7 @@ export function SideNav(props: {
         </Transition.Root>
 
         {/* Static sidebar for desktop */}
-        <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+        <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col 2xl:w-72">
           {/* Sidebar component, swap this element with another sidebar if you like */}
           <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
             <Link href="/mail">
@@ -214,7 +214,7 @@ export function SideNav(props: {
           </div>
         </div>
 
-        <main className="flex h-full flex-col lg:pl-72">
+        <main className="flex h-full flex-col lg:pl-60 2xl:pl-72">
           {props.topBar}
 
           {props.children}
