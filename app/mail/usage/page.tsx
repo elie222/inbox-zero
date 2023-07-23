@@ -12,7 +12,7 @@ export default async function Usage() {
   const usage = await getUsage({ email: session.user.email });
 
   return (
-    <div>
+    <div className="max-w-3xl bg-white">
       <Stats
         stats={[
           {

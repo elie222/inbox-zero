@@ -8,6 +8,7 @@ import useSWR from "swr";
 import clsx from "clsx";
 import {
   ArchiveBoxArrowDownIcon,
+  ChartBarIcon,
   Cog6ToothIcon,
   InboxIcon,
   XMarkIcon,
@@ -23,6 +24,11 @@ const navigation = [
     name: "Bulk Archive",
     href: "/mail/bulk-archive",
     icon: ArchiveBoxArrowDownIcon,
+  },
+  {
+    name: "Stats",
+    href: "/mail/stats",
+    icon: ChartBarIcon,
   },
 ];
 

@@ -75,7 +75,7 @@
     "body": [
       "import { z } from \"zod\";",
       "import { NextResponse } from \"next/server\";",
-      "import { getSession } from \"@/utils/auth\";",
+      "import { getAuthSession } from \"@/utils/auth\";",
       "import prisma from \"@/utils/prisma\";",
       "",
       "export type ${1:ApiName}Response = Awaited<",
@@ -92,7 +92,7 @@
       "}",
       "",
       "export async function GET() {",
-      "  const session = await getSession();",
+      "  const session = await getAuthSession();",
       "  if (!session) return NextResponse.json({ error: \"Not authenticated\" });",
       "",
       "  const result = await get${1:ApiName}({ userId: session.user.id });",
@@ -105,7 +105,7 @@
       "export type ${1:ApiName}PostResponse = Awaited<ReturnType<typeof ${1:ApiName}>>;",
       "",
       "export async function POST(request: Request, params: { id: string }) {",
-      "  const session = await getSession();",
+      "  const session = await getAuthSession();",
       "  if (!session) return NextResponse.json({ error: \"Not authenticated\" });",
       "",
       "  const json = await request.json();",
@@ -124,7 +124,7 @@
       "",
       "",
       "export async function DELETE(_request: Request, params: { id: string }) {",
-      "  const session = await getSession();",
+      "  const session = await getAuthSession();",
       "  if (!session) return NextResponse.json({ error: \"Not authenticated\" });",
       "",
       "  const result = await prisma.${2:table}.delete({",
@@ -209,6 +209,29 @@
       "  return res;",
       "}"
     ]
+  },
+  "SWR": {
+    "prefix": "swr",
+    "body": [
+      "\"use client\";",
+      "",
+      "import useSWR from \"swr\";",
+      "import { LoadingContent } from \"@/components/LoadingContent\";",
+      "",
+      "export default function Page() {",
+      "  const { data, isLoading, error } = useSWR<Response>(`/api/user/stats`);",
+      "",
+      "  return (",
+      "    <LoadingContent loading={isLoading} error={error}>",
+      "      {data && (",
+      "        <div />",
+      "      )}",
+      "    </LoadingContent>",
+      "  );",
+      "}",
+      ""
+    ],
+    "description": "SWR"
   },
   //#endregion  //*======== Custom ===========
 
