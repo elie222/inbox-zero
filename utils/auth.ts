@@ -38,7 +38,7 @@ export const authOptions: NextAuthOptions = {
           access_type: "offline",
           response_type: "code",
           // can be helpful for dev we don't have the refresh token: https://github.com/nextauthjs/next-auth/issues/269#issuecomment-644274504
-          prompt: "consent",
+          // prompt: "consent",
         },
       },
     }),
