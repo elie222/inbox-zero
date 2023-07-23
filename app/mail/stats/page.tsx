@@ -29,14 +29,23 @@ export default function StatsPage() {
             {
               name: "Emails received (last 7d)",
               value: data.emailsReceived7days || 0,
+              subvalue: `${((data.emailsReceived7days || 0) / 7).toFixed(
+                1
+              )} per day`,
             },
             {
               name: "Inbox emails (last 7d)",
               value: data.emailsInbox7days || 0,
+              subvalue: `${((data.emailsInbox7days || 0) / 7).toFixed(
+                1
+              )} per day`,
             },
             {
               name: "Emails sent (last 7d)",
               value: data.emailsSent7days || 0,
+              subvalue: `${((data.emailsSent7days || 0) / 7).toFixed(
+                1
+              )} per day`,
             },
           ]}
         />

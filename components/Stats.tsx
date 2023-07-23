@@ -2,6 +2,7 @@ export function Stats(props: {
   stats: {
     name: string;
     value: number;
+    subvalue?: string;
   }[];
 }) {
   return (
@@ -16,6 +17,11 @@ export function Stats(props: {
           </dt>
           <dd className="w-full flex-none text-3xl font-medium leading-10 tracking-tight text-gray-900">
             {stat.value.toLocaleString()}
+            {stat.subvalue ? (
+              <span className="ml-4 text-base font-medium text-gray-500">
+                {stat.subvalue}
+              </span>
+            ) : null}
           </dd>
         </div>
       ))}
