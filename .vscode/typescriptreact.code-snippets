@@ -107,6 +107,10 @@
     "prefix": "cx",
     "body": ["{clsx(${TM_SELECTED_TEXT}$0)}"]
   },
+  "Wrap with memo": {
+    "prefix": "mem",
+    "body": ["const value = useMemo(() => (${TM_SELECTED_TEXT}), [])"]
+  },
   //#endregion  //*======== Snippet Wrap ===========
 
   //#region  //*=========== Custom ===========

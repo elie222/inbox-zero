@@ -53,10 +53,13 @@ export function GmailProvider(props: { children: React.ReactNode }) {
     return Object.values(labels || {});
   }, [labels]);
 
+  const value = useMemo(
+    () => ({ labels, labelsArray, labelsIsLoading: isLoading }),
+    [labels, labelsArray, isLoading]
+  );
+
   return (
-    <GmailContext.Provider
-      value={{ labels, labelsArray, labelsIsLoading: isLoading }}
-    >
+    <GmailContext.Provider value={value}>
       {props.children}
     </GmailContext.Provider>
   );

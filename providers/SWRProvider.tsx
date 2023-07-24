@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useState, createContext, useContext } from "react";
+import {
+  useCallback,
+  useState,
+  createContext,
+  useContext,
+  useMemo,
+} from "react";
 import { SWRConfig, mutate } from "swr";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
@@ -45,8 +51,10 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
     setProvider(new Map());
   }, []);
 
+  const value = useMemo(() => ({ resetCache }), [resetCache]);
+
   return (
-    <SWRContext.Provider value={{ resetCache }}>
+    <SWRContext.Provider value={value}>
       <SWRConfig value={{ fetcher, provider: () => provider }}>
         {props.children}
       </SWRConfig>

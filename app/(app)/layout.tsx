@@ -3,7 +3,7 @@ import "../globals.css";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
-import { PromptProvider } from "@/providers/PromptProvider";
+// import { PromptProvider } from "@/providers/PromptProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
 
 export const metadata = {
@@ -24,9 +24,9 @@ export default function RootLayout({
         <SWRProvider>
           <GmailProvider>
             <SessionProvider>
-              <PromptProvider>
-                <SideNavWithTopNav>{children}</SideNavWithTopNav>
-              </PromptProvider>
+              {/* <PromptProvider> */}
+              <SideNavWithTopNav>{children}</SideNavWithTopNav>
+              {/* </PromptProvider> */}
             </SessionProvider>
           </GmailProvider>
         </SWRProvider>

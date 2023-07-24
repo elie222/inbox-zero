@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 interface Context {
   prompt?: string;
@@ -41,15 +47,18 @@ export const PromptProvider = (props: { children: React.ReactNode }) => {
     [setState]
   );
 
+  const value = useMemo(
+    () => ({
+      prompt: state.prompt,
+      filterFunction: state.filterFunction,
+      setPrompt,
+      setFunction,
+    }),
+    [setFunction, setPrompt, state.filterFunction, state.prompt]
+  );
+
   return (
-    <PromptContext.Provider
-      value={{
-        prompt: state.prompt,
-        filterFunction: state.filterFunction,
-        setPrompt,
-        setFunction,
-      }}
-    >
+    <PromptContext.Provider value={value}>
       {props.children}
     </PromptContext.Provider>
   );
