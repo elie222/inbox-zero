@@ -304,7 +304,7 @@ export function List(props: {
   );
 }
 
-function EmailList(props: { emails: Thread[]; refetch: () => void }) {
+export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
   // if performance becomes an issue check this:
   // https://ianobermiller.com/blog/highlight-table-row-column-react#react-state
   const [hovered, setHovered] = useState<Thread>();

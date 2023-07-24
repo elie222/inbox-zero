@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { NoReplyResponse } from "@/app/api/user/no-reply/route";
 import { PageHeading } from "@/components/Typography";
-import { List } from "@/components/ListNew";
+import { EmailList } from "@/components/ListNew";
 
 export default function NoReplyPage() {
   const { data, isLoading, error } = useSWR<NoReplyResponse, { error: string }>(
@@ -13,13 +13,13 @@ export default function NoReplyPage() {
 
   return (
     <div>
-      <div className="p-4">
+      <div className="border-b border-gray-200 px-8 py-6">
         <PageHeading>Emails Sent With No Reply</PageHeading>
       </div>
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <div>
-            <List emails={data as any} refetch={() => {}} />
+            <EmailList emails={data as any} refetch={() => {}} />
           </div>
         )}
       </LoadingContent>
