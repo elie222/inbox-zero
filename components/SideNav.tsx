@@ -9,6 +9,7 @@ import clsx from "clsx";
 import {
   ArchiveBoxArrowDownIcon,
   ChartBarIcon,
+  ChatBubbleBottomCenterTextIcon,
   Cog6ToothIcon,
   InboxIcon,
   LightBulbIcon,
@@ -27,21 +28,21 @@ const navigation = [
     href: "/stats",
     icon: ChartBarIcon,
   },
-  {
-    name: "Subscriptions",
-    href: "/stats",
-    icon: ChartBarIcon,
-  },
+  // {
+  //   name: "Subscriptions",
+  //   href: "/stats",
+  //   icon: ChartBarIcon,
+  // },
   {
     name: "No reply",
     href: "/no-reply",
-    icon: ChartBarIcon,
+    icon: ChatBubbleBottomCenterTextIcon,
   },
-  {
-    name: "Filters",
-    href: "/filters",
-    icon: ChartBarIcon,
-  },
+  // {
+  //   name: "Filters",
+  //   href: "/filters",
+  //   icon: ChartBarIcon,
+  // },
   {
     name: "Bulk Archive",
     href: "/bulk-archive",
