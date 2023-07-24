@@ -1,6 +1,9 @@
+import useSWR from "swr";
+import clsx from "clsx";
+import { LoadingContent } from "@/components/LoadingContent";
+import { PromptHistoryResponse } from "@/app/api/user/prompt-history/controller";
 import { deletePromptHistoryAction } from "@/utils/actions";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import clsx from "clsx";
 
 type PromptHistoryItem = {
   id: string;
@@ -9,7 +12,19 @@ type PromptHistoryItem = {
   current?: boolean;
 };
 
-export function PromptHistory(props: {
+export function PromptHistory() {
+  const { data, isLoading, error, mutate } = useSWR<PromptHistoryResponse>(
+    "/api/user/prompt-history"
+  );
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && <PromptHistoryInner history={data.history} refetch={mutate} />}
+    </LoadingContent>
+  );
+}
+
+function PromptHistoryInner(props: {
   history: PromptHistoryItem[];
   refetch: () => void;
 }) {

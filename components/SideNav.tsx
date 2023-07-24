@@ -4,7 +4,6 @@ import { Fragment } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Dialog, Transition } from "@headlessui/react";
-import useSWR from "swr";
 import clsx from "clsx";
 import {
   ArchiveBoxArrowDownIcon,
@@ -16,9 +15,6 @@ import {
   StarIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { PromptHistory } from "@/components/PromptHistory";
-import { PromptHistoryResponse } from "@/app/api/user/prompt-history/controller";
-import { LoadingContent } from "@/components/LoadingContent";
 import { Logo } from "@/components/Logo";
 
 const navigation = [
@@ -140,10 +136,6 @@ export function SideNav(props: {
 }
 
 function Sidebar(props: { isMobile: boolean }) {
-  const { data, isLoading, error, mutate } = useSWR<PromptHistoryResponse>(
-    "/api/user/prompt-history"
-  );
-
   const path = usePathname();
 
   return (
@@ -185,9 +177,9 @@ function Sidebar(props: { isMobile: boolean }) {
               ))}
             </ul>
           </li>
-          <LoadingContent loading={isLoading} error={error}>
-            {data && <PromptHistory history={data.history} refetch={mutate} />}
-          </LoadingContent>
+
+          {/* <PromptHistory /> */}
+
           <li className="mt-auto">
             <ul role="list" className="-mx-2 space-y-1">
               {bottomLinks.map((link) => {
