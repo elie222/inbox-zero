@@ -11,6 +11,8 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   InboxIcon,
+  LightBulbIcon,
+  StarIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { PromptHistory } from "@/components/PromptHistory";
@@ -45,6 +47,12 @@ const navigation = [
     href: "/bulk-archive",
     icon: ArchiveBoxArrowDownIcon,
   },
+];
+
+const bottomLinks = [
+  { name: "Star on GitHub", href: "/github", icon: StarIcon },
+  { name: "Feature Requests", href: "/feature-requests", icon: LightBulbIcon },
+  { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
 ];
 
 export function SideNav(props: {
@@ -153,17 +161,31 @@ export function SideNav(props: {
                             />
                           )}
                         </LoadingContent>
+
                         <li className="mt-auto">
-                          <a
-                            href="/settings"
-                            className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white"
-                          >
-                            <Cog6ToothIcon
-                              className="h-6 w-6 shrink-0"
-                              aria-hidden="true"
-                            />
-                            Settings
-                          </a>
+                          <ul role="list" className="-mx-2 space-y-1">
+                            {bottomLinks.map((link) => {
+                              return (
+                                <li key={link.name}>
+                                  <a
+                                    href={link.href}
+                                    className={clsx(
+                                      "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
+                                      link.href === path
+                                        ? "bg-gray-800 text-white"
+                                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                    )}
+                                  >
+                                    <link.icon
+                                      className="h-6 w-6 shrink-0"
+                                      aria-hidden="true"
+                                    />
+                                    {link.name}
+                                  </a>
+                                </li>
+                              );
+                            })}
+                          </ul>
                         </li>
                       </ul>
                     </nav>
@@ -214,21 +236,29 @@ export function SideNav(props: {
                   )}
                 </LoadingContent>
                 <li className="mt-auto">
-                  <a
-                    href="/settings"
-                    className={clsx(
-                      "group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
-                      "/settings" === path
-                        ? "bg-gray-800 text-white"
-                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                    )}
-                  >
-                    <Cog6ToothIcon
-                      className="h-6 w-6 shrink-0"
-                      aria-hidden="true"
-                    />
-                    Settings
-                  </a>
+                  <ul role="list" className="-mx-2 space-y-1">
+                    {bottomLinks.map((link) => {
+                      return (
+                        <li key={link.name}>
+                          <a
+                            href={link.href}
+                            className={clsx(
+                              "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
+                              link.href === path
+                                ? "bg-gray-800 text-white"
+                                : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                            )}
+                          >
+                            <link.icon
+                              className="h-6 w-6 shrink-0"
+                              aria-hidden="true"
+                            />
+                            {link.name}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </li>
               </ul>
             </nav>
