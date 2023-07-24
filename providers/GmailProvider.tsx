@@ -4,7 +4,7 @@ import { LabelsResponse } from "@/app/api/google/labels/route";
 import { createContext, useContext, useMemo } from "react";
 import useSWR from "swr";
 
-type Label = {
+export type GmailLabel = {
   id: string;
   name: string;
   type?: string | null;
@@ -14,11 +14,11 @@ type Label = {
   };
 };
 
-export type GmailLabels = Record<string, Label>;
+export type GmailLabels = Record<string, GmailLabel>;
 
 interface Context {
   labels: GmailLabels;
-  labelsArray: Label[];
+  labelsArray: GmailLabel[];
   labelsIsLoading: boolean;
 }
 

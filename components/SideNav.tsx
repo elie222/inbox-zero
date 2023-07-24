@@ -21,14 +21,29 @@ import { Logo } from "@/components/Logo";
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon },
   {
-    name: "Bulk Archive",
-    href: "/bulk-archive",
-    icon: ArchiveBoxArrowDownIcon,
-  },
-  {
     name: "Stats",
     href: "/stats",
     icon: ChartBarIcon,
+  },
+  {
+    name: "Subscriptions",
+    href: "/stats",
+    icon: ChartBarIcon,
+  },
+  {
+    name: "No reply",
+    href: "/no-reply",
+    icon: ChartBarIcon,
+  },
+  {
+    name: "Filters",
+    href: "/filters",
+    icon: ChartBarIcon,
+  },
+  {
+    name: "Bulk Archive",
+    href: "/bulk-archive",
+    icon: ArchiveBoxArrowDownIcon,
   },
 ];
 

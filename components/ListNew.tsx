@@ -267,8 +267,8 @@ export function List(props: {
                               labelId: label.id,
                               threadIds: [email.id!],
                               // threadIds: tabEmails
-                              //   .map((email) => email.id!)
-                              //   .filter(Boolean),
+                              //   .map((email) => email.id)
+                              //   .filter(isDefined),
                               archive: true,
                             });
 

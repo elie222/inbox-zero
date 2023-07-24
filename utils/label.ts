@@ -11,6 +11,7 @@ import {
   saveInboxZeroLabel,
   saveUserLabels,
 } from "@/utils/redis/label";
+import { isDefined } from "@/utils/types";
 
 export const inboxZeroLabels: Record<InboxZeroLabelKey, string> = {
   archived: "[InboxZero]/Archived by IZ",
@@ -116,7 +117,7 @@ export async function getOrCreateInboxZeroLabels(
         }
       })
     )
-  ).filter((pair): pair is [InboxZeroLabelKey, RedisLabel] => Boolean(pair));
+  ).filter(isDefined);
 
   const res = Object.fromEntries(gmailRedisLabels) as InboxZeroLabels;
   return res;

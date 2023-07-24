@@ -11,7 +11,7 @@ export const Container = (props: ContainerProps) => {
 
   return (
     <div
-      className={clsx("mx-auto px-4", {
+      className={clsx("mx-auto w-full px-4", {
         "max-w-lg": size === "lg",
         "max-w-2xl": size === "2xl",
         "max-w-4xl": size === "4xl",

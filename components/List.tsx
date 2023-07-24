@@ -24,6 +24,7 @@ import {
 } from "@/app/api/google/draft/route";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
+import { isDefined } from "@/utils/types";
 
 type Item = { id: string; text: string };
 
@@ -56,11 +57,8 @@ function ListItem(props: { item: Item; refetch: () => void }) {
   const labelIds = data?.thread.messages?.[0]?.labelIds || [];
   const gmail = useGmail();
   const labels = labelIds
-    .map((labelId) => {
-      // filtering for Boolean on next line to remove undefined
-      return gmail.labels?.[labelId]!;
-    })
-    .filter(Boolean);
+    .map((labelId) => gmail.labels?.[labelId])
+    .filter(isDefined);
 
   return (
     <li className="flex py-5 text-white">

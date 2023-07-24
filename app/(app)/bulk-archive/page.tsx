@@ -22,7 +22,7 @@ const ageOptions = [
   { label: "3 months", value: 90 },
 ];
 
-export default function BulkArchive(props: {}) {
+export default function BulkArchive() {
   return (
     <Container size="lg">
       <div className="mt-8">
