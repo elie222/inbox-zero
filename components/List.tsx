@@ -288,7 +288,6 @@ function ResponseMessage(props: { message: string; threadId: string }) {
                 threadId: props.threadId,
               }
             );
-            console.log("🚀 ~ file: List.tsx:300 ~ draft:", draft);
 
             toastSuccess({
               description: "Draft created.",

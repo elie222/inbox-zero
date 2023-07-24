@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import {
   ArchiveBoxArrowDownIcon,
   ArrowTopRightOnSquareIcon,
@@ -18,13 +19,16 @@ export function ActionButtons(props: {
   onGenerateAiResponse: () => void;
   onReply: () => void;
 }) {
+  const session = useSession();
+  const email = session.data?.user.email;
+
   const openInGmail = useCallback(() => {
     // open in gmail
-    window.open(
-      `https://mail.google.com/mail/u/0/#inbox/${props.threadId}`,
-      "_blank"
-    );
-  }, [props.threadId]);
+    const url = `https://mail.google.com/mail/u/${email || 0}/#all/${
+      props.threadId
+    }`;
+    window.open(url, "_blank");
+  }, [props.threadId, email]);
 
   const archive = useCallback(() => {
     // couldn't get server actions to work here

@@ -62,6 +62,7 @@ export function CommandDialogDemo(props: { selected?: string }) {
             <CommandItem
               onSelect={() => {
                 // open in gmail
+                // TODO u/0 should be u/EMAIL
                 window.open(
                   `https://mail.google.com/mail/u/0/#inbox/${props.selected!}`,
                   "_blank"
