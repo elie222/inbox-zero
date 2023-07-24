@@ -25,51 +25,7 @@
   },
   //#endregion  //*======== React ===========
 
-  //#region  //*=========== Commons ===========
-  "Region": {
-    "prefix": "reg",
-    "scope": "javascript, typescript, javascriptreact, typescriptreact",
-    "body": [
-      "//#region  //*=========== ${1} ===========",
-      "${TM_SELECTED_TEXT}$0",
-      "//#endregion  //*======== ${1} ==========="
-    ]
-  },
-  "Region CSS": {
-    "prefix": "regc",
-    "scope": "css, scss",
-    "body": [
-      "/* #region  /**=========== ${1} =========== */",
-      "${TM_SELECTED_TEXT}$0",
-      "/* #endregion  /**======== ${1} =========== */"
-    ]
-  },
-  //#endregion  //*======== Commons ===========
-
   //#region  //*=========== Nextjs ===========
-  "Next Pages": {
-    "prefix": "np",
-    "body": [
-      "import type { NextPage } from 'next';",
-      "import { useRouter } from 'next/router';",
-      "import { Container } from '@/components/Container';",
-      "import { CreatorLayout } from '@/layouts/CreatorLayout';",
-      "",
-      "const ${1:${TM_FILENAME_BASE/(^[a-zA-Z])(.*)/${1:/upcase}${2}/}}: NextPage = () => {",
-      "  const router = useRouter();",
-      "  const slug = router.query.slug as string;",
-      "",
-      "  return (",
-      "    <CreatorLayout userType=\"creator\" fullWidth slug={slug} selected={'${1:${TM_FILENAME_BASE/(^[a-zA-Z])(.*)/${1:/upcase}${2}/}}'}>",
-      "      <Container size=\"lg\">Page</Container>",
-      "    </CreatorLayout>",
-      "  );",
-      "};",
-      "",
-      "export default ${1:${TM_FILENAME_BASE/(^[a-zA-Z])(.*)/${1:/upcase}${2}/}};"
-    ],
-    "description": "Next Pages"
-  },
   "Next API Route": {
     "prefix": "napi",
     "body": [
@@ -219,7 +175,7 @@
       "import { LoadingContent } from \"@/components/LoadingContent\";",
       "",
       "export default function Page() {",
-      "  const { data, isLoading, error } = useSWR<Response>(`/api/user/stats`);",
+      "  const { data, isLoading, error } = useSWR<Response, { error: string }>(`/api/user/stats`);",
       "",
       "  return (",
       "    <LoadingContent loading={isLoading} error={error}>",
