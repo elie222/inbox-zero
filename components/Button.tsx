@@ -18,12 +18,12 @@ interface ButtonProps
 }
 
 type Color = "primary" | "white" | "red" | "transparent" | "ghost";
-type Size = "xs" | "sm" | "md" | "xl" | "circle";
+type Size = "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "circle";
 
 export const Button = (props: ButtonProps) => {
   const {
     color = "primary",
-    size = "md",
+    size = "lg",
     roundedSize = "md",
     full,
     loading,
@@ -36,14 +36,17 @@ export const Button = (props: ButtonProps) => {
     <Component
       type="button"
       className={clsx(
-        "inline-flex items-center justify-center whitespace-nowrap text-center text-sm font-medium",
+        "inline-flex items-center justify-center whitespace-nowrap text-center font-semibold",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black",
         "disabled:cursor-default disabled:opacity-70",
         "transition-transform hover:scale-105",
         {
-          xs: "px-2 py-1",
-          sm: "px-3 py-2.5",
-          md: "px-4 py-2.5",
-          xl: "px-6 py-3 text-base font-medium",
+          xs: "px-2 py-1 text-xs",
+          sm: "px-2 py-1 text-sm",
+          md: "px-2.5 py-1.5 text-sm",
+          lg: "px-3 py-2 text-sm",
+          xl: "px-3.5 py-2.5 text-sm",
+          "2xl": "px-6 py-3 text-base font-medium",
           circle: "",
         }[size],
         {

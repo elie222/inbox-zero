@@ -17,7 +17,7 @@ import { Tag } from "@/components/Tag";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
-import { GmailLabels, useGmail } from "@/providers/GmailProvider";
+import { GmailLabel, GmailLabels, useGmail } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabels } from "@/utils/actions";
 import { PlusSmallIcon } from "@heroicons/react/24/outline";
 import { useModal, Modal } from "@/components/Modal";
@@ -160,46 +160,19 @@ function LabelsSectionFormInner(props: {
             >
               <div className="space-y-2">
                 {userLabels.map((label) => (
-                  <div
-                    key={label.name}
-                    className="grid grid-cols-4 items-center gap-x-4 gap-y-6"
-                  >
-                    <div className="">
-                      <Tag color="white" customColors={label.color}>
-                        {label?.type === "system"
-                          ? capitalCase(label.name)
-                          : label.name}
-                      </Tag>
-                    </div>
-
-                    <div className="col-span-3 flex items-center space-x-2">
-                      <Toggle
-                        name={`toggle-${label.id}`}
-                        enabled={!!watch(`toggle-${label.id}`)}
-                        onChange={(value) =>
-                          setValue(`toggle-${label.id}`, value)
-                        }
-                        error={errors[`toggle-${label.id}`]}
-                      />
-
-                      <div className="flex-1">
-                        <Input
-                          type="text"
-                          as="textarea"
-                          rows={2}
-                          name={`description-${label.id}`}
-                          label=""
-                          registerProps={register(`description-${label.id}`)}
-                          error={errors[`description-${label.id}`]}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <LabelItem
+                    key={label.id}
+                    label={label}
+                    register={register}
+                    watch={watch}
+                    setValue={setValue}
+                    errors={errors}
+                  />
                 ))}
               </div>
 
               <SubmitButtonWrapper>
-                <Button type="submit" size="sm" loading={isSubmitting}>
+                <Button type="submit" size="lg" loading={isSubmitting}>
                   Save
                 </Button>
               </SubmitButtonWrapper>
@@ -268,6 +241,47 @@ function LabelsSectionFormInner(props: {
         </div>
       </div>
     </FormSection>
+  );
+}
+
+export function LabelItem(props: {
+  label: GmailLabel;
+  register: any;
+  watch: any;
+  setValue: any;
+  errors: any;
+}) {
+  const { label, register, watch, setValue, errors } = props;
+
+  return (
+    <div className="grid grid-cols-4 items-center gap-x-4 gap-y-6">
+      <div className="">
+        <Tag color="white" customColors={label.color}>
+          {label?.type === "system" ? capitalCase(label.name) : label.name}
+        </Tag>
+      </div>
+
+      <div className="col-span-3 flex items-center space-x-2">
+        <Toggle
+          name={`toggle-${label.id}`}
+          enabled={!!watch(`toggle-${label.id}`)}
+          onChange={(value) => setValue(`toggle-${label.id}`, value)}
+          error={errors[`toggle-${label.id}`]}
+        />
+
+        <div className="flex-1">
+          <Input
+            type="text"
+            as="textarea"
+            rows={2}
+            name={`description-${label.id}`}
+            label=""
+            registerProps={register(`description-${label.id}`)}
+            error={errors[`description-${label.id}`]}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -344,7 +358,7 @@ function AddLabelModal() {
             />
 
             <SubmitButtonWrapper>
-              <Button type="submit" size="sm" loading={isSubmitting}>
+              <Button type="submit" size="lg" loading={isSubmitting}>
                 Create
               </Button>
             </SubmitButtonWrapper>

@@ -65,7 +65,7 @@ Some rules to follow:
             </div>
           </FormSectionRight>
           <SubmitButtonWrapper>
-            <Button type="submit" size="sm" loading={isSubmitting}>
+            <Button type="submit" size="lg" loading={isSubmitting}>
               Save
             </Button>
           </SubmitButtonWrapper>

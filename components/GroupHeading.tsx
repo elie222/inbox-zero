@@ -16,7 +16,7 @@ export function GroupHeading(props: {
           {props.buttons.map((button) => (
             <Button
               key={button.label}
-              size="sm"
+              size="md"
               onClick={button.onClick}
               loading={button.loading}
             >

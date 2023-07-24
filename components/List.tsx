@@ -95,7 +95,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
                   !viewFullMessage && (
                     <Button
                       color="white"
-                      size="xs"
+                      size="sm"
                       onClick={() => {
                         setViewFullMessage(true);
                       }}
@@ -130,7 +130,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
         <div className="flex space-x-2">
           <Button
             color="white"
-            size="xs"
+            size="sm"
             loading={isLoadingArchive}
             onClick={() => {
               onArchive({
@@ -144,7 +144,7 @@ function ListItem(props: { item: Item; refetch: () => void }) {
           </Button>
           <Button
             color="white"
-            size="xs"
+            size="sm"
             onClick={() => {
               // open in gmail
               window.open(
@@ -189,7 +189,7 @@ function Categorise(props: { message: string }) {
     <>
       <Button
         color="white"
-        size="xs"
+        size="sm"
         loading={isLoadingCategory}
         onClick={onClickCategorise}
       >
@@ -226,7 +226,7 @@ function Plan(props: { id: string; subject: string; message: string }) {
     <>
       <Button
         color="white"
-        size="xs"
+        size="sm"
         loading={isLoadingPlan}
         onClick={onClickPlan}
       >
@@ -267,7 +267,7 @@ function ResponseMessage(props: { message: string; threadId: string }) {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <Button color="white" size="xs" type="submit" loading={isLoading}>
+        <Button color="white" size="sm" type="submit" loading={isLoading}>
           Respond
         </Button>
       </form>
@@ -276,7 +276,7 @@ function ResponseMessage(props: { message: string; threadId: string }) {
       )}
       <Button
         color="white"
-        size="xs"
+        size="sm"
         loading={isLoading}
         onClick={async () => {
           try {
