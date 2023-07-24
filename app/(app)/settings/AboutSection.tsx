@@ -1,6 +1,6 @@
 import { getAuthSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
-import { AboutSectionForm } from "@/app/mail/settings/AboutSectionForm";
+import { AboutSectionForm } from "@/app/(app)/settings/AboutSectionForm";
 import { NotLoggedIn } from "@/components/ErrorDisplay";
 
 export const AboutSection = async () => {

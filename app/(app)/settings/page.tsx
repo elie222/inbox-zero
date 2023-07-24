@@ -1,7 +1,7 @@
 import { FormWrapper } from "@/components/Form";
-import { AboutSection } from "@/app/mail/settings/AboutSection";
-import { LabelsSection } from "@/app/mail/settings/LabelsSection";
-import { DeleteSection } from "@/app/mail/settings/DeleteSection";
+import { AboutSection } from "@/app/(app)/settings/AboutSection";
+import { LabelsSection } from "@/app/(app)/settings/LabelsSection";
+import { DeleteSection } from "@/app/(app)/settings/DeleteSection";
 
 export default function Settings() {
   return (

@@ -22,12 +22,12 @@ const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon },
   {
     name: "Bulk Archive",
-    href: "/mail/bulk-archive",
+    href: "/bulk-archive",
     icon: ArchiveBoxArrowDownIcon,
   },
   {
     name: "Stats",
-    href: "/mail/stats",
+    href: "/stats",
     icon: ChartBarIcon,
   },
 ];
@@ -140,7 +140,7 @@ export function SideNav(props: {
                         </LoadingContent>
                         <li className="mt-auto">
                           <a
-                            href="/mail/settings"
+                            href="/settings"
                             className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white"
                           >
                             <Cog6ToothIcon
@@ -200,10 +200,10 @@ export function SideNav(props: {
                 </LoadingContent>
                 <li className="mt-auto">
                   <a
-                    href="/mail/settings"
+                    href="/settings"
                     className={clsx(
                       "group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
-                      "/mail/settings" === path
+                      "/settings" === path
                         ? "bg-gray-800 text-white"
                         : "text-gray-400 hover:bg-gray-800 hover:text-white"
                     )}
