@@ -484,9 +484,20 @@ function EmailPanel(props: {
 
   return (
     <div className="flex flex-col border-l border-l-gray-100">
-      <div className="sticky flex items-center justify-between border-b border-b-gray-100 p-4">
-        <div className="">{lastMessage.parsedMessage.headers.subject}</div>
-        <div className="ml-2 flex items-center ">
+      <div className="sticky border-b border-b-gray-100 p-4 md:flex md:items-center md:justify-between">
+        <div className="md:w-0 md:flex-1">
+          <h1
+            id="message-heading"
+            className="text-lg font-medium text-gray-900"
+          >
+            {lastMessage.parsedMessage.headers.subject}
+          </h1>
+          <p className="mt-1 truncate text-sm text-gray-500">
+            {lastMessage.parsedMessage.headers.from}
+          </p>
+        </div>
+
+        <div className="mt-3 flex items-center md:ml-2 md:mt-0">
           <ActionButtons
             threadId={props.row.id!}
             onReply={props.onShowReply}
