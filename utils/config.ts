@@ -12,3 +12,4 @@ Some rules to follow:
 export const ACTIONS = ["archive", "label", "reply", "to_do"] as const;
 
 export const AI_MODEL = "gpt-3.5-turbo"; // rate limits worse for gpt-4
+export const AI_MODEL_16K = "gpt-3.5-turbo-16k";

@@ -8,19 +8,18 @@ import { getGmailClient } from "@/utils/google";
 const draftEmailBody = z.object({
   subject: z.string(),
   body: z.string(),
+  to: z.string(),
   threadId: z.string(),
 });
 export type DraftEmailBody = z.infer<typeof draftEmailBody>;
 export type DraftEmailResponse = Awaited<ReturnType<typeof draftEmail>>;
 
-async function draftEmail(body: DraftEmailBody, gmail: gmail_v1.Gmail) {
-  const email = "eliesteinbock@gmail.com";
-
+export async function draftEmail(body: DraftEmailBody, gmail: gmail_v1.Gmail) {
   const message = [
     'Content-Type: text/plain; charset="UTF-8"\n',
     "MIME-Version: 1.0\n",
     "Content-Transfer-Encoding: 7bit\n",
-    `to: ${email}\n`,
+    `to: ${body.to}\n`,
     `from: eliesteinbock@gmail.com\n`,
     `subject: ${body.subject}\n`,
     `In-Reply-To: <${body.threadId}@gmail.com>\n`,

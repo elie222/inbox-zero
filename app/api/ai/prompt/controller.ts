@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
-import { openai } from "@/app/api/ai/openai";
+import { openai } from "@/utils/openai";
 import { getAuthSession } from "@/utils/auth";
-import { filterFunctions } from "@/utils/filters";
+import { filterFunctions } from "@/utils/ai/filters";
 import prisma from "@/utils/prisma";
 import {
   ChatCompletionError,

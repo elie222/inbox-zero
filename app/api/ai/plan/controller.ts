@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { openai } from "@/app/api/ai/openai";
+import { openai } from "@/utils/openai";
 import { ACTIONS, AI_MODEL, generalPrompt } from "@/utils/config";
 import { getPlan, planSchema, savePlan } from "@/utils/redis/plan";
 import { saveUsage } from "@/utils/redis/usage";

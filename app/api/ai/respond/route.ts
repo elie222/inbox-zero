@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { OpenAIStream, StreamingTextResponse } from "ai";
-import { openai } from "@/app/api/ai/openai";
+import { openai } from "@/utils/openai";
 import { AI_MODEL } from "@/utils/config";
 
 const respondBody = z.object({ message: z.string() });

@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { openai } from "@/app/api/ai/openai";
+import { openai } from "@/utils/openai";
 import { AI_MODEL } from "@/utils/config";
+import {
+  ChatCompletionError,
+  ChatCompletionResponse,
+  isChatCompletionError,
+} from "@/utils/types";
 
 const classifyThreadBody = z.object({ message: z.string() });
 export type ClassifyThreadBody = z.infer<typeof classifyThreadBody>;
@@ -24,8 +29,12 @@ async function classify(body: ClassifyThreadBody) {
       },
     ],
   });
-  const json = await response.json();
-  const message: string = json?.choices?.[0]?.message?.content;
+  const json: ChatCompletionResponse | ChatCompletionError =
+    await response.json();
+
+  const message = isChatCompletionError(json)
+    ? "error"
+    : json?.choices?.[0]?.message?.content;
 
   return { message };
 }
