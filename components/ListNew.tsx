@@ -23,7 +23,7 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { fetcher } from "@/providers/SWRProvider";
 import { formatShortDate } from "@/utils/date";
-import { FilterArgs, FilterFunction } from "@/utils/filters";
+import { FilterArgs, FilterFunction } from "@/utils/ai/filters";
 import { type Plan } from "@/utils/redis/plan";
 import { ActionButtons } from "@/components/ActionButtons";
 import { labelThreadsAction } from "@/utils/actions";
