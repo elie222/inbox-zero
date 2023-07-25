@@ -50,7 +50,7 @@ function StatsSummary() {
                 value: data.emailsReceived24hrs || 0,
               },
               {
-                name: "Inbox emails (last 24h)",
+                name: "Unhandled emails (last 24h)",
                 value: data.emailsInbox24hrs || 0,
               },
               {
@@ -66,7 +66,7 @@ function StatsSummary() {
                 )} per day`,
               },
               {
-                name: "Inbox emails (last 7d)",
+                name: "Unhandled emails (last 7d)",
                 value: data.emailsInbox7days || 0,
                 subvalue: `${((data.emailsInbox7days || 0) / 7).toFixed(
                   1

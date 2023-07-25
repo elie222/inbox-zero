@@ -33,10 +33,9 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
     emailsSent7days,
     emailsInbox7days,
   ] = await Promise.all([
-    // does this include sent?
     gmail.users.messages.list({
       userId: "me",
-      q: `after:${twentyFourHoursAgoInSeconds}`,
+      q: `-in:sent after:${twentyFourHoursAgoInSeconds}`,
       maxResults: 500,
     }),
     gmail.users.messages.list({
@@ -51,10 +50,9 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
     }),
 
     // 7 days
-    // does this include sent?
     gmail.users.messages.list({
       userId: "me",
-      q: `after:${sevenDaysAgoInSeconds}`,
+      q: `-in:sent after:${sevenDaysAgoInSeconds}`,
       maxResults: 500,
     }),
     gmail.users.messages.list({
