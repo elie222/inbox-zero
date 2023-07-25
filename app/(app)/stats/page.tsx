@@ -14,12 +14,15 @@ export default function StatsPage() {
   return (
     <div>
       <StatsSummary />
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
         <div className="">
           <StatsChart type="inbox" title="Unhandled Emails" />
         </div>
         <div className="">
           <StatsChart type="sent" title="Sent Emails" />
+        </div>
+        <div className="">
+          <StatsChart type="archived" title="Archived Emails" />
         </div>
       </div>
     </div>
@@ -78,7 +81,7 @@ function StatsSummary() {
   );
 }
 
-function StatsChart(props: { title: string; type: "inbox" | "sent" }) {
+function StatsChart(props: { title: string; type: StatsByDayQuery["type"] }) {
   const searchParams: StatsByDayQuery = { type: props.type };
   const { data, isLoading, error } = useSWRImmutable<
     StatsByDayResponse,

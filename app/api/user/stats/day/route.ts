@@ -5,7 +5,7 @@ import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/google";
 
 const statsByDayQuery = z.object({
-  type: z.enum(["inbox", "sent"]),
+  type: z.enum(["inbox", "sent", "archived"]),
 });
 export type StatsByDayQuery = z.infer<typeof statsByDayQuery>;
 export type StatsByDayResponse = Awaited<
@@ -42,13 +42,7 @@ async function getPastSevenDayStats(
       let count: number | undefined = undefined;
 
       if (typeof count !== "number") {
-        const startOfDayInSeconds = Math.floor(date.getTime() / 1000);
-        const endOfDayInSeconds = startOfDayInSeconds + 86400;
-
-        const query =
-          options.type === "sent"
-            ? `in:sent after:${startOfDayInSeconds} before:${endOfDayInSeconds}`
-            : `in:inbox after:${startOfDayInSeconds} before:${endOfDayInSeconds}`;
+        const query = getQuery(options.type, date);
 
         const messages = await options.gmail.users.messages.list({
           userId: "me",
@@ -69,6 +63,22 @@ async function getPastSevenDayStats(
   );
 
   return lastSevenDaysCountsArray;
+}
+
+function getQuery(type: StatsByDayQuery["type"], date: Date) {
+  const startOfDayInSeconds = Math.floor(date.getTime() / 1000);
+  const endOfDayInSeconds = startOfDayInSeconds + 86400;
+
+  const dateRange = `after:${startOfDayInSeconds} before:${endOfDayInSeconds}`;
+
+  switch (type) {
+    case "inbox":
+      return `in:inbox ${dateRange}`;
+    case "sent":
+      return `in:sent ${dateRange}`;
+    case "archived":
+      return `-in:inbox -in:sent ${dateRange}`;
+  }
 }
 
 export async function GET(request: Request) {
