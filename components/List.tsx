@@ -18,10 +18,6 @@ import { Tag } from "@/components/Tag";
 import { Linkify } from "@/components/Linkify";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
 import { useGmail } from "@/providers/GmailProvider";
-import {
-  DraftEmailBody,
-  DraftEmailResponse,
-} from "@/app/api/google/draft/route";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
 import { isDefined } from "@/utils/types";
@@ -280,14 +276,15 @@ function ResponseMessage(props: { message: string; threadId: string }) {
         loading={isLoading}
         onClick={async () => {
           try {
-            const draft = await postRequest<DraftEmailResponse, DraftEmailBody>(
-              "/api/google/draft",
-              {
-                subject: "Re: " + props.message.substring(0, 20),
-                body: messages[messages.length - 1].content,
-                threadId: props.threadId,
-              }
-            );
+            // const draft = await postRequest<DraftEmailResponse, DraftEmailBody>(
+            //   "/api/google/draft",
+            //   {
+            //     to: 'EMAIL',
+            //     subject: "Re: " + props.message.substring(0, 20),
+            //     body: messages[messages.length - 1].content,
+            //     threadId: props.threadId,
+            //   }
+            // );
 
             toastSuccess({
               description: "Draft created.",
