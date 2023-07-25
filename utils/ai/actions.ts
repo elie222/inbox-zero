@@ -1,6 +1,6 @@
-import { draftEmail } from "@/app/api/google/draft/route";
-import { sendEmail } from "@/app/api/google/messages/send/controller";
 import { gmail_v1 } from "googleapis";
+import { draftEmail } from "@/app/api/google/draft/controller";
+import { sendEmail } from "@/app/api/google/messages/send/controller";
 
 export type ActionArgs = any;
 export type ActionFunction = (
