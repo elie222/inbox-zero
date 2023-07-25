@@ -17,7 +17,7 @@ interface ButtonProps
   loading?: boolean;
 }
 
-type Color = "primary" | "white" | "red" | "transparent" | "ghost";
+type Color = "primary" | "white" | "red" | "transparent";
 type Size = "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "circle";
 
 export const Button = (props: ButtonProps) => {
@@ -55,18 +55,17 @@ export const Button = (props: ButtonProps) => {
           full: "rounded-full py-4 shadow-lg",
         }[roundedSize],
         {
-          "border px-4 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2":
+          "border px-4 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-offset-2":
             color !== "transparent",
-          "border-transparent": color !== "ghost" && color !== "white",
 
           "w-full": full,
 
-          "bg-gray-900 text-white hover:bg-gray-700": color === "primary",
-          "bg-red-100 text-gray-900 hover:bg-red-200": color === "red",
-          "border border-gray-100 bg-white text-gray-700 hover:bg-gray-50":
+          "bg-gray-900 text-white hover:bg-gray-700 focus:ring-gray-900 ":
+            color === "primary",
+          "bg-red-100 text-gray-900 hover:bg-red-200 focus:ring-red-500 ":
+            color === "red",
+          "border border-gray-100 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-200":
             color === "white",
-          "border border-blue-600 bg-white text-blue-600 hover:border-x-0 hover:bg-gradient-to-r hover:from-sky-500 hover:to-blue-600 hover:text-white":
-            color === "ghost",
         }
       )}
       {...rest}

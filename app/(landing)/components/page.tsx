@@ -35,6 +35,11 @@ export default function Components() {
             <Button size="xl">Button XL</Button>
             <Button size="2xl">Button 2XL</Button>
           </div>
+          <div className="space-x-4">
+            <Button color="red">Button Red</Button>
+            <Button color="white">Button White</Button>
+            <Button color="transparent">Button Transparent</Button>
+          </div>
         </div>
       </div>
     </Container>
