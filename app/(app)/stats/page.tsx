@@ -15,15 +15,16 @@ export default function StatsPage() {
   return (
     <div className="pb-20">
       <StatsSummary />
+
       <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
-        <div className="">
+        <div>
           <StatsChart type="inbox" title="Unhandled Emails" />
         </div>
-        <div className="">
-          <StatsChart type="sent" title="Sent Emails" />
-        </div>
-        <div className="">
+        <div>
           <StatsChart type="archived" title="Archived Emails" />
+        </div>
+        <div>
+          <StatsChart type="sent" title="Sent Emails" />
         </div>
       </div>
 
