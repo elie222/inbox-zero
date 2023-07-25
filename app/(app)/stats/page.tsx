@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import useSWRImmutable from "swr/immutable";
 import { BarChart, Card, Title } from "@tremor/react";
 import { Stats } from "@/components/Stats";
@@ -12,7 +13,7 @@ import {
 
 export default function StatsPage() {
   return (
-    <div>
+    <div className="pb-20">
       <StatsSummary />
       <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
         <div className="">
@@ -24,6 +25,10 @@ export default function StatsPage() {
         <div className="">
           <StatsChart type="archived" title="Archived Emails" />
         </div>
+      </div>
+
+      <div className="mt-4 px-4">
+        <CombinedStatsChart title="Combined Chart" />
       </div>
     </div>
   );
@@ -100,6 +105,83 @@ function StatsChart(props: { title: string; type: StatsByDayQuery["type"] }) {
               index="date"
               categories={["Emails"]}
               colors={["blue"]}
+            />
+          </Card>
+        </div>
+      )}
+    </LoadingContent>
+  );
+}
+
+function CombinedStatsChart(props: { title: string }) {
+  const {
+    data: sentData,
+    isLoading: sentIsLoading,
+    error: sentError,
+  } = useSWRImmutable<StatsByDayResponse, { error: string }>(
+    `/api/user/stats/day?${new URLSearchParams({
+      type: "sent",
+    } as StatsByDayQuery).toString()}`
+  );
+
+  const {
+    data: archivedData,
+    isLoading: archivedIsLoading,
+    error: archivedError,
+  } = useSWRImmutable<StatsByDayResponse, { error: string }>(
+    `/api/user/stats/day?${new URLSearchParams({
+      type: "archived",
+    } as StatsByDayQuery).toString()}`
+  );
+
+  const {
+    data: inboxData,
+    isLoading: inboxIsLoading,
+    error: inboxError,
+  } = useSWRImmutable<StatsByDayResponse, { error: string }>(
+    `/api/user/stats/day?${new URLSearchParams({
+      type: "inbox",
+    } as StatsByDayQuery).toString()}`
+  );
+
+  const isLoading = sentIsLoading || archivedIsLoading || inboxIsLoading;
+  const error = sentError || archivedError || inboxError;
+  const hasAllData = sentData && archivedData && inboxData;
+
+  const data = useMemo(() => {
+    if (!hasAllData) return [];
+
+    const data: {
+      date: string;
+      Unhandled: number;
+      Archived: number;
+      Sent: number;
+    }[] = [];
+
+    for (let i = 0; i < inboxData.length; i++) {
+      data.push({
+        date: inboxData[i].date,
+        Unhandled: inboxData[i].Emails,
+        Archived: archivedData[i].Emails,
+        Sent: sentData[i].Emails,
+      });
+    }
+
+    return data;
+  }, [archivedData, hasAllData, inboxData, sentData]);
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {hasAllData && (
+        <div className="mx-auto">
+          <Card>
+            <Title>{props.title}</Title>
+            <BarChart
+              className="mt-4 h-72"
+              data={data}
+              index="date"
+              categories={["Unhandled", "Archived", "Sent"]}
+              colors={["red", "green", "blue"]}
             />
           </Card>
         </div>
