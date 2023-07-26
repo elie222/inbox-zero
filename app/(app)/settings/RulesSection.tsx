@@ -29,6 +29,10 @@ import {
 import { Toggle } from "@/components/Toggle";
 import { Tooltip } from "@/components/Tooltip";
 import { Tag } from "@/components/Tag";
+import {
+  CategorizeRuleBody,
+  CategorizeRuleResponse,
+} from "@/app/api/user/rules/categorize/route";
 
 export function RulesSection() {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
@@ -66,20 +70,58 @@ export function RulesForm(props: { rules: RulesResponse }) {
 
   const { fields, append, remove } = useFieldArray({ name: "rules", control });
 
-  const onSubmit: SubmitHandler<UpdateRulesBody> = useCallback(async (data) => {
-    const res = await postRequest<UpdateRulesResponse, UpdateRulesBody>(
-      "/api/user/rules",
-      data
-    );
+  const onSubmit: SubmitHandler<UpdateRulesBody> = useCallback(
+    async (data) => {
+      const res = await postRequest<UpdateRulesResponse, UpdateRulesBody>(
+        "/api/user/rules",
+        data
+      );
 
-    if (isErrorMessage(res)) {
-      toastError({ description: "There was an error updating the rules." });
-    } else {
-      toastSuccess({
-        description: "Rules updated successfully.",
-      });
-    }
-  }, []);
+      if (isErrorMessage(res)) {
+        toastError({ description: "There was an error updating the rules." });
+      } else {
+        toastSuccess({
+          description: "Rules updated successfully.",
+        });
+
+        // update ids
+        for (let i = 0; i < data.rules.length; i++) {
+          const rule = data.rules[i];
+          const updatedRule = res.find((r) => r.instructions === rule.value);
+          if (updatedRule) setValue(`rules.${i}.id`, updatedRule.id);
+        }
+
+        await Promise.all(
+          res.map(async (r) => {
+            const categorizedRule = await postRequest<
+              CategorizeRuleResponse,
+              CategorizeRuleBody
+            >("/api/user/rules/categorize", {
+              ruleId: r.id,
+            });
+            console.log(
+              "🚀 ~ file: RulesSection.tsx:97 ~ res.map ~ categorizedRule:",
+              categorizedRule
+            );
+
+            if (isErrorMessage(categorizedRule)) {
+              console.error("Error categorizing rule:", r);
+              console.error("Error:", categorizedRule);
+              return;
+            }
+
+            const index = data.rules.findIndex(
+              (r) => r.id === categorizedRule.id
+            );
+
+            if (index !== -1)
+              setValue(`rules.${index}.actions`, categorizedRule.actions);
+          })
+        );
+      }
+    },
+    [setValue]
+  );
 
   return (
     <FormSection>
@@ -123,7 +165,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
                     />
                     <div className="mt-2 flex justify-between">
                       <div className="flex space-x-2">
-                        {f.actions?.map((action) => {
+                        {watch(`rules.${i}.actions`)?.map((action) => {
                           return (
                             <Tag key={action} color="green">
                               {capitalCase(action)}

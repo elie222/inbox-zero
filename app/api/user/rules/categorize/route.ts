@@ -13,9 +13,7 @@ import {
 
 const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
-export type CategorizeRulePostResponse = Awaited<
-  ReturnType<typeof categorizeRule>
->;
+export type CategorizeRuleResponse = Awaited<ReturnType<typeof categorizeRule>>;
 
 async function aiCategorizeRule(rule: Rule): Promise<Action[]> {
   const aiResponse = await openai.createChatCompletion({
