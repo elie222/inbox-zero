@@ -19,7 +19,7 @@ export default function StatsPage() {
 
       <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
         <div>
-          <StatsChart type="inbox" title="Unhandled Emails" color="blue" />
+          <StatsChart type="inbox" title="Inbox Emails" color="blue" />
         </div>
         <div>
           <StatsChart type="archived" title="Archived Emails" color="lime" />
@@ -55,7 +55,7 @@ function StatsSummary() {
                 value: formatStat(data.emailsReceived24hrs),
               },
               {
-                name: "Unhandled emails (last 24h)",
+                name: "Inbox emails (last 24h)",
                 value: formatStat(data.emailsInbox24hrs),
               },
               {
@@ -71,7 +71,7 @@ function StatsSummary() {
                 )} per day`,
               },
               {
-                name: "Unhandled emails (last 7d)",
+                name: "Inbox emails (last 7d)",
                 value: formatStat(data.emailsInbox7days),
                 subvalue: `${((data.emailsInbox7days || 0) / 7).toFixed(
                   1
