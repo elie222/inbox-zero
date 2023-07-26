@@ -29,3 +29,56 @@ export function isChatCompletionError(
 ): response is ChatCompletionError {
   return !!(response as ChatCompletionError).error;
 }
+
+export interface ParsedMessage {
+  id: string;
+  threadId: string;
+  labelIds: string[];
+  snippet: string;
+  historyId: string;
+  internalDate: number;
+  attachments: Attachment[];
+  inline: Inline[];
+  headers: Headers3;
+  textPlain: string;
+  textHtml: string;
+}
+
+interface Attachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
+  headers: Headers;
+}
+
+interface Headers {
+  "content-type": string;
+  "content-description": string;
+  "content-transfer-encoding": string;
+  "content-id": string;
+}
+
+interface Inline {
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
+  headers: Headers2;
+}
+
+interface Headers2 {
+  "content-type": string;
+  "content-description": string;
+  "content-transfer-encoding": string;
+  "content-id": string;
+}
+
+interface Headers3 {
+  subject: string;
+  from: string;
+  to: string;
+  cc?: string;
+  date: string;
+  [key: string]: string | undefined;
+}
