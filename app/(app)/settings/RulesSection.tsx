@@ -33,6 +33,7 @@ import {
   CategorizeRuleBody,
   CategorizeRuleResponse,
 } from "@/app/api/user/rules/categorize/route";
+import { Action } from "@prisma/client";
 
 export function RulesSection() {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
@@ -142,6 +143,13 @@ export function RulesForm(props: { rules: RulesResponse }) {
             https://getinboxzero.com/pricing.{'"'}
           </li>
         </ul>
+        <SectionDescription>
+          These are the actions we can take on your behalf:{" "}
+          {Object.keys(Action)
+            .map((action) => capitalCase(action))
+            .join(", ")}
+          .
+        </SectionDescription>
       </div>
 
       <div className="md:col-span-2">
