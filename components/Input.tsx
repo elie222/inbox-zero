@@ -75,7 +75,7 @@ export const Input = (props: InputProps) => {
               />
             ) : (
               <Component
-                className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
                 {...inputProps}
               />
             )}
@@ -141,7 +141,7 @@ const InputWithLeftFixedText = (props: {
       </span>
       <input
         {...props.inputProps}
-        className="block w-[120px] flex-1 rounded-none rounded-r-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 sm:w-full sm:min-w-[150px] sm:max-w-full sm:text-sm"
+        className="block w-[120px] flex-1 rounded-none rounded-r-md border-gray-300 focus:border-black focus:ring-black sm:w-full sm:min-w-[150px] sm:max-w-full sm:text-sm"
       />
     </div>
   );
@@ -160,7 +160,7 @@ const InputWithRightFixedText = (props: {
     >
       <input
         {...props.inputProps}
-        className="block w-full min-w-0 flex-1 rounded-none rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+        className="block w-full min-w-0 flex-1 rounded-none rounded-l-md border-gray-300 focus:border-black focus:ring-black sm:text-sm"
       />
       <span className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:text-sm">
         {props.rightText}

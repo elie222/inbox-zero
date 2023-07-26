@@ -9,7 +9,6 @@ interface TooltipProps {
 }
 
 export const Tooltip = (props: TooltipProps) => {
-  return props.children; // TODO
   if (!props.content) return props.children;
 
   // See: https://github.com/atomiks/tippyjs-react#component-children
@@ -19,7 +18,7 @@ export const Tooltip = (props: TooltipProps) => {
 
   return (
     <Tippy content={props.content}>
-      <button>{props.children}</button>
+      <button type="button">{props.children}</button>
     </Tippy>
   );
 };

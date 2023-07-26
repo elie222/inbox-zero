@@ -27,7 +27,7 @@ export async function createFilterFromPrompt(body: PromptQuery) {
     messages: [
       {
         role: "system",
-        content: `You are an AI assistant to help people manage their emails. Valid labels are: ${body.labels.join(
+        content: `You are an AI assistant that helps people manage their emails. Valid labels are: ${body.labels.join(
           ", "
         )}`,
       },

@@ -57,6 +57,7 @@ model User {
 
   promptHistory PromptHistory[]
   labels        Label[]
+  rules         Rule[]
 }
 
 // not in use as it's only used for passwordless login
@@ -90,4 +91,32 @@ model Label {
 
   @@unique([gmailLabelId, userId])
   @@unique([name, userId])
+}
+
+model Rule {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  name            String?
+  instructions    String
+  actions         Action[]
+  extraActionData Json? // for example, the label id. matching the index of the action
+  automate        Boolean  @default(true) // if set to false we display the plan and ask the user to confirm
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Action {
+  ARCHIVE
+  LABEL
+  REPLY
+  SEND_EMAIL
+  FORWARD
+  DRAFT_EMAIL
+  SUMMARIZE
+  MARK_SPAM
+  // SNOOZE
+  // ADD_TO_DO
+  // CALL_WEBHOOK
+  // INTEGRATION // for example, add to Notion
 }

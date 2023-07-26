@@ -7,13 +7,41 @@ export type ActionFunction = (
   gmail: gmail_v1.Gmail,
   args: ActionArgs
 ) => Promise<any>;
-export type Actions = "archive" | "label" | "draft" | "send_email" | "forward"; // | "add_to_do" | "call_webhook"; // "snooze" - in the future as gmail doesn't provide an api we'd have to build that ourselves
+export type Actions =
+  | "archive"
+  | "label"
+  | "draft"
+  | "send_email"
+  | "forward"
+  | "ask_for_more_information"; // | "add_to_do" | "call_webhook"; // "snooze" - in the future as gmail doesn't provide an api we'd have to build that ourselves
 
 export const actionFunctions: {
   name: Actions;
   description: string;
   parameters: object;
 }[] = [
+  {
+    name: "ask_for_more_information",
+    description: "Ask for more information on how to handle the email.",
+    parameters: {
+      type: "object",
+      properties: {
+        from: {
+          type: "string",
+          description: "The email address of the sender.",
+        },
+        subject: {
+          type: "string",
+          description: "The subject of the email.",
+        },
+        content: {
+          type: "string",
+          description: "The content of the email.",
+        },
+      },
+      required: [],
+    },
+  },
   {
     name: "archive",
     description: "Archive an email",
@@ -288,18 +316,24 @@ export const forward: ActionFunction = async (
 
 // export const call_webhook: ActionFunction = async (_gmail: gmail_v1.Gmail, args: { url: string, content: string }) => {};
 
-export const getActionFunction = (action: Actions): ActionFunction => {
+export const runActionFunction = (
+  gmail: gmail_v1.Gmail,
+  action: string,
+  args: any
+) => {
   switch (action) {
     case "archive":
-      return archive;
+      return archive(gmail, args);
     case "label":
-      return label;
+      return label(gmail, args);
     case "draft":
-      return draft;
+      return draft(gmail, args);
     case "send_email":
-      return send_email;
+      return send_email(gmail, args);
     case "forward":
-      return forward;
+      return forward(gmail, args);
+    case "ask_for_more_information":
+      return;
     // case "add_to_do":
     //   return add_to_do;
     // case "call_webhook":

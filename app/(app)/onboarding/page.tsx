@@ -47,15 +47,19 @@ export default function Onboarding() {
           <PageHeading>Onboarding</PageHeading>
           <div className="mt-2 max-w-prose">
             <SectionDescription>
-              Inbox Zero categorises each email to plan the right course of
-              action. Here are the default categories we use but you can adjust
-              these in the settings page. To get the most out of Inbox Zero,
-              having the right categories is key. And you can improve it by
-              adjusting your categories and their descriptions.
+              Inbox Zero categorizes emails to plan the right action. You can
+              customize categories in the settings to improve results.
             </SectionDescription>
           </div>
 
           <div className="mt-4">
+            <div className="grid grid-cols-4 items-center gap-x-4 gap-y-6">
+              <div className="">Category</div>
+              <div className="col-span-3 flex items-center space-x-2">
+                <div className="">Enabled</div>
+                <div className="">Description</div>
+              </div>
+            </div>
             {RECOMMENDED_LABELS.map((label) => (
               <LabelItem
                 key={label}
