@@ -5,7 +5,6 @@ import {
 } from "@/app/api/user/rules/validation";
 
 // GET
-
 export type RulesResponse = Awaited<ReturnType<typeof getRules>>;
 
 export async function getRules(options: { userId: string }) {
@@ -17,7 +16,6 @@ export async function getRules(options: { userId: string }) {
 }
 
 // POST
-
 export type UpdateRulesResponse = Awaited<ReturnType<typeof updateRules>>;
 
 export async function updateRules({
@@ -42,27 +40,40 @@ export async function updateRules({
     prisma.rule.delete({ where: { id: rule.id } })
   );
 
-  // Prepare the upsert operations
-  const upsertOperations = body.rules.map((rule) =>
-    prisma.rule.upsert({
-      where: { id: rule.id },
-      update: { instructions: rule.value },
-      create: {
-        instructions: rule.value,
-        user: { connect: { id: userId } },
-      },
-    })
-  );
+  // Prepare the update operations
+  const upsertOperations = body.rules
+    .filter((rule) => rule.id)
+    .map((rule) =>
+      prisma.rule.update({
+        where: { id: rule.id },
+        data: { instructions: rule.value },
+      })
+    );
+
+  // Prepare the create operations
+  const createOperations = body.rules
+    .filter((rule) => !rule.id)
+    .map((rule) =>
+      prisma.rule.create({
+        data: {
+          instructions: rule.value,
+          user: { connect: { id: userId } },
+        },
+      })
+    );
 
   // Perform all operations in a single transaction
-  await prisma.$transaction([...deleteOperations, ...upsertOperations]);
+  await prisma.$transaction([
+    ...deleteOperations,
+    ...upsertOperations,
+    ...createOperations,
+  ]);
 
   // Return the updated user
   return await prisma.rule.findMany({ where: { userId } });
 }
 
 // DELETE
-
 export async function deleteRule(body: DeleteRulesBody, userId: string) {
   await prisma.rule.delete({
     where: {
