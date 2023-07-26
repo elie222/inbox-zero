@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import useSWRImmutable from "swr/immutable";
-import { BarChart, Card, Title } from "@tremor/react";
+import { BarChart, Card, Color, Title } from "@tremor/react";
 import { Stats } from "@/components/Stats";
 import { StatsResponse } from "@/app/api/user/stats/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -18,13 +18,13 @@ export default function StatsPage() {
 
       <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
         <div>
-          <StatsChart type="inbox" title="Unhandled Emails" />
+          <StatsChart type="inbox" title="Unhandled Emails" color="blue" />
         </div>
         <div>
-          <StatsChart type="archived" title="Archived Emails" />
+          <StatsChart type="archived" title="Archived Emails" color="lime" />
         </div>
         <div>
-          <StatsChart type="sent" title="Sent Emails" />
+          <StatsChart type="sent" title="Sent Emails" color="slate" />
         </div>
       </div>
 
@@ -87,7 +87,11 @@ function StatsSummary() {
   );
 }
 
-function StatsChart(props: { title: string; type: StatsByDayQuery["type"] }) {
+function StatsChart(props: {
+  title: string;
+  type: StatsByDayQuery["type"];
+  color: Color;
+}) {
   const searchParams: StatsByDayQuery = { type: props.type };
   const { data, isLoading, error } = useSWRImmutable<
     StatsByDayResponse,
@@ -105,7 +109,7 @@ function StatsChart(props: { title: string; type: StatsByDayQuery["type"] }) {
               data={data}
               index="date"
               categories={["Emails"]}
-              colors={["blue"]}
+              colors={[props.color]}
             />
           </Card>
         </div>
@@ -182,7 +186,7 @@ function CombinedStatsChart(props: { title: string }) {
               data={data}
               index="date"
               categories={["Unhandled", "Archived", "Sent"]}
-              colors={["red", "green", "blue"]}
+              colors={["blue", "lime", "slate"]}
             />
           </Card>
         </div>
