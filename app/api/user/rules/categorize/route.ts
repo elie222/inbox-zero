@@ -67,10 +67,12 @@ function isAction(action: string): action is Action {
 }
 
 // suggest actions to add to the rule
-async function categorizeRule(body: CategorizeRuleBody) {
+async function categorizeRule(body: CategorizeRuleBody, userId: string) {
   const rule = await prisma.rule.findUniqueOrThrow({
     where: { id: body.ruleId },
   });
+
+  if (rule.userId !== userId) throw new Error("Unauthorized");
 
   // ask ai to categorize the rule
   const actions = await aiCategorizeRule(rule);
@@ -98,7 +100,7 @@ export async function POST(request: Request) {
   const json = await request.json();
   const body = categorizeRuleBody.parse(json);
 
-  const result = await categorizeRule(body);
+  const result = await categorizeRule(body, session.user.id);
 
   return NextResponse.json(result);
 }
