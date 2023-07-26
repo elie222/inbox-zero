@@ -9,9 +9,8 @@ export type RulesResponse = Awaited<ReturnType<typeof getRules>>;
 
 export async function getRules(options: { userId: string }) {
   return await prisma.rule.findMany({
-    where: {
-      userId: options.userId,
-    },
+    where: { userId: options.userId },
+    orderBy: { createdAt: "asc" },
   });
 }
 
@@ -46,7 +45,11 @@ export async function updateRules({
     .map((rule) =>
       prisma.rule.update({
         where: { id: rule.id },
-        data: { instructions: rule.value },
+        data: {
+          instructions: rule.value,
+          automate: rule.automate,
+          actions: rule.actions,
+        },
       })
     );
 
@@ -57,6 +60,8 @@ export async function updateRules({
       prisma.rule.create({
         data: {
           instructions: rule.value,
+          automate: rule.automate,
+          actions: rule.actions,
           user: { connect: { id: userId } },
         },
       })

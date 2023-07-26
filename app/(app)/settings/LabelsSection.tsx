@@ -122,7 +122,7 @@ function LabelsSectionFormInner(props: {
         <div className="w-full">
           <SectionHeader>Your Labels</SectionHeader>
           <SectionDescription>
-            Labels help our AI properly categorise your emails. You can add a
+            Labels help our AI properly categorize your emails. You can add a
             description to help the AI decide how to make use of each one. We
             will only make use of enabled labels. Visit Gmail to delete labels.
             Inbox Zero

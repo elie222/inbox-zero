@@ -4,6 +4,8 @@ import { useCallback } from "react";
 import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { capitalCase } from "capital-case";
+import { QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import { Button } from "@/components/Button";
 import {
   FormSection,
@@ -26,7 +28,6 @@ import {
 } from "@/app/api/user/rules/validation";
 import { Toggle } from "@/components/Toggle";
 import { Tooltip } from "@/components/Tooltip";
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import { Tag } from "@/components/Tag";
 
 export function RulesSection() {
@@ -53,7 +54,12 @@ export function RulesForm(props: { rules: RulesResponse }) {
     resolver: zodResolver(updateRulesBody),
     defaultValues: {
       rules: props.rules.length
-        ? props.rules.map((r) => ({ id: r.id, value: r.instructions }))
+        ? props.rules.map((r) => ({
+            id: r.id,
+            value: r.instructions,
+            actions: r.actions,
+            automate: !!r.automate,
+          }))
         : [{ value: "" }],
     },
   });
@@ -61,8 +67,6 @@ export function RulesForm(props: { rules: RulesResponse }) {
   const { fields, append, remove } = useFieldArray({ name: "rules", control });
 
   const onSubmit: SubmitHandler<UpdateRulesBody> = useCallback(async (data) => {
-    data.rules = data.rules.filter((r) => r.value.trim());
-
     const res = await postRequest<UpdateRulesResponse, UpdateRulesBody>(
       "/api/user/rules",
       data
@@ -118,11 +122,11 @@ export function RulesForm(props: { rules: RulesResponse }) {
                       }
                     />
                     <div className="mt-2 flex justify-between">
-                      <div className="">
+                      <div className="flex space-x-2">
                         {f.actions?.map((action) => {
                           return (
                             <Tag key={action} color="green">
-                              {action}
+                              {capitalCase(action)}
                             </Tag>
                           );
                         })}
