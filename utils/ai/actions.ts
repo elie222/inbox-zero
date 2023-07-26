@@ -12,6 +12,7 @@ export type Actions =
   | "archive"
   | "label"
   | "draft"
+  | "reply"
   | "send_email"
   | "forward"
   | "ask_for_more_information"; // | "add_to_do" | "call_webhook"; // "snooze" - in the future as gmail doesn't provide an api we'd have to build that ourselves
@@ -115,11 +116,11 @@ export const actionFunctions: {
       },
       required: [...commonRequired, "content"],
     },
-    action: Action.LABEL,
+    action: Action.DRAFT_EMAIL,
   },
   {
-    name: "send_email",
-    description: "Send an email.",
+    name: "reply",
+    description: "Reply to an email.",
     parameters: {
       type: "object",
       properties: {
@@ -128,6 +129,44 @@ export const actionFunctions: {
           type: "string",
           description: "The id of the email to reply to.",
         },
+        to: {
+          type: "string",
+          description: "Comma separated email addresses of the recipients.",
+        },
+        cc: {
+          type: "string",
+          description: "Comma separated email addresses of the cc recipients.",
+        },
+        bcc: {
+          type: "string",
+          description: "Comma separated email addresses of the bcc recipients.",
+        },
+        subject: {
+          type: "string",
+          description: "The subject of the email.",
+        },
+        content: {
+          type: "string",
+          description: "The content of the email.",
+        },
+      },
+      required: [
+        ...commonRequired,
+        "reply_to_email_id",
+        "to",
+        "subject",
+        "content",
+      ],
+    },
+    action: Action.REPLY,
+  },
+  {
+    name: "send_email",
+    description: "Send an email.",
+    parameters: {
+      type: "object",
+      properties: {
+        ...commonProperties,
         to: {
           type: "string",
           description: "Comma separated email addresses of the recipients.",
