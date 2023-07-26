@@ -2,7 +2,6 @@ import prisma from "@/utils/prisma";
 import {
   DeleteRulesBody,
   UpdateRulesBody,
-  updateRulesBody,
 } from "@/app/api/user/rules/validation";
 
 // GET

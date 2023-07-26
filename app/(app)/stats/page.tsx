@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import useSWRImmutable from "swr/immutable";
 import { BarChart, Card, Color, Title } from "@tremor/react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Stats } from "@/components/Stats";
 import { StatsResponse } from "@/app/api/user/stats/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -40,7 +41,11 @@ function StatsSummary() {
     useSWRImmutable<StatsResponse>(`/api/user/stats`);
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+    >
       {data && (
         <div>
           <Stats
@@ -99,7 +104,11 @@ function StatsChart(props: {
   >(`/api/user/stats/day?${new URLSearchParams(searchParams).toString()}`);
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+    >
       {data && (
         <div className="mx-auto max-w-2xl">
           <Card>
@@ -176,7 +185,11 @@ function CombinedStatsChart(props: { title: string }) {
   }, [archivedData, hasAllData, inboxData, sentData]);
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+    >
       {hasAllData && (
         <div className="mx-auto">
           <Card>
