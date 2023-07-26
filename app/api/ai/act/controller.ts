@@ -8,6 +8,7 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 import { actionFunctions, runActionFunction } from "@/utils/ai/actions";
+import { Action, Rule } from "@prisma/client";
 
 export const actBody = z.object({
   from: z.string(),
@@ -15,30 +16,26 @@ export const actBody = z.object({
   cc: z.string().optional(),
   subject: z.string(),
   message: z.string(),
-  // labels: z.string().array(),
+  allowExecute: z.boolean().optional(),
+  forceExecute: z.boolean().optional(),
 });
 export type ActBody = z.infer<typeof actBody>;
-export type ActResponse = Awaited<ReturnType<typeof act>>;
+export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
-// steps:
-// 1. read user rules - hardcode an example for now
-// 2. ai chooses appropriate function to execute
-// 3. execute the function
+type FunctionCall = { name: string; args: Record<string, any>; rule?: Rule };
 
-const RULES = [
-  { rule: "Forward all receipts to jamessmith+receipts@gmail.com" },
-  {
-    rule: 'If the user asks if the new season is live then respond with the following snippet: "Yes, the new season is live. You can sign up to play here: https://draftfantasy.com/"',
-  },
-  {
-    rule: 'If the user asks about not seeing his team in the dashboard then respond with the following snippet: "If you do not see your team you have signed up with a different account."',
-  },
-];
+export async function planAct(options: {
+  body: ActBody;
+  rules: Rule[];
+}): Promise<FunctionCall | undefined> {
+  const { body, rules } = options;
 
-export async function act(
-  body: ActBody,
-  gmail: gmail_v1.Gmail
-): Promise<{ action: string } | undefined> {
+  // we filter the actions so that the ai does not try execute functions it isn't permitted to
+  const allowActions = rules.map((r) => r.actions).flat();
+  const allowedFunctions = actionFunctions.filter(
+    (f) => !f.action || allowActions.includes(f.action)
+  );
+
   const aiResponse = await openai.createChatCompletion({
     model: "gpt-4", // gpt-3.5-turbo is not good at this
     messages: [
@@ -46,8 +43,15 @@ export async function act(
         role: "system",
         content: `You are an AI assistant that helps people manage their emails. You don't make decisions without asking for more information.
         
-These are the rules to follow.:
-${RULES.map((r, i) => `${i + 1}. ${r.rule}`).join("\n\n")}`,
+These are the rules to follow:
+${rules
+  .map(
+    (r, i) =>
+      `${i + 1}. ${
+        r.instructions
+      }\nThe actions that can be taken with this rule are: ${r.actions}`
+  )
+  .join("\n\n")}`,
       },
       {
         role: "user",
@@ -59,7 +63,7 @@ Email:
 ${body.message}`,
       },
     ],
-    functions: actionFunctions,
+    functions: allowedFunctions,
     function_call: "auto",
   });
 
@@ -71,8 +75,6 @@ ${body.message}`,
     return;
   }
 
-  // console.log("🚀 ~ file: controller.ts:64 ~ act ~ json:", JSON.stringify(json.choices, null, 2))
-
   const functionCall = json?.choices?.[0]?.message.function_call as
     | ChatCompletionRequestMessageFunctionCall
     | undefined;
@@ -81,11 +83,50 @@ ${body.message}`,
 
   console.log("functionCall:", functionCall);
 
-  // await runActionFunction(
-  //   gmail,
-  //   functionCall.name,
-  //   functionCall.arguments ? JSON.parse(functionCall.arguments) : undefined
-  // );
+  const args = functionCall.arguments
+    ? JSON.parse(functionCall.arguments)
+    : undefined;
 
-  return { action: functionCall.name || "" };
+  return {
+    name: functionCall.name,
+    args,
+    rule:
+      typeof args?.ruleNumber === "number"
+        ? rules[args.ruleNumber - 1]
+        : undefined,
+  };
+}
+
+async function executeAct(options: {
+  gmail: gmail_v1.Gmail;
+  functionCall: FunctionCall;
+}) {
+  const { gmail, functionCall } = options;
+
+  await runActionFunction(gmail, functionCall.name, functionCall.args);
+}
+
+export async function planAndExecuteAct(options: {
+  gmail: gmail_v1.Gmail;
+  body: ActBody;
+  rules: Rule[];
+  forceExecute?: boolean;
+}) {
+  const functionCall = await planAct(options);
+
+  if (!functionCall) return;
+
+  if (functionCall.rule?.automate || options.forceExecute) {
+    // make sure that the function call matches the rule
+    // eg. avoid a situation where the rule says to reply but the ai says to draft
+    const isValidRule = functionCall.rule?.actions.includes(
+      functionCall.name as Action
+    );
+
+    if (isValidRule) {
+      await executeAct({ gmail: options.gmail, functionCall });
+    }
+  }
+
+  return functionCall;
 }

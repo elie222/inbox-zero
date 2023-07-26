@@ -100,10 +100,6 @@ export function RulesForm(props: { rules: RulesResponse }) {
             >("/api/user/rules/categorize", {
               ruleId: r.id,
             });
-            console.log(
-              "🚀 ~ file: RulesSection.tsx:97 ~ res.map ~ categorizedRule:",
-              categorizedRule
-            );
 
             if (isErrorMessage(categorizedRule)) {
               console.error("Error categorizing rule:", r);

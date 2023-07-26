@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
-import { act, actBody } from "@/app/api/ai/act/controller";
+import {
+  planAct,
+  actBody,
+  planAndExecuteAct,
+} from "@/app/api/ai/act/controller";
 import { getGmailClient } from "@/utils/google";
+import prisma from "@/utils/prisma";
 
 export async function POST(request: Request) {
   const session = await getAuthSession();
@@ -12,7 +17,23 @@ export async function POST(request: Request) {
 
   const gmail = getGmailClient(session);
 
-  const result = await act(body, gmail);
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    include: { rules: true },
+  });
+
+  if (body.allowExecute) {
+    const result = await planAndExecuteAct({
+      body,
+      rules: user.rules,
+      gmail,
+      forceExecute: body.forceExecute,
+    });
+
+    return NextResponse.json(result || { action: "no_action" });
+  }
+
+  const result = await planAct({ body, rules: user.rules });
 
   return NextResponse.json(result || { action: "no_action" });
 }

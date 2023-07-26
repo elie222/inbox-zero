@@ -1,6 +1,7 @@
 import { gmail_v1 } from "googleapis";
 import { draftEmail } from "@/app/api/google/draft/controller";
 import { sendEmail } from "@/app/api/google/messages/send/controller";
+import { Action } from "@prisma/client";
 
 export type ActionArgs = any;
 export type ActionFunction = (
@@ -15,10 +16,19 @@ export type Actions =
   | "forward"
   | "ask_for_more_information"; // | "add_to_do" | "call_webhook"; // "snooze" - in the future as gmail doesn't provide an api we'd have to build that ourselves
 
+const commonProperties = {
+  ruleNumber: {
+    type: "number",
+    description: "The rule number.",
+  },
+};
+const commonRequired = ["ruleNumber"];
+
 export const actionFunctions: {
   name: Actions;
   description: string;
   parameters: object;
+  action: Action | null;
 }[] = [
   {
     name: "ask_for_more_information",
@@ -41,6 +51,7 @@ export const actionFunctions: {
       },
       required: [],
     },
+    action: null,
   },
   {
     name: "archive",
@@ -48,13 +59,15 @@ export const actionFunctions: {
     parameters: {
       type: "object",
       properties: {
+        ...commonProperties,
         email_id: {
           type: "string",
           description: "The id of the email.",
         },
       },
-      required: ["id"],
+      required: [...commonRequired, "id"],
     },
+    action: Action.ARCHIVE,
   },
   {
     name: "label",
@@ -62,6 +75,7 @@ export const actionFunctions: {
     parameters: {
       type: "object",
       properties: {
+        ...commonProperties,
         email_id: {
           type: "string",
           description: "The id of the email.",
@@ -71,8 +85,9 @@ export const actionFunctions: {
           description: "The name of the label.",
         },
       },
-      required: ["id", "label"],
+      required: [...commonRequired, "id", "label"],
     },
+    action: Action.LABEL,
   },
   {
     name: "draft",
@@ -80,6 +95,7 @@ export const actionFunctions: {
     parameters: {
       type: "object",
       properties: {
+        ...commonProperties,
         reply_to_email_id: {
           type: "string",
           description: "The id of the email to reply to.",
@@ -97,8 +113,9 @@ export const actionFunctions: {
           description: "The content of the email.",
         },
       },
-      required: ["content"],
+      required: [...commonRequired, "content"],
     },
+    action: Action.LABEL,
   },
   {
     name: "send_email",
@@ -106,6 +123,7 @@ export const actionFunctions: {
     parameters: {
       type: "object",
       properties: {
+        ...commonProperties,
         reply_to_email_id: {
           type: "string",
           description: "The id of the email to reply to.",
@@ -131,8 +149,9 @@ export const actionFunctions: {
           description: "The content of the email.",
         },
       },
-      required: ["to", "subject", "content"],
+      required: [...commonRequired, "to", "subject", "content"],
     },
+    action: Action.SEND_EMAIL,
   },
   {
     name: "forward",
@@ -140,6 +159,7 @@ export const actionFunctions: {
     parameters: {
       type: "object",
       properties: {
+        ...commonProperties,
         email_id: {
           type: "string",
           description: "The id of the email to forward.",
@@ -168,8 +188,9 @@ export const actionFunctions: {
           description: "Extra content to add to the forwarded email.",
         },
       },
-      required: ["email_id", "to"],
+      required: [...commonRequired, "email_id", "to"],
     },
+    action: Action.FORWARD,
   },
   // {
   //   name: "add_to_do",
@@ -178,6 +199,7 @@ export const actionFunctions: {
   //   parameters: {
   //     type: "object",
   //     properties: {
+  //       ...commonProperties,
   //       email_id: {
   //         type: "string",
   //         description: "The id of the email to add as a to do.",
@@ -199,7 +221,7 @@ export const actionFunctions: {
   //         description: "The priority of the task between 1 and 4 where 1 is the highest priority.",
   //       },
   //     },
-  //     required: ["email_id", "title"],
+  //     required: [...commonRequired, "email_id", "title"],
   //   },
   // },
   // {
@@ -209,6 +231,7 @@ export const actionFunctions: {
   //   parameters: {
   //     type: "object",
   //     properties: {
+  //       ...commonProperties,
   //       url: {
   //         type: "string",
   //         description: "The url of the webhook to call.",
@@ -218,7 +241,7 @@ export const actionFunctions: {
   //         description: "Extra content for the task.",
   //       },
   //     },
-  //     required: ["email_id", "title"],
+  //     required: [...commonRequired, "email_id", "title"],
   //   },
   // },
 ];

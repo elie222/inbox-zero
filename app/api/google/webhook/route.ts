@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/google";
 import prisma from "@/utils/prisma";
-import { plan } from "@/app/api/ai/plan/controller";
+// import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID } from "@/utils/label";
+import { planAndExecuteAct } from "@/app/api/ai/act/controller";
+import { Rule } from "@prisma/client";
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export async function POST(request: Request) {
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
       access_token: true,
       refresh_token: true,
       userId: true,
-      user: { select: { lastSyncedHistoryId: true } },
+      user: { select: { lastSyncedHistoryId: true, rules: true } },
     },
   });
   if (!account) return;
@@ -42,7 +44,13 @@ export async function POST(request: Request) {
       },
       gmail
     );
-    await planHistory(history || [], account.userId, decodedData.emailAddress);
+    await planHistory({
+      history: history || [],
+      userId: account.userId,
+      email: decodedData.emailAddress,
+      gmail,
+      rules: account.user.rules,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -67,11 +75,15 @@ async function listHistory(
   return history.data.history;
 }
 
-async function planHistory(
-  history: gmail_v1.Schema$History[],
-  userId: string,
-  email: string
-) {
+async function planHistory(options: {
+  history: gmail_v1.Schema$History[];
+  userId: string;
+  email: string;
+  gmail: gmail_v1.Gmail;
+  rules: Rule[];
+}) {
+  const { history, userId, email, gmail, rules } = options;
+
   if (!history?.length) return;
 
   for (const h of history) {
@@ -82,19 +94,36 @@ async function planHistory(
 
       const parsedMessage = parseMessage(m.message);
 
-      const subject = parsedMessage.headers.subject;
       const message =
         parsedMessage.textPlain ||
         parsedMessage.textHtml ||
         parsedMessage.headers.subject;
 
-      const senderEmail = parsedMessage.headers.from;
-
       if (message) {
-        await plan(
-          { subject, message, id: m.message.id, senderEmail, replan: false },
-          { id: userId, email }
-        );
+        // await plan(
+        //   { subject: parsedMessage.headers.subject, message, id: m.message.id, senderEmail: parsedMessage.headers.from, replan: false },
+        //   { id: userId, email }
+        // );
+
+        // we can only act if we have rules to act on
+        if (rules.length) {
+          const plannedAct = await planAndExecuteAct({
+            body: {
+              from: parsedMessage.headers.from,
+              replyTo: parsedMessage.headers.replyTo,
+              cc: parsedMessage.headers.cc,
+              subject: parsedMessage.headers.subject,
+              message,
+            },
+            rules,
+            gmail,
+          });
+          console.log("🚀 ~ file: route.ts:117 ~ plannedAct:", plannedAct);
+
+          // if (plannedAct?.args) {
+          //   await executeAct({ gmail, functionCall: plannedAct });
+          // }
+        }
       } else {
         console.error("No message", parsedMessage);
       }
