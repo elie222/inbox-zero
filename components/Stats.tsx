@@ -1,7 +1,7 @@
 export function Stats(props: {
   stats: {
     name: string;
-    value: number;
+    value: string | number;
     subvalue?: string;
   }[];
 }) {

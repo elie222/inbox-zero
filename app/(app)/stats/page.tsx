@@ -52,34 +52,34 @@ function StatsSummary() {
             stats={[
               {
                 name: "Emails received (last 24h)",
-                value: data.emailsReceived24hrs || 0,
+                value: formatStat(data.emailsReceived24hrs),
               },
               {
                 name: "Unhandled emails (last 24h)",
-                value: data.emailsInbox24hrs || 0,
+                value: formatStat(data.emailsInbox24hrs),
               },
               {
                 name: "Emails sent (last 24h)",
-                value: data.emailsSent24hrs || 0,
+                value: formatStat(data.emailsSent24hrs),
               },
 
               {
                 name: "Emails received (last 7d)",
-                value: data.emailsReceived7days || 0,
+                value: formatStat(data.emailsReceived7days),
                 subvalue: `${((data.emailsReceived7days || 0) / 7).toFixed(
                   1
                 )} per day`,
               },
               {
                 name: "Unhandled emails (last 7d)",
-                value: data.emailsInbox7days || 0,
+                value: formatStat(data.emailsInbox7days),
                 subvalue: `${((data.emailsInbox7days || 0) / 7).toFixed(
                   1
                 )} per day`,
               },
               {
                 name: "Emails sent (last 7d)",
-                value: data.emailsSent7days || 0,
+                value: formatStat(data.emailsSent7days),
                 subvalue: `${((data.emailsSent7days || 0) / 7).toFixed(
                   1
                 )} per day`,
@@ -206,4 +206,12 @@ function CombinedStatsChart(props: { title: string }) {
       )}
     </LoadingContent>
   );
+}
+
+// we are limiting our queries to max 500 emails.
+// so if the number returned is 500 this likely means there are 500+.
+function formatStat(stat?: number) {
+  if (stat === 500) return "500+";
+
+  return stat || 0;
 }
