@@ -101,7 +101,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
       <div className="md:col-span-2">
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormSectionRight>
-            <div className="space-y-4 sm:col-span-full">
+            <div className="space-y-6 sm:col-span-full">
               {fields.map((f, i) => {
                 return (
                   <div key={f.id}>
@@ -127,7 +127,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
                           );
                         })}
                       </div>
-                      <div className="mr-8 flex items-center">
+                      <div className="flex items-center">
                         <Tooltip content="If enabled Inbox Zero will perform the actions automatically. If disabled you will first have to confirm the plan of action.">
                           <QuestionMarkCircleIcon className="h-5 w-5" />
                         </Tooltip>
