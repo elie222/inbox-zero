@@ -32,7 +32,6 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { CommandDialogDemo } from "@/components/CommandDemo";
 import { Tabs } from "@/components/Tabs";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
-import { Tooltip } from "@/components/Tooltip";
 import { postRequest } from "@/utils/api";
 import {
   ArchiveBody,
@@ -43,6 +42,8 @@ import {
   SendEmailBody,
   SendEmailResponse,
 } from "@/app/api/google/messages/send/controller";
+import Tippy from "@tippyjs/react";
+import "tippy.js/dist/tippy.css";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -508,7 +509,7 @@ function EmailPanel(props: {
             onGenerateAiResponse={() => {}}
           />
           <div className="ml-2 flex items-center">
-            <Tooltip content="Close" useRef>
+            <Tippy content="Close">
               <button
                 type="button"
                 className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -517,7 +518,7 @@ function EmailPanel(props: {
                 <span className="sr-only">Close</span>
                 <XMarkIcon className="h-5 w-5" aria-hidden="true" />
               </button>
-            </Tooltip>
+            </Tippy>
           </div>
         </div>
       </div>
