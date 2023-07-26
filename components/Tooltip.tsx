@@ -13,8 +13,8 @@ export const Tooltip = (props: TooltipProps) => {
 
   // See: https://github.com/atomiks/tippyjs-react#component-children
   // Avoids button in button warning
-  if (props.useRef)
-    return <Tippy content={props.content}>{props.children}</Tippy>;
+  // if (props.useRef)
+  //   return <Tippy content={props.content}>{props.children}</Tippy>;
 
   return (
     <Tippy content={props.content}>
