@@ -106,6 +106,7 @@ async function executeAct(options: {
   messageId: string;
   threadId: string;
   userId: string;
+  automated: boolean;
 }) {
   const { gmail, functionCall } = options;
 
@@ -122,10 +123,10 @@ async function executeAct(options: {
       action: functionCall.name as Action,
       functionName: functionCall.name,
       functionArgs: functionCall.args,
-      automated: true,
       messageId: options.messageId,
       threadId: options.threadId,
       userId: options.userId,
+      automated: options.automated,
     },
   });
 
@@ -140,6 +141,7 @@ export async function planAndExecuteAct(options: {
   messageId: string;
   threadId: string;
   userId: string;
+  automated: boolean;
 }) {
   const functionCall = await planAct(options);
 

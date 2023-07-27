@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       userId: user.id,
       messageId: body.messageId || "",
       threadId: body.threadId || "",
+      automated: false,
     });
 
     return NextResponse.json(result || { action: "no_action" });

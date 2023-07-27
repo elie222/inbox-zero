@@ -120,6 +120,7 @@ async function planHistory(options: {
             userId,
             messageId: m.message.id,
             threadId: m.message.threadId || "",
+            automated: true,
           });
           console.log("🚀 ~ file: route.ts:117 ~ plannedAct:", plannedAct);
 
