@@ -5,7 +5,7 @@ import prisma from "@/utils/prisma";
 // import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID } from "@/utils/label";
-import { planAndExecuteAct } from "@/app/api/ai/act/controller";
+import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { Rule } from "@prisma/client";
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
@@ -105,7 +105,8 @@ async function planHistory(options: {
         //   { id: userId, email }
         // );
 
-        await planAndExecuteAct({
+        await planOrExecuteAct({
+          allowExecute: true,
           body: {
             from: parsedMessage.headers.from,
             replyTo: parsedMessage.headers.replyTo,

@@ -10,6 +10,7 @@ import {
 import { actionFunctions, runActionFunction } from "@/utils/ai/actions";
 import { Action, Rule } from "@prisma/client";
 import prisma from "@/utils/prisma";
+import { deletePlan, savePlan } from "@/utils/redis/plan";
 
 export const actBody = z.object({
   from: z.string(),
@@ -27,7 +28,7 @@ export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
 type FunctionCall = { name: string; args: Record<string, any>; rule?: Rule };
 
-export async function planAct(options: {
+async function planAct(options: {
   body: ActBody;
   rules: Rule[];
 }): Promise<FunctionCall | undefined> {
@@ -120,25 +121,32 @@ async function executeAct(options: {
     functionCall.args
   );
 
-  await prisma.executedAction.create({
-    data: {
-      action: functionCall.name as Action,
-      functionName: functionCall.name,
-      functionArgs: functionCall.args,
-      messageId: options.messageId,
-      threadId: options.threadId,
+  await Promise.all([
+    prisma.executedAction.create({
+      data: {
+        action: functionCall.name as Action, // TODO dangerous to use `as` here
+        functionName: functionCall.name,
+        functionArgs: functionCall.args,
+        messageId: options.messageId,
+        threadId: options.threadId,
+        userId: options.userId,
+        automated: options.automated,
+      },
+    }),
+    deletePlan({
       userId: options.userId,
-      automated: options.automated,
-    },
-  });
+      threadId: options.threadId,
+    }),
+  ]);
 
   return result;
 }
 
-export async function planAndExecuteAct(options: {
+export async function planOrExecuteAct(options: {
   gmail: gmail_v1.Gmail;
   body: ActBody;
   rules: Rule[];
+  allowExecute: boolean;
   forceExecute?: boolean;
   messageId: string;
   threadId: string;
@@ -149,18 +157,36 @@ export async function planAndExecuteAct(options: {
 
   if (!functionCall) return;
 
-  if (functionCall.rule?.automate || options.forceExecute) {
-    // make sure that the function call matches the rule
-    // eg. avoid a situation where the rule says to reply but the ai says to draft
-    const isValidRule = functionCall.rule?.actions.includes(
-      functionCall.name as Action
-    );
+  // make sure that the function call matches the rule
+  // eg. avoid a situation where the rule says to reply but the ai says to draft
+  const isValidRule = functionCall.rule?.actions.includes(
+    functionCall.name as Action
+  );
 
-    if (isValidRule) {
-      await executeAct({ ...options, functionCall });
-    } else {
-      // TODO ask AI to fix this and use an action from the rule
-    }
+  if (!isValidRule) {
+    // TODO ask AI to fix this and use an action from the rule
+    return;
+  }
+
+  const shouldExcute =
+    options.allowExecute &&
+    (functionCall.rule?.automate || options.forceExecute);
+
+  if (shouldExcute) {
+    await executeAct({ ...options, functionCall });
+  } else {
+    await savePlan({
+      userId: options.userId,
+      threadId: options.threadId,
+      plan: {
+        createdAt: new Date(),
+        functionName: functionCall.name,
+        functionArgs: functionCall.args,
+        messageId: options.messageId,
+        threadId: options.threadId,
+        action: functionCall.name as Action, // TODO fix `as`
+      },
+    });
   }
 
   return functionCall;

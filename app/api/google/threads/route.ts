@@ -35,7 +35,7 @@ async function getThreads() {
         ...t,
         snippet: he.decode(t.snippet || ""),
         thread: { ...thread.data, messages },
-        plan: await getPlan({ email: session.user.email, threadId: id }),
+        plan: await getPlan({ userId: session.user.id, threadId: id }),
       };
     }) || []
   );

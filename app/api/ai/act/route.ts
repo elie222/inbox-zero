@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
-import {
-  planAct,
-  actBody,
-  planAndExecuteAct,
-} from "@/app/api/ai/act/controller";
+import { actBody, planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { getGmailClient } from "@/utils/google";
 import prisma from "@/utils/prisma";
 
@@ -22,22 +18,17 @@ export async function POST(request: Request) {
     include: { rules: true },
   });
 
-  if (body.allowExecute) {
-    const result = await planAndExecuteAct({
-      body,
-      rules: user.rules,
-      gmail,
-      forceExecute: body.forceExecute,
-      userId: user.id,
-      messageId: body.messageId || "",
-      threadId: body.threadId || "",
-      automated: false,
-    });
-
-    return NextResponse.json(result || { action: "no_action" });
-  }
-
-  const result = await planAct({ body, rules: user.rules });
+  const result = await planOrExecuteAct({
+    body,
+    rules: user.rules,
+    gmail,
+    allowExecute: !!body.allowExecute,
+    forceExecute: body.forceExecute,
+    userId: user.id,
+    messageId: body.messageId || "",
+    threadId: body.threadId || "",
+    automated: false,
+  });
 
   return NextResponse.json(result || { action: "no_action" });
 }
