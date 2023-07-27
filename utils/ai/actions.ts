@@ -332,7 +332,26 @@ export const draft: ActionFunction = async (
 };
 
 export const send_email: ActionFunction = async (
-  _gmail: gmail_v1.Gmail,
+  gmail: gmail_v1.Gmail,
+  args: {
+    to: string;
+    subject: string;
+    content: string;
+    cc: string;
+    bcc: string;
+  }
+) => {
+  await sendEmail(gmail, {
+    to: args.to,
+    cc: args.cc,
+    bcc: args.bcc,
+    subject: args.subject,
+    message: args.content,
+  });
+};
+
+export const reply: ActionFunction = async (
+  gmail: gmail_v1.Gmail,
   args: {
     reply_to_email_id: string;
     to: string;
@@ -342,7 +361,7 @@ export const send_email: ActionFunction = async (
     bcc: string;
   }
 ) => {
-  await sendEmail({
+  await sendEmail(gmail, {
     threadId: args.reply_to_email_id,
     to: args.to,
     cc: args.cc,
@@ -353,9 +372,9 @@ export const send_email: ActionFunction = async (
 };
 
 export const forward: ActionFunction = async (
-  _gmail: gmail_v1.Gmail,
+  gmail: gmail_v1.Gmail,
   args: {
-    reply_to_email_id: string;
+    forward_email_id: string;
     to: string;
     subject: string;
     content: string;
@@ -364,8 +383,8 @@ export const forward: ActionFunction = async (
   }
 ) => {
   // TODO - is there anything forward specific we need to do here?
-  await sendEmail({
-    threadId: args.reply_to_email_id,
+  await sendEmail(gmail, {
+    threadId: args.forward_email_id,
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
@@ -390,6 +409,8 @@ export const runActionFunction = (
       return label(gmail, args);
     case "draft":
       return draft(gmail, args);
+    case "reply":
+      return reply(gmail, args);
     case "send_email":
       return send_email(gmail, args);
     case "forward":

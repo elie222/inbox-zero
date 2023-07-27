@@ -103,7 +103,9 @@ async function executeAct(options: {
 }) {
   const { gmail, functionCall } = options;
 
-  await runActionFunction(gmail, functionCall.name, functionCall.args);
+  console.log("Executing functionCall:", functionCall);
+
+  return await runActionFunction(gmail, functionCall.name, functionCall.args);
 }
 
 export async function planAndExecuteAct(options: {
@@ -125,6 +127,8 @@ export async function planAndExecuteAct(options: {
 
     if (isValidRule) {
       await executeAct({ gmail: options.gmail, functionCall });
+    } else {
+      // TODO ask AI to fix this and use an action from the rule
     }
   }
 

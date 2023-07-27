@@ -4,6 +4,7 @@ import {
   sendEmail,
   sendEmailBody,
 } from "@/app/api/google/messages/send/controller";
+import { getGmailClient } from "@/utils/google";
 
 export async function POST(request: Request) {
   const session = await getAuthSession();
@@ -12,7 +13,9 @@ export async function POST(request: Request) {
   const json = await request.json();
   const body = sendEmailBody.parse(json);
 
-  const result = await sendEmail(body);
+  const gmail = getGmailClient(session);
+
+  const result = await sendEmail(gmail, body);
 
   return NextResponse.json(result);
 }

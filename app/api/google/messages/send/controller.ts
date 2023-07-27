@@ -1,11 +1,10 @@
 import { z } from "zod";
 import MailComposer from "nodemailer/lib/mail-composer";
 import Mail from "nodemailer/lib/mailer";
-import { getGmailClient } from "@/utils/google";
-import { getAuthSession } from "@/utils/auth";
+import { gmail_v1 } from "googleapis";
 
 export const sendEmailBody = z.object({
-  threadId: z.string(),
+  threadId: z.string().optional(),
   to: z.string(),
   cc: z.string().optional(),
   bcc: z.string().optional(),
@@ -32,12 +31,7 @@ const createMail = async (options: Mail.Options) => {
 
 // https://developers.google.com/gmail/api/guides/sending
 // https://www.labnol.org/google-api-service-account-220405
-export async function sendEmail(body: SendEmailBody) {
-  const session = await getAuthSession();
-  if (!session) throw new Error("Not authenticated");
-
-  const gmail = getGmailClient(session);
-
+export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
   const rawMessage = await createMail({
     // references: {
     //   'In-Reply-To': body.replyTo || body.to,
