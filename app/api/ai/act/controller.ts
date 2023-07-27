@@ -35,6 +35,8 @@ export async function planAct(options: {
 
   // we filter the actions so that the ai does not try execute functions it isn't permitted to
   const allowActions = rules.map((r) => r.actions).flat();
+  if (!allowActions.length) return;
+
   const allowedFunctions = actionFunctions.filter(
     (f) => !f.action || allowActions.includes(f.action)
   );

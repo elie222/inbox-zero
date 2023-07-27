@@ -105,29 +105,21 @@ async function planHistory(options: {
         //   { id: userId, email }
         // );
 
-        // we can only act if we have rules to act on
-        if (rules.length) {
-          const plannedAct = await planAndExecuteAct({
-            body: {
-              from: parsedMessage.headers.from,
-              replyTo: parsedMessage.headers.replyTo,
-              cc: parsedMessage.headers.cc,
-              subject: parsedMessage.headers.subject,
-              message,
-            },
-            rules,
-            gmail,
-            userId,
-            messageId: m.message.id,
-            threadId: m.message.threadId || "",
-            automated: true,
-          });
-          console.log("🚀 ~ file: route.ts:117 ~ plannedAct:", plannedAct);
-
-          // if (plannedAct?.args) {
-          //   await executeAct({ gmail, functionCall: plannedAct });
-          // }
-        }
+        await planAndExecuteAct({
+          body: {
+            from: parsedMessage.headers.from,
+            replyTo: parsedMessage.headers.replyTo,
+            cc: parsedMessage.headers.cc,
+            subject: parsedMessage.headers.subject,
+            message,
+          },
+          rules,
+          gmail,
+          userId,
+          messageId: m.message.id,
+          threadId: m.message.threadId || "",
+          automated: true,
+        });
       } else {
         console.error("No message", parsedMessage);
       }
