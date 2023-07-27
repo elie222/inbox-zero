@@ -117,6 +117,9 @@ async function planHistory(options: {
             },
             rules,
             gmail,
+            userId,
+            messageId: m.message.id,
+            threadId: m.message.threadId || "",
           });
           console.log("🚀 ~ file: route.ts:117 ~ plannedAct:", plannedAct);
 

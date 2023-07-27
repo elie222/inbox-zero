@@ -28,6 +28,9 @@ export async function POST(request: Request) {
       rules: user.rules,
       gmail,
       forceExecute: body.forceExecute,
+      userId: user.id,
+      messageId: body.messageId || "",
+      threadId: body.threadId || "",
     });
 
     return NextResponse.json(result || { action: "no_action" });

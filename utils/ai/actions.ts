@@ -346,7 +346,7 @@ export const send_email: ActionFunction = async (
     cc: args.cc,
     bcc: args.bcc,
     subject: args.subject,
-    message: args.content,
+    messageText: args.content,
   });
 };
 
@@ -367,7 +367,7 @@ export const reply: ActionFunction = async (
     cc: args.cc,
     bcc: args.bcc,
     subject: args.subject,
-    message: args.content,
+    messageText: args.content,
   });
 };
 
@@ -389,7 +389,7 @@ export const forward: ActionFunction = async (
     cc: args.cc,
     bcc: args.bcc,
     subject: args.subject,
-    message: args.content,
+    messageText: args.content,
   });
 };
 

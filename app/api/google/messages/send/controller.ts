@@ -10,7 +10,8 @@ export const sendEmailBody = z.object({
   bcc: z.string().optional(),
   replyTo: z.string().optional(),
   subject: z.string(),
-  message: z.string(),
+  messageText: z.string(),
+  messageHtml: z.string().optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
 export type SendEmailResponse = Awaited<ReturnType<typeof sendEmail>>;
@@ -33,19 +34,19 @@ const createMail = async (options: Mail.Options) => {
 // https://www.labnol.org/google-api-service-account-220405
 export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
   const rawMessage = await createMail({
-    // references: {
-    //   'In-Reply-To': body.replyTo || body.to,
-    // },
     to: body.to,
     cc: body.cc,
     bcc: body.bcc,
     replyTo: body.replyTo || body.to,
     subject: body.subject,
-    text: body.message,
-    // html: ``,
+    text: body.messageText,
+    html: body.messageHtml,
     // attachments: fileAttachments,
     textEncoding: "base64",
     // TODO
+    // references: {
+    //   'In-Reply-To': body.replyTo || body.to,
+    // },
     // https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
     // headers: [
     //   {

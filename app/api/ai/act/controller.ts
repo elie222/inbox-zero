@@ -9,6 +9,7 @@ import {
 } from "@/utils/types";
 import { actionFunctions, runActionFunction } from "@/utils/ai/actions";
 import { Action, Rule } from "@prisma/client";
+import prisma from "@/utils/prisma";
 
 export const actBody = z.object({
   from: z.string(),
@@ -16,6 +17,8 @@ export const actBody = z.object({
   cc: z.string().optional(),
   subject: z.string(),
   message: z.string(),
+  messageId: z.string().optional(),
+  threadId: z.string().optional(),
   allowExecute: z.boolean().optional(),
   forceExecute: z.boolean().optional(),
 });
@@ -100,12 +103,33 @@ ${body.message}`,
 async function executeAct(options: {
   gmail: gmail_v1.Gmail;
   functionCall: FunctionCall;
+  messageId: string;
+  threadId: string;
+  userId: string;
 }) {
   const { gmail, functionCall } = options;
 
   console.log("Executing functionCall:", functionCall);
 
-  return await runActionFunction(gmail, functionCall.name, functionCall.args);
+  const result = await runActionFunction(
+    gmail,
+    functionCall.name,
+    functionCall.args
+  );
+
+  await prisma.executedAction.create({
+    data: {
+      action: functionCall.name as Action,
+      functionName: functionCall.name,
+      functionArgs: functionCall.args,
+      automated: true,
+      messageId: options.messageId,
+      threadId: options.threadId,
+      userId: options.userId,
+    },
+  });
+
+  return result;
 }
 
 export async function planAndExecuteAct(options: {
@@ -113,6 +137,9 @@ export async function planAndExecuteAct(options: {
   body: ActBody;
   rules: Rule[];
   forceExecute?: boolean;
+  messageId: string;
+  threadId: string;
+  userId: string;
 }) {
   const functionCall = await planAct(options);
 
@@ -126,7 +153,7 @@ export async function planAndExecuteAct(options: {
     );
 
     if (isValidRule) {
-      await executeAct({ gmail: options.gmail, functionCall });
+      await executeAct({ ...options, functionCall });
     } else {
       // TODO ask AI to fix this and use an action from the rule
     }
