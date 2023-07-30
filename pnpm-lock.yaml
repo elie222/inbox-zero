@@ -101,6 +101,9 @@ dependencies:
   husky:
     specifier: ^8.0.3
     version: 8.0.3
+  json5:
+    specifier: ^2.2.3
+    version: 2.2.3
   linkify-react:
     specifier: ^4.1.1
     version: 4.1.1(linkifyjs@4.1.1)(react@18.2.0)
@@ -6171,6 +6174,15 @@ packages:
     hasBin: true
     dependencies:
       minimist: 1.2.8
+    dev: false
+
+  /json5@2.2.3:
+    resolution:
+      {
+        integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==,
+      }
+    engines: { node: ">=6" }
+    hasBin: true
     dev: false
 
   /jsx-ast-utils@3.3.4:

@@ -69,6 +69,7 @@ export const Button = (props: ButtonProps) => {
         }
       )}
       {...rest}
+      disabled={loading || props.disabled}
     >
       {loading && <LoadingMiniSpinner />}
       {rest.children}

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
-    include: { rules: true },
+    include: { rules: { include: { actions: true } } },
   });
 
   const result = await planOrExecuteAct({

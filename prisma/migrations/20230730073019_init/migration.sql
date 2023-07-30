@@ -1,3 +1,6 @@
+-- CreateEnum
+CREATE TYPE "ActionType" AS ENUM ('ARCHIVE', 'LABEL', 'REPLY', 'SEND_EMAIL', 'FORWARD', 'DRAFT_EMAIL', 'SUMMARIZE', 'MARK_SPAM');
+
 -- CreateTable
 CREATE TABLE "Account" (
     "id" TEXT NOT NULL,
@@ -76,6 +79,51 @@ CREATE TABLE "Label" (
     CONSTRAINT "Label_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Rule" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "instructions" TEXT NOT NULL,
+    "automate" BOOLEAN NOT NULL DEFAULT true,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "Rule_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Action" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "type" "ActionType" NOT NULL,
+    "ruleId" TEXT NOT NULL,
+    "label" TEXT,
+    "subject" TEXT,
+    "content" TEXT,
+    "to" TEXT,
+    "cc" TEXT,
+    "bcc" TEXT,
+
+    CONSTRAINT "Action_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ExecutedRule" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "threadId" TEXT NOT NULL,
+    "messageId" TEXT NOT NULL,
+    "actions" "ActionType"[],
+    "data" JSONB,
+    "automated" BOOLEAN NOT NULL,
+    "ruleId" TEXT,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "ExecutedRule_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");
 
@@ -108,3 +156,15 @@ ALTER TABLE "PromptHistory" ADD CONSTRAINT "PromptHistory_userId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "Label" ADD CONSTRAINT "Label_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Rule" ADD CONSTRAINT "Rule_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Action" ADD CONSTRAINT "Action_ruleId_fkey" FOREIGN KEY ("ruleId") REFERENCES "Rule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExecutedRule" ADD CONSTRAINT "ExecutedRule_ruleId_fkey" FOREIGN KEY ("ruleId") REFERENCES "Rule"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExecutedRule" ADD CONSTRAINT "ExecutedRule_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

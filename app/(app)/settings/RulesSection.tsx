@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
+import { Card } from "@tremor/react";
+import { HelpCircleIcon, PenIcon } from "lucide-react";
 import { Button } from "@/components/Button";
 import {
   FormSection,
@@ -19,21 +20,28 @@ import { postRequest } from "@/utils/api";
 import { isErrorMessage } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
-  UpdateRulesResponse,
+  type UpdateRulesResponse,
   type RulesResponse,
 } from "@/app/api/user/rules/controller";
 import {
-  UpdateRulesBody,
+  type UpdateRulesBody,
   updateRulesBody,
 } from "@/app/api/user/rules/validation";
 import { Toggle } from "@/components/Toggle";
 import { Tooltip } from "@/components/Tooltip";
 import { Tag } from "@/components/Tag";
 import {
-  CategorizeRuleBody,
-  CategorizeRuleResponse,
+  type CategorizeRuleBody,
+  type CategorizeRuleResponse,
 } from "@/app/api/user/rules/categorize/route";
-import { Action } from "@prisma/client";
+import { ActionType } from "@prisma/client";
+import { Modal } from "@/components/Modal";
+import {
+  updateRuleBody,
+  type UpdateRuleBody,
+  type UpdateRuleResponse,
+} from "@/app/api/user/rules/[id]/validation";
+import { actionInputs } from "@/utils/actionType";
 
 export function RulesSection() {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
@@ -55,17 +63,18 @@ export function RulesForm(props: { rules: RulesResponse }) {
     control,
     watch,
     setValue,
+    getValues,
   } = useForm<UpdateRulesBody>({
     resolver: zodResolver(updateRulesBody),
     defaultValues: {
       rules: props.rules.length
         ? props.rules.map((r) => ({
             id: r.id,
-            value: r.instructions,
+            instructions: r.instructions,
             actions: r.actions,
             automate: !!r.automate,
           }))
-        : [{ value: "" }],
+        : [{ instructions: "" }],
     },
   });
 
@@ -88,7 +97,9 @@ export function RulesForm(props: { rules: RulesResponse }) {
         // update ids
         for (let i = 0; i < data.rules.length; i++) {
           const rule = data.rules[i];
-          const updatedRule = res.find((r) => r.instructions === rule.value);
+          const updatedRule = res.find(
+            (r) => r.instructions === rule.instructions
+          );
           if (updatedRule) setValue(`rules.${i}.id`, updatedRule.id);
         }
 
@@ -107,18 +118,21 @@ export function RulesForm(props: { rules: RulesResponse }) {
               return;
             }
 
-            const index = data.rules.findIndex(
-              (r) => r.id === categorizedRule.id
-            );
+            if (categorizedRule) {
+              const index = data.rules.findIndex(
+                (r) => r.id === categorizedRule.id
+              );
 
-            if (index !== -1)
-              setValue(`rules.${index}.actions`, categorizedRule.actions);
+              if (index !== -1) setValue(`rules.${index}`, categorizedRule);
+            }
           })
         );
       }
     },
     [setValue]
   );
+
+  const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
 
   return (
     <FormSection>
@@ -141,7 +155,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
         </ul>
         <SectionDescription>
           These are the actions we can take on your behalf:{" "}
-          {Object.keys(Action)
+          {Object.keys(ActionType)
             .map((action) => capitalCase(action))
             .join(", ")}
           .
@@ -159,27 +173,44 @@ export function RulesForm(props: { rules: RulesResponse }) {
                       type="text"
                       as="textarea"
                       rows={3}
-                      name={`rules.${i}.value`}
-                      registerProps={register(`rules.${i}.value`)}
-                      error={errors.rules?.[i]?.value}
-                      onClickAdd={() => append({ value: "" })}
+                      name={`rules.${i}.instructions`}
+                      registerProps={register(`rules.${i}.instructions`)}
+                      error={errors.rules?.[i]?.instructions}
+                      onClickAdd={() => append({ instructions: "" })}
                       onClickRemove={
                         fields.length > 1 ? () => remove(i) : undefined
                       }
                     />
-                    <div className="mt-2 flex justify-between">
-                      <div className="flex space-x-2">
+                    <div className="mt-2 flex">
+                      <div className="flex flex-1 space-x-2">
                         {watch(`rules.${i}.actions`)?.map((action) => {
                           return (
-                            <Tag key={action} color="green">
-                              {capitalCase(action)}
+                            <Tag key={action.type} color="green">
+                              {capitalCase(action.type)}
                             </Tag>
                           );
                         })}
                       </div>
-                      <div className="flex items-center">
-                        <Tooltip content="If enabled Inbox Zero will perform the actions automatically. If disabled you will first have to confirm the plan of action.">
-                          <QuestionMarkCircleIcon className="h-5 w-5" />
+                      {watch(`rules.${i}.id`) ? (
+                        <div className="ml-4 flex items-center">
+                          <Button
+                            size="xs"
+                            color="transparent"
+                            onClick={() => {
+                              const rule = getValues(`rules.${i}`);
+
+                              if (rule.id) {
+                                setEdittingRule({ id: rule.id, ...rule });
+                              }
+                            }}
+                          >
+                            <PenIcon className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      ) : null}
+                      <div className="ml-4 flex items-center">
+                        <Tooltip content="If enabled Inbox Zero will perform the actions automatically. If disabled you will first have to confirm the plan of actionType.">
+                          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
                         </Tooltip>
                         <div className="ml-2">
                           <Toggle
@@ -206,6 +237,129 @@ export function RulesForm(props: { rules: RulesResponse }) {
           </SubmitButtonWrapper>
         </form>
       </div>
+
+      <RuleModal
+        rule={edittingRule}
+        closeModal={() => setEdittingRule(undefined)}
+      />
     </FormSection>
+  );
+}
+
+function RuleModal(props: { rule?: UpdateRuleBody; closeModal: () => void }) {
+  return (
+    <Modal
+      isOpen={Boolean(props.rule)}
+      hideModal={props.closeModal}
+      title="Edit Rule"
+      size="2xl"
+    >
+      {props.rule && (
+        <UpdateRuleForm rule={props.rule} closeModal={props.closeModal} />
+      )}
+    </Modal>
+  );
+}
+
+function UpdateRuleForm(props: {
+  rule: UpdateRuleBody;
+  closeModal: () => void;
+}) {
+  const { closeModal } = props;
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<UpdateRuleBody>({
+    resolver: zodResolver(updateRuleBody),
+    defaultValues: props.rule,
+  });
+
+  const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
+    async (data) => {
+      if (!props.rule.id) return;
+      const res = await postRequest<UpdateRuleResponse, UpdateRuleBody>(
+        `/api/user/rules/${props.rule.id}`,
+        data
+      );
+      if (isErrorMessage(res)) {
+        console.error(res);
+        toastError({ description: `There was an error updating the rule.` });
+      } else {
+        toastSuccess({ description: `Saved!` });
+        closeModal();
+      }
+    },
+    [props.rule.id, closeModal]
+  );
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <div className="mt-4">
+        <Card>{props.rule?.instructions}</Card>
+        <div className="mt-8">
+          <SectionDescription>
+            This is how the AI will handle your emails. If a field is left blank
+            the AI will generate the content based on the rule in real time
+            while processing an email.
+          </SectionDescription>
+        </div>
+      </div>
+      <div className="mt-4 space-y-4">
+        {props.rule?.actions?.map((action, i) => {
+          return (
+            <Card key={i}>
+              <div className="grid grid-cols-4 gap-4">
+                <SectionHeader>{capitalCase(action.type)}</SectionHeader>
+                <div className="col-span-3 space-y-4">
+                  {actionInputs[action.type].fields.map((field) => {
+                    return (
+                      <Input
+                        key={field.label}
+                        type="text"
+                        as={field.textArea ? "textarea" : undefined}
+                        rows={field.textArea ? 3 : undefined}
+                        name={`actions.${i}.${field.name}`}
+                        label={field.label}
+                        placeholder="AI Generated"
+                        registerProps={register(`actions.${i}.${field.name}`)}
+                        error={errors["actions"]?.[i]?.[field.name]}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+      {/* TODO */}
+      {/* <div className="mt-4">
+    <Button color="white" full>
+      <PlusIcon className="mr-2 h-4 w-4" />
+      Add
+    </Button>
+  </div> */}
+      {/* {Boolean(Object.keys(errors).length) && (
+        <div className="mt-4">
+          <AlertError
+            title="Error"
+            description={`There was an error updating the rule:\n\n${JSON.stringify(
+              errors,
+              null,
+              2
+            )}`}
+          />
+        </div>
+      )} */}
+      <div className="flex justify-end">
+        <SubmitButtonWrapper>
+          <Button type="submit" loading={isSubmitting}>
+            Save
+          </Button>
+        </SubmitButtonWrapper>
+      </div>
+    </form>
   );
 }

@@ -1,14 +1,16 @@
 import { z } from "zod";
+import json5 from "json5";
 import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { gmail_v1 } from "googleapis";
 import { openai } from "@/utils/openai";
 import {
   ChatCompletionError,
   ChatCompletionResponse,
+  PartialRecord,
+  RuleWithActions,
   isChatCompletionError,
 } from "@/utils/types";
-import { actionFunctions, runActionFunction } from "@/utils/ai/actions";
-import { Action, Rule } from "@prisma/client";
+import { actionFunctionDefs, runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import { deletePlan, savePlan } from "@/utils/redis/plan";
 
@@ -26,21 +28,75 @@ export const actBody = z.object({
 export type ActBody = z.infer<typeof actBody>;
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
-type FunctionCall = { name: string; args: Record<string, any>; rule?: Rule };
+type FunctionCall = {
+  name: string;
+  args: Record<string, any>;
+  rule: RuleWithActions;
+};
+
+const ACTION_PROPERTIES = [
+  "label",
+  "to",
+  "cc",
+  "bcc",
+  "subject",
+  "content",
+] as const;
 
 async function planAct(options: {
   body: ActBody;
-  rules: Rule[];
+  rules: RuleWithActions[];
 }): Promise<FunctionCall | undefined> {
   const { body, rules } = options;
 
-  // we filter the actions so that the ai does not try execute functions it isn't permitted to
-  const allowActions = rules.map((r) => r.actions).flat();
-  if (!allowActions.length) return;
+  const rulesWithProperties = rules.map((rule, i) => {
+    const prefilledValues: PartialRecord<
+      (typeof ACTION_PROPERTIES)[number],
+      string | null
+    > = {};
 
-  const allowedFunctions = actionFunctions.filter(
-    (f) => !f.action || allowActions.includes(f.action)
-  );
+    rule.actions.forEach((action) => {
+      ACTION_PROPERTIES.forEach((property) => {
+        if (action[property]) {
+          prefilledValues[property] = action[property];
+        }
+      });
+    });
+
+    return {
+      rule,
+      prefilledValues,
+      name: `rule_${i + 1}`,
+      description: rule.instructions,
+      parameters: {
+        type: "object",
+        properties: rule.actions.reduce(
+          (properties, action) => {
+            const actionProperties = {
+              ...actionFunctionDefs[action.type].parameters.properties,
+            };
+
+            // filter out properties that we already have a value for
+            // eg. if we already have a label, don't ask for it again
+            ACTION_PROPERTIES.forEach((v) => {
+              if (action[v]) {
+                delete actionProperties[v];
+              }
+            });
+
+            return { ...properties, ...actionProperties };
+          },
+          {} as {
+            [key: string]: {
+              type: string;
+              description: string;
+            };
+          }
+        ),
+        required: [],
+      },
+    };
+  });
 
   const aiResponse = await openai.createChatCompletion({
     model: "gpt-4", // gpt-3.5-turbo is not good at this
@@ -69,7 +125,7 @@ Email:
 ${body.message}`,
       },
     ],
-    functions: allowedFunctions,
+    functions: rulesWithProperties,
     function_call: "auto",
   });
 
@@ -89,17 +145,23 @@ ${body.message}`,
 
   console.log("functionCall:", functionCall);
 
-  const args = functionCall.arguments
-    ? JSON.parse(functionCall.arguments)
+  const aiGeneratedArgs = functionCall.arguments
+    ? json5.parse(functionCall.arguments)
     : undefined;
+
+  const selectedRuleNumber = parseInt(functionCall.name.split("_")[1]);
+
+  const ruleWithProperty = rulesWithProperties[selectedRuleNumber - 1];
+
+  const args = {
+    ...aiGeneratedArgs,
+    ...ruleWithProperty.prefilledValues,
+  };
 
   return {
     name: functionCall.name,
     args,
-    rule:
-      typeof args?.ruleNumber === "number"
-        ? rules[args.ruleNumber - 1]
-        : undefined,
+    rule: ruleWithProperty.rule,
   };
 }
 
@@ -122,15 +184,15 @@ async function executeAct(options: {
   );
 
   await Promise.all([
-    prisma.executedAction.create({
+    prisma.executedRule.create({
       data: {
-        action: functionCall.name as Action, // TODO dangerous to use `as` here
-        functionName: functionCall.name,
-        functionArgs: functionCall.args,
+        actions: functionCall.rule?.actions.map((a) => a.type),
+        data: functionCall.args,
         messageId: options.messageId,
         threadId: options.threadId,
-        userId: options.userId,
         automated: options.automated,
+        userId: options.userId,
+        ruleId: functionCall.rule.id,
       },
     }),
     deletePlan({
@@ -145,7 +207,7 @@ async function executeAct(options: {
 export async function planOrExecuteAct(options: {
   gmail: gmail_v1.Gmail;
   body: ActBody;
-  rules: Rule[];
+  rules: RuleWithActions[];
   allowExecute: boolean;
   forceExecute?: boolean;
   messageId: string;
@@ -156,17 +218,6 @@ export async function planOrExecuteAct(options: {
   const functionCall = await planAct(options);
 
   if (!functionCall) return;
-
-  // make sure that the function call matches the rule
-  // eg. avoid a situation where the rule says to reply but the ai says to draft
-  const isValidRule = functionCall.rule?.actions.includes(
-    functionCall.name as Action
-  );
-
-  if (!isValidRule) {
-    // TODO ask AI to fix this and use an action from the rule
-    return;
-  }
 
   const shouldExcute =
     options.allowExecute &&
@@ -180,11 +231,10 @@ export async function planOrExecuteAct(options: {
       threadId: options.threadId,
       plan: {
         createdAt: new Date(),
-        functionName: functionCall.name,
-        functionArgs: functionCall.args,
         messageId: options.messageId,
         threadId: options.threadId,
-        action: functionCall.name as Action, // TODO fix `as`
+        rule: functionCall.rule,
+        functionArgs: functionCall.args,
       },
     });
   }

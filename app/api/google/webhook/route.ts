@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
-import { Rule } from "@prisma/client";
+import { RuleWithActions } from "@/utils/types";
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export async function POST(request: Request) {
@@ -25,7 +25,12 @@ export async function POST(request: Request) {
       access_token: true,
       refresh_token: true,
       userId: true,
-      user: { select: { lastSyncedHistoryId: true, rules: true } },
+      user: {
+        select: {
+          lastSyncedHistoryId: true,
+          rules: { include: { actions: true } },
+        },
+      },
     },
   });
   if (!account) return;
@@ -80,7 +85,7 @@ async function planHistory(options: {
   userId: string;
   email: string;
   gmail: gmail_v1.Gmail;
-  rules: Rule[];
+  rules: RuleWithActions[];
 }) {
   const { history, userId, email, gmail, rules } = options;
 

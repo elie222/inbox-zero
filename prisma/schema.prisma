@@ -55,10 +55,10 @@ model User {
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
 
-  promptHistory   PromptHistory[]
-  labels          Label[]
-  rules           Rule[]
-  executedActions ExecutedAction[]
+  promptHistory PromptHistory[]
+  labels        Label[]
+  rules         Rule[]
+  executedRules ExecutedRule[]
 }
 
 // not in use as it's only used for passwordless login
@@ -95,33 +95,54 @@ model Label {
 }
 
 model Rule {
-  id              String   @id @default(cuid())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  name            String?
-  instructions    String
-  actions         Action[]
-  extraActionData Json? // for example, the label id. matching the index of the action
-  automate        Boolean  @default(true) // if set to false we display the plan and ask the user to confirm
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  instructions  String
+  actions       Action[]
+  automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executedRules ExecutedRule[]
 }
 
-model ExecutedAction {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  threadId     String
-  messageId    String
-  action       Action
-  functionName String
-  functionArgs Json?
-  automated    Boolean
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Action {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  type      ActionType
+  ruleId    String
+  rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  // optional extra fields to be used with the action
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
 }
 
-enum Action {
+model ExecutedRule {
+  id        String       @id @default(cuid())
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  threadId  String
+  messageId String
+  actions   ActionType[]
+  data      Json?
+  automated Boolean
+
+  // may be null if the rule was deleted
+  ruleId String?
+  rule   Rule?   @relation(fields: [ruleId], references: [id])
+
+  // storing user here in case rule was deleted
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+enum ActionType {
   ARCHIVE
   LABEL
   REPLY

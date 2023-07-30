@@ -74,7 +74,7 @@ export async function deleteAccountAction() {
 
   await deleteUserLabels({ email: session.user.email });
   await deleteInboxZeroLabels({ email: session.user.email });
-  await deletePlans({ email: session.user.email });
+  await deletePlans({ userId: session.user.id });
 }
 
 export async function updateLabels(

@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { openai } from "@/utils/openai";
+import json5 from "json5";
 import { AI_MODEL, generalPrompt } from "@/utils/config";
 import { getPlan, planSchema, savePlan } from "@/utils/redis/plan";
 import { saveUsage } from "@/utils/redis/usage";
@@ -10,7 +11,7 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 import { getUserLabels } from "@/utils/label";
-import { Action } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 
 export const planBody = z.object({
   id: z.string(),
@@ -34,7 +35,7 @@ You will always return valid JSON as a response.
 
 The JSON should contain the following fields:
   
-action: ${Object.keys(Action).join(", ")}
+action: ${Object.keys(ActionType).join(", ")}
 label?: LABEL
 response?: string
   
@@ -110,7 +111,7 @@ export async function plan(
     console.error("json", json);
   }
 
-  const planJson = planSchema.parse(JSON.parse(planString));
+  const planJson = planSchema.parse(json5.parse(planString));
 
   // cache result
   await savePlan({

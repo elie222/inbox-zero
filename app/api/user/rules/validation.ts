@@ -1,4 +1,4 @@
-import { Action } from "@prisma/client";
+import { zodAction } from "@/app/api/user/rules/[id]/validation";
 import { z } from "zod";
 
 export const updateRulesBody = z.object({
@@ -6,12 +6,12 @@ export const updateRulesBody = z.object({
     .array(
       z.object({
         id: z.string().optional(),
-        value: z.string(),
+        instructions: z.string().optional(),
         automate: z.boolean().optional(),
-        actions: z.array(z.nativeEnum(Action)).optional(),
+        actions: z.array(zodAction).optional(),
       })
     )
-    .transform((rules) => rules.filter((rule) => rule.value.trim())),
+    .transform((rules) => rules.filter((rule) => rule.instructions?.trim())),
 });
 
 export type UpdateRulesBody = z.infer<typeof updateRulesBody>;

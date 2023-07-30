@@ -1,27 +1,49 @@
 import "server-only";
 import { z } from "zod";
 import { redis } from "@/utils/redis";
-import { Action } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 // import { ACTIONS } from "@/utils/config";
 
 export const planSchema = z.object({
   messageId: z.string(),
   threadId: z.string(),
-  action: z
-    .enum([
-      Action.ARCHIVE,
-      Action.DRAFT_EMAIL,
-      Action.FORWARD,
-      Action.LABEL,
-      Action.MARK_SPAM,
-      Action.REPLY,
-      Action.SEND_EMAIL,
-      Action.SUMMARIZE,
-      "ERROR",
-    ])
-    .nullish(),
-  functionName: z.string(),
+  // action: z
+  //   .enum([
+  //     ActionType.ARCHIVE,
+  //     ActionType.DRAFT_EMAIL,
+  //     ActionType.FORWARD,
+  //     ActionType.LABEL,
+  //     ActionType.MARK_SPAM,
+  //     ActionType.REPLY,
+  //     ActionType.SEND_EMAIL,
+  //     ActionType.SUMMARIZE,
+  //     "ERROR",
+  //   ])
+  //   .nullish(),
+  // functionName: z.string(),
   functionArgs: z.any({}),
+  rule: z.object({
+    actions: z.array(
+      z.object({
+        type: z.enum([
+          ActionType.ARCHIVE,
+          ActionType.DRAFT_EMAIL,
+          ActionType.FORWARD,
+          ActionType.LABEL,
+          ActionType.MARK_SPAM,
+          ActionType.REPLY,
+          ActionType.SEND_EMAIL,
+          ActionType.SUMMARIZE,
+        ]),
+        label: z.string().nullish(),
+        subject: z.string().nullish(),
+        content: z.string().nullish(),
+        to: z.string().nullish(),
+        cc: z.string().nullish(),
+        bcc: z.string().nullish(),
+      })
+    ),
+  }),
   createdAt: z.date(),
   // category: z.string().nullish(),
   // response: z.string().nullish(),

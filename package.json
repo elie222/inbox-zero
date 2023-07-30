@@ -43,6 +43,7 @@
     "googleapis": "123",
     "he": "^1.2.0",
     "husky": "^8.0.3",
+    "json5": "^2.2.3",
     "linkify-react": "^4.1.1",
     "linkifyjs": "^4.1.1",
     "lint-staged": "^13.2.3",
