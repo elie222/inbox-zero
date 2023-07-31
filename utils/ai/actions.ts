@@ -5,23 +5,14 @@ import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
 import { ActBody } from "@/app/api/ai/act/validation";
 
-export type ActionArgs = any;
 export type ActionFunction = (
   gmail: gmail_v1.Gmail,
   email: ActBody["email"],
-  args: ActionArgs
+  args: any
 ) => Promise<any>;
-export type Actions =
-  | "archive"
-  | "label"
-  | "draft"
-  | "reply"
-  | "send_email"
-  | "forward"
-  | "ask_for_more_information"; // | "add_to_do" | "call_webhook"; // "snooze" - in the future as gmail doesn't provide an api we'd have to build that ourselves
 
 type ActionFunctionDef = {
-  name: Actions;
+  name: string;
   description: string;
   parameters:
     | {
@@ -37,30 +28,6 @@ type ActionFunctionDef = {
       }
     | { properties?: undefined };
   action: ActionType | null;
-};
-
-const ASK_FOR_MORE_INFORMATION: ActionFunctionDef = {
-  name: "ask_for_more_information",
-  description: "Ask for more information on how to handle the email.",
-  parameters: {
-    type: "object",
-    properties: {
-      from: {
-        type: "string",
-        description: "The email address of the sender.",
-      },
-      subject: {
-        type: "string",
-        description: "The subject of the email.",
-      },
-      content: {
-        type: "string",
-        description: "The content of the email.",
-      },
-    },
-    required: [],
-  },
-  action: null,
 };
 
 const ARCHIVE: ActionFunctionDef = {
@@ -209,6 +176,30 @@ const FORWARD_EMAIL: ActionFunctionDef = {
   action: ActionType.FORWARD,
 };
 
+// const ASK_FOR_MORE_INFORMATION: ActionFunctionDef = {
+//   name: "ask_for_more_information",
+//   description: "Ask for more information on how to handle the email.",
+//   parameters: {
+//     type: "object",
+//     properties: {
+//       from: {
+//         type: "string",
+//         description: "The email address of the sender.",
+//       },
+//       subject: {
+//         type: "string",
+//         description: "The subject of the email.",
+//       },
+//       content: {
+//         type: "string",
+//         description: "The content of the email.",
+//       },
+//     },
+//     required: [],
+//   },
+//   action: null,
+// };
+
 export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.ARCHIVE]: ARCHIVE,
   [ActionType.LABEL]: LABEL,
@@ -224,7 +215,7 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
 };
 
 export const actionFunctions: ActionFunctionDef[] = [
-  ASK_FOR_MORE_INFORMATION,
+  // ASK_FOR_MORE_INFORMATION,
   ARCHIVE,
   LABEL,
   DRAFT_EMAIL,
@@ -233,7 +224,7 @@ export const actionFunctions: ActionFunctionDef[] = [
   FORWARD_EMAIL,
 ];
 
-const archive: ActionFunction = async (gmail, email, args: {}) => {
+const archive: ActionFunction = async (gmail, email) => {
   await gmail.users.threads.modify({
     userId: "me",
     id: email.threadId,
