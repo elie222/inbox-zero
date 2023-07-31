@@ -13,6 +13,7 @@ import {
 import { actionFunctionDefs, runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import { deletePlan, savePlan } from "@/utils/redis/plan";
+import { Action, Rule } from "@prisma/client";
 
 export const actBody = z.object({
   from: z.string(),
@@ -28,12 +29,6 @@ export const actBody = z.object({
 export type ActBody = z.infer<typeof actBody>;
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
-type FunctionCall = {
-  name: string;
-  args: Record<string, any>;
-  rule: RuleWithActions;
-};
-
 const ACTION_PROPERTIES = [
   "label",
   "to",
@@ -43,17 +38,22 @@ const ACTION_PROPERTIES = [
   "content",
 ] as const;
 
+type ActionProperty = (typeof ACTION_PROPERTIES)[number];
+
+type PlannedAction = {
+  args: Record<ActionProperty, string>;
+  actions: Action[];
+  rule: Rule;
+};
+
 async function planAct(options: {
   body: ActBody;
   rules: RuleWithActions[];
-}): Promise<FunctionCall | undefined> {
+}): Promise<PlannedAction | undefined> {
   const { body, rules } = options;
 
   const rulesWithProperties = rules.map((rule, i) => {
-    const prefilledValues: PartialRecord<
-      (typeof ACTION_PROPERTIES)[number],
-      string | null
-    > = {};
+    const prefilledValues: PartialRecord<ActionProperty, string | null> = {};
 
     rule.actions.forEach((action) => {
       ACTION_PROPERTIES.forEach((property) => {
@@ -151,48 +151,48 @@ ${body.message}`,
 
   const selectedRuleNumber = parseInt(functionCall.name.split("_")[1]);
 
-  const ruleWithProperty = rulesWithProperties[selectedRuleNumber - 1];
+  const selectedRule = rulesWithProperties[selectedRuleNumber - 1];
 
   const args = {
     ...aiGeneratedArgs,
-    ...ruleWithProperty.prefilledValues,
+    ...selectedRule.prefilledValues,
   };
 
   return {
-    name: functionCall.name,
+    actions: selectedRule.rule.actions,
     args,
-    rule: ruleWithProperty.rule,
+    rule: selectedRule.rule,
   };
 }
 
 async function executeAct(options: {
   gmail: gmail_v1.Gmail;
-  functionCall: FunctionCall;
+  act: PlannedAction;
   messageId: string;
   threadId: string;
   userId: string;
   automated: boolean;
 }) {
-  const { gmail, functionCall } = options;
+  const { gmail, act } = options;
 
-  console.log("Executing functionCall:", functionCall);
+  console.log("Executing act:", JSON.stringify(act, null, 2));
 
-  const result = await runActionFunction(
-    gmail,
-    functionCall.name,
-    functionCall.args
+  await Promise.all(
+    act.actions.map(async (action) => {
+      return runActionFunction(gmail, action.type, act.args);
+    })
   );
 
   await Promise.all([
     prisma.executedRule.create({
       data: {
-        actions: functionCall.rule?.actions.map((a) => a.type),
-        data: functionCall.args,
+        actions: act.actions.map((a) => a.type),
+        data: act.args,
         messageId: options.messageId,
         threadId: options.threadId,
         automated: options.automated,
         userId: options.userId,
-        ruleId: functionCall.rule.id,
+        ruleId: act.rule.id,
       },
     }),
     deletePlan({
@@ -200,8 +200,6 @@ async function executeAct(options: {
       threadId: options.threadId,
     }),
   ]);
-
-  return result;
 }
 
 export async function planOrExecuteAct(options: {
@@ -215,16 +213,15 @@ export async function planOrExecuteAct(options: {
   userId: string;
   automated: boolean;
 }) {
-  const functionCall = await planAct(options);
+  const plannedAct = await planAct(options);
 
-  if (!functionCall) return;
+  if (!plannedAct) return;
 
   const shouldExcute =
-    options.allowExecute &&
-    (functionCall.rule?.automate || options.forceExecute);
+    options.allowExecute && (plannedAct.rule?.automate || options.forceExecute);
 
   if (shouldExcute) {
-    await executeAct({ ...options, functionCall });
+    await executeAct({ ...options, act: plannedAct });
   } else {
     await savePlan({
       userId: options.userId,
@@ -233,11 +230,11 @@ export async function planOrExecuteAct(options: {
         createdAt: new Date(),
         messageId: options.messageId,
         threadId: options.threadId,
-        rule: functionCall.rule,
-        functionArgs: functionCall.args,
+        rule: { ...plannedAct.rule, actions: plannedAct.actions },
+        functionArgs: plannedAct.args,
       },
     });
   }
 
-  return functionCall;
+  return plannedAct;
 }

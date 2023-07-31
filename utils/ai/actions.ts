@@ -347,26 +347,26 @@ const forward: ActionFunction = async (
 
 // const call_webhook: ActionFunction = async (_gmail: gmail_v1.Gmail, args: { url: string, content: string }) => {};
 
-export const runActionFunction = (
+export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
-  action: string,
+  action: ActionType,
   args: any
-) => {
+): Promise<any> => {
   switch (action) {
-    case "archive":
+    case ActionType.ARCHIVE:
       return archive(gmail, args);
-    case "label":
+    case ActionType.LABEL:
       return label(gmail, args);
-    case "draft":
+    case ActionType.DRAFT_EMAIL:
       return draft(gmail, args);
-    case "reply":
+    case ActionType.REPLY:
       return reply(gmail, args);
-    case "send_email":
+    case ActionType.SEND_EMAIL:
       return send_email(gmail, args);
-    case "forward":
+    case ActionType.FORWARD:
       return forward(gmail, args);
-    case "ask_for_more_information":
-      return;
+    // case "ask_for_more_information":
+    //   return;
     // case "add_to_do":
     //   return add_to_do;
     // case "call_webhook":
