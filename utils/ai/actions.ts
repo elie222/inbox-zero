@@ -3,10 +3,12 @@ import { draftEmail } from "@/app/api/google/draft/controller";
 import { sendEmail } from "@/app/api/google/messages/send/controller";
 import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
+import { ActBody } from "@/app/api/ai/act/validation";
 
 export type ActionArgs = any;
 export type ActionFunction = (
   gmail: gmail_v1.Gmail,
+  email: ActBody["email"],
   args: ActionArgs
 ) => Promise<any>;
 export type Actions =
@@ -118,10 +120,6 @@ const REPLY_TO_EMAIL: ActionFunctionDef = {
   parameters: {
     type: "object",
     properties: {
-      to: {
-        type: "string",
-        description: "Comma separated email addresses of the recipients.",
-      },
       cc: {
         type: "string",
         description: "Comma separated email addresses of the cc recipients.",
@@ -235,26 +233,20 @@ export const actionFunctions: ActionFunctionDef[] = [
   FORWARD_EMAIL,
 ];
 
-const archive: ActionFunction = async (
-  gmail: gmail_v1.Gmail,
-  args: { email_id: string }
-) => {
+const archive: ActionFunction = async (gmail, email, args: {}) => {
   await gmail.users.threads.modify({
     userId: "me",
-    id: args.email_id,
+    id: email.threadId,
     requestBody: {
       removeLabelIds: ["INBOX"],
     },
   });
 };
 
-const label: ActionFunction = async (
-  gmail: gmail_v1.Gmail,
-  args: { email_id: string; label: string }
-) => {
+const label: ActionFunction = async (gmail, email, args: { label: string }) => {
   await gmail.users.threads.modify({
     userId: "me",
-    id: args.email_id,
+    id: email.threadId,
     requestBody: {
       addLabelIds: [args.label],
     },
@@ -262,7 +254,8 @@ const label: ActionFunction = async (
 };
 
 const draft: ActionFunction = async (
-  gmail: gmail_v1.Gmail,
+  gmail,
+  email,
   args: {
     reply_to_email_id: string;
     to: string;
@@ -282,7 +275,8 @@ const draft: ActionFunction = async (
 };
 
 const send_email: ActionFunction = async (
-  gmail: gmail_v1.Gmail,
+  gmail,
+  _email,
   args: {
     to: string;
     subject: string;
@@ -301,19 +295,18 @@ const send_email: ActionFunction = async (
 };
 
 const reply: ActionFunction = async (
-  gmail: gmail_v1.Gmail,
+  gmail,
+  email,
   args: {
-    reply_to_email_id: string;
-    to: string;
-    subject: string;
+    subject: string; // TODO - do we allow the ai to adjust this? Or should it be: `Re: ${email.subject}`
     content: string;
-    cc: string;
+    cc: string; // TODO - do we allow the ai to adjust this?
     bcc: string;
   }
 ) => {
   await sendEmail(gmail, {
-    threadId: args.reply_to_email_id,
-    to: args.to,
+    threadId: email.threadId,
+    to: email.replyTo || email.from,
     cc: args.cc,
     bcc: args.bcc,
     subject: args.subject,
@@ -322,11 +315,11 @@ const reply: ActionFunction = async (
 };
 
 const forward: ActionFunction = async (
-  gmail: gmail_v1.Gmail,
+  gmail,
+  email,
   args: {
-    forward_email_id: string;
     to: string;
-    subject: string;
+    subject: string; // TODO - do we allow the ai to adjust this? or should it be: `Fwd: ${email.subject}`
     content: string;
     cc: string;
     bcc: string;
@@ -334,7 +327,7 @@ const forward: ActionFunction = async (
 ) => {
   // TODO - is there anything forward specific we need to do here?
   await sendEmail(gmail, {
-    threadId: args.forward_email_id,
+    threadId: email.threadId,
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
@@ -360,22 +353,23 @@ export type ActionProperty = (typeof ACTION_PROPERTIES)[number];
 
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
+  email: ActBody["email"],
   action: ActionType,
   args: PartialRecord<ActionProperty, string>
 ): Promise<any> => {
   switch (action) {
     case ActionType.ARCHIVE:
-      return archive(gmail, args);
+      return archive(gmail, email, args);
     case ActionType.LABEL:
-      return label(gmail, args);
+      return label(gmail, email, args);
     case ActionType.DRAFT_EMAIL:
-      return draft(gmail, args);
+      return draft(gmail, email, args);
     case ActionType.REPLY:
-      return reply(gmail, args);
+      return reply(gmail, email, args);
     case ActionType.SEND_EMAIL:
-      return send_email(gmail, args);
+      return send_email(gmail, email, args);
     case ActionType.FORWARD:
-      return forward(gmail, args);
+      return forward(gmail, email, args);
     // case "ask_for_more_information":
     //   return;
     // case "add_to_do":

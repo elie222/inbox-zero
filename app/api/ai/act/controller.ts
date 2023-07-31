@@ -1,4 +1,3 @@
-import { z } from "zod";
 import json5 from "json5";
 import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { gmail_v1 } from "googleapis";
@@ -19,21 +18,8 @@ import {
 import prisma from "@/utils/prisma";
 import { deletePlan, savePlan } from "@/utils/redis/plan";
 import { Action, Rule } from "@prisma/client";
+import { ActBody } from "@/app/api/ai/act/validation";
 
-export const actBody = z.object({
-  email: z.object({
-    from: z.string(),
-    replyTo: z.string().optional(),
-    cc: z.string().optional(),
-    subject: z.string(),
-    content: z.string(),
-    messageId: z.string(),
-    threadId: z.string(),
-  }),
-  allowExecute: z.boolean().optional(),
-  forceExecute: z.boolean().optional(),
-});
-export type ActBody = z.infer<typeof actBody>;
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
 type PlannedAction = {
@@ -168,13 +154,13 @@ async function executeAct(options: {
   userId: string;
   automated: boolean;
 }) {
-  const { gmail, act } = options;
+  const { gmail, email, act, automated, userId } = options;
 
   console.log("Executing act:", JSON.stringify(act, null, 2));
 
   await Promise.all(
     act.actions.map(async (action) => {
-      return runActionFunction(gmail, action.type, act.args);
+      return runActionFunction(gmail, email, action.type, act.args);
     })
   );
 
@@ -183,17 +169,14 @@ async function executeAct(options: {
       data: {
         actions: act.actions.map((a) => a.type),
         data: act.args,
-        messageId: options.email.messageId,
-        threadId: options.email.threadId,
-        automated: options.automated,
-        userId: options.userId,
+        messageId: email.messageId,
+        threadId: email.threadId,
+        automated,
+        userId,
         ruleId: act.rule.id,
       },
     }),
-    deletePlan({
-      userId: options.userId,
-      threadId: options.email.threadId,
-    }),
+    deletePlan({ userId, threadId: email.threadId }),
   ]);
 }
 

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
-import { actBody, planOrExecuteAct } from "@/app/api/ai/act/controller";
+import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { getGmailClient } from "@/utils/google";
 import prisma from "@/utils/prisma";
+import { actBody } from "@/app/api/ai/act/validation";
 
 export async function POST(request: Request) {
   const session = await getAuthSession();
