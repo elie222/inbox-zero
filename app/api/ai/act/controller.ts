@@ -10,47 +10,43 @@ import {
   RuleWithActions,
   isChatCompletionError,
 } from "@/utils/types";
-import { actionFunctionDefs, runActionFunction } from "@/utils/ai/actions";
+import {
+  ACTION_PROPERTIES,
+  ActionProperty,
+  actionFunctionDefs,
+  runActionFunction,
+} from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import { deletePlan, savePlan } from "@/utils/redis/plan";
 import { Action, Rule } from "@prisma/client";
 
 export const actBody = z.object({
-  from: z.string(),
-  replyTo: z.string().optional(),
-  cc: z.string().optional(),
-  subject: z.string(),
-  message: z.string(),
-  messageId: z.string().optional(),
-  threadId: z.string().optional(),
+  email: z.object({
+    from: z.string(),
+    replyTo: z.string().optional(),
+    cc: z.string().optional(),
+    subject: z.string(),
+    content: z.string(),
+    messageId: z.string(),
+    threadId: z.string(),
+  }),
   allowExecute: z.boolean().optional(),
   forceExecute: z.boolean().optional(),
 });
 export type ActBody = z.infer<typeof actBody>;
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
-const ACTION_PROPERTIES = [
-  "label",
-  "to",
-  "cc",
-  "bcc",
-  "subject",
-  "content",
-] as const;
-
-type ActionProperty = (typeof ACTION_PROPERTIES)[number];
-
 type PlannedAction = {
-  args: Record<ActionProperty, string>;
+  args: PartialRecord<ActionProperty, string>;
   actions: Action[];
   rule: Rule;
 };
 
 async function planAct(options: {
-  body: ActBody;
+  email: ActBody["email"];
   rules: RuleWithActions[];
 }): Promise<PlannedAction | undefined> {
-  const { body, rules } = options;
+  const { email, rules } = options;
 
   const rulesWithProperties = rules.map((rule, i) => {
     const prefilledValues: PartialRecord<ActionProperty, string | null> = {};
@@ -117,12 +113,12 @@ ${rules
       },
       {
         role: "user",
-        content: `From: ${body.from}
-Reply to: ${body.replyTo}
-CC: ${body.cc}
-Subject: ${body.subject}
+        content: `From: ${email.from}
+Reply to: ${email.replyTo}
+CC: ${email.cc}
+Subject: ${email.subject}
 Email:
-${body.message}`,
+${email.content}`,
       },
     ],
     functions: rulesWithProperties,
@@ -168,8 +164,7 @@ ${body.message}`,
 async function executeAct(options: {
   gmail: gmail_v1.Gmail;
   act: PlannedAction;
-  messageId: string;
-  threadId: string;
+  email: ActBody["email"];
   userId: string;
   automated: boolean;
 }) {
@@ -188,8 +183,8 @@ async function executeAct(options: {
       data: {
         actions: act.actions.map((a) => a.type),
         data: act.args,
-        messageId: options.messageId,
-        threadId: options.threadId,
+        messageId: options.email.messageId,
+        threadId: options.email.threadId,
         automated: options.automated,
         userId: options.userId,
         ruleId: act.rule.id,
@@ -197,19 +192,17 @@ async function executeAct(options: {
     }),
     deletePlan({
       userId: options.userId,
-      threadId: options.threadId,
+      threadId: options.email.threadId,
     }),
   ]);
 }
 
 export async function planOrExecuteAct(options: {
   gmail: gmail_v1.Gmail;
-  body: ActBody;
+  email: ActBody["email"];
   rules: RuleWithActions[];
   allowExecute: boolean;
   forceExecute?: boolean;
-  messageId: string;
-  threadId: string;
   userId: string;
   automated: boolean;
 }) {
@@ -221,15 +214,19 @@ export async function planOrExecuteAct(options: {
     options.allowExecute && (plannedAct.rule?.automate || options.forceExecute);
 
   if (shouldExcute) {
-    await executeAct({ ...options, act: plannedAct });
+    await executeAct({
+      ...options,
+      act: plannedAct,
+      email: options.email,
+    });
   } else {
     await savePlan({
       userId: options.userId,
-      threadId: options.threadId,
+      threadId: options.email.threadId,
       plan: {
         createdAt: new Date(),
-        messageId: options.messageId,
-        threadId: options.threadId,
+        messageId: options.email.messageId,
+        threadId: options.email.threadId,
         rule: { ...plannedAct.rule, actions: plannedAct.actions },
         functionArgs: plannedAct.args,
       },

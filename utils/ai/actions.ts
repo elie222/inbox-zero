@@ -347,10 +347,21 @@ const forward: ActionFunction = async (
 
 // const call_webhook: ActionFunction = async (_gmail: gmail_v1.Gmail, args: { url: string, content: string }) => {};
 
+export const ACTION_PROPERTIES = [
+  "label",
+  "to",
+  "cc",
+  "bcc",
+  "subject",
+  "content",
+] as const;
+
+export type ActionProperty = (typeof ACTION_PROPERTIES)[number];
+
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
   action: ActionType,
-  args: any
+  args: PartialRecord<ActionProperty, string>
 ): Promise<any> => {
   switch (action) {
     case ActionType.ARCHIVE:

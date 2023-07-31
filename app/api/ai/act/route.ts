@@ -19,14 +19,12 @@ export async function POST(request: Request) {
   });
 
   const result = await planOrExecuteAct({
-    body,
+    email: body.email,
     rules: user.rules,
     gmail,
     allowExecute: !!body.allowExecute,
     forceExecute: body.forceExecute,
     userId: user.id,
-    messageId: body.messageId || "",
-    threadId: body.threadId || "",
     automated: false,
   });
 

@@ -112,18 +112,18 @@ async function planHistory(options: {
 
         await planOrExecuteAct({
           allowExecute: true,
-          body: {
+          email: {
             from: parsedMessage.headers.from,
             replyTo: parsedMessage.headers.replyTo,
             cc: parsedMessage.headers.cc,
             subject: parsedMessage.headers.subject,
-            message,
+            content: message,
+            messageId: m.message.id,
+            threadId: m.message.threadId || "",
           },
           rules,
           gmail,
           userId,
-          messageId: m.message.id,
-          threadId: m.message.threadId || "",
           automated: true,
         });
       } else {
