@@ -18,58 +18,22 @@ export type Actions =
   | "forward"
   | "ask_for_more_information"; // | "add_to_do" | "call_webhook"; // "snooze" - in the future as gmail doesn't provide an api we'd have to build that ourselves
 
-const customActions = [
-  { action: ActionType.ARCHIVE, data: {} },
-  { action: ActionType.LABEL, data: { label: "test" } },
-  { action: ActionType.DRAFT_EMAIL, data: { content: "test" } },
-  { action: ActionType.REPLY, data: { content: "test" } },
-  { action: ActionType.SEND_EMAIL, data: { content: "test" } },
-  { action: ActionType.FORWARD, data: { content: "test" } },
-  // {action: ActionType.ASK_FOR_MORE_INFORMATION, data: {}},
-];
-
-// const actions = {
-//   archive: {
-//     name: "archive",
-//     description: "Archive an email",
-
-//   }
-// }
-
-const commonProperties = {
-  // ruleNumber: {
-  //   type: "number",
-  //   description: "The rule number.",
-  // },
-  // nextAction: {
-  //   type: "string",
-  //   description: "The next action to apply (if there is one).",
-  // },
-};
-const commonRequired = ["ruleNumber"];
-
 type ActionFunctionDef = {
   name: Actions;
   description: string;
-  parameters: {
-    type: string;
-    properties: PartialRecord<
-      | "from"
-      | "to"
-      | "cc"
-      | "bcc"
-      | "subject"
-      | "content"
-      | "email_id"
-      | "label"
-      | "reply_to_email_id",
-      {
+  parameters:
+    | {
         type: string;
-        description: string;
+        properties: PartialRecord<
+          "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
+          {
+            type: string;
+            description: string;
+          }
+        >;
+        required: string[];
       }
-    >;
-    required: string[];
-  };
+    | { properties?: undefined };
   action: ActionType | null;
 };
 
@@ -102,14 +66,8 @@ const ARCHIVE: ActionFunctionDef = {
   description: "Archive an email",
   parameters: {
     type: "object",
-    properties: {
-      ...commonProperties,
-      email_id: {
-        type: "string",
-        description: "The id of the email.",
-      },
-    },
-    required: [...commonRequired, "id"],
+    properties: {},
+    required: [],
   },
   action: ActionType.ARCHIVE,
 };
@@ -120,17 +78,12 @@ const LABEL: ActionFunctionDef = {
   parameters: {
     type: "object",
     properties: {
-      ...commonProperties,
-      email_id: {
-        type: "string",
-        description: "The id of the email.",
-      },
       label: {
         type: "string",
         description: "The name of the label.",
       },
     },
-    required: [...commonRequired, "id", "label"],
+    required: ["label"],
   },
   action: ActionType.LABEL,
 };
@@ -141,11 +94,6 @@ const DRAFT_EMAIL: ActionFunctionDef = {
   parameters: {
     type: "object",
     properties: {
-      ...commonProperties,
-      reply_to_email_id: {
-        type: "string",
-        description: "The id of the email to reply to.",
-      },
       to: {
         type: "string",
         description: "The email address of the recipient.",
@@ -159,7 +107,7 @@ const DRAFT_EMAIL: ActionFunctionDef = {
         description: "The content of the email.",
       },
     },
-    required: [...commonRequired, "content"],
+    required: ["content"],
   },
   action: ActionType.DRAFT_EMAIL,
 };
@@ -170,11 +118,6 @@ const REPLY_TO_EMAIL: ActionFunctionDef = {
   parameters: {
     type: "object",
     properties: {
-      ...commonProperties,
-      reply_to_email_id: {
-        type: "string",
-        description: "The id of the email to reply to.",
-      },
       to: {
         type: "string",
         description: "Comma separated email addresses of the recipients.",
@@ -196,13 +139,7 @@ const REPLY_TO_EMAIL: ActionFunctionDef = {
         description: "The content of the email.",
       },
     },
-    required: [
-      ...commonRequired,
-      "reply_to_email_id",
-      "to",
-      "subject",
-      "content",
-    ],
+    required: ["to", "subject", "content"],
   },
   action: ActionType.REPLY,
 };
@@ -213,7 +150,6 @@ const SEND_EMAIL: ActionFunctionDef = {
   parameters: {
     type: "object",
     properties: {
-      ...commonProperties,
       to: {
         type: "string",
         description: "Comma separated email addresses of the recipients.",
@@ -235,7 +171,7 @@ const SEND_EMAIL: ActionFunctionDef = {
         description: "The content of the email.",
       },
     },
-    required: [...commonRequired, "to", "subject", "content"],
+    required: ["to", "subject", "content"],
   },
   action: ActionType.SEND_EMAIL,
 };
@@ -246,11 +182,6 @@ const FORWARD_EMAIL: ActionFunctionDef = {
   parameters: {
     type: "object",
     properties: {
-      ...commonProperties,
-      email_id: {
-        type: "string",
-        description: "The id of the email to forward.",
-      },
       to: {
         type: "string",
         description:
@@ -275,7 +206,7 @@ const FORWARD_EMAIL: ActionFunctionDef = {
         description: "Extra content to add to the forwarded email.",
       },
     },
-    required: [...commonRequired, "email_id", "to"],
+    required: ["to"],
   },
   action: ActionType.FORWARD,
 };
@@ -302,58 +233,6 @@ export const actionFunctions: ActionFunctionDef[] = [
   REPLY_TO_EMAIL,
   SEND_EMAIL,
   FORWARD_EMAIL,
-  // {
-  //   name: "add_to_do",
-  //   description:
-  //     "Add an task to the to do list.",
-  //   parameters: {
-  //     type: "object",
-  //     properties: {
-  //       ...commonProperties,
-  //       email_id: {
-  //         type: "string",
-  //         description: "The id of the email to add as a to do.",
-  //       },
-  //       due_date: {
-  //         type: "string",
-  //         description: "The due date for the task.",
-  //       },
-  //       title: {
-  //         type: "string",
-  //         description: "The title of the task.",
-  //       },
-  //       content: {
-  //         type: "string",
-  //         description: "Extra content for the task.",
-  //       },
-  //       priority: {
-  //         type: "number",
-  //         description: "The priority of the task between 1 and 4 where 1 is the highest priority.",
-  //       },
-  //     },
-  //     required: [...commonRequired, "email_id", "title"],
-  //   },
-  // },
-  // {
-  //   name: "call_webhook",
-  //   description:
-  //     "Call a webhook.",
-  //   parameters: {
-  //     type: "object",
-  //     properties: {
-  //       ...commonProperties,
-  //       url: {
-  //         type: "string",
-  //         description: "The url of the webhook to call.",
-  //       },
-  //       content: {
-  //         type: "string",
-  //         description: "Extra content for the task.",
-  //       },
-  //     },
-  //     required: [...commonRequired, "email_id", "title"],
-  //   },
-  // },
 ];
 
 const archive: ActionFunction = async (
