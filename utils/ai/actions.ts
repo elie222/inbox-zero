@@ -95,10 +95,6 @@ const REPLY_TO_EMAIL: ActionFunctionDef = {
         type: "string",
         description: "Comma separated email addresses of the bcc recipients.",
       },
-      subject: {
-        type: "string",
-        description: "The subject of the email.",
-      },
       content: {
         type: "string",
         description: "The content of the email.",
@@ -161,10 +157,6 @@ const FORWARD_EMAIL: ActionFunctionDef = {
         type: "string",
         description:
           "Comma separated email addresses of the bcc recipients to forward the email to.",
-      },
-      subject: {
-        type: "string",
-        description: "The subject of the email.",
       },
       content: {
         type: "string",
@@ -248,7 +240,6 @@ const draft: ActionFunction = async (
   gmail,
   email,
   args: {
-    reply_to_email_id: string;
     to: string;
     subject: string;
     content: string;
@@ -259,7 +250,8 @@ const draft: ActionFunction = async (
       subject: args.subject,
       body: args.content,
       to: args.to,
-      threadId: args.reply_to_email_id, // TODO check this is accurate
+      threadId: email.threadId, // TODO check this is accurate
+      messageId: email.messageId, // TODO check this is accurate
     },
     gmail
   );
@@ -289,18 +281,21 @@ const reply: ActionFunction = async (
   gmail,
   email,
   args: {
-    subject: string; // TODO - do we allow the ai to adjust this? Or should it be: `Re: ${email.subject}`
     content: string;
     cc: string; // TODO - do we allow the ai to adjust this?
     bcc: string;
   }
 ) => {
   await sendEmail(gmail, {
-    threadId: email.threadId,
+    replyToEmail: {
+      threadId: email.threadId,
+      references: email.references,
+      headerMessageId: email.headerMessageId,
+    },
     to: email.replyTo || email.from,
     cc: args.cc,
     bcc: args.bcc,
-    subject: args.subject,
+    subject: email.subject,
     messageText: args.content,
   });
 };
@@ -310,7 +305,6 @@ const forward: ActionFunction = async (
   email,
   args: {
     to: string;
-    subject: string; // TODO - do we allow the ai to adjust this? or should it be: `Fwd: ${email.subject}`
     content: string;
     cc: string;
     bcc: string;
@@ -318,11 +312,10 @@ const forward: ActionFunction = async (
 ) => {
   // TODO - is there anything forward specific we need to do here?
   await sendEmail(gmail, {
-    threadId: email.threadId,
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
-    subject: args.subject,
+    subject: `Fwd: ${email.subject}`,
     messageText: args.content,
   });
 };

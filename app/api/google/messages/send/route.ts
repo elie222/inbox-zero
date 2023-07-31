@@ -5,8 +5,9 @@ import {
   sendEmailBody,
 } from "@/app/api/google/messages/send/controller";
 import { getGmailClient } from "@/utils/google";
+import { withError } from "@/utils/middleware";
 
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
@@ -18,4 +19,4 @@ export async function POST(request: Request) {
   const result = await sendEmail(gmail, body);
 
   return NextResponse.json(result);
-}
+});

@@ -7,6 +7,7 @@ import {
   ChatCompletionResponse,
   isChatCompletionError,
 } from "@/utils/types";
+import { withError } from "@/utils/middleware";
 
 const classifyThreadBody = z.object({ message: z.string() });
 export type ClassifyThreadBody = z.infer<typeof classifyThreadBody>;
@@ -39,10 +40,10 @@ async function classify(body: ClassifyThreadBody) {
   return { message };
 }
 
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = classifyThreadBody.parse(json);
   const res = await classify(body);
 
   return NextResponse.json(res);
-}
+});

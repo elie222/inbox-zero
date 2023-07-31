@@ -7,9 +7,10 @@ import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { RuleWithActions } from "@/utils/types";
+import { withError } from "@/utils/middleware";
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const body = await request.json();
 
   const data = body.message.data;
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     console.error(error);
     return NextResponse.json({ error: true });
   }
-}
+});
 
 async function listHistory(
   options: { email: string; startHistoryId: string },
@@ -118,8 +119,9 @@ async function planHistory(options: {
             cc: parsedMessage.headers.cc,
             subject: parsedMessage.headers.subject,
             content: message,
-            messageId: m.message.id,
             threadId: m.message.threadId || "",
+            messageId: m.message.id,
+            headerMessageId: parsedMessage.headers.messageId || "",
           },
           rules,
           gmail,

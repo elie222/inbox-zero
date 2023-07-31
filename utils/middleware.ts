@@ -2,12 +2,12 @@ import { ZodError } from "zod";
 import { NextResponse } from "next/server";
 import { captureException } from "@/utils/error";
 
-export type NextHandler = (req: Request) => Promise<unknown>;
+export type NextHandler = (req: Request, params?: any) => Promise<unknown>;
 
 export function withError(handler: NextHandler): NextHandler {
-  return async (req: Request) => {
+  return async (req, params) => {
     try {
-      return await handler(req);
+      return await handler(req, params);
     } catch (error) {
       if (error instanceof ZodError) {
         if (process.env.LOG_ZOD_ERRORS) {

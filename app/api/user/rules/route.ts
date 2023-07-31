@@ -9,6 +9,7 @@ import {
   deleteRulesBody,
   updateRulesBody,
 } from "@/app/api/user/rules/validation";
+import { withError } from "@/utils/middleware";
 
 export async function GET() {
   const session = await getAuthSession();
@@ -19,7 +20,7 @@ export async function GET() {
   return NextResponse.json(result);
 }
 
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
   const result = await updateRules({ userId: session.user.id, body });
 
   return NextResponse.json(result);
-}
+});
 
 export async function DELETE(request: Request) {
   const session = await getAuthSession();

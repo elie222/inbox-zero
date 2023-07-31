@@ -6,6 +6,7 @@ import {
   deleteRule,
 } from "@/app/api/user/rules/[id]/controller";
 import { updateRuleBody } from "@/app/api/user/rules/[id]/validation";
+import { withError } from "@/utils/middleware";
 
 export async function GET(
   _request: Request,
@@ -19,21 +20,23 @@ export async function GET(
   return NextResponse.json(result);
 }
 
-export async function POST(request: Request, params: { id: string }) {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+export const POST = withError(
+  async (request: Request, params: { id: string }) => {
+    const session = await getAuthSession();
+    if (!session) return NextResponse.json({ error: "Not authenticated" });
 
-  const json = await request.json();
-  const body = updateRuleBody.parse(json);
+    const json = await request.json();
+    const body = updateRuleBody.parse(json);
 
-  const result = await updateRule({
-    id: params.id,
-    userId: session.user.id,
-    body,
-  });
+    const result = await updateRule({
+      id: params.id,
+      userId: session.user.id,
+      body,
+    });
 
-  return NextResponse.json(result);
-}
+    return NextResponse.json(result);
+  }
+);
 
 export async function DELETE(_request: Request, params: { id: string }) {
   const session = await getAuthSession();

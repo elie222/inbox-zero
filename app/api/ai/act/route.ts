@@ -4,8 +4,9 @@ import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { getGmailClient } from "@/utils/google";
 import prisma from "@/utils/prisma";
 import { actBody } from "@/app/api/ai/act/validation";
+import { withError } from "@/utils/middleware";
 
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
@@ -30,4 +31,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json(result || { action: "no_action" });
-}
+});

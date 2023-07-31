@@ -7,8 +7,10 @@ export const actBody = z.object({
     cc: z.string().optional(),
     subject: z.string(),
     content: z.string(),
-    messageId: z.string(),
     threadId: z.string(),
+    messageId: z.string(), // gmail message id
+    headerMessageId: z.string(),
+    references: z.string().optional(),
   }),
   allowExecute: z.boolean().optional(),
   forceExecute: z.boolean().optional(),

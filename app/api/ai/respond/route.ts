@@ -2,6 +2,7 @@ import { z } from "zod";
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import { openai } from "@/utils/openai";
 import { AI_MODEL } from "@/utils/config";
+import { withError } from "@/utils/middleware";
 
 const respondBody = z.object({ message: z.string() });
 export type RespondBody = z.infer<typeof respondBody>;
@@ -28,7 +29,7 @@ async function respond(body: RespondBody) {
   return response;
 }
 
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = respondBody.parse(json);
   const res = await respond(body);
@@ -37,4 +38,4 @@ export async function POST(request: Request) {
   const stream = OpenAIStream(res);
   // Respond with the stream
   return new StreamingTextResponse(stream);
-}
+});

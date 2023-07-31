@@ -12,6 +12,7 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 import { actionInputs } from "@/utils/actionType";
+import { withError } from "@/utils/middleware";
 
 const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
@@ -122,7 +123,7 @@ async function categorizeRule(body: CategorizeRuleBody, userId: string) {
   return updatedRule;
 }
 
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
@@ -132,4 +133,4 @@ export async function POST(request: Request) {
   const result = await categorizeRule(body, session.user.id);
 
   return NextResponse.json(result);
-}
+});

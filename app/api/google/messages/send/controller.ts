@@ -4,7 +4,13 @@ import Mail from "nodemailer/lib/mailer";
 import { gmail_v1 } from "googleapis";
 
 export const sendEmailBody = z.object({
-  threadId: z.string().optional(),
+  replyToEmail: z
+    .object({
+      threadId: z.string(),
+      headerMessageId: z.string(), // this is different to the gmail message id and looks something like <123...abc@mail.example.com>
+      references: z.string().optional(), // for threading
+    })
+    .optional(),
   to: z.string(),
   cc: z.string().optional(),
   bcc: z.string().optional(),
@@ -37,33 +43,24 @@ export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
     to: body.to,
     cc: body.cc,
     bcc: body.bcc,
-    replyTo: body.replyTo || body.to,
     subject: body.subject,
     text: body.messageText,
     html: body.messageHtml,
     // attachments: fileAttachments,
     textEncoding: "base64",
-    // TODO
-    // references: {
-    //   'In-Reply-To': body.replyTo || body.to,
-    // },
     // https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
-    // headers: [
-    //   {
-    //     key: 'In-Reply-To',
-    //     value: body.inReplyTo
-    //   },
-    //   {
-    //     key: 'References',
-    //     value: body.references + ' ' + body.inReplyTo
-    //   }
-    // ],
+    references: body.replyToEmail
+      ? `${body.replyToEmail.references || ""} ${
+          body.replyToEmail.headerMessageId
+        }`.trim()
+      : "",
+    inReplyTo: body.replyToEmail ? body.replyToEmail.headerMessageId : "",
   });
 
   const result = await gmail.users.messages.send({
     userId: "me",
     requestBody: {
-      threadId: body.threadId,
+      threadId: body.replyToEmail ? body.replyToEmail.threadId : "",
       raw: rawMessage,
     },
   });

@@ -6,6 +6,7 @@ export const draftEmailBody = z.object({
   body: z.string(),
   to: z.string(),
   threadId: z.string(),
+  messageId: z.string(),
 });
 export type DraftEmailBody = z.infer<typeof draftEmailBody>;
 export type DraftEmailResponse = Awaited<ReturnType<typeof draftEmail>>;

@@ -5,6 +5,7 @@ import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/google";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
 import { sleep } from "@/utils/sleep";
+import { withError } from "@/utils/middleware";
 
 const bulkArchiveBody = z.object({ daysAgo: z.string() });
 export type BulkArchiveBody = z.infer<typeof bulkArchiveBody>;
@@ -44,7 +45,7 @@ async function bulkArchive(
   return { count: res.data.threads?.length || 0 };
 }
 
-export async function POST(request: Request) {
+export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
@@ -56,4 +57,4 @@ export async function POST(request: Request) {
   const result = await bulkArchive(body, gmail, session.user.email);
 
   return NextResponse.json(result);
-}
+});
