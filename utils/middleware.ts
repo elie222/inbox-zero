@@ -15,7 +15,7 @@ export function withError(handler: NextHandler): NextHandler {
           console.error(error);
         }
         return NextResponse.json(
-          { erro: { issues: error.issues } },
+          { error: { issues: error.issues } },
           { status: 400 }
         );
       }
