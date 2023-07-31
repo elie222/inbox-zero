@@ -3,6 +3,8 @@ import { z } from "zod";
 export const actBody = z.object({
   email: z.object({
     from: z.string(),
+    to: z.string().optional(), // used when forwarding
+    date: z.string().optional(), // used when forwarding
     replyTo: z.string().optional(),
     cc: z.string().optional(),
     subject: z.string(),

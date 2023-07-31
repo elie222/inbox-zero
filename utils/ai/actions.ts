@@ -310,13 +310,27 @@ const forward: ActionFunction = async (
     bcc: string;
   }
 ) => {
-  // TODO - is there anything forward specific we need to do here?
+  // We may need to make sure the AI isn't adding the extra forward content on its own
+  // TODO handle HTML emails
+  // TODO handle attachments
   await sendEmail(gmail, {
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
     subject: `Fwd: ${email.subject}`,
-    messageText: args.content,
+    messageText: `${args.content}
+
+---------- Forwarded message ----------
+
+From: ${email.from}
+
+Date: ${email.date}
+
+Subject: ${email.subject}
+
+To: ${email.to}
+
+${email.content}`,
   });
 };
 
