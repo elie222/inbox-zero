@@ -4,6 +4,8 @@ import useSWR from "swr";
 import { List } from "@/components/ListNew";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PlannedResponse } from "@/app/api/user/planned/route";
+import Link from "next/link";
+import { Card } from "@tremor/react";
 
 export default function Home() {
   const { data, isLoading, error, mutate } = useSWR<PlannedResponse>(
@@ -17,7 +19,7 @@ export default function Home() {
   return (
     <LoadingContent loading={isLoading} error={error}>
       {/* {data && <List emails={data?.messages || []} refetch={mutate} />} */}
-      {data && (
+      {data?.messages.length ? (
         <div className="border-b border-gray-200 p-4">
           {data.messages.map((message) => {
             return (
@@ -29,6 +31,16 @@ export default function Home() {
               </div>
             );
           })}
+        </div>
+      ) : (
+        <div className="mx-auto max-w-2xl p-8">
+          <Card>
+            No planned actions. Set rules in your{" "}
+            <Link href="/settings" className="font-semibold hover:underline">
+              Settings
+            </Link>{" "}
+            for the AI to handle incoming emails for you.
+          </Card>
         </div>
       )}
     </LoadingContent>
