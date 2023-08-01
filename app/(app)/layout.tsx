@@ -1,4 +1,4 @@
-import "../globals.css";
+import "../../styles/globals.css";
 import React from "react";
 import { redirect } from "next/navigation";
 import { GmailProvider } from "@/providers/GmailProvider";

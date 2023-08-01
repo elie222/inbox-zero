@@ -2,7 +2,7 @@ import React from "react";
 
 export function PageHeading(props: { children: React.ReactNode }) {
   return (
-    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+    <h2 className="font-cal text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
       {props.children}
     </h2>
   );
@@ -10,7 +10,9 @@ export function PageHeading(props: { children: React.ReactNode }) {
 
 export function SectionHeader(props: { children: React.ReactNode }) {
   return (
-    <h2 className="text-base font-semibold leading-7">{props.children}</h2>
+    <h2 className="font-cal text-base font-semibold leading-7">
+      {props.children}
+    </h2>
   );
 }
 

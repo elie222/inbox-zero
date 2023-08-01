@@ -29,7 +29,6 @@
     "@tremor/react": "^3.6.0",
     "@upstash/redis": "^1.22.0",
     "ai": "^2.1.28",
-    "cal-sans": "^1.0.1",
     "capital-case": "^1.0.4",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",

@@ -1,4 +1,3 @@
-import "cal-sans";
 import "./home.css";
 import { Hero } from "@/components/home/Hero";
 

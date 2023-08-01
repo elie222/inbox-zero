@@ -1,6 +1,6 @@
-import "./globals.css";
+import "../styles/globals.css";
 import { Inter } from "next/font/google";
-// import localFont from "next/font/local";
+import localFont from "next/font/local";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -8,12 +8,12 @@ const inter = Inter({
   preload: true,
   display: "swap",
 });
-// const calFont = localFont({
-//   src: "../fonts/CalSans-SemiBold.woff2",
-//   variable: "--font-cal",
-//   preload: true,
-//   display: "swap",
-// });
+const calFont = localFont({
+  src: "../styles/CalSans-SemiBold.otf",
+  variable: "--font-cal",
+  preload: true,
+  display: "swap",
+});
 
 export const metadata = {
   title: "Inbox Zero AI",

@@ -59,9 +59,6 @@ dependencies:
   ai:
     specifier: ^2.1.28
     version: 2.1.28(react@18.2.0)(solid-js@1.7.8)(svelte@4.1.1)(vue@3.3.4)
-  cal-sans:
-    specifier: ^1.0.1
-    version: 1.0.1
   capital-case:
     specifier: ^1.0.4
     version: 1.0.4
@@ -3402,13 +3399,6 @@ packages:
     engines: { node: ">=10.16.0" }
     dependencies:
       streamsearch: 1.1.0
-    dev: false
-
-  /cal-sans@1.0.1:
-    resolution:
-      {
-        integrity: sha512-XwN3/7jez8WmFVcNnNqO2K9lh133KiIcURCyGFnSM+ZmNZ8zIcOTNfr3SpenLAkRceYsq+fQNX/PL4C1rIkEPQ==,
-      }
     dev: false
 
   /call-bind@1.0.2:
