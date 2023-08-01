@@ -30,7 +30,7 @@ export function SlideOverSheet(props: {
         {props.children}
       </SheetTrigger>
       <SheetContent
-        className="w-[400px] sm:w-[540px] md:w-[700px]"
+        className="w-[400px] overflow-y-auto sm:w-[540px] md:w-[700px]"
         onPointerDownOutside={(e) => {
           e.preventDefault();
         }}

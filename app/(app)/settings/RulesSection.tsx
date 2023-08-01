@@ -46,6 +46,7 @@ import { SlideOverSheet } from "@/components/SlideOverSheet";
 import { ActBody } from "@/app/api/ai/act/validation";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
+import { Separator } from "@/components/ui/separator";
 
 export function RulesSection() {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
@@ -381,7 +382,7 @@ function TestRules() {
   return (
     <SlideOverSheet
       title="Test Rules"
-      description="Test how your rules perform agains real emails."
+      description="Test how your rules perform against real emails."
       content={<TestRulesContent />}
     >
       <div className="mt-4">
@@ -402,6 +403,14 @@ function TestRulesContent() {
 
   return (
     <div>
+      <div className="mt-4">
+        <TestRulesForm />
+      </div>
+
+      <div className="mt-4">
+        <Separator />
+      </div>
+
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <div className="">
@@ -414,6 +423,65 @@ function TestRulesContent() {
     </div>
   );
 }
+
+type TestRulesInputs = { message: string };
+
+const TestRulesForm = () => {
+  const [plan, setPlan] = useState<ActResponse>();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<TestRulesInputs>();
+
+  const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
+    const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
+      email: {
+        from: "",
+        to: "",
+        date: "",
+        replyTo: "",
+        cc: "",
+        subject: "",
+        content: data.message,
+        threadId: "",
+        messageId: "",
+        headerMessageId: "",
+        references: "",
+      },
+      allowExecute: false,
+    });
+
+    if (isErrorMessage(res)) {
+      console.error(res);
+      toastError({ description: `Error planning` });
+    } else {
+      setPlan(res);
+      toastSuccess({ description: `Plan created!` });
+    }
+  }, []);
+
+  return (
+    <div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Input
+          type="text"
+          as="textarea"
+          rows={3}
+          name="message"
+          label="Message"
+          registerProps={register("message", { required: true })}
+          error={errors.message}
+        />
+        <Button type="submit" loading={isSubmitting}>
+          Plan
+        </Button>
+      </form>
+      {plan && <div className="mt-4">{JSON.stringify(plan, null, 2)}</div>}
+    </div>
+  );
+};
 
 function TestRulesContentRow(props: {
   message: MessagesResponse["messages"][number];
