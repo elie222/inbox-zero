@@ -13,7 +13,6 @@ export const updateRulesBody = z.object({
     )
     .transform((rules) => rules.filter((rule) => rule.instructions?.trim())),
 });
-
 export type UpdateRulesBody = z.infer<typeof updateRulesBody>;
 
 export const deleteRulesBody = z.object({ ruleId: z.string() });

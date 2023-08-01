@@ -101,6 +101,8 @@ export function RulesForm(props: { rules: RulesResponse }) {
 
         await Promise.all(
           res.map(async (r) => {
+            if (r.actions.length) return;
+
             const categorizedRule = await postRequest<
               CategorizeRuleResponse,
               CategorizeRuleBody
@@ -160,6 +162,9 @@ export function RulesForm(props: { rules: RulesResponse }) {
             .join(", ")}
           .
         </SectionDescription>
+        {/* <div className="mt-4">
+          <Button color="white">Test</Button>
+        </div> */}
       </div>
 
       <div className="md:col-span-2">

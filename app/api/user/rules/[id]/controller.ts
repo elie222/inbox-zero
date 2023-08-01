@@ -30,7 +30,7 @@ export async function updateRule(options: {
       },
       data: {
         instructions: options.body.instructions || undefined,
-        automate: options.body.automate || undefined,
+        automate: options.body.automate ?? undefined,
         actions: options.body.actions
           ? {
               createMany: {

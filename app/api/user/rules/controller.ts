@@ -37,9 +37,9 @@ export async function updateRules({
   );
 
   // Prepare the delete operations
-  const deleteOperations = rulesToDelete.map((rule) =>
-    prisma.rule.delete({ where: { id: rule.id } })
-  );
+  const deleteOperations = prisma.rule.deleteMany({
+    where: { id: { in: rulesToDelete.map((r) => r.id) } },
+  });
 
   // Prepare the update operations
   const upsertOperations = body.rules
@@ -49,7 +49,7 @@ export async function updateRules({
         where: { id: rule.id },
         data: {
           instructions: rule.instructions || undefined,
-          automate: rule.automate || undefined,
+          automate: rule.automate ?? undefined,
           // actions: rule.actions,
         },
       });
@@ -63,7 +63,7 @@ export async function updateRules({
       return prisma.rule.create({
         data: {
           instructions: rule.instructions,
-          automate: rule.automate || undefined,
+          automate: rule.automate ?? undefined,
           // actions: rule.actions,
           user: { connect: { id: userId } },
         },
@@ -73,13 +73,16 @@ export async function updateRules({
 
   // Perform all operations in a single transaction
   await prisma.$transaction([
-    ...deleteOperations,
+    deleteOperations,
     ...upsertOperations,
     ...createOperations,
   ]);
 
   // Return the updated user
-  return await prisma.rule.findMany({ where: { userId } });
+  return await prisma.rule.findMany({
+    where: { userId },
+    include: { actions: true },
+  });
 }
 
 // DELETE
