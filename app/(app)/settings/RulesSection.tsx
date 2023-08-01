@@ -90,10 +90,6 @@ export function RulesForm(props: { rules: RulesResponse }) {
       if (isErrorMessage(res)) {
         toastError({ description: "There was an error updating the rules." });
       } else {
-        toastSuccess({
-          description: "Rules updated successfully.",
-        });
-
         // update ids
         for (let i = 0; i < data.rules.length; i++) {
           const rule = data.rules[i];
@@ -127,6 +123,10 @@ export function RulesForm(props: { rules: RulesResponse }) {
             }
           })
         );
+
+        toastSuccess({
+          description: "Rules updated successfully.",
+        });
       }
     },
     [setValue]
