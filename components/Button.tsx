@@ -94,6 +94,7 @@ const BasicLink = (props: {
   } = props;
 
   return (
+    // @ts-ignore
     <Link href={href} target={target} rel={rel} {...rest}>
       {children}
     </Link>
