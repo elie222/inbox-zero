@@ -43,7 +43,9 @@ import {
 } from "@/app/api/user/rules/[id]/validation";
 import { actionInputs } from "@/utils/actionType";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { ThreadsResponse } from "@/app/api/google/threads/route";
+import { ActBody } from "@/app/api/ai/act/validation";
+import { ActResponse } from "@/app/api/ai/act/controller";
+import { MessagesResponse } from "@/app/api/google/messages/route";
 
 export function RulesSection() {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
@@ -390,8 +392,8 @@ function TestRules() {
 }
 
 function TestRulesContent() {
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
-    "/api/google/threads?limit=5",
+  const { data, isLoading, error, mutate } = useSWR<MessagesResponse>(
+    "/api/google/messages",
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
@@ -403,8 +405,8 @@ function TestRulesContent() {
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <div className="">
-            {data.threads.map((thread) => {
-              return <TestRulesContentRow key={thread.id} thread={thread} />;
+            {data.messages.map((message) => {
+              return <TestRulesContentRow key={message.id} message={message} />;
             })}
           </div>
         )}
@@ -414,27 +416,61 @@ function TestRulesContent() {
 }
 
 function TestRulesContentRow(props: {
-  thread: ThreadsResponse["threads"][number];
+  message: MessagesResponse["messages"][number];
 }) {
+  const { message } = props;
+
   const [planning, setPlanning] = useState(false);
+  const [plan, setPlan] = useState<ActResponse>();
 
   return (
-    <div className="flex items-center justify-between border-b border-gray-200 py-4">
-      <div className="">{props.thread.snippet.trim()}</div>
-      <div className="ml-4">
-        <Button
-          color="white"
-          loading={planning}
-          onClick={() => {
-            setPlanning(true);
-            setTimeout(() => {
+    <div className="border-b border-gray-200">
+      <div className="flex items-center justify-between py-4">
+        <div className="">{message.snippet?.trim()}</div>
+        <div className="ml-4">
+          <Button
+            color="white"
+            loading={planning}
+            onClick={async () => {
+              setPlanning(true);
+
+              const res = await postRequest<ActResponse, ActBody>(
+                "/api/ai/act",
+                {
+                  email: {
+                    from: message.parsedMessage.headers.from,
+                    to: message.parsedMessage.headers.to,
+                    date: message.parsedMessage.headers.date,
+                    replyTo: message.parsedMessage.headers.replyTo,
+                    cc: message.parsedMessage.headers.cc,
+                    subject: message.parsedMessage.headers.subject,
+                    content: message.parsedMessage.textPlain,
+                    threadId: message.threadId || "",
+                    messageId: message.id || "",
+                    headerMessageId:
+                      message.parsedMessage.headers.messageId || "",
+                    references: message.parsedMessage.headers.references,
+                  },
+                  allowExecute: false,
+                }
+              );
+
+              if (isErrorMessage(res)) {
+                console.error(res);
+                toastError({
+                  description: `There was an error planning the email.`,
+                });
+              } else {
+                setPlan(res);
+              }
               setPlanning(false);
-            }, 1_000);
-          }}
-        >
-          Plan
-        </Button>
+            }}
+          >
+            Plan
+          </Button>
+        </div>
       </div>
+      <div>{JSON.stringify(plan, null, 2)}</div>
     </div>
   );
 }
