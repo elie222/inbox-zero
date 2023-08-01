@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 // import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";

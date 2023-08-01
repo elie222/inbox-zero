@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
 
 export const labelThreadBody = z.object({

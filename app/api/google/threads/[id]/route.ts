@@ -3,7 +3,7 @@ import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 
 export const dynamic = "force-dynamic";
 

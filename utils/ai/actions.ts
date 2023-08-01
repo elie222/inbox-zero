@@ -1,6 +1,5 @@
 import { type gmail_v1 } from "googleapis";
-import { draftEmail } from "@/app/api/google/draft/controller";
-import { sendEmail } from "@/app/api/google/messages/send/controller";
+import { draftEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
 import { ActBody } from "@/app/api/ai/act/validation";
@@ -245,16 +244,16 @@ const draft: ActionFunction = async (
     content: string;
   }
 ) => {
-  await draftEmail(
-    {
-      subject: args.subject,
-      body: args.content,
-      to: args.to,
-      threadId: email.threadId, // TODO check this is accurate
-      messageId: email.messageId, // TODO check this is accurate
+  await draftEmail(gmail, {
+    subject: args.subject,
+    messageText: args.content,
+    to: args.to,
+    replyToEmail: {
+      threadId: email.threadId,
+      references: email.references,
+      headerMessageId: email.headerMessageId,
     },
-    gmail
-  );
+  });
 };
 
 const send_email: ActionFunction = async (

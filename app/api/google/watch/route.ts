@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { watchEmails } from "./controller";
 
 export const dynamic = "force-dynamic";

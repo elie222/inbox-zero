@@ -1,7 +1,7 @@
 import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
 

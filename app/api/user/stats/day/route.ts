@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
 import { gmail_v1 } from "googleapis";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 
 const statsByDayQuery = z.object({
   type: z.enum(["inbox", "sent", "archived"]),

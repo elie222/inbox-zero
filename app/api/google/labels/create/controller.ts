@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { getAuthSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { saveUserLabel, saveUserLabels } from "@/utils/redis/label";

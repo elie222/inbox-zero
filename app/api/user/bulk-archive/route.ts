@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
 import { sleep } from "@/utils/sleep";
 import { withError } from "@/utils/middleware";

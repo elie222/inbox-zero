@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { actBody } from "@/app/api/ai/act/validation";
 import { withError } from "@/utils/middleware";

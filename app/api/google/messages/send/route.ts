@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
-import {
-  sendEmail,
-  sendEmailBody,
-} from "@/app/api/google/messages/send/controller";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
+import { sendEmail, sendEmailBody } from "@/utils/gmail/mail";
 
 export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();

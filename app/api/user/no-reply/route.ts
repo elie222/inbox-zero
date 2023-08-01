@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
 import { gmail_v1 } from "googleapis";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
 

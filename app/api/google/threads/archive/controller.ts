@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
 import { getAuthSession } from "@/utils/auth";
 

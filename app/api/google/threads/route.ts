@@ -3,7 +3,7 @@ import he from "he";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/google";
+import { getGmailClient } from "@/utils/gmail/client";
 import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
 
