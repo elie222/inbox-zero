@@ -63,11 +63,13 @@ export const label: FilterFunction = (
   plan?: PlanWithThread,
   args?: { label: string }
 ) => {
-  return plan?.label?.toLowerCase() === args?.label.toLowerCase();
+  return false;
+  // return plan?.label?.toLowerCase() === args?.label.toLowerCase();
 };
 
 export const to_respond: FilterFunction = (plan?: PlanWithThread) => {
-  return plan?.action === "reply";
+  return false;
+  // return plan?.action === "reply";
 };
 
 export const by_id: FilterFunction = (
