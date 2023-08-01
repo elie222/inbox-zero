@@ -24,14 +24,13 @@ export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
 type PlannedAction = {
   args: PartialRecord<ActionProperty, string>;
-  actions: Action[];
-  rule: Rule;
+  actions: Pick<Action, "type">[];
 };
 
 async function planAct(options: {
   email: ActBody["email"];
   rules: RuleWithActions[];
-}): Promise<PlannedAction | undefined> {
+}): Promise<(PlannedAction & { rule: Rule }) | undefined> {
   const { email, rules } = options;
 
   const rulesWithProperties = rules.map((rule, i) => {
@@ -149,14 +148,15 @@ ${email.content}`,
   };
 }
 
-async function executeAct(options: {
+export async function executeAct(options: {
   gmail: gmail_v1.Gmail;
   act: PlannedAction;
   email: ActBody["email"];
   userId: string;
   automated: boolean;
+  ruleId: string;
 }) {
-  const { gmail, email, act, automated, userId } = options;
+  const { gmail, email, act, automated, userId, ruleId } = options;
 
   console.log("Executing act:", JSON.stringify(act, null, 2));
 
@@ -175,7 +175,7 @@ async function executeAct(options: {
         threadId: email.threadId,
         automated,
         userId,
-        ruleId: act.rule.id,
+        ruleId,
       },
     }),
     deletePlan({ userId, threadId: email.threadId }),
@@ -203,6 +203,7 @@ export async function planOrExecuteAct(options: {
       ...options,
       act: plannedAct,
       email: options.email,
+      ruleId: plannedAct.rule.id,
     });
   } else {
     await savePlan({

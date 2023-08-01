@@ -86,5 +86,6 @@ interface Headers3 {
   to: string;
   cc?: string;
   date: string;
+  ["message-id"]: string;
   [key: string]: string | undefined;
 }

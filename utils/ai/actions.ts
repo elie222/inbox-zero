@@ -4,7 +4,7 @@ import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
 import { ActBody } from "@/app/api/ai/act/validation";
 
-export type ActionFunction = (
+type ActionFunction = (
   gmail: gmail_v1.Gmail,
   email: ActBody["email"],
   args: any

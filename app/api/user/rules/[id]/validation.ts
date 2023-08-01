@@ -4,7 +4,7 @@ import { getRule, updateRule } from "@/app/api/user/rules/[id]/controller";
 
 export type GetRuleResponse = Awaited<ReturnType<typeof getRule>>;
 
-const zodActionType = z.enum([
+export const zodActionType = z.enum([
   ActionType.ARCHIVE,
   ActionType.DRAFT_EMAIL,
   ActionType.FORWARD,

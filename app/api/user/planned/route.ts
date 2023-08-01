@@ -23,7 +23,11 @@ async function getPlanned() {
         id: plan.messageId,
       });
 
-      return { ...res.data, parsedMessage: parseMessage(res.data), plan };
+      return {
+        ...res.data,
+        parsedMessage: parseMessage(res.data),
+        plan,
+      };
     })
   );
 
