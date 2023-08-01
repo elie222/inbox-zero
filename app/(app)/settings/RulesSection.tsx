@@ -334,6 +334,12 @@ function UpdateRuleForm(props: {
           );
         })}
       </div>
+
+      {!props.rule.actions?.length && (
+        <div className="mt-8 flex justify-center">
+          <div className="text-gray-700">No actions</div>
+        </div>
+      )}
       {/* TODO */}
       {/* <div className="mt-4">
     <Button color="white" full>

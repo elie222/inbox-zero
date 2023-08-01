@@ -140,6 +140,8 @@ ${email.content}`,
     ...selectedRule.prefilledValues,
   };
 
+  console.log("args:", args);
+
   return {
     actions: selectedRule.rule.actions,
     args,
