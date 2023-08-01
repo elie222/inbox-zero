@@ -2,25 +2,10 @@ import "server-only";
 import { z } from "zod";
 import { redis } from "@/utils/redis";
 import { ActionType } from "@prisma/client";
-// import { ACTIONS } from "@/utils/config";
 
 export const planSchema = z.object({
   messageId: z.string(),
   threadId: z.string(),
-  // action: z
-  //   .enum([
-  //     ActionType.ARCHIVE,
-  //     ActionType.DRAFT_EMAIL,
-  //     ActionType.FORWARD,
-  //     ActionType.LABEL,
-  //     ActionType.MARK_SPAM,
-  //     ActionType.REPLY,
-  //     ActionType.SEND_EMAIL,
-  //     ActionType.SUMMARIZE,
-  //     "ERROR",
-  //   ])
-  //   .nullish(),
-  // functionName: z.string(),
   functionArgs: z.any({}),
   rule: z.object({
     actions: z.array(
@@ -65,6 +50,13 @@ export async function getPlan(options: {
   const key = getKey(options.userId);
   const planKey = getPlanKey(options.threadId);
   return redis.hget<Plan>(key, planKey);
+}
+
+export async function getPlans(options: { userId: string }): Promise<Plan[]> {
+  const key = getKey(options.userId);
+  const plans = await redis.hgetall<Record<string, Plan>>(key);
+
+  return Object.values(plans || {});
 }
 
 export async function savePlan(options: {

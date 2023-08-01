@@ -12,6 +12,7 @@ import {
   Cog6ToothIcon,
   InboxIcon,
   LightBulbIcon,
+  SparklesIcon,
   StarIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -19,6 +20,11 @@ import { Logo } from "@/components/Logo";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon },
+  {
+    name: "Planned",
+    href: "/planned",
+    icon: SparklesIcon,
+  },
   {
     name: "Stats",
     href: "/stats",

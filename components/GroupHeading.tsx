@@ -1,4 +1,5 @@
 import { Button } from "@/components/Button";
+// import { Checkbox } from "@/components/Checkbox";
 import React from "react";
 
 export function GroupHeading(props: {
@@ -6,7 +7,11 @@ export function GroupHeading(props: {
   buttons: { label: string; loading?: boolean; onClick: () => void }[];
 }) {
   return (
-    <div className="flex max-w-full flex-wrap items-center gap-x-6 px-4 sm:flex-nowrap sm:px-6 lg:px-8">
+    <div className="flex max-w-full flex-wrap items-center gap-x-6 px-4 sm:flex-nowrap sm:px-6">
+      {/* <div className="border-l-4 border-transparent">
+        <Checkbox checked onChange={() => {}} />
+      </div> */}
+
       <h1 className="text-base font-semibold leading-7 text-gray-900">
         {props.leftContent}
       </h1>

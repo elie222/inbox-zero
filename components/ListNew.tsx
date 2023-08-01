@@ -5,44 +5,44 @@ import {
   useMemo,
   useState,
 } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
-import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import clsx from "clsx";
 import { capitalCase } from "capital-case";
-import sortBy from "lodash/sortBy";
+import clsx from "clsx";
 import groupBy from "lodash/groupBy";
+import sortBy from "lodash/sortBy";
+import { useSearchParams } from "next/navigation";
+import { SubmitHandler, useForm } from "react-hook-form";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import { ThreadsResponse } from "@/app/api/google/threads/route";
-import { Badge, Color } from "@/components/Badge";
-import { Button } from "@/components/Button";
-import { Celebration } from "@/components/Celebration";
-import { GroupHeading } from "@/components/GroupHeading";
-import { Input } from "@/components/Input";
-import { LoadingMiniSpinner } from "@/components/Loading";
-import { LoadingContent } from "@/components/LoadingContent";
-import { fetcher } from "@/providers/SWRProvider";
-import { formatShortDate } from "@/utils/date";
-import { FilterArgs, FilterFunction } from "@/utils/ai/filters";
-import { type Plan } from "@/utils/redis/plan";
-import { ActionButtons } from "@/components/ActionButtons";
-import { labelThreadsAction } from "@/utils/actions";
-import { useGmail } from "@/providers/GmailProvider";
-import { toastError, toastSuccess } from "@/components/Toast";
-import { CommandDialogDemo } from "@/components/CommandDemo";
-import { Tabs } from "@/components/Tabs";
+import { Card } from "@tremor/react";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
-import { Tooltip } from "@/components/Tooltip";
-import { postRequest } from "@/utils/api";
 import {
   ArchiveBody,
   ArchiveResponse,
 } from "@/app/api/google/threads/archive/controller";
+import { ThreadsResponse } from "@/app/api/google/threads/route";
+import { ActionButtons } from "@/components/ActionButtons";
+import { Badge, Color } from "@/components/Badge";
+import { Button } from "@/components/Button";
+import { Celebration } from "@/components/Celebration";
+// import { Checkbox } from "@/components/Checkbox";
+import { GroupHeading } from "@/components/GroupHeading";
+import { Input } from "@/components/Input";
+import { LoadingMiniSpinner } from "@/components/Loading";
+import { LoadingContent } from "@/components/LoadingContent";
+import { Tabs } from "@/components/Tabs";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { Tooltip } from "@/components/Tooltip";
+import { useGmail } from "@/providers/GmailProvider";
+import { fetcher } from "@/providers/SWRProvider";
+import { labelThreadsAction } from "@/utils/actions";
+import { postRequest } from "@/utils/api";
+import { formatShortDate } from "@/utils/date";
 import { isErrorMessage } from "@/utils/error";
-import {
-  SendEmailBody,
-  SendEmailResponse,
-} from "@/app/api/google/messages/send/controller";
+import { FilterArgs, FilterFunction } from "@/utils/ai/filters";
+import { type Plan } from "@/utils/redis/plan";
+import { ParsedMessage } from "@/utils/types";
+import { useSession } from "next-auth/react";
+import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -78,8 +78,9 @@ export function List(props: {
 
   const tabGroups = useMemo(() => {
     return groupBy(
-      filteredEmails.filter((e) => e.plan?.action),
-      (e) => `${e.plan?.action}---${e.plan?.label || ""}`
+      filteredEmails
+      // filteredEmails.filter((e) => e.plan?.action),
+      // (e) => `${e.plan?.action}---${e.plan?.label || ""}`
     );
   }, [filteredEmails]);
 
@@ -233,54 +234,54 @@ export function List(props: {
                             email.thread.messages?.[0]?.parsedMessage.headers
                               .subject || "";
 
-                          if (email.plan.action === "archive") {
-                            try {
-                              // had trouble with server actions here
-                              const res = await postRequest<
-                                ArchiveResponse,
-                                ArchiveBody
-                              >("/api/google/threads/archive", {
-                                id: email.id!,
-                              });
+                          // if (email.plan.action === "archive") {
+                          //   try {
+                          //     // had trouble with server actions here
+                          //     const res = await postRequest<
+                          //       ArchiveResponse,
+                          //       ArchiveBody
+                          //     >("/api/google/threads/archive", {
+                          //       id: email.id!,
+                          //     });
 
-                              if (isErrorMessage(res)) {
-                                console.error(res);
-                                toastError({
-                                  description: `Error archiving  ${subject}`,
-                                });
-                              } else {
-                                toastSuccess({
-                                  title: "Archvied!",
-                                  description: `Archived ${subject}`,
-                                });
-                              }
-                            } catch (error) {
-                              console.error(error);
-                              toastError({
-                                description: `Error archiving ${subject}`,
-                              });
-                            }
-                          } else if (email.plan.action === "label") {
-                            const labelName = email.plan.label;
-                            const label = labelsArray.find(
-                              (label) => label.name === labelName
-                            );
-                            if (!label) continue;
+                          //     if (isErrorMessage(res)) {
+                          //       console.error(res);
+                          //       toastError({
+                          //         description: `Error archiving  ${subject}`,
+                          //       });
+                          //     } else {
+                          //       toastSuccess({
+                          //         title: "Archvied!",
+                          //         description: `Archived ${subject}`,
+                          //       });
+                          //     }
+                          //   } catch (error) {
+                          //     console.error(error);
+                          //     toastError({
+                          //       description: `Error archiving ${subject}`,
+                          //     });
+                          //   }
+                          // } else if (email.plan.action === "label") {
+                          //   const labelName = email.plan.label;
+                          //   const label = labelsArray.find(
+                          //     (label) => label.name === labelName
+                          //   );
+                          //   if (!label) continue;
 
-                            await labelThreadsAction({
-                              labelId: label.id,
-                              threadIds: [email.id!],
-                              // threadIds: tabEmails
-                              //   .map((email) => email.id)
-                              //   .filter(isDefined),
-                              archive: true,
-                            });
+                          //   await labelThreadsAction({
+                          //     labelId: label.id,
+                          //     threadIds: [email.id!],
+                          //     // threadIds: tabEmails
+                          //     //   .map((email) => email.id)
+                          //     //   .filter(isDefined),
+                          //     archive: true,
+                          //   });
 
-                            toastSuccess({
-                              title: "Labelled",
-                              description: `Labelled ${subject}`,
-                            });
-                          }
+                          //   toastSuccess({
+                          //     title: "Labelled",
+                          //     description: `Labelled ${subject}`,
+                          //   });
+                          // }
                         }
                       } catch (error) {
                         toastError({
@@ -295,6 +296,9 @@ export function List(props: {
           }
         />
       </div>
+      {/* <div className="divide-gray-100 border-b bg-white px-4 sm:px-6 py-2 border-l-4">
+        <Checkbox checked onChange={() => {}} />
+      </div> */}
       {tabEmails.length ? (
         <EmailList emails={tabEmails} refetch={props.refetch} />
       ) : (
@@ -307,7 +311,7 @@ export function List(props: {
 export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
   // if performance becomes an issue check this:
   // https://ianobermiller.com/blog/highlight-table-row-column-react#react-state
-  const [hovered, setHovered] = useState<Thread>();
+  // const [hovered, setHovered] = useState<Thread>();
   const [openedRow, setOpenedRow] = useState<Thread>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -317,19 +321,28 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
   const closePanel = useCallback(() => setOpenedRow(undefined), []);
   const onShowReply = useCallback(() => setShowReply(true), []);
 
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown" && e.shiftKey) {
-        setSelectedRows((s) => ({ ...s, [hovered?.id!]: true }));
-        console.log("down");
-      } else if (e.key === "ArrowUp") {
-        console.log("up");
-      }
-    };
+  const session = useSession();
 
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, [hovered?.id]);
+  const onSetSelectedRow = useCallback(
+    (id: string) => {
+      setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
+    },
+    [setSelectedRows]
+  );
+
+  // useEffect(() => {
+  //   const down = (e: KeyboardEvent) => {
+  //     if (e.key === "ArrowDown" && e.shiftKey) {
+  //       setSelectedRows((s) => ({ ...s, [hovered?.id!]: true }));
+  //       console.log("down");
+  //     } else if (e.key === "ArrowUp") {
+  //       console.log("up");
+  //     }
+  //   };
+
+  //   document.addEventListener("keydown", down);
+  //   return () => document.removeEventListener("keydown", down);
+  // }, [hovered?.id]);
 
   return (
     <div
@@ -342,13 +355,15 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
         {props.emails.map((email) => (
           <EmailListItem
             key={email.id}
+            userEmailAddress={session.data?.user.email || ""}
             email={email}
             opened={openedRow?.id === email.id}
             selected={selectedRows[email.id!]}
+            onSelected={onSetSelectedRow}
             splitView={!!openedRow}
             onClick={() => setOpenedRow(email)}
             onShowReply={onShowReply}
-            onMouseEnter={() => setHovered(email)}
+            // onMouseEnter={() => setHovered(email)}
             refetchEmails={props.refetch}
           />
         ))}
@@ -363,38 +378,43 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
         />
       )}
 
-      <CommandDialogDemo selected={hovered?.id || undefined} />
+      {/* <CommandDialogDemo selected={hovered?.id || undefined} /> */}
     </div>
   );
 }
 
 function EmailListItem(props: {
+  userEmailAddress: string;
   email: Thread;
   opened: boolean;
   selected: boolean;
   splitView: boolean;
   onClick: MouseEventHandler<HTMLLIElement>;
+  onSelected: (id: string) => void;
   onShowReply: () => void;
-  onMouseEnter: () => void;
+  // onMouseEnter: () => void;
   refetchEmails: () => void;
 }) {
-  const { email, splitView } = props;
+  const { email, splitView, onSelected } = props;
 
   const lastMessage = email.thread.messages?.[email.thread.messages.length - 1];
 
+  const onRowSelected = useCallback(
+    () => onSelected(email.id!),
+    [email.id, onSelected]
+  );
+
   return (
     <li
-      className={clsx(
-        "group relative cursor-pointer border-l-4 py-3 hover:bg-gray-50",
-        {
-          "bg-gray-500": props.selected,
-          "border-l-blue-500 bg-gray-50": props.opened,
-        }
-      )}
+      className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
+        "hover:bg-gray-50": !props.selected,
+        "bg-blue-50": props.selected,
+        "border-l-blue-500 bg-gray-50": props.opened,
+      })}
       onClick={props.onClick}
-      onMouseEnter={props.onMouseEnter}
+      // onMouseEnter={props.onMouseEnter}
     >
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-4 sm:px-6">
         <div className="mx-auto flex justify-between">
           {/* left */}
           <div
@@ -403,8 +423,15 @@ function EmailListItem(props: {
               splitView ? "w-2/3" : "w-5/6"
             )}
           >
+            {/* <div className="flex items-center">
+              <Checkbox checked={props.selected} onChange={onRowSelected} />
+            </div> */}
+
+            {/* <div className="ml-4 w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900"> */}
             <div className="w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
-              {fromName(lastMessage.parsedMessage.headers.from)}
+              {fromName(
+                participant(lastMessage.parsedMessage, props.userEmailAddress)
+              )}
             </div>
             {!splitView && (
               <>
@@ -480,11 +507,13 @@ function EmailPanel(props: {
   const lastMessage =
     props.row.thread.messages?.[props.row.thread.messages.length - 1];
 
-  const html = lastMessage.parsedMessage.textHtml || "";
+  // console.log(props.row.thread.messages.map(m => m.payload?.mimeType).join(", "))
+  // console.log(props.row.thread.messages.map(m => m.parsedMessage.textHtml.substring(0,50)).join("\n"))
+  // console.log(props.row.thread.messages.map(m => m.parsedMessage.textPlain.substring(0,50)).join("\n"))
 
-  const srcDoc = useMemo(() => getIframeHtml(html), [html]);
-
-  const showReply = props.showReply || props.row.plan?.action === "reply";
+  // const showReply = props.showReply || props.row.plan?.action === "reply";
+  const showReply = props.showReply;
+  const showThread = props.row.thread.messages?.length > 1;
 
   return (
     <div className="flex flex-col border-l border-l-gray-100">
@@ -522,14 +551,17 @@ function EmailPanel(props: {
         </div>
       </div>
       <div className="flex flex-1 flex-col">
-        <div className="flex-1">
-          <iframe srcDoc={srcDoc} className="h-full w-full" />
-        </div>
+        {showThread ? (
+          <EmailThread messages={props.row.thread.messages} />
+        ) : (
+          <HtmlEmail html={lastMessage.parsedMessage.textHtml || ""} />
+        )}
         {showReply && (
           <div className="h-64 shrink-0 border-t border-t-gray-100">
             <SendEmailForm
               threadId={props.row.id!}
-              defaultMessage={props.row.plan?.response || ""}
+              // defaultMessage={props.row.plan?.response || ""}
+              defaultMessage={""}
               subject={lastMessage.parsedMessage.headers.subject}
               to={lastMessage.parsedMessage.headers.from}
               cc={lastMessage.parsedMessage.headers.cc}
@@ -537,6 +569,38 @@ function EmailPanel(props: {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function EmailThread(props: { messages: any[] }) {
+  return (
+    <div className="flex flex-1 flex-col overflow-auto">
+      <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
+        {props.messages?.map((message) => {
+          // const html = getIframeHtml(message.parsedMessage.textHtml || "");
+          // console.log("🚀 ~ file: ListNew.tsx:552 ~ {props.messages?.map ~ message.parsedMessage:", message.parsedMessage)
+
+          return (
+            <Card key={message.id}>
+              <HtmlEmail html={message.parsedMessage.textHtml || ""} />
+              {/* <div className="max-w-full whitespace-pre-wrap">
+                {message.parsedMessage.textPlain}
+              </div> */}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HtmlEmail(props: { html: string }) {
+  const srcDoc = useMemo(() => getIframeHtml(props.html), [props.html]);
+
+  return (
+    <div className="flex-1">
+      <iframe srcDoc={srcDoc} className="h-full w-full" />
     </div>
   );
 }
@@ -557,8 +621,8 @@ const SendEmailForm = (props: {
     getValues,
   } = useForm<SendEmailBody>({
     defaultValues: {
-      threadId: props.threadId,
-      message: props.defaultMessage,
+      // threadId: props.threadId,
+      messageText: props.defaultMessage,
       subject: props.subject,
       to: props.to,
       cc: props.cc,
@@ -566,18 +630,18 @@ const SendEmailForm = (props: {
     },
   });
 
-  useEffect(() => {
-    if (props.threadId !== getValues("threadId")) {
-      reset({
-        threadId: props.threadId,
-        message: props.defaultMessage,
-        subject: props.subject,
-        to: props.to,
-        cc: props.cc,
-        replyTo: props.replyTo,
-      });
-    }
-  }, [props, getValues, reset]);
+  // useEffect(() => {
+  //   if (props.threadId !== getValues("threadId")) {
+  //     reset({
+  //       threadId: props.threadId,
+  //       messageText: props.defaultMessage,
+  //       subject: props.subject,
+  //       to: props.to,
+  //       cc: props.cc,
+  //       replyTo: props.replyTo,
+  //     });
+  //   }
+  // }, [props, getValues, reset]);
 
   const onSubmit: SubmitHandler<SendEmailBody> = useCallback(async (data) => {
     try {
@@ -600,10 +664,10 @@ const SendEmailForm = (props: {
         type="text"
         as="textarea"
         rows={6}
-        name="message"
+        name="messageText"
         label="Reply"
-        registerProps={register("message", { required: true })}
-        error={errors.message}
+        registerProps={register("messageText", { required: true })}
+        error={errors.messageText}
       />
       <div className="mt-2 flex">
         <Button type="submit" color="transparent" loading={isSubmitting}>
@@ -622,6 +686,19 @@ function fromName(email: string) {
   return email.split("<")[0];
 }
 
+function participant(parsedMessage: ParsedMessage, userEmail: string) {
+  // returns the other side of the conversation
+  // if we're the sender, then return the recipient
+  // if we're the recipient, then return the sender
+
+  const sender: string = parsedMessage.headers.from;
+  const recipient = parsedMessage.headers.to;
+
+  if (sender.includes(userEmail)) return recipient;
+
+  return sender;
+}
+
 function PlanBadge(props: {
   id: string;
   subject: string;
@@ -630,6 +707,7 @@ function PlanBadge(props: {
   plan?: Plan | null;
   refetchEmails: () => void;
 }) {
+  return null;
   // skip fetching plan if we have it already
   // TODO move this higher up the tree. We need to know plans to refetch tabs too
   const { data, isLoading, error } = useSWR<PlanResponse>(
@@ -652,61 +730,64 @@ function PlanBadge(props: {
 
   const { refetchEmails } = props;
 
-  useEffect(() => {
-    if (!props.plan && data?.plan?.action) refetchEmails();
-  }, [data?.plan?.action, props.plan, refetchEmails]);
+  // useEffect(() => {
+  //   if (!props.plan && data?.plan?.action) refetchEmails();
+  // }, [data?.plan?.action, props.plan, refetchEmails]);
 
-  const plan = props.plan || data?.plan;
+  // const plan = props.plan || data?.plan;
 
-  if (plan?.action === "error") {
-    console.error(plan?.response);
-  }
+  // if (plan?.action === "error") {
+  //   console.error(plan?.response);
+  // }
 
   return (
     <LoadingContent
       loading={isLoading}
       error={error}
       loadingComponent={<LoadingMiniSpinner />}
+      errorComponent={<div>Error</div>}
     >
-      {!!plan && (
+      {/* {!!plan && (
         <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>
-      )}
+      )} */}
     </LoadingContent>
   );
 }
 
 function getActionMessage(plan: Plan | null): string {
-  switch (plan?.action) {
-    case "reply":
-      return "Respond";
-    case "archive":
-      return "Archive";
-    case "label":
-      return `Label as ${plan.label}`;
-    case "to_do":
-      return `To do`;
-    case "error":
-      return "Error";
-    default:
-      return "Error";
-  }
+  return "To do";
+  // switch (plan?.action) {
+  //   case "reply":
+  //     return "Respond";
+  //   case "archive":
+  //     return "Archive";
+  //   case "label":
+  //     return `Label as ${plan.label}`;
+  //   case "to_do":
+  //     return `To do`;
+  //   case "error":
+  //     return "Error";
+  //   default:
+  //     return "Error";
+  // }
 }
 
 function getActionColor(plan: Plan | null): Color {
-  switch (plan?.action) {
-    case "reply":
-      return "green";
-    case "archive":
-      return "yellow";
-    case "label":
-      return "blue";
-    case "to_do":
-      return "purple";
-    case "error":
-      return "red";
-    default:
-      return "gray";
-  }
+  return "green";
+  //   switch (plan?.action) {
+  // case "reply":
+  //   return "green";
+  // case "archive":
+  //   return "yellow";
+  // case "label":
+  //   return "blue";
+  // case "to_do":
+  //   return "purple";
+  // case "error":
+  //   return "red";
+  // default:
+  //   return "gray";
+  // }
 }
 
 function getIframeHtml(html: string) {
