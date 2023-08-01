@@ -33,12 +33,12 @@ export default function Home() {
       <LoadingContent loading={isLoading} error={error}>
         {/* {data && <List emails={data?.messages || []} refetch={mutate} />} */}
         {data?.messages.length ? (
-          <div className="border-b border-gray-200 p-4">
+          <div className="">
             {data.messages.map((message) => {
               return (
                 <div
                   key={message.id}
-                  className="flex items-center justify-between"
+                  className="flex items-center justify-between border-b border-gray-200 p-4"
                 >
                   <div>{message.snippet}</div>
                   <div className="flex items-center">
@@ -127,13 +127,13 @@ export default function Home() {
       </LoadingContent>
 
       <div className="mx-auto max-w-2xl p-8">
-        <RunRules />
+        <RunAI />
       </div>
     </div>
   );
 }
 
-function RunRules() {
+function RunAI() {
   return (
     <Card>
       <p>Run AI on last 10 emails.</p>

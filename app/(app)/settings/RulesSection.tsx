@@ -42,6 +42,8 @@ import {
   type UpdateRuleResponse,
 } from "@/app/api/user/rules/[id]/validation";
 import { actionInputs } from "@/utils/actionType";
+import { SlideOverSheet } from "@/components/SlideOverSheet";
+import { ThreadsResponse } from "@/app/api/google/threads/route";
 
 export function RulesSection() {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
@@ -162,9 +164,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
             .join(", ")}
           .
         </SectionDescription>
-        {/* <div className="mt-4">
-          <Button color="white">Test</Button>
-        </div> */}
+        <TestRules />
       </div>
 
       <div className="md:col-span-2">
@@ -372,5 +372,69 @@ function UpdateRuleForm(props: {
         </SubmitButtonWrapper>
       </div>
     </form>
+  );
+}
+
+function TestRules() {
+  return (
+    <SlideOverSheet
+      title="Test Rules"
+      description="Test how your rules perform agains real emails."
+      content={<TestRulesContent />}
+    >
+      <div className="mt-4">
+        <Button color="white">Test</Button>
+      </div>
+    </SlideOverSheet>
+  );
+}
+
+function TestRulesContent() {
+  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
+    "/api/google/threads?limit=5",
+    {
+      keepPreviousData: true,
+      dedupingInterval: 1_000,
+    }
+  );
+
+  return (
+    <div>
+      <LoadingContent loading={isLoading} error={error}>
+        {data && (
+          <div className="">
+            {data.threads.map((thread) => {
+              return <TestRulesContentRow key={thread.id} thread={thread} />;
+            })}
+          </div>
+        )}
+      </LoadingContent>
+    </div>
+  );
+}
+
+function TestRulesContentRow(props: {
+  thread: ThreadsResponse["threads"][number];
+}) {
+  const [planning, setPlanning] = useState(false);
+
+  return (
+    <div className="flex items-center justify-between border-b border-gray-200 py-4">
+      <div className="">{props.thread.snippet.trim()}</div>
+      <div className="ml-4">
+        <Button
+          color="white"
+          loading={planning}
+          onClick={() => {
+            setPlanning(true);
+            setTimeout(() => {
+              setPlanning(false);
+            }, 1_000);
+          }}
+        >
+          Plan
+        </Button>
+      </div>
+    </div>
   );
 }

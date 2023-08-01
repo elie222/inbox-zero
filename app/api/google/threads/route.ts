@@ -1,4 +1,4 @@
-// import { z } from "zod";
+import { z } from "zod";
 import he from "he";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
@@ -9,11 +9,11 @@ import { INBOX_LABEL_ID } from "@/utils/label";
 
 export const dynamic = "force-dynamic";
 
-// const threadsQuery = z.object({ slug: z.string() });
-// export type ThreadsQuery = z.infer<typeof threadsQuery>;
+const threadsQuery = z.object({ limit: z.coerce.number().max(500).optional() });
+export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
-async function getThreads() {
+async function getThreads(query: ThreadsQuery) {
   const session = await getAuthSession();
   if (!session) throw new Error("Not authenticated");
 
@@ -22,7 +22,7 @@ async function getThreads() {
   const res = await gmail.users.threads.list({
     userId: "me",
     labelIds: [INBOX_LABEL_ID],
-    maxResults: 50,
+    maxResults: query.limit || 50,
   });
 
   const threadsWithMessages = await Promise.all(
@@ -43,9 +43,13 @@ async function getThreads() {
   return { threads: threadsWithMessages };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const limit = searchParams.get("limit");
+  const query = threadsQuery.parse({ limit });
+
   try {
-    const threads = await getThreads();
+    const threads = await getThreads(query);
     return NextResponse.json(threads);
   } catch (error) {
     console.error(error);
