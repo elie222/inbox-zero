@@ -2,7 +2,10 @@ import { ZodError } from "zod";
 import { NextResponse } from "next/server";
 import { captureException } from "@/utils/error";
 
-export type NextHandler = (req: Request, params?: any) => Promise<unknown>;
+export type NextHandler = (
+  req: Request,
+  { params }: { params: Record<string, string> }
+) => Promise<unknown>;
 
 export function withError(handler: NextHandler): NextHandler {
   return async (req, params) => {

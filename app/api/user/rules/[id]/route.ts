@@ -21,9 +21,10 @@ export async function GET(
 }
 
 export const POST = withError(
-  async (request: Request, params: { id: string }) => {
+  async (request, { params }: { params: { id?: string } }) => {
     const session = await getAuthSession();
     if (!session) return NextResponse.json({ error: "Not authenticated" });
+    if (!params.id) return NextResponse.json({ error: "Missing id" });
 
     const json = await request.json();
     const body = updateRuleBody.parse(json);

@@ -26,7 +26,6 @@ export const zodAction = z.object({
 });
 
 export const updateRuleBody = z.object({
-  id: z.string(),
   instructions: z.string().nullish(),
   automate: z.boolean().nullish(),
   actions: z.array(zodAction).nullish(),

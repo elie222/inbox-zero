@@ -262,7 +262,7 @@ function RuleModal(props: { rule?: UpdateRuleBody; closeModal: () => void }) {
 }
 
 function UpdateRuleForm(props: {
-  rule: UpdateRuleBody;
+  rule: UpdateRuleBody & { id?: string };
   closeModal: () => void;
 }) {
   const { closeModal } = props;
