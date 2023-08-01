@@ -17,17 +17,7 @@ export const AboutSectionForm = (props: { about?: string }) => {
     register,
     formState: { errors, isSubmitting },
   } = useForm<SaveAboutBody>({
-    defaultValues: {
-      about:
-        props.about ||
-        `I am the CEO of a company called CoolRobotsAI. We help companies build robots.
-
-Some rules to follow:
-* Be friendly, concise, and professional, but not overly formal.
-* Draft responses of 1-3 sentences when necessary.
-* Add the newsletter label to emails that are newsletters.
-* Draft responses to snoozed emails that I haven't received a response to yet.`,
-    },
+    defaultValues: { about: props.about },
   });
 
   return (
@@ -61,6 +51,9 @@ Some rules to follow:
                 label="About you"
                 registerProps={register("about", { required: true })}
                 error={errors.about}
+                placeholder={`Some rules to follow:
+* Be friendly, concise, and professional, but not overly formal.
+* Keep responses short and to the point.`}
               />
             </div>
           </FormSectionRight>
