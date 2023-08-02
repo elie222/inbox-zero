@@ -28,6 +28,7 @@ export const POST = withError(async (request: Request) => {
       userId: true,
       user: {
         select: {
+          about: true,
           lastSyncedHistoryId: true,
           rules: { include: { actions: true } },
         },
@@ -55,6 +56,7 @@ export const POST = withError(async (request: Request) => {
       email: decodedData.emailAddress,
       gmail,
       rules: account.user.rules,
+      about: account.user.about || "",
     });
 
     return NextResponse.json({ ok: true });
@@ -84,10 +86,11 @@ async function planHistory(options: {
   history: gmail_v1.Schema$History[];
   userId: string;
   email: string;
+  about: string;
   gmail: gmail_v1.Gmail;
   rules: RuleWithActions[];
 }) {
-  const { history, userId, email, gmail, rules } = options;
+  const { history, userId, email, gmail, rules, about } = options;
 
   if (!history?.length) return;
 
@@ -126,6 +129,7 @@ async function planHistory(options: {
           gmail,
           userId,
           automated: true,
+          userAbout: about,
         });
       } else {
         console.error("No message", parsedMessage);

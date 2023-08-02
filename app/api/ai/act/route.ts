@@ -28,6 +28,7 @@ export const POST = withError(async (request: Request) => {
     forceExecute: body.forceExecute,
     userId: user.id,
     automated: false,
+    userAbout: user.about || "",
   });
 
   return NextResponse.json(result || { action: "no_action" });

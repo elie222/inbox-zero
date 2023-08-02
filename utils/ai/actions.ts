@@ -317,7 +317,7 @@ const forward: ActionFunction = async (
     cc: args.cc,
     bcc: args.bcc,
     subject: `Fwd: ${email.subject}`,
-    messageText: `${args.content}
+    messageText: `${args.content ?? ""}
 
 ---------- Forwarded message ----------
 

@@ -30,6 +30,7 @@ type PlannedAction = {
 async function planAct(options: {
   email: ActBody["email"];
   rules: RuleWithActions[];
+  userAbout: string;
 }): Promise<(PlannedAction & { rule: Rule }) | undefined> {
   const { email, rules } = options;
 
@@ -96,6 +97,14 @@ ${rules
   )
   .join("\n\n")}`,
       },
+      ...(options.userAbout
+        ? [
+            {
+              role: "user" as const,
+              content: `Some additional information the user has provided:\n\n${options.userAbout}`,
+            },
+          ]
+        : []),
       {
         role: "user",
         content: `From: ${email.from}
@@ -189,6 +198,7 @@ export async function planOrExecuteAct(options: {
   allowExecute: boolean;
   forceExecute?: boolean;
   userId: string;
+  userAbout: string;
   automated: boolean;
 }) {
   const plannedAct = await planAct(options);
