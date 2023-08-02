@@ -82,7 +82,7 @@ export function SideNav(props: {
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <div className="fixed inset-0 bg-gray-900/80" />
+              <div className="fixed inset-0 bg-black/80" />
             </Transition.Child>
 
             <div className="fixed inset-0 flex">
@@ -147,7 +147,7 @@ function Sidebar(props: { isMobile: boolean }) {
   return (
     <div
       className={clsx(
-        "flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4",
+        "flex grow flex-col gap-y-5 overflow-y-auto bg-black px-6 pb-4",
         {
           "ring-1 ring-white/10": props.isMobile,
         }
