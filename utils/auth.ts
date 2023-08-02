@@ -128,6 +128,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   });
 
   if (!account?.refresh_token) {
+    console.error("No refresh token found in database for", account?.userId);
     return {
       ...token,
       error: "RefreshAccessTokenError",
@@ -191,6 +192,16 @@ async function saveRefreshToken(
   },
   account: Pick<Account, "refresh_token" | "providerAccountId">
 ) {
+  console.error(
+    "Saving refresh token:",
+    !!tokens.refresh_token,
+    "Saving access token:",
+    !!tokens.access_token,
+    "Saving expires at:",
+    tokens.expires_at,
+    tokens.expires_at ? new Date(tokens.expires_at * 1000) : "no expires_at"
+  );
+
   return await prisma.account.update({
     data: {
       access_token: tokens.access_token,
