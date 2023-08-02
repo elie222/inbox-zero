@@ -39,7 +39,6 @@ export const POST = withError(async (request: Request) => {
   try {
     const gmail = getGmailClient({
       accessToken: account.access_token ?? undefined,
-      refreshToken: account.refresh_token ?? undefined,
     });
 
     const history = await listHistory(

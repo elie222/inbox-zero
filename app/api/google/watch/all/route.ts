@@ -14,7 +14,6 @@ export async function GET() {
 
       const gmail = getGmailClient({
         accessToken: account.access_token ?? undefined,
-        refreshToken: account.refresh_token ?? undefined,
       });
 
       await watchEmails(account.userId, gmail);
