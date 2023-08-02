@@ -126,9 +126,9 @@ export default function Home() {
         )}
       </LoadingContent>
 
-      <div className="mx-auto max-w-2xl p-8">
+      {/* <div className="mx-auto max-w-2xl p-8">
         <RunAI />
-      </div>
+      </div> */}
     </div>
   );
 }
