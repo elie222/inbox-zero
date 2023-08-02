@@ -1,27 +1,21 @@
 import { google } from "googleapis";
 
-const getClient = (session: {
+type ClientOptions = {
   accessToken?: string;
-  refreshToken?: string;
-}) => {
+};
+
+const getClient = (session: ClientOptions) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const accessToken = session.accessToken;
-  const refreshToken = session.refreshToken;
 
   const auth = new google.auth.OAuth2({ clientId, clientSecret });
-  auth.setCredentials({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
+  // not passing refresh_token as next-auth handles that
+  auth.setCredentials({ access_token: session.accessToken });
 
   return auth;
 };
 
-export const getGmailClient = (session: {
-  accessToken?: string;
-  refreshToken?: string;
-}) => {
+export const getGmailClient = (session: ClientOptions) => {
   const auth = getClient(session);
   const gmail = google.gmail({ version: "v1", auth });
 

@@ -89,9 +89,13 @@ export const authOptions: NextAuthOptions = {
 
         return token;
       } else if (token.expires_at && Date.now() < token.expires_at) {
+        console.log("token has not expired yet", token.expires_at);
+
         // If the access token has not expired yet, return it
         return token;
       } else {
+        console.log("token has expired", token.expires_at);
+
         // If the access token has expired, try to refresh it
         return await refreshAccessToken(token);
       }
@@ -104,8 +108,9 @@ export const authOptions: NextAuthOptions = {
 
       // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
       session.accessToken = token?.access_token;
-      session.refreshToken = token?.refresh_token;
       session.error = token?.error;
+
+      if (session.error) console.error("session.error", session.error);
 
       return session;
     },
@@ -210,7 +215,6 @@ export function getAuthSession() {
       image: string;
     };
     accessToken?: string;
-    refreshToken?: string;
   } | null>;
 }
 
@@ -221,7 +225,6 @@ declare module "next-auth" {
   interface Session {
     user: {} & DefaultSession["user"] & { id: string };
     accessToken?: string;
-    refreshToken?: string;
     error?: "RefreshAccessTokenError";
   }
 }
