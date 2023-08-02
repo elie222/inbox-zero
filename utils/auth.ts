@@ -163,6 +163,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       // Fall back to old refresh token, but note that
       // many providers may only allow using a refresh token once.
       refresh_token: tokens.refresh_token ?? token.refresh_token,
+      error: undefined,
     };
   } catch (error) {
     console.error("Error refreshing access token", error);
