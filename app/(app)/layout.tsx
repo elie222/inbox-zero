@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
-// import { PromptProvider } from "@/providers/PromptProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
 import { getAuthSession } from "@/utils/auth";
+import { TokenCheck } from "@/components/TokenCheck";
 
 export const metadata = {
   title: "Inbox Zero AI",
@@ -22,7 +22,7 @@ export default async function RootLayout({
 }) {
   const session = await getAuthSession();
 
-  if (!session?.user.email) redirect("/api/auth/signin");
+  if (!session?.user.email) redirect("/login");
 
   return (
     <html lang="en">
@@ -30,6 +30,7 @@ export default async function RootLayout({
         <SWRProvider>
           <GmailProvider>
             <SessionProvider>
+              <TokenCheck />
               <SideNavWithTopNav>{children}</SideNavWithTopNav>
             </SessionProvider>
           </GmailProvider>

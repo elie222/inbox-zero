@@ -25,7 +25,9 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
 ];
 
-export const authOptions: NextAuthOptions = {
+export const getAuthOptions: (options?: {
+  consent: boolean;
+}) => NextAuthOptions = (options) => ({
   secret: process.env.SECRET,
   providers: [
     GoogleProvider({
@@ -37,8 +39,10 @@ export const authOptions: NextAuthOptions = {
           scope: SCOPES.join(" "),
           access_type: "offline",
           response_type: "code",
-          // can be helpful for dev we don't have the refresh token: https://github.com/nextauthjs/next-auth/issues/269#issuecomment-644274504
-          // prompt: "consent",
+          // when we don't have the refresh token
+          // refresh token is only provided on first sign up unless we pass prompt=consent
+          // https://github.com/nextauthjs/next-auth/issues/269#issuecomment-644274504
+          prompt: options?.consent ? "consent" : undefined,
         },
       },
     }),
@@ -111,7 +115,12 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-};
+  pages: {
+    signIn: "/login",
+  },
+});
+
+export const authOptions = getAuthOptions();
 
 /**
  * Takes a token, and returns a new token with updated
