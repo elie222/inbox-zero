@@ -89,13 +89,9 @@ export const authOptions: NextAuthOptions = {
 
         return token;
       } else if (token.expires_at && Date.now() < token.expires_at) {
-        console.log("token has not expired yet", token.expires_at);
-
         // If the access token has not expired yet, return it
         return token;
       } else {
-        console.log("token has expired", token.expires_at);
-
         // If the access token has expired, try to refresh it
         return await refreshAccessToken(token);
       }
@@ -192,16 +188,6 @@ async function saveRefreshToken(
   },
   account: Pick<Account, "refresh_token" | "providerAccountId">
 ) {
-  console.error(
-    "Saving refresh token:",
-    !!tokens.refresh_token,
-    "Saving access token:",
-    !!tokens.access_token,
-    "Saving expires at:",
-    tokens.expires_at,
-    tokens.expires_at ? new Date(tokens.expires_at * 1000) : "no expires_at"
-  );
-
   return await prisma.account.update({
     data: {
       access_token: tokens.access_token,
