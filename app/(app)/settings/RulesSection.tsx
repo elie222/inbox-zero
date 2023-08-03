@@ -64,7 +64,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields, isDirty },
     control,
     watch,
     setValue,
@@ -105,8 +105,9 @@ export function RulesForm(props: { rules: RulesResponse }) {
         }
 
         await Promise.all(
-          res.map(async (r) => {
-            if (r.actions.length) return;
+          res.map(async (r, i) => {
+            // if the rule is the same, don't recategorize
+            if (r.instructions === props.rules[i].instructions) return;
 
             const categorizedRule = await postRequest<
               CategorizeRuleResponse,
