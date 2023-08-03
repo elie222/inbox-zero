@@ -761,9 +761,9 @@ function PlanBadge(props: {
 }) {
   const { id, subject, message, senderEmail, plan } = props;
 
-  if (!plan) return null;
+  if (!plan) return <Badge color="gray">Not planned</Badge>;
 
-  if (!plan.rule) return <Badge color={"yellow"}>No plan</Badge>;
+  if (!plan.rule) return <Badge color="yellow">No plan</Badge>;
 
   return <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>;
 }
