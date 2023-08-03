@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
 import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
-import { isDefined } from "@/utils/types";
+import { MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
@@ -38,7 +38,7 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
               messages: thread.messages?.map((message) => {
                 return {
                   ...message,
-                  parsedMessage: parseMessage(message),
+                  parsedMessage: parseMessage(message as MessageWithPayload),
                 };
               }),
             },

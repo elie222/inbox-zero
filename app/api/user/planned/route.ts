@@ -3,7 +3,7 @@ import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
 import { parseMessage } from "@/utils/mail";
-import { isDefined } from "@/utils/types";
+import { MessageWithPayload, isDefined } from "@/utils/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ async function getPlanned() {
 
       return {
         ...res.data,
-        parsedMessage: parseMessage(res.data),
+        parsedMessage: parseMessage(res.data as MessageWithPayload),
         plan,
       };
     })

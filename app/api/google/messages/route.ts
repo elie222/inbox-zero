@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
+import { MessageWithPayload } from "@/utils/types";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
@@ -25,7 +26,7 @@ async function getMessages() {
 
       return {
         ...res.data,
-        parsedMessage: parseMessage(res.data),
+        parsedMessage: parseMessage(res.data as MessageWithPayload),
       };
     })
   );
