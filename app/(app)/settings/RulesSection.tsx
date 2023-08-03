@@ -107,7 +107,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
         await Promise.all(
           res.map(async (r, i) => {
             // if the rule is the same, don't recategorize
-            if (r.instructions === props.rules[i].instructions) return;
+            if (r.instructions === props.rules?.[i]?.instructions) return;
 
             const categorizedRule = await postRequest<
               CategorizeRuleResponse,
@@ -137,7 +137,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
         });
       }
     },
-    [setValue]
+    [setValue, props.rules]
   );
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
