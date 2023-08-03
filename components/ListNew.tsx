@@ -45,6 +45,7 @@ import { useSession } from "next-auth/react";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
+import { ActionType } from "@prisma/client";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -630,7 +631,6 @@ function EmailThread(props: { messages: any[] }) {
       <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
         {props.messages?.map((message) => {
           // const html = getIframeHtml(message.parsedMessage.textHtml || "");
-          // console.log("🚀 ~ file: ListNew.tsx:552 ~ {props.messages?.map ~ message.parsedMessage:", message.parsedMessage)
 
           return (
             <Card key={message.id}>
@@ -769,39 +769,29 @@ function PlanBadge(props: {
 }
 
 function getActionMessage(plan: Plan | null): string {
-  return "To do";
-  // switch (plan?.action) {
-  //   case "reply":
-  //     return "Respond";
-  //   case "archive":
-  //     return "Archive";
-  //   case "label":
-  //     return `Label as ${plan.label}`;
-  //   case "to_do":
-  //     return `To do`;
-  //   case "error":
-  //     return "Error";
-  //   default:
-  //     return "Error";
-  // }
+  switch (plan?.rule?.actions?.[0]?.type) {
+    case ActionType.REPLY:
+      return "Respond";
+    case ActionType.ARCHIVE:
+      return "Archive";
+    case ActionType.LABEL:
+      return `Label as ${plan.rule.actions[0].label}`;
+    default:
+      return "Error";
+  }
 }
 
 function getActionColor(plan: Plan | null): Color {
-  return "green";
-  //   switch (plan?.action) {
-  // case "reply":
-  //   return "green";
-  // case "archive":
-  //   return "yellow";
-  // case "label":
-  //   return "blue";
-  // case "to_do":
-  //   return "purple";
-  // case "error":
-  //   return "red";
-  // default:
-  //   return "gray";
-  // }
+  switch (plan?.rule?.actions?.[0]?.type) {
+    case ActionType.REPLY:
+      return "green";
+    case ActionType.ARCHIVE:
+      return "yellow";
+    case ActionType.LABEL:
+      return "blue";
+    default:
+      return "gray";
+  }
 }
 
 function getIframeHtml(html: string) {

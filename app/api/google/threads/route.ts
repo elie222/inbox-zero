@@ -28,15 +28,17 @@ async function getThreads(query: ThreadsQuery) {
 
   const threadsWithMessages = await Promise.all(
     res.data.threads?.map(async (t) => {
-      const id = t.id!; // when is id not defined?
+      const id = t.id!;
       const thread = await gmail.users.threads.get({ userId: "me", id });
       const messages = parseMessages(thread.data as ThreadWithPayloadMessages);
+
+      const plan = await getPlan({ userId: session.user.id, threadId: id });
 
       return {
         ...t,
         snippet: he.decode(t.snippet || ""),
         thread: { ...thread.data, messages },
-        plan: await getPlan({ userId: session.user.id, threadId: id }),
+        plan,
       };
     }) || []
   );
