@@ -21,6 +21,7 @@ export const POST = withError(async (request: Request) => {
   const decodedData: { emailAddress: string; historyId: string } = JSON.parse(
     Buffer.from(data, "base64").toString().replace(/-/g, "+").replace(/_/g, "/")
   );
+  console.log("Webhook. Processing:", decodedData);
 
   const account = await prisma.account.findFirst({
     where: { user: { email: decodedData.emailAddress }, provider: "google" },
@@ -113,11 +114,6 @@ async function planHistory(options: {
         parsedMessage.headers.subject;
 
       if (message) {
-        // await plan(
-        //   { subject: parsedMessage.headers.subject, message, id: m.message.id, senderEmail: parsedMessage.headers.from, replan: false },
-        //   { id: userId, email }
-        // );
-
         await planOrExecuteAct({
           allowExecute: true,
           email: {

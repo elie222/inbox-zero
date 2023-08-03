@@ -203,6 +203,8 @@ export async function planOrExecuteAct(options: {
 }) {
   const plannedAct = await planAct(options);
 
+  console.log("Planned act:", plannedAct);
+
   if (!plannedAct) {
     await savePlan({
       userId: options.userId,
@@ -220,6 +222,8 @@ export async function planOrExecuteAct(options: {
 
   const shouldExcute =
     options.allowExecute && (plannedAct.rule?.automate || options.forceExecute);
+
+  console.log("shouldExcute:", shouldExcute);
 
   if (shouldExcute) {
     await executeAct({
