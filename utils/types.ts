@@ -41,6 +41,10 @@ export type MessageWithPayload = gmail_v1.Schema$Message & {
   payload: gmail_v1.Schema$MessagePart;
 };
 
+export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
+  messages: MessageWithPayload[];
+};
+
 export interface ParsedMessage {
   id: string;
   threadId: string;

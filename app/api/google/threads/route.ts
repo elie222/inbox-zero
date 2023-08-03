@@ -6,6 +6,7 @@ import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
+import { ThreadWithPayloadMessages } from "@/utils/types";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ async function getThreads(query: ThreadsQuery) {
     res.data.threads?.map(async (t) => {
       const id = t.id!; // when is id not defined?
       const thread = await gmail.users.threads.get({ userId: "me", id });
-      const messages = parseMessages(thread.data);
+      const messages = parseMessages(thread.data as ThreadWithPayloadMessages);
 
       return {
         ...t,
