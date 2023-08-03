@@ -31,5 +31,5 @@ export const POST = withError(async (request: Request) => {
     userAbout: user.about || "",
   });
 
-  return NextResponse.json(result || { action: "no_action" });
+  return NextResponse.json(result || { rule: null });
 });
