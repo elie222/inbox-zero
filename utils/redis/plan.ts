@@ -28,8 +28,8 @@ export const planSchema = z.object({
 });
 export type Plan = z.infer<typeof planSchema>;
 
-function getKey(email: string) {
-  return `plans:${email}`;
+function getKey(userId: string) {
+  return `plans:${userId}`;
 }
 function getPlanKey(threadId: string) {
   return `plan:${threadId}`;

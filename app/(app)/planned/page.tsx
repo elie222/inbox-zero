@@ -40,12 +40,16 @@ export default function Home() {
                   key={message.id}
                   className="flex items-center justify-between border-b border-gray-200 p-4"
                 >
-                  <div>{message.snippet}</div>
+                  <div>
+                    {message.snippet ||
+                      message.parsedMessage.textPlain?.substring(0, 100) ||
+                      message.parsedMessage.headers.from}
+                  </div>
                   <div className="flex items-center">
                     <div>
                       {message.plan.rule.actions.map((a) => a.type).join(", ")}
                     </div>
-                    <div className="ml-2 space-x-2">
+                    <div className="ml-2 flex space-x-2">
                       <Button
                         color="white"
                         roundedSize="full"
