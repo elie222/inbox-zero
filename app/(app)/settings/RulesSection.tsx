@@ -478,7 +478,11 @@ const TestRulesForm = () => {
           Plan
         </Button>
       </form>
-      {plan && <div className="mt-4">{JSON.stringify(plan, null, 2)}</div>}
+      {plan && (
+        <div className="mt-4">
+          <Plan plan={plan} />
+        </div>
+      )}
     </div>
   );
 };
@@ -538,7 +542,26 @@ function TestRulesContentRow(props: {
           </Button>
         </div>
       </div>
-      <div>{JSON.stringify(plan, null, 2)}</div>
+      <div>
+        <Plan plan={plan} />
+      </div>
     </div>
   );
+}
+
+function Plan(props: { plan: ActResponse }) {
+  const { plan } = props;
+
+  if (!plan) return null;
+
+  if (plan.rule === null) return <Card>No rule found to apply.</Card>;
+
+  if (plan.actions) {
+    return (
+      <Card>
+        <div className="font-semibold">Rule to apply:</div>
+        {plan.rule.instructions}
+      </Card>
+    );
+  }
 }
