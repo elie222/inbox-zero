@@ -45,9 +45,11 @@ export default function Home() {
                       message.parsedMessage.textPlain?.substring(0, 100) ||
                       message.parsedMessage.headers.from}
                   </div>
-                  <div className="flex items-center">
-                    <div>
-                      {message.plan.rule.actions.map((a) => a.type).join(", ")}
+                  <div className="ml-4 flex items-center">
+                    <div className="whitespace-nowrap">
+                      {message.plan.rule?.actions
+                        .map((a) => a.type)
+                        .join(", ") || "No plan"}
                     </div>
                     <div className="ml-2 flex space-x-2">
                       <Button
@@ -55,6 +57,8 @@ export default function Home() {
                         roundedSize="full"
                         loading={executing}
                         onClick={async () => {
+                          if (!message.plan.rule) return;
+
                           setExecuting(true);
 
                           try {

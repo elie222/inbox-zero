@@ -39,6 +39,8 @@ export default function Components() {
             <Button color="red">Button Red</Button>
             <Button color="white">Button White</Button>
             <Button color="transparent">Button Transparent</Button>
+            <Button loading>Button Loading</Button>
+            <Button disabled>Button Disabled</Button>
           </div>
         </div>
       </div>

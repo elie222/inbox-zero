@@ -71,7 +71,11 @@ export const Button = (props: ButtonProps) => {
       {...rest}
       disabled={loading || props.disabled}
     >
-      {loading && <LoadingMiniSpinner />}
+      {loading && (
+        <span className="mr-3">
+          <LoadingMiniSpinner />
+        </span>
+      )}
       {rest.children}
     </Component>
   );

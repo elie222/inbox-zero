@@ -203,7 +203,20 @@ export async function planOrExecuteAct(options: {
 }) {
   const plannedAct = await planAct(options);
 
-  if (!plannedAct) return;
+  if (!plannedAct) {
+    await savePlan({
+      userId: options.userId,
+      threadId: options.email.threadId,
+      plan: {
+        createdAt: new Date(),
+        messageId: options.email.messageId,
+        threadId: options.email.threadId,
+        rule: null,
+      },
+    });
+
+    return;
+  }
 
   const shouldExcute =
     options.allowExecute && (plannedAct.rule?.automate || options.forceExecute);

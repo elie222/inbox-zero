@@ -7,20 +7,22 @@ export const planSchema = z.object({
   messageId: z.string(),
   threadId: z.string(),
   functionArgs: z.any({}),
-  rule: z.object({
-    id: z.string(),
-    actions: z.array(
-      z.object({
-        type: zodActionType,
-        label: z.string().nullish(),
-        subject: z.string().nullish(),
-        content: z.string().nullish(),
-        to: z.string().nullish(),
-        cc: z.string().nullish(),
-        bcc: z.string().nullish(),
-      })
-    ),
-  }),
+  rule: z
+    .object({
+      id: z.string(),
+      actions: z.array(
+        z.object({
+          type: zodActionType,
+          label: z.string().nullish(),
+          subject: z.string().nullish(),
+          content: z.string().nullish(),
+          to: z.string().nullish(),
+          cc: z.string().nullish(),
+          bcc: z.string().nullish(),
+        })
+      ),
+    })
+    .or(z.null()),
   createdAt: z.date(),
   // category: z.string().nullish(),
   // response: z.string().nullish(),

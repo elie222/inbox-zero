@@ -43,6 +43,8 @@ import { type Plan } from "@/utils/redis/plan";
 import { ParsedMessage } from "@/utils/types";
 import { useSession } from "next-auth/react";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
+import { ActResponse } from "@/app/api/ai/act/controller";
+import { ActBody } from "@/app/api/ai/act/validation";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -344,6 +346,43 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
   //   return () => document.removeEventListener("keydown", down);
   // }, [hovered?.id]);
 
+  const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
+
+  const onPlanAiAction = useCallback(async (thread: Thread) => {
+    setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
+
+    const message = thread.thread.messages?.[thread.thread.messages.length - 1];
+
+    if (!message) return;
+
+    const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
+      email: {
+        from: message.parsedMessage.headers.from,
+        to: message.parsedMessage.headers.to,
+        date: message.parsedMessage.headers.date,
+        replyTo: message.parsedMessage.headers.replyTo,
+        cc: message.parsedMessage.headers.cc,
+        subject: message.parsedMessage.headers.subject,
+        content: message.parsedMessage.textPlain,
+        threadId: message.threadId || "",
+        messageId: message.id || "",
+        headerMessageId: message.parsedMessage.headers.messageId || "",
+        references: message.parsedMessage.headers.references,
+      },
+      allowExecute: false,
+    });
+
+    if (isErrorMessage(res)) {
+      console.error(res);
+      toastError({
+        description: `There was an error planning the email.`,
+      });
+    } else {
+      // setPlan(res);
+    }
+    setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
+  }, []);
+
   return (
     <div
       className={clsx("h-full overflow-hidden", {
@@ -363,6 +402,8 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
             splitView={!!openedRow}
             onClick={() => setOpenedRow(email)}
             onShowReply={onShowReply}
+            isPlanning={isPlanning[email.id!]}
+            onPlanAiAction={onPlanAiAction}
             // onMouseEnter={() => setHovered(email)}
             refetchEmails={props.refetch}
           />
@@ -374,6 +415,8 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
           row={openedRow}
           showReply={showReply}
           onShowReply={onShowReply}
+          isPlanning={isPlanning[openedRow.id!]}
+          onPlanAiAction={onPlanAiAction}
           close={closePanel}
         />
       )}
@@ -392,6 +435,8 @@ function EmailListItem(props: {
   onClick: MouseEventHandler<HTMLLIElement>;
   onSelected: (id: string) => void;
   onShowReply: () => void;
+  isPlanning: boolean;
+  onPlanAiAction: (thread: Thread) => Promise<void>;
   // onMouseEnter: () => void;
   refetchEmails: () => void;
 }) {
@@ -458,6 +503,8 @@ function EmailListItem(props: {
                   threadId={email.id!}
                   onReply={props.onShowReply}
                   onGenerateAiResponse={() => {}}
+                  isPlanning={props.isPlanning}
+                  onPlanAiAction={() => props.onPlanAiAction(email)}
                 />
               </div>
               <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
@@ -467,6 +514,7 @@ function EmailListItem(props: {
 
             <div className="ml-3 whitespace-nowrap">
               <PlanBadge
+                plan={email.plan}
                 id={email.id || ""}
                 subject={lastMessage?.parsedMessage.headers.subject || ""}
                 message={
@@ -476,7 +524,6 @@ function EmailListItem(props: {
                   ""
                 }
                 senderEmail={lastMessage?.parsedMessage.headers.from || ""}
-                plan={email.plan}
                 refetchEmails={props.refetchEmails}
               />
             </div>
@@ -502,6 +549,8 @@ function EmailPanel(props: {
   row: Thread;
   showReply: boolean;
   onShowReply: () => void;
+  isPlanning: boolean;
+  onPlanAiAction: (thread: Thread) => Promise<void>;
   close: () => void;
 }) {
   const lastMessage =
@@ -535,6 +584,8 @@ function EmailPanel(props: {
             threadId={props.row.id!}
             onReply={props.onShowReply}
             onGenerateAiResponse={() => {}}
+            isPlanning={props.isPlanning}
+            onPlanAiAction={() => props.onPlanAiAction(props.row)}
           />
           <div className="ml-2 flex items-center">
             <Tooltip content="Close">
@@ -700,58 +751,21 @@ function participant(parsedMessage: ParsedMessage, userEmail: string) {
 }
 
 function PlanBadge(props: {
+  plan?: Plan | null;
+
   id: string;
   subject: string;
   message: string;
   senderEmail: string;
-  plan?: Plan | null;
   refetchEmails: () => void;
 }) {
-  return null;
-  // skip fetching plan if we have it already
-  // TODO move this higher up the tree. We need to know plans to refetch tabs too
-  const { data, isLoading, error } = useSWR<PlanResponse>(
-    !props.plan && `/api/ai/plan?id=${props.id}`,
-    (url) => {
-      const body: PlanBody = {
-        id: props.id,
-        subject: props.subject,
-        message: props.message,
-        replan: false,
-        senderEmail: props.senderEmail,
-      };
-      return fetcher(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    }
-  );
+  const { id, subject, message, senderEmail, plan } = props;
 
-  const { refetchEmails } = props;
+  if (!plan) return null;
 
-  // useEffect(() => {
-  //   if (!props.plan && data?.plan?.action) refetchEmails();
-  // }, [data?.plan?.action, props.plan, refetchEmails]);
+  if (!plan.rule) return <Badge color={"yellow"}>No plan</Badge>;
 
-  // const plan = props.plan || data?.plan;
-
-  // if (plan?.action === "error") {
-  //   console.error(plan?.response);
-  // }
-
-  return (
-    <LoadingContent
-      loading={isLoading}
-      error={error}
-      loadingComponent={<LoadingMiniSpinner />}
-      errorComponent={<div>Error</div>}
-    >
-      {/* {!!plan && (
-        <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>
-      )} */}
-    </LoadingContent>
-  );
+  return <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>;
 }
 
 function getActionMessage(plan: Plan | null): string {

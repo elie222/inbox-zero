@@ -3,6 +3,7 @@ import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
 import { parseMessage } from "@/utils/mail";
+import { isDefined } from "@/utils/types";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ async function getPlanned() {
 
   const messages = await Promise.all(
     plans.map(async (plan) => {
+      if (!plan.rule) return;
+
       const res = await gmail.users.messages.get({
         userId: "me",
         id: plan.messageId,
@@ -31,7 +34,7 @@ async function getPlanned() {
     })
   );
 
-  return { messages };
+  return { messages: messages.filter(isDefined) };
 }
 
 export async function GET() {
