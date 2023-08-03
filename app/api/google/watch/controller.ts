@@ -19,9 +19,7 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
     const expirationDate = new Date(+res.data.expiration);
     await prisma.user.update({
       where: { id: userId },
-      data: {
-        watchEmailsExpirationDate: expirationDate,
-      },
+      data: { watchEmailsExpirationDate: expirationDate },
     });
     return expirationDate;
   } else {

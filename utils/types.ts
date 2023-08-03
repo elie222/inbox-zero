@@ -1,5 +1,6 @@
 import { Action, Rule } from "@prisma/client";
 import { Message } from "ai";
+import { gmail_v1 } from "googleapis";
 
 // https://stackoverflow.com/a/53276873/2602771
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
@@ -35,6 +36,10 @@ export function isChatCompletionError(
 ): response is ChatCompletionError {
   return !!(response as ChatCompletionError).error;
 }
+
+export type MessageWithPayload = gmail_v1.Schema$Message & {
+  payload: gmail_v1.Schema$MessagePart;
+};
 
 export interface ParsedMessage {
   id: string;

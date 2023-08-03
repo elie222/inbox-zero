@@ -6,8 +6,10 @@ import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
-import { RuleWithActions } from "@/utils/types";
+import { type MessageWithPayload, type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
+
+type HistoryMessage = { id: string; threadId: string; labelIds: string[] };
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request: Request) => {
@@ -69,7 +71,7 @@ export const POST = withError(async (request: Request) => {
 async function listHistory(
   options: { email: string; startHistoryId: string },
   gmail: gmail_v1.Gmail
-) {
+): Promise<HistoryMessage[]> {
   const { startHistoryId } = options;
 
   const history = await gmail.users.history.list({
@@ -77,9 +79,10 @@ async function listHistory(
     startHistoryId,
     labelId: INBOX_LABEL_ID,
     historyTypes: ["messageAdded"],
+    maxResults: 1,
   });
 
-  return history.data.history;
+  return history.data.history as any[];
 }
 
 async function planHistory(options: {
@@ -100,7 +103,9 @@ async function planHistory(options: {
     for (const m of h.messagesAdded) {
       if (!m.message?.id) continue;
 
-      const parsedMessage = parseMessage(m.message);
+      const gmailMessage = await getMessage(m.message.id, gmail);
+
+      const parsedMessage = parseMessage(gmailMessage);
 
       const message =
         parsedMessage.textPlain ||
@@ -143,4 +148,17 @@ async function planHistory(options: {
     where: { email },
     data: { lastSyncedHistoryId },
   });
+}
+
+async function getMessage(
+  messageId: string,
+  gmail: gmail_v1.Gmail
+): Promise<MessageWithPayload> {
+  const message = await gmail.users.messages.get({
+    userId: "me",
+    id: messageId,
+    format: "full",
+  });
+
+  return message.data as MessageWithPayload;
 }
