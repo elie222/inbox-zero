@@ -768,7 +768,8 @@ function PlanBadge(props: {
 
   if (!plan.rule) return <Badge color="yellow">No plan</Badge>;
 
-  return <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>;
+  return <Badge color={getActionColor(plan)}>{plan.rule.name}</Badge>;
+  // return <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>;
 }
 
 function getActionMessage(plan: Plan | null): string {

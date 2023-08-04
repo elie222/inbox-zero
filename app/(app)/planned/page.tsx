@@ -43,7 +43,7 @@ export default function PlannedPage() {
                   <div>
                     {message.snippet ||
                       message.parsedMessage.textPlain?.substring(0, 100) ||
-                      message.parsedMessage.headers.from}
+                      message.parsedMessage.headers?.from}
                   </div>
                   <div className="ml-4 flex items-center">
                     <div className="whitespace-nowrap">

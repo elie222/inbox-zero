@@ -10,6 +10,7 @@ export const planSchema = z.object({
   rule: z
     .object({
       id: z.string(),
+      name: z.string(),
       actions: z.array(
         z.object({
           type: zodActionType,
