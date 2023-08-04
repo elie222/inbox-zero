@@ -12,7 +12,7 @@ import { withError } from "@/utils/middleware";
 type HistoryMessage = { id: string; threadId: string; labelIds: string[] };
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
-export const POST = withError(async (request: Request) => {
+export const GET = withError(async (request: Request) => {
   console.warn("Test log");
   const body = await request.json();
 
