@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import { toastError, toastSuccess } from "@/components/Toast";
 
-export default function Home() {
+export default function PlannedPage() {
   const { data, isLoading, error } = useSWR<PlannedResponse>(
     "/api/user/planned",
     {

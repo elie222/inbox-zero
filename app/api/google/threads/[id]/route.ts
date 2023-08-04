@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
+import { ThreadWithPayloadMessages } from "@/utils/types";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +16,10 @@ async function getThread(query: ThreadQuery, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.threads.get({
     userId: "me",
     id: query.id,
-    prettyPrint: true,
   });
   const thread = res.data;
 
-  const messages = parseMessages(thread);
+  const messages = parseMessages(thread as ThreadWithPayloadMessages);
 
   return { thread: { ...thread, messages } };
 }
