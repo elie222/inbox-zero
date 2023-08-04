@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
+import {
+  FieldError,
+  SubmitHandler,
+  useFieldArray,
+  useForm,
+} from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
@@ -47,34 +52,41 @@ import { ActBody } from "@/app/api/ai/act/validation";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
+import { Select } from "@/components/Select";
 
 export function RulesSection() {
-  const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
-    `/api/user/rules`
-  );
+  const { data, isLoading, error, mutate } = useSWR<
+    RulesResponse,
+    { error: string }
+  >(`/api/user/rules`);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data && <RulesForm rules={data} />}
+      {data && <RulesForm rules={data} refetchRules={mutate} />}
     </LoadingContent>
   );
 }
 
-export function RulesForm(props: { rules: RulesResponse }) {
+export function RulesForm(props: {
+  rules: RulesResponse;
+  refetchRules: () => Promise<any>;
+}) {
+  const { refetchRules } = props;
+
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting, dirtyFields, isDirty },
+    formState: { errors, isSubmitting },
     control,
     watch,
     setValue,
-    getValues,
   } = useForm<UpdateRulesBody>({
     resolver: zodResolver(updateRulesBody),
     defaultValues: {
       rules: props.rules.length
         ? props.rules.map((r) => ({
             id: r.id,
+            name: r.name,
             instructions: r.instructions,
             actions: r.actions,
             automate: !!r.automate,
@@ -132,12 +144,16 @@ export function RulesForm(props: { rules: RulesResponse }) {
           })
         );
 
+        await refetchRules();
+
         toastSuccess({
           description: "Rules updated successfully.",
         });
       }
+
+      await refetchRules();
     },
-    [setValue, props.rules]
+    [setValue, props.rules, refetchRules]
   );
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
@@ -192,7 +208,7 @@ export function RulesForm(props: { rules: RulesResponse }) {
                     />
                     <div className="mt-2 flex">
                       <div className="flex flex-1 space-x-2">
-                        {watch(`rules.${i}.actions`)?.map((action) => {
+                        {props.rules?.[i]?.actions?.map((action) => {
                           return (
                             <Tag key={action.type} color="green">
                               {capitalCase(action.type)}
@@ -200,17 +216,13 @@ export function RulesForm(props: { rules: RulesResponse }) {
                           );
                         })}
                       </div>
-                      {watch(`rules.${i}.id`) ? (
+                      {props.rules?.[i] ? (
                         <div className="ml-4 flex items-center">
                           <Button
                             size="xs"
                             color="transparent"
                             onClick={() => {
-                              const rule = getValues(`rules.${i}`);
-
-                              if (rule.id) {
-                                setEdittingRule({ id: rule.id, ...rule });
-                              }
+                              setEdittingRule(props.rules?.[i]);
                             }}
                           >
                             <PenIcon className="h-5 w-5" />
@@ -250,21 +262,30 @@ export function RulesForm(props: { rules: RulesResponse }) {
       <RuleModal
         rule={edittingRule}
         closeModal={() => setEdittingRule(undefined)}
+        refetchRules={props.refetchRules}
       />
     </FormSection>
   );
 }
 
-function RuleModal(props: { rule?: UpdateRuleBody; closeModal: () => void }) {
+function RuleModal(props: {
+  rule?: UpdateRuleBody;
+  closeModal: () => void;
+  refetchRules: () => Promise<any>;
+}) {
   return (
     <Modal
       isOpen={Boolean(props.rule)}
       hideModal={props.closeModal}
       title="Edit Rule"
-      size="2xl"
+      size="4xl"
     >
       {props.rule && (
-        <UpdateRuleForm rule={props.rule} closeModal={props.closeModal} />
+        <UpdateRuleForm
+          rule={props.rule}
+          closeModal={props.closeModal}
+          refetchRules={props.refetchRules}
+        />
       )}
     </Modal>
   );
@@ -273,12 +294,20 @@ function RuleModal(props: { rule?: UpdateRuleBody; closeModal: () => void }) {
 function UpdateRuleForm(props: {
   rule: UpdateRuleBody & { id?: string };
   closeModal: () => void;
+  refetchRules: () => Promise<any>;
 }) {
-  const { closeModal } = props;
+  const { closeModal, refetchRules } = props;
+
+  const [editingActionType, setEditingActionType] = useState(false);
+  const toggleEdittingActionType = useCallback(
+    () => setEditingActionType(!editingActionType),
+    [setEditingActionType, editingActionType]
+  );
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<UpdateRuleBody>({
     resolver: zodResolver(updateRuleBody),
@@ -292,6 +321,9 @@ function UpdateRuleForm(props: {
         `/api/user/rules/${props.rule.id}`,
         data
       );
+
+      await refetchRules();
+
       if (isErrorMessage(res)) {
         console.error(res);
         toastError({ description: `There was an error updating the rule.` });
@@ -300,13 +332,25 @@ function UpdateRuleForm(props: {
         closeModal();
       }
     },
-    [props.rule.id, closeModal]
+    [props.rule.id, closeModal, refetchRules]
   );
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mt-4">
         <Card>{props.rule?.instructions}</Card>
+
+        <div className="mt-4">
+          <Input
+            type="text"
+            name="Name"
+            label="Rule name"
+            registerProps={register("name")}
+            error={errors.name}
+            explainText="Used to identify the rule in your inbox."
+          />
+        </div>
+
         <div className="mt-8">
           <SectionDescription>
             This is how the AI will handle your emails. If a field is left blank
@@ -320,23 +364,49 @@ function UpdateRuleForm(props: {
           return (
             <Card key={i}>
               <div className="grid grid-cols-4 gap-4">
-                <SectionHeader>{capitalCase(action.type)}</SectionHeader>
+                <div className="col-span-1">
+                  {editingActionType ? (
+                    <Select
+                      name={`actions.${i}.type`}
+                      label="Action type"
+                      options={Object.keys(ActionType).map((action) => ({
+                        label: capitalCase(action),
+                        value: action,
+                      }))}
+                      registerProps={register(`actions.${i}.type`)}
+                      error={
+                        errors["actions"]?.[i]?.["type"] as
+                          | FieldError
+                          | undefined
+                      }
+                    />
+                  ) : (
+                    <div
+                      className="cursor-pointer"
+                      onClick={toggleEdittingActionType}
+                    >
+                      <SectionHeader>{capitalCase(action.type)}</SectionHeader>
+                    </div>
+                  )}
+                </div>
                 <div className="col-span-3 space-y-4">
-                  {actionInputs[action.type].fields.map((field) => {
-                    return (
-                      <Input
-                        key={field.label}
-                        type="text"
-                        as={field.textArea ? "textarea" : undefined}
-                        rows={field.textArea ? 3 : undefined}
-                        name={`actions.${i}.${field.name}`}
-                        label={field.label}
-                        placeholder="AI Generated"
-                        registerProps={register(`actions.${i}.${field.name}`)}
-                        error={errors["actions"]?.[i]?.[field.name]}
-                      />
-                    );
-                  })}
+                  {actionInputs[watch(`actions.${i}.type`)].fields.map(
+                    (field) => {
+                      return (
+                        <Input
+                          key={field.label}
+                          type="text"
+                          as={field.textArea ? "textarea" : undefined}
+                          rows={field.textArea ? 3 : undefined}
+                          name={`actions.${i}.${field.name}`}
+                          label={field.label}
+                          placeholder="AI Generated"
+                          registerProps={register(`actions.${i}.${field.name}`)}
+                          error={errors["actions"]?.[i]?.[field.name]}
+                        />
+                      );
+                    }
+                  )}
                 </div>
               </div>
             </Card>

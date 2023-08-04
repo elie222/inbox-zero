@@ -44,10 +44,11 @@ export async function updateRules({
   // Prepare the update operations
   const upsertOperations = body.rules
     .filter((rule) => rule.id)
-    .map((rule) => {
+    .map((rule, i) => {
       return prisma.rule.update({
         where: { id: rule.id },
         data: {
+          name: rule.name || `Rule ${i + 1}`,
           instructions: rule.instructions || undefined,
           automate: rule.automate ?? undefined,
           // actions: rule.actions,
@@ -58,10 +59,11 @@ export async function updateRules({
   // Prepare the create operations
   const createOperations = body.rules
     .filter((rule) => !rule.id)
-    .map((rule) => {
+    .map((rule, i) => {
       if (!rule.instructions) return;
       return prisma.rule.create({
         data: {
+          name: rule.name || `Rule ${upsertOperations.length + i + 1}`,
           instructions: rule.instructions,
           automate: rule.automate ?? undefined,
           // actions: rule.actions,

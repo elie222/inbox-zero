@@ -6,6 +6,7 @@ export const updateRulesBody = z.object({
     .array(
       z.object({
         id: z.string().optional(),
+        name: z.string().optional(),
         instructions: z.string().optional(),
         automate: z.boolean().optional(),
         actions: z.array(zodAction).optional(),

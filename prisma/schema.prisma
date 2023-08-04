@@ -98,12 +98,15 @@ model Rule {
   id            String         @id @default(cuid())
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  name          String
   instructions  String
   actions       Action[]
   automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules ExecutedRule[]
+
+  @@unique([name, userId])
 }
 
 model Action {
