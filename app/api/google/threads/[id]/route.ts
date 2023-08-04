@@ -39,7 +39,3 @@ export async function GET(
 
   return NextResponse.json(thread);
 }
-
-// function decodeMessage(data: string) {
-//   return he.decode(atob(data.replace(/-/g, '+').replace(/_/g, '/')));
-// }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 // import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";
@@ -28,6 +28,8 @@ export const POST = withError(async (request: Request) => {
     select: {
       access_token: true,
       refresh_token: true,
+      expires_at: true,
+      providerAccountId: true,
       userId: true,
       user: {
         select: {
@@ -41,9 +43,14 @@ export const POST = withError(async (request: Request) => {
   if (!account) return;
 
   try {
-    const gmail = getGmailClient({
-      accessToken: account.access_token ?? undefined,
-    });
+    const gmail = await getGmailClientWithRefresh(
+      {
+        accessToken: account.access_token!,
+        refreshToken: account.refresh_token!,
+        expiryDate: account.expires_at,
+      },
+      account.providerAccountId
+    );
 
     const history = await listHistory(
       {
@@ -66,6 +73,8 @@ export const POST = withError(async (request: Request) => {
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: true });
+    // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
+    // return NextResponse.error();
   }
 });
 

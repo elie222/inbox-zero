@@ -190,7 +190,7 @@ function calculateExpiresAt(expiresIn?: number) {
   return Math.floor(Date.now() / 1000 + (expiresIn - 10)); // give 10 second buffer
 }
 
-async function saveRefreshToken(
+export async function saveRefreshToken(
   tokens: {
     access_token?: string;
     refresh_token?: string;
