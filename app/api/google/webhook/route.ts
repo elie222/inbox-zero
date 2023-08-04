@@ -9,6 +9,8 @@ import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type MessageWithPayload, type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 
+export const dynamic = "force-dynamic";
+
 type HistoryMessage = { id: string; threadId: string; labelIds: string[] };
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
