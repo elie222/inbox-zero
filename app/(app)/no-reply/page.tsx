@@ -19,7 +19,7 @@ export default function NoReplyPage() {
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <div>
-            <EmailList emails={data as any} refetch={() => {}} />
+            <EmailList threads={data as any} refetch={() => {}} />
           </div>
         )}
       </LoadingContent>

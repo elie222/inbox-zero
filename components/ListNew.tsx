@@ -1,11 +1,4 @@
-import {
-  MouseEventHandler,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import useSWR from "swr";
+import { MouseEventHandler, useCallback, useMemo, useState } from "react";
 import { capitalCase } from "capital-case";
 import clsx from "clsx";
 import groupBy from "lodash/groupBy";
@@ -15,25 +8,17 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { Card } from "@tremor/react";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
-import {
-  ArchiveBody,
-  ArchiveResponse,
-} from "@/app/api/google/threads/archive/controller";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Badge, Color } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Celebration } from "@/components/Celebration";
-// import { Checkbox } from "@/components/Checkbox";
 import { GroupHeading } from "@/components/GroupHeading";
 import { Input } from "@/components/Input";
-import { LoadingMiniSpinner } from "@/components/Loading";
-import { LoadingContent } from "@/components/LoadingContent";
 import { Tabs } from "@/components/Tabs";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { useGmail } from "@/providers/GmailProvider";
-import { fetcher } from "@/providers/SWRProvider";
 import { labelThreadsAction } from "@/utils/actions";
 import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
@@ -111,7 +96,7 @@ export function List(props: {
     ];
   }, [tabGroups]);
 
-  const tabEmails = useMemo(() => {
+  const tabThreads = useMemo(() => {
     if (!selectedTab || selectedTab === "all") return filteredEmails;
     return tabGroups[selectedTab] || filteredEmails;
   }, [selectedTab, filteredEmails, tabGroups]);
@@ -137,7 +122,7 @@ export function List(props: {
                       try {
                         await labelThreadsAction({
                           labelId: label?.id!,
-                          threadIds: tabEmails.map((email) => email.id!),
+                          threadIds: tabThreads.map((thread) => thread.id!),
                           archive: false,
                         });
                         toastSuccess({
@@ -156,7 +141,7 @@ export function List(props: {
                       try {
                         await labelThreadsAction({
                           labelId: label?.id!,
-                          threadIds: tabEmails.map((email) => email.id!),
+                          threadIds: tabThreads.map((email) => email.id!),
                           archive: true,
                         });
                         toastSuccess({
@@ -176,7 +161,7 @@ export function List(props: {
                     onClick: async () => {
                       setReplanningAiSuggestions(true);
                       try {
-                        for (const email of tabEmails) {
+                        for (const email of tabThreads) {
                           if (!email.plan) continue;
 
                           const emailMessage = email.thread.messages?.[0];
@@ -230,7 +215,7 @@ export function List(props: {
                     onClick: async () => {
                       setApplyingAiSuggestions(true);
                       try {
-                        for (const email of tabEmails) {
+                        for (const email of tabThreads) {
                           if (!email.plan) continue;
 
                           const subject =
@@ -302,8 +287,8 @@ export function List(props: {
       {/* <div className="divide-gray-100 border-b bg-white px-4 sm:px-6 py-2 border-l-4">
         <Checkbox checked onChange={() => {}} />
       </div> */}
-      {tabEmails.length ? (
-        <EmailList emails={tabEmails} refetch={props.refetch} />
+      {tabThreads.length ? (
+        <EmailList threads={tabThreads} refetch={props.refetch} />
       ) : (
         <Celebration />
       )}
@@ -311,7 +296,7 @@ export function List(props: {
   );
 }
 
-export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
+export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
   // if performance becomes an issue check this:
   // https://ianobermiller.com/blog/highlight-table-row-column-react#react-state
   // const [hovered, setHovered] = useState<Thread>();
@@ -392,20 +377,20 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
       })}
     >
       <ul role="list" className="divide-y divide-gray-100 overflow-y-auto">
-        {props.emails.map((email) => (
+        {props.threads.map((thread) => (
           <EmailListItem
-            key={email.id}
+            key={thread.id}
             userEmailAddress={session.data?.user.email || ""}
-            email={email}
-            opened={openedRow?.id === email.id}
-            selected={selectedRows[email.id!]}
+            thread={thread}
+            opened={openedRow?.id === thread.id}
+            selected={selectedRows[thread.id!]}
             onSelected={onSetSelectedRow}
             splitView={!!openedRow}
-            onClick={() => setOpenedRow(email)}
+            onClick={() => setOpenedRow(thread)}
             onShowReply={onShowReply}
-            isPlanning={isPlanning[email.id!]}
+            isPlanning={isPlanning[thread.id!]}
             onPlanAiAction={onPlanAiAction}
-            // onMouseEnter={() => setHovered(email)}
+            // onMouseEnter={() => setHovered(thread)}
             refetchEmails={props.refetch}
           />
         ))}
@@ -429,7 +414,7 @@ export function EmailList(props: { emails: Thread[]; refetch: () => void }) {
 
 function EmailListItem(props: {
   userEmailAddress: string;
-  email: Thread;
+  thread: Thread;
   opened: boolean;
   selected: boolean;
   splitView: boolean;
@@ -441,13 +426,14 @@ function EmailListItem(props: {
   // onMouseEnter: () => void;
   refetchEmails: () => void;
 }) {
-  const { email, splitView, onSelected } = props;
+  const { thread, splitView, onSelected } = props;
 
-  const lastMessage = email.thread.messages?.[email.thread.messages.length - 1];
+  const lastMessage =
+    thread.thread.messages?.[thread.thread.messages.length - 1];
 
   const onRowSelected = useCallback(
-    () => onSelected(email.id!),
-    [email.id, onSelected]
+    () => onSelected(thread.id!),
+    [thread.id, onSelected]
   );
 
   return (
@@ -485,7 +471,7 @@ function EmailListItem(props: {
                   {lastMessage.parsedMessage.headers.subject}
                 </div>
                 <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                  {email.snippet}
+                  {thread.snippet || lastMessage.snippet}
                 </div>
               </>
             )}
@@ -501,11 +487,11 @@ function EmailListItem(props: {
             <div className="relative flex items-center">
               <div className="absolute right-0 z-20 hidden group-hover:block">
                 <ActionButtons
-                  threadId={email.id!}
+                  threadId={thread.id!}
                   onReply={props.onShowReply}
                   onGenerateAiResponse={() => {}}
                   isPlanning={props.isPlanning}
-                  onPlanAiAction={() => props.onPlanAiAction(email)}
+                  onPlanAiAction={() => props.onPlanAiAction(thread)}
                 />
               </div>
               <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
@@ -515,8 +501,8 @@ function EmailListItem(props: {
 
             <div className="ml-3 whitespace-nowrap">
               <PlanBadge
-                plan={email.plan}
-                id={email.id || ""}
+                plan={thread.plan}
+                id={thread.id || ""}
                 subject={lastMessage?.parsedMessage.headers.subject || ""}
                 message={
                   lastMessage?.parsedMessage.textPlain ||
@@ -537,7 +523,7 @@ function EmailListItem(props: {
               {lastMessage.parsedMessage.headers.subject}
             </div>
             <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-              {email.snippet}
+              {thread.snippet}
             </div>
           </div>
         )}
