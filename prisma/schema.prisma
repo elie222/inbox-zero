@@ -138,11 +138,11 @@ model ExecutedRule {
 
   // may be null if the rule was deleted
   ruleId String?
-  rule   Rule?   @relation(fields: [ruleId], references: [id])
+  rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
   // storing user here in case rule was deleted
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum ActionType {

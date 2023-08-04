@@ -1,11 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { deleteAccountAction } from "@/utils/actions";
 
 export function DeleteSection() {
+  const router = useRouter();
+
   return (
     <FormSection>
       <FormSectionLeft
@@ -26,6 +29,7 @@ export function DeleteSection() {
             try {
               await deleteAccountAction();
               toastSuccess({ description: "Account deleted!" });
+              router.push("/");
             } catch (error) {
               toastError({ description: "Error deleting account." });
             }

@@ -17,6 +17,7 @@ import {
   saveUserLabels,
 } from "@/utils/redis/label";
 import { deletePlans } from "@/utils/redis/plan";
+import { deleteUserStats } from "@/utils/redis/stats";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -75,6 +76,7 @@ export async function deleteAccountAction() {
   await deleteUserLabels({ email: session.user.email });
   await deleteInboxZeroLabels({ email: session.user.email });
   await deletePlans({ userId: session.user.id });
+  await deleteUserStats({ email: session.user.email });
 }
 
 export async function updateLabels(
