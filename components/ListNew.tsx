@@ -1,4 +1,10 @@
-import { MouseEventHandler, useCallback, useMemo, useState } from "react";
+import {
+  MouseEventHandler,
+  SyntheticEvent,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { capitalCase } from "capital-case";
 import clsx from "clsx";
 import groupBy from "lodash/groupBy";
@@ -635,9 +641,20 @@ function EmailThread(props: { messages: any[] }) {
 function HtmlEmail(props: { html: string }) {
   const srcDoc = useMemo(() => getIframeHtml(props.html), [props.html]);
 
+  const onLoad = useCallback(
+    (event: SyntheticEvent<HTMLIFrameElement, Event>) => {
+      if (event.currentTarget.contentWindow) {
+        event.currentTarget.style.height =
+          event.currentTarget.contentWindow.document.documentElement
+            .scrollHeight + "px";
+      }
+    },
+    []
+  );
+
   return (
     <div className="flex-1">
-      <iframe srcDoc={srcDoc} className="h-full w-full" />
+      <iframe srcDoc={srcDoc} onLoad={onLoad} className="h-full w-full" />
     </div>
   );
 }
