@@ -220,12 +220,12 @@ export async function planOrExecuteAct(options: {
     return;
   }
 
-  const shouldExcute =
+  const shouldExecute =
     options.allowExecute && (plannedAct.rule?.automate || options.forceExecute);
 
-  console.log("shouldExcute:", shouldExcute);
+  console.log("shouldExecute:", shouldExecute);
 
-  if (shouldExcute) {
+  if (shouldExecute) {
     await executeAct({
       ...options,
       act: plannedAct,
