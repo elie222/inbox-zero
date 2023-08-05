@@ -15,7 +15,6 @@ type HistoryMessage = { id: string; threadId: string; labelIds: string[] };
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request: Request) => {
-  console.warn("Test log");
   const body = await request.json();
 
   const data = body.message.data;
@@ -25,7 +24,6 @@ export const POST = withError(async (request: Request) => {
     Buffer.from(data, "base64").toString().replace(/-/g, "+").replace(/_/g, "/")
   );
   console.log("Webhook. Processing:", decodedData);
-  console.warn("Webhook. Processing:", decodedData);
 
   const account = await prisma.account.findFirst({
     where: { user: { email: decodedData.emailAddress }, provider: "google" },
