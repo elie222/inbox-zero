@@ -16,7 +16,7 @@ export default function AuthenticationPage() {
           <p className="mt-4">Get to Inbox Zero in no time.</p>
         </div>
         <LoginForm />
-        <p className="px-8 text-center text-sm text-gray-500">
+        <p className="px-8 pt-10 text-center text-sm text-gray-500">
           By clicking continue, you agree to our{" "}
           <Link
             href="/terms"

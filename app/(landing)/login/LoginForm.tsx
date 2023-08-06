@@ -12,7 +12,7 @@ export function LoginForm() {
   const [clickedGoogle, setClickedGoogle] = useState(false);
 
   return (
-    <div className="flex flex-col space-y-3 px-4 py-8 sm:px-16">
+    <div className="flex flex-col space-y-3 px-4 pt-4 sm:px-16">
       <Button
         onClick={() => {
           setClickedGoogle(true);
