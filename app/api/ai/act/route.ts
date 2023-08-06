@@ -27,6 +27,7 @@ export const POST = withError(async (request: Request) => {
     allowExecute: !!body.allowExecute,
     forceExecute: body.forceExecute,
     userId: user.id,
+    userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
   });

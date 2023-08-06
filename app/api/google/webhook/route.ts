@@ -35,6 +35,7 @@ export const POST = withError(async (request: Request) => {
       userId: true,
       user: {
         select: {
+          email: true,
           about: true,
           lastSyncedHistoryId: true,
           rules: { include: { actions: true } },
@@ -65,6 +66,7 @@ export const POST = withError(async (request: Request) => {
     await planHistory({
       history: history || [],
       userId: account.userId,
+      userEmail: account.user.email || "",
       email: decodedData.emailAddress,
       gmail,
       rules: account.user.rules,
@@ -100,12 +102,13 @@ async function listHistory(
 async function planHistory(options: {
   history: gmail_v1.Schema$History[];
   userId: string;
+  userEmail: string;
   email: string;
   about: string;
   gmail: gmail_v1.Gmail;
   rules: RuleWithActions[];
 }) {
-  const { history, userId, email, gmail, rules, about } = options;
+  const { history, userId, userEmail, email, gmail, rules, about } = options;
 
   if (!history?.length) return;
 
@@ -140,6 +143,7 @@ async function planHistory(options: {
           rules,
           gmail,
           userId,
+          userEmail,
           automated: true,
           userAbout: about,
         });

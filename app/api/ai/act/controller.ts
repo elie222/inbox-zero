@@ -19,6 +19,7 @@ import prisma from "@/utils/prisma";
 import { deletePlan, savePlan } from "@/utils/redis/plan";
 import { Action, Rule } from "@prisma/client";
 import { ActBody } from "@/app/api/ai/act/validation";
+import { saveUsage } from "@/utils/redis/usage";
 
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
@@ -31,6 +32,7 @@ async function planAct(options: {
   email: ActBody["email"];
   rules: RuleWithActions[];
   userAbout: string;
+  userEmail: string;
 }): Promise<(PlannedAction & { rule: Rule }) | undefined> {
   const { email, rules } = options;
 
@@ -127,6 +129,11 @@ ${email.content}`,
     return;
   }
 
+  await saveUsage({
+    email: options.userEmail,
+    tokensUsed: json.usage.total_tokens,
+  });
+
   const functionCall = json?.choices?.[0]?.message.function_call as
     | ChatCompletionRequestMessageFunctionCall
     | undefined;
@@ -198,6 +205,7 @@ export async function planOrExecuteAct(options: {
   allowExecute: boolean;
   forceExecute?: boolean;
   userId: string;
+  userEmail: string;
   userAbout: string;
   automated: boolean;
 }) {
