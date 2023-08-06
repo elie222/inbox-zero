@@ -7,6 +7,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
 import { ThreadWithPayloadMessages } from "@/utils/types";
+import prisma from "@/utils/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -20,25 +21,31 @@ async function getThreads(query: ThreadsQuery) {
 
   const gmail = getGmailClient(session);
 
-  const res = await gmail.users.threads.list({
-    userId: "me",
-    labelIds: [INBOX_LABEL_ID],
-    maxResults: query.limit || 50,
-  });
+  const [gmailThreads, rules] = await Promise.all([
+    gmail.users.threads.list({
+      userId: "me",
+      labelIds: [INBOX_LABEL_ID],
+      maxResults: query.limit || 50,
+    }),
+    prisma.rule.findMany({ where: { userId: session.user.id } }),
+  ]);
 
   const threadsWithMessages = await Promise.all(
-    res.data.threads?.map(async (t) => {
+    gmailThreads.data.threads?.map(async (t) => {
       const id = t.id!;
       const thread = await gmail.users.threads.get({ userId: "me", id });
       const messages = parseMessages(thread.data as ThreadWithPayloadMessages);
 
       const plan = await getPlan({ userId: session.user.id, threadId: id });
+      const rule = plan
+        ? rules.find((r) => r.id === plan?.rule?.id)
+        : undefined;
 
       return {
         ...t,
         snippet: he.decode(t.snippet || ""),
         thread: { ...thread.data, messages },
-        plan,
+        plan: { ...plan, databaseRule: rule },
       };
     }) || []
   );
