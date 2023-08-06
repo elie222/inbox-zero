@@ -30,13 +30,13 @@ import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
 import { isErrorMessage } from "@/utils/error";
 import { FilterArgs, FilterFunction } from "@/utils/ai/filters";
-import { type Plan } from "@/utils/redis/plan";
 import { ParsedMessage } from "@/utils/types";
 import { useSession } from "next-auth/react";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
 import { ActionType } from "@prisma/client";
+import { HoverCard } from "@/components/HoverCard";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -506,19 +506,7 @@ function EmailListItem(props: {
             </div>
 
             <div className="ml-3 whitespace-nowrap">
-              <PlanBadge
-                plan={thread.plan}
-                id={thread.id || ""}
-                subject={lastMessage?.parsedMessage.headers.subject || ""}
-                message={
-                  lastMessage?.parsedMessage.textPlain ||
-                  lastMessage?.parsedMessage.textHtml ||
-                  lastMessage?.parsedMessage.headers.subject ||
-                  ""
-                }
-                senderEmail={lastMessage?.parsedMessage.headers.from || ""}
-                refetchEmails={props.refetchEmails}
-              />
+              <PlanBadge plan={thread.plan} />
             </div>
           </div>
         </div>
@@ -753,39 +741,77 @@ function participant(parsedMessage: ParsedMessage, userEmail: string) {
   return sender;
 }
 
-function PlanBadge(props: {
-  plan?: Plan | null;
-
-  id: string;
-  subject: string;
-  message: string;
-  senderEmail: string;
-  refetchEmails: () => void;
-}) {
-  const { id, subject, message, senderEmail, plan } = props;
+function PlanBadge(props: { plan?: Thread["plan"] }) {
+  const { plan } = props;
 
   if (!plan) return <Badge color="gray">Not planned</Badge>;
 
   if (!plan.rule) return <Badge color="yellow">No plan</Badge>;
 
-  return <Badge color={getActionColor(plan)}>{plan.rule.name}</Badge>;
-  // return <Badge color={getActionColor(plan)}>{getActionMessage(plan)}</Badge>;
+  return (
+    <HoverCard
+      content={
+        <div className="text-sm">
+          {plan.databaseRule?.instructions ? (
+            <div className="max-w-full whitespace-pre-wrap">
+              {plan.databaseRule.instructions}
+            </div>
+          ) : null}
+          <div className="mt-4 space-y-2">
+            {plan.rule.actions.map((action, i) => {
+              return (
+                <div key={i}>
+                  <Badge color={getActionColor(action.type)}>
+                    {getActionMessage(action.type, plan)}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      }
+    >
+      <Badge color={getPlanColor(plan)}>{plan.rule.name}</Badge>
+    </HoverCard>
+  );
 }
 
-function getActionMessage(plan: Plan | null): string {
-  switch (plan?.rule?.actions?.[0]?.type) {
-    case ActionType.REPLY:
-      return "Respond";
-    case ActionType.ARCHIVE:
-      return "Archive";
+function getActionMessage(
+  actionType: ActionType,
+  plan: Thread["plan"]
+): string {
+  switch (actionType) {
     case ActionType.LABEL:
-      return `Label as ${plan.rule.actions[0].label}`;
+      if (plan.rule?.actions?.[0]?.label)
+        return `Label as ${plan.rule.actions[0].label}`;
+    case ActionType.REPLY:
+    case ActionType.SEND_EMAIL:
+    case ActionType.FORWARD:
+      if (plan.rule?.actions?.[0]?.to)
+        return `${capitalCase(actionType)} to ${plan.rule.actions[0].to}${
+          plan.rule?.actions?.[0]?.content
+            ? `:\n${plan.rule.actions[0].content}`
+            : ""
+        }}`;
     default:
-      return "Error";
+      return capitalCase(actionType);
   }
 }
 
-function getActionColor(plan: Plan | null): Color {
+function getActionColor(actionType: ActionType): Color {
+  switch (actionType) {
+    case ActionType.REPLY:
+      return "green";
+    case ActionType.ARCHIVE:
+      return "yellow";
+    case ActionType.LABEL:
+      return "blue";
+    default:
+      return "gray";
+  }
+}
+
+function getPlanColor(plan: Thread["plan"] | null): Color {
   switch (plan?.rule?.actions?.[0]?.type) {
     case ActionType.REPLY:
       return "green";
