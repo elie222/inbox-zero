@@ -6,7 +6,7 @@ export function Stats(props: {
   }[];
 }) {
   return (
-    <dl className="grid grid-cols-1 gap-px bg-gray-900/5 sm:grid-cols-3">
+    <dl className="grid grid-cols-1 gap-px sm:grid-cols-3">
       {props.stats.map((stat) => (
         <div
           key={stat.name}
