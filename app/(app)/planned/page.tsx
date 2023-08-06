@@ -179,12 +179,11 @@ function PlanHistory() {
       keepPreviousData: true,
     }
   );
-  console.log("🚀 ~ file: page.tsx:177 ~ PlanHistory ~ data:", data);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data?.history.map((h) => {
-        return <div key={h.id}>{h.id}</div>;
+        return <div key={h.id}>{JSON.stringify(h, null, 2)}</div>;
       })}
       {!data?.history.length && (
         <div className="p-4">

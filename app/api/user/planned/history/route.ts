@@ -13,6 +13,7 @@ async function getPlanHistory() {
   const history = await prisma.executedRule.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
+    include: { rule: true },
   });
 
   return { history };
