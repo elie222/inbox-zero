@@ -442,9 +442,9 @@ function EmailListItem(props: {
   return (
     <li
       className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
-        "hover:bg-gray-50": !props.selected,
+        "hover:bg-gray-50": !props.selected && !props.opened,
         "bg-blue-50": props.selected,
-        "border-l-blue-500 bg-gray-50": props.opened,
+        "bg-blue-200": props.opened,
       })}
       onClick={props.onClick}
       // onMouseEnter={props.onMouseEnter}
