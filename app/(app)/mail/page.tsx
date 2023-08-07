@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { List } from "@/components/ListNew";
+import { List } from "@/components/email-list/ListNew";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 // import { Filters, getFilterFunction } from "@/utils/filters";

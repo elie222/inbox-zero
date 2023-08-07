@@ -1,7 +1,6 @@
 import {
   type ForwardedRef,
   type MouseEventHandler,
-  type SyntheticEvent,
   forwardRef,
   useCallback,
   useMemo,
@@ -13,19 +12,13 @@ import clsx from "clsx";
 import groupBy from "lodash/groupBy";
 import sortBy from "lodash/sortBy";
 import { useSearchParams } from "next/navigation";
-import { SubmitHandler, useForm } from "react-hook-form";
-import { XMarkIcon } from "@heroicons/react/20/solid";
-import { Card } from "@tremor/react";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { ActionButtons } from "@/components/ActionButtons";
-import { Button } from "@/components/Button";
 import { Celebration } from "@/components/Celebration";
 import { GroupHeading } from "@/components/GroupHeading";
-import { Input } from "@/components/Input";
 import { Tabs } from "@/components/Tabs";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { Tooltip } from "@/components/Tooltip";
 import { useGmail } from "@/providers/GmailProvider";
 import { labelThreadsAction } from "@/utils/actions";
 import { postRequest } from "@/utils/api";
@@ -34,7 +27,6 @@ import { isErrorMessage } from "@/utils/error";
 import { FilterArgs, FilterFunction } from "@/utils/ai/filters";
 import { ParsedMessage } from "@/utils/types";
 import { useSession } from "next-auth/react";
-import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
 import { PlanBadge } from "@/components/PlanBadge";
@@ -44,7 +36,7 @@ import {
   ExecutePlanBody,
   ExecutePlanResponse,
 } from "@/app/api/user/planned/[id]/controller";
-import { Badge } from "@/components/Badge";
+import { EmailPanel } from "@/components/email-list/EmailPanel";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -680,203 +672,6 @@ const EmailListItem = forwardRef(
 
 EmailListItem.displayName = "EmailListItem";
 
-function EmailPanel(props: {
-  row: Thread;
-  showReply: boolean;
-  onShowReply: () => void;
-  isPlanning: boolean;
-  onPlanAiAction: (thread: Thread) => Promise<void>;
-  close: () => void;
-}) {
-  const lastMessage = props.row.messages?.[props.row.messages.length - 1];
-
-  const showReply = props.showReply;
-  const showThread = props.row.messages?.length > 1;
-
-  const plan = props.row.plan;
-
-  return (
-    <div className="flex flex-col overflow-y-hidden border-l border-l-gray-100">
-      <div className="sticky border-b border-b-gray-100 p-4 md:flex md:items-center md:justify-between">
-        <div className="md:w-0 md:flex-1">
-          <h1
-            id="message-heading"
-            className="text-lg font-medium text-gray-900"
-          >
-            {lastMessage.parsedMessage.headers.subject}
-          </h1>
-          <p className="mt-1 truncate text-sm text-gray-500">
-            {lastMessage.parsedMessage.headers.from}
-          </p>
-        </div>
-
-        <div className="mt-3 flex items-center md:ml-2 md:mt-0">
-          <ActionButtons
-            threadId={props.row.id!}
-            onReply={props.onShowReply}
-            onGenerateAiResponse={() => {}}
-            isPlanning={props.isPlanning}
-            onPlanAiAction={() => props.onPlanAiAction(props.row)}
-          />
-          <div className="ml-2 flex items-center">
-            <Tooltip content="Close">
-              <button
-                type="button"
-                className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                onClick={props.close}
-              >
-                <span className="sr-only">Close</span>
-                <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </Tooltip>
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-1 flex-col overflow-y-auto">
-        {plan.rule && <PlanExplanation plan={plan} />}
-        {showThread ? (
-          <EmailThread messages={props.row.messages} />
-        ) : lastMessage.parsedMessage.textHtml ? (
-          <HtmlEmail html={lastMessage.parsedMessage.textHtml} />
-        ) : (
-          <EmailThread messages={props.row.messages} />
-        )}
-        {showReply && (
-          <div className="h-64 shrink-0 border-t border-t-gray-100">
-            <SendEmailForm
-              threadId={props.row.id!}
-              // defaultMessage={props.row.plan?.response || ""}
-              defaultMessage={""}
-              subject={lastMessage.parsedMessage.headers.subject}
-              to={lastMessage.parsedMessage.headers.from}
-              cc={lastMessage.parsedMessage.headers.cc}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function EmailThread(props: { messages: any[] }) {
-  return (
-    <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
-      {props.messages?.map((message) => {
-        return (
-          <div key={message.id}>
-            <Card>
-              {message.parsedMessage.textHtml ? (
-                <HtmlEmail html={message.parsedMessage.textHtml} />
-              ) : (
-                <PlainEmail text={message.parsedMessage.textPlain || ""} />
-              )}
-            </Card>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function HtmlEmail(props: { html: string }) {
-  const srcDoc = useMemo(() => getIframeHtml(props.html), [props.html]);
-
-  const onLoad = useCallback(
-    (event: SyntheticEvent<HTMLIFrameElement, Event>) => {
-      if (event.currentTarget.contentWindow) {
-        event.currentTarget.style.height =
-          event.currentTarget.contentWindow.document.documentElement
-            .scrollHeight +
-          5 +
-          "px"; // +5 to give a bit of extra space to avoid scrollbar
-      }
-    },
-    []
-  );
-
-  return <iframe srcDoc={srcDoc} onLoad={onLoad} className="h-full w-full" />;
-}
-
-function PlainEmail(props: { text: string }) {
-  return <pre className="whitespace-pre-wrap">{props.text}</pre>;
-}
-
-const SendEmailForm = (props: {
-  threadId: string;
-  defaultMessage: string;
-  subject: string;
-  to: string;
-  cc?: string;
-  replyTo?: string;
-}) => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-    getValues,
-  } = useForm<SendEmailBody>({
-    defaultValues: {
-      // threadId: props.threadId,
-      messageText: props.defaultMessage,
-      subject: props.subject,
-      to: props.to,
-      cc: props.cc,
-      replyTo: props.replyTo,
-    },
-  });
-
-  // useEffect(() => {
-  //   if (props.threadId !== getValues("threadId")) {
-  //     reset({
-  //       threadId: props.threadId,
-  //       messageText: props.defaultMessage,
-  //       subject: props.subject,
-  //       to: props.to,
-  //       cc: props.cc,
-  //       replyTo: props.replyTo,
-  //     });
-  //   }
-  // }, [props, getValues, reset]);
-
-  const onSubmit: SubmitHandler<SendEmailBody> = useCallback(async (data) => {
-    try {
-      const res = await postRequest<SendEmailResponse, SendEmailBody>(
-        "/api/google/messages/send",
-        data
-      );
-      if (isErrorMessage(res))
-        toastError({ description: `There was an error sending the email :(` });
-      else toastSuccess({ description: `Email sent!` });
-    } catch (error) {
-      console.error(error);
-      toastError({ description: `There was an error sending the email :(` });
-    }
-  }, []);
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-4">
-      <Input
-        type="text"
-        as="textarea"
-        rows={6}
-        name="messageText"
-        label="Reply"
-        registerProps={register("messageText", { required: true })}
-        error={errors.messageText}
-      />
-      <div className="mt-2 flex">
-        <Button type="submit" color="transparent" loading={isSubmitting}>
-          Send
-        </Button>
-        {/* <Button color="transparent" loading={isSubmitting}>
-          Save Draft
-        </Button> */}
-      </div>
-    </form>
-  );
-};
-
 function fromName(email: string) {
   // converts "John Doe <john.doe@gmail>" to "John Doe"
   return email.split("<")[0];
@@ -893,63 +688,4 @@ function participant(parsedMessage: ParsedMessage, userEmail: string) {
   if (sender.includes(userEmail)) return recipient;
 
   return sender;
-}
-
-function getIframeHtml(html: string) {
-  let htmlWithFontFamily = "";
-  // Set font to sans-serif if font not set
-  if (html.indexOf("font-family") === -1) {
-    htmlWithFontFamily = `<style>* { font-family: sans-serif; }</style>${html}`;
-  } else {
-    htmlWithFontFamily = html;
-  }
-
-  let htmlWithHead = "";
-
-  // Open all links in a new tab
-  if (htmlWithFontFamily.indexOf("</head>") === -1) {
-    htmlWithHead = `<head><base target="_blank"></head>${htmlWithFontFamily}`;
-  } else {
-    htmlWithHead = htmlWithFontFamily.replace(
-      "</head>",
-      `<base target="_blank"></head>`
-    );
-  }
-
-  return htmlWithHead;
-}
-
-function PlanExplanation(props: { plan: Thread["plan"] }) {
-  const { plan } = props;
-
-  if (!plan.rule) return null;
-
-  return (
-    <div className="border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
-      <div className="flex">
-        <div className="flex-shrink-0">
-          <Badge color="green">{plan.rule.name}</Badge>
-        </div>
-        <div className="ml-2">{plan.databaseRule?.instructions}</div>
-      </div>
-      <div className="mt-4 flex">
-        {plan.rule.actions?.map((action, i) => {
-          return (
-            <div key={i}>
-              <Badge color="green">{capitalCase(action.type)}</Badge>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-3">
-        {Object.entries(plan.functionArgs).map(([key, value]) => {
-          return (
-            <div key={key}>
-              {key}: {value as string}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 }

@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { NoReplyResponse } from "@/app/api/user/no-reply/route";
 import { PageHeading } from "@/components/Typography";
-import { EmailList } from "@/components/ListNew";
+import { EmailList } from "@/components/email-list/ListNew";
 
 export default function NoReplyPage() {
   const { data, isLoading, error } = useSWR<NoReplyResponse, { error: string }>(
