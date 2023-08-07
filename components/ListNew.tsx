@@ -44,6 +44,7 @@ import {
   ExecutePlanBody,
   ExecutePlanResponse,
 } from "@/app/api/user/planned/[id]/controller";
+import { Badge } from "@/components/Badge";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -681,13 +682,10 @@ function EmailPanel(props: {
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
-  // console.log(props.row.thread.messages.map(m => m.payload?.mimeType).join(", "))
-  // console.log(props.row.thread.messages.map(m => m.parsedMessage.textHtml.substring(0,50)).join("\n"))
-  // console.log(props.row.thread.messages.map(m => m.parsedMessage.textPlain.substring(0,50)).join("\n"))
-
-  // const showReply = props.showReply || props.row.plan?.action === "reply";
   const showReply = props.showReply;
   const showThread = props.row.messages?.length > 1;
+
+  const plan = props.row.plan;
 
   return (
     <div className="flex flex-col overflow-y-hidden border-l border-l-gray-100">
@@ -727,6 +725,7 @@ function EmailPanel(props: {
         </div>
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto">
+        {plan.rule && <PlanExplanation plan={plan} />}
         {showThread ? (
           <EmailThread messages={props.row.messages} />
         ) : lastMessage.parsedMessage.textHtml ? (
@@ -910,4 +909,39 @@ function getIframeHtml(html: string) {
   }
 
   return htmlWithHead;
+}
+
+function PlanExplanation(props: { plan: Thread["plan"] }) {
+  const { plan } = props;
+
+  if (!plan.rule) return null;
+
+  return (
+    <div className="border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
+      <div className="flex">
+        <div className="flex-shrink-0">
+          <Badge color="green">{plan.rule.name}</Badge>
+        </div>
+        <div className="ml-2">{plan.databaseRule?.instructions}</div>
+      </div>
+      <div className="mt-4 flex">
+        {plan.rule.actions?.map((action, i) => {
+          return (
+            <div key={i}>
+              <Badge color="green">{capitalCase(action.type)}</Badge>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3">
+        {Object.entries(plan.functionArgs).map(([key, value]) => {
+          return (
+            <div key={key}>
+              {key}: {value as string}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
