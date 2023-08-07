@@ -41,10 +41,12 @@ function getPlanKey(threadId: string) {
 export async function getPlan(options: {
   userId: string;
   threadId: string;
-}): Promise<Plan | null> {
+}): Promise<(Plan & { id: string }) | null> {
   const key = getKey(options.userId);
   const planKey = getPlanKey(options.threadId);
-  return redis.hget<Plan>(key, planKey);
+  const plan = await redis.hget<Plan>(key, planKey);
+  if (!plan) return null;
+  return { ...plan, id: planKey };
 }
 
 export async function getPlans(options: {

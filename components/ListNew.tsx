@@ -38,6 +38,12 @@ import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
 import { PlanBadge } from "@/components/PlanBadge";
+import { CheckIcon, XIcon } from "lucide-react";
+import { LoadingMiniSpinner } from "@/components/Loading";
+import {
+  ExecutePlanBody,
+  ExecutePlanResponse,
+} from "@/app/api/user/planned/[id]/controller";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -492,6 +498,48 @@ const EmailListItem = forwardRef(
       [thread.id, onSelected]
     );
 
+    const [executing, setExecuting] = useState(false);
+    const [rejecting, setRejecting] = useState(false);
+
+    const executePlan = useCallback(async () => {
+      if (!thread.plan.rule) return;
+
+      setExecuting(true);
+
+      try {
+        await postRequest<ExecutePlanResponse, ExecutePlanBody>(
+          `/api/user/planned/${thread.plan.id}`,
+          {
+            email: {
+              subject: lastMessage.parsedMessage.headers.subject,
+              from: lastMessage.parsedMessage.headers.from,
+              to: lastMessage.parsedMessage.headers.to,
+              cc: lastMessage.parsedMessage.headers.cc,
+              replyTo: lastMessage.parsedMessage.headers["reply-to"],
+              references: lastMessage.parsedMessage.headers["references"],
+              date: lastMessage.parsedMessage.headers.date,
+              headerMessageId: lastMessage.parsedMessage.headers["message-id"],
+              content: lastMessage.parsedMessage.textHtml,
+              messageId: lastMessage.id || "",
+              threadId: lastMessage.threadId || "",
+            },
+            ruleId: thread.plan.rule.id,
+            actions: thread.plan.rule.actions,
+            args: thread.plan.functionArgs,
+          }
+        );
+
+        toastSuccess({ description: "Executed!" });
+      } catch (error) {
+        console.error(error);
+        toastError({
+          description: "Unable to execute plan :(",
+        });
+      }
+
+      setExecuting(false);
+    }, []);
+
     return (
       <li
         ref={ref}
@@ -558,8 +606,49 @@ const EmailListItem = forwardRef(
                 </div>
               </div>
 
-              <div className="ml-3 whitespace-nowrap">
+              <div className="ml-3 flex items-center whitespace-nowrap">
                 <PlanBadge plan={thread.plan} />
+
+                <div className="ml-3 flex w-14 items-center space-x-1">
+                  {thread.plan.rule ? (
+                    <>
+                      {executing ? (
+                        <LoadingMiniSpinner />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={executePlan}
+                          className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-green-500 hover:text-green-500"
+                        >
+                          <CheckIcon className="h-4 w-4" />
+                        </button>
+                      )}
+
+                      {rejecting ? (
+                        <LoadingMiniSpinner />
+                      ) : (
+                        <button
+                          type="button"
+                          // TODO
+                          onClick={() => {
+                            setRejecting(true);
+
+                            toastError({
+                              description: "Not implemented yet :(",
+                            });
+
+                            setTimeout(() => {
+                              setRejecting(false);
+                            }, 1_000);
+                          }}
+                          className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-red-500 hover:text-red-500"
+                        >
+                          <XIcon className="h-4 w-4" />
+                        </button>
+                      )}
+                    </>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
