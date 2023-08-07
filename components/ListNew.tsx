@@ -667,13 +667,15 @@ function EmailThread(props: { messages: any[] }) {
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       {props.messages?.map((message) => {
         return (
-          <Card key={message.id}>
-            {message.parsedMessage.textHtml ? (
-              <HtmlEmail html={message.parsedMessage.textHtml} />
-            ) : (
-              <PlainEmail text={message.parsedMessage.textPlain || ""} />
-            )}
-          </Card>
+          <div key={message.id}>
+            <Card>
+              {message.parsedMessage.textHtml ? (
+                <HtmlEmail html={message.parsedMessage.textHtml} />
+              ) : (
+                <PlainEmail text={message.parsedMessage.textPlain || ""} />
+              )}
+            </Card>
+          </div>
         );
       })}
     </div>
