@@ -43,8 +43,9 @@ async function getThreads(query: ThreadsQuery) {
 
       return {
         ...t,
+        ...thread.data,
+        messages,
         snippet: he.decode(t.snippet || ""),
-        thread: { ...thread.data, messages },
         plan: { ...plan, databaseRule: rule },
       };
     }) || []

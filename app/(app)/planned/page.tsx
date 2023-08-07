@@ -18,6 +18,7 @@ import { useState } from "react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tabs } from "@/components/Tabs";
 import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
+import { PlanBadge } from "@/components/PlanBadge";
 
 export default function PlannedPage() {
   const params = useSearchParams();
@@ -55,7 +56,7 @@ export default function PlannedPage() {
 }
 
 function Planned() {
-  const { data, isLoading, error } = useSWR<PlannedResponse>(
+  const { data, isLoading, error, mutate } = useSWR<PlannedResponse>(
     "/api/user/planned",
     {
       keepPreviousData: true,
@@ -71,6 +72,7 @@ function Planned() {
       {/* {data && <List emails={data?.messages || []} refetch={mutate} />} */}
       {data?.messages.length ? (
         <div className="">
+          {/* <List emails={data.messages || []} refetch={mutate} /> */}
           {data.messages.map((message) => {
             return (
               <div
@@ -179,12 +181,70 @@ function PlanHistory() {
       keepPreviousData: true,
     }
   );
+  console.log("🚀 ~ file: page.tsx:178 ~ PlanHistory ~ data:", data);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data?.history.map((h) => {
-        return <div key={h.id}>{JSON.stringify(h, null, 2)}</div>;
-      })}
+      <div className="">
+        {data?.history.map((h) => {
+          return (
+            <div
+              key={h.id}
+              className="flex items-center justify-between border-b border-gray-200 px-4 py-3"
+            >
+              <div className="whitespace-nowrap">
+                <PlanBadge
+                  plan={{
+                    rule: {
+                      name: h.rule?.name || "",
+                      actions: [],
+                      // h.rule.map((action) => {
+                      //   return {
+                      //     ...action,
+
+                      //   };
+                      // }) || [],
+                    },
+                    databaseRule: {
+                      instructions: h.rule?.instructions || "",
+                    },
+                  }}
+                />
+              </div>
+              {/* {JSON.stringify(h, null, 2)} */}
+              <div>{h.rule?.name}</div>
+              <div>
+                {h.actions.map((action, i) => {
+                  return (
+                    <div key={i} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="font-semibold">{action}</div>
+                          {/* <div className="text-gray-500">{a.args}</div> */}
+                        </div>
+                        {/* <div className="text-gray-500">{a.createdAt}</div> */}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="">
+                {Object.entries(h.data as any).map(
+                  ([key, value]: [string, any]) => {
+                    return (
+                      <div key={key} className="flex items-center space-x-2">
+                        <div className="font-semibold">{key}</div>
+                        <div className="text-gray-500">{value}</div>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+              <div className="">{h.automated ? "Automated" : "Manual"}</div>
+            </div>
+          );
+        })}
+      </div>
       {!data?.history.length && (
         <div className="p-4">
           <Card>No history.</Card>

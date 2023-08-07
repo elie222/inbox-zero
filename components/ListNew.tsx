@@ -16,7 +16,6 @@ import { Card } from "@tremor/react";
 import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { ActionButtons } from "@/components/ActionButtons";
-import { Badge, Color } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Celebration } from "@/components/Celebration";
 import { GroupHeading } from "@/components/GroupHeading";
@@ -35,8 +34,7 @@ import { useSession } from "next-auth/react";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
-import { ActionType } from "@prisma/client";
-import { HoverCard } from "@/components/HoverCard";
+import { PlanBadge } from "@/components/PlanBadge";
 
 type Thread = ThreadsResponse["threads"][number];
 
@@ -170,7 +168,7 @@ export function List(props: {
                         for (const email of tabThreads) {
                           if (!email.plan) continue;
 
-                          const emailMessage = email.thread.messages?.[0];
+                          const emailMessage = email.messages?.[0];
                           const subject =
                             emailMessage?.parsedMessage.headers.subject || "";
                           const message =
@@ -225,7 +223,7 @@ export function List(props: {
                           if (!email.plan) continue;
 
                           const subject =
-                            email.thread.messages?.[0]?.parsedMessage.headers
+                            email.messages?.[0]?.parsedMessage.headers
                               .subject || "";
 
                           // if (email.plan.action === "archive") {
@@ -343,7 +341,7 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
   const onPlanAiAction = useCallback(async (thread: Thread) => {
     setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
 
-    const message = thread.thread.messages?.[thread.thread.messages.length - 1];
+    const message = thread.messages?.[thread.messages.length - 1];
 
     if (!message) return;
 
@@ -434,8 +432,7 @@ function EmailListItem(props: {
 }) {
   const { thread, splitView, onSelected } = props;
 
-  const lastMessage =
-    thread.thread.messages?.[thread.thread.messages.length - 1];
+  const lastMessage = thread.messages?.[thread.messages.length - 1];
 
   const onRowSelected = useCallback(
     () => onSelected(thread.id!),
@@ -534,8 +531,7 @@ function EmailPanel(props: {
   onPlanAiAction: (thread: Thread) => Promise<void>;
   close: () => void;
 }) {
-  const lastMessage =
-    props.row.thread.messages?.[props.row.thread.messages.length - 1];
+  const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
   // console.log(props.row.thread.messages.map(m => m.payload?.mimeType).join(", "))
   // console.log(props.row.thread.messages.map(m => m.parsedMessage.textHtml.substring(0,50)).join("\n"))
@@ -543,10 +539,10 @@ function EmailPanel(props: {
 
   // const showReply = props.showReply || props.row.plan?.action === "reply";
   const showReply = props.showReply;
-  const showThread = props.row.thread.messages?.length > 1;
+  const showThread = props.row.messages?.length > 1;
 
   return (
-    <div className="flex flex-col border-l border-l-gray-100">
+    <div className="flex flex-col overflow-y-hidden border-l border-l-gray-100">
       <div className="sticky border-b border-b-gray-100 p-4 md:flex md:items-center md:justify-between">
         <div className="md:w-0 md:flex-1">
           <h1
@@ -582,9 +578,9 @@ function EmailPanel(props: {
           </div>
         </div>
       </div>
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-y-auto">
         {showThread ? (
-          <EmailThread messages={props.row.thread.messages} />
+          <EmailThread messages={props.row.messages} />
         ) : (
           <HtmlEmail html={lastMessage.parsedMessage.textHtml || ""} />
         )}
@@ -607,21 +603,19 @@ function EmailPanel(props: {
 
 function EmailThread(props: { messages: any[] }) {
   return (
-    <div className="flex flex-1 flex-col overflow-auto">
-      <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
-        {props.messages?.map((message) => {
-          // const html = getIframeHtml(message.parsedMessage.textHtml || "");
+    <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
+      {props.messages?.map((message) => {
+        // const html = getIframeHtml(message.parsedMessage.textHtml || "");
 
-          return (
-            <Card key={message.id}>
-              <HtmlEmail html={message.parsedMessage.textHtml || ""} />
-              {/* <div className="max-w-full whitespace-pre-wrap">
+        return (
+          <Card key={message.id}>
+            <HtmlEmail html={message.parsedMessage.textHtml || ""} />
+            {/* <div className="max-w-full whitespace-pre-wrap">
                 {message.parsedMessage.textPlain}
               </div> */}
-            </Card>
-          );
-        })}
-      </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }
@@ -634,17 +628,15 @@ function HtmlEmail(props: { html: string }) {
       if (event.currentTarget.contentWindow) {
         event.currentTarget.style.height =
           event.currentTarget.contentWindow.document.documentElement
-            .scrollHeight + "px";
+            .scrollHeight +
+          5 +
+          "px"; // +5 to give a bit of extra space to avoid scrollbar
       }
     },
     []
   );
 
-  return (
-    <div className="flex-1">
-      <iframe srcDoc={srcDoc} onLoad={onLoad} className="h-full w-full" />
-    </div>
-  );
+  return <iframe srcDoc={srcDoc} onLoad={onLoad} className="h-full w-full" />;
 }
 
 const SendEmailForm = (props: {
@@ -739,89 +731,6 @@ function participant(parsedMessage: ParsedMessage, userEmail: string) {
   if (sender.includes(userEmail)) return recipient;
 
   return sender;
-}
-
-function PlanBadge(props: { plan?: Thread["plan"] }) {
-  const { plan } = props;
-
-  if (!plan) return <Badge color="gray">Not planned</Badge>;
-
-  if (!plan.rule) return <Badge color="yellow">No plan</Badge>;
-
-  return (
-    <HoverCard
-      content={
-        <div className="text-sm">
-          {plan.databaseRule?.instructions ? (
-            <div className="max-w-full whitespace-pre-wrap">
-              {plan.databaseRule.instructions}
-            </div>
-          ) : null}
-          <div className="mt-4 space-y-2">
-            {plan.rule.actions.map((action, i) => {
-              return (
-                <div key={i}>
-                  <Badge color={getActionColor(action.type)}>
-                    {getActionMessage(action.type, plan)}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      }
-    >
-      <Badge color={getPlanColor(plan)}>{plan.rule.name}</Badge>
-    </HoverCard>
-  );
-}
-
-function getActionMessage(
-  actionType: ActionType,
-  plan: Thread["plan"]
-): string {
-  switch (actionType) {
-    case ActionType.LABEL:
-      if (plan.rule?.actions?.[0]?.label)
-        return `Label as ${plan.rule.actions[0].label}`;
-    case ActionType.REPLY:
-    case ActionType.SEND_EMAIL:
-    case ActionType.FORWARD:
-      if (plan.rule?.actions?.[0]?.to)
-        return `${capitalCase(actionType)} to ${plan.rule.actions[0].to}${
-          plan.rule?.actions?.[0]?.content
-            ? `:\n${plan.rule.actions[0].content}`
-            : ""
-        }}`;
-    default:
-      return capitalCase(actionType);
-  }
-}
-
-function getActionColor(actionType: ActionType): Color {
-  switch (actionType) {
-    case ActionType.REPLY:
-      return "green";
-    case ActionType.ARCHIVE:
-      return "yellow";
-    case ActionType.LABEL:
-      return "blue";
-    default:
-      return "gray";
-  }
-}
-
-function getPlanColor(plan: Thread["plan"] | null): Color {
-  switch (plan?.rule?.actions?.[0]?.type) {
-    case ActionType.REPLY:
-      return "green";
-    case ActionType.ARCHIVE:
-      return "yellow";
-    case ActionType.LABEL:
-      return "blue";
-    default:
-      return "gray";
-  }
 }
 
 function getIframeHtml(html: string) {
