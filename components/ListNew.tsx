@@ -640,8 +640,10 @@ function EmailPanel(props: {
       <div className="flex flex-1 flex-col overflow-y-auto">
         {showThread ? (
           <EmailThread messages={props.row.messages} />
+        ) : lastMessage.parsedMessage.textHtml ? (
+          <HtmlEmail html={lastMessage.parsedMessage.textHtml} />
         ) : (
-          <HtmlEmail html={lastMessage.parsedMessage.textHtml || ""} />
+          <EmailThread messages={props.row.messages} />
         )}
         {showReply && (
           <div className="h-64 shrink-0 border-t border-t-gray-100">
@@ -664,14 +666,13 @@ function EmailThread(props: { messages: any[] }) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       {props.messages?.map((message) => {
-        // const html = getIframeHtml(message.parsedMessage.textHtml || "");
-
         return (
           <Card key={message.id}>
-            <HtmlEmail html={message.parsedMessage.textHtml || ""} />
-            {/* <div className="max-w-full whitespace-pre-wrap">
-                {message.parsedMessage.textPlain}
-              </div> */}
+            {message.parsedMessage.textHtml ? (
+              <HtmlEmail html={message.parsedMessage.textHtml} />
+            ) : (
+              <PlainEmail text={message.parsedMessage.textPlain || ""} />
+            )}
           </Card>
         );
       })}
@@ -696,6 +697,10 @@ function HtmlEmail(props: { html: string }) {
   );
 
   return <iframe srcDoc={srcDoc} onLoad={onLoad} className="h-full w-full" />;
+}
+
+function PlainEmail(props: { text: string }) {
+  return <pre className="whitespace-pre-wrap">{props.text}</pre>;
 }
 
 const SendEmailForm = (props: {
