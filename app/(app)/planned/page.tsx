@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { List } from "@/components/email-list/ListNew";
+import { List } from "@/components/email-list/EmailList";
 import { useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PlannedResponse } from "@/app/api/user/planned/route";
