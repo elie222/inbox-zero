@@ -1,8 +1,11 @@
 import {
-  MouseEventHandler,
-  SyntheticEvent,
+  type ForwardedRef,
+  type MouseEventHandler,
+  type SyntheticEvent,
+  forwardRef,
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { capitalCase } from "capital-case";
@@ -373,6 +376,35 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
     setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
   }, []);
 
+  const listRef = useRef<HTMLUListElement>(null);
+  const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);
+
+  // https://react.dev/learn/manipulating-the-dom-with-refs#how-to-manage-a-list-of-refs-using-a-ref-callback
+  function getMap() {
+    if (!itemsRef.current) {
+      // Initialize the Map on first usage.
+      itemsRef.current = new Map();
+    }
+    return itemsRef.current;
+  }
+
+  // to scroll to a row when the side panel is opened
+  function scrollToId(threadId: string) {
+    const map = getMap();
+    const node = map.get(threadId);
+
+    // let the panel open first
+    setTimeout(() => {
+      if (listRef.current && node) {
+        // Calculate the position of the item relative to the container
+        const topPos = node.offsetTop - 117;
+
+        // Scroll the container to the item
+        listRef.current.scrollTop = topPos;
+      }
+    }, 100);
+  }
+
   return (
     <div
       className={clsx("h-full overflow-hidden", {
@@ -380,9 +412,21 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
         "overflow-y-auto": !openedRow,
       })}
     >
-      <ul role="list" className="divide-y divide-gray-100 overflow-y-auto">
+      <ul
+        role="list"
+        className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
+        ref={listRef}
+      >
         {props.threads.map((thread) => (
           <EmailListItem
+            ref={(node) => {
+              const map = getMap();
+              if (node) {
+                map.set(thread.id!, node);
+              } else {
+                map.delete(thread.id!);
+              }
+            }}
             key={thread.id}
             userEmailAddress={session.data?.user.email || ""}
             thread={thread}
@@ -390,7 +434,12 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
             selected={selectedRows[thread.id!]}
             onSelected={onSetSelectedRow}
             splitView={!!openedRow}
-            onClick={() => setOpenedRow(thread)}
+            onClick={() => {
+              const alreadyOpen = !!openedRow;
+              setOpenedRow(thread);
+
+              if (!alreadyOpen) scrollToId(thread.id!);
+            }}
             onShowReply={onShowReply}
             isPlanning={isPlanning[thread.id!]}
             onPlanAiAction={onPlanAiAction}
@@ -416,112 +465,122 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
   );
 }
 
-function EmailListItem(props: {
-  userEmailAddress: string;
-  thread: Thread;
-  opened: boolean;
-  selected: boolean;
-  splitView: boolean;
-  onClick: MouseEventHandler<HTMLLIElement>;
-  onSelected: (id: string) => void;
-  onShowReply: () => void;
-  isPlanning: boolean;
-  onPlanAiAction: (thread: Thread) => Promise<void>;
-  // onMouseEnter: () => void;
-  refetchEmails: () => void;
-}) {
-  const { thread, splitView, onSelected } = props;
+const EmailListItem = forwardRef(
+  (
+    props: {
+      userEmailAddress: string;
+      thread: Thread;
+      opened: boolean;
+      selected: boolean;
+      splitView: boolean;
+      onClick: MouseEventHandler<HTMLLIElement>;
+      onSelected: (id: string) => void;
+      onShowReply: () => void;
+      isPlanning: boolean;
+      onPlanAiAction: (thread: Thread) => Promise<void>;
+      // onMouseEnter: () => void;
+      refetchEmails: () => void;
+    },
+    ref: ForwardedRef<HTMLLIElement>
+  ) => {
+    const { thread, splitView, onSelected } = props;
 
-  const lastMessage = thread.messages?.[thread.messages.length - 1];
+    const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-  const onRowSelected = useCallback(
-    () => onSelected(thread.id!),
-    [thread.id, onSelected]
-  );
+    const onRowSelected = useCallback(
+      () => onSelected(thread.id!),
+      [thread.id, onSelected]
+    );
 
-  return (
-    <li
-      className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
-        "hover:bg-gray-50": !props.selected && !props.opened,
-        "bg-blue-50": props.selected,
-        "bg-blue-200": props.opened,
-      })}
-      onClick={props.onClick}
-      // onMouseEnter={props.onMouseEnter}
-    >
-      <div className="px-4 sm:px-6">
-        <div className="mx-auto flex justify-between">
-          {/* left */}
-          <div
-            className={clsx(
-              "flex whitespace-nowrap text-sm leading-6",
-              splitView ? "w-2/3" : "w-5/6"
-            )}
-          >
-            {/* <div className="flex items-center">
+    return (
+      <li
+        ref={ref}
+        className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
+          "hover:bg-gray-50": !props.selected && !props.opened,
+          "bg-blue-50": props.selected,
+          "bg-blue-200": props.opened,
+        })}
+        onClick={props.onClick}
+        // onMouseEnter={props.onMouseEnter}
+      >
+        <div className="px-4 sm:px-6">
+          <div className="mx-auto flex justify-between">
+            {/* left */}
+            <div
+              className={clsx(
+                "flex whitespace-nowrap text-sm leading-6",
+                splitView ? "w-2/3" : "w-5/6"
+              )}
+            >
+              {/* <div className="flex items-center">
               <Checkbox checked={props.selected} onChange={onRowSelected} />
             </div> */}
 
-            {/* <div className="ml-4 w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900"> */}
-            <div className="w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
-              {fromName(
-                participant(lastMessage.parsedMessage, props.userEmailAddress)
+              {/* <div className="ml-4 w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900"> */}
+              <div className="w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
+                {fromName(
+                  participant(lastMessage.parsedMessage, props.userEmailAddress)
+                )}
+              </div>
+              {!splitView && (
+                <>
+                  <div className="ml-4 min-w-0 overflow-hidden font-medium text-gray-700">
+                    {lastMessage.parsedMessage.headers.subject}
+                  </div>
+                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+                    {thread.snippet || lastMessage.snippet}
+                  </div>
+                </>
               )}
             </div>
-            {!splitView && (
-              <>
-                <div className="ml-4 min-w-0 overflow-hidden font-medium text-gray-700">
-                  {lastMessage.parsedMessage.headers.subject}
-                </div>
-                <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                  {thread.snippet || lastMessage.snippet}
-                </div>
-              </>
-            )}
-          </div>
 
-          {/* right */}
-          <div
-            className={clsx(
-              "flex items-center justify-between",
-              splitView ? "w-1/3" : "w-1/6"
-            )}
-          >
-            <div className="relative flex items-center">
-              <div className="absolute right-0 z-20 hidden group-hover:block">
-                <ActionButtons
-                  threadId={thread.id!}
-                  onReply={props.onShowReply}
-                  onGenerateAiResponse={() => {}}
-                  isPlanning={props.isPlanning}
-                  onPlanAiAction={() => props.onPlanAiAction(thread)}
-                />
+            {/* right */}
+            <div
+              className={clsx(
+                "flex items-center justify-between",
+                splitView ? "w-1/3" : "w-1/6"
+              )}
+            >
+              <div className="relative flex items-center">
+                <div className="absolute right-0 z-20 hidden group-hover:block">
+                  <ActionButtons
+                    threadId={thread.id!}
+                    onReply={props.onShowReply}
+                    onGenerateAiResponse={() => {}}
+                    isPlanning={props.isPlanning}
+                    onPlanAiAction={() => props.onPlanAiAction(thread)}
+                  />
+                </div>
+                <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
+                  {formatShortDate(
+                    new Date(+(lastMessage?.internalDate || ""))
+                  )}
+                </div>
               </div>
-              <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
-                {formatShortDate(new Date(+(lastMessage?.internalDate || "")))}
+
+              <div className="ml-3 whitespace-nowrap">
+                <PlanBadge plan={thread.plan} />
               </div>
             </div>
-
-            <div className="ml-3 whitespace-nowrap">
-              <PlanBadge plan={thread.plan} />
-            </div>
           </div>
+
+          {splitView && (
+            <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
+              <div className="min-w-0 overflow-hidden font-medium text-gray-700">
+                {lastMessage.parsedMessage.headers.subject}
+              </div>
+              <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+                {thread.snippet}
+              </div>
+            </div>
+          )}
         </div>
+      </li>
+    );
+  }
+);
 
-        {splitView && (
-          <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
-            <div className="min-w-0 overflow-hidden font-medium text-gray-700">
-              {lastMessage.parsedMessage.headers.subject}
-            </div>
-            <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-              {thread.snippet}
-            </div>
-          </div>
-        )}
-      </div>
-    </li>
-  );
-}
+EmailListItem.displayName = "EmailListItem";
 
 function EmailPanel(props: {
   row: Thread;
