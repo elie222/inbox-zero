@@ -539,7 +539,15 @@ const EmailListItem = forwardRef(
       }
 
       setExecuting(false);
-    }, []);
+    }, [
+      lastMessage.id,
+      lastMessage.parsedMessage.headers,
+      lastMessage.parsedMessage.textHtml,
+      lastMessage.threadId,
+      thread.plan.functionArgs,
+      thread.plan.id,
+      thread.plan.rule,
+    ]);
 
     return (
       <li
@@ -547,7 +555,7 @@ const EmailListItem = forwardRef(
         className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
           "hover:bg-gray-50": !props.selected && !props.opened,
           "bg-blue-50": props.selected,
-          "bg-blue-200": props.opened,
+          "bg-blue-100": props.opened,
         })}
         onClick={props.onClick}
         // onMouseEnter={props.onMouseEnter}

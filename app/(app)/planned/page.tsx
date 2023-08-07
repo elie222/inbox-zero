@@ -181,7 +181,6 @@ function PlanHistory() {
       keepPreviousData: true,
     }
   );
-  console.log("🚀 ~ file: page.tsx:178 ~ PlanHistory ~ data:", data);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -197,13 +196,9 @@ function PlanHistory() {
                   plan={{
                     rule: {
                       name: h.rule?.name || "",
-                      actions: [],
-                      // h.rule.map((action) => {
-                      //   return {
-                      //     ...action,
-
-                      //   };
-                      // }) || [],
+                      actions: h.actions.map((actionType) => {
+                        return { type: actionType };
+                      }),
                     },
                     databaseRule: {
                       instructions: h.rule?.instructions || "",
@@ -212,7 +207,6 @@ function PlanHistory() {
                 />
               </div>
               {/* {JSON.stringify(h, null, 2)} */}
-              <div>{h.rule?.name}</div>
               <div>
                 {h.actions.map((action, i) => {
                   return (
