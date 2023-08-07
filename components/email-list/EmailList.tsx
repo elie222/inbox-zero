@@ -112,7 +112,7 @@ export function List(props: {
 
   return (
     <>
-      <div className="border-b border-gray-200">
+      {/* <div className="border-b border-gray-200">
         <GroupHeading
           leftContent={
             <div className="overflow-x-auto py-2 md:max-w-lg lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl">
@@ -289,7 +289,7 @@ export function List(props: {
                 ]
           }
         />
-      </div>
+      </div> */}
       {/* <div className="divide-gray-100 border-b bg-white px-4 sm:px-6 py-2 border-l-4">
         <Checkbox checked onChange={() => {}} />
       </div> */}
