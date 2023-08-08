@@ -2,13 +2,12 @@ import { type SyntheticEvent, useCallback, useMemo } from "react";
 import { capitalCase } from "capital-case";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { Card } from "@tremor/react";
-import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
 import { SendEmailForm } from "@/components/email-list/SendEmailForm";
-
-type Thread = ThreadsResponse["threads"][number];
+import { type Thread } from "@/components/email-list/types";
+import { PlanActions } from "@/components/email-list/PlanActions";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -17,6 +16,11 @@ export function EmailPanel(props: {
   isPlanning: boolean;
   onPlanAiAction: (thread: Thread) => Promise<void>;
   close: () => void;
+
+  executingPlan: boolean;
+  rejectingPlan: boolean;
+  executePlan: (thread: Thread) => Promise<void>;
+  rejectPlan: (thread: Thread) => Promise<void>;
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
@@ -63,7 +67,15 @@ export function EmailPanel(props: {
         </div>
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto">
-        {plan.rule && <PlanExplanation plan={plan} />}
+        {plan.rule && (
+          <PlanExplanation
+            thread={props.row}
+            executePlan={props.executePlan}
+            rejectPlan={props.rejectPlan}
+            executingPlan={props.executingPlan}
+            rejectingPlan={props.rejectingPlan}
+          />
+        )}
         {showThread ? (
           <EmailThread messages={props.row.messages} />
         ) : lastMessage.parsedMessage.textHtml ? (
@@ -155,8 +167,18 @@ function getIframeHtml(html: string) {
   return htmlWithHead;
 }
 
-function PlanExplanation(props: { plan: Thread["plan"] }) {
-  const { plan } = props;
+function PlanExplanation(props: {
+  thread: Thread;
+  executingPlan: boolean;
+  rejectingPlan: boolean;
+  executePlan: (thread: Thread) => Promise<void>;
+  rejectPlan: (thread: Thread) => Promise<void>;
+}) {
+  const { thread } = props;
+
+  if (!thread) return null;
+
+  const { plan } = thread;
 
   if (!plan.rule) return null;
 
@@ -185,6 +207,16 @@ function PlanExplanation(props: { plan: Thread["plan"] }) {
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-2">
+        <PlanActions
+          thread={thread}
+          executePlan={props.executePlan}
+          rejectPlan={props.rejectPlan}
+          executingPlan={props.executingPlan}
+          rejectingPlan={props.rejectingPlan}
+        />
       </div>
     </div>
   );

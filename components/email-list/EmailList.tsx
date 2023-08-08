@@ -12,15 +12,10 @@ import clsx from "clsx";
 import groupBy from "lodash/groupBy";
 import sortBy from "lodash/sortBy";
 import { useSearchParams } from "next/navigation";
-import { PlanBody, PlanResponse } from "@/app/api/ai/plan/controller";
-import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Celebration } from "@/components/Celebration";
-import { GroupHeading } from "@/components/GroupHeading";
-import { Tabs } from "@/components/Tabs";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError } from "@/components/Toast";
 import { useGmail } from "@/providers/GmailProvider";
-import { labelThreadsAction } from "@/utils/actions";
 import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
 import { isErrorMessage } from "@/utils/error";
@@ -30,15 +25,12 @@ import { useSession } from "next-auth/react";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
 import { PlanBadge } from "@/components/PlanBadge";
-import { CheckIcon, XIcon } from "lucide-react";
-import { LoadingMiniSpinner } from "@/components/Loading";
-import {
-  ExecutePlanBody,
-  ExecutePlanResponse,
-} from "@/app/api/user/planned/[id]/controller";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
-
-type Thread = ThreadsResponse["threads"][number];
+import { type Thread } from "@/components/email-list/types";
+import {
+  PlanActions,
+  useExecutePlan,
+} from "@/components/email-list/PlanActions";
 
 export function List(props: {
   emails: Thread[];
@@ -107,8 +99,8 @@ export function List(props: {
     return tabGroups[selectedTab] || filteredEmails;
   }, [selectedTab, filteredEmails, tabGroups]);
 
-  const [replanningAiSuggestions, setReplanningAiSuggestions] = useState(false);
-  const [applyingAiSuggestions, setApplyingAiSuggestions] = useState(false);
+  // const [replanningAiSuggestions, setReplanningAiSuggestions] = useState(false);
+  // const [applyingAiSuggestions, setApplyingAiSuggestions] = useState(false);
 
   return (
     <>
@@ -404,6 +396,9 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
     }, 100);
   }
 
+  const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
+    useExecutePlan();
+
   return (
     <div
       className={clsx("h-full overflow-hidden", {
@@ -444,6 +439,10 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
             onPlanAiAction={onPlanAiAction}
             // onMouseEnter={() => setHovered(thread)}
             refetchEmails={props.refetch}
+            executePlan={executePlan}
+            rejectPlan={rejectPlan}
+            executingPlan={executingPlan[thread.id!]}
+            rejectingPlan={rejectingPlan[thread.id!]}
           />
         ))}
       </ul>
@@ -456,6 +455,10 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
           isPlanning={isPlanning[openedRow.id!]}
           onPlanAiAction={onPlanAiAction}
           close={closePanel}
+          executePlan={executePlan}
+          rejectPlan={rejectPlan}
+          executingPlan={executingPlan[openedRow.id!]}
+          rejectingPlan={rejectingPlan[openedRow.id!]}
         />
       )}
 
@@ -479,6 +482,11 @@ const EmailListItem = forwardRef(
       onPlanAiAction: (thread: Thread) => Promise<void>;
       // onMouseEnter: () => void;
       refetchEmails: () => void;
+
+      executingPlan: boolean;
+      rejectingPlan: boolean;
+      executePlan: (thread: Thread) => Promise<void>;
+      rejectPlan: (thread: Thread) => Promise<void>;
     },
     ref: ForwardedRef<HTMLLIElement>
   ) => {
@@ -490,56 +498,6 @@ const EmailListItem = forwardRef(
       () => onSelected(thread.id!),
       [thread.id, onSelected]
     );
-
-    const [executing, setExecuting] = useState(false);
-    const [rejecting, setRejecting] = useState(false);
-
-    const executePlan = useCallback(async () => {
-      if (!thread.plan.rule) return;
-
-      setExecuting(true);
-
-      try {
-        await postRequest<ExecutePlanResponse, ExecutePlanBody>(
-          `/api/user/planned/${thread.plan.id}`,
-          {
-            email: {
-              subject: lastMessage.parsedMessage.headers.subject,
-              from: lastMessage.parsedMessage.headers.from,
-              to: lastMessage.parsedMessage.headers.to,
-              cc: lastMessage.parsedMessage.headers.cc,
-              replyTo: lastMessage.parsedMessage.headers["reply-to"],
-              references: lastMessage.parsedMessage.headers["references"],
-              date: lastMessage.parsedMessage.headers.date,
-              headerMessageId: lastMessage.parsedMessage.headers["message-id"],
-              content: lastMessage.parsedMessage.textHtml,
-              messageId: lastMessage.id || "",
-              threadId: lastMessage.threadId || "",
-            },
-            ruleId: thread.plan.rule.id,
-            actions: thread.plan.rule.actions,
-            args: thread.plan.functionArgs,
-          }
-        );
-
-        toastSuccess({ description: "Executed!" });
-      } catch (error) {
-        console.error(error);
-        toastError({
-          description: "Unable to execute plan :(",
-        });
-      }
-
-      setExecuting(false);
-    }, [
-      lastMessage.id,
-      lastMessage.parsedMessage.headers,
-      lastMessage.parsedMessage.textHtml,
-      lastMessage.threadId,
-      thread.plan.functionArgs,
-      thread.plan.id,
-      thread.plan.rule,
-    ]);
 
     return (
       <li
@@ -610,45 +568,14 @@ const EmailListItem = forwardRef(
               <div className="ml-3 flex items-center whitespace-nowrap">
                 <PlanBadge plan={thread.plan} />
 
-                <div className="ml-3 flex w-14 items-center space-x-1">
-                  {thread.plan.rule ? (
-                    <>
-                      {executing ? (
-                        <LoadingMiniSpinner />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={executePlan}
-                          className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-green-500 hover:text-green-500"
-                        >
-                          <CheckIcon className="h-4 w-4" />
-                        </button>
-                      )}
-
-                      {rejecting ? (
-                        <LoadingMiniSpinner />
-                      ) : (
-                        <button
-                          type="button"
-                          // TODO
-                          onClick={() => {
-                            setRejecting(true);
-
-                            toastError({
-                              description: "Not implemented yet :(",
-                            });
-
-                            setTimeout(() => {
-                              setRejecting(false);
-                            }, 1_000);
-                          }}
-                          className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-red-500 hover:text-red-500"
-                        >
-                          <XIcon className="h-4 w-4" />
-                        </button>
-                      )}
-                    </>
-                  ) : null}
+                <div className="ml-3">
+                  <PlanActions
+                    thread={thread}
+                    executePlan={props.executePlan}
+                    rejectPlan={props.rejectPlan}
+                    executingPlan={props.executingPlan}
+                    rejectingPlan={props.rejectingPlan}
+                  />
                 </div>
               </div>
             </div>
