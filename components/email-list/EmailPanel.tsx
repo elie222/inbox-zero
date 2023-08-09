@@ -1,13 +1,14 @@
 import { type SyntheticEvent, useCallback, useMemo } from "react";
 import { capitalCase } from "capital-case";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import { Card } from "@tremor/react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
 import { SendEmailForm } from "@/components/email-list/SendEmailForm";
 import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
+import { fromName } from "@/components/email-list/helpers";
+import { formatShortDate } from "@/utils/date";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -100,22 +101,40 @@ export function EmailPanel(props: {
   );
 }
 
-function EmailThread(props: { messages: any[] }) {
+function EmailThread(props: { messages: Thread["messages"] }) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
-      {props.messages?.map((message) => {
-        return (
-          <div key={message.id}>
-            <Card>
+      <ul role="list" className="space-y-2 sm:space-y-4">
+        {props.messages?.map((message) => (
+          <li
+            key={message.id}
+            className="bg-white px-4 py-6 shadow sm:rounded-lg sm:px-6"
+          >
+            <div className="sm:flex sm:items-baseline sm:justify-between">
+              <h3 className="text-base font-medium">
+                <span className="text-gray-900">
+                  {fromName(message.parsedMessage.headers.from)}
+                </span>{" "}
+                <span className="text-gray-600">wrote</span>
+              </h3>
+              <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
+                <time dateTime={message.parsedMessage.headers.date}>
+                  {formatShortDate(
+                    new Date(message.parsedMessage.headers.date)
+                  )}
+                </time>
+              </p>
+            </div>
+            <div className="mt-4">
               {message.parsedMessage.textHtml ? (
                 <HtmlEmail html={message.parsedMessage.textHtml} />
               ) : (
                 <PlainEmail text={message.parsedMessage.textPlain || ""} />
               )}
-            </Card>
-          </div>
-        );
-      })}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

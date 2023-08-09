@@ -20,7 +20,6 @@ import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
 import { isErrorMessage } from "@/utils/error";
 import { FilterArgs, FilterFunction } from "@/utils/ai/filters";
-import { ParsedMessage } from "@/utils/types";
 import { useSession } from "next-auth/react";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
@@ -31,6 +30,7 @@ import {
   PlanActions,
   useExecutePlan,
 } from "@/components/email-list/PlanActions";
+import { fromName, participant } from "@/components/email-list/helpers";
 
 export function List(props: {
   emails: Thread[];
@@ -598,21 +598,3 @@ const EmailListItem = forwardRef(
 );
 
 EmailListItem.displayName = "EmailListItem";
-
-function fromName(email: string) {
-  // converts "John Doe <john.doe@gmail>" to "John Doe"
-  return email.split("<")[0];
-}
-
-function participant(parsedMessage: ParsedMessage, userEmail: string) {
-  // returns the other side of the conversation
-  // if we're the sender, then return the recipient
-  // if we're the recipient, then return the sender
-
-  const sender: string = parsedMessage.headers.from;
-  const recipient = parsedMessage.headers.to;
-
-  if (sender.includes(userEmail)) return recipient;
-
-  return sender;
-}
