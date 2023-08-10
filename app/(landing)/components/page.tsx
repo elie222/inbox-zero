@@ -6,6 +6,7 @@ import {
   SectionHeader,
 } from "@/components/Typography";
 import { Button } from "@/components/Button";
+import { Badge } from "@/components/Badge";
 
 export default function Components() {
   return (
@@ -41,6 +42,20 @@ export default function Components() {
             <Button color="transparent">Button Transparent</Button>
             <Button loading>Button Loading</Button>
             <Button disabled>Button Disabled</Button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="underline">Badges</div>
+          <div className="space-x-4">
+            <Badge color="red">Red</Badge>
+            <Badge color="yellow">Yellow</Badge>
+            <Badge color="green">Green</Badge>
+            <Badge color="blue">Blue</Badge>
+            <Badge color="indigo">Indigo</Badge>
+            <Badge color="purple">Purple</Badge>
+            <Badge color="pink">Pink</Badge>
+            <Badge color="gray">Gray</Badge>
           </div>
         </div>
       </div>
