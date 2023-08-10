@@ -47,7 +47,9 @@ export function PlanBadge(props: { plan?: Plan }) {
         </div>
       }
     >
-      <Badge color={getPlanColor(plan)}>{plan.rule.name}</Badge>
+      <div className="max-w-[110px] overflow-hidden">
+        <Badge color={getPlanColor(plan)}>{plan.rule.name}</Badge>
+      </div>
     </HoverCard>
   );
 }
