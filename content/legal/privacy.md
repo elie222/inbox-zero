@@ -22,6 +22,7 @@ When you use our Gmail client app, we automatically collect information about th
 We use the information collected for the following purposes:
 
 **Processing Emails**: We send your email data to OpenAI for AI processing of each email to help us plan responses.
+
 **Storing Planned Responses**: We store our planned responses to your emails within our system, but we do not store the emails themselves.
 
 ## How We Share Information
