@@ -28,7 +28,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
-      <body className={`h-full ${inter.className}`}>{children}</body>
+      <body className={`h-full ${inter.variable} ${calFont.variable}`}>
+        {children}
+      </body>
     </html>
   );
 }
