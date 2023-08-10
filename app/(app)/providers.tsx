@@ -1,5 +1,3 @@
-'use client';
-
 import React from "react";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { SessionProvider } from "@/providers/SessionProvider";

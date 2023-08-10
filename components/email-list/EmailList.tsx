@@ -511,14 +511,9 @@ const EmailListItem = forwardRef(
         // onMouseEnter={props.onMouseEnter}
       >
         <div className="px-4 sm:px-6">
-          <div className="mx-auto flex justify-between">
+          <div className="mx-auto flex">
             {/* left */}
-            <div
-              className={clsx(
-                "flex whitespace-nowrap text-sm leading-6",
-                splitView ? "w-2/3" : "w-5/6"
-              )}
-            >
+            <div className="flex flex-1 overflow-hidden whitespace-nowrap text-sm leading-6">
               {/* <div className="flex items-center">
               <Checkbox checked={props.selected} onChange={onRowSelected} />
             </div> */}
@@ -542,12 +537,7 @@ const EmailListItem = forwardRef(
             </div>
 
             {/* right */}
-            <div
-              className={clsx(
-                "flex items-center justify-between",
-                splitView ? "w-1/3" : "w-1/6"
-              )}
-            >
+            <div className="flex w-[260px] items-center justify-between">
               <div className="relative flex items-center">
                 <div className="absolute right-0 z-20 hidden group-hover:block">
                   <ActionButtons
