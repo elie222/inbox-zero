@@ -52,7 +52,7 @@
     "linkifyjs": "^4.1.1",
     "lint-staged": "^13.2.3",
     "lodash": "^4.17.21",
-    "lucide-react": "^0.265.0",
+    "lucide-react": "^0.263.1",
     "next": "13.4.13",
     "next-auth": "^4.22.5",
     "next-contentlayer": "^0.3.4",
