@@ -50,7 +50,7 @@ export async function updateRules({
         data: {
           name: rule.name || `Rule ${i + 1}`,
           instructions: rule.instructions || undefined,
-          automate: rule.automate ?? undefined,
+          automate: rule.automate ?? false,
           // actions: rule.actions,
         },
       });
@@ -65,7 +65,7 @@ export async function updateRules({
         data: {
           name: rule.name || `Rule ${upsertOperations.length + i + 1}`,
           instructions: rule.instructions,
-          automate: rule.automate ?? undefined,
+          automate: rule.automate ?? false,
           // actions: rule.actions,
           user: { connect: { id: userId } },
         },
