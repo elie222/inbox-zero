@@ -308,11 +308,14 @@ function UpdateRuleForm(props: {
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<UpdateRuleBody>({
     resolver: zodResolver(updateRuleBody),
     defaultValues: props.rule,
   });
+
+  const { remove } = useFieldArray({ control, name: "actions" });
 
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
@@ -360,7 +363,7 @@ function UpdateRuleForm(props: {
         </div>
       </div>
       <div className="mt-4 space-y-4">
-        {props.rule?.actions?.map((action, i) => {
+        {watch("actions")?.map((action, i) => {
           return (
             <Card key={i}>
               <div className="grid grid-cols-4 gap-4">
@@ -388,6 +391,14 @@ function UpdateRuleForm(props: {
                       <SectionHeader>{capitalCase(action.type)}</SectionHeader>
                     </div>
                   )}
+
+                  <button
+                    type="button"
+                    className="text-xs hover:text-red-500"
+                    onClick={() => remove(i)}
+                  >
+                    Remove
+                  </button>
                 </div>
                 <div className="col-span-3 space-y-4">
                   {actionInputs[watch(`actions.${i}.type`)].fields.map(
