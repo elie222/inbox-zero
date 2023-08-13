@@ -3,23 +3,16 @@ import {
   type MouseEventHandler,
   forwardRef,
   useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
-import { capitalCase } from "capital-case";
 import clsx from "clsx";
-import groupBy from "lodash/groupBy";
-import sortBy from "lodash/sortBy";
-import { useSearchParams } from "next/navigation";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Celebration } from "@/components/Celebration";
 import { toastError } from "@/components/Toast";
-import { useGmail } from "@/providers/GmailProvider";
 import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
 import { isErrorMessage } from "@/utils/error";
-import { FilterArgs, FilterFunction } from "@/utils/ai/filters";
 import { useSession } from "next-auth/react";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
@@ -32,76 +25,7 @@ import {
 } from "@/components/email-list/PlanActions";
 import { fromName, participant } from "@/components/email-list/helpers";
 
-export function List(props: {
-  emails: Thread[];
-  prompt?: string;
-  filter?: FilterFunction;
-  filterArgs?: FilterArgs;
-  refetch: () => void;
-}) {
-  const { emails: filteredEmails, filter, filterArgs } = props;
-  // const filteredEmails = useMemo(() => {
-  //   if (!filter) return emails;
-
-  //   return emails.filter((email) =>
-  //     filter({ ...(email.plan || {}), threadId: email.id! }, filterArgs)
-  //   );
-  // }, [emails, filter, filterArgs]);
-
-  const { labelsArray } = useGmail();
-  const label = useMemo(() => {
-    return labelsArray.find((label) => label.name === props.filterArgs?.label);
-  }, [labelsArray, props.filterArgs?.label]);
-
-  const params = useSearchParams();
-  const searchParamAction = params.get("action") || "";
-  const searchParamLabel = params.get("label") || "";
-
-  const selectedTab = useMemo(() => {
-    if (!searchParamAction) return "all";
-    return `${searchParamAction}---${searchParamLabel}`;
-  }, [searchParamAction, searchParamLabel]);
-
-  const tabGroups = useMemo(() => {
-    return groupBy(
-      filteredEmails
-      // filteredEmails.filter((e) => e.plan?.action),
-      // (e) => `${e.plan?.action}---${e.plan?.label || ""}`
-    );
-  }, [filteredEmails]);
-
-  const tabs = useMemo(() => {
-    return [
-      { label: "All", value: "all", href: "/mail" },
-      ...sortBy(
-        Object.keys(tabGroups).map((value) => {
-          const count = tabGroups[value].length;
-          const parts = value.split("---");
-          const action = parts[0];
-          const label = parts[1];
-
-          return {
-            label: `${capitalCase(action)}${
-              label ? ` ${label}` : ""
-            } (${count})`,
-            value,
-            href: `?action=${action}&label=${label}`,
-            sortKey: label || "",
-          };
-        }),
-        (t) => t.sortKey
-      ),
-    ];
-  }, [tabGroups]);
-
-  const tabThreads = useMemo(() => {
-    if (!selectedTab || selectedTab === "all") return filteredEmails;
-    return tabGroups[selectedTab] || filteredEmails;
-  }, [selectedTab, filteredEmails, tabGroups]);
-
-  // const [replanningAiSuggestions, setReplanningAiSuggestions] = useState(false);
-  // const [applyingAiSuggestions, setApplyingAiSuggestions] = useState(false);
-
+export function List(props: { emails: Thread[]; refetch: () => void }) {
   return (
     <>
       {/* <div className="border-b border-gray-200">
@@ -285,8 +209,8 @@ export function List(props: {
       {/* <div className="divide-gray-100 border-b bg-white px-4 sm:px-6 py-2 border-l-4">
         <Checkbox checked onChange={() => {}} />
       </div> */}
-      {tabThreads.length ? (
-        <EmailList threads={tabThreads} refetch={props.refetch} />
+      {props.emails.length ? (
+        <EmailList threads={props.emails} refetch={props.refetch} />
       ) : (
         <Celebration />
       )}
