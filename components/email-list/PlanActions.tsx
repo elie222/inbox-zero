@@ -9,6 +9,10 @@ import {
 } from "@/app/api/user/planned/[id]/controller";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
+import {
+  RejectPlanBody,
+  RejectPlanResponse,
+} from "@/app/api/user/planned/reject/route";
 
 export function useExecutePlan() {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
@@ -58,13 +62,21 @@ export function useExecutePlan() {
   const rejectPlan = useCallback(async (thread: Thread) => {
     setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
-    toastError({
-      description: "Not implemented yet :(",
-    });
+    try {
+      await postRequest<RejectPlanResponse, RejectPlanBody>(
+        `/api/user/planned/reject`,
+        { threadId: thread.id! }
+      );
 
-    setTimeout(() => {
-      setRejectingPlan((s) => ({ ...s, [thread.id!]: false }));
-    }, 1_000);
+      toastSuccess({ description: "Plan rejected" });
+    } catch (error) {
+      console.error(error);
+      toastError({
+        description: "Unable to reject plan :(",
+      });
+    }
+
+    setRejectingPlan((s) => ({ ...s, [thread.id!]: false }));
   }, []);
 
   return {
