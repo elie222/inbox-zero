@@ -19,7 +19,7 @@ export function useExecutePlan() {
   const [rejectingPlan, setRejectingPlan] = useState<Executing>({});
 
   const executePlan = useCallback(async (thread: Thread) => {
-    if (!thread.plan.rule) return;
+    if (!thread.plan?.rule) return;
 
     setExecutingPlan((s) => ({ ...s, [thread.id!]: true }));
 
@@ -106,7 +106,7 @@ export function PlanActions(props: {
 
   return (
     <div className="flex w-14 items-center space-x-1">
-      {thread.plan.rule ? (
+      {thread.plan?.rule ? (
         <>
           {executingPlan ? (
             <LoadingMiniSpinner />
