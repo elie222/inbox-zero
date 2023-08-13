@@ -68,7 +68,7 @@ export function EmailPanel(props: {
         </div>
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto">
-        {plan.rule && (
+        {plan?.rule && (
           <PlanExplanation
             thread={props.row}
             executePlan={props.executePlan}
@@ -199,7 +199,7 @@ function PlanExplanation(props: {
 
   const { plan } = thread;
 
-  if (!plan.rule) return null;
+  if (!plan?.rule) return null;
 
   return (
     <div className="border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
