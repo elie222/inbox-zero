@@ -1,4 +1,4 @@
-import { Card } from "@tremor/react";
+import { Card } from "@/components/Card";
 import { Container } from "@/components/Container";
 import {
   PageHeading,
@@ -23,7 +23,7 @@ export default function Components() {
 
         <div className="space-y-6">
           <div className="underline">Card</div>
-          <Card>This is a card. From @tremor/react.</Card>
+          <Card>This is a card.</Card>
         </div>
 
         <div className="space-y-6">

@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PlannedResponse } from "@/app/api/user/planned/route";
 import Link from "next/link";
-import { Card } from "@tremor/react";
+import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { postRequest } from "@/utils/api";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";

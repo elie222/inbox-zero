@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@tremor/react";
+import { Card } from "@/components/Card";
 import { Container } from "@/components/Container";
 import { Button } from "@/components/Button";
 import { PageHeading, SectionDescription } from "@/components/Typography";

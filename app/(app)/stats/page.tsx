@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import useSWRImmutable from "swr/immutable";
-import { BarChart, Card, Color, Title } from "@tremor/react";
+import { BarChart, Color, Title } from "@tremor/react";
+import { Card } from "@/components/Card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Stats } from "@/components/Stats";
 import { StatsResponse } from "@/app/api/user/stats/route";

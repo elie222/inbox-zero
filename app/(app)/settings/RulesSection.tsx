@@ -10,7 +10,7 @@ import {
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
-import { Card } from "@tremor/react";
+import { Card } from "@/components/Card";
 import { HelpCircleIcon, PenIcon } from "lucide-react";
 import { Button } from "@/components/Button";
 import {
