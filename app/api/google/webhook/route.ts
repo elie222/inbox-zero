@@ -23,6 +23,7 @@ export const POST = withError(async (request: Request) => {
   const decodedData: { emailAddress: string; historyId: string } = JSON.parse(
     Buffer.from(data, "base64").toString().replace(/-/g, "+").replace(/_/g, "/")
   );
+
   console.log("Webhook. Processing:", decodedData);
 
   const account = await prisma.account.findFirst({
@@ -55,7 +56,7 @@ export const POST = withError(async (request: Request) => {
       account.providerAccountId
     );
 
-    console.log("Webhook: Listing history.");
+    console.log("Webhook: Listing history...");
 
     const history = await listHistory(
       {
@@ -66,19 +67,23 @@ export const POST = withError(async (request: Request) => {
       gmail
     );
 
-    console.log("Webhook: Planning.");
+    if (history?.length) {
+      console.log("Webhook: Planning...");
 
-    await planHistory({
-      history: history || [],
-      userId: account.userId,
-      userEmail: account.user.email || "",
-      email: decodedData.emailAddress,
-      gmail,
-      rules: account.user.rules,
-      about: account.user.about || "",
-    });
+      await planHistory({
+        history,
+        userId: account.userId,
+        userEmail: account.user.email || "",
+        email: decodedData.emailAddress,
+        gmail,
+        rules: account.user.rules,
+        about: account.user.about || "",
+      });
+    } else {
+      console.log("Webhook: No history");
+    }
 
-    console.log("Webhook: Planned.");
+    console.log("Webhook: Completed.");
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -92,7 +97,7 @@ export const POST = withError(async (request: Request) => {
 async function listHistory(
   options: { email: string; startHistoryId: string },
   gmail: gmail_v1.Gmail
-): Promise<HistoryMessage[]> {
+): Promise<gmail_v1.Schema$History[] | undefined> {
   const { startHistoryId } = options;
 
   const history = await gmail.users.history.list({
@@ -100,10 +105,10 @@ async function listHistory(
     startHistoryId,
     labelId: INBOX_LABEL_ID,
     historyTypes: ["messageAdded"],
-    maxResults: 1,
+    maxResults: 5,
   });
 
-  return history.data.history as any[];
+  return history.data.history;
 }
 
 async function planHistory(options: {
@@ -125,37 +130,55 @@ async function planHistory(options: {
     for (const m of h.messagesAdded) {
       if (!m.message?.id) continue;
 
-      const gmailMessage = await getMessage(m.message.id, gmail);
+      console.log("Getting message...");
 
-      const parsedMessage = parseMessage(gmailMessage);
+      try {
+        const gmailMessage = await getMessage(m.message.id, gmail);
 
-      const message =
-        parsedMessage.textPlain ||
-        parsedMessage.textHtml ||
-        parsedMessage.headers.subject;
+        console.log("Received message...");
 
-      if (message) {
-        await planOrExecuteAct({
-          allowExecute: true,
-          email: {
-            from: parsedMessage.headers.from,
-            replyTo: parsedMessage.headers.replyTo,
-            cc: parsedMessage.headers.cc,
-            subject: parsedMessage.headers.subject,
-            content: message,
-            threadId: m.message.threadId || "",
-            messageId: m.message.id,
-            headerMessageId: parsedMessage.headers.messageId || "",
-          },
-          rules,
-          gmail,
-          userId,
-          userEmail,
-          automated: true,
-          userAbout: about,
-        });
-      } else {
-        console.error("No message", parsedMessage);
+        const parsedMessage = parseMessage(gmailMessage);
+
+        const message =
+          parsedMessage.textPlain ||
+          parsedMessage.textHtml ||
+          parsedMessage.headers.subject;
+
+        if (message) {
+          console.log("Plan or act on message...");
+
+          const res = await planOrExecuteAct({
+            allowExecute: true,
+            email: {
+              from: parsedMessage.headers.from,
+              replyTo: parsedMessage.headers.replyTo,
+              cc: parsedMessage.headers.cc,
+              subject: parsedMessage.headers.subject,
+              content: message,
+              threadId: m.message.threadId || "",
+              messageId: m.message.id,
+              headerMessageId: parsedMessage.headers.messageId || "",
+            },
+            rules,
+            gmail,
+            userId,
+            userEmail,
+            automated: true,
+            userAbout: about,
+          });
+
+          console.log("Result:", res);
+        } else {
+          console.error("No message", parsedMessage);
+        }
+      } catch (error: any) {
+        // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
+        if (error.message === "Requested entity was not found.") {
+          console.log("Message not found.");
+          continue;
+        }
+
+        throw error;
       }
     }
   }
