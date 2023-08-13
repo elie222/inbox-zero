@@ -55,6 +55,8 @@ export const POST = withError(async (request: Request) => {
       account.providerAccountId
     );
 
+    console.log("Webhook: Listing history.");
+
     const history = await listHistory(
       {
         email: decodedData.emailAddress,
@@ -63,6 +65,9 @@ export const POST = withError(async (request: Request) => {
       },
       gmail
     );
+
+    console.log("Webhook: Planning.");
+
     await planHistory({
       history: history || [],
       userId: account.userId,
@@ -72,6 +77,8 @@ export const POST = withError(async (request: Request) => {
       rules: account.user.rules,
       about: account.user.about || "",
     });
+
+    console.log("Webhook: Planned.");
 
     return NextResponse.json({ ok: true });
   } catch (error) {
