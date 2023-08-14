@@ -1,4 +1,5 @@
 {
+  "root": "apps/web",
   "buildCommand": "cd ../.. && turbo run build --filter=web",
   "ignoreCommand": "npx turbo-ignore web",
   "crons": [
