@@ -26,7 +26,7 @@ export default function AuthenticationPage() {
           </Link>{" "}
           and{" "}
           <Link
-            href="/terms"
+            href="/privacy"
             className="underline underline-offset-4 hover:text-gray-900"
           >
             Privacy Policy
