@@ -21,7 +21,7 @@ export type ExecutePlanBody = z.infer<typeof executePlanBody>;
 export type ExecutePlanResponse = Awaited<ReturnType<typeof executePlan>>;
 
 export async function executePlan(
-  body: ExecutePlanBody & { planId: string; userId: string },
+  body: ExecutePlanBody & { planId: string; userId: string; userEmail: string },
   gmail: gmail_v1.Gmail
 ) {
   executeAct({
@@ -33,6 +33,7 @@ export async function executePlan(
       args: body.args,
     },
     userId: body.userId,
+    userEmail: body.userEmail,
     ruleId: body.ruleId,
   });
 }

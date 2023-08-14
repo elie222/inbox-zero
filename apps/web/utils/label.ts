@@ -14,10 +14,11 @@ import {
 import { isDefined } from "@/utils/types";
 
 export const inboxZeroLabels: Record<InboxZeroLabelKey, string> = {
-  archived: "[InboxZero]/Archived by IZ",
-  labeled: "[InboxZero]/Labeled by IZ",
-  // drafted: "[InboxZero]/Response Drafted by IZ",
-  // suggested_label: "[InboxZero]/Label Suggested by IZ",
+  archived: "IZ Archived",
+  labeled: "IZ Labeled",
+  acted: "IZ Acted",
+  // drafted: "Response Drafted by IZ",
+  // suggested_label: "Label Suggested by IZ",
 };
 
 export const INBOX_LABEL_ID = "INBOX";
@@ -122,4 +123,39 @@ export async function getOrCreateInboxZeroLabels(
 
   const res = Object.fromEntries(gmailRedisLabels) as InboxZeroLabels;
   return res;
+}
+
+export async function getOrCreateInboxZeroLabel(options: {
+  labelKey: InboxZeroLabelKey;
+  email: string;
+  gmail: gmail_v1.Gmail;
+}): Promise<RedisLabel | undefined> {
+  const { gmail, labelKey, email } = options;
+
+  const redisLabel = await getInboxZeroLabels({ email });
+  if (redisLabel) return redisLabel[labelKey];
+
+  const gmailLabels = await getGmailLabels(gmail);
+
+  const labelName = inboxZeroLabels[labelKey];
+
+  let gmailLabel = gmailLabels?.find((l) => l.name === labelName);
+
+  if (!gmailLabel) {
+    gmailLabel = await createGmailLabel({
+      name: labelName,
+      gmail,
+    });
+  }
+
+  if (gmailLabel?.id && gmailLabel?.name) {
+    const label = { id: gmailLabel.id, name: gmailLabel.name };
+    await saveInboxZeroLabel({
+      email,
+      labelKey,
+      label,
+    });
+
+    return label;
+  }
 }

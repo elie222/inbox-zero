@@ -20,6 +20,8 @@ import { deletePlan, savePlan } from "@/utils/redis/plan";
 import { Action, Rule } from "@prisma/client";
 import { ActBody } from "@/app/api/ai/act/validation";
 import { saveUsage } from "@/utils/redis/usage";
+import { getOrCreateInboxZeroLabel } from "@/utils/label";
+import { labelThread } from "@/utils/gmail/label";
 
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
@@ -170,10 +172,11 @@ export async function executeAct(options: {
   act: PlannedAction;
   email: ActBody["email"];
   userId: string;
+  userEmail: string;
   automated: boolean;
   ruleId: string;
 }) {
-  const { gmail, email, act, automated, userId, ruleId } = options;
+  const { gmail, email, act, automated, userId, userEmail, ruleId } = options;
 
   console.log("Executing act:", JSON.stringify(act, null, 2));
 
@@ -182,6 +185,22 @@ export async function executeAct(options: {
       return runActionFunction(gmail, email, action.type, act.args);
     })
   );
+
+  async function labelActed() {
+    const label = await getOrCreateInboxZeroLabel({
+      gmail,
+      email: userEmail,
+      labelKey: "acted",
+    });
+
+    if (!label) return;
+
+    return labelThread({
+      gmail,
+      labelId: label.id,
+      threadId: email.threadId,
+    });
+  }
 
   await Promise.all([
     prisma.executedRule.create({
@@ -195,6 +214,8 @@ export async function executeAct(options: {
         ruleId,
       },
     }),
+    labelActed(),
+    // TODO mark plan as acted upon
     deletePlan({ userId, threadId: email.threadId }),
   ]);
 }

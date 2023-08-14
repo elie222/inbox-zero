@@ -3,6 +3,7 @@ import { draftEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
 import { ActBody } from "@/app/api/ai/act/validation";
+import { labelThread } from "@/utils/gmail/label";
 
 type ActionFunction = (
   gmail: gmail_v1.Gmail,
@@ -226,12 +227,10 @@ const archive: ActionFunction = async (gmail, email) => {
 };
 
 const label: ActionFunction = async (gmail, email, args: { label: string }) => {
-  await gmail.users.threads.modify({
-    userId: "me",
-    id: email.threadId,
-    requestBody: {
-      addLabelIds: [args.label],
-    },
+  await labelThread({
+    gmail,
+    threadId: email.threadId,
+    labelId: args.label,
   });
 };
 

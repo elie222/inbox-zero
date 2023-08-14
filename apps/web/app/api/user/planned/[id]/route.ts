@@ -18,7 +18,12 @@ export const POST = withError(async (request, { params }) => {
   const gmail = getGmailClient(session);
 
   const result = await executePlan(
-    { ...body, planId: params.id, userId: session.user.id },
+    {
+      ...body,
+      planId: params.id,
+      userId: session.user.id,
+      userEmail: session.user.email,
+    },
     gmail
   );
 
