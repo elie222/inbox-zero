@@ -1,0 +1,22 @@
+{
+  "name": "process-queue",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "rm -rf dist && pnpm run build && nodemon ./dist/src/index.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "bull": "^4.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.12",
+    "@types/react": "^18.0.22",
+    "@types/react-dom": "^18.0.7",
+    "eslint-config-custom": "workspace:*",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1",
+    "tsconfig": "workspace:*",
+    "typescript": "5.1.6"
+  }
+}

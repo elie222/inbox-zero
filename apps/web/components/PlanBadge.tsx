@@ -5,9 +5,9 @@ import { ActionType } from "@prisma/client";
 
 type Plan = {
   rule?: {
-    name: string;
-    actions: {
-      type: ActionType;
+    name?: string;
+    actions?: {
+      type?: ActionType;
       to?: string | null;
       content?: string | null;
       label?: string | null;
