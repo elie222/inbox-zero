@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import groupBy from "lodash/groupBy";
 import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
@@ -16,6 +17,25 @@ async function getPlanned() {
   const plans = await getPlans({ userId: session.user.id });
 
   const gmail = getGmailClient(session);
+
+  const messagesByThreadId = groupBy(plans, (p) => p.threadId);
+
+  // const threads = await Promise.all(
+  //   Object.entries(messagesByThreadId).map(async ([threadId, plans]) => {
+  //     if (!plans.length) return;
+
+  //     const thread = await gmail.users.threads.get({
+  //       userId: "me",
+  //       id: threadId,
+  //     });
+
+  //     return {
+  //       ...thread.data,
+  //       plans,
+  //     }
+
+  //   })
+  // );
 
   const messages = await Promise.all(
     plans.map(async (plan) => {

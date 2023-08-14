@@ -3,15 +3,15 @@ import { allLegalPosts } from "contentlayer/generated";
 import { LegalPage } from "@/components/LegalPage";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Inbox Zero",
-  description: "Privacy Policy - Inbox Zero",
+  title: "Terms of Service - Inbox Zero",
+  description: "Terms of Service - Inbox Zero",
 };
 
 export default function Terms() {
   const post = allLegalPosts.find(
-    (post) => post._raw.flattenedPath === "legal/privacy"
+    (post) => post._raw.flattenedPath === "terms"
   );
-  if (!post) throw new Error(`Post not found for slug: "privacy"`);
+  if (!post) throw new Error(`Post not found for slug: "terms"`);
 
   return (
     <LegalPage
