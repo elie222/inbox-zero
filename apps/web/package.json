@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "pretty-quick": "npx pretty-quick --write \"**/*.{ts,tsx}\"",
-    "prettier": "npx prettier --write \"**/*.{ts,tsx}\"",
     "preinstall": "npx only-allow pnpm",
     "postinstall": "prisma generate"
   },
@@ -58,7 +56,6 @@
     "openai-edge": "^1.2.2",
     "prettier": "2.8.8",
     "prettier-plugin-tailwindcss": "^0.4.1",
-    "pretty-quick": "^3.1.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-dom-confetti": "^0.2.0",
@@ -87,10 +84,6 @@
     "turbo": "^1.10.12",
     "eslint-config-custom": "workspace:*",
     "tsconfig": "workspace:*"
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": "pnpm run lint --cache --fix",
-    "**/*.{ts,tsx}": "tsc-files --noEmit"
   },
   "engines": {
     "node": ">=18.0.0"
