@@ -219,9 +219,6 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
 }
 
 export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
-  // if performance becomes an issue check this:
-  // https://ianobermiller.com/blog/highlight-table-row-column-react#react-state
-  // const [hovered, setHovered] = useState<Thread>();
   const [openedRow, setOpenedRow] = useState<Thread>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -239,20 +236,6 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
     },
     [setSelectedRows]
   );
-
-  // useEffect(() => {
-  //   const down = (e: KeyboardEvent) => {
-  //     if (e.key === "ArrowDown" && e.shiftKey) {
-  //       setSelectedRows((s) => ({ ...s, [hovered?.id!]: true }));
-  //       console.log("down");
-  //     } else if (e.key === "ArrowUp") {
-  //       console.log("up");
-  //     }
-  //   };
-
-  //   document.addEventListener("keydown", down);
-  //   return () => document.removeEventListener("keydown", down);
-  // }, [hovered?.id]);
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
 
@@ -361,7 +344,6 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
             onShowReply={onShowReply}
             isPlanning={isPlanning[thread.id!]}
             onPlanAiAction={onPlanAiAction}
-            // onMouseEnter={() => setHovered(thread)}
             refetchEmails={props.refetch}
             executePlan={executePlan}
             rejectPlan={rejectPlan}
@@ -385,8 +367,6 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
           rejectingPlan={rejectingPlan[openedRow.id!]}
         />
       )}
-
-      {/* <CommandDialogDemo selected={hovered?.id || undefined} /> */}
     </div>
   );
 }
@@ -404,7 +384,6 @@ const EmailListItem = forwardRef(
       onShowReply: () => void;
       isPlanning: boolean;
       onPlanAiAction: (thread: Thread) => Promise<void>;
-      // onMouseEnter: () => void;
       refetchEmails: () => void;
 
       executingPlan: boolean;
@@ -418,11 +397,6 @@ const EmailListItem = forwardRef(
 
     const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-    const onRowSelected = useCallback(
-      () => onSelected(thread.id!),
-      [thread.id, onSelected]
-    );
-
     return (
       <li
         ref={ref}
@@ -432,7 +406,6 @@ const EmailListItem = forwardRef(
           "bg-blue-100": props.opened,
         })}
         onClick={props.onClick}
-        // onMouseEnter={props.onMouseEnter}
       >
         <div className="px-4 sm:px-6">
           <div className="mx-auto flex">

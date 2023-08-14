@@ -1,5 +1,6 @@
 import "server-only";
 import parse from "gmail-api-parse-message";
+// import replyParser from "node-email-reply-parser";
 import {
   type ThreadWithPayloadMessages,
   type MessageWithPayload,
@@ -10,12 +11,21 @@ export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
 }
 
+// export function parseReply(content: string) {
+//   const email = replyParser(content);
+//   return email.getVisibleText();
+// }
+
 export function parseMessages(thread: ThreadWithPayloadMessages) {
   const messages =
     thread.messages?.map((message: MessageWithPayload) => {
+      const parsedMessage = parseMessage(message);
       return {
         ...message,
-        parsedMessage: parseMessage(message),
+        parsedMessage,
+        // parsedReply: parseReply(
+        //   parsedMessage.textPlain || parsedMessage.textHtml
+        // ),
         // text: message.payload?.parts?.[0]?.body?.data ? decodeMessage(message.payload?.parts?.[0]?.body?.data) : ''
       };
     }) || [];
