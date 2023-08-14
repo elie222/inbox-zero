@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function Terms() {
   const post = allLegalPosts.find(
-    (post) => post._raw.flattenedPath === "legal/terms"
+    (post) => post._raw.flattenedPath === "terms"
   );
   if (!post) throw new Error(`Post not found for slug: "terms"`);
 

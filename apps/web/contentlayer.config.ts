@@ -2,7 +2,7 @@ import { defineDocumentType, makeSource } from "contentlayer/source-files";
 
 export const LegalPost = defineDocumentType(() => ({
   name: "LegalPost",
-  filePathPattern: `**/legal/*.md`,
+  filePathPattern: `**/*.md`,
   fields: {
     title: {
       type: "string",
@@ -19,6 +19,6 @@ export const LegalPost = defineDocumentType(() => ({
 }));
 
 export default makeSource({
-  contentDirPath: "content",
+  contentDirPath: "legal",
   documentTypes: [LegalPost],
 });
