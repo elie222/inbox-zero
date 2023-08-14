@@ -83,7 +83,8 @@ async function planAct(options: {
   });
 
   const aiResponse = await openai.createChatCompletion({
-    model: "gpt-4", // gpt-3.5-turbo is not good at this
+    // model: "gpt-4", // gpt-3.5-turbo is not good at this
+    model: "gpt-3.5-turbo", // cheaper
     messages: [
       {
         role: "system",

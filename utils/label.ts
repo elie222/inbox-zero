@@ -21,6 +21,7 @@ export const inboxZeroLabels: Record<InboxZeroLabelKey, string> = {
 };
 
 export const INBOX_LABEL_ID = "INBOX";
+export const SENT_LABEL_ID = "SENT";
 
 export async function getGmailLabels(gmail: gmail_v1.Gmail) {
   const res = await gmail.users.labels.list({ userId: "me" });

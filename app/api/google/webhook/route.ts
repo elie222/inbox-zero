@@ -4,7 +4,7 @@ import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 // import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";
-import { INBOX_LABEL_ID } from "@/utils/label";
+import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type MessageWithPayload, type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
@@ -105,7 +105,7 @@ async function listHistory(
     startHistoryId,
     labelId: INBOX_LABEL_ID,
     historyTypes: ["messageAdded"],
-    maxResults: 5,
+    maxResults: 10,
   });
 
   return history.data.history;
@@ -129,8 +129,9 @@ async function planHistory(options: {
 
     for (const m of h.messagesAdded) {
       if (!m.message?.id) continue;
+      if (m.message.labelIds?.includes(SENT_LABEL_ID)) continue;
 
-      console.log("Getting message...");
+      console.log("Getting message...", m.message.id);
 
       try {
         const gmailMessage = await getMessage(m.message.id, gmail);
