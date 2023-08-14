@@ -5,7 +5,9 @@ import {
   useCallback,
   useRef,
   useState,
+  useMemo,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Celebration } from "@/components/Celebration";
@@ -24,193 +26,235 @@ import {
   useExecutePlan,
 } from "@/components/email-list/PlanActions";
 import { fromName, participant } from "@/components/email-list/helpers";
+import { Tabs } from "@/components/Tabs";
+import { GroupHeading } from "@/components/GroupHeading";
+import { Card } from "@/components/Card";
+import Link from "next/link";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
+  const params = useSearchParams();
+  const selectedTab = params.get("tab") || "all";
+  const tabs = useMemo(
+    () => [
+      {
+        label: "All",
+        value: "all",
+        href: "/mail?tab=all",
+      },
+      {
+        label: "Planned",
+        value: "planned",
+        href: "/mail?tab=planned",
+      },
+    ],
+    []
+  );
+
+  const filteredEmails = useMemo(() => {
+    if (selectedTab === "planned")
+      return props.emails.filter((email) => email.plan?.rule);
+
+    return props.emails;
+  }, [props.emails, selectedTab]);
+
   return (
     <>
-      {/* <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200">
         <GroupHeading
           leftContent={
             <div className="overflow-x-auto py-2 md:max-w-lg lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl">
-              <Tabs selected={selectedTab} tabs={tabs} breakpoint="md" />
+              <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
             </div>
           }
-          buttons={
-            label
-              ? [
-                  {
-                    label: "Label All",
-                    onClick: async () => {
-                      try {
-                        await labelThreadsAction({
-                          labelId: label?.id!,
-                          threadIds: tabThreads.map((thread) => thread.id!),
-                          archive: false,
-                        });
-                        toastSuccess({
-                          description: `Labeled emails "${label.name}".`,
-                        });
-                      } catch (error) {
-                        toastError({
-                          description: `There was an error labeling emails "${label.name}".`,
-                        });
-                      }
-                    },
-                  },
-                  {
-                    label: "Label + Archive All",
-                    onClick: async () => {
-                      try {
-                        await labelThreadsAction({
-                          labelId: label?.id!,
-                          threadIds: tabThreads.map((email) => email.id!),
-                          archive: true,
-                        });
-                        toastSuccess({
-                          description: `Labeled and archived emails "${label.name}".`,
-                        });
-                      } catch (error) {
-                        toastError({
-                          description: `There was an error labeling and archiving emails "${label.name}".`,
-                        });
-                      }
-                    },
-                  },
-                ]
-              : [
-                  {
-                    label: "Replan All",
-                    onClick: async () => {
-                      setReplanningAiSuggestions(true);
-                      try {
-                        for (const email of tabThreads) {
-                          if (!email.plan) continue;
+          buttons={[]}
+          // buttons={
+          //   label
+          //     ? [
+          //         {
+          //           label: "Label All",
+          //           onClick: async () => {
+          //             try {
+          //               await labelThreadsAction({
+          //                 labelId: label?.id!,
+          //                 threadIds: tabThreads.map((thread) => thread.id!),
+          //                 archive: false,
+          //               });
+          //               toastSuccess({
+          //                 description: `Labeled emails "${label.name}".`,
+          //               });
+          //             } catch (error) {
+          //               toastError({
+          //                 description: `There was an error labeling emails "${label.name}".`,
+          //               });
+          //             }
+          //           },
+          //         },
+          //         {
+          //           label: "Label + Archive All",
+          //           onClick: async () => {
+          //             try {
+          //               await labelThreadsAction({
+          //                 labelId: label?.id!,
+          //                 threadIds: tabThreads.map((email) => email.id!),
+          //                 archive: true,
+          //               });
+          //               toastSuccess({
+          //                 description: `Labeled and archived emails "${label.name}".`,
+          //               });
+          //             } catch (error) {
+          //               toastError({
+          //                 description: `There was an error labeling and archiving emails "${label.name}".`,
+          //               });
+          //             }
+          //           },
+          //         },
+          //       ]
+          //     : [
+          //         {
+          //           label: "Replan All",
+          //           onClick: async () => {
+          //             setReplanningAiSuggestions(true);
+          //             try {
+          //               for (const email of tabThreads) {
+          //                 if (!email.plan) continue;
 
-                          const emailMessage = email.messages?.[0];
-                          const subject =
-                            emailMessage?.parsedMessage.headers.subject || "";
-                          const message =
-                            emailMessage?.parsedMessage.textPlain ||
-                            emailMessage?.parsedMessage.textHtml ||
-                            "";
+          //                 const emailMessage = email.messages?.[0];
+          //                 const subject =
+          //                   emailMessage?.parsedMessage.headers.subject || "";
+          //                 const message =
+          //                   emailMessage?.parsedMessage.textPlain ||
+          //                   emailMessage?.parsedMessage.textHtml ||
+          //                   "";
 
-                          const senderEmail =
-                            emailMessage?.parsedMessage.headers.from || "";
+          //                 const senderEmail =
+          //                   emailMessage?.parsedMessage.headers.from || "";
 
-                          try {
-                            // had trouble with server actions here
-                            const res = await postRequest<
-                              PlanResponse,
-                              PlanBody
-                            >("/api/ai/plan", {
-                              id: email.id!,
-                              subject,
-                              message,
-                              senderEmail,
-                              replan: true,
-                            });
+          //                 try {
+          //                   // had trouble with server actions here
+          //                   const res = await postRequest<
+          //                     PlanResponse,
+          //                     PlanBody
+          //                   >("/api/ai/plan", {
+          //                     id: email.id!,
+          //                     subject,
+          //                     message,
+          //                     senderEmail,
+          //                     replan: true,
+          //                   });
 
-                            if (isErrorMessage(res)) {
-                              console.error(res);
-                              toastError({
-                                description: `Error planning  ${subject}`,
-                              });
-                            }
-                          } catch (error) {
-                            console.error(error);
-                            toastError({
-                              description: `Error archiving ${subject}`,
-                            });
-                          }
-                        }
-                      } catch (error) {
-                        toastError({
-                          description: `There was an error applying the AI suggestions.`,
-                        });
-                      }
-                      setReplanningAiSuggestions(false);
-                    },
-                    loading: replanningAiSuggestions,
-                  },
-                  {
-                    label: "Apply AI Suggestions",
-                    onClick: async () => {
-                      setApplyingAiSuggestions(true);
-                      try {
-                        for (const email of tabThreads) {
-                          if (!email.plan) continue;
+          //                   if (isErrorMessage(res)) {
+          //                     console.error(res);
+          //                     toastError({
+          //                       description: `Error planning  ${subject}`,
+          //                     });
+          //                   }
+          //                 } catch (error) {
+          //                   console.error(error);
+          //                   toastError({
+          //                     description: `Error archiving ${subject}`,
+          //                   });
+          //                 }
+          //               }
+          //             } catch (error) {
+          //               toastError({
+          //                 description: `There was an error applying the AI suggestions.`,
+          //               });
+          //             }
+          //             setReplanningAiSuggestions(false);
+          //           },
+          //           loading: replanningAiSuggestions,
+          //         },
+          //         {
+          //           label: "Apply AI Suggestions",
+          //           onClick: async () => {
+          //             setApplyingAiSuggestions(true);
+          //             try {
+          //               for (const email of tabThreads) {
+          //                 if (!email.plan) continue;
 
-                          const subject =
-                            email.messages?.[0]?.parsedMessage.headers
-                              .subject || "";
+          //                 const subject =
+          //                   email.messages?.[0]?.parsedMessage.headers
+          //                     .subject || "";
 
-                          // if (email.plan.action === "archive") {
-                          //   try {
-                          //     // had trouble with server actions here
-                          //     const res = await postRequest<
-                          //       ArchiveResponse,
-                          //       ArchiveBody
-                          //     >("/api/google/threads/archive", {
-                          //       id: email.id!,
-                          //     });
+          //                 // if (email.plan.action === "archive") {
+          //                 //   try {
+          //                 //     // had trouble with server actions here
+          //                 //     const res = await postRequest<
+          //                 //       ArchiveResponse,
+          //                 //       ArchiveBody
+          //                 //     >("/api/google/threads/archive", {
+          //                 //       id: email.id!,
+          //                 //     });
 
-                          //     if (isErrorMessage(res)) {
-                          //       console.error(res);
-                          //       toastError({
-                          //         description: `Error archiving  ${subject}`,
-                          //       });
-                          //     } else {
-                          //       toastSuccess({
-                          //         title: "Archvied!",
-                          //         description: `Archived ${subject}`,
-                          //       });
-                          //     }
-                          //   } catch (error) {
-                          //     console.error(error);
-                          //     toastError({
-                          //       description: `Error archiving ${subject}`,
-                          //     });
-                          //   }
-                          // } else if (email.plan.action === "label") {
-                          //   const labelName = email.plan.label;
-                          //   const label = labelsArray.find(
-                          //     (label) => label.name === labelName
-                          //   );
-                          //   if (!label) continue;
+          //                 //     if (isErrorMessage(res)) {
+          //                 //       console.error(res);
+          //                 //       toastError({
+          //                 //         description: `Error archiving  ${subject}`,
+          //                 //       });
+          //                 //     } else {
+          //                 //       toastSuccess({
+          //                 //         title: "Archvied!",
+          //                 //         description: `Archived ${subject}`,
+          //                 //       });
+          //                 //     }
+          //                 //   } catch (error) {
+          //                 //     console.error(error);
+          //                 //     toastError({
+          //                 //       description: `Error archiving ${subject}`,
+          //                 //     });
+          //                 //   }
+          //                 // } else if (email.plan.action === "label") {
+          //                 //   const labelName = email.plan.label;
+          //                 //   const label = labelsArray.find(
+          //                 //     (label) => label.name === labelName
+          //                 //   );
+          //                 //   if (!label) continue;
 
-                          //   await labelThreadsAction({
-                          //     labelId: label.id,
-                          //     threadIds: [email.id!],
-                          //     // threadIds: tabEmails
-                          //     //   .map((email) => email.id)
-                          //     //   .filter(isDefined),
-                          //     archive: true,
-                          //   });
+          //                 //   await labelThreadsAction({
+          //                 //     labelId: label.id,
+          //                 //     threadIds: [email.id!],
+          //                 //     // threadIds: tabEmails
+          //                 //     //   .map((email) => email.id)
+          //                 //     //   .filter(isDefined),
+          //                 //     archive: true,
+          //                 //   });
 
-                          //   toastSuccess({
-                          //     title: "Labelled",
-                          //     description: `Labelled ${subject}`,
-                          //   });
-                          // }
-                        }
-                      } catch (error) {
-                        toastError({
-                          description: `There was an error applying the AI suggestions.`,
-                        });
-                      }
-                      setApplyingAiSuggestions(false);
-                    },
-                    loading: applyingAiSuggestions,
-                  },
-                ]
-          }
+          //                 //   toastSuccess({
+          //                 //     title: "Labelled",
+          //                 //     description: `Labelled ${subject}`,
+          //                 //   });
+          //                 // }
+          //               }
+          //             } catch (error) {
+          //               toastError({
+          //                 description: `There was an error applying the AI suggestions.`,
+          //               });
+          //             }
+          //             setApplyingAiSuggestions(false);
+          //           },
+          //           loading: applyingAiSuggestions,
+          //         },
+          //       ]
+          // }
         />
-      </div> */}
+      </div>
       {/* <div className="divide-gray-100 border-b bg-white px-4 sm:px-6 py-2 border-l-4">
         <Checkbox checked onChange={() => {}} />
       </div> */}
       {props.emails.length ? (
-        <EmailList threads={props.emails} refetch={props.refetch} />
+        <EmailList
+          threads={filteredEmails}
+          emptyMessage={
+            <Card className="m-4">
+              No planned emails. Set rules in your{" "}
+              <Link href="/settings" className="font-semibold hover:underline">
+                Settings
+              </Link>{" "}
+              for the AI to handle incoming emails for you.
+            </Card>
+          }
+          refetch={props.refetch}
+        />
       ) : (
         <Celebration />
       )}
@@ -218,7 +262,11 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
   );
 }
 
-export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
+export function EmailList(props: {
+  threads: Thread[];
+  emptyMessage: React.ReactNode;
+  refetch: () => void;
+}) {
   const [openedRow, setOpenedRow] = useState<Thread>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -352,6 +400,8 @@ export function EmailList(props: { threads: Thread[]; refetch: () => void }) {
           />
         ))}
       </ul>
+
+      {props.threads.length === 0 && props.emptyMessage}
 
       {!!openedRow && (
         <EmailPanel
