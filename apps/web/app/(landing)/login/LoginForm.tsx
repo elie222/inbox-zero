@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
 
@@ -12,7 +13,7 @@ export function LoginForm() {
   const [clickedGoogle, setClickedGoogle] = useState(false);
 
   return (
-    <div className="flex flex-col space-y-3 px-4 pt-4 sm:px-16">
+    <div className="px-4 pt-4 sm:px-16">
       <Button
         onClick={() => {
           setClickedGoogle(true);
@@ -25,9 +26,17 @@ export function LoginForm() {
         }}
         loading={clickedGoogle}
         size="2xl"
-        // icon={<Google className="h-4 w-4" />}
       >
-        Continue with Google
+        <span className="flex items-center justify-center">
+          <Image
+            src="/images/google.svg"
+            alt=""
+            width={24}
+            height={24}
+            unoptimized
+          />
+          <span className="ml-2">Sign in with Google</span>
+        </span>
       </Button>
     </div>
   );
