@@ -27,7 +27,7 @@ async function calculatePlan(
   subject: string,
   message: string,
   senderEmail: string,
-  labels: { name: string; description?: string | null }[]
+  labels: { name?: string; description?: string | null }[]
 ) {
   const systemMessage = `You are an AI assistant that helps people manage their emails by replying, archiving and labelling emails on the user's behalf.
 The user will send emails and it is your job to plan a course of action to handle them.
