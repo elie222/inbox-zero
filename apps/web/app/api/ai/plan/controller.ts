@@ -125,7 +125,5 @@ export async function plan(
     tokensUsed: json.usage.total_tokens,
   });
 
-  // bump
-
   return { plan: planJson };
 }
