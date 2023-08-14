@@ -1,6 +1,6 @@
 {
   "buildCommand": "cd ../.. && turbo run build --filter=web",
-  "ignoreCommand": "npx turbo ignore",
+  "ignoreCommand": "npx turbo-ignore web",
   "crons": [
     {
       "path": "/api/google/watch/all",
