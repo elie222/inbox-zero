@@ -264,7 +264,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
 
 export function EmailList(props: {
   threads: Thread[];
-  emptyMessage: React.ReactNode;
+  emptyMessage?: React.ReactNode;
   refetch: () => void;
 }) {
   const [openedRow, setOpenedRow] = useState<Thread>();
