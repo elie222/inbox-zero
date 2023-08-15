@@ -44,14 +44,21 @@ export const POST = withError(async (request: Request) => {
       },
     },
   });
-  if (!account) return;
-  if (!account.user.rules.length) return;
+  if (!account) return NextResponse.json({ ok: true });
+  if (!account.user.rules.length) return NextResponse.json({ ok: true });
+
+  if (!account.access_token || !account.refresh_token) {
+    console.error(
+      "Missing access or refresh token. User needs to re-authenticate."
+    );
+    return NextResponse.json({ ok: true });
+  }
 
   try {
     const gmail = await getGmailClientWithRefresh(
       {
-        accessToken: account.access_token!,
-        refreshToken: account.refresh_token!,
+        accessToken: account.access_token,
+        refreshToken: account.refresh_token,
         expiryDate: account.expires_at,
       },
       account.providerAccountId
