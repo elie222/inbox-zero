@@ -1,7 +1,6 @@
 {
   "buildCommand": "cd ../.. && turbo run build --filter={apps/web}...",
   "installCommand": "pnpm install",
-  "ignoreCommand": "npx turbo-ignore web",
   "crons": [
     {
       "path": "/api/google/watch/all",
