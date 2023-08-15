@@ -1,6 +1,6 @@
 ---
 title: Privacy Policy
-updatedAt: 2023-08-10
+updatedAt: 2023-08-15
 ---
 
 ## Introduction
@@ -21,15 +21,16 @@ When you use our Gmail client app, we automatically collect information about th
 
 We use the information collected for the following purposes:
 
-**Processing Emails**: We send your email data to OpenAI for AI processing of each email to help us plan responses.
+**Processing Emails**: We send your email data to OpenAI for AI processing of each email to categorise them and plan responses.
 
-**Storing Planned Responses**: We store our planned responses to your emails within our system, but we do not store the emails themselves.
+**Storing Planned Responses**: We store our planned responses to your emails within our system. We do not store the emails themselves.
 
 ## How We Share Information
 
 We may share the information collected with the following parties:
 
-**OpenAI:** We send email data to OpenAI for AI processing of each email.
+**OpenAI:** We send email data to OpenAI for AI processing of each email. As per the [OpenAI data usage policies](https://openai.com/policies/api-data-usage-policies), OpenAI will not use data submitted by customers via their API to train or improve their models.
+Any data sent through the API will be retained for abuse and misuse monitoring purposes for a maximum of 30 days, after which it will be deleted (unless otherwise required by law).
 
 ## Data Security
 
@@ -53,6 +54,4 @@ We may update our Privacy Policy from time to time. Any changes will be posted o
 
 ## Contact Us
 
-If you have any questions or concerns about our Privacy Policy, please contact us at:
-
-elie@getinbox.com.
+If you have any questions or concerns about our Privacy Policy, please contact us at: [elie@getinbox.com](mailto:elie@getinbox.com).
