@@ -22,7 +22,7 @@ export const POST = withError(async (request: Request) => {
     Buffer.from(data, "base64").toString().replace(/-/g, "+").replace(/_/g, "/")
   );
 
-  console.log("Webhook. Processing:", decodedData);
+  console.log("Webhook - Processing:", decodedData);
 
   const account = await prisma.account.findFirst({
     where: { user: { email: decodedData.emailAddress }, provider: "google" },
