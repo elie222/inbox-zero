@@ -3,6 +3,7 @@ import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload } from "@/utils/types";
+import { getMessage } from "@/utils/gmail/message";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
@@ -19,14 +20,11 @@ async function getMessages() {
 
   const fullMessages = await Promise.all(
     (messages.data.messages || []).map(async (m) => {
-      const res = await gmail.users.messages.get({
-        userId: "me",
-        id: m.id!,
-      });
+      const res = await getMessage(m.id!, gmail);
 
       return {
-        ...res.data,
-        parsedMessage: parseMessage(res.data as MessageWithPayload),
+        ...res,
+        parsedMessage: parseMessage(res),
       };
     })
   );

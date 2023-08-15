@@ -138,7 +138,7 @@ async function planHistory(options: {
       console.log("Getting message...", m.message.id);
 
       try {
-        const gmailMessage = await getMessage(m.message.id, gmail);
+        const gmailMessage = await getMessage(m.message.id, gmail, "full");
 
         // skip messages in threads
         const gmailThread = await getThread(m.message.threadId!, gmail);

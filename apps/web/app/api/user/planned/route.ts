@@ -5,6 +5,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload, isDefined } from "@/utils/types";
+import { getMessage } from "@/utils/gmail/message";
 
 export const dynamic = "force-dynamic";
 
@@ -41,14 +42,11 @@ async function getPlanned() {
     plans.map(async (plan) => {
       if (!plan.rule) return;
 
-      const res = await gmail.users.messages.get({
-        userId: "me",
-        id: plan.messageId,
-      });
+      const res = await getMessage(plan.messageId, gmail);
 
       return {
-        ...res.data,
-        parsedMessage: parseMessage(res.data as MessageWithPayload),
+        ...res,
+        parsedMessage: parseMessage(res),
         plan,
       };
     })
