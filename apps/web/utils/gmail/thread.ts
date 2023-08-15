@@ -5,7 +5,6 @@ export async function getThread(threadId: string, gmail: gmail_v1.Gmail) {
     userId: "me",
     id: threadId,
   });
-  console.log(thread);
 
   return thread.data;
 }
