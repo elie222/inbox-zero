@@ -45,6 +45,7 @@ export const POST = withError(async (request: Request) => {
     },
   });
   if (!account) return;
+  if (!account.user.rules.length) return;
 
   try {
     const gmail = await getGmailClientWithRefresh(
