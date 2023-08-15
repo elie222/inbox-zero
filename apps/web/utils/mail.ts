@@ -1,6 +1,6 @@
 import "server-only";
 import parse from "gmail-api-parse-message";
-// import replyParser from "node-email-reply-parser";
+import replyParser from "node-email-reply-parser";
 import {
   type ThreadWithPayloadMessages,
   type MessageWithPayload,
@@ -11,10 +11,11 @@ export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
 }
 
-// export function parseReply(content: string) {
-//   const email = replyParser(content);
-//   return email.getVisibleText();
-// }
+// if the email content contains a lot of replies this parses it and finds the content from the last message
+export function parseReply(content: string) {
+  const email = replyParser(content);
+  return email.getVisibleText();
+}
 
 export function parseMessages(thread: ThreadWithPayloadMessages) {
   const messages =

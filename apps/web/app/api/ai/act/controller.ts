@@ -22,6 +22,7 @@ import { ActBody } from "@/app/api/ai/act/validation";
 import { saveUsage } from "@/utils/redis/usage";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
+import { AI_MODEL } from "@/utils/config";
 
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
@@ -62,14 +63,6 @@ async function planAct(options: {
               ...actionFunctionDefs[action.type].parameters.properties,
             };
 
-            // filter out properties that we already have a value for
-            // eg. if we already have a label, don't ask for it again
-            ACTION_PROPERTIES.forEach((v) => {
-              if (action[v]) {
-                delete actionProperties[v];
-              }
-            });
-
             return { ...properties, ...actionProperties };
           },
           {} as {
@@ -79,28 +72,49 @@ async function planAct(options: {
             };
           }
         ),
-        required: [],
+        required: rule.actions.flatMap((action) => {
+          return actionFunctionDefs[action.type].parameters.required;
+        }),
       },
     };
   });
 
+  const REQUIRES_MORE_INFO = "requires_more_information";
+
+  rulesWithProperties.push({
+    name: REQUIRES_MORE_INFO,
+    description: "Request more information to handle the email.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    prefilledValues: {},
+    rule: {} as any,
+  });
+
+  const functions = rulesWithProperties.map((r) => ({
+    name: r.name,
+    description: r.description,
+    parameters: r.parameters,
+  }));
+
   const aiResponse = await openai.createChatCompletion({
-    // model: "gpt-4", // gpt-3.5-turbo is not good at this
-    model: "gpt-3.5-turbo", // cheaper
+    // model: "gpt-4", // gpt-4 is better at this but costs a lot more :(
+    model: AI_MODEL, // gpt3.5 is cheaper
     messages: [
       {
         role: "system",
-        content: `You are an AI assistant that helps people manage their emails. You don't make decisions without asking for more information.
-        
-These are the rules to follow:
-${rules
-  .map(
-    (r, i) =>
-      `${i + 1}. ${
-        r.instructions
-      }\nThe actions that can be taken with this rule are: ${r.actions}`
-  )
-  .join("\n\n")}`,
+        content: `You are an AI assistant that helps people manage their emails. You don't make decisions without asking for more information.`,
+        // These are the rules to follow:
+        // ${rules
+        //   .map(
+        //     (r, i) =>
+        //       `${i + 1}. ${
+        //         r.instructions
+        //       }\nThe actions that can be taken with this rule are: ${r.actions}`
+        //   )
+        //   .join("\n\n")}`,
       },
       ...(options.userAbout
         ? [
@@ -112,7 +126,9 @@ ${rules
         : []),
       {
         role: "user",
-        content: `From: ${email.from}
+        content: `This email was received for processing:
+
+From: ${email.from}
 Reply to: ${email.replyTo}
 CC: ${email.cc}
 Subject: ${email.subject}
@@ -120,8 +136,9 @@ Email:
 ${email.content}`,
       },
     ],
-    functions: rulesWithProperties,
+    functions,
     function_call: "auto",
+    temperature: 0,
   });
 
   const json: ChatCompletionResponse | ChatCompletionError =
@@ -145,6 +162,8 @@ ${email.content}`,
 
   console.log("functionCall:", functionCall);
 
+  if (functionCall.name === REQUIRES_MORE_INFO) return;
+
   const aiGeneratedArgs = functionCall.arguments
     ? json5.parse(functionCall.arguments)
     : undefined;
@@ -153,6 +172,7 @@ ${email.content}`,
 
   const selectedRule = rulesWithProperties[selectedRuleNumber - 1];
 
+  // use prefilled values where we have them
   const args = {
     ...aiGeneratedArgs,
     ...selectedRule.prefilledValues,

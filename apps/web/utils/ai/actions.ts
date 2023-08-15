@@ -26,7 +26,7 @@ type ActionFunctionDef = {
         >;
         required: string[];
       }
-    | { properties?: undefined };
+    | { type: string; properties?: undefined; required: string[] };
   action: ActionType | null;
 };
 
@@ -65,15 +65,15 @@ const DRAFT_EMAIL: ActionFunctionDef = {
     properties: {
       to: {
         type: "string",
-        description: "The email address of the recipient.",
+        description: "The email address of the recipient to respond to.",
       },
       subject: {
         type: "string",
-        description: "The subject of the email.",
+        description: "The subject of the email that is being drafted.",
       },
       content: {
         type: "string",
-        description: "The content of the email.",
+        description: "The content of the email that is being drafted.",
       },
     },
     required: ["content"],
@@ -89,15 +89,17 @@ const REPLY_TO_EMAIL: ActionFunctionDef = {
     properties: {
       cc: {
         type: "string",
-        description: "Comma separated email addresses of the cc recipients.",
+        description:
+          "A comma separated list of email addresses of the cc recipients to send to.",
       },
       bcc: {
         type: "string",
-        description: "Comma separated email addresses of the bcc recipients.",
+        description:
+          "A comma separated list of email addresses of the bcc recipients to send to.",
       },
       content: {
         type: "string",
-        description: "The content of the email.",
+        description: "The content to send in the reply.",
       },
     },
     required: ["to", "subject", "content"],
@@ -125,11 +127,11 @@ const SEND_EMAIL: ActionFunctionDef = {
       },
       subject: {
         type: "string",
-        description: "The subject of the email.",
+        description: "The subject of the email to be sent.",
       },
       content: {
         type: "string",
-        description: "The content of the email.",
+        description: "The content to send in the email.",
       },
     },
     required: ["to", "subject", "content"],

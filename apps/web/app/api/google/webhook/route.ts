@@ -8,6 +8,8 @@ import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type MessageWithPayload, type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
+import { getMessage } from "@/utils/gmail/message";
+import { getThread } from "@/utils/gmail/thread";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,7 @@ export const POST = withError(async (request: Request) => {
     Buffer.from(data, "base64").toString().replace(/-/g, "+").replace(/_/g, "/")
   );
 
-  console.log("Webhook - Processing:", decodedData);
+  console.log("Webhook. Processing:", decodedData);
 
   const account = await prisma.account.findFirst({
     where: { user: { email: decodedData.emailAddress }, provider: "google" },
@@ -127,12 +129,25 @@ async function planHistory(options: {
 
     for (const m of h.messagesAdded) {
       if (!m.message?.id) continue;
-      if (m.message.labelIds?.includes(SENT_LABEL_ID)) continue;
+      // skip emails the user sent
+      if (m.message.labelIds?.includes(SENT_LABEL_ID)) {
+        console.log(`Skipping email with SENT label`);
+        continue;
+      }
 
       console.log("Getting message...", m.message.id);
 
       try {
         const gmailMessage = await getMessage(m.message.id, gmail);
+
+        // skip messages in threads
+        const gmailThread = await getThread(m.message.threadId!, gmail);
+        if ((gmailThread.messages?.length || 0) > 1) {
+          console.log(
+            `Skipping thread with ${gmailThread.messages?.length} messages`
+          );
+          continue;
+        }
 
         console.log("Received message...");
 
@@ -188,17 +203,4 @@ async function planHistory(options: {
     where: { email },
     data: { lastSyncedHistoryId },
   });
-}
-
-async function getMessage(
-  messageId: string,
-  gmail: gmail_v1.Gmail
-): Promise<MessageWithPayload> {
-  const message = await gmail.users.messages.get({
-    userId: "me",
-    id: messageId,
-    format: "full",
-  });
-
-  return message.data as MessageWithPayload;
 }

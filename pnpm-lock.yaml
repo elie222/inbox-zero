@@ -188,6 +188,9 @@ importers:
       next-contentlayer:
         specifier: ^0.3.4
         version: 0.3.4(contentlayer@0.3.4)(esbuild@0.18.13)(next@13.4.13)(react-dom@18.2.0)(react@18.2.0)
+      node-email-reply-parser:
+        specifier: ^0.1.4
+        version: 0.1.4
       nodemailer:
         specifier: ^6.9.4
         version: 6.9.4
@@ -5705,6 +5708,14 @@ packages:
     dependencies:
       estraverse: 5.3.0
 
+  /esrever@0.2.0:
+    resolution:
+      {
+        integrity: sha512-1e9YJt6yQkyekt2BUjTky7LZWWVyC2cIpgdnsTAvMcnzXIZvlW/fTMPkxBcZoYhgih4d+EC+iw+yv9GIkz7vrw==,
+      }
+    hasBin: true
+    dev: false
+
   /estraverse@4.3.0:
     resolution:
       {
@@ -8692,6 +8703,17 @@ packages:
         integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==,
       }
     engines: { node: ">=10.5.0" }
+    dev: false
+
+  /node-email-reply-parser@0.1.4:
+    resolution:
+      {
+        integrity: sha512-rXiLvb9J8RRNYEf/Ftf2vx+HEjZjB16ONY5Qd9PAFdN0OESkgvGINbtlgIvdIjVeZ1jPPoK/b90sx+lP1CIvqA==,
+      }
+    engines: { node: ">= 14.0.0" }
+    dependencies:
+      esrever: 0.2.0
+      lodash: 4.17.21
     dev: false
 
   /node-fetch@2.6.12(encoding@0.1.13):

@@ -5,6 +5,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { actBody } from "@/app/api/ai/act/validation";
 import { withError } from "@/utils/middleware";
+import { parseReply } from "@/utils/mail";
 
 export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
@@ -20,8 +21,10 @@ export const POST = withError(async (request: Request) => {
     include: { rules: { include: { actions: true } } },
   });
 
+  const emailContent = parseReply(body.email.content);
+
   const result = await planOrExecuteAct({
-    email: body.email,
+    email: { ...body.email, content: emailContent },
     rules: user.rules,
     gmail,
     allowExecute: !!body.allowExecute,

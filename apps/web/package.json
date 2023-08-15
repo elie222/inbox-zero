@@ -49,6 +49,7 @@
     "next": "13.4.13",
     "next-auth": "^4.22.5",
     "next-contentlayer": "^0.3.4",
+    "node-email-reply-parser": "^0.1.4",
     "nodemailer": "^6.9.4",
     "openai-edge": "^1.2.2",
     "prettier": "2.8.8",
