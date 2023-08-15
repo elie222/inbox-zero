@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import groupBy from "lodash/groupBy";
+// import groupBy from "lodash/groupBy";
 import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload, isDefined } from "@/utils/types";
+import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ async function getPlanned() {
 
   const gmail = getGmailClient(session);
 
-  const messagesByThreadId = groupBy(plans, (p) => p.threadId);
+  // const messagesByThreadId = groupBy(plans, (p) => p.threadId);
 
   // const threads = await Promise.all(
   //   Object.entries(messagesByThreadId).map(async ([threadId, plans]) => {

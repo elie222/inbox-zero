@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
-import { type MessageWithPayload, type RuleWithActions } from "@/utils/types";
+import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
