@@ -10,7 +10,8 @@ import { withError } from "@/utils/middleware";
 
 export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
-  if (!session?.user.email) return;
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const json = await request.json();
   const body = planBody.parse(json);

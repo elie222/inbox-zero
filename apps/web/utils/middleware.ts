@@ -1,11 +1,12 @@
 import { ZodError } from "zod";
 import { NextResponse } from "next/server";
 import { captureException } from "@/utils/error";
+import { StreamingTextResponse } from "ai";
 
 export type NextHandler = (
   req: Request,
   { params }: { params: Record<string, string | undefined> }
-) => Promise<unknown>;
+) => Promise<NextResponse | StreamingTextResponse>;
 
 export function withError(handler: NextHandler): NextHandler {
   return async (req, params) => {
