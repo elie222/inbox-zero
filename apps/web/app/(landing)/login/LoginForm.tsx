@@ -1,32 +1,25 @@
 "use client";
 
-import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
+import { Modal, useModal } from "@/components/Modal";
+import { SectionDescription } from "@/components/Typography";
+import { useState } from "react";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const error = searchParams?.get("error");
-  const [clickedGoogle, setClickedGoogle] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+
+  const { isModalOpen, openModal, closeModal } = useModal();
 
   return (
     <div className="px-4 pt-4 sm:px-16">
-      <Button
-        onClick={() => {
-          setClickedGoogle(true);
-          signIn("google", {
-            consent: error === "RefreshAccessTokenError",
-            ...(next && next.length > 0
-              ? { callbackUrl: next }
-              : { callbackUrl: "/mail" }),
-          });
-        }}
-        loading={clickedGoogle}
-        size="2xl"
-      >
+      <Button onClick={openModal} size="2xl">
         <span className="flex items-center justify-center">
           <Image
             src="/images/google.svg"
@@ -38,6 +31,31 @@ export function LoginForm() {
           <span className="ml-2">Sign in with Google</span>
         </span>
       </Button>
+      <Modal title="Sign in" isOpen={isModalOpen} hideModal={closeModal}>
+        <div className="mt-2">
+          <SectionDescription>
+            Inbox Zero sends your emails to OpenAI for processing. OpenAI does
+            not use the submitted data to train or improve their AI models.
+            Inbox Zero does not store your emails.
+          </SectionDescription>
+          <div className="mt-4">
+            <Button
+              loading={loading}
+              onClick={() => {
+                setLoading(true);
+                signIn("google", {
+                  consent: error === "RefreshAccessTokenError",
+                  ...(next && next.length > 0
+                    ? { callbackUrl: next }
+                    : { callbackUrl: "/mail" }),
+                });
+              }}
+            >
+              I understand
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
