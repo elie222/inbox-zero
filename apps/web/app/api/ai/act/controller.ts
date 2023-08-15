@@ -105,7 +105,7 @@ async function planAct(options: {
     messages: [
       {
         role: "system",
-        content: `You are an AI assistant that helps people manage their emails. You don't make decisions without asking for more information.`,
+        content: `You are an AI assistant that helps people manage their emails. You don't make decisions without asking for more information. Never put placeholders in your emails. Do not make things up.`,
         // These are the rules to follow:
         // ${rules
         //   .map(
