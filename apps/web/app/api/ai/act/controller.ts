@@ -251,6 +251,8 @@ export async function planOrExecuteAct(options: {
   userAbout: string;
   automated: boolean;
 }) {
+  if (!options.rules.length) return;
+
   const plannedAct = await planAct(options);
 
   console.log("Planned act:", plannedAct);
