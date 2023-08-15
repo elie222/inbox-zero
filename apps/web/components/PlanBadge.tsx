@@ -79,25 +79,31 @@ function getActionMessage(actionType: ActionType, plan: Plan): string {
 function getActionColor(actionType: ActionType): Color {
   switch (actionType) {
     case ActionType.REPLY:
+    case ActionType.FORWARD:
+    case ActionType.SEND_EMAIL:
+    case ActionType.DRAFT_EMAIL:
       return "green";
     case ActionType.ARCHIVE:
       return "yellow";
     case ActionType.LABEL:
       return "blue";
     default:
-      return "gray";
+      return "purple";
   }
 }
 
 function getPlanColor(plan: Plan | null): Color {
   switch (plan?.rule?.actions?.[0]?.type) {
     case ActionType.REPLY:
+    case ActionType.FORWARD:
+    case ActionType.SEND_EMAIL:
+    case ActionType.DRAFT_EMAIL:
       return "green";
     case ActionType.ARCHIVE:
       return "yellow";
     case ActionType.LABEL:
       return "blue";
     default:
-      return "gray";
+      return "purple";
   }
 }
