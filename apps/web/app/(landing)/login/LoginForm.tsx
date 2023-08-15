@@ -34,9 +34,10 @@ export function LoginForm() {
       <Modal title="Sign in" isOpen={isModalOpen} hideModal={closeModal}>
         <div className="mt-2">
           <SectionDescription>
-            Inbox Zero sends your emails to OpenAI for processing. OpenAI does
-            not use the submitted data to train or improve their AI models.
-            Inbox Zero does not store your emails.
+            By continuing you agree to allow Inbox Zero to send your emails to
+            OpenAI for processing. OpenAI does not use the submitted data to
+            train or improve their AI models. Inbox Zero does not store your
+            emails.
           </SectionDescription>
           <div className="mt-4">
             <Button
@@ -51,7 +52,7 @@ export function LoginForm() {
                 });
               }}
             >
-              I understand
+              I agree
             </Button>
           </div>
         </div>
