@@ -128,7 +128,8 @@ async function checkAiResponse(options: {
 
   // Stricter alternative: Please not that you must be extra diligent as the AI often hallucinates and makes mistakes that might initially seem correct.
   async function callAi() {
-    const content = `I have an AI assistant that helps me handle my emails. What do you make of its choice of response? It often makes mistakes.
+    const content = `I have an AI assistant that helps me handle my emails based on rules I provided it.
+What do you make of its choice of response?
 
 It is your job to respond with properly formatted JSON that includes two fields:
 "score" - a number between 0 and 1 that represents how good the AI assistant's response was
@@ -142,10 +143,13 @@ ${options.subject}
 
 Body:
 ${options.textPlain}
+
 ###
         
-The rule the AI chose to respond with:
-${options.chosenInstructions}`;
+This is the rule it selected from a set of rules I had given it to choose from:
+
+${options.chosenInstructions}
+`;
     console.log("content:", content);
 
     const aiResponse = await openai.createChatCompletion({
