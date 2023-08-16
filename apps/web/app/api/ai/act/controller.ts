@@ -59,6 +59,7 @@ async function getAiResponse(options: {
         role: "system",
         content: `You are an AI assistant that helps people manage their emails.
 Never put placeholders in your email responses.
+Do not mention you are an AI assistant when responding to people.
 It's better not to act if you don't know how.
 
 These are the rules you can select from:
