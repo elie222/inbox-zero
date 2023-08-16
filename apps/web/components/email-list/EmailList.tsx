@@ -269,14 +269,19 @@ export function EmailList(props: {
 }) {
   const { refetch } = props;
 
-  const [openedRow, setOpenedRow] = useState<Thread>();
+  const [openedRowId, setOpenedRowId] = useState<string>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
   // could make this row specific in the future
   const [showReply, setShowReply] = useState(false);
 
-  const closePanel = useCallback(() => setOpenedRow(undefined), []);
+  const closePanel = useCallback(() => setOpenedRowId(undefined), []);
   const onShowReply = useCallback(() => setShowReply(true), []);
+
+  const openedRow = useMemo(
+    () => props.threads.find((thread) => thread.id === openedRowId),
+    [openedRowId, props.threads]
+  );
 
   const session = useSession();
 
@@ -375,8 +380,8 @@ export function EmailList(props: {
   return (
     <div
       className={clsx("h-full overflow-hidden", {
-        "grid grid-cols-2": openedRow,
-        "overflow-y-auto": !openedRow,
+        "grid grid-cols-2": openedRowId,
+        "overflow-y-auto": !openedRowId,
       })}
     >
       <ul
@@ -397,13 +402,13 @@ export function EmailList(props: {
             key={thread.id}
             userEmailAddress={session.data?.user.email || ""}
             thread={thread}
-            opened={openedRow?.id === thread.id}
+            opened={openedRowId === thread.id}
             selected={selectedRows[thread.id!]}
             onSelected={onSetSelectedRow}
-            splitView={!!openedRow}
+            splitView={!!openedRowId}
             onClick={() => {
-              const alreadyOpen = !!openedRow;
-              setOpenedRow(thread);
+              const alreadyOpen = !!openedRowId;
+              setOpenedRowId(thread.id!);
 
               if (!alreadyOpen) scrollToId(thread.id!);
             }}
@@ -421,18 +426,18 @@ export function EmailList(props: {
 
       {props.threads.length === 0 && props.emptyMessage}
 
-      {!!openedRow && (
+      {!!(openedRowId && openedRow) && (
         <EmailPanel
           row={openedRow}
           showReply={showReply}
           onShowReply={onShowReply}
-          isPlanning={isPlanning[openedRow.id!]}
+          isPlanning={isPlanning[openedRowId]}
           onPlanAiAction={onPlanAiAction}
           close={closePanel}
           executePlan={executePlan}
           rejectPlan={rejectPlan}
-          executingPlan={executingPlan[openedRow.id!]}
-          rejectingPlan={rejectingPlan[openedRow.id!]}
+          executingPlan={executingPlan[openedRowId]}
+          rejectingPlan={rejectingPlan[openedRowId]}
         />
       )}
     </div>
