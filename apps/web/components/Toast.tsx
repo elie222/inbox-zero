@@ -12,4 +12,8 @@ export function toastError(options: { title?: string; description: string }) {
   });
 }
 
+export function toastInfo(options: { description: string }) {
+  return toast(options.description);
+}
+
 export const Toaster = SonnerToaster;

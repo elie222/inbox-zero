@@ -11,7 +11,7 @@ import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Celebration } from "@/components/Celebration";
-import { toastError } from "@/components/Toast";
+import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
 import { isErrorMessage } from "@/utils/error";
@@ -267,6 +267,8 @@ export function EmailList(props: {
   emptyMessage?: React.ReactNode;
   refetch: () => void;
 }) {
+  const { refetch } = props;
+
   const [openedRow, setOpenedRow] = useState<Thread>();
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -287,40 +289,45 @@ export function EmailList(props: {
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
 
-  const onPlanAiAction = useCallback(async (thread: Thread) => {
-    setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
+  const onPlanAiAction = useCallback(
+    async (thread: Thread) => {
+      setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
 
-    const message = thread.messages?.[thread.messages.length - 1];
+      toastInfo({ description: `Planning the email...` });
 
-    if (!message) return;
+      const message = thread.messages?.[thread.messages.length - 1];
 
-    const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
-      email: {
-        from: message.parsedMessage.headers.from,
-        to: message.parsedMessage.headers.to,
-        date: message.parsedMessage.headers.date,
-        replyTo: message.parsedMessage.headers.replyTo,
-        cc: message.parsedMessage.headers.cc,
-        subject: message.parsedMessage.headers.subject,
-        content: message.parsedMessage.textPlain,
-        threadId: message.threadId || "",
-        messageId: message.id || "",
-        headerMessageId: message.parsedMessage.headers.messageId || "",
-        references: message.parsedMessage.headers.references,
-      },
-      allowExecute: false,
-    });
+      if (!message) return;
 
-    if (isErrorMessage(res)) {
-      console.error(res);
-      toastError({
-        description: `There was an error planning the email.`,
+      const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
+        email: {
+          from: message.parsedMessage.headers.from,
+          to: message.parsedMessage.headers.to,
+          date: message.parsedMessage.headers.date,
+          replyTo: message.parsedMessage.headers.replyTo,
+          cc: message.parsedMessage.headers.cc,
+          subject: message.parsedMessage.headers.subject,
+          content: message.parsedMessage.textPlain,
+          threadId: message.threadId || "",
+          messageId: message.id || "",
+          headerMessageId: message.parsedMessage.headers.messageId || "",
+          references: message.parsedMessage.headers.references,
+        },
+        allowExecute: false,
       });
-    } else {
-      // setPlan(res);
-    }
-    setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
-  }, []);
+
+      if (isErrorMessage(res)) {
+        console.error(res);
+        toastError({ description: `There was an error planning the email.` });
+      } else {
+        // setPlan(res);
+        toastSuccess({ description: `Planned the email.` });
+        refetch();
+      }
+      setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
+    },
+    [refetch]
+  );
 
   const listRef = useRef<HTMLUListElement>(null);
   const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);

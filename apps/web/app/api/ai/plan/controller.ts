@@ -120,10 +120,7 @@ export async function plan(
     plan: planJson,
   });
 
-  await saveUsage({
-    email: user.email,
-    tokensUsed: json.usage.total_tokens,
-  });
+  await saveUsage({ email: user.email, usage: json.usage, model: AI_MODEL });
 
   return { plan: planJson };
 }

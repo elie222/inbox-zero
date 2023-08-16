@@ -99,9 +99,11 @@ async function planAct(options: {
     parameters: r.parameters,
   }));
 
+  // const model = "gpt-4"; // gpt-4 is better at this but costs a lot more :(
+  const model = AI_MODEL; // gpt3.5 is cheaper
+
   const aiResponse = await openai.createChatCompletion({
-    // model: "gpt-4", // gpt-4 is better at this but costs a lot more :(
-    model: AI_MODEL, // gpt3.5 is cheaper
+    model,
     messages: [
       {
         role: "system",
@@ -149,10 +151,7 @@ ${email.content}`,
     return;
   }
 
-  await saveUsage({
-    email: options.userEmail,
-    tokensUsed: json.usage.total_tokens,
-  });
+  await saveUsage({ email: options.userEmail, usage: json.usage, model });
 
   const functionCall = json?.choices?.[0]?.message.function_call as
     | ChatCompletionRequestMessageFunctionCall
