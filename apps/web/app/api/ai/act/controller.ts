@@ -59,16 +59,10 @@ async function getAiResponse(options: {
         role: "system",
         content: `You are an AI assistant that helps people manage their emails.
 Never put placeholders in your email responses.
-Be cautious when responding and if you're uncertain always ask for more information.`,
-        // These are the rules to follow:
-        // ${rules
-        //   .map(
-        //     (r, i) =>
-        //       `${i + 1}. ${
-        //         r.instructions
-        //       }\nThe actions that can be taken with this rule are: ${r.actions}`
-        //   )
-        //   .join("\n\n")}`,
+It's better not to act if you don't know how.
+
+These are the rules you can select from:
+${functions.map((f) => f.description).join("\n\n")}`,
       },
       ...(userAbout
         ? [
