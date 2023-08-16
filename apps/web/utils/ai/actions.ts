@@ -330,7 +330,7 @@ Subject: ${email.subject}
 
 To: ${email.to}
 
-${email.content}`,
+${email.textHtml || email.textPlain}`,
   });
 };
 

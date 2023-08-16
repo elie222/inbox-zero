@@ -161,38 +161,35 @@ async function planHistory(options: {
 
         const parsedMessage = parseMessage(gmailMessage);
 
-        const message =
-          parsedMessage.textPlain ||
-          parsedMessage.textHtml ||
-          parsedMessage.headers.subject;
-
-        if (message) {
-          console.log("Plan or act on message...");
-
-          const res = await planOrExecuteAct({
-            allowExecute: true,
-            email: {
-              from: parsedMessage.headers.from,
-              replyTo: parsedMessage.headers.replyTo,
-              cc: parsedMessage.headers.cc,
-              subject: parsedMessage.headers.subject,
-              content: message,
-              threadId: m.message.threadId || "",
-              messageId: m.message.id,
-              headerMessageId: parsedMessage.headers.messageId || "",
-            },
-            rules,
-            gmail,
-            userId,
-            userEmail,
-            automated: true,
-            userAbout: about,
-          });
-
-          console.log("Result:", res);
-        } else {
-          console.error("No message", parsedMessage);
+        if (!parsedMessage.textPlain) {
+          console.log("Skipping. No plain text found.");
+          return;
         }
+
+        console.log("Plan or act on message...");
+
+        const res = await planOrExecuteAct({
+          allowExecute: true,
+          email: {
+            from: parsedMessage.headers.from,
+            replyTo: parsedMessage.headers.replyTo,
+            cc: parsedMessage.headers.cc,
+            subject: parsedMessage.headers.subject,
+            textPlain: parsedMessage.textPlain,
+            textHtml: parsedMessage.textHtml,
+            threadId: m.message.threadId || "",
+            messageId: m.message.id,
+            headerMessageId: parsedMessage.headers.messageId || "",
+          },
+          rules,
+          gmail,
+          userId,
+          userEmail,
+          automated: true,
+          userAbout: about,
+        });
+
+        console.log("Result:", res);
       } catch (error: any) {
         // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
         if (error.message === "Requested entity was not found.") {

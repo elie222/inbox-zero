@@ -7,7 +7,8 @@ export const actEmail = z.object({
   replyTo: z.string().optional(),
   cc: z.string().optional(),
   subject: z.string(),
-  content: z.string(),
+  textPlain: z.string().nullable(),
+  textHtml: z.string().nullable(),
   threadId: z.string(),
   messageId: z.string(), // gmail message id
   headerMessageId: z.string(),

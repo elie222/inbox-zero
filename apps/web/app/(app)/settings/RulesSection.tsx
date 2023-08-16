@@ -22,7 +22,7 @@ import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
-import { isErrorMessage } from "@/utils/error";
+import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   type UpdateRulesResponse,
@@ -104,7 +104,7 @@ export function RulesForm(props: {
         data
       );
 
-      if (isErrorMessage(res)) {
+      if (isError(res)) {
         toastError({ description: "There was an error updating the rules." });
       } else {
         // update ids
@@ -128,7 +128,7 @@ export function RulesForm(props: {
               ruleId: r.id,
             });
 
-            if (isErrorMessage(categorizedRule)) {
+            if (isError(categorizedRule)) {
               console.error("Error categorizing rule:", r);
               console.error("Error:", categorizedRule);
               return;
@@ -327,7 +327,7 @@ function UpdateRuleForm(props: {
 
       await refetchRules();
 
-      if (isErrorMessage(res)) {
+      if (isError(res)) {
         console.error(res);
         toastError({ description: `There was an error updating the rule.` });
       } else {
@@ -526,7 +526,8 @@ const TestRulesForm = () => {
         replyTo: "",
         cc: "",
         subject: "",
-        content: data.message,
+        textPlain: data.message,
+        textHtml: "",
         threadId: "",
         messageId: "",
         headerMessageId: "",
@@ -535,7 +536,7 @@ const TestRulesForm = () => {
       allowExecute: false,
     });
 
-    if (isErrorMessage(res)) {
+    if (isError(res)) {
       console.error(res);
       toastError({ description: `Error planning` });
     } else {
@@ -588,6 +589,13 @@ function TestRulesContentRow(props: {
             onClick={async () => {
               setPlanning(true);
 
+              if (!message.parsedMessage.textPlain) {
+                toastError({
+                  description: `Unable to plan email. No plain text found.`,
+                });
+                return;
+              }
+
               const res = await postRequest<ActResponse, ActBody>(
                 "/api/ai/act",
                 {
@@ -598,7 +606,8 @@ function TestRulesContentRow(props: {
                     replyTo: message.parsedMessage.headers.replyTo,
                     cc: message.parsedMessage.headers.cc,
                     subject: message.parsedMessage.headers.subject,
-                    content: message.parsedMessage.textPlain,
+                    textPlain: message.parsedMessage.textPlain,
+                    textHtml: message.parsedMessage.textHtml,
                     threadId: message.threadId || "",
                     messageId: message.id || "",
                     headerMessageId:
@@ -609,7 +618,7 @@ function TestRulesContentRow(props: {
                 }
               );
 
-              if (isErrorMessage(res)) {
+              if (isError(res)) {
                 console.error(res);
                 toastError({
                   description: `There was an error planning the email.`,

@@ -14,7 +14,7 @@ import { Celebration } from "@/components/Celebration";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
-import { isErrorMessage } from "@/utils/error";
+import { isError } from "@/utils/error";
 import { useSession } from "next-auth/react";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBody } from "@/app/api/ai/act/validation";
@@ -293,11 +293,21 @@ export function EmailList(props: {
     async (thread: Thread) => {
       setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
 
-      toastInfo({ description: `Planning the email...` });
-
       const message = thread.messages?.[thread.messages.length - 1];
 
       if (!message) return;
+
+      // html emails contain a lot of content and goes over the token limit
+      // TODO convert html emails to plain text before processing: https://www.npmjs.com/package/html-to-text
+      if (!message.parsedMessage.textPlain) {
+        toastError({
+          description: `This email does not have a plain text version and cannot currently be planned.`,
+        });
+        setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
+        return;
+      }
+
+      toastInfo({ description: `Planning the email...` });
 
       const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
         email: {
@@ -307,7 +317,8 @@ export function EmailList(props: {
           replyTo: message.parsedMessage.headers.replyTo,
           cc: message.parsedMessage.headers.cc,
           subject: message.parsedMessage.headers.subject,
-          content: message.parsedMessage.textPlain,
+          textPlain: message.parsedMessage.textPlain,
+          textHtml: message.parsedMessage.textHtml,
           threadId: message.threadId || "",
           messageId: message.id || "",
           headerMessageId: message.parsedMessage.headers.messageId || "",
@@ -316,7 +327,7 @@ export function EmailList(props: {
         allowExecute: false,
       });
 
-      if (isErrorMessage(res)) {
+      if (isError(res)) {
         console.error(res);
         toastError({ description: `There was an error planning the email.` });
       } else {

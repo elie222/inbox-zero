@@ -1,10 +1,13 @@
 import json5 from "json5";
 import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { gmail_v1 } from "googleapis";
+import { z } from "zod";
 import { openai } from "@/utils/openai";
 import {
+  AiModel,
   ChatCompletionError,
   ChatCompletionResponse,
+  ChatFunction,
   PartialRecord,
   RuleWithActions,
   isChatCompletionError,
@@ -30,6 +33,167 @@ type PlannedAction = {
   args: PartialRecord<ActionProperty, string>;
   actions: Pick<Action, "type">[];
 };
+
+const REQUIRES_MORE_INFO = "requires_more_information";
+
+const responseSchema = z.object({
+  score: z.number(),
+  explanation: z.string(),
+});
+
+async function getAiResponse(options: {
+  model: AiModel;
+  email: ActBody["email"];
+  userAbout: string;
+  userEmail: string;
+  functions: ChatFunction[];
+}) {
+  const { model, email, userAbout, userEmail, functions } = options;
+
+  console.log("email.textPlain", email.textPlain);
+
+  const aiResponse = await openai.createChatCompletion({
+    model,
+    messages: [
+      {
+        role: "system",
+        content: `You are an AI assistant that helps people manage their emails.
+Never put placeholders in your email responses.
+Be cautious when responding and if you're uncertain always ask for more information.`,
+        // These are the rules to follow:
+        // ${rules
+        //   .map(
+        //     (r, i) =>
+        //       `${i + 1}. ${
+        //         r.instructions
+        //       }\nThe actions that can be taken with this rule are: ${r.actions}`
+        //   )
+        //   .join("\n\n")}`,
+      },
+      ...(userAbout
+        ? [
+            {
+              role: "user" as const,
+              content: `Some additional information the user has provided:\n\n${userAbout}`,
+            },
+          ]
+        : []),
+      {
+        role: "user",
+        content: `This email was received for processing:
+
+From: ${email.from}
+Reply to: ${email.replyTo}
+CC: ${email.cc}
+Subject: ${email.subject}
+Email:
+${email.textPlain}`,
+      },
+    ],
+    functions,
+    function_call: "auto",
+    temperature: 0,
+  });
+
+  const json: ChatCompletionResponse | ChatCompletionError =
+    await aiResponse.json();
+
+  if (isChatCompletionError(json)) {
+    console.error(json);
+    return;
+  }
+
+  // is there usage upon error?
+  await saveUsage({ email: userEmail, usage: json.usage, model });
+
+  const functionCall = json?.choices?.[0]?.message.function_call as
+    | ChatCompletionRequestMessageFunctionCall
+    | undefined;
+
+  if (!functionCall?.name) return;
+
+  console.log("functionCall:", functionCall);
+
+  if (functionCall.name === REQUIRES_MORE_INFO) return;
+
+  return functionCall;
+}
+
+async function checkAiResponse(options: {
+  subject: string;
+  textPlain: string;
+  chosenInstructions: string;
+}) {
+  console.log("Checking AI response");
+
+  // Stricter alternative: Please not that you must be extra diligent as the AI often hallucinates and makes mistakes that might initially seem correct.
+  async function callAi() {
+    const content = `I received this email and my AI had a number of ways to respond. What do you make of its choice of response?
+
+Please not that you must be diligent as the AI often makes mistakes that initially seem correct.
+
+Respond with properly formatted JSON that includes two fields:
+score - a number between 0 and 1 that represents how good the AI's response was
+explanation - a string that explains why the AI's response is good or bad
+
+The email:
+
+###
+Subject:
+${options.subject}
+
+Body:
+${options.textPlain}
+###
+        
+The rule the AI chose to respond with:
+
+###
+${options.chosenInstructions}
+###`;
+    console.log("🚀 ~ file: controller.ts:148 ~ callAi ~ content:", content);
+
+    const aiResponse = await openai.createChatCompletion({
+      model: AI_MODEL,
+      messages: [
+        {
+          role: "user",
+          content,
+        },
+      ],
+    });
+
+    const json: ChatCompletionResponse | ChatCompletionError =
+      await aiResponse.json();
+
+    if (isChatCompletionError(json)) {
+      console.error(json);
+      return;
+    }
+
+    const text = json.choices[0].message;
+
+    try {
+      const res: { score: number; explanation: number } = json5.parse(
+        text.content
+      );
+
+      return res;
+    } catch (error) {
+      console.error("Error parsing json:", text);
+      throw error;
+    }
+  }
+
+  // might want to loop this instead till the ai responds with the correct json?
+  const aiRes = await callAi();
+  if (!responseSchema.safeParse(aiRes).success) {
+    const aiRes2 = await callAi();
+    if (responseSchema.safeParse(aiRes).success) return aiRes2;
+  }
+
+  return aiRes;
+}
 
 async function planAct(options: {
   email: ActBody["email"];
@@ -79,8 +243,6 @@ async function planAct(options: {
     };
   });
 
-  const REQUIRES_MORE_INFO = "requires_more_information";
-
   rulesWithProperties.push({
     name: REQUIRES_MORE_INFO,
     description: "Request more information to handle the email.",
@@ -93,83 +255,61 @@ async function planAct(options: {
     rule: {} as any,
   });
 
-  const functions = rulesWithProperties.map((r) => ({
+  const functions: ChatFunction[] = rulesWithProperties.map((r) => ({
     name: r.name,
     description: r.description,
     parameters: r.parameters,
   }));
 
-  // const model = "gpt-4"; // gpt-4 is better at this but costs a lot more :(
-  const model = AI_MODEL; // gpt3.5 is cheaper
-
-  const aiResponse = await openai.createChatCompletion({
-    model,
-    messages: [
-      {
-        role: "system",
-        content: `You are an AI assistant that helps people manage their emails. You don't make decisions without asking for more information. Never put placeholders in your emails. Do not make things up.`,
-        // These are the rules to follow:
-        // ${rules
-        //   .map(
-        //     (r, i) =>
-        //       `${i + 1}. ${
-        //         r.instructions
-        //       }\nThe actions that can be taken with this rule are: ${r.actions}`
-        //   )
-        //   .join("\n\n")}`,
-      },
-      ...(options.userAbout
-        ? [
-            {
-              role: "user" as const,
-              content: `Some additional information the user has provided:\n\n${options.userAbout}`,
-            },
-          ]
-        : []),
-      {
-        role: "user",
-        content: `This email was received for processing:
-
-From: ${email.from}
-Reply to: ${email.replyTo}
-CC: ${email.cc}
-Subject: ${email.subject}
-Email:
-${email.content}`,
-      },
-    ],
+  // gpt3.5 is much cheaper but halucinates more than gpt4 (which isn't perfect either)
+  const functionCall = await getAiResponse({
+    model: AI_MODEL,
+    email,
+    userAbout: options.userAbout,
+    userEmail: options.userEmail,
     functions,
-    function_call: "auto",
-    temperature: 0,
   });
 
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await aiResponse.json();
+  const functionCallName = functionCall?.name;
+  const functionCallArguments = functionCall?.arguments;
 
-  if (isChatCompletionError(json)) {
-    console.error(json);
+  if (!functionCallName) return;
+
+  const aiGeneratedArgs = functionCallArguments
+    ? json5.parse(functionCallArguments)
+    : undefined;
+
+  const selectedRule = rulesWithProperties.find(
+    (f) => f.name === functionCallName
+  );
+  if (!selectedRule) {
+    console.warn("Rule not found for functionCallName:", functionCallName);
     return;
   }
 
-  await saveUsage({ email: options.userEmail, usage: json.usage, model });
+  const check = await checkAiResponse({
+    subject: email.subject,
+    textPlain: email.textPlain!,
+    chosenInstructions: selectedRule.rule.instructions,
+  });
 
-  const functionCall = json?.choices?.[0]?.message.function_call as
-    | ChatCompletionRequestMessageFunctionCall
-    | undefined;
+  console.log(
+    "Check score",
+    check?.score,
+    ". Explanation:",
+    check?.explanation
+  );
 
-  if (!functionCall?.name) return;
-
-  console.log("functionCall:", functionCall);
-
-  if (functionCall.name === REQUIRES_MORE_INFO) return;
-
-  const aiGeneratedArgs = functionCall.arguments
-    ? json5.parse(functionCall.arguments)
-    : undefined;
-
-  const selectedRuleNumber = parseInt(functionCall.name.split("_")[1]);
-
-  const selectedRule = rulesWithProperties[selectedRuleNumber - 1];
+  if (!check || check.score < 0.5) {
+    console.log(
+      `The AI is not confident on the response. Skipping. Check: ${JSON.stringify(
+        check,
+        null,
+        2
+      )}`
+    );
+    return;
+  }
 
   // use prefilled values where we have them
   const args = {

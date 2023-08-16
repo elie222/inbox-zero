@@ -12,6 +12,8 @@ export function isDefined<T>(value: T | undefined | null): value is T {
 
 export type RuleWithActions = Rule & { actions: Action[] };
 
+export type AiModel = "gpt-3.5-turbo" | "gpt-4";
+
 export type ChatCompletionResponse = {
   choices: { message: Message }[];
   usage: {
@@ -27,6 +29,21 @@ export type ChatCompletionError = {
     type: "tokens" | "invalid_request_error"; // add more as needed
     param: string;
     code: "context_length_exceeded"; // add more as needed
+  };
+};
+
+export type ChatFunction = {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: {
+      [key: string]: {
+        type: string;
+        description: string;
+      };
+    };
+    required: string[];
   };
 };
 
@@ -55,7 +72,7 @@ export interface ParsedMessage {
   attachments: Attachment[];
   inline: Inline[];
   headers: Headers3;
-  textPlain: string;
+  textPlain?: string;
   textHtml: string;
 }
 

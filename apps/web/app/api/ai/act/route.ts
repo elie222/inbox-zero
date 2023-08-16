@@ -9,7 +9,8 @@ import { parseReply } from "@/utils/mail";
 
 export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  if (!session)
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const json = await request.json();
   const body = actBody.parse(json);
@@ -21,10 +22,12 @@ export const POST = withError(async (request: Request) => {
     include: { rules: { include: { actions: true } } },
   });
 
-  const emailContent = parseReply(body.email.content);
+  const emailContent = parseReply(
+    body.email.textPlain || body.email.textHtml || ""
+  );
 
   const result = await planOrExecuteAct({
-    email: { ...body.email, content: emailContent },
+    email: { ...body.email, textPlain: emailContent },
     rules: user.rules,
     gmail,
     allowExecute: !!body.allowExecute,
