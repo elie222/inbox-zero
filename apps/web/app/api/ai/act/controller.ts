@@ -128,13 +128,11 @@ async function checkAiResponse(options: {
 
   // Stricter alternative: Please not that you must be extra diligent as the AI often hallucinates and makes mistakes that might initially seem correct.
   async function callAi() {
-    const content = `I received this email and my AI had a number of ways to respond. What do you make of its choice of response?
+    const content = `I have an AI assistant that helps me handle my emails. What do you make of its choice of response? It often makes mistakes.
 
-Please not that you must be diligent as the AI often makes mistakes that initially seem correct.
-
-Respond with properly formatted JSON that includes two fields:
-score - a number between 0 and 1 that represents how good the AI's response was
-explanation - a string that explains why the AI's response is good or bad
+It is your job to respond with properly formatted JSON that includes two fields:
+"score" - a number between 0 and 1 that represents how good the AI assistant's response was
+"explanation" - a string that explains why the AI assistant's response is good or bad
 
 The email:
 
@@ -147,11 +145,8 @@ ${options.textPlain}
 ###
         
 The rule the AI chose to respond with:
-
-###
-${options.chosenInstructions}
-###`;
-    console.log("🚀 ~ file: controller.ts:148 ~ callAi ~ content:", content);
+${options.chosenInstructions}`;
+    console.log("content:", content);
 
     const aiResponse = await openai.createChatCompletion({
       model: AI_MODEL,
@@ -300,7 +295,7 @@ async function planAct(options: {
     check?.explanation
   );
 
-  if (!check || check.score < 0.5) {
+  if (!check || check.score < 0.7) {
     console.log(
       `The AI is not confident on the response. Skipping. Check: ${JSON.stringify(
         check,
