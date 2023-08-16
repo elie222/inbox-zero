@@ -123,6 +123,7 @@ async function checkAiResponse(options: {
   subject: string;
   textPlain: string;
   chosenInstructions: string;
+  aiResponse?: string;
 }) {
   console.log("Checking AI response");
 
@@ -149,6 +150,14 @@ ${options.textPlain}
 This is the rule it selected from a set of rules I had given it to choose from:
 
 ${options.chosenInstructions}
+
+${
+  options.aiResponse
+    ? `This is the response the AI assistant generated:
+
+${options.aiResponse}`
+    : ""
+}
 `;
     console.log("content:", content);
 
@@ -290,6 +299,7 @@ async function planAct(options: {
     subject: email.subject,
     textPlain: email.textPlain!,
     chosenInstructions: selectedRule.rule.instructions,
+    aiResponse: aiGeneratedArgs.content,
   });
 
   console.log(
