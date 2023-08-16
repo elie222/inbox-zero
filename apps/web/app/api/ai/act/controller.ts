@@ -125,10 +125,12 @@ async function checkAiResponse(options: {
   // Stricter alternative: Please not that you must be extra diligent as the AI often hallucinates and makes mistakes that might initially seem correct.
   async function callAi() {
     const content = `I have an AI assistant that helps me handle my emails based on rules I provided it.
+It often makes mistakes that are not immediately obvious.
+
 What do you make of its choice of response?
 
 It is your job to respond with properly formatted JSON that includes two fields:
-"score" - a number between 0 and 1 that represents how good the AI assistant's response was
+"score" - a number between 0 and 10 that represents how good the AI assistant's response was
 "explanation" - a string that explains why the AI assistant's response is good or bad
 
 The email:
@@ -304,7 +306,7 @@ async function planAct(options: {
     check?.explanation
   );
 
-  if (!check || check.score < 0.7) {
+  if (!check || check.score < 7) {
     console.log(
       `The AI is not confident on the response. Skipping. Check: ${JSON.stringify(
         check,
