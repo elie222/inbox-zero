@@ -18,7 +18,7 @@ export function LoginForm() {
   const { isModalOpen, openModal, closeModal } = useModal();
 
   return (
-    <div className="px-4 pt-4 sm:px-16">
+    <div className="flex justify-center px-4 pt-4 sm:px-16">
       <Button onClick={openModal} size="2xl">
         <span className="flex items-center justify-center">
           <Image
