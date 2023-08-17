@@ -15,8 +15,18 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/roadmap",
+        destination: "https://inboxzero.canny.io/",
+        permanent: true,
+      },
+      {
         source: "/github",
         destination: "https://github.com/elie222/inbox-zero",
+        permanent: true,
+      },
+      {
+        source: "/discord",
+        destination: "https://discord.gg/UnBwsydrug",
         permanent: true,
       },
     ];
