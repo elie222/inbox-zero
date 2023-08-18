@@ -15,6 +15,7 @@ import {
 import { BarList } from "@/components/charts/BarList";
 import { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { sortBy } from "lodash";
+import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 
 export default function StatsPage() {
   return (
@@ -38,7 +39,7 @@ export default function StatsPage() {
       </div>
 
       <div className="mt-4 px-4">
-        <SenderAnalytics />
+        <EmailAnalytics />
       </div>
     </div>
   );
@@ -216,20 +217,27 @@ function CombinedStatsChart(props: { title: string }) {
   );
 }
 
-function SenderAnalytics() {
+function EmailAnalytics() {
   const { data, isLoading, error } = useSWRImmutable<
     SendersResponse,
     { error: string }
   >(`/api/user/stats/senders`);
+  const {
+    data: dataRecipients,
+    isLoading: isLoadingRecipients,
+    error: errorRecipients,
+  } = useSWRImmutable<RecipientsResponse, { error: string }>(
+    `/api/user/stats/recipients`
+  );
 
   return (
-    <LoadingContent
-      loading={isLoading}
-      error={error}
-      loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
-    >
-      {data && (
-        <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-3">
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+      >
+        {data && (
           <BarList
             title="Sender Analytics"
             col1="Sender"
@@ -242,6 +250,14 @@ function SenderAnalytics() {
               value: count,
             }))}
           />
+        )}
+      </LoadingContent>
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+      >
+        {data && (
           <BarList
             title="Sender Domain Analytics"
             col1="Domain"
@@ -254,9 +270,29 @@ function SenderAnalytics() {
               value: count,
             }))}
           />
-        </div>
-      )}
-    </LoadingContent>
+        )}
+      </LoadingContent>
+      <LoadingContent
+        loading={isLoadingRecipients}
+        error={errorRecipients}
+        loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+      >
+        {dataRecipients && (
+          <BarList
+            title="Recipient Analytics"
+            col1="Recipient"
+            col2="Emails"
+            data={sortBy(
+              Object.entries(dataRecipients.countByRecipient),
+              ([, count]) => -count
+            ).map(([sender, count]) => ({
+              name: sender,
+              value: count,
+            }))}
+          />
+        )}
+      </LoadingContent>
+    </div>
   );
 }
 

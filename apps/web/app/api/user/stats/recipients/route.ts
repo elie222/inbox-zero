@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
-import { gmail_v1 } from "googleapis";
 import countBy from "lodash/countBy";
+import { gmail_v1 } from "googleapis";
 import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
+import { parseDomain } from "@/app/api/user/stats/senders/route";
 
-export type SendersResponse = Awaited<ReturnType<typeof getSenders>>;
+export type RecipientsResponse = Awaited<ReturnType<typeof getRecipients>>;
 
-async function getSenders(options: { gmail: gmail_v1.Gmail }) {
+async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
   const { gmail } = options;
 
   const res = await gmail.users.messages.list({
     userId: "me",
-    q: `-in:sent`,
+    q: `in:sent`,
     maxResults: 50,
   });
 
@@ -30,19 +31,13 @@ async function getSenders(options: { gmail: gmail_v1.Gmail }) {
     }) || []
   );
 
-  const countBySender = countBy(messages, (m) => m.parsedMessage.headers.from);
+  const countByRecipient = countBy(messages, (m) => m.parsedMessage.headers.to);
   const countByDomain = countBy(messages, (m) =>
-    parseDomain(m.parsedMessage.headers.from)
+    parseDomain(m.parsedMessage.headers.to)
   );
-  return { countBySender, countByDomain };
+  return { countByRecipient, countByDomain };
 
   // TODO store results in redis with history id?
-}
-
-// Converts "Name <hey@domain.com>" to "domain.com"
-export function parseDomain(email: string) {
-  const domain = email.match(/@([\w.-]+\.[a-zA-Z]{2,6})/)?.[1];
-  return domain;
 }
 
 export async function GET() {
@@ -51,7 +46,7 @@ export async function GET() {
 
   const gmail = getGmailClient(session);
 
-  const result = await getSenders({ gmail });
+  const result = await getRecipients({ gmail });
 
   return NextResponse.json(result);
 }
