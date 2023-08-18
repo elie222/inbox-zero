@@ -54,8 +54,8 @@ export function Hero(props: {}) {
           </h1>
           <p className="mt-6 text-lg leading-8 text-gray-300">
             Inbox Zero uses AI to help you empty your inbox daily. What
-            previously took hours, now takes minutes. Inbox Zero is your VA for
-            emails.
+            previously took hours, now takes minutes. Inbox Zero is your virtual
+            assistant for emails.
           </p>
           <div className="mt-10 flex items-center gap-x-6">
             <a
