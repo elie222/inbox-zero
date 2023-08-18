@@ -1,3 +1,4 @@
+import React from "react";
 import {
   BarList as TremorBarList,
   Card,
@@ -9,6 +10,7 @@ import {
 
 export const BarList = (props: {
   title: string;
+  subtitle?: string;
   col1: string;
   col2: string;
   data: {
@@ -17,10 +19,12 @@ export const BarList = (props: {
     // href: string;
     // icon: () => JSX.Element;
   }[];
+  extra?: React.ReactNode;
 }) => {
   return (
     <Card className="max-w-lg">
       <Title>{props.title}</Title>
+      {props.subtitle ? <Text>{props.subtitle}</Text> : null}
       <Flex className="mt-4">
         <Text>
           <Bold>{props.col1}</Bold>
@@ -30,6 +34,7 @@ export const BarList = (props: {
         </Text>
       </Flex>
       <TremorBarList data={props.data} className="mt-2" />
+      {props.extra}
     </Card>
   );
 };

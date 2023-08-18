@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { ExpandIcon } from "lucide-react";
 import useSWRImmutable from "swr/immutable";
 import { BarChart, Color, Title } from "@tremor/react";
 import { Card } from "@/components/Card";
@@ -16,6 +17,7 @@ import { BarList } from "@/components/charts/BarList";
 import { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { sortBy } from "lodash";
 import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
+import { Button } from "@/components/Button";
 
 export default function StatsPage() {
   return (
@@ -230,6 +232,19 @@ function EmailAnalytics() {
     `/api/user/stats/recipients`
   );
 
+  const [expanded, setExpanded] = useState(false);
+
+  const onExpand = useCallback(() => setExpanded(true), []);
+
+  const extra = !expanded && (
+    <div className="mt-2">
+      <Button color="white" full onClick={onExpand}>
+        <ExpandIcon className="h-4 w-4" />
+        <span className="ml-3">Show more</span>
+      </Button>
+    </div>
+  );
+
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <LoadingContent
@@ -240,15 +255,19 @@ function EmailAnalytics() {
         {data && (
           <BarList
             title="Sender Analytics"
+            subtitle="Last 50 emails"
             col1="Sender"
             col2="Emails"
             data={sortBy(
               Object.entries(data.countBySender),
               ([, count]) => -count
-            ).map(([sender, count]) => ({
-              name: sender,
-              value: count,
-            }))}
+            )
+              .slice(0, expanded ? undefined : 5)
+              .map(([sender, count]) => ({
+                name: sender,
+                value: count,
+              }))}
+            extra={extra}
           />
         )}
       </LoadingContent>
@@ -260,15 +279,19 @@ function EmailAnalytics() {
         {data && (
           <BarList
             title="Sender Domain Analytics"
+            subtitle="Last 50 emails"
             col1="Domain"
             col2="Emails"
             data={sortBy(
               Object.entries(data.countByDomain),
               ([, count]) => -count
-            ).map(([sender, count]) => ({
-              name: sender,
-              value: count,
-            }))}
+            )
+              .slice(0, expanded ? undefined : 5)
+              .map(([sender, count]) => ({
+                name: sender,
+                value: count,
+              }))}
+            extra={extra}
           />
         )}
       </LoadingContent>
@@ -280,15 +303,19 @@ function EmailAnalytics() {
         {dataRecipients && (
           <BarList
             title="Recipient Analytics"
+            subtitle="Last 50 emails"
             col1="Recipient"
             col2="Emails"
             data={sortBy(
               Object.entries(dataRecipients.countByRecipient),
               ([, count]) => -count
-            ).map(([sender, count]) => ({
-              name: sender,
-              value: count,
-            }))}
+            )
+              .slice(0, expanded ? undefined : 5)
+              .map(([sender, count]) => ({
+                name: sender,
+                value: count,
+              }))}
+            extra={extra}
           />
         )}
       </LoadingContent>
