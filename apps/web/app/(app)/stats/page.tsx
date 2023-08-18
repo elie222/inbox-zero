@@ -12,6 +12,9 @@ import {
   StatsByDayQuery,
   StatsByDayResponse,
 } from "@/app/api/user/stats/day/route";
+import { BarList } from "@/components/charts/BarList";
+import { SendersResponse } from "@/app/api/user/stats/senders/route";
+import { sortBy } from "lodash";
 
 export default function StatsPage() {
   return (
@@ -32,6 +35,10 @@ export default function StatsPage() {
 
       <div className="mt-4 px-4">
         <CombinedStatsChart title="Combined Chart" />
+      </div>
+
+      <div className="mt-4 px-4">
+        <SenderAnalytics />
       </div>
     </div>
   );
@@ -203,6 +210,50 @@ function CombinedStatsChart(props: { title: string }) {
               colors={["blue", "lime", "slate"]}
             />
           </Card>
+        </div>
+      )}
+    </LoadingContent>
+  );
+}
+
+function SenderAnalytics() {
+  const { data, isLoading, error } = useSWRImmutable<
+    SendersResponse,
+    { error: string }
+  >(`/api/user/stats/senders`);
+
+  return (
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+    >
+      {data && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <BarList
+            title="Sender Analytics"
+            col1="Sender"
+            col2="Emails"
+            data={sortBy(
+              Object.entries(data.countBySender),
+              ([, count]) => -count
+            ).map(([sender, count]) => ({
+              name: sender,
+              value: count,
+            }))}
+          />
+          <BarList
+            title="Sender Domain Analytics"
+            col1="Domain"
+            col2="Emails"
+            data={sortBy(
+              Object.entries(data.countByDomain),
+              ([, count]) => -count
+            ).map(([sender, count]) => ({
+              name: sender,
+              value: count,
+            }))}
+          />
         </div>
       )}
     </LoadingContent>
