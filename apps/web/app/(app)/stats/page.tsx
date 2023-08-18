@@ -254,7 +254,7 @@ function EmailAnalytics() {
       >
         {data && (
           <BarList
-            title="Sender Analytics"
+            title="Who is sending you the most emails"
             subtitle="Last 50 emails"
             col1="Sender"
             col2="Emails"
@@ -278,7 +278,7 @@ function EmailAnalytics() {
       >
         {data && (
           <BarList
-            title="Sender Domain Analytics"
+            title="Domains sending you the most emails"
             subtitle="Last 50 emails"
             col1="Domain"
             col2="Emails"
@@ -302,7 +302,7 @@ function EmailAnalytics() {
       >
         {dataRecipients && (
           <BarList
-            title="Recipient Analytics"
+            title="Who you send the most emails"
             subtitle="Last 50 emails"
             col1="Recipient"
             col2="Emails"
