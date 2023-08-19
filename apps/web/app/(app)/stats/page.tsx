@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ExpandIcon } from "lucide-react";
 import useSWRImmutable from "swr/immutable";
 import { BarChart, Color, Title } from "@tremor/react";
+import { capitalCase } from "capital-case";
 import { Card } from "@/components/Card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Stats } from "@/components/Stats";
@@ -254,7 +255,7 @@ function EmailAnalytics() {
   );
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2">
       <LoadingContent
         loading={isLoading}
         error={error}
@@ -344,7 +345,10 @@ function EmailAnalytics() {
             )
               .slice(0, expanded ? undefined : 5)
               .map(([category, count]) => ({
-                name: category,
+                name:
+                  category === "undefined"
+                    ? "Uncategorized"
+                    : capitalCase(category),
                 value: count,
               }))}
             extra={extra}
