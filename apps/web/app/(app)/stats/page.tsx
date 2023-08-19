@@ -246,11 +246,11 @@ function EmailAnalytics() {
   );
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-3">
       <LoadingContent
         loading={isLoading}
         error={error}
-        loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
       >
         {data && (
           <BarList
@@ -274,7 +274,7 @@ function EmailAnalytics() {
       <LoadingContent
         loading={isLoading}
         error={error}
-        loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
       >
         {data && (
           <BarList
@@ -298,7 +298,7 @@ function EmailAnalytics() {
       <LoadingContent
         loading={isLoadingRecipients}
         error={errorRecipients}
-        loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
       >
         {dataRecipients && (
           <BarList
