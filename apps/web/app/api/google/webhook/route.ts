@@ -169,6 +169,8 @@ async function planHistory(options: {
           return;
         }
 
+        console.log("Categorising thread...");
+
         await categorise(
           {
             subject: parsedMessage.headers.subject,
