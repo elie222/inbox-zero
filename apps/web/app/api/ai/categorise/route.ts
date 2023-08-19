@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { classify, classifyThreadBody } from "@/app/api/ai/classify/controller";
+import { categorise, categoriseBody } from "@/app/api/ai/categorise/controller";
 
 export const runtime = "edge";
 
 export const POST = withError(async (request: Request) => {
   const json = await request.json();
-  const body = classifyThreadBody.parse(json);
-  const res = await classify(body);
+  const body = categoriseBody.parse(json);
+  const res = await categorise(body);
 
   return NextResponse.json(res);
 });

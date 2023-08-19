@@ -7,14 +7,14 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 
-export const classifyThreadBody = z.object({
+export const categoriseBody = z.object({
   subject: z.string(),
   content: z.string(),
 });
-export type ClassifyThreadBody = z.infer<typeof classifyThreadBody>;
-export type ClassifyThreadResponse = Awaited<ReturnType<typeof classify>>;
+export type CategoriseBody = z.infer<typeof categoriseBody>;
+export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
-export async function classify(body: ClassifyThreadBody) {
+export async function categorise(body: CategoriseBody) {
   const response = await openai.createChatCompletion({
     model: AI_MODEL,
     messages: [
