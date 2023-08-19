@@ -58,7 +58,7 @@ Email:
 
 Subject: ${body.subject}
 
-Body: ${body.content}`,
+Body: ${body.content.slice(0, 1000)}`,
       },
     ],
   });

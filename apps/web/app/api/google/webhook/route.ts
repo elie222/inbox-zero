@@ -10,6 +10,7 @@ import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
+import { categorise } from "@/app/api/ai/categorise/controller";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,7 @@ async function planHistory(options: {
 
     for (const m of h.messagesAdded) {
       if (!m.message?.id) continue;
+      if (!m.message?.threadId) continue;
       // skip emails the user sent
       if (m.message.labelIds?.includes(SENT_LABEL_ID)) {
         console.log(`Skipping email with SENT label`);
@@ -161,10 +163,22 @@ async function planHistory(options: {
 
         const parsedMessage = parseMessage(gmailMessage);
 
+        // TODO parse HTML text
         if (!parsedMessage.textPlain) {
           console.log("Skipping. No plain text found.");
           return;
         }
+
+        await categorise(
+          {
+            subject: parsedMessage.headers.subject,
+            content: parsedMessage.textPlain,
+            threadId: m.message.threadId,
+          },
+          {
+            email,
+          }
+        );
 
         console.log("Plan or act on message...");
 
@@ -177,7 +191,7 @@ async function planHistory(options: {
             subject: parsedMessage.headers.subject,
             textPlain: parsedMessage.textPlain,
             textHtml: parsedMessage.textHtml,
-            threadId: m.message.threadId || "",
+            threadId: m.message.threadId,
             messageId: m.message.id,
             headerMessageId: parsedMessage.headers.messageId || "",
           },
