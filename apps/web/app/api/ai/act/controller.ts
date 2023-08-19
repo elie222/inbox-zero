@@ -26,6 +26,7 @@ import { saveUsage } from "@/utils/redis/usage";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
 import { AI_MODEL } from "@/utils/config";
+import { truncate } from "@/utils";
 
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
@@ -81,8 +82,8 @@ From: ${email.from}
 Reply to: ${email.replyTo}
 CC: ${email.cc}
 Subject: ${email.subject}
-Email:
-${email.textPlain}`,
+Body:
+${truncate(email.textPlain || "", 1000)}`,
       },
     ],
     functions,

@@ -18,6 +18,7 @@ import { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { sortBy } from "lodash";
 import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import { Button } from "@/components/Button";
+import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
 
 export default function StatsPage() {
   return (
@@ -231,6 +232,13 @@ function EmailAnalytics() {
   } = useSWRImmutable<RecipientsResponse, { error: string }>(
     `/api/user/stats/recipients`
   );
+  const {
+    data: dataCategories,
+    isLoading: isLoadingCategories,
+    error: errorCategories,
+  } = useSWRImmutable<CategoryStatsResponse, { error: string }>(
+    `/api/user/stats/categories`
+  );
 
   const [expanded, setExpanded] = useState(false);
 
@@ -313,6 +321,30 @@ function EmailAnalytics() {
               .slice(0, expanded ? undefined : 5)
               .map(([sender, count]) => ({
                 name: sender,
+                value: count,
+              }))}
+            extra={extra}
+          />
+        )}
+      </LoadingContent>
+      <LoadingContent
+        loading={isLoadingCategories}
+        error={errorCategories}
+        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+      >
+        {dataCategories && (
+          <BarList
+            title="Categories of emails you receive"
+            subtitle="Last 50 threads"
+            col1="Category"
+            col2="Emails"
+            data={sortBy(
+              Object.entries(dataCategories.countByCategory),
+              ([, count]) => -count
+            )
+              .slice(0, expanded ? undefined : 5)
+              .map(([category, count]) => ({
+                name: category,
                 value: count,
               }))}
             extra={extra}

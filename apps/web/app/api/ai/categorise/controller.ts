@@ -8,6 +8,7 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
+import { truncate } from "@/utils";
 
 export const categoriseBody = z.object({
   threadId: z.string(),
@@ -55,12 +56,12 @@ An example response would be:
 }
 
 ##
-Email:
+The email:
 
 From: ${body.from}
 Subject: ${body.subject}
 Body:
-${body.content.slice(0, 1000)}`,
+${truncate(body.content, 1000)}`,
       },
     ],
   });
@@ -98,6 +99,7 @@ export async function categorise(
 
   // 2. ai categorise
   const category = await aiCategorise(body);
+  console.log("category:", category);
 
   if (!category) return;
 

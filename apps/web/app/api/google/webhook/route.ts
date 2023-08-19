@@ -70,6 +70,7 @@ export const POST = withError(async (request: Request) => {
     const history = await listHistory(
       {
         email: decodedData.emailAddress,
+        // NOTE this can cause problems if we're way behind
         startHistoryId:
           account.user.lastSyncedHistoryId || decodedData.historyId,
       },
