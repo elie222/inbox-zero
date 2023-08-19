@@ -173,6 +173,7 @@ async function planHistory(options: {
 
         await categorise(
           {
+            from: parsedMessage.headers.from,
             subject: parsedMessage.headers.subject,
             content: parsedMessage.textPlain || parsedMessage.snippet,
             threadId: m.message.threadId,

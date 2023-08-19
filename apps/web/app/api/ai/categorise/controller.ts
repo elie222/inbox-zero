@@ -11,6 +11,7 @@ import { getCategory, saveCategory } from "@/utils/redis/category";
 
 export const categoriseBody = z.object({
   threadId: z.string(),
+  from: z.string(),
   subject: z.string(),
   content: z.string(),
 });
@@ -56,9 +57,10 @@ An example response would be:
 ##
 Email:
 
+From: ${body.from}
 Subject: ${body.subject}
-
-Body: ${body.content.slice(0, 1000)}`,
+Body:
+${body.content.slice(0, 1000)}`,
       },
     ],
   });
