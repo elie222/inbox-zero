@@ -1,4 +1,5 @@
 import { z } from "zod";
+import json5 from "json5";
 import { openai } from "@/utils/openai";
 import { AI_MODEL } from "@/utils/config";
 import {
@@ -6,15 +7,22 @@ import {
   ChatCompletionResponse,
   isChatCompletionError,
 } from "@/utils/types";
+import { getCategory, saveCategory } from "@/utils/redis/category";
 
 export const categoriseBody = z.object({
+  threadId: z.string(),
   subject: z.string(),
   content: z.string(),
 });
 export type CategoriseBody = z.infer<typeof categoriseBody>;
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
-export async function categorise(body: CategoriseBody) {
+const responseSchema = z.object({
+  category: z.string(),
+  confidence: z.number().min(0).max(1),
+});
+
+export async function aiCategorise(body: CategoriseBody) {
   const response = await openai.createChatCompletion({
     model: AI_MODEL,
     messages: [
@@ -57,9 +65,46 @@ Body: ${body.content}`,
   const json: ChatCompletionResponse | ChatCompletionError =
     await response.json();
 
-  const message = isChatCompletionError(json)
-    ? "error"
-    : json?.choices?.[0]?.message?.content;
+  if (isChatCompletionError(json)) {
+    console.error(json);
+    return;
+  }
 
-  return { message };
+  const content = json.choices[0].message.content;
+
+  try {
+    const res = json5.parse(content);
+
+    return responseSchema.parse(res);
+  } catch (error) {
+    console.error("Error parsing json:", content);
+    return;
+  }
+}
+
+export async function categorise(
+  body: CategoriseBody,
+  options: { email: string }
+) {
+  // 1. check redis cache
+  const existingCategory = await getCategory({
+    email: options.email,
+    threadId: body.threadId,
+  });
+
+  if (existingCategory) return existingCategory;
+
+  // 2. ai categorise
+  const category = await aiCategorise(body);
+
+  if (!category) return;
+
+  // 3. save category
+  await saveCategory({
+    email: options.email,
+    threadId: body.threadId,
+    category,
+  });
+
+  return category;
 }
