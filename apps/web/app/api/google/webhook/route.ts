@@ -164,7 +164,7 @@ async function planHistory(options: {
         const parsedMessage = parseMessage(gmailMessage);
 
         // TODO parse HTML text
-        if (!parsedMessage.textPlain) {
+        if (!parsedMessage.textPlain && !parsedMessage.snippet) {
           console.log("Skipping. No plain text found.");
           return;
         }
@@ -174,7 +174,7 @@ async function planHistory(options: {
         await categorise(
           {
             subject: parsedMessage.headers.subject,
-            content: parsedMessage.textPlain,
+            content: parsedMessage.textPlain || parsedMessage.snippet,
             threadId: m.message.threadId,
           },
           {
@@ -191,7 +191,7 @@ async function planHistory(options: {
             replyTo: parsedMessage.headers.replyTo,
             cc: parsedMessage.headers.cc,
             subject: parsedMessage.headers.subject,
-            textPlain: parsedMessage.textPlain,
+            textPlain: parsedMessage.textPlain || parsedMessage.snippet,
             textHtml: parsedMessage.textHtml,
             threadId: m.message.threadId,
             messageId: m.message.id,
