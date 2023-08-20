@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import {
   ArchiveBoxArrowDownIcon,
   ArrowTopRightOnSquareIcon,
@@ -33,11 +34,26 @@ export function ActionButtons(props: {
     window.open(url, "_blank");
   }, [props.threadId, email]);
 
+  const [isArchiving, setIsArchiving] = useState(false);
+
   const archive = useCallback(() => {
-    // couldn't get server actions to work here
-    postRequest<ArchiveResponse, ArchiveBody>("/api/google/threads/archive", {
-      id: props.threadId,
-    });
+    toast.promise(
+      async () => {
+        setIsArchiving(true);
+        await postRequest<ArchiveResponse, ArchiveBody>(
+          "/api/google/threads/archive",
+          {
+            id: props.threadId,
+          }
+        );
+        setIsArchiving(false);
+      },
+      {
+        loading: "Archiving...",
+        success: "Email archived!",
+        error: "Error archiving email",
+      }
+    );
   }, [props.threadId]);
 
   const buttons = useMemo(
@@ -81,7 +97,7 @@ export function ActionButtons(props: {
       {
         tooltip: "Archive",
         onClick: archive,
-        icon: false ? (
+        icon: isArchiving ? (
           <LoadingMiniSpinner />
         ) : (
           <ArchiveBoxArrowDownIcon
@@ -97,6 +113,7 @@ export function ActionButtons(props: {
       props.onGenerateAiResponse,
       props.onPlanAiAction,
       props.isPlanning,
+      isArchiving,
       archive,
     ]
   );
