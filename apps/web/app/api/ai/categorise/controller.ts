@@ -35,9 +35,10 @@ export async function aiCategorise(body: CategoriseBody) {
       {
         role: "user",
         content: `Please categorise this email.
-Return a JSON object with a "category" and "confidence" fields. Confidence is a number between 0 and 1.
+Return a JSON object with "category" and "confidence" fields.
+Confidence is a number between 0 and 1.
 
-Categories to choose from with an explanation of each category:
+Here are the categories to choose from, with an explanation of each one:
 NEWSLETTER - newsletters
 MARKETING - marketing emails
 RECEIPT - a receipt or invoice for payments I've made
