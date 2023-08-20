@@ -335,7 +335,7 @@ function EmailAnalytics() {
       >
         {dataCategories && (
           <BarList
-            title="Categories of emails you receive"
+            title="What types of emails you're receiving"
             subtitle="Last 50 threads"
             col1="Category"
             col2="Emails"
