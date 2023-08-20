@@ -22,7 +22,7 @@ export const BarList = (props: {
   extra?: React.ReactNode;
 }) => {
   return (
-    <Card className="max-w-lg">
+    <Card>
       <Title>{props.title}</Title>
       {props.subtitle ? <Text>{props.subtitle}</Text> : null}
       <Flex className="mt-4">
