@@ -55,6 +55,12 @@ export const POST = withError(async (request: Request) => {
     return NextResponse.json({ ok: true });
   }
 
+  if (!account.user.email) {
+    // shouldn't ever happen
+    console.error("Missing user email.");
+    return NextResponse.json({ ok: true });
+  }
+
   try {
     const gmail = await getGmailClientWithRefresh(
       {
@@ -71,6 +77,7 @@ export const POST = withError(async (request: Request) => {
       {
         email: decodedData.emailAddress,
         // NOTE this can cause problems if we're way behind
+        // NOTE this doesn't include startHistoryId in the results
         startHistoryId:
           account.user.lastSyncedHistoryId || decodedData.historyId,
       },
@@ -83,7 +90,7 @@ export const POST = withError(async (request: Request) => {
       await planHistory({
         history,
         userId: account.userId,
-        userEmail: account.user.email || "",
+        userEmail: account.user.email,
         email: decodedData.emailAddress,
         gmail,
         rules: account.user.rules,
@@ -91,6 +98,12 @@ export const POST = withError(async (request: Request) => {
       });
     } else {
       console.log("Webhook: No history");
+
+      // important to save this or we can get into a loop with never receiving history
+      await prisma.user.update({
+        where: { email: account.user.email },
+        data: { lastSyncedHistoryId: decodedData.historyId },
+      });
     }
 
     console.log("Webhook: Completed.");
