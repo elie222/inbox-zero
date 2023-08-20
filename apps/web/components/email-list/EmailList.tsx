@@ -470,6 +470,11 @@ const EmailListItem = forwardRef(
 
     const lastMessage = thread.messages?.[thread.messages.length - 1];
 
+    const preventPropagation: MouseEventHandler<HTMLSpanElement> = useCallback(
+      (e) => e.stopPropagation(),
+      []
+    );
+
     return (
       <li
         ref={ref}
@@ -509,7 +514,11 @@ const EmailListItem = forwardRef(
             {/* right */}
             <div className="flex w-[260px] items-center justify-between">
               <div className="relative flex items-center">
-                <div className="absolute right-0 z-20 hidden group-hover:block">
+                <div
+                  className="absolute right-0 z-20 hidden group-hover:block"
+                  // prevent email panel being opened when clicking on action buttons
+                  onClick={preventPropagation}
+                >
                   <ActionButtons
                     threadId={thread.id!}
                     onReply={props.onShowReply}
