@@ -35,21 +35,21 @@ const navigation = [
   //   href: "/stats",
   //   icon: ChartBarIcon,
   // },
-  {
-    name: "No reply",
-    href: "/no-reply",
-    icon: ChatBubbleBottomCenterTextIcon,
-  },
+  // {
+  //   name: "No reply",
+  //   href: "/no-reply",
+  //   icon: ChatBubbleBottomCenterTextIcon,
+  // },
   // {
   //   name: "Filters",
   //   href: "/filters",
   //   icon: ChartBarIcon,
   // },
-  {
-    name: "Bulk Archive",
-    href: "/bulk-archive",
-    icon: ArchiveBoxArrowDownIcon,
-  },
+  // {
+  //   name: "Bulk Archive",
+  //   href: "/bulk-archive",
+  //   icon: ArchiveBoxArrowDownIcon,
+  // },
 ];
 
 const bottomLinks = [
