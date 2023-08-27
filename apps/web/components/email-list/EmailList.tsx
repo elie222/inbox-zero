@@ -11,7 +11,6 @@ import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Celebration } from "@/components/Celebration";
-import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
 import { isError } from "@/utils/error";
@@ -30,6 +29,7 @@ import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
 import { Card } from "@/components/Card";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -295,52 +295,57 @@ export function EmailList(props: {
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
 
   const onPlanAiAction = useCallback(
-    async (thread: Thread) => {
-      setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
+    (thread: Thread) => {
+      toast.promise(
+        async () => {
+          setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
 
-      const message = thread.messages?.[thread.messages.length - 1];
+          const message = thread.messages?.[thread.messages.length - 1];
 
-      if (!message) return;
+          if (!message) return;
 
-      // html emails contain a lot of content and goes over the token limit
-      // TODO convert html emails to plain text before processing: https://www.npmjs.com/package/html-to-text
-      if (!message.parsedMessage.textPlain) {
-        toastError({
-          description: `This email does not have a plain text version and cannot currently be planned.`,
-        });
-        setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
-        return;
-      }
+          // html emails contain a lot of content and goes over the token limit
+          // TODO convert html emails to plain text before processing: https://www.npmjs.com/package/html-to-text
+          if (!message.parsedMessage.textPlain) {
+            setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
+            throw new Error(
+              `This email does not have a plain text version and cannot currently be planned.`
+            );
+          }
 
-      toastInfo({ description: `Planning the email...` });
+          const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
+            email: {
+              from: message.parsedMessage.headers.from,
+              to: message.parsedMessage.headers.to,
+              date: message.parsedMessage.headers.date,
+              replyTo: message.parsedMessage.headers.replyTo,
+              cc: message.parsedMessage.headers.cc,
+              subject: message.parsedMessage.headers.subject,
+              textPlain: message.parsedMessage.textPlain,
+              textHtml: message.parsedMessage.textHtml,
+              threadId: message.threadId || "",
+              messageId: message.id || "",
+              headerMessageId: message.parsedMessage.headers.messageId || "",
+              references: message.parsedMessage.headers.references,
+            },
+            allowExecute: false,
+          });
 
-      const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
-        email: {
-          from: message.parsedMessage.headers.from,
-          to: message.parsedMessage.headers.to,
-          date: message.parsedMessage.headers.date,
-          replyTo: message.parsedMessage.headers.replyTo,
-          cc: message.parsedMessage.headers.cc,
-          subject: message.parsedMessage.headers.subject,
-          textPlain: message.parsedMessage.textPlain,
-          textHtml: message.parsedMessage.textHtml,
-          threadId: message.threadId || "",
-          messageId: message.id || "",
-          headerMessageId: message.parsedMessage.headers.messageId || "",
-          references: message.parsedMessage.headers.references,
+          if (isError(res)) {
+            console.error(res);
+            throw new Error(`There was an error planning the email.`);
+          } else {
+            // setPlan(res);
+            refetch();
+          }
+          setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
         },
-        allowExecute: false,
-      });
-
-      if (isError(res)) {
-        console.error(res);
-        toastError({ description: `There was an error planning the email.` });
-      } else {
-        // setPlan(res);
-        toastSuccess({ description: `Planned the email.` });
-        refetch();
-      }
-      setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
+        {
+          loading: "Planning...",
+          success: "Planned!",
+          error: "There was an error planning the email :(",
+        }
+      );
     },
     [refetch]
   );
@@ -459,7 +464,7 @@ const EmailListItem = forwardRef(
       onSelected: (id: string) => void;
       onShowReply: () => void;
       isPlanning: boolean;
-      onPlanAiAction: (thread: Thread) => Promise<void>;
+      onPlanAiAction: (thread: Thread) => void;
       refetchEmails: () => void;
 
       executingPlan: boolean;

@@ -15,7 +15,7 @@ export function EmailPanel(props: {
   showReply: boolean;
   onShowReply: () => void;
   isPlanning: boolean;
-  onPlanAiAction: (thread: Thread) => Promise<void>;
+  onPlanAiAction: (thread: Thread) => void;
   close: () => void;
   refetchEmails: () => void;
 
