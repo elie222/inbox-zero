@@ -20,6 +20,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/twitter",
+        destination: "https://twitter.com/inboxzero_ai",
+        permanent: true,
+      },
+      {
         source: "/github",
         destination: "https://github.com/elie222/inbox-zero",
         permanent: true,
@@ -27,6 +32,11 @@ const nextConfig = {
       {
         source: "/discord",
         destination: "https://discord.gg/UnBwsydrug",
+        permanent: true,
+      },
+      {
+        source: "/waitlist",
+        destination: "https://airtable.com/shr7HNx6FXaIxR5q6",
         permanent: true,
       },
     ];

@@ -1,25 +1,32 @@
-import "./home.css";
-import { Hero } from "@/components/home/Hero";
-import Link from "next/link";
+// import '@/app/(landing)/home/home.css'
+import { Header } from "@/app/(landing)/home/Header";
+import { Hero } from "@/app/(landing)/home/Hero";
+// import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
+import { Features } from "@/app/(landing)/home/Features";
+// import { Testimonials } from "@/app/(landing)/home/Testimonials";
+// import { Pricing } from "@/app/(landing)/home/Pricing";
+import { FAQs } from "@/app/(landing)/home/FAQs";
+import { CTA } from "@/app/(landing)/home/CTA";
+import { Footer } from "@/app/(landing)/home/Footer";
 
 export default function Home() {
   return (
-    <div className="bg-gray-900">
-      <main>
+    <div className="bg-white">
+      <Header />
+
+      <main className="isolate">
         <Hero />
-        <ul className="flex justify-center space-x-6 p-4 text-gray-400">
-          <li>
-            <Link href="/terms" className="hover:text-white">
-              Terms
-            </Link>
-          </li>
-          <li>
-            <Link href="/privacy" className="hover:text-white">
-              Privacy
-            </Link>
-          </li>
-        </ul>
+        {/* <LogoCloud /> */}
+        <Features />
+        {/* <Testimonials /> */}
+        {/* <Pricing /> */}
+        <div className="mt-32">
+          <FAQs />
+        </div>
+        <CTA />
       </main>
+
+      <Footer />
     </div>
   );
 }
