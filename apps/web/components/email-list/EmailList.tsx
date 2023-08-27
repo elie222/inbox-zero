@@ -522,7 +522,6 @@ const EmailListItem = forwardRef(
                   <ActionButtons
                     threadId={thread.id!}
                     onReply={props.onShowReply}
-                    onGenerateAiResponse={() => {}}
                     isPlanning={props.isPlanning}
                     onPlanAiAction={() => props.onPlanAiAction(thread)}
                   />

@@ -7,7 +7,6 @@ import {
   ChatBubbleBottomCenterIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { Orbit } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { postRequest } from "@/utils/api";
@@ -18,7 +17,6 @@ import {
 
 export function ActionButtons(props: {
   threadId: string;
-  onGenerateAiResponse: () => void;
   isPlanning: boolean;
   onPlanAiAction: () => void;
   onReply: () => void;
@@ -79,19 +77,12 @@ export function ActionButtons(props: {
         ),
       },
       {
-        tooltip: "Generate AI response",
-        onClick: props.onGenerateAiResponse,
-        icon: (
-          <SparklesIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
-        ),
-      },
-      {
         tooltip: "Plan AI action",
         onClick: props.onPlanAiAction,
         icon: props.isPlanning ? (
           <LoadingMiniSpinner />
         ) : (
-          <Orbit className="h-5 w-5 text-gray-700" aria-hidden="true" />
+          <SparklesIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
       {
@@ -110,7 +101,6 @@ export function ActionButtons(props: {
     [
       openInGmail,
       props.onReply,
-      props.onGenerateAiResponse,
       props.onPlanAiAction,
       props.isPlanning,
       isArchiving,

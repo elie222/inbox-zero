@@ -49,7 +49,6 @@ export function EmailPanel(props: {
           <ActionButtons
             threadId={props.row.id!}
             onReply={props.onShowReply}
-            onGenerateAiResponse={() => {}}
             isPlanning={props.isPlanning}
             onPlanAiAction={() => props.onPlanAiAction(props.row)}
           />
