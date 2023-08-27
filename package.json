@@ -18,7 +18,7 @@
     "lint-staged": "^13.2.3",
     "prettier": "2.8.8",
     "pretty-quick": "^3.1.3",
-    "turbo": "latest"
+    "turbo": "^1.10.13"
   },
   "packageManager": "pnpm@8.6.10",
   "lint-staged": {
