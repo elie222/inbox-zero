@@ -403,6 +403,7 @@ export function EmailList(props: {
             userEmailAddress={session.data?.user.email || ""}
             thread={thread}
             opened={openedRowId === thread.id}
+            closePanel={closePanel}
             selected={selectedRows[thread.id!]}
             onSelected={onSetSelectedRow}
             splitView={!!openedRowId}
@@ -434,6 +435,7 @@ export function EmailList(props: {
           isPlanning={isPlanning[openedRowId]}
           onPlanAiAction={onPlanAiAction}
           close={closePanel}
+          refetchEmails={props.refetch}
           executePlan={executePlan}
           rejectPlan={rejectPlan}
           executingPlan={executingPlan[openedRowId]}
@@ -453,6 +455,7 @@ const EmailListItem = forwardRef(
       selected: boolean;
       splitView: boolean;
       onClick: MouseEventHandler<HTMLLIElement>;
+      closePanel: () => void;
       onSelected: (id: string) => void;
       onShowReply: () => void;
       isPlanning: boolean;
@@ -524,6 +527,10 @@ const EmailListItem = forwardRef(
                     onReply={props.onShowReply}
                     isPlanning={props.isPlanning}
                     onPlanAiAction={() => props.onPlanAiAction(thread)}
+                    onArchive={() => {
+                      props.refetchEmails();
+                      props.closePanel();
+                    }}
                   />
                 </div>
                 <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">

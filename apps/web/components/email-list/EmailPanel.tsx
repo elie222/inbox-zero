@@ -17,6 +17,7 @@ export function EmailPanel(props: {
   isPlanning: boolean;
   onPlanAiAction: (thread: Thread) => Promise<void>;
   close: () => void;
+  refetchEmails: () => void;
 
   executingPlan: boolean;
   rejectingPlan: boolean;
@@ -51,6 +52,10 @@ export function EmailPanel(props: {
             onReply={props.onShowReply}
             isPlanning={props.isPlanning}
             onPlanAiAction={() => props.onPlanAiAction(props.row)}
+            onArchive={() => {
+              props.refetchEmails();
+              props.close();
+            }}
           />
           <div className="ml-2 flex items-center">
             <Tooltip content="Close">

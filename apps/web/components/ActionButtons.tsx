@@ -20,9 +20,12 @@ export function ActionButtons(props: {
   isPlanning: boolean;
   onPlanAiAction: () => void;
   onReply: () => void;
+  onArchive: () => void;
 }) {
   const session = useSession();
   const email = session.data?.user.email;
+
+  const { onArchive } = props;
 
   const openInGmail = useCallback(() => {
     // open in gmail
@@ -44,6 +47,7 @@ export function ActionButtons(props: {
             id: props.threadId,
           }
         );
+        onArchive();
         setIsArchiving(false);
       },
       {
@@ -52,7 +56,7 @@ export function ActionButtons(props: {
         error: "Error archiving email",
       }
     );
-  }, [props.threadId]);
+  }, [props.threadId, onArchive]);
 
   const buttons = useMemo(
     () => [
