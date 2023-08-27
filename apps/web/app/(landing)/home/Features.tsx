@@ -36,13 +36,13 @@ export function Features() {
       // className="mx-auto mt-32 max-w-7xl px-6 sm:mt-56 lg:px-8"
     >
       <div className="mx-auto max-w-2xl lg:text-center">
-        <h2 className="text-base font-semibold leading-7 text-indigo-600">
+        <h2 className="text-base font-semibold leading-7 text-gray-600">
           Get to inbox zero faster
         </h2>
         <p className="mt-2 font-cal text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
           Your AI assistant for emails
         </p>
-        <p className="mt-6 text-lg leading-8 text-gray-600">
+        <p className="mt-6 text-lg leading-8 text-slate-600">
           Inbox Zero uses AI to help you empty your inbox daily. What previously
           took hours, now takes minutes. Inbox Zero is your virtual assistant
           for emails.
@@ -53,7 +53,7 @@ export function Features() {
           {features.map((feature) => (
             <div key={feature.name} className="relative pl-16">
               <dt className="text-base font-semibold leading-7 text-gray-900">
-                <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600">
+                <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-lg bg-black">
                   <feature.icon
                     className="h-6 w-6 text-white"
                     aria-hidden="true"
