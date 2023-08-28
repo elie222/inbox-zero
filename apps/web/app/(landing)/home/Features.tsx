@@ -10,11 +10,11 @@ const features = [
   {
     name: "AI Automation",
     description:
-      "Put your inbox on autopilot with AI based rules. Automatically archive, delete, or reply to emails based on your preferences. Run it in test mode till you trust the AI fully.",
+      "Put your inbox on autopilot with AI based rules. Automatically archive, delete, or reply to emails based on your preferences. Run it in test mode until you trust the AI fully.",
     icon: Sparkles,
   },
   {
-    name: "Auto Categoirzation",
+    name: "Auto Categorization",
     description:
       "Inbox Zero automatically categorizes your emails into different categories so you can handle similar emails at once without having to context switch.",
     icon: Orbit,
