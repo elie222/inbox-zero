@@ -8,6 +8,7 @@ import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
 import { ThreadWithPayloadMessages } from "@/utils/types";
 import prisma from "@/utils/prisma";
+import { getCategory } from "@/utils/redis/category";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,10 @@ async function getThreads(query: ThreadsQuery) {
         messages,
         snippet: he.decode(t.snippet || ""),
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
+        category: await getCategory({
+          email: session.user.email,
+          threadId: id,
+        }),
       };
     }) || []
   );

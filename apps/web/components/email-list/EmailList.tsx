@@ -30,6 +30,7 @@ import { GroupHeading } from "@/components/GroupHeading";
 import { Card } from "@/components/Card";
 import Link from "next/link";
 import { toast } from "sonner";
+import { CategoryBadge } from "@/components/CategoryBadge";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -520,7 +521,7 @@ const EmailListItem = forwardRef(
             </div>
 
             {/* right */}
-            <div className="flex w-[260px] items-center justify-between">
+            <div className="flex w-[350px] items-center justify-between">
               <div className="relative flex items-center">
                 <div
                   className="absolute right-0 z-20 hidden group-hover:block"
@@ -546,7 +547,10 @@ const EmailListItem = forwardRef(
               </div>
 
               <div className="ml-3 flex items-center whitespace-nowrap">
-                <PlanBadge plan={thread.plan} />
+                <CategoryBadge category={thread.category?.category} />
+                <div className="ml-3">
+                  <PlanBadge plan={thread.plan} />
+                </div>
 
                 <div className="ml-3">
                   <PlanActions
