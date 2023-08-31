@@ -106,7 +106,7 @@ export const POST = withError(async (request: Request) => {
       });
     }
 
-    console.log("Webhook: Completed.");
+    console.log("Webhook: Completed.", decodedData);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
