@@ -76,14 +76,14 @@ export const POST = withError(async (request: Request) => {
     const startHistoryId = Math.max(
       parseInt(account.user.lastSyncedHistoryId || "0"),
       parseInt(decodedData.historyId) - 100 // avoid going too far back
-    );
+    ).toString();
 
     const history = await listHistory(
       {
         email: decodedData.emailAddress,
         // NOTE this can cause problems if we're way behind
         // NOTE this doesn't include startHistoryId in the results
-        startHistoryId: startHistoryId.toString(),
+        startHistoryId,
       },
       gmail
     );
