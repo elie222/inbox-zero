@@ -115,6 +115,7 @@ ${truncate(email.textPlain || "", 1000)}`,
   return functionCall;
 }
 
+// Doesn't do a great job atm. Either too stringent or not stringent enough :(
 async function checkAiResponse(options: {
   subject: string;
   textPlain: string;
@@ -293,30 +294,30 @@ async function planAct(options: {
     return;
   }
 
-  const check = await checkAiResponse({
-    subject: email.subject,
-    textPlain: email.textPlain!,
-    chosenInstructions: selectedRule.rule.instructions,
-    aiResponse: aiGeneratedArgs.content,
-  });
+  // const check = await checkAiResponse({
+  //   subject: email.subject,
+  //   textPlain: email.textPlain!,
+  //   chosenInstructions: selectedRule.rule.instructions,
+  //   aiResponse: aiGeneratedArgs.content,
+  // });
 
-  console.log(
-    "Check score",
-    check?.score,
-    ". Explanation:",
-    check?.explanation
-  );
+  // console.log(
+  //   "Check score",
+  //   check?.score,
+  //   ". Explanation:",
+  //   check?.explanation
+  // );
 
-  if (!check || check.score < 7) {
-    console.log(
-      `The AI is not confident on the response. Skipping. Check: ${JSON.stringify(
-        check,
-        null,
-        2
-      )}`
-    );
-    return;
-  }
+  // if (!check || check.score < 7) {
+  //   console.log(
+  //     `The AI is not confident on the response. Skipping. Check: ${JSON.stringify(
+  //       check,
+  //       null,
+  //       2
+  //     )}`
+  //   );
+  //   return;
+  // }
 
   // use prefilled values where we have them
   const args = {
