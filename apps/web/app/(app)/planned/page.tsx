@@ -47,10 +47,6 @@ export default function PlannedPage() {
 
       {selectedTab === "planned" && <Planned />}
       {selectedTab === "history" && <PlanHistory />}
-
-      {/* <div className="mx-auto max-w-2xl p-8">
-        <RunAI />
-      </div> */}
     </div>
   );
 }
@@ -247,22 +243,5 @@ function PlanHistory() {
         </div>
       )}
     </LoadingContent>
-  );
-}
-
-function RunAI() {
-  return (
-    <Card>
-      <p>Run AI on last 10 emails.</p>
-      <div className="mt-4">
-        <Button
-          onClick={() => {
-            // postRequest<>("/api/user/planned/run", {});
-          }}
-        >
-          Run
-        </Button>
-      </div>
-    </Card>
   );
 }
