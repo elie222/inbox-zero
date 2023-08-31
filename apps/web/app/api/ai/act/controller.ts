@@ -141,7 +141,7 @@ Subject:
 ${options.subject}
 
 Body:
-${options.textPlain}
+${truncate(options.textPlain || "", 1000)}
 
 ###
         

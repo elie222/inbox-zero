@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { ExpandIcon } from "lucide-react";
 import useSWRImmutable from "swr/immutable";
+import sortBy from "lodash/sortBy";
 import { BarChart, Color, Title } from "@tremor/react";
 import { capitalCase } from "capital-case";
 import { Card } from "@/components/Card";
@@ -16,7 +17,6 @@ import {
 } from "@/app/api/user/stats/day/route";
 import { BarList } from "@/components/charts/BarList";
 import { SendersResponse } from "@/app/api/user/stats/senders/route";
-import { sortBy } from "lodash";
 import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import { Button } from "@/components/Button";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
