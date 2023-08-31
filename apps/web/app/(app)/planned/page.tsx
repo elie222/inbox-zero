@@ -70,7 +70,7 @@ function Planned() {
   return (
     <LoadingContent loading={isLoading} error={error}>
       {/* {data && <List emails={data?.messages || []} refetch={mutate} />} */}
-      {data?.messages.length ? (
+      {data?.messages?.length ? (
         <div className="">
           {/* <List emails={data.messages || []} refetch={mutate} /> */}
           {data.messages.map((message) => {
@@ -241,7 +241,7 @@ function PlanHistory() {
           );
         })}
       </div>
-      {!data?.history.length && (
+      {!data?.history?.length && (
         <div className="p-4">
           <Card>No history.</Card>
         </div>
