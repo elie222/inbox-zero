@@ -73,13 +73,17 @@ export const POST = withError(async (request: Request) => {
 
     console.log("Webhook: Listing history...");
 
+    const startHistoryId = Math.max(
+      parseInt(account.user.lastSyncedHistoryId || "0"),
+      parseInt(decodedData.historyId) - 100 // avoid going too far back
+    );
+
     const history = await listHistory(
       {
         email: decodedData.emailAddress,
         // NOTE this can cause problems if we're way behind
         // NOTE this doesn't include startHistoryId in the results
-        startHistoryId:
-          account.user.lastSyncedHistoryId || decodedData.historyId,
+        startHistoryId: startHistoryId.toString(),
       },
       gmail
     );
