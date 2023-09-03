@@ -8,22 +8,13 @@ import {
   isChatCompletionError,
 } from "@/utils/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
-import { truncate } from "@/utils";
+import { CategoriseBody } from "@/app/api/ai/categorise/validation";
 
-export const categoriseBody = z.object({
-  threadId: z.string(),
-  from: z.string(),
-  subject: z.string(),
-  content: z.string(),
-});
-export type CategoriseBody = z.infer<typeof categoriseBody>;
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
-const responseSchema = z.object({
-  category: z.string(),
-});
+const aiResponseSchema = z.object({ category: z.string() });
 
-export async function aiCategorise(body: CategoriseBody) {
+async function aiCategorise(body: CategoriseBody & { content: string }) {
   const response = await openai.createChatCompletion({
     model: AI_MODEL,
     messages: [
@@ -61,7 +52,7 @@ The email:
 From: ${body.from}
 Subject: ${body.subject}
 Body:
-${truncate(body.content, 1000)}`,
+${body.content}`,
       },
     ],
   });
@@ -78,7 +69,7 @@ ${truncate(body.content, 1000)}`,
   try {
     const res = json5.parse(content);
 
-    return responseSchema.parse(res);
+    return aiResponseSchema.parse(res);
   } catch (error) {
     console.error("Error parsing json:", content);
     return;
@@ -86,7 +77,7 @@ ${truncate(body.content, 1000)}`,
 }
 
 export async function categorise(
-  body: CategoriseBody,
+  body: CategoriseBody & { content: string },
   options: { email: string }
 ) {
   // 1. check redis cache

@@ -26,7 +26,6 @@ import { saveUsage } from "@/utils/redis/usage";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
 import { AI_MODEL } from "@/utils/config";
-import { truncate } from "@/utils";
 
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
@@ -44,14 +43,14 @@ const responseSchema = z.object({
 
 async function getAiResponse(options: {
   model: AiModel;
-  email: ActBody["email"];
+  email: ActBody["email"] & { content: string };
   userAbout: string;
   userEmail: string;
   functions: ChatFunction[];
 }) {
   const { model, email, userAbout, userEmail, functions } = options;
 
-  console.log("email.textPlain", email.textPlain);
+  console.log("email.content", email.content);
 
   const aiResponse = await openai.createChatCompletion({
     model,
@@ -83,7 +82,7 @@ Reply to: ${email.replyTo}
 CC: ${email.cc}
 Subject: ${email.subject}
 Body:
-${truncate(email.textPlain || "", 1000)}`,
+${email.content}`,
       },
     ],
     functions,
@@ -118,7 +117,7 @@ ${truncate(email.textPlain || "", 1000)}`,
 // Doesn't do a great job atm. Either too stringent or not stringent enough :(
 async function checkAiResponse(options: {
   subject: string;
-  textPlain: string;
+  content: string;
   chosenInstructions: string;
   aiResponse?: string;
 }) {
@@ -142,7 +141,7 @@ Subject:
 ${options.subject}
 
 Body:
-${truncate(options.textPlain || "", 1000)}
+${options.content}
 
 ###
         
@@ -203,7 +202,7 @@ ${options.aiResponse}`
 }
 
 async function planAct(options: {
-  email: ActBody["email"];
+  email: ActBody["email"] & { content: string };
   rules: RuleWithActions[];
   userAbout: string;
   userEmail: string;
@@ -296,7 +295,7 @@ async function planAct(options: {
 
   // const check = await checkAiResponse({
   //   subject: email.subject,
-  //   textPlain: email.textPlain!,
+  //   content: email.content!,
   //   chosenInstructions: selectedRule.rule.instructions,
   //   aiResponse: aiGeneratedArgs.content,
   // });
@@ -389,7 +388,7 @@ export async function executeAct(options: {
 
 export async function planOrExecuteAct(options: {
   gmail: gmail_v1.Gmail;
-  email: ActBody["email"];
+  email: ActBody["email"] & { content: string };
   rules: RuleWithActions[];
   allowExecute: boolean;
   forceExecute?: boolean;

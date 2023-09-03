@@ -15,7 +15,9 @@ export function EmailPanel(props: {
   showReply: boolean;
   onShowReply: () => void;
   isPlanning: boolean;
+  isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
+  onAiCategorize: (thread: Thread) => void;
   close: () => void;
   refetchEmails: () => void;
 
@@ -51,7 +53,9 @@ export function EmailPanel(props: {
             threadId={props.row.id!}
             onReply={props.onShowReply}
             isPlanning={props.isPlanning}
+            isCategorizing={props.isCategorizing}
             onPlanAiAction={() => props.onPlanAiAction(props.row)}
+            onAiCategorize={() => props.onAiCategorize(props.row)}
             onArchive={() => {
               props.refetchEmails();
               props.close();

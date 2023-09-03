@@ -20,7 +20,7 @@ import { formatShortDate } from "@/utils/date";
 import { isError } from "@/utils/error";
 import { useSession } from "next-auth/react";
 import { ActResponse } from "@/app/api/ai/act/controller";
-import { ActBody } from "@/app/api/ai/act/validation";
+import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { PlanBadge } from "@/components/PlanBadge";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import { type Thread } from "@/components/email-list/types";
@@ -33,6 +33,8 @@ import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
 import { Card } from "@/components/Card";
 import { CategoryBadge } from "@/components/CategoryBadge";
+import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
+import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -316,6 +318,9 @@ export function EmailList(props: {
   );
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
+  const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const onPlanAiAction = useCallback(
     (thread: Thread) => {
@@ -327,35 +332,31 @@ export function EmailList(props: {
 
           if (!message) return;
 
-          // html emails contain a lot of content and goes over the token limit
-          // TODO convert html emails to plain text before processing: https://www.npmjs.com/package/html-to-text
-          if (!message.parsedMessage.textPlain) {
-            setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
-            throw new Error(
-              `This email does not have a plain text version and cannot currently be planned.`
-            );
-          }
-
-          const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
-            email: {
-              from: message.parsedMessage.headers.from,
-              to: message.parsedMessage.headers.to,
-              date: message.parsedMessage.headers.date,
-              replyTo: message.parsedMessage.headers.replyTo,
-              cc: message.parsedMessage.headers.cc,
-              subject: message.parsedMessage.headers.subject,
-              textPlain: message.parsedMessage.textPlain,
-              textHtml: message.parsedMessage.textHtml,
-              threadId: message.threadId || "",
-              messageId: message.id || "",
-              headerMessageId: message.parsedMessage.headers.messageId || "",
-              references: message.parsedMessage.headers.references,
-            },
-            allowExecute: false,
-          });
+          const res = await postRequest<ActResponse, ActBodyWithHtml>(
+            "/api/ai/act",
+            {
+              email: {
+                from: message.parsedMessage.headers.from,
+                to: message.parsedMessage.headers.to,
+                date: message.parsedMessage.headers.date,
+                replyTo: message.parsedMessage.headers.replyTo,
+                cc: message.parsedMessage.headers.cc,
+                subject: message.parsedMessage.headers.subject,
+                textPlain: message.parsedMessage.textPlain || null,
+                textHtml: message.parsedMessage.textHtml,
+                snippet: thread.snippet,
+                threadId: message.threadId || "",
+                messageId: message.id || "",
+                headerMessageId: message.parsedMessage.headers.messageId || "",
+                references: message.parsedMessage.headers.references,
+              },
+              allowExecute: false,
+            }
+          );
 
           if (isError(res)) {
             console.error(res);
+            setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
             throw new Error(`There was an error planning the email.`);
           } else {
             // setPlan(res);
@@ -367,6 +368,51 @@ export function EmailList(props: {
           loading: "Planning...",
           success: "Planned!",
           error: "There was an error planning the email :(",
+        }
+      );
+    },
+    [refetch]
+  );
+
+  const onAiCategorize = useCallback(
+    (thread: Thread) => {
+      toast.promise(
+        async () => {
+          setIsCategorizing((s) => ({ ...s, [thread.id!]: true }));
+
+          const message = thread.messages?.[thread.messages.length - 1];
+
+          if (!message) return;
+
+          const res = await postRequest<
+            CategoriseResponse,
+            CategoriseBodyWithHtml
+          >("/api/ai/categorise", {
+            from: message.parsedMessage.headers.from,
+            subject: message.parsedMessage.headers.subject,
+            textPlain: message.parsedMessage.textPlain || null,
+            textHtml: message.parsedMessage.textHtml,
+            snippet: thread.snippet,
+            threadId: message.threadId || "",
+          });
+
+          if (isError(res)) {
+            console.error(res);
+            setIsCategorizing((s) => ({ ...s, [thread.id!]: false }));
+            throw new Error(`There was an error categorizing the email.`);
+          } else {
+            // setCategory(res);
+            refetch();
+          }
+          setIsCategorizing((s) => ({ ...s, [thread.id!]: false }));
+
+          return res?.category;
+        },
+        {
+          loading: "Categorizing...",
+          success: (category) =>
+            `Categorized as ${capitalCase(category || "Unknown")}!`,
+          error: "There was an error categorizing the email :(",
         }
       );
     },
@@ -443,7 +489,9 @@ export function EmailList(props: {
             }}
             onShowReply={onShowReply}
             isPlanning={isPlanning[thread.id!]}
+            isCategorizing={isCategorizing[thread.id!]}
             onPlanAiAction={onPlanAiAction}
+            onAiCategorize={onAiCategorize}
             refetchEmails={props.refetch}
             executePlan={executePlan}
             rejectPlan={rejectPlan}
@@ -461,7 +509,9 @@ export function EmailList(props: {
           showReply={showReply}
           onShowReply={onShowReply}
           isPlanning={isPlanning[openedRowId]}
+          isCategorizing={isCategorizing[openedRowId]}
           onPlanAiAction={onPlanAiAction}
+          onAiCategorize={onAiCategorize}
           close={closePanel}
           refetchEmails={props.refetch}
           executePlan={executePlan}
@@ -487,7 +537,9 @@ const EmailListItem = forwardRef(
       onSelected: (id: string) => void;
       onShowReply: () => void;
       isPlanning: boolean;
+      isCategorizing: boolean;
       onPlanAiAction: (thread: Thread) => void;
+      onAiCategorize: (thread: Thread) => void;
       refetchEmails: () => void;
 
       executingPlan: boolean;
@@ -554,7 +606,9 @@ const EmailListItem = forwardRef(
                     threadId={thread.id!}
                     onReply={props.onShowReply}
                     isPlanning={props.isPlanning}
+                    isCategorizing={props.isCategorizing}
                     onPlanAiAction={() => props.onPlanAiAction(thread)}
+                    onAiCategorize={() => props.onAiCategorize(thread)}
                     onArchive={() => {
                       props.refetchEmails();
                       props.closePanel();

@@ -7,8 +7,6 @@ export const actEmail = z.object({
   replyTo: z.string().optional(),
   cc: z.string().optional(),
   subject: z.string(),
-  textPlain: z.string().nullable(),
-  textHtml: z.string().nullable(),
   threadId: z.string(),
   messageId: z.string(), // gmail message id
   headerMessageId: z.string(),
@@ -21,3 +19,15 @@ export const actBody = z.object({
   forceExecute: z.boolean().optional(),
 });
 export type ActBody = z.infer<typeof actBody>;
+
+export const actEmailWithHtml = actEmail.extend({
+  textPlain: z.string().nullable(),
+  textHtml: z.string().nullable(),
+  snippet: z.string().nullable(),
+});
+export const actBodyWithHtml = z.object({
+  email: actEmailWithHtml,
+  allowExecute: z.boolean().optional(),
+  forceExecute: z.boolean().optional(),
+});
+export type ActBodyWithHtml = z.infer<typeof actBodyWithHtml>;

@@ -11,6 +11,7 @@ import { withError } from "@/utils/middleware";
 import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { categorise } from "@/app/api/ai/categorise/controller";
+import { parseEmail } from "@/utils/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -181,19 +182,27 @@ async function planHistory(options: {
 
         const parsedMessage = parseMessage(gmailMessage);
 
-        // TODO parse HTML text
-        if (!parsedMessage.textPlain && !parsedMessage.snippet) {
+        if (
+          !parsedMessage.textHtml &&
+          !parsedMessage.textPlain &&
+          !parsedMessage.snippet
+        ) {
           console.log("Skipping. No plain text found.");
           return;
         }
 
         console.log("Categorising thread...");
 
+        const content =
+          parseEmail(parsedMessage.textHtml) ||
+          parsedMessage.textPlain ||
+          parsedMessage.snippet;
+
         await categorise(
           {
             from: parsedMessage.headers.from,
             subject: parsedMessage.headers.subject,
-            content: parsedMessage.textPlain || parsedMessage.snippet,
+            content,
             threadId: m.message.threadId,
           },
           {
@@ -210,8 +219,7 @@ async function planHistory(options: {
             replyTo: parsedMessage.headers.replyTo,
             cc: parsedMessage.headers.cc,
             subject: parsedMessage.headers.subject,
-            textPlain: parsedMessage.textPlain || parsedMessage.snippet,
-            textHtml: parsedMessage.textHtml,
+            content,
             threadId: m.message.threadId,
             messageId: m.message.id,
             headerMessageId: parsedMessage.headers.messageId || "",

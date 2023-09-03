@@ -41,6 +41,7 @@
     "gmail-api-parse-message": "^2.1.2",
     "googleapis": "124",
     "he": "^1.2.0",
+    "html-to-text": "^9.0.5",
     "json5": "^2.2.3",
     "linkify-react": "^4.1.1",
     "linkifyjs": "^4.1.1",
@@ -70,6 +71,7 @@
   "devDependencies": {
     "@headlessui/tailwindcss": "^0.2.0",
     "@types/he": "^1.2.0",
+    "@types/html-to-text": "^9.0.1",
     "@types/lodash": "^4.14.197",
     "@types/node": "20.4.9",
     "@types/nodemailer": "^6.4.9",

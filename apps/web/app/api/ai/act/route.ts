@@ -3,9 +3,9 @@ import { getAuthSession } from "@/utils/auth";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
-import { actBody } from "@/app/api/ai/act/validation";
+import { actBodyWithHtml } from "@/app/api/ai/act/validation";
 import { withError } from "@/utils/middleware";
-import { parseReply } from "@/utils/mail";
+import { parseEmail } from "@/utils/mail";
 
 export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
@@ -13,7 +13,7 @@ export const POST = withError(async (request: Request) => {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const json = await request.json();
-  const body = actBody.parse(json);
+  const body = actBodyWithHtml.parse(json);
 
   const gmail = getGmailClient(session);
 
@@ -22,12 +22,14 @@ export const POST = withError(async (request: Request) => {
     include: { rules: { include: { actions: true } } },
   });
 
-  const emailContent = parseReply(
-    body.email.textPlain || body.email.textHtml || ""
-  );
+  const content =
+    parseEmail(body.email.textHtml || "") ||
+    body.email.textPlain ||
+    body.email.snippet ||
+    "";
 
   const result = await planOrExecuteAct({
-    email: { ...body.email, textPlain: emailContent },
+    email: { ...body.email, content },
     rules: user.rules,
     gmail,
     allowExecute: !!body.allowExecute,

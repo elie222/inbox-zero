@@ -14,26 +14,35 @@ import {
   ArchiveBody,
   ArchiveResponse,
 } from "@/app/api/google/threads/archive/controller";
+import { OrbitIcon } from "lucide-react";
 
 export function ActionButtons(props: {
   threadId: string;
   isPlanning: boolean;
+  isCategorizing: boolean;
   onPlanAiAction: () => void;
+  onAiCategorize: () => void;
   onReply: () => void;
   onArchive: () => void;
 }) {
   const session = useSession();
   const email = session.data?.user.email;
 
-  const { onArchive } = props;
+  const {
+    threadId,
+    onArchive,
+    onPlanAiAction,
+    onAiCategorize,
+    onReply,
+    isCategorizing,
+    isPlanning,
+  } = props;
 
   const openInGmail = useCallback(() => {
     // open in gmail
-    const url = `https://mail.google.com/mail/u/${email || 0}/#all/${
-      props.threadId
-    }`;
+    const url = `https://mail.google.com/mail/u/${email || 0}/#all/${threadId}`;
     window.open(url, "_blank");
-  }, [props.threadId, email]);
+  }, [threadId, email]);
 
   const [isArchiving, setIsArchiving] = useState(false);
 
@@ -44,7 +53,7 @@ export function ActionButtons(props: {
         await postRequest<ArchiveResponse, ArchiveBody>(
           "/api/google/threads/archive",
           {
-            id: props.threadId,
+            id: threadId,
           }
         );
         onArchive();
@@ -56,7 +65,7 @@ export function ActionButtons(props: {
         error: "Error archiving email",
       }
     );
-  }, [props.threadId, onArchive]);
+  }, [threadId, onArchive]);
 
   const buttons = useMemo(
     () => [
@@ -72,7 +81,7 @@ export function ActionButtons(props: {
       },
       {
         tooltip: "Reply",
-        onClick: props.onReply,
+        onClick: onReply,
         icon: (
           <ChatBubbleBottomCenterIcon
             className="h-5 w-5 text-gray-700"
@@ -81,9 +90,18 @@ export function ActionButtons(props: {
         ),
       },
       {
+        tooltip: "AI Categorize",
+        onClick: onAiCategorize,
+        icon: isCategorizing ? (
+          <LoadingMiniSpinner />
+        ) : (
+          <OrbitIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+        ),
+      },
+      {
         tooltip: "Plan AI action",
-        onClick: props.onPlanAiAction,
-        icon: props.isPlanning ? (
+        onClick: onPlanAiAction,
+        icon: isPlanning ? (
           <LoadingMiniSpinner />
         ) : (
           <SparklesIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
@@ -103,12 +121,14 @@ export function ActionButtons(props: {
       },
     ],
     [
-      openInGmail,
-      props.onReply,
-      props.onPlanAiAction,
-      props.isPlanning,
-      isArchiving,
       archive,
+      isArchiving,
+      onPlanAiAction,
+      onAiCategorize,
+      onReply,
+      openInGmail,
+      isCategorizing,
+      isPlanning,
     ]
   );
 
