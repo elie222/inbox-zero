@@ -30,7 +30,7 @@ async function calculatePlan(
   labels: { name?: string; description?: string | null }[]
 ) {
   const systemMessage = `You are an AI assistant that helps people manage their emails by replying, archiving and labelling emails on the user's behalf.
-The user will send emails and it is your job to plan a course of action to handle them.
+It is your job to plan a course of action for emails.
 You will always return valid JSON as a response.
 
 The JSON should contain the following fields:
