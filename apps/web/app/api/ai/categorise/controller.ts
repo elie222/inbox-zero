@@ -15,29 +15,22 @@ export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 const aiResponseSchema = z.object({ category: z.string() });
 
 async function aiCategorise(body: CategoriseBody & { content: string }) {
-  const response = await openai.createChatCompletion({
-    model: AI_MODEL,
-    messages: [
-      {
-        role: "system",
-        content: "You are an assistant that helps categorise emails.",
-      },
-      {
-        role: "user",
-        content: `Please categorise this email.
+  const message = `Categorise this email.
 Return a JSON object with a "category" field.
 
-Here are the categories to choose from, with an explanation of each one:
-NEWSLETTER - newsletters
-MARKETING - marketing emails
+These are the categories to choose from, with an explanation of each one:
+NEWSLETTER - emails that contain long-form articles, thought leadership, insights, or educational resources. Company updates do not fit in this category
+PROMOTIONAL - marketing or promotional emails to get users to engage with a product or service
 RECEIPT - a receipt or invoice for payments I've made
 ALERT - an alert or notification of error from a service I use
+NOTIFICATION - updates regarding user activity, responses, or changes within a service, platform, or app, including form submissions, user interactions, or any other user-triggered events
 FORUM - a message from someone on a forum, community, or discussion board
 EVENT - calendar or event invites
 TRAVEL - travel itineraries and confirmations
 QUESTION - someone asks me a question
+SUPPORT - support requests
 COLD_EMAIL - someone I don't know emails me to sell me something
-SOCIAL_MEDIA - notifications from social media
+SOCIAL_MEDIA - social media notifications
 LEGAL_UPDATE - updates about changes to terms of service or privacy policy
 OTHER - anything else
 
@@ -52,7 +45,19 @@ The email:
 From: ${body.from}
 Subject: ${body.subject}
 Body:
-${body.content}`,
+${body.content}
+`;
+
+  const response = await openai.createChatCompletion({
+    model: AI_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: "You are an assistant that helps categorise emails.",
+      },
+      {
+        role: "user",
+        content: message,
       },
     ],
   });
