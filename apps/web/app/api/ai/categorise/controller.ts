@@ -21,7 +21,6 @@ export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
 const responseSchema = z.object({
   category: z.string(),
-  confidence: z.number().min(0).max(1),
 });
 
 export async function aiCategorise(body: CategoriseBody) {
@@ -35,8 +34,7 @@ export async function aiCategorise(body: CategoriseBody) {
       {
         role: "user",
         content: `Please categorise this email.
-Return a JSON object with "category" and "confidence" fields.
-Confidence is a number between 0 and 1.
+Return a JSON object with a "category" field.
 
 Here are the categories to choose from, with an explanation of each one:
 NEWSLETTER - newsletters
@@ -54,8 +52,7 @@ OTHER - anything else
 
 An example response would be:
 {
-  "category": "NEWSLETTER",
-  "confidence": 0.8
+  "category": "NEWSLETTER"
 }
 
 ##

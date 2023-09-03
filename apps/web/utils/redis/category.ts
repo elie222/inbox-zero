@@ -3,7 +3,6 @@ import { redis } from "@/utils/redis";
 
 const categorySchema = z.object({
   category: z.string(),
-  confidence: z.number().min(0).max(1),
 });
 export type RedisCategory = z.infer<typeof categorySchema>;
 
