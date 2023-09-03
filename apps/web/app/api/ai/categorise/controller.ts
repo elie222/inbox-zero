@@ -15,15 +15,15 @@ export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 const aiResponseSchema = z.object({ category: z.string() });
 
 async function aiCategorise(body: CategoriseBody & { content: string }) {
-  const message = `Categorise this email.
+  const message = `Categorize this email.
 Return a JSON object with a "category" field.
 
 These are the categories to choose from, with an explanation of each one:
-NEWSLETTER - emails that contain long-form articles, thought leadership, insights, or educational resources. Company updates do not fit in this category
+NEWSLETTER - emails that contain long-form articles, thought leadership, insights, or educational resources.
 PROMOTIONAL - marketing or promotional emails to get users to engage with a product or service
 RECEIPT - a receipt or invoice for payments I've made
 ALERT - an alert or notification of error from a service I use
-NOTIFICATION - updates regarding user activity, responses, or changes within a service, platform, or app, including form submissions, user interactions, or any other user-triggered events
+NOTIFICATION - updates regarding user activity, responses, form submissions, user interactions, or any other user-triggered events
 FORUM - a message from someone on a forum, community, or discussion board
 EVENT - calendar or event invites
 TRAVEL - travel itineraries and confirmations
@@ -39,12 +39,14 @@ An example response would be:
   "category": "NEWSLETTER"
 }
 
+A mistake you often make is categorizing an email as NEWSLETTER when it is actually PROMOTIONAL or NOTIFICATION. Do not do this. If it is not a long-form article it is not a newsletter.
+
 ##
 The email:
 
 From: ${body.from}
 Subject: ${body.subject}
-Body:
+
 ${body.content}
 `;
 
@@ -53,7 +55,7 @@ ${body.content}
     messages: [
       {
         role: "system",
-        content: "You are an assistant that helps categorise emails.",
+        content: "You are an assistant that helps categorize emails.",
       },
       {
         role: "user",
