@@ -9,6 +9,10 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
+import countBy from "lodash/countBy";
+import { capitalCase } from "capital-case";
+import Link from "next/link";
+import { toast } from "sonner";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Celebration } from "@/components/Celebration";
 import { postRequest } from "@/utils/api";
@@ -28,13 +32,19 @@ import { fromName, participant } from "@/components/email-list/helpers";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
 import { Card } from "@/components/Card";
-import Link from "next/link";
-import { toast } from "sonner";
 import { CategoryBadge } from "@/components/CategoryBadge";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "all";
+
+  const categories = useMemo(() => {
+    return countBy(
+      props.emails,
+      (email) => email.category?.category || "Uncategorized"
+    );
+  }, [props.emails]);
+
   const tabs = useMemo(
     () => [
       {
@@ -47,15 +57,27 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         value: "planned",
         href: "/mail?tab=planned",
       },
+      ...Object.entries(categories).map(([category, count]) => ({
+        label: `${capitalCase(category)} (${count})`,
+        value: category,
+        href: `/mail?tab=${category}`,
+      })),
     ],
-    []
+    [categories]
   );
 
   const filteredEmails = useMemo(() => {
     if (selectedTab === "planned")
       return props.emails.filter((email) => email.plan?.rule);
 
-    return props.emails;
+    if (selectedTab === "all") return props.emails;
+
+    if (selectedTab === "Uncategorized")
+      return props.emails.filter((email) => !email.category?.category);
+
+    return props.emails.filter(
+      (email) => email.category?.category === selectedTab
+    );
   }, [props.emails, selectedTab]);
 
   return (
