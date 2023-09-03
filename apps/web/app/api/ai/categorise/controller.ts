@@ -42,6 +42,8 @@ Here are the categories to choose from, with an explanation of each one:
 NEWSLETTER - newsletters
 MARKETING - marketing emails
 RECEIPT - a receipt or invoice for payments I've made
+ALERT - an alert or notification of error from a service I use
+FORUM - a message from someone on a forum, community, or discussion board
 EVENT - calendar or event invites
 TRAVEL - travel itineraries and confirmations
 QUESTION - someone asks me a question
