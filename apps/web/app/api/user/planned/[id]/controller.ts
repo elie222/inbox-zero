@@ -1,11 +1,11 @@
 import { gmail_v1 } from "googleapis";
 import { z } from "zod";
 import { executeAct } from "@/app/api/ai/act/controller";
-import { actEmail } from "@/app/api/ai/act/validation";
+import { actEmailWithHtml } from "@/app/api/ai/act/validation";
 import { zodAction } from "@/app/api/user/rules/[id]/validation";
 
 export const executePlanBody = z.object({
-  email: actEmail,
+  email: actEmailWithHtml,
   actions: z.array(zodAction),
   args: z.object({
     label: z.string().optional(),

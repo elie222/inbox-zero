@@ -114,7 +114,8 @@ function Planned() {
                                 message.parsedMessage.headers["message-id"],
                               textPlain:
                                 message.parsedMessage.textPlain || null,
-                              textHtml: message.parsedMessage.textHtml,
+                              textHtml: message.parsedMessage.textHtml || null,
+                              snippet: message.snippet || null,
                               messageId: message.id || "",
                               threadId: message.threadId || "",
                             },

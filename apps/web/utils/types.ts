@@ -73,7 +73,7 @@ export interface ParsedMessage {
   inline: Inline[];
   headers: Headers3;
   textPlain?: string;
-  textHtml: string;
+  textHtml?: string;
 }
 
 interface Attachment {

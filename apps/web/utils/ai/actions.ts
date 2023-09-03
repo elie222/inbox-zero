@@ -2,12 +2,12 @@ import { type gmail_v1 } from "googleapis";
 import { draftEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
-import { ActBody } from "@/app/api/ai/act/validation";
+import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { labelThread } from "@/utils/gmail/label";
 
 type ActionFunction = (
   gmail: gmail_v1.Gmail,
-  email: ActBody["email"],
+  email: ActBodyWithHtml["email"],
   args: any
 ) => Promise<any>;
 
@@ -351,7 +351,7 @@ export type ActionProperty = (typeof ACTION_PROPERTIES)[number];
 
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
-  email: ActBody["email"],
+  email: ActBodyWithHtml["email"],
   action: ActionType,
   args: PartialRecord<ActionProperty, string>
 ): Promise<any> => {

@@ -343,7 +343,7 @@ export function EmailList(props: {
                 cc: message.parsedMessage.headers.cc,
                 subject: message.parsedMessage.headers.subject,
                 textPlain: message.parsedMessage.textPlain || null,
-                textHtml: message.parsedMessage.textHtml,
+                textHtml: message.parsedMessage.textHtml || null,
                 snippet: thread.snippet,
                 threadId: message.threadId || "",
                 messageId: message.id || "",
@@ -391,7 +391,7 @@ export function EmailList(props: {
             from: message.parsedMessage.headers.from,
             subject: message.parsedMessage.headers.subject,
             textPlain: message.parsedMessage.textPlain || null,
-            textHtml: message.parsedMessage.textHtml,
+            textHtml: message.parsedMessage.textHtml || null,
             snippet: thread.snippet,
             threadId: message.threadId || "",
           });

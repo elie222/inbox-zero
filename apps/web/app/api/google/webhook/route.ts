@@ -194,7 +194,7 @@ async function planHistory(options: {
         console.log("Categorising thread...");
 
         const content =
-          parseEmail(parsedMessage.textHtml) ||
+          (parsedMessage.textHtml && parseEmail(parsedMessage.textHtml)) ||
           parsedMessage.textPlain ||
           parsedMessage.snippet;
 
@@ -219,6 +219,9 @@ async function planHistory(options: {
             replyTo: parsedMessage.headers.replyTo,
             cc: parsedMessage.headers.cc,
             subject: parsedMessage.headers.subject,
+            textHtml: parsedMessage.textHtml || null,
+            textPlain: parsedMessage.textPlain || null,
+            snippet: parsedMessage.snippet,
             content,
             threadId: m.message.threadId,
             messageId: m.message.id,

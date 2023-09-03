@@ -48,7 +48,7 @@ import {
 } from "@/app/api/user/rules/[id]/validation";
 import { actionInputs } from "@/utils/actionType";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { ActBody } from "@/app/api/ai/act/validation";
+import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
@@ -518,7 +518,7 @@ const TestRulesForm = () => {
   } = useForm<TestRulesInputs>();
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const res = await postRequest<ActResponse, ActBody>("/api/ai/act", {
+    const res = await postRequest<ActResponse, ActBodyWithHtml>("/api/ai/act", {
       email: {
         from: "",
         to: "",
@@ -528,6 +528,7 @@ const TestRulesForm = () => {
         subject: "",
         textPlain: data.message,
         textHtml: "",
+        snippet: "",
         threadId: "",
         messageId: "",
         headerMessageId: "",
@@ -596,7 +597,7 @@ function TestRulesContentRow(props: {
                 return;
               }
 
-              const res = await postRequest<ActResponse, ActBody>(
+              const res = await postRequest<ActResponse, ActBodyWithHtml>(
                 "/api/ai/act",
                 {
                   email: {
@@ -606,8 +607,9 @@ function TestRulesContentRow(props: {
                     replyTo: message.parsedMessage.headers.replyTo,
                     cc: message.parsedMessage.headers.cc,
                     subject: message.parsedMessage.headers.subject,
-                    textPlain: message.parsedMessage.textPlain,
-                    textHtml: message.parsedMessage.textHtml,
+                    textPlain: message.parsedMessage.textPlain || null,
+                    textHtml: message.parsedMessage.textHtml || null,
+                    snippet: message.snippet || null,
                     threadId: message.threadId || "",
                     messageId: message.id || "",
                     headerMessageId:

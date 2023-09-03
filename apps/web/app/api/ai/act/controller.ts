@@ -21,7 +21,7 @@ import {
 import prisma from "@/utils/prisma";
 import { deletePlan, savePlan } from "@/utils/redis/plan";
 import { Action, Rule } from "@prisma/client";
-import { ActBody } from "@/app/api/ai/act/validation";
+import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { saveUsage } from "@/utils/redis/usage";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
@@ -336,7 +336,7 @@ async function planAct(options: {
 export async function executeAct(options: {
   gmail: gmail_v1.Gmail;
   act: PlannedAction;
-  email: ActBody["email"];
+  email: ActBodyWithHtml["email"];
   userId: string;
   userEmail: string;
   automated: boolean;
@@ -388,7 +388,7 @@ export async function executeAct(options: {
 
 export async function planOrExecuteAct(options: {
   gmail: gmail_v1.Gmail;
-  email: ActBody["email"] & { content: string };
+  email: ActBodyWithHtml["email"] & { content: string };
   rules: RuleWithActions[];
   allowExecute: boolean;
   forceExecute?: boolean;
