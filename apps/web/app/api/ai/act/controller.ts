@@ -41,41 +41,39 @@ const responseSchema = z.object({
   explanation: z.string(),
 });
 
-async function getAiResponse(options: {
+export async function getAiResponse(options: {
   model: AiModel;
-  email: ActBody["email"] & { content: string };
+  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+    content: string;
+  };
   userAbout: string;
   userEmail: string;
   functions: ChatFunction[];
 }) {
   const { model, email, userAbout, userEmail, functions } = options;
 
-  console.log("email.content", email.content);
-
-  const aiResponse = await openai.createChatCompletion({
-    model,
-    messages: [
-      {
-        role: "system",
-        content: `You are an AI assistant that helps people manage their emails.
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are an AI assistant that helps people manage their emails.
 Never put placeholders in your email responses.
 Do not mention you are an AI assistant when responding to people.
 It's better not to act if you don't know how.
 
 These are the rules you can select from:
-${functions.map((f) => f.description).join("\n\n")}`,
-      },
-      ...(userAbout
-        ? [
-            {
-              role: "user" as const,
-              content: `Some additional information the user has provided:\n\n${userAbout}`,
-            },
-          ]
-        : []),
-      {
-        role: "user",
-        content: `This email was received for processing:
+${functions.map((f, i) => `${i + 1}. ${f.description}`).join("\n")}`,
+    },
+    ...(userAbout
+      ? [
+          {
+            role: "user" as const,
+            content: `Some additional information the user has provided:\n\n${userAbout}`,
+          },
+        ]
+      : []),
+    {
+      role: "user" as const,
+      content: `This email was received for processing.
 
 From: ${email.from}
 Reply to: ${email.replyTo}
@@ -83,8 +81,12 @@ CC: ${email.cc}
 Subject: ${email.subject}
 Body:
 ${email.content}`,
-      },
-    ],
+    },
+  ];
+
+  const aiResponse = await openai.createChatCompletion({
+    model,
+    messages,
     functions,
     function_call: "auto",
     temperature: 0,
@@ -98,7 +100,6 @@ ${email.content}`,
     return;
   }
 
-  // is there usage upon error?
   await saveUsage({ email: userEmail, usage: json.usage, model });
 
   const functionCall = json?.choices?.[0]?.message.function_call as
@@ -107,11 +108,78 @@ ${email.content}`,
 
   if (!functionCall?.name) return;
 
-  console.log("functionCall:", functionCall);
-
   if (functionCall.name === REQUIRES_MORE_INFO) return;
 
   return functionCall;
+}
+
+// testing out different methods to see what produces the best response
+export async function getAiResponseWithoutFunctionCalling(options: {
+  model: AiModel;
+  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+    content: string;
+  };
+  userAbout: string;
+  userEmail: string;
+  functions: ChatFunction[];
+}) {
+  const { model, email, userAbout, userEmail, functions } = options;
+
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are an AI assistant that helps people manage their emails.
+Never put placeholders in your email responses.
+Do not mention you are an AI assistant when responding to people.
+It's better not to act if you don't know how.
+
+These are the rules you can select from:
+${functions.map((f, i) => `${i + 1}. ${f.description}`).join("\n")}`,
+    },
+    ...(userAbout
+      ? [
+          {
+            role: "user" as const,
+            content: `Some additional information the user has provided:\n\n${userAbout}`,
+          },
+        ]
+      : []),
+    {
+      role: "user" as const,
+      content: `This email was received for processing. Select a rule to apply to it.
+Respond with a JSON object with two fields:
+"rule" - the number of the rule you want to apply
+"reason" - a string that explains why you chose that rule
+
+From: ${email.from}
+Reply to: ${email.replyTo}
+CC: ${email.cc}
+Subject: ${email.subject}
+Body:
+${email.content}`,
+    },
+  ];
+
+  // console.log("🚀 messages:", messages);
+  // console.log("🚀 functions:", functions);
+
+  const aiResponse = await openai.createChatCompletion({
+    model,
+    messages,
+    temperature: 0,
+  });
+
+  const json: ChatCompletionResponse | ChatCompletionError =
+    await aiResponse.json();
+
+  if (isChatCompletionError(json)) {
+    console.error(json);
+    return;
+  }
+
+  await saveUsage({ email: userEmail, usage: json.usage, model });
+
+  return json5.parse(json.choices[0].message.content);
 }
 
 // Doesn't do a great job atm. Either too stringent or not stringent enough :(
