@@ -363,10 +363,11 @@ export function EmailList(props: {
             refetch();
           }
           setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
+          return res?.rule;
         },
         {
           loading: "Planning...",
-          success: "Planned!",
+          success: (rule) => `Planned as ${rule?.name || "No Plan"}`,
           error: "There was an error planning the email :(",
         }
       );
