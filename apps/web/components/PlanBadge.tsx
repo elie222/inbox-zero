@@ -34,7 +34,7 @@ export function PlanBadge(props: { plan?: Plan }) {
             </div>
           ) : null}
           <div className="mt-4 space-y-2">
-            {plan.rule.actions.map((action, i) => {
+            {plan.rule.actions?.map((action, i) => {
               return (
                 <div key={i}>
                   <Badge color={getActionColor(action.type)}>
@@ -70,7 +70,7 @@ function getActionMessage(actionType: ActionType, plan: Plan): string {
           plan.rule?.actions?.[0]?.content
             ? `:\n${plan.rule.actions[0].content}`
             : ""
-        }}`;
+        }`;
     default:
       return capitalCase(actionType);
   }
