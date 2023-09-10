@@ -30,16 +30,17 @@ import { AI_MODEL } from "@/utils/config";
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
 type PlannedAction = {
-  args: PartialRecord<ActionProperty, string>;
   actions: Pick<Action, "type">[];
+  args: PartialRecord<ActionProperty, string>;
 };
 
-const REQUIRES_MORE_INFO = "requires_more_information";
+export const REQUIRES_MORE_INFO = "requires_more_information";
 
-const responseSchema = z.object({
-  score: z.number(),
-  explanation: z.string(),
-});
+// after some testing i see the AI performs better when it works on smaller tasks
+// if we try ask it to select a rule, and provide the args for that rule in one go, it doesn't do as well
+// so i've split this up into two ai calls:
+// 1. select rule
+// 2. generate args for rule
 
 export async function getAiResponse(options: {
   model: AiModel;
@@ -73,7 +74,90 @@ ${functions.map((f, i) => `${i + 1}. ${f.description}`).join("\n")}`,
       : []),
     {
       role: "user" as const,
-      content: `This email was received for processing.
+      content: `This email was received for processing. Select a rule to apply to it.
+Respond with a JSON object with the following fields:
+"rule" - the number of the rule you want to apply
+"reason" - the reason you chose that rule
+
+From: ${email.from}
+Reply to: ${email.replyTo}
+CC: ${email.cc}
+Subject: ${email.subject}
+Body:
+${email.content}`,
+    },
+  ];
+
+  const aiResponse = await openai.createChatCompletion({
+    model,
+    messages,
+    temperature: 0,
+  });
+
+  const json: ChatCompletionResponse | ChatCompletionError =
+    await aiResponse.json();
+
+  if (isChatCompletionError(json)) {
+    console.error(json);
+    return;
+  }
+
+  await saveUsage({ email: userEmail, usage: json.usage, model });
+
+  const responseSchema = z.object({
+    rule: z.number(),
+    reason: z.string().optional(),
+  });
+
+  try {
+    return responseSchema.parse(json5.parse(json.choices[0].message.content));
+  } catch (error) {
+    console.warn(
+      "Error parsing data.\nResponse:",
+      json?.choices?.[0]?.message?.content,
+      "\nError:",
+      error
+    );
+    return;
+  }
+}
+
+async function getArgsAiResponse(options: {
+  model: AiModel;
+  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+    content: string;
+  };
+  userAbout: string;
+  userEmail: string;
+  functions: ChatFunction[];
+  selectedFunction: ChatFunction;
+}) {
+  const { model, email, userAbout, userEmail, functions, selectedFunction } =
+    options;
+
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are an AI assistant that helps people manage their emails.
+Never put placeholders in your email responses.
+Do not mention you are an AI assistant when responding to people.`,
+    },
+    ...(userAbout
+      ? [
+          {
+            role: "user" as const,
+            content: `Some additional information the user has provided about themselves:\n\n${userAbout}`,
+          },
+        ]
+      : []),
+    {
+      role: "user" as const,
+      content: `An email was received for processing and a rule was selected to process it. Please act on this email.
+
+The selected rule:
+${selectedFunction.name} - ${selectedFunction.description}
+
+The email:
 
 From: ${email.from}
 Reply to: ${email.replyTo}
@@ -107,177 +191,13 @@ ${email.content}`,
     | undefined;
 
   if (!functionCall?.name) return;
-
   if (functionCall.name === REQUIRES_MORE_INFO) return;
 
   return functionCall;
 }
 
-// testing out different methods to see what produces the best response
-export async function getAiResponseWithoutFunctionCalling(options: {
-  model: AiModel;
-  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
-    content: string;
-  };
-  userAbout: string;
-  userEmail: string;
-  functions: ChatFunction[];
-}) {
-  const { model, email, userAbout, userEmail, functions } = options;
-
-  const messages = [
-    {
-      role: "system" as const,
-      content: `You are an AI assistant that helps people manage their emails.
-Never put placeholders in your email responses.
-Do not mention you are an AI assistant when responding to people.
-It's better not to act if you don't know how.
-
-These are the rules you can select from:
-${functions.map((f, i) => `${i + 1}. ${f.description}`).join("\n")}`,
-    },
-    ...(userAbout
-      ? [
-          {
-            role: "user" as const,
-            content: `Some additional information the user has provided:\n\n${userAbout}`,
-          },
-        ]
-      : []),
-    {
-      role: "user" as const,
-      content: `This email was received for processing. Select a rule to apply to it.
-Respond with a JSON object with two fields:
-"rule" - the number of the rule you want to apply
-"reason" - a string that explains why you chose that rule
-
-From: ${email.from}
-Reply to: ${email.replyTo}
-CC: ${email.cc}
-Subject: ${email.subject}
-Body:
-${email.content}`,
-    },
-  ];
-
-  // console.log("🚀 messages:", messages);
-  // console.log("🚀 functions:", functions);
-
-  const aiResponse = await openai.createChatCompletion({
-    model,
-    messages,
-    temperature: 0,
-  });
-
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await aiResponse.json();
-
-  if (isChatCompletionError(json)) {
-    console.error(json);
-    return;
-  }
-
-  await saveUsage({ email: userEmail, usage: json.usage, model });
-
-  return json5.parse(json.choices[0].message.content);
-}
-
-// Doesn't do a great job atm. Either too stringent or not stringent enough :(
-async function checkAiResponse(options: {
-  subject: string;
-  content: string;
-  chosenInstructions: string;
-  aiResponse?: string;
-}) {
-  console.log("Checking AI response");
-
-  // Stricter alternative: Please not that you must be extra diligent as the AI often hallucinates and makes mistakes that might initially seem correct.
-  async function callAi() {
-    const content = `I have an AI assistant that helps me handle my emails based on rules I provided it.
-It often makes mistakes that are not immediately obvious.
-
-What do you make of its choice of response?
-
-It is your job to respond with properly formatted JSON that includes two fields:
-"score" - a number between 0 and 10 that represents how good the AI assistant's response was
-"explanation" - a string that explains why the AI assistant's response is good or bad
-
-The email:
-
-###
-Subject:
-${options.subject}
-
-Body:
-${options.content}
-
-###
-        
-This is the rule it selected from a set of rules I had given it to choose from:
-
-${options.chosenInstructions}
-
-${
-  options.aiResponse
-    ? `This is the response the AI assistant generated:
-
-${options.aiResponse}`
-    : ""
-}
-`;
-    console.log("content:", content);
-
-    const aiResponse = await openai.createChatCompletion({
-      model: AI_MODEL,
-      messages: [
-        {
-          role: "user",
-          content,
-        },
-      ],
-    });
-
-    const json: ChatCompletionResponse | ChatCompletionError =
-      await aiResponse.json();
-
-    if (isChatCompletionError(json)) {
-      console.error(json);
-      return;
-    }
-
-    const text = json.choices[0].message;
-
-    try {
-      const res: { score: number; explanation: number } = json5.parse(
-        text.content
-      );
-
-      return res;
-    } catch (error) {
-      console.error("Error parsing json:", text);
-      throw error;
-    }
-  }
-
-  // might want to loop this instead till the ai responds with the correct json?
-  const aiRes = await callAi();
-  if (!responseSchema.safeParse(aiRes).success) {
-    const aiRes2 = await callAi();
-    if (responseSchema.safeParse(aiRes).success) return aiRes2;
-  }
-
-  return aiRes;
-}
-
-async function planAct(options: {
-  email: ActBody["email"] & { content: string };
-  rules: RuleWithActions[];
-  userAbout: string;
-  userEmail: string;
-}): Promise<(PlannedAction & { rule: Rule }) | undefined> {
-  const { email, rules } = options;
-
-  const rulesWithProperties = rules.map((rule, i) => {
+function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
+  const rulesWithProperties = options.rules.map((rule, i) => {
     const prefilledValues: PartialRecord<ActionProperty, string | null> = {};
 
     rule.actions.forEach((action) => {
@@ -335,8 +255,21 @@ async function planAct(options: {
     parameters: r.parameters,
   }));
 
-  // gpt3.5 is much cheaper but halucinates more than gpt4 (which isn't perfect either)
-  const functionCall = await getAiResponse({
+  return { functions, rulesWithProperties };
+}
+
+export async function planAct(options: {
+  email: ActBody["email"] & { content: string };
+  rules: RuleWithActions[];
+  userAbout: string;
+  userEmail: string;
+}): Promise<{ rule: Rule; plannedAction: PlannedAction } | undefined> {
+  const { email, rules } = options;
+  console.log(JSON.stringify(rules, null, 2));
+
+  const { functions, rulesWithProperties } = getFunctionsFromRules({ rules });
+
+  const aiResponse = await getAiResponse({
     model: AI_MODEL,
     email,
     userAbout: options.userAbout,
@@ -344,47 +277,27 @@ async function planAct(options: {
     functions,
   });
 
-  const functionCallName = functionCall?.name;
-  const functionCallArguments = functionCall?.arguments;
-
-  if (!functionCallName) return;
-
-  const aiGeneratedArgs = functionCallArguments
-    ? json5.parse(functionCallArguments)
-    : undefined;
-
-  const selectedRule = rulesWithProperties.find(
-    (f) => f.name === functionCallName
-  );
-  if (!selectedRule) {
-    console.warn("Rule not found for functionCallName:", functionCallName);
+  const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
+  if (typeof ruleNumber !== "number") {
+    console.warn("No rule selected");
     return;
   }
 
-  // const check = await checkAiResponse({
-  //   subject: email.subject,
-  //   content: email.content!,
-  //   chosenInstructions: selectedRule.rule.instructions,
-  //   aiResponse: aiGeneratedArgs.content,
-  // });
+  const selectedRule = rulesWithProperties[ruleNumber];
+  console.log("selectedRule", selectedRule);
 
-  // console.log(
-  //   "Check score",
-  //   check?.score,
-  //   ". Explanation:",
-  //   check?.explanation
-  // );
+  const aiArgsResponse = await getArgsAiResponse({
+    model: AI_MODEL,
+    email,
+    userAbout: options.userAbout,
+    userEmail: options.userEmail,
+    functions,
+    selectedFunction: selectedRule,
+  });
 
-  // if (!check || check.score < 7) {
-  //   console.log(
-  //     `The AI is not confident on the response. Skipping. Check: ${JSON.stringify(
-  //       check,
-  //       null,
-  //       2
-  //     )}`
-  //   );
-  //   return;
-  // }
+  const aiGeneratedArgs = aiArgsResponse?.arguments
+    ? json5.parse(aiArgsResponse.arguments)
+    : undefined;
 
   // use prefilled values where we have them
   const args = {
@@ -392,11 +305,11 @@ async function planAct(options: {
     ...selectedRule.prefilledValues,
   };
 
-  console.log("args:", args);
-
   return {
-    actions: selectedRule.rule.actions,
-    args,
+    plannedAction: {
+      actions: selectedRule.rule.actions,
+      args,
+    },
     rule: selectedRule.rule,
   };
 }
@@ -494,7 +407,7 @@ export async function planOrExecuteAct(options: {
   if (shouldExecute) {
     await executeAct({
       ...options,
-      act: plannedAct,
+      act: plannedAct.plannedAction,
       email: options.email,
       ruleId: plannedAct.rule.id,
     });
@@ -506,8 +419,8 @@ export async function planOrExecuteAct(options: {
         createdAt: new Date(),
         messageId: options.email.messageId,
         threadId: options.email.threadId,
-        rule: { ...plannedAct.rule, actions: plannedAct.actions },
-        functionArgs: plannedAct.args,
+        rule: { ...plannedAct.rule, actions: plannedAct.plannedAction.actions },
+        functionArgs: plannedAct.plannedAction.args,
       },
     });
   }
