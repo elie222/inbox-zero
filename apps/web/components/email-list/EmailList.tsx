@@ -14,6 +14,7 @@ import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ActionButtons } from "@/components/ActionButtons";
+import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { postRequest } from "@/utils/api";
 import { formatShortDate } from "@/utils/date";
@@ -36,6 +37,10 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
 import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { Checkbox } from "@/components/Checkbox";
+import {
+  ArchiveBody,
+  ArchiveResponse,
+} from "@/app/api/google/threads/archive/controller";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -334,6 +339,7 @@ export function EmailList(props: {
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
     {}
   );
+  const [isArchiving, setIsArchiving] = useState<Record<string, boolean>>({});
 
   const onPlanAiAction = useCallback(
     (thread: Thread) => {
@@ -433,6 +439,38 @@ export function EmailList(props: {
     [refetch]
   );
 
+  const onArchive = useCallback(
+    (thread: Thread) => {
+      toast.promise(
+        async () => {
+          setIsArchiving((s) => ({ ...s, [thread.id!]: true }));
+
+          const res = await postRequest<ArchiveResponse, ArchiveBody>(
+            "/api/google/threads/archive",
+            {
+              id: thread.id!,
+            }
+          );
+
+          if (isError(res)) {
+            console.error(res);
+            setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
+            throw new Error(`There was an error archiving the email.`);
+          } else {
+            refetch();
+          }
+          setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
+        },
+        {
+          loading: "Archiving...",
+          success: "Archived!",
+          error: "There was an error archiving the email :(",
+        }
+      );
+    },
+    [refetch]
+  );
+
   const listRef = useRef<HTMLUListElement>(null);
   const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);
 
@@ -465,10 +503,44 @@ export function EmailList(props: {
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
     useExecutePlan();
 
+  const onPlanAiBulk = useCallback(async () => {
+    for (const [threadId, selected] of Object.entries(selectedRows)) {
+      if (!selected) continue;
+      const thread = props.threads.find((t) => t.id === threadId);
+      if (thread) onPlanAiAction(thread);
+    }
+  }, [onPlanAiAction, props.threads, selectedRows]);
+
+  const onCategorizeAiBulk = useCallback(async () => {
+    for (const [threadId, selected] of Object.entries(selectedRows)) {
+      if (!selected) continue;
+      const thread = props.threads.find((t) => t.id === threadId);
+      if (thread) onAiCategorize(thread);
+    }
+  }, [onAiCategorize, props.threads, selectedRows]);
+
+  const onArchiveAiBulk = useCallback(async () => {
+    for (const [threadId, selected] of Object.entries(selectedRows)) {
+      if (!selected) continue;
+      const thread = props.threads.find((t) => t.id === threadId);
+      if (thread) onArchive(thread);
+    }
+  }, [onArchive, props.threads, selectedRows]);
+
   return (
     <>
-      <div className="divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
+      <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
         <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+        <div className="ml-4">
+          <ActionButtonsBulk
+            isPlanning={false}
+            isCategorizing={false}
+            isArchiving={false}
+            onAiCategorize={onCategorizeAiBulk}
+            onPlanAiAction={onPlanAiBulk}
+            onArchive={onArchiveAiBulk}
+          />
+        </div>
       </div>
       <div
         className={clsx("h-full overflow-hidden", {
@@ -508,9 +580,10 @@ export function EmailList(props: {
               onShowReply={onShowReply}
               isPlanning={isPlanning[thread.id!]}
               isCategorizing={isCategorizing[thread.id!]}
+              isArchiving={isArchiving[thread.id!]}
               onPlanAiAction={onPlanAiAction}
               onAiCategorize={onAiCategorize}
-              refetchEmails={props.refetch}
+              onArchive={onArchive}
               executePlan={executePlan}
               rejectPlan={rejectPlan}
               executingPlan={executingPlan[thread.id!]}
@@ -528,10 +601,11 @@ export function EmailList(props: {
             onShowReply={onShowReply}
             isPlanning={isPlanning[openedRowId]}
             isCategorizing={isCategorizing[openedRowId]}
+            isArchiving={isArchiving[openedRowId]}
             onPlanAiAction={onPlanAiAction}
             onAiCategorize={onAiCategorize}
+            onArchive={onArchive}
             close={closePanel}
-            refetchEmails={props.refetch}
             executePlan={executePlan}
             rejectPlan={rejectPlan}
             executingPlan={executingPlan[openedRowId]}
@@ -557,9 +631,10 @@ const EmailListItem = forwardRef(
       onShowReply: () => void;
       isPlanning: boolean;
       isCategorizing: boolean;
+      isArchiving: boolean;
       onPlanAiAction: (thread: Thread) => void;
       onAiCategorize: (thread: Thread) => void;
-      refetchEmails: () => void;
+      onArchive: (thread: Thread) => void;
 
       executingPlan: boolean;
       rejectingPlan: boolean;
@@ -630,10 +705,11 @@ const EmailListItem = forwardRef(
                     onReply={props.onShowReply}
                     isPlanning={props.isPlanning}
                     isCategorizing={props.isCategorizing}
+                    isArchiving={props.isArchiving}
                     onPlanAiAction={() => props.onPlanAiAction(thread)}
                     onAiCategorize={() => props.onAiCategorize(thread)}
                     onArchive={() => {
-                      props.refetchEmails();
+                      props.onArchive(thread);
                       props.closePanel();
                     }}
                   />
