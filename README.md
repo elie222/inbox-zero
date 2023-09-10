@@ -48,10 +48,10 @@ Initially the aim is that people will use Inbox Zero side-by-side their existing
 - [Node.js](https://nodejs.org/en/) >= 18.0.0
 - [pnpm](https://pnpm.io/) >= 8.6.12
 
-Create your own `.env.local` file:
+Create your own `.env` file:
 
 ```bash
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web/.env.example apps/web/.env
 ```
 
 ```bash

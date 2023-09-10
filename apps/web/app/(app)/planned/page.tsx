@@ -22,7 +22,7 @@ import { PlanBadge } from "@/components/PlanBadge";
 
 export default function PlannedPage() {
   const params = useSearchParams();
-  const selectedTab = params.get("tab") || "planned";
+  const selectedTab = params.get("tab") || "history";
 
   return (
     <div>
@@ -31,15 +31,15 @@ export default function PlannedPage() {
           selected={selectedTab}
           tabs={[
             {
-              label: "Planned",
-              value: "planned",
-              href: "/planned?tab=planned",
-            },
-            {
               label: "History",
               value: "history",
               href: "/planned?tab=history",
             },
+            // {
+            //   label: "Planned",
+            //   value: "planned",
+            //   href: "/planned?tab=planned",
+            // },
           ]}
           breakpoint="md"
         />

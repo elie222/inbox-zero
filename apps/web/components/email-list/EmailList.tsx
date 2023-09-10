@@ -47,6 +47,10 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
     );
   }, [props.emails]);
 
+  const planned = useMemo(() => {
+    return props.emails.filter((email) => email.plan?.rule);
+  }, [props.emails]);
+
   const tabs = useMemo(
     () => [
       {
@@ -55,7 +59,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         href: "/mail?tab=all",
       },
       {
-        label: "Planned",
+        label: `Planned (${planned.length})`,
         value: "planned",
         href: "/mail?tab=planned",
       },
@@ -65,12 +69,11 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         href: `/mail?tab=${category}`,
       })),
     ],
-    [categories]
+    [categories, planned]
   );
 
   const filteredEmails = useMemo(() => {
-    if (selectedTab === "planned")
-      return props.emails.filter((email) => email.plan?.rule);
+    if (selectedTab === "planned") return planned;
 
     if (selectedTab === "all") return props.emails;
 
@@ -80,7 +83,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
     return props.emails.filter(
       (email) => email.category?.category === selectedTab
     );
-  }, [props.emails, selectedTab]);
+  }, [props.emails, selectedTab, planned]);
 
   return (
     <>
@@ -363,10 +366,11 @@ export function EmailList(props: {
             refetch();
           }
           setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
+          return res?.rule;
         },
         {
           loading: "Planning...",
-          success: "Planned!",
+          success: (rule) => `Planned as ${rule?.name || "No Plan"}`,
           error: "There was an error planning the email :(",
         }
       );

@@ -24,7 +24,7 @@ export async function executePlan(
   body: ExecutePlanBody & { planId: string; userId: string; userEmail: string },
   gmail: gmail_v1.Gmail
 ) {
-  executeAct({
+  return executeAct({
     gmail,
     automated: false,
     email: body.email,

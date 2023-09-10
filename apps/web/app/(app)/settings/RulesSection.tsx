@@ -649,7 +649,7 @@ function Plan(props: { plan: ActResponse }) {
 
   if (plan.rule === null) return <Card>No rule found to apply.</Card>;
 
-  if (plan.actions) {
+  if (plan.plannedAction.actions) {
     return (
       <Card>
         <div className="font-semibold">Rule to apply:</div>
