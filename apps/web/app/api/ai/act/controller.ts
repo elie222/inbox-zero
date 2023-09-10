@@ -265,7 +265,6 @@ export async function planAct(options: {
   userEmail: string;
 }): Promise<{ rule: Rule; plannedAction: PlannedAction } | undefined> {
   const { email, rules } = options;
-  console.log(JSON.stringify(rules, null, 2));
 
   const { functions, rulesWithProperties } = getFunctionsFromRules({ rules });
 
@@ -285,6 +284,8 @@ export async function planAct(options: {
 
   const selectedRule = rulesWithProperties[ruleNumber];
   console.log("selectedRule", selectedRule);
+
+  if (selectedRule.name === REQUIRES_MORE_INFO) return;
 
   const aiArgsResponse = await getArgsAiResponse({
     model: AI_MODEL,
