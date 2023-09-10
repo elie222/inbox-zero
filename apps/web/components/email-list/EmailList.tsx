@@ -35,6 +35,7 @@ import { Card } from "@/components/Card";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
 import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
+import { Checkbox } from "@/components/Checkbox";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -266,9 +267,6 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
           // }
         />
       </div>
-      {/* <div className="divide-gray-100 border-b bg-white px-4 sm:px-6 py-2 border-l-4">
-        <Checkbox checked onChange={() => {}} />
-      </div> */}
       {props.emails.length ? (
         <EmailList
           threads={filteredEmails}
@@ -297,21 +295,19 @@ export function EmailList(props: {
 }) {
   const { refetch } = props;
 
+  const session = useSession();
+
+  // if right panel is open
   const [openedRowId, setOpenedRowId] = useState<string>();
-  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
-
-  // could make this row specific in the future
-  const [showReply, setShowReply] = useState(false);
-
   const closePanel = useCallback(() => setOpenedRowId(undefined), []);
-  const onShowReply = useCallback(() => setShowReply(true), []);
 
   const openedRow = useMemo(
     () => props.threads.find((thread) => thread.id === openedRowId),
     [openedRowId, props.threads]
   );
 
-  const session = useSession();
+  // if checkbox for a row has been checked
+  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
   const onSetSelectedRow = useCallback(
     (id: string) => {
@@ -319,6 +315,20 @@ export function EmailList(props: {
     },
     [setSelectedRows]
   );
+
+  const isAllSelected = useMemo(() => {
+    return props.threads.every((thread) => selectedRows[thread.id!]);
+  }, [props.threads, selectedRows]);
+
+  const onToggleSelectAll = useCallback(() => {
+    props.threads.forEach((thread) => {
+      setSelectedRows((s) => ({ ...s, [thread.id!]: !isAllSelected }));
+    });
+  }, [props.threads, isAllSelected]);
+
+  // could make this row specific in the future
+  const [showReply, setShowReply] = useState(false);
+  const onShowReply = useCallback(() => setShowReply(true), []);
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
@@ -456,75 +466,80 @@ export function EmailList(props: {
     useExecutePlan();
 
   return (
-    <div
-      className={clsx("h-full overflow-hidden", {
-        "grid grid-cols-2": openedRowId,
-        "overflow-y-auto": !openedRowId,
-      })}
-    >
-      <ul
-        role="list"
-        className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
-        ref={listRef}
+    <>
+      <div className="divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
+        <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+      </div>
+      <div
+        className={clsx("h-full overflow-hidden", {
+          "grid grid-cols-2": openedRowId,
+          "overflow-y-auto": !openedRowId,
+        })}
       >
-        {props.threads.map((thread) => (
-          <EmailListItem
-            ref={(node) => {
-              const map = getMap();
-              if (node) {
-                map.set(thread.id!, node);
-              } else {
-                map.delete(thread.id!);
-              }
-            }}
-            key={thread.id}
-            userEmailAddress={session.data?.user.email || ""}
-            thread={thread}
-            opened={openedRowId === thread.id}
-            closePanel={closePanel}
-            selected={selectedRows[thread.id!]}
-            onSelected={onSetSelectedRow}
-            splitView={!!openedRowId}
-            onClick={() => {
-              const alreadyOpen = !!openedRowId;
-              setOpenedRowId(thread.id!);
+        <ul
+          role="list"
+          className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
+          ref={listRef}
+        >
+          {props.threads.map((thread) => (
+            <EmailListItem
+              ref={(node) => {
+                const map = getMap();
+                if (node) {
+                  map.set(thread.id!, node);
+                } else {
+                  map.delete(thread.id!);
+                }
+              }}
+              key={thread.id}
+              userEmailAddress={session.data?.user.email || ""}
+              thread={thread}
+              opened={openedRowId === thread.id}
+              closePanel={closePanel}
+              selected={selectedRows[thread.id!]}
+              onSelected={onSetSelectedRow}
+              splitView={!!openedRowId}
+              onClick={() => {
+                const alreadyOpen = !!openedRowId;
+                setOpenedRowId(thread.id!);
 
-              if (!alreadyOpen) scrollToId(thread.id!);
-            }}
+                if (!alreadyOpen) scrollToId(thread.id!);
+              }}
+              onShowReply={onShowReply}
+              isPlanning={isPlanning[thread.id!]}
+              isCategorizing={isCategorizing[thread.id!]}
+              onPlanAiAction={onPlanAiAction}
+              onAiCategorize={onAiCategorize}
+              refetchEmails={props.refetch}
+              executePlan={executePlan}
+              rejectPlan={rejectPlan}
+              executingPlan={executingPlan[thread.id!]}
+              rejectingPlan={rejectingPlan[thread.id!]}
+            />
+          ))}
+        </ul>
+
+        {props.threads.length === 0 && props.emptyMessage}
+
+        {!!(openedRowId && openedRow) && (
+          <EmailPanel
+            row={openedRow}
+            showReply={showReply}
             onShowReply={onShowReply}
-            isPlanning={isPlanning[thread.id!]}
-            isCategorizing={isCategorizing[thread.id!]}
+            isPlanning={isPlanning[openedRowId]}
+            isCategorizing={isCategorizing[openedRowId]}
             onPlanAiAction={onPlanAiAction}
             onAiCategorize={onAiCategorize}
+            close={closePanel}
             refetchEmails={props.refetch}
             executePlan={executePlan}
             rejectPlan={rejectPlan}
-            executingPlan={executingPlan[thread.id!]}
-            rejectingPlan={rejectingPlan[thread.id!]}
+            executingPlan={executingPlan[openedRowId]}
+            rejectingPlan={rejectingPlan[openedRowId]}
           />
-        ))}
-      </ul>
-
-      {props.threads.length === 0 && props.emptyMessage}
-
-      {!!(openedRowId && openedRow) && (
-        <EmailPanel
-          row={openedRow}
-          showReply={showReply}
-          onShowReply={onShowReply}
-          isPlanning={isPlanning[openedRowId]}
-          isCategorizing={isCategorizing[openedRowId]}
-          onPlanAiAction={onPlanAiAction}
-          onAiCategorize={onAiCategorize}
-          close={closePanel}
-          refetchEmails={props.refetch}
-          executePlan={executePlan}
-          rejectPlan={rejectPlan}
-          executingPlan={executingPlan[openedRowId]}
-          rejectingPlan={rejectingPlan[openedRowId]}
-        />
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -562,6 +577,11 @@ const EmailListItem = forwardRef(
       []
     );
 
+    const onRowSelected = useCallback(
+      () => onSelected(props.thread.id!),
+      [onSelected, props.thread.id]
+    );
+
     return (
       <li
         ref={ref}
@@ -576,12 +596,11 @@ const EmailListItem = forwardRef(
           <div className="mx-auto flex">
             {/* left */}
             <div className="flex flex-1 overflow-hidden whitespace-nowrap text-sm leading-6">
-              {/* <div className="flex items-center">
-              <Checkbox checked={props.selected} onChange={onRowSelected} />
-            </div> */}
+              <div className="flex items-center" onClick={preventPropagation}>
+                <Checkbox checked={props.selected} onChange={onRowSelected} />
+              </div>
 
-              {/* <div className="ml-4 w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900"> */}
-              <div className="w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
+              <div className="ml-4 w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
                 {fromName(
                   participant(lastMessage.parsedMessage, props.userEmailAddress)
                 )}
