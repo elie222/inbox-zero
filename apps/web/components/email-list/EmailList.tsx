@@ -276,13 +276,20 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         <EmailList
           threads={filteredEmails}
           emptyMessage={
-            <Card className="m-4">
-              No planned emails. Set rules in your{" "}
-              <Link href="/settings" className="font-semibold hover:underline">
-                Settings
-              </Link>{" "}
-              for the AI to handle incoming emails for you.
-            </Card>
+            selectedTab === "planned" ? (
+              <Card className="m-4">
+                No planned emails. Set rules in your{" "}
+                <Link
+                  href="/settings"
+                  className="font-semibold hover:underline"
+                >
+                  Settings
+                </Link>{" "}
+                for the AI to handle incoming emails for you.
+              </Card>
+            ) : (
+              <Card className="m-4">All emails handled!</Card>
+            )
           }
           refetch={props.refetch}
         />
