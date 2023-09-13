@@ -10,12 +10,7 @@ import {
 import { type JWT } from "next-auth/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import prisma from "@/utils/prisma";
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-
-if (!GOOGLE_CLIENT_ID) throw new Error("Missing env.GOOGLE_CLIENT_ID");
-if (!GOOGLE_CLIENT_SECRET) throw new Error("Missing env.GOOGLE_CLIENT_SECRET");
+import { env } from "@/env.mjs";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
@@ -27,11 +22,11 @@ const SCOPES = [
 export const getAuthOptions: (options?: {
   consent: boolean;
 }) => NextAuthOptions = (options) => ({
-  secret: process.env.SECRET,
+  secret: env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
-      clientId: GOOGLE_CLIENT_ID,
-      clientSecret: GOOGLE_CLIENT_SECRET,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
       authorization: {
         url: "https://accounts.google.com/o/oauth2/v2/auth",
         params: {
@@ -143,8 +138,8 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
     const response = await fetch("https://oauth2.googleapis.com/token", {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
+        client_id: env.GOOGLE_CLIENT_ID,
+        client_secret: env.GOOGLE_CLIENT_SECRET,
         grant_type: "refresh_token",
         refresh_token: account.refresh_token,
       }),

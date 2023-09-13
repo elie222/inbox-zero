@@ -110,6 +110,9 @@ importers:
       "@radix-ui/react-tooltip":
         specifier: ^1.0.6
         version: 1.0.6(@types/react-dom@18.2.7)(@types/react@18.2.20)(react-dom@18.2.0)(react@18.2.0)
+      "@t3-oss/env-nextjs":
+        specifier: ^0.6.1
+        version: 0.6.1(typescript@5.1.6)(zod@3.21.4)
       "@tailwindcss/forms":
         specifier: ^0.5.4
         version: 0.5.4(tailwindcss@3.3.3)
@@ -318,6 +321,31 @@ importers:
       eslint-plugin-react:
         specifier: 7.28.0
         version: 7.28.0(eslint@7.32.0)
+
+  packages/lemon-squeezy:
+    dependencies:
+      "@lemonsqueezy/lemonsqueezy.js":
+        specifier: ^1.0.3
+        version: 1.0.3
+      lemonsqueezy.ts:
+        specifier: 0.1.7
+        version: 0.1.7
+    devDependencies:
+      "@types/node":
+        specifier: 20.3.1
+        version: 20.3.1
+      eslint-config-custom:
+        specifier: workspace:*
+        version: link:../eslint-config-custom
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      tsup:
+        specifier: 7.1.0
+        version: 7.1.0(typescript@5.1.6)
+      typescript:
+        specifier: 5.1.6
+        version: 5.1.6
 
   packages/tsconfig: {}
 
@@ -1123,7 +1151,6 @@ packages:
     cpu: [arm64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-arm@0.18.13:
@@ -1135,7 +1162,6 @@ packages:
     cpu: [arm]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-x64@0.18.13:
@@ -1147,7 +1173,6 @@ packages:
     cpu: [x64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/darwin-arm64@0.18.13:
@@ -1159,7 +1184,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/darwin-x64@0.18.13:
@@ -1171,7 +1195,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/freebsd-arm64@0.18.13:
@@ -1183,7 +1206,6 @@ packages:
     cpu: [arm64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/freebsd-x64@0.18.13:
@@ -1195,7 +1217,6 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-arm64@0.18.13:
@@ -1207,7 +1228,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-arm@0.18.13:
@@ -1219,7 +1239,6 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-ia32@0.18.13:
@@ -1231,7 +1250,6 @@ packages:
     cpu: [ia32]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-loong64@0.18.13:
@@ -1243,7 +1261,6 @@ packages:
     cpu: [loong64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-mips64el@0.18.13:
@@ -1255,7 +1272,6 @@ packages:
     cpu: [mips64el]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-ppc64@0.18.13:
@@ -1267,7 +1283,6 @@ packages:
     cpu: [ppc64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-riscv64@0.18.13:
@@ -1279,7 +1294,6 @@ packages:
     cpu: [riscv64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-s390x@0.18.13:
@@ -1291,7 +1305,6 @@ packages:
     cpu: [s390x]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-x64@0.18.13:
@@ -1303,7 +1316,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/netbsd-x64@0.18.13:
@@ -1315,7 +1327,6 @@ packages:
     cpu: [x64]
     os: [netbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/openbsd-x64@0.18.13:
@@ -1327,7 +1338,6 @@ packages:
     cpu: [x64]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/sunos-x64@0.18.13:
@@ -1339,7 +1349,6 @@ packages:
     cpu: [x64]
     os: [sunos]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-arm64@0.18.13:
@@ -1351,7 +1360,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-ia32@0.18.13:
@@ -1363,7 +1371,6 @@ packages:
     cpu: [ia32]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-x64@0.18.13:
@@ -1375,7 +1382,6 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@eslint-community/eslint-utils@4.4.0(eslint@8.46.0):
@@ -1521,7 +1527,7 @@ packages:
     engines: { node: ^8.13.0 || >=10.10.0 }
     dependencies:
       "@grpc/proto-loader": 0.7.8
-      "@types/node": 20.4.9
+      "@types/node": 17.0.12
     dev: false
 
   /@grpc/proto-loader@0.7.8:
@@ -1991,6 +1997,13 @@ packages:
     dependencies:
       jsbi: 4.3.0
       tslib: 2.6.0
+    dev: false
+
+  /@lemonsqueezy/lemonsqueezy.js@1.0.3:
+    resolution:
+      {
+        integrity: sha512-Oi/JISQrwIZd6kgWpdwwiQ1aGNopFE7v4XN0+L+KOatyFC+/0dbWZg8Vjx622OEjTIIO/WQZVAVW2Q07kISFlA==,
+      }
     dev: false
 
   /@mdx-js/esbuild@2.3.0(esbuild@0.18.13):
@@ -3481,6 +3494,33 @@ packages:
       tslib: 2.6.0
     dev: false
 
+  /@t3-oss/env-core@0.6.1(typescript@5.1.6)(zod@3.21.4):
+    resolution:
+      {
+        integrity: sha512-KQD7qEDJtkWIWWmTVjNvk0wnHpkvAQ6CRbUxbWMFNG/fiosBQDQvtRpBNu6USxBscJCoC4z6y7P9MN52/mLOzw==,
+      }
+    peerDependencies:
+      typescript: ">=4.7.2"
+      zod: ^3.0.0
+    dependencies:
+      typescript: 5.1.6
+      zod: 3.21.4
+    dev: false
+
+  /@t3-oss/env-nextjs@0.6.1(typescript@5.1.6)(zod@3.21.4):
+    resolution:
+      {
+        integrity: sha512-z1dIC++Vxj9kmzX5nSPfcrCSkszy3dTEPC4Ssx7Ap5AqR3c2Qa7S0xf8axn6coy7D/vCXDAAnHYnCMDhtcY3SQ==,
+      }
+    peerDependencies:
+      typescript: ">=4.7.2"
+      zod: ^3.0.0
+    dependencies:
+      "@t3-oss/env-core": 0.6.1(typescript@5.1.6)(zod@3.21.4)
+      typescript: 5.1.6
+      zod: 3.21.4
+    dev: false
+
   /@tailwindcss/forms@0.5.4(tailwindcss@3.3.3):
     resolution:
       {
@@ -3978,11 +4018,19 @@ packages:
         integrity: sha512-4YpbAsnJXWYK/fpTVFlMIcUIho2AYCi4wg5aNPrG1ng7fn/1/RZfCIpRCiBX+12RVa34RluilnvCqD+g3KiSiA==,
       }
 
+  /@types/node@20.3.1:
+    resolution:
+      {
+        integrity: sha512-EhcH/wvidPy1WeML3TtYFGR83UzjxeWRen9V402T8aUGYsCHOmfoisV3ZSg03gAFIbLq8TnWOJ0f4cALtnSEUg==,
+      }
+    dev: true
+
   /@types/node@20.4.9:
     resolution:
       {
         integrity: sha512-8e2HYcg7ohnTUbHk8focoklEQYvemQmu9M/f43DZVx43kHn0tE3BY/6gSDxS7k0SprtS0NHvj+L80cGLnoOUcQ==,
       }
+    dev: true
 
   /@types/nodemailer@6.4.9:
     resolution:
@@ -3990,7 +4038,7 @@ packages:
         integrity: sha512-XYG8Gv+sHjaOtUpiuytahMy2mM3rectgroNbs6R3djZEKmPNiIJwe9KqOJBGzKKnNZNKvnuvmugBgpq3w/S0ig==,
       }
     dependencies:
-      "@types/node": 20.4.9
+      "@types/node": 17.0.12
     dev: true
 
   /@types/parse5@6.0.3:
@@ -5033,6 +5081,19 @@ packages:
       run-applescript: 5.0.0
     dev: false
 
+  /bundle-require@4.0.1(esbuild@0.18.13):
+    resolution:
+      {
+        integrity: sha512-9NQkRHlNdNpDBGmLpngF3EFDcwodhMUuLz9PaWYciVcQF9SE4LFjM2DB/xV1Li5JiuDMv7ZUWuC3rGbqR0MAXQ==,
+      }
+    engines: { node: ^12.20.0 || ^14.13.1 || >=16.0.0 }
+    peerDependencies:
+      esbuild: ">=0.17"
+    dependencies:
+      esbuild: 0.18.13
+      load-tsconfig: 0.2.5
+    dev: true
+
   /busboy@1.6.0:
     resolution:
       {
@@ -5042,6 +5103,14 @@ packages:
     dependencies:
       streamsearch: 1.1.0
     dev: false
+
+  /cac@6.7.14:
+    resolution:
+      {
+        integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==,
+      }
+    engines: { node: ">=8" }
+    dev: true
 
   /call-bind@1.0.2:
     resolution:
@@ -6424,7 +6493,6 @@ packages:
       "@esbuild/win32-arm64": 0.18.13
       "@esbuild/win32-ia32": 0.18.13
       "@esbuild/win32-x64": 0.18.13
-    dev: false
 
   /escalade@3.1.1:
     resolution:
@@ -7845,7 +7913,6 @@ packages:
       ignore: 5.2.4
       merge2: 1.4.1
       slash: 3.0.0
-    dev: false
 
   /globby@13.2.1:
     resolution:
@@ -9637,6 +9704,14 @@ packages:
       }
     dev: false
 
+  /joycon@3.1.1:
+    resolution:
+      {
+        integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==,
+      }
+    engines: { node: ">=10" }
+    dev: true
+
   /js-tokens@4.0.0:
     resolution:
       {
@@ -9866,6 +9941,16 @@ packages:
       }
     dev: false
 
+  /lemonsqueezy.ts@0.1.7:
+    resolution:
+      {
+        integrity: sha512-7COfsFaPVsz4ik6+b5hVI/PMyu6FE+PmrbNvk1G89P826XVRRnidVhDAes+Ed42RLyigc8bBHFbuUZSglPTO0g==,
+      }
+    engines: { node: ">=16.*" }
+    dependencies:
+      undici: 5.24.0
+    dev: false
+
   /leven@3.1.0:
     resolution:
       {
@@ -9965,6 +10050,14 @@ packages:
       wrap-ansi: 7.0.0
     dev: true
 
+  /load-tsconfig@0.2.5:
+    resolution:
+      {
+        integrity: sha512-IXO6OCs9yg8tMKzfPZ1YmheJbZCiEsnBdcB03l0OcfK9prKnJb96siuHCr5Fl37/yo9DnKU+TLpxzTUspw9shg==,
+      }
+    engines: { node: ^12.20.0 || ^14.13.1 || >=16.0.0 }
+    dev: true
+
   /locate-character@3.0.0:
     resolution:
       {
@@ -10025,6 +10118,13 @@ packages:
       {
         integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==,
       }
+
+  /lodash.sortby@4.7.0:
+    resolution:
+      {
+        integrity: sha512-HDWXG8isMntAyRF5vZ7xKuEvOhT4AhlRt/3czTSjvGUxjYCBVRQY48ViDHyfYz9VIoBkW4TMGQNapx+l3RUwdA==,
+      }
+    dev: true
 
   /lodash.truncate@4.4.2:
     resolution:
@@ -12766,6 +12866,17 @@ packages:
     dependencies:
       glob: 7.2.3
 
+  /rollup@3.29.1:
+    resolution:
+      {
+        integrity: sha512-c+ebvQz0VIH4KhhCpDsI+Bik0eT8ZFEVZEYw0cGMVqIP8zc+gnwl7iXCamTw7vzv2MeuZFZfdx5JJIq+ehzDlg==,
+      }
+    engines: { node: ">=14.18.0", npm: ">=8.0.0" }
+    hasBin: true
+    optionalDependencies:
+      fsevents: 2.3.2
+    dev: true
+
   /run-applescript@5.0.0:
     resolution:
       {
@@ -13127,6 +13238,16 @@ packages:
       }
     engines: { node: ">= 8" }
     dev: false
+
+  /source-map@0.8.0-beta.0:
+    resolution:
+      {
+        integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==,
+      }
+    engines: { node: ">= 8" }
+    dependencies:
+      whatwg-url: 7.1.0
+    dev: true
 
   /space-separated-tokens@2.0.2:
     resolution:
@@ -13761,6 +13882,15 @@ packages:
       }
     dev: false
 
+  /tr46@1.0.1:
+    resolution:
+      {
+        integrity: sha512-dTpowEjclQ7Kgx5SdBkqRzVhERQXov8/l9Ft9dVM9fmg0W0KQSVaXX9T4i6twCPNtYiZM53lpSSUAwJbFPOHxA==,
+      }
+    dependencies:
+      punycode: 2.3.0
+    dev: true
+
   /tr46@3.0.0:
     resolution:
       {
@@ -13769,6 +13899,14 @@ packages:
     engines: { node: ">=12" }
     dependencies:
       punycode: 2.3.0
+    dev: true
+
+  /tree-kill@1.2.2:
+    resolution:
+      {
+        integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==,
+      }
+    hasBin: true
     dev: true
 
   /trim-lines@3.0.1:
@@ -13855,6 +13993,45 @@ packages:
       {
         integrity: sha512-7At1WUettjcSRHXCyYtTselblcHl9PJFFVKiCAy/bY97+BPZXSQ2wbq0P9s8tK2G7dFQfNnlJnPAiArVBVBsfA==,
       }
+
+  /tsup@7.1.0(typescript@5.1.6):
+    resolution:
+      {
+        integrity: sha512-mazl/GRAk70j8S43/AbSYXGgvRP54oQeX8Un4iZxzATHt0roW0t6HYDVZIXMw0ZQIpvr1nFMniIVnN5186lW7w==,
+      }
+    engines: { node: ">=16.14" }
+    hasBin: true
+    peerDependencies:
+      "@swc/core": ^1
+      postcss: ^8.4.12
+      typescript: ">=4.1.0"
+    peerDependenciesMeta:
+      "@swc/core":
+        optional: true
+      postcss:
+        optional: true
+      typescript:
+        optional: true
+    dependencies:
+      bundle-require: 4.0.1(esbuild@0.18.13)
+      cac: 6.7.14
+      chokidar: 3.5.3
+      debug: 4.3.4
+      esbuild: 0.18.13
+      execa: 5.1.1
+      globby: 11.1.0
+      joycon: 3.1.1
+      postcss-load-config: 4.0.1(postcss@8.4.27)
+      resolve-from: 5.0.0
+      rollup: 3.29.1
+      source-map: 0.8.0-beta.0
+      sucrase: 3.32.0
+      tree-kill: 1.2.2
+      typescript: 5.1.6
+    transitivePeerDependencies:
+      - supports-color
+      - ts-node
+    dev: true
 
   /tsutils@3.21.0(typescript@5.1.6):
     resolution:
@@ -14127,6 +14304,16 @@ packages:
         integrity: sha512-WxONCrssBM8TSPRqN5EmsjVrsv4A8X12J4ArBiiayv3DyyG3ZlIg6yysuuSYdZsVz3TKcTg2fd//Ujd4CHV1iA==,
       }
     dev: true
+
+  /undici@5.24.0:
+    resolution:
+      {
+        integrity: sha512-OKlckxBjFl0oXxcj9FU6oB8fDAaiRUq+D8jrFWGmOfI/gIyjk/IeS75LMzgYKUaeHzLUcYvf9bbJGSrUwTfwwQ==,
+      }
+    engines: { node: ">=14.0" }
+    dependencies:
+      busboy: 1.6.0
+    dev: false
 
   /unified@10.1.2:
     resolution:
@@ -14561,6 +14748,13 @@ packages:
       }
     dev: false
 
+  /webidl-conversions@4.0.2:
+    resolution:
+      {
+        integrity: sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg==,
+      }
+    dev: true
+
   /webidl-conversions@7.0.0:
     resolution:
       {
@@ -14614,6 +14808,17 @@ packages:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
     dev: false
+
+  /whatwg-url@7.1.0:
+    resolution:
+      {
+        integrity: sha512-WUu7Rg1DroM7oQvGWfOiAK21n74Gg+T4elXEQYkOhtyLeWiJFoOGLXPKI/9gzIie9CtwVLm8wtw6YJdKyxSjeg==,
+      }
+    dependencies:
+      lodash.sortby: 4.7.0
+      tr46: 1.0.1
+      webidl-conversions: 4.0.2
+    dev: true
 
   /which-boxed-primitive@1.0.2:
     resolution:

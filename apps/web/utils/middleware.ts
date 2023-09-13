@@ -2,6 +2,7 @@ import { ZodError } from "zod";
 import { NextResponse } from "next/server";
 import { captureException } from "@/utils/error";
 import { StreamingTextResponse } from "ai";
+import { env } from "@/env.mjs";
 
 export type NextHandler = (
   req: Request,
@@ -14,7 +15,7 @@ export function withError(handler: NextHandler): NextHandler {
       return await handler(req, params);
     } catch (error) {
       if (error instanceof ZodError) {
-        if (process.env.LOG_ZOD_ERRORS) {
+        if (env.LOG_ZOD_ERRORS) {
           console.error(`Error for url: ${req.url}:`);
           console.error(error);
         }
