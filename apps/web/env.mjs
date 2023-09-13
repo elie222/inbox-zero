@@ -17,7 +17,10 @@ export const env = createEnv({
     LEMON_SQUEEZY_API_SECRET: z.string().optional(),
     LEMON_SQUEEZY_STORE_ID: z.string().optional(),
   },
-  client: {},
+  client: {
+    NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
+    NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK: z.string().min(1),
+  },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {},
 });

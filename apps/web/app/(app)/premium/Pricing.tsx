@@ -1,3 +1,4 @@
+import { env } from "@/env.mjs";
 import { CheckIcon } from "@heroicons/react/20/solid";
 import clsx from "clsx";
 
@@ -5,7 +6,7 @@ const tiers = [
   {
     name: "Pro",
     id: "tier-pro",
-    href: "#",
+    href: env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
     priceMonthly: "$8",
     period: "/month",
     description:
@@ -22,9 +23,9 @@ const tiers = [
   {
     name: "Enterprise",
     id: "tier-enterprise",
-    href: "#",
-    priceMonthly: "$500",
-    period: "setup fee",
+    href: env.NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK,
+    priceMonthly: "$499",
+    period: "one-time setup fee",
     description:
       "Self-host on your own servers to ensure complete data privacy. We'll help you set everything up.",
     features: [
@@ -41,7 +42,7 @@ const tiers = [
 
 export function Pricing() {
   return (
-    <div className="relative isolate bg-white px-6 py-24 sm:py-32 lg:px-8">
+    <div className="relative isolate bg-white px-6 py-16 lg:px-8">
       {/* <div
         className="absolute inset-x-0 -top-3 -z-10 transform-gpu overflow-hidden px-36 blur-3xl"
         aria-hidden="true"
