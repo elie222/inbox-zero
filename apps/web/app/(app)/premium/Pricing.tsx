@@ -55,7 +55,7 @@ export function Pricing() {
         />
       </div>
       <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
-        <h2 className="text-base font-semibold leading-7 text-indigo-600">
+        <h2 className="text-base font-semibold leading-7 text-blue-600">
           Pricing
         </h2>
         <p className="mt-2 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
@@ -84,7 +84,7 @@ export function Pricing() {
             <h3
               id={tier.id}
               className={clsx(
-                tier.featured ? "text-indigo-400" : "text-indigo-600",
+                tier.featured ? "text-blue-400" : "text-blue-600",
                 "text-base font-semibold leading-7"
               )}
             >
@@ -127,7 +127,7 @@ export function Pricing() {
                 <li key={feature} className="flex gap-x-3">
                   <CheckIcon
                     className={clsx(
-                      tier.featured ? "text-indigo-400" : "text-indigo-600",
+                      tier.featured ? "text-blue-400" : "text-blue-600",
                       "h-6 w-5 flex-none"
                     )}
                     aria-hidden="true"
@@ -141,8 +141,8 @@ export function Pricing() {
               aria-describedby={tier.id}
               className={clsx(
                 tier.featured
-                  ? "bg-indigo-500 text-white shadow-sm hover:bg-indigo-400 focus-visible:outline-indigo-500"
-                  : "text-indigo-600 ring-1 ring-inset ring-indigo-200 hover:ring-indigo-300 focus-visible:outline-indigo-600",
+                  ? "bg-blue-500 text-white shadow-sm hover:bg-blue-400 focus-visible:outline-blue-500"
+                  : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300 focus-visible:outline-blue-600",
                 "mt-8 block rounded-md px-3.5 py-2.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:mt-10"
               )}
             >
