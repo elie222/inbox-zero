@@ -13,7 +13,11 @@
         "OPENAI_API_KEY",
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
-        "GOOGLE_PUBSUB_TOPIC_NAME"
+        "GOOGLE_PUBSUB_TOPIC_NAME",
+        "LEMON_SQUEEZY_API_SECRET",
+        "LEMON_SQUEEZY_SIGNING_SECRET",
+        "NEXT_PUBLIC_PRO_PAYMENT_LINK",
+        "NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

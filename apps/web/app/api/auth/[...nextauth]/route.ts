@@ -1,4 +1,4 @@
-import NextAuth, { AuthOptions } from "next-auth";
+import NextAuth from "next-auth";
 import { authOptions, getAuthOptions } from "@/utils/auth";
 
 // https://next-auth.js.org/configuration/initialization#advanced-initialization
@@ -16,7 +16,6 @@ async function handler(
     const clonedRequest = request.clone();
     const formData = await clonedRequest.formData();
     const requestConsent = formData.get("consent") === "true";
-    console.log("requestConsent:", requestConsent);
 
     authOpts = getAuthOptions({ consent: requestConsent });
   }
