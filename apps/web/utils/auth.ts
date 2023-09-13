@@ -22,7 +22,6 @@ const SCOPES = [
 export const getAuthOptions: (options?: {
   consent: boolean;
 }) => NextAuthOptions = (options) => ({
-  secret: env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
