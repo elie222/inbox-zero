@@ -1,15 +1,16 @@
 import { google } from "googleapis";
 import { saveRefreshToken } from "@/utils/auth";
+import { env } from "@/env.mjs";
 
 type ClientOptions = {
   accessToken?: string;
 };
 
 const getClient = (session: ClientOptions & { refreshToken?: string }) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-
-  const auth = new google.auth.OAuth2({ clientId, clientSecret });
+  const auth = new google.auth.OAuth2({
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+  });
   // not passing refresh_token when next-auth handles it
   auth.setCredentials({
     access_token: session.accessToken,

@@ -6,9 +6,7 @@ import Link from "next/link";
 import { Dialog, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import {
-  ArchiveBoxArrowDownIcon,
   ChartBarIcon,
-  ChatBubbleBottomCenterTextIcon,
   Cog6ToothIcon,
   InboxIcon,
   LightBulbIcon,
@@ -17,6 +15,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Logo } from "@/components/Logo";
+import { CrownIcon } from "lucide-react";
 
 const navigation = [
   { name: "Mail", href: "/mail", icon: InboxIcon },
@@ -55,6 +54,7 @@ const navigation = [
 const bottomLinks = [
   { name: "Star on GitHub", href: "/github", icon: StarIcon },
   { name: "Feature Requests", href: "/feature-requests", icon: LightBulbIcon },
+  { name: "Premium", href: "/premium", icon: CrownIcon },
   { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
 ];
 

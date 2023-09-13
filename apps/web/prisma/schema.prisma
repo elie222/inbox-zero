@@ -55,6 +55,11 @@ model User {
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
 
+  // lemon squeezy
+  lemonSqueezyCustomerId     Int?
+  lemonSqueezySubscriptionId String?
+  lemonSqueezyRenewsAt       DateTime?
+
   promptHistory PromptHistory[]
   labels        Label[]
   rules         Rule[]

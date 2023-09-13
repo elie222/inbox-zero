@@ -1,9 +1,7 @@
 import { gmail_v1 } from "googleapis";
 import prisma from "@/utils/prisma";
 import { INBOX_LABEL_ID } from "@/utils/label";
-
-if (!process.env.GOOGLE_PUBSUB_TOPIC_NAME)
-  throw new Error("Missing env.GOOGLE_PUBSUB_TOPIC_NAME");
+import { env } from "@/env.mjs";
 
 export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.watch({
@@ -11,7 +9,7 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
     requestBody: {
       labelIds: [INBOX_LABEL_ID],
       labelFilterBehavior: "include",
-      topicName: process.env.GOOGLE_PUBSUB_TOPIC_NAME,
+      topicName: env.GOOGLE_PUBSUB_TOPIC_NAME,
     },
   });
 

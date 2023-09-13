@@ -1,8 +1,9 @@
+import { env } from "@/env.mjs";
 import Queue from "bull";
 
 const apiRequestQueue = new Queue("openai-requests", {
   redis: {
-    host: process.env.UPSTASH_REDIS_URL,
+    host: env.UPSTASH_REDIS_URL,
   },
 });
 

@@ -13,7 +13,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".contentlayer/generated"
+    ".contentlayer/generated",
+    "./env.mjs"
   ],
   "exclude": ["node_modules"]
 }
