@@ -24,9 +24,9 @@ export function Hero() {
               Automate your emails with the power of AI
             </h1>
             <p className="mt-6 text-lg leading-8 text-gray-600">
-              Inbox Zero uses AI to help you empty your inbox daily. What
-              previously took hours, now takes minutes. Inbox Zero is your
-              virtual assistant for emails.
+              Inbox Zero helps you handle emails faster with the power of AI.
+              Automate your responses to answer your users in seconds.
+              Understand what{"'"}s taking time with our detailed analytics.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Button size="2xl" link={{ href: "/waitlist" }}>
