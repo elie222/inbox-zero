@@ -20,11 +20,13 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
     NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK: z.string().min(1),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
     NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK:
       process.env.NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK,
+    NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
   },
 });
