@@ -1,6 +1,6 @@
-import { GithubIcon } from "lucide-react";
 import Image from "next/image";
-import { Button } from "@/components/Button";
+import { HeroHeadingAB } from "@/app/(landing)/home/HeroHeadingAB";
+import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 
 export function Hero() {
   return (
@@ -52,26 +52,14 @@ export function Hero() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h1 className="font-cal text-4xl font-bold text-gray-900 sm:text-6xl">
-              Automate your emails with the power of AI
+              <HeroHeadingAB />
             </h1>
             <p className="mt-6 text-lg leading-8 text-gray-600">
               Inbox Zero helps you handle emails faster with AI assistance.
               Automate replies and answer your users in seconds. Understand what
               {"'"}s filling up your inbox with our detailed analytics.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Button size="2xl" link={{ href: "/waitlist" }}>
-                Join Waitlist
-              </Button>
-              <Button
-                size="2xl"
-                color="white"
-                link={{ href: "/github", target: "_blank" }}
-              >
-                <GithubIcon className="mr-2 h-4 w-4" />
-                Star on GitHub
-              </Button>
-            </div>
+            <CTAButtons />
           </div>
           <div className="mt-16 flow-root sm:mt-24">
             <div className="-m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
