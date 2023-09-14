@@ -2,7 +2,7 @@ import React from "react";
 
 export function PageHeading(props: { children: React.ReactNode }) {
   return (
-    <h2 className="font-cal text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+    <h2 className="font-cal text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl">
       {props.children}
     </h2>
   );
