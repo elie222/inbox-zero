@@ -1,6 +1,4 @@
-import Link from "next/link";
-import { Button } from "@/components/Button";
-import { GithubIcon } from "lucide-react";
+import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 
 export function CTA() {
   return (
@@ -28,19 +26,7 @@ export function CTA() {
           took hours, now takes minutes. Inbox Zero is your virtual assistant
           for emails.
         </p>
-        <div className="mt-10 flex items-center justify-center gap-x-6">
-          <Button size="2xl" link={{ href: "/waitlist" }}>
-            Join Waitlist
-          </Button>
-          <Button
-            size="2xl"
-            color="white"
-            link={{ href: "/github", target: "_blank" }}
-          >
-            <GithubIcon className="mr-2 h-4 w-4" />
-            Star on GitHub
-          </Button>
-        </div>
+        <CTAButtons />
       </div>
       {/* <div
         className="absolute left-1/2 right-0 top-full -z-10 hidden -translate-y-1/2 transform-gpu overflow-hidden blur-3xl sm:block"
