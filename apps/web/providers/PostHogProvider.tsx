@@ -9,7 +9,8 @@ import { env } from "@/env.mjs";
 
 if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
   posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
-    api_host: "https://app.posthog.com",
+    // https://posthog.com/docs/advanced/proxy/nextjs
+    api_host: `${window.location.origin}/ingest`,
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
   });
 }
