@@ -2,7 +2,7 @@
 import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
 // import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
-import { Features } from "@/app/(landing)/home/Features";
+import { Features, Features2 } from "@/app/(landing)/home/Features";
 // import { Testimonials } from "@/app/(landing)/home/Testimonials";
 // import { Pricing } from "@/app/(landing)/home/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
@@ -18,6 +18,7 @@ export default function Home() {
         <Hero />
         {/* <LogoCloud /> */}
         <Features />
+        <Features2 />
         {/* <Testimonials /> */}
         {/* <Pricing /> */}
         <div className="mt-32">

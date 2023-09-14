@@ -9,7 +9,7 @@ import { Logo } from "@/components/Logo";
 const navigation = [
   { name: "Features", href: "#features" },
   { name: "FAQ", href: "#faq" },
-  // { name: "Open Source", href: "/github" },
+  { name: "Open Source", href: "/github", target: "_blank" as const },
 ];
 
 export function Header() {
@@ -42,6 +42,7 @@ export function Header() {
             <Link
               key={item.name}
               href={item.href}
+              target={item.target}
               className="text-sm font-semibold leading-6 text-gray-900"
             >
               {item.name}
