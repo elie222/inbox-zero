@@ -9,7 +9,7 @@ import Providers from "@/app/(app)/providers";
 export const metadata = {
   title: "Inbox Zero AI",
   description:
-    "Reach inbox zero in minutes. Inbox Zero uses AI to help you empty your inbox daily. What previously took hours, now takes minutes. Inbox Zero is your VA for emails.",
+    "Handle emails fast with AI assistance. Automate replies and archiving. Inbox Zero is your virtual assistant for emails.",
 };
 
 // NOTE: inherits from top level layout
