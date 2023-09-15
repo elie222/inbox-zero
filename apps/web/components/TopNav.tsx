@@ -9,7 +9,11 @@ import { Button } from "@/components/Button";
 
 const userNavigation = [
   { name: "Usage", href: "/usage" },
-  { name: "Sign out", href: "#", onClick: () => signOut() },
+  {
+    name: "Sign out",
+    href: "#",
+    onClick: () => signOut({ callbackUrl: window.location.origin }),
+  },
 ];
 
 export function TopNav(props: { setSidebarOpen: (open: boolean) => void }) {
