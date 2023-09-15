@@ -1,4 +1,5 @@
-import { LineChart, Orbit, Sparkles } from "lucide-react";
+import clsx from "clsx";
+import { LineChart, LucideIcon, Orbit, Sparkles } from "lucide-react";
 import Image from "next/image";
 
 const features = [
@@ -71,7 +72,81 @@ export function Features() {
   );
 }
 
-const features2 = [
+function FeaturesWithImage(props: {
+  imageSide: "left" | "right";
+  title: string;
+  subtitle: string;
+  description: string;
+  image: string;
+  features: {
+    name: string;
+    description: string;
+    icon: LucideIcon;
+  }[];
+}) {
+  return (
+    <div className="overflow-hidden bg-white py-24 sm:py-32">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="mx-auto grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 sm:gap-y-20 lg:mx-0 lg:max-w-none lg:grid-cols-2">
+          <div
+            className={clsx(
+              "lg:pt-4",
+              props.imageSide === "left"
+                ? "lg:ml-auto lg:pl-4"
+                : "lg:mr-auto lg:pr-4"
+            )}
+          >
+            <div className="lg:max-w-lg">
+              <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
+                {props.title}
+              </h2>
+              <p className="mt-2 font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
+                {props.subtitle}
+              </p>
+              <p className="mt-6 text-lg leading-8 text-gray-600">
+                {props.description}
+              </p>
+              <dl className="mt-10 max-w-xl space-y-8 text-base leading-7 text-gray-600 lg:max-w-none">
+                {props.features.map((feature) => (
+                  <div key={feature.name} className="relative pl-9">
+                    <dt className="inline font-semibold text-gray-900">
+                      <feature.icon
+                        className="absolute left-1 top-1 h-5 w-5 text-blue-600"
+                        aria-hidden="true"
+                      />
+                      {feature.name}
+                    </dt>{" "}
+                    <dd className="inline">{feature.description}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+          <div
+            className={clsx(
+              "flex items-start",
+              props.imageSide === "left"
+                ? "justify-end lg:order-first"
+                : "justify-start lg:order-last"
+            )}
+          >
+            <div className="rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:rounded-2xl lg:p-4">
+              <Image
+                src={props.image}
+                alt="Product screenshot"
+                className="w-[48rem] max-w-none rounded-xl shadow-2xl ring-1 ring-gray-400/10 sm:w-[57rem]"
+                width={2400}
+                height={1800}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const featuresAutomations = [
   {
     name: "Auto reply",
     description:
@@ -92,53 +167,49 @@ const features2 = [
   },
 ];
 
-export function Features2() {
+export function FeaturesAutomation() {
   return (
-    <div className="overflow-hidden bg-white py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 sm:gap-y-20 lg:mx-0 lg:max-w-none lg:grid-cols-2">
-          <div className="lg:ml-auto lg:pl-4 lg:pt-4">
-            <div className="lg:max-w-lg">
-              <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
-                Automate your inbox
-              </h2>
-              <p className="mt-2 font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
-                Your AI assistant for email
-              </p>
-              <p className="mt-6 text-lg leading-8 text-gray-600">
-                Keep getting the same emails over and over? Someone asking about
-                your refund policy? Someone asking about sponsorship? Someone
-                cold emailing you?Let Inbox Zero handle it.
-              </p>
-              <dl className="mt-10 max-w-xl space-y-8 text-base leading-7 text-gray-600 lg:max-w-none">
-                {features2.map((feature) => (
-                  <div key={feature.name} className="relative pl-9">
-                    <dt className="inline font-semibold text-gray-900">
-                      <feature.icon
-                        className="absolute left-1 top-1 h-5 w-5 text-blue-600"
-                        aria-hidden="true"
-                      />
-                      {feature.name}
-                    </dt>{" "}
-                    <dd className="inline">{feature.description}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </div>
-          <div className="flex items-start justify-end lg:order-first">
-            <div className="-m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
-              <Image
-                src="/images/rules.png"
-                alt="Stats screenshot"
-                className="w-[48rem] max-w-none rounded-xl shadow-2xl ring-1 ring-gray-400/10 sm:w-[57rem]"
-                width={2400}
-                height={1800}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <FeaturesWithImage
+      imageSide="left"
+      title="Automate your inbox"
+      subtitle="Your AI assistant for email"
+      description="Keep getting the same emails over and over? Someone asking about your refund policy? Someone asking about sponsorship? Someone cold emailing you?Let Inbox Zero handle it."
+      image="/images/rules.png"
+      features={featuresAutomations}
+    />
+  );
+}
+
+const featuresStats = [
+  {
+    name: "Who emails you most",
+    description:
+      "Someone emailing you too much? Figure out a plan to handle this better.",
+    icon: Sparkles,
+  },
+  {
+    name: "Who you email most",
+    description:
+      "If there's one person you're constantly speaking to is there a better way for you to speak?",
+    icon: Orbit,
+  },
+  {
+    name: "What type of emails you get",
+    description:
+      "Getting a lot of newsletters or cold emails? Try automatically archiving and labelling them with our AI.",
+    icon: LineChart,
+  },
+];
+
+export function FeaturesStats() {
+  return (
+    <FeaturesWithImage
+      imageSide="right"
+      title="Inbox Analytics"
+      subtitle="Understand your inbox"
+      description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
+      image="/images/stats.png"
+      features={featuresStats}
+    />
   );
 }
