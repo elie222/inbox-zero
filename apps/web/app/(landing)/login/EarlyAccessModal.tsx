@@ -17,7 +17,7 @@ export function EarlyAccessModal() {
           Inbox Zero is in early access. We are awaiting full approval from
           Google to use their Gmail API. Till then you will see a warning sign
           when signing in. To get past this warning, click {'"'}Advanced{'"'}{" "}
-          and then {'"'}Approve{'"'}.
+          and then {'"'}Go to Inbox Zero{'"'}.
         </SectionDescription>
         <div className="mt-4">
           <Button onClick={closeModal} size="xl">
