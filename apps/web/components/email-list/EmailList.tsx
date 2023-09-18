@@ -407,7 +407,8 @@ export function EmailList(props: {
         async () => {
           setIsCategorizing((s) => ({ ...s, [thread.id!]: true }));
 
-          const message = thread.messages?.[thread.messages.length - 1];
+          // categorizing by first message for threads
+          const message = thread.messages?.[0];
 
           if (!message) return;
 
