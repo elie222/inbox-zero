@@ -16,9 +16,9 @@ const calFont = localFont({
 });
 
 export const metadata = {
-  title: "Inbox Zero AI",
+  title: "Inbox Zero",
   description:
-    "Handle emails fast with AI assistance. Automate replies and archiving. Inbox Zero is your virtual assistant for emails.",
+    "The quickest way to inbox zero. Inbox Zero is your virtual assistant for emails.",
 };
 
 export default function RootLayout({

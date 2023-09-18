@@ -6,12 +6,6 @@ import { getAuthSession } from "@/utils/auth";
 import { TokenCheck } from "@/components/TokenCheck";
 import Providers from "@/app/(app)/providers";
 
-export const metadata = {
-  title: "Inbox Zero AI",
-  description:
-    "Handle emails fast with AI assistance. Automate replies and archiving. Inbox Zero is your virtual assistant for emails.",
-};
-
 // NOTE: inherits from top level layout
 export default async function RootLayout({
   children,
