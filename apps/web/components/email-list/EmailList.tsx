@@ -654,6 +654,10 @@ const EmailListItem = forwardRef(
 
     const lastMessage = thread.messages?.[thread.messages.length - 1];
 
+    const isUnread = useMemo(() => {
+      return lastMessage?.labelIds?.includes("UNREAD");
+    }, [lastMessage?.labelIds]);
+
     const preventPropagation: MouseEventHandler<HTMLSpanElement> = useCallback(
       (e) => e.stopPropagation(),
       []
@@ -671,28 +675,36 @@ const EmailListItem = forwardRef(
           "hover:bg-gray-50": !props.selected && !props.opened,
           "bg-blue-50": props.selected,
           "bg-blue-100": props.opened,
+          "bg-gray-100": !isUnread && !props.selected && !props.opened,
         })}
         onClick={props.onClick}
       >
         <div className="px-4 sm:px-6">
           <div className="mx-auto flex">
             {/* left */}
-            <div className="flex flex-1 overflow-hidden whitespace-nowrap text-sm leading-6">
+            <div
+              className={clsx(
+                "flex flex-1 overflow-hidden whitespace-nowrap text-sm leading-6",
+                {
+                  "font-semibold": isUnread,
+                }
+              )}
+            >
               <div className="flex items-center" onClick={preventPropagation}>
                 <Checkbox checked={props.selected} onChange={onRowSelected} />
               </div>
 
-              <div className="ml-4 w-40 min-w-0 overflow-hidden truncate font-semibold text-gray-900">
+              <div className="ml-4 w-40 min-w-0 overflow-hidden truncate text-gray-900">
                 {fromName(
                   participant(lastMessage.parsedMessage, props.userEmailAddress)
                 )}
               </div>
               {!splitView && (
                 <>
-                  <div className="ml-4 min-w-0 overflow-hidden font-medium text-gray-700">
+                  <div className="ml-4 min-w-0 overflow-hidden text-gray-700">
                     {lastMessage.parsedMessage.headers.subject}
                   </div>
-                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate leading-5 text-gray-500">
                     {thread.snippet || lastMessage.snippet}
                   </div>
                 </>
