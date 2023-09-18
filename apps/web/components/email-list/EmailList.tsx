@@ -698,13 +698,19 @@ const EmailListItem = forwardRef(
                 {fromName(
                   participant(lastMessage.parsedMessage, props.userEmailAddress)
                 )}
+
+                {thread.messages.length > 1 ? (
+                  <span className="font-normal">
+                    ({thread.messages.length})
+                  </span>
+                ) : null}
               </div>
               {!splitView && (
                 <>
                   <div className="ml-4 min-w-0 overflow-hidden text-gray-700">
                     {lastMessage.parsedMessage.headers.subject}
                   </div>
-                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate leading-5 text-gray-500">
+                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
                     {thread.snippet || lastMessage.snippet}
                   </div>
                 </>
