@@ -6,12 +6,8 @@ import { useFeatureFlagVariantKey } from "posthog-js/react";
 export function HeroHeadingAB() {
   const variant = useFeatureFlagVariantKey("experiment-hero-heading");
 
-  if (variant === "control")
-    return <>Automate your emails with the power of AI</>;
-  // if (variant === "test") return <>Automate your email support with AI</>;
-  if (variant === "test")
-    return <>Open source tools to reach inbox zero fast</>;
+  if (variant === "control") return <>Reach inbox zero in minutes</>;
+  if (variant === "test") return <>The quickest way to inbox zero</>;
 
-  // return <div className="h-28"></div>;
   return <Skeleton className="h-28 w-full rounded" />;
 }
