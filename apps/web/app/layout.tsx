@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
@@ -15,10 +16,24 @@ const calFont = localFont({
   display: "swap",
 });
 
-export const metadata = {
-  title: "Inbox Zero",
-  description:
-    "The quickest way to inbox zero. Inbox Zero is your virtual assistant for emails.",
+const title = "Inbox Zero";
+const description =
+  "The quickest way to inbox zero. Inbox Zero is your virtual assistant for emails.";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    creator: "@getinboxzero",
+  },
+  themeColor: "#FFF",
 };
 
 export default function RootLayout({
