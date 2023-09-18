@@ -81,7 +81,7 @@
     "@types/lodash": "^4.14.198",
     "@types/node": "20.6.2",
     "@types/nodemailer": "^6.4.10",
-    "@types/react": "18.2.21",
+    "@types/react": "18.2.20",
     "@types/react-dom": "18.2.7",
     "autoprefixer": "10.4.15",
     "eslint-config-custom": "workspace:*",
