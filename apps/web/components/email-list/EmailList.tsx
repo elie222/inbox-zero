@@ -684,7 +684,7 @@ const EmailListItem = forwardRef(
             {/* left */}
             <div
               className={clsx(
-                "flex flex-1 overflow-hidden whitespace-nowrap text-sm leading-6",
+                "flex flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
                 {
                   "font-semibold": isUnread,
                 }
