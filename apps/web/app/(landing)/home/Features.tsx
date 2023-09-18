@@ -38,7 +38,7 @@ export function Features() {
             Answering emails takes time. If you run a small-business you{"'"}re
             constantly bombarded with the same questions, many of which can be
             answered automatically. Snippets are great, but even better is not
-            having to answer.
+            having to answer and having our AI answer for you.
           </p>
         </div>
         <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
