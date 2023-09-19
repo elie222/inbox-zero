@@ -4,21 +4,21 @@ import Image from "next/image";
 
 const features = [
   {
-    name: "AI Automation",
+    name: "Reply Automatically",
     description:
-      "Automatically reply and archive emails based on your instructions. Let AI handle what it can while you handle the rest. Run in test mode until you fully trust it.",
+      "Tell Inbox Zero how to handle your emails and it will do it for you. Automatically reply, archive, and label emails based on your instructions.",
     icon: Sparkles,
   },
   {
-    name: "Auto Categorization",
+    name: "Automatically archive cold emails",
     description:
-      "Inbox Zero automatically categorizes your emails so you can handle similar emails at once without having to context switch.",
+      "Sick of cold emails? Inbox Zero can automatically archive and label them for you so they don't clog your inbox.",
     icon: Orbit,
   },
   {
-    name: "Analytics",
+    name: "Explain it in plain English",
     description:
-      "Get a detailed overview of your inbox. See who is sending you the most emails and who you send the most emails. The first step to improving your workflow is understanding it.",
+      "Tell Inbox Zero how to handle your emails in plain English. It's as simple as writing to an assistant or ChatGPT.",
     icon: LineChart,
   },
 ];
@@ -32,13 +32,12 @@ export function Features() {
             Handle emails faster
           </h2>
           <p className="mt-2 font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
-            Respond faster. Get your time back.
+            Respond faster. Remove the clutter. Get your time back.
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
-            Answering emails takes time. If you run a small-business you{"'"}re
-            constantly bombarded with the same questions, many of which can be
-            answered automatically. Snippets are great, but even better is not
-            having to answer and having our AI answer for you.
+            Running a small business you{"'"}re constantly bombarded with the
+            same questions. Same your time and your customers time by having our
+            AI answer them for you.
           </p>
         </div>
         <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
