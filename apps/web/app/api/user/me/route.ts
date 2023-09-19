@@ -12,6 +12,8 @@ async function getUser(userId: string) {
       lemonSqueezyCustomerId: true,
       lemonSqueezySubscriptionId: true,
       lemonSqueezyRenewsAt: true,
+      aiModel: true,
+      openAIApiKey: true,
     },
   });
 }

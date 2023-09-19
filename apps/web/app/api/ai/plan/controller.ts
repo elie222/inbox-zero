@@ -1,15 +1,10 @@
 import "server-only";
 import { z } from "zod";
-import { openai } from "@/utils/openai";
+import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
 import json5 from "json5";
-import { AI_MODEL, generalPrompt } from "@/utils/config";
+import { DEFAULT_AI_MODEL, generalPrompt } from "@/utils/config";
 import { getPlan, planSchema, savePlan } from "@/utils/redis/plan";
 import { saveUsage } from "@/utils/redis/usage";
-import {
-  ChatCompletionError,
-  ChatCompletionResponse,
-  isChatCompletionError,
-} from "@/utils/types";
 import { getUserLabels } from "@/utils/label";
 import { ActionType } from "@prisma/client";
 
@@ -27,7 +22,8 @@ async function calculatePlan(
   subject: string,
   message: string,
   senderEmail: string,
-  labels: { name?: string; description?: string | null }[]
+  labels: { name?: string; description?: string | null }[],
+  userAIFields: UserAIFields
 ) {
   const systemMessage = `You are an AI assistant that helps people manage their emails by replying, archiving and labelling emails on the user's behalf.
 It is your job to plan a course of action for emails.
@@ -53,8 +49,11 @@ If action is "label", include a "label" field with the label from the list of la
 Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
 `;
 
-  const response = await openai.createChatCompletion({
-    model: AI_MODEL,
+  const model = userAIFields.aiModel || DEFAULT_AI_MODEL;
+  const aiResponse = await getOpenAI(
+    userAIFields.openAIApiKey
+  ).chat.completions.create({
+    model,
     max_tokens: 400,
     messages: [
       {
@@ -76,15 +75,13 @@ ${message.substring(0, 3000)}
       },
     ],
   });
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await response.json();
 
-  return json;
+  return aiResponse;
 }
 
 export async function plan(
   body: PlanBody,
-  user: { id: string; email: string }
+  user: { id: string; email: string } & UserAIFields
 ) {
   // check cache
   const data = body.replan
@@ -94,24 +91,25 @@ export async function plan(
 
   const labels = await getUserLabels({ email: user.email });
 
-  let json = await calculatePlan(
+  let aiResponse = await calculatePlan(
     body.subject,
     body.message,
     body.senderEmail,
-    labels || []
+    labels || [],
+    user
   );
 
-  if (isChatCompletionError(json)) return { plan: undefined };
+  // if (isChatCompletionError(json)) return { plan: undefined };
 
-  const planString: string = json?.choices?.[0]?.message?.content;
+  const planString = aiResponse.choices?.[0]?.message?.content;
 
   if (!planString) {
     console.error("plan string undefined");
     console.error("length", body.message.length);
-    console.error("json", json);
+    console.error("aiResponse", aiResponse);
   }
 
-  const planJson = planSchema.parse(json5.parse(planString));
+  const planJson = planSchema.parse(json5.parse(planString!));
 
   // cache result
   await savePlan({
@@ -120,7 +118,12 @@ export async function plan(
     plan: planJson,
   });
 
-  await saveUsage({ email: user.email, usage: json.usage, model: AI_MODEL });
+  if (aiResponse.usage)
+    await saveUsage({
+      email: user.email,
+      usage: aiResponse.usage,
+      model: aiResponse.model as AIModel,
+    });
 
   return { plan: planJson };
 }

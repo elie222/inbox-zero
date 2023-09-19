@@ -1,18 +1,20 @@
 import { z } from "zod";
-import { OpenAIStream, StreamingTextResponse } from "ai";
-import { openai } from "@/utils/openai";
-import { AI_MODEL } from "@/utils/config";
+import { NextResponse } from "next/server";
+import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { withError } from "@/utils/middleware";
+import { getAuthSession } from "@/utils/auth";
+import prisma from "@/utils/prisma";
 
 const respondBody = z.object({ message: z.string() });
 export type RespondBody = z.infer<typeof respondBody>;
 export type RespondResponse = Awaited<ReturnType<typeof respond>>;
 
-export const runtime = "edge";
-
-async function respond(body: RespondBody) {
-  const response = await openai.createChatCompletion({
-    model: AI_MODEL,
+async function respond(body: RespondBody, userAIFields: UserAIFields) {
+  const response = await getOpenAI(
+    userAIFields.openAIApiKey
+  ).chat.completions.create({
+    model: userAIFields.aiModel || DEFAULT_AI_MODEL,
     messages: [
       {
         role: "system",
@@ -30,12 +32,25 @@ async function respond(body: RespondBody) {
 }
 
 export const POST = withError(async (request: Request) => {
+  const session = await getAuthSession();
+  if (!session)
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
   const json = await request.json();
   const body = respondBody.parse(json);
-  const res = await respond(body);
 
-  // Convert the response into a friendly text-stream
-  const stream = OpenAIStream(res);
-  // Respond with the stream
-  return new StreamingTextResponse(stream);
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      aiModel: true,
+      openAIApiKey: true,
+    },
+  });
+
+  const res = await respond(body, {
+    aiModel: user.aiModel as AIModel,
+    openAIApiKey: user.openAIApiKey,
+  });
+
+  return NextResponse.json(res);
 });

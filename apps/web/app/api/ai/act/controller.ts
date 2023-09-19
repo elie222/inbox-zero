@@ -1,17 +1,8 @@
 import json5 from "json5";
-import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { gmail_v1 } from "googleapis";
 import { z } from "zod";
-import { openai } from "@/utils/openai";
-import {
-  AiModel,
-  ChatCompletionError,
-  ChatCompletionResponse,
-  ChatFunction,
-  PartialRecord,
-  RuleWithActions,
-  isChatCompletionError,
-} from "@/utils/types";
+import { UserAIFields, getOpenAI } from "@/utils/openai";
+import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
   ActionProperty,
@@ -25,7 +16,8 @@ import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { saveUsage } from "@/utils/redis/usage";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
-import { AI_MODEL } from "@/utils/config";
+import { DEFAULT_AI_MODEL } from "@/utils/config";
+import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
@@ -42,16 +34,17 @@ export const REQUIRES_MORE_INFO = "requires_more_information";
 // 1. select rule
 // 2. generate args for rule
 
-export async function getAiResponse(options: {
-  model: AiModel;
-  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
-    content: string;
-  };
-  userAbout: string;
-  userEmail: string;
-  functions: ChatFunction[];
-}) {
-  const { model, email, userAbout, userEmail, functions } = options;
+export async function getAiResponse(
+  options: {
+    email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+      content: string;
+    };
+    userAbout: string;
+    userEmail: string;
+    functions: ChatCompletionCreateParams.Function[];
+  } & UserAIFields
+) {
+  const { email, userAbout, userEmail, functions } = options;
 
   const messages = [
     {
@@ -88,33 +81,33 @@ ${email.content}`,
     },
   ];
 
-  const aiResponse = await openai.createChatCompletion({
+  const model = options.aiModel || DEFAULT_AI_MODEL;
+  const aiResponse = await getOpenAI(
+    options.openAIApiKey
+  ).chat.completions.create({
     model,
     messages,
     temperature: 0,
   });
 
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await aiResponse.json();
-
-  if (isChatCompletionError(json)) {
-    console.error(json);
-    return;
-  }
-
-  await saveUsage({ email: userEmail, usage: json.usage, model });
+  if (aiResponse.usage)
+    await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
   const responseSchema = z.object({
     rule: z.number(),
     reason: z.string().optional(),
   });
 
+  if (!aiResponse.choices[0].message.content) return;
+
   try {
-    return responseSchema.parse(json5.parse(json.choices[0].message.content));
+    return responseSchema.parse(
+      json5.parse(aiResponse.choices[0].message.content)
+    );
   } catch (error) {
     console.warn(
       "Error parsing data.\nResponse:",
-      json?.choices?.[0]?.message?.content,
+      aiResponse?.choices?.[0]?.message?.content,
       "\nError:",
       error
     );
@@ -122,18 +115,18 @@ ${email.content}`,
   }
 }
 
-async function getArgsAiResponse(options: {
-  model: AiModel;
-  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
-    content: string;
-  };
-  userAbout: string;
-  userEmail: string;
-  functions: ChatFunction[];
-  selectedFunction: ChatFunction;
-}) {
-  const { model, email, userAbout, userEmail, functions, selectedFunction } =
-    options;
+async function getArgsAiResponse(
+  options: {
+    email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+      content: string;
+    };
+    userAbout: string;
+    userEmail: string;
+    functions: ChatCompletionCreateParams.Function[];
+    selectedFunction: ChatCompletionCreateParams.Function;
+  } & UserAIFields
+) {
+  const { email, userAbout, userEmail, functions, selectedFunction } = options;
 
   const messages = [
     {
@@ -168,7 +161,10 @@ ${email.content}`,
     },
   ];
 
-  const aiResponse = await openai.createChatCompletion({
+  const model = options.aiModel || DEFAULT_AI_MODEL;
+  const aiResponse = await getOpenAI(
+    options.openAIApiKey
+  ).chat.completions.create({
     model,
     messages,
     functions,
@@ -176,19 +172,10 @@ ${email.content}`,
     temperature: 0,
   });
 
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await aiResponse.json();
+  if (aiResponse.usage)
+    await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
-  if (isChatCompletionError(json)) {
-    console.error(json);
-    return;
-  }
-
-  await saveUsage({ email: userEmail, usage: json.usage, model });
-
-  const functionCall = json?.choices?.[0]?.message.function_call as
-    | ChatCompletionRequestMessageFunctionCall
-    | undefined;
+  const functionCall = aiResponse?.choices?.[0]?.message.function_call;
 
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
@@ -249,31 +236,35 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
     rule: {} as any,
   });
 
-  const functions: ChatFunction[] = rulesWithProperties.map((r) => ({
-    name: r.name,
-    description: r.description,
-    parameters: r.parameters,
-  }));
+  const functions: ChatCompletionCreateParams.Function[] =
+    rulesWithProperties.map((r) => ({
+      name: r.name,
+      description: r.description,
+      parameters: r.parameters,
+    }));
 
   return { functions, rulesWithProperties };
 }
 
-export async function planAct(options: {
-  email: ActBody["email"] & { content: string };
-  rules: RuleWithActions[];
-  userAbout: string;
-  userEmail: string;
-}): Promise<{ rule: Rule; plannedAction: PlannedAction } | undefined> {
+export async function planAct(
+  options: {
+    email: ActBody["email"] & { content: string };
+    rules: RuleWithActions[];
+    userAbout: string;
+    userEmail: string;
+  } & UserAIFields
+): Promise<{ rule: Rule; plannedAction: PlannedAction } | undefined> {
   const { email, rules } = options;
 
   const { functions, rulesWithProperties } = getFunctionsFromRules({ rules });
 
   const aiResponse = await getAiResponse({
-    model: AI_MODEL,
     email,
     userAbout: options.userAbout,
     userEmail: options.userEmail,
     functions,
+    aiModel: options.aiModel,
+    openAIApiKey: options.openAIApiKey,
   });
 
   const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
@@ -288,12 +279,13 @@ export async function planAct(options: {
   if (selectedRule.name === REQUIRES_MORE_INFO) return;
 
   const aiArgsResponse = await getArgsAiResponse({
-    model: AI_MODEL,
     email,
     userAbout: options.userAbout,
     userEmail: options.userEmail,
     functions,
     selectedFunction: selectedRule,
+    aiModel: options.aiModel,
+    openAIApiKey: options.openAIApiKey,
   });
 
   const aiGeneratedArgs = aiArgsResponse?.arguments
@@ -368,17 +360,19 @@ export async function executeAct(options: {
   ]);
 }
 
-export async function planOrExecuteAct(options: {
-  gmail: gmail_v1.Gmail;
-  email: ActBodyWithHtml["email"] & { content: string };
-  rules: RuleWithActions[];
-  allowExecute: boolean;
-  forceExecute?: boolean;
-  userId: string;
-  userEmail: string;
-  userAbout: string;
-  automated: boolean;
-}) {
+export async function planOrExecuteAct(
+  options: {
+    gmail: gmail_v1.Gmail;
+    email: ActBodyWithHtml["email"] & { content: string };
+    rules: RuleWithActions[];
+    allowExecute: boolean;
+    forceExecute?: boolean;
+    userId: string;
+    userEmail: string;
+    userAbout: string;
+    automated: boolean;
+  } & UserAIFields
+) {
   if (!options.rules.length) return;
 
   const plannedAct = await planAct(options);

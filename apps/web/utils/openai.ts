@@ -1,8 +1,23 @@
+import { z } from "zod";
 import { env } from "@/env.mjs";
-import { Configuration, OpenAIApi } from "openai-edge";
+import { OpenAI } from "openai";
 
-const config = new Configuration({
-  apiKey: env.OPENAI_API_KEY,
-});
+const openAIs: Record<string, OpenAI> = {};
 
-export const openai = new OpenAIApi(config);
+export function getOpenAI(apiKey: string | null) {
+  const key = apiKey || env.OPENAI_API_KEY;
+
+  if (openAIs[key]) return openAIs[key];
+
+  openAIs[key] = new OpenAI({ apiKey: key });
+
+  return openAIs[key];
+}
+
+export const zodAIModel = z.enum(["gpt-3.5-turbo", "gpt-4"]);
+export type AIModel = z.infer<typeof zodAIModel>;
+
+export type UserAIFields = {
+  aiModel: AIModel | null;
+  openAIApiKey: string | null;
+};

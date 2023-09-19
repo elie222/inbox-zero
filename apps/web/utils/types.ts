@@ -1,5 +1,4 @@
 import { Action, Rule } from "@prisma/client";
-import { Message } from "ai";
 import { gmail_v1 } from "googleapis";
 
 // https://stackoverflow.com/a/53276873/2602771
@@ -12,47 +11,30 @@ export function isDefined<T>(value: T | undefined | null): value is T {
 
 export type RuleWithActions = Rule & { actions: Action[] };
 
-export type AiModel = "gpt-3.5-turbo" | "gpt-4";
+// export type ChatCompletionResponse = {
+//   choices: { message: Message }[];
+//   usage: {
+//     prompt_tokens: number;
+//     completion_tokens: number;
+//     total_tokens: number;
+//   };
+// };
 
-export type ChatCompletionResponse = {
-  choices: { message: Message }[];
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-};
+// export type ChatCompletionError = {
+//   error: {
+//     message: string;
+//     type: "tokens" | "invalid_request_error"; // add more as needed
+//     param: string;
+//     code: "context_length_exceeded"; // add more as needed
+//   };
+// };
 
-export type ChatCompletionError = {
-  error: {
-    message: string;
-    type: "tokens" | "invalid_request_error"; // add more as needed
-    param: string;
-    code: "context_length_exceeded"; // add more as needed
-  };
-};
-
-export type ChatFunction = {
-  name: string;
-  description: string;
-  parameters: {
-    type: string;
-    properties: {
-      [key: string]: {
-        type: string;
-        description: string;
-      };
-    };
-    required: string[];
-  };
-};
-
-// typeguard to check if the response is an error
-export function isChatCompletionError(
-  response: ChatCompletionResponse | ChatCompletionError
-): response is ChatCompletionError {
-  return !!(response as ChatCompletionError).error;
-}
+// // typeguard to check if the response is an error
+// export function isChatCompletionError(
+//   response: ChatCompletionResponse | ChatCompletionError
+// ): response is ChatCompletionError {
+//   return !!(response as ChatCompletionError).error;
+// }
 
 export type MessageWithPayload = gmail_v1.Schema$Message & {
   payload: gmail_v1.Schema$MessagePart;

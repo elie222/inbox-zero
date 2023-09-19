@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { redis } from "@/utils/redis";
-import { AiModel } from "@/utils/types";
+import { AIModel } from "@/utils/openai";
 
 export const usageSchema = z.object({
   openaiCalls: z.number().int().default(0),
@@ -29,7 +29,7 @@ export async function saveUsage(options: {
     completion_tokens: number;
     total_tokens: number;
   };
-  model: AiModel;
+  model: AIModel;
 }) {
   const { email, usage, model } = options;
 
@@ -48,7 +48,7 @@ export async function saveUsage(options: {
 
 // returns cost in cents
 function calcuateCost(
-  model: AiModel,
+  model: AIModel,
   usage: {
     prompt_tokens: number;
     completion_tokens: number;

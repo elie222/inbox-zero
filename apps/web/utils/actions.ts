@@ -55,7 +55,7 @@ const saveAboutBody = z.object({
 });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
-export async function saveAboutAction(options: { about: string }) {
+export async function saveAboutAction(options: SaveAboutBody) {
   const session = await getAuthSession();
   if (!session?.user) throw new Error("Not logged in");
 
