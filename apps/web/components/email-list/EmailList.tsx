@@ -65,7 +65,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         href: "/mail?tab=all",
       },
       {
-        label: `Planned (${planned.length})`,
+        label: `Planned${planned.length ? ` (${planned.length})` : ""}`,
         value: "planned",
         href: "/mail?tab=planned",
       },
