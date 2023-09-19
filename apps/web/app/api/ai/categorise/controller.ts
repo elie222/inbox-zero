@@ -1,12 +1,7 @@
 import { z } from "zod";
 import json5 from "json5";
-import { openai } from "@/utils/openai";
-import { AI_MODEL } from "@/utils/config";
-import {
-  ChatCompletionError,
-  ChatCompletionResponse,
-  isChatCompletionError,
-} from "@/utils/types";
+import { UserAIFields, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
 
@@ -14,7 +9,9 @@ export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
 const aiResponseSchema = z.object({ category: z.string() });
 
-async function aiCategorise(body: CategoriseBody & { content: string }) {
+async function aiCategorise(
+  body: CategoriseBody & { content: string } & UserAIFields
+) {
   const message = `Categorize this email.
 Return a JSON object with a "category" field.
 
@@ -50,8 +47,8 @@ Subject: ${body.subject}
 ${body.content}
 `;
 
-  const response = await openai.createChatCompletion({
-    model: AI_MODEL,
+  const response = await getOpenAI(body.openAIApiKey).chat.completions.create({
+    model: body.aiModel || DEFAULT_AI_MODEL,
     messages: [
       {
         role: "system",
@@ -63,15 +60,10 @@ ${body.content}
       },
     ],
   });
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await response.json();
 
-  if (isChatCompletionError(json)) {
-    console.error(json);
-    return;
-  }
+  const content = response.choices[0].message.content;
 
-  const content = json.choices[0].message.content;
+  if (!content) return;
 
   try {
     const res = json5.parse(content);
@@ -84,7 +76,7 @@ ${body.content}
 }
 
 export async function categorise(
-  body: CategoriseBody & { content: string },
+  body: CategoriseBody & { content: string } & UserAIFields,
   options: { email: string }
 ) {
   // 1. check redis cache

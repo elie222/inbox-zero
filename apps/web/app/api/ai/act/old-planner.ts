@@ -1,29 +1,24 @@
-import { ChatCompletionRequestMessageFunctionCall } from "openai-edge";
 import { ActBody } from "@/app/api/ai/act/validation";
-import { openai } from "@/utils/openai";
+import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
 import { saveUsage } from "@/utils/redis/usage";
-import {
-  AiModel,
-  ChatFunction,
-  ChatCompletionResponse,
-  ChatCompletionError,
-  isChatCompletionError,
-} from "@/utils/types";
 import { REQUIRES_MORE_INFO } from "@/app/api/ai/act/controller";
+import { DEFAULT_AI_MODEL } from "@/utils/config";
+import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 // testing out different methods to see what produces the best response
 // this approach is worse :(
 // may delete this soon
-export async function getAiResponseOld(options: {
-  model: AiModel;
-  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
-    content: string;
-  };
-  userAbout: string;
-  userEmail: string;
-  functions: ChatFunction[];
-}) {
-  const { model, email, userAbout, userEmail, functions } = options;
+export async function getAiResponseOld(
+  options: {
+    email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+      content: string;
+    };
+    userAbout: string;
+    userEmail: string;
+    functions: ChatCompletionCreateParams.Function[];
+  } & UserAIFields
+) {
+  const { email, userAbout, userEmail, functions } = options;
 
   const messages = [
     {
@@ -57,7 +52,11 @@ export async function getAiResponseOld(options: {
     },
   ];
 
-  const aiResponse = await openai.createChatCompletion({
+  const model = options.aiModel || DEFAULT_AI_MODEL;
+
+  const aiResponse = await getOpenAI(
+    options.openAIApiKey
+  ).chat.completions.create({
     model,
     messages,
     functions,
@@ -65,19 +64,10 @@ export async function getAiResponseOld(options: {
     temperature: 0,
   });
 
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await aiResponse.json();
+  if (aiResponse.usage)
+    await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
-  if (isChatCompletionError(json)) {
-    console.error(json);
-    return;
-  }
-
-  await saveUsage({ email: userEmail, usage: json.usage, model });
-
-  const functionCall = json?.choices?.[0]?.message.function_call as
-    | ChatCompletionRequestMessageFunctionCall
-    | undefined;
+  const functionCall = aiResponse?.choices?.[0]?.message.function_call;
 
   if (!functionCall?.name) return;
 

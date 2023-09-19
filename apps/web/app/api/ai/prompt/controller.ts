@@ -1,15 +1,9 @@
 import { z } from "zod";
-import { type ChatCompletionRequestMessageFunctionCall } from "openai-edge";
-import { openai } from "@/utils/openai";
+import { getOpenAI } from "@/utils/openai";
 import { getAuthSession } from "@/utils/auth";
 import { filterFunctions } from "@/utils/ai/filters";
 import prisma from "@/utils/prisma";
-import {
-  ChatCompletionError,
-  ChatCompletionResponse,
-  isChatCompletionError,
-} from "@/utils/types";
-import { AI_MODEL } from "@/utils/config";
+import { DEFAULT_AI_MODEL } from "@/utils/config";
 
 export const promptQuery = z.object({
   message: z.string(),
@@ -22,8 +16,8 @@ export async function createFilterFromPrompt(body: PromptQuery) {
   const session = await getAuthSession();
   if (!session?.user) throw new Error("Not logged in");
 
-  const responsePromise = openai.createChatCompletion({
-    model: AI_MODEL,
+  const aiResponsePromise = getOpenAI(null).chat.completions.create({
+    model: DEFAULT_AI_MODEL,
     messages: [
       {
         role: "system",
@@ -48,22 +42,11 @@ export async function createFilterFromPrompt(body: PromptQuery) {
     },
   });
 
-  const json: ChatCompletionResponse | ChatCompletionError = await (
-    await responsePromise
-  ).json();
-
-  if (isChatCompletionError(json)) {
-    console.error(json);
-
-    return { filter: undefined };
-  }
-
-  const filter = json?.choices?.[0]?.message.function_call as
-    | ChatCompletionRequestMessageFunctionCall
-    | undefined;
+  const aiResponse = await aiResponsePromise;
+  const filter = aiResponse?.choices?.[0]?.message.function_call;
 
   if (!filter) {
-    console.log("Unable to create filter:", JSON.stringify(json, null, 2));
+    console.log("Unable to create filter:", aiResponse);
   }
 
   await promptHistoryPromise;

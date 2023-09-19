@@ -54,6 +54,8 @@ model User {
   about                     String?
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
+  aiModel                   String?
+  openAIApiKey              String?
 
   // lemon squeezy
   lemonSqueezyCustomerId     Int?

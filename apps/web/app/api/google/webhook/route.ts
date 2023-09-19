@@ -12,6 +12,7 @@ import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { categorise } from "@/app/api/ai/categorise/controller";
 import { parseEmail } from "@/utils/mail";
+import { AIModel, UserAIFields } from "@/utils/openai";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,8 @@ export const POST = withError(async (request: Request) => {
           about: true,
           lastSyncedHistoryId: true,
           rules: { include: { actions: true } },
+          aiModel: true,
+          openAIApiKey: true,
         },
       },
     },
@@ -100,6 +103,8 @@ export const POST = withError(async (request: Request) => {
         gmail,
         rules: account.user.rules,
         about: account.user.about || "",
+        aiModel: account.user.aiModel as AIModel,
+        openAIApiKey: account.user.openAIApiKey,
       });
     } else {
       console.log("Webhook: No history");
@@ -139,15 +144,17 @@ async function listHistory(
   return history.data.history;
 }
 
-async function planHistory(options: {
-  history: gmail_v1.Schema$History[];
-  userId: string;
-  userEmail: string;
-  email: string;
-  about: string;
-  gmail: gmail_v1.Gmail;
-  rules: RuleWithActions[];
-}) {
+async function planHistory(
+  options: {
+    history: gmail_v1.Schema$History[];
+    userId: string;
+    userEmail: string;
+    email: string;
+    about: string;
+    gmail: gmail_v1.Gmail;
+    rules: RuleWithActions[];
+  } & UserAIFields
+) {
   const { history, userId, userEmail, email, gmail, rules, about } = options;
 
   if (!history?.length) return;
@@ -204,6 +211,8 @@ async function planHistory(options: {
             subject: parsedMessage.headers.subject,
             content,
             threadId: m.message.threadId,
+            aiModel: options.aiModel,
+            openAIApiKey: options.openAIApiKey,
           },
           {
             email,
@@ -231,6 +240,8 @@ async function planHistory(options: {
           gmail,
           userId,
           userEmail,
+          aiModel: options.aiModel,
+          openAIApiKey: options.openAIApiKey,
           automated: true,
           userAbout: about,
         });

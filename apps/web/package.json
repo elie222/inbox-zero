@@ -54,7 +54,7 @@
     "next-contentlayer": "^0.3.4",
     "node-email-reply-parser": "^0.1.4",
     "nodemailer": "^6.9.5",
-    "openai-edge": "^1.2.2",
+    "openai": "^4.8.0",
     "posthog-js": "^1.79.0",
     "prettier": "2.8.8",
     "prettier-plugin-tailwindcss": "^0.4.1",

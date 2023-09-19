@@ -9,5 +9,4 @@ Rules to follow:
 * Draft responses to snoozed emails that I haven't received a response to yet.
 `;
 
-export const AI_MODEL = "gpt-3.5-turbo"; // gpt-4 rate limits are worse
-export const AI_MODEL_16K = "gpt-3.5-turbo-16k";
+export const DEFAULT_AI_MODEL = "gpt-3.5-turbo"; // gpt-4 rate limits are worse

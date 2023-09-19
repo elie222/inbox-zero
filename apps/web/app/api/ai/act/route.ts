@@ -6,6 +6,7 @@ import prisma from "@/utils/prisma";
 import { actBodyWithHtml } from "@/app/api/ai/act/validation";
 import { withError } from "@/utils/middleware";
 import { parseEmail } from "@/utils/mail";
+import { AIModel } from "@/utils/openai";
 
 export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
@@ -38,6 +39,8 @@ export const POST = withError(async (request: Request) => {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
+    aiModel: user.aiModel as AIModel,
+    openAIApiKey: user.openAIApiKey,
   });
 
   return NextResponse.json(result || { rule: null });

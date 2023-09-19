@@ -3,14 +3,9 @@ import { NextResponse } from "next/server";
 import json5 from "json5";
 import { getAuthSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
-import { openai } from "@/utils/openai";
-import { AI_MODEL } from "@/utils/config";
+import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { Action, ActionType, Rule } from "@prisma/client";
-import {
-  ChatCompletionResponse,
-  ChatCompletionError,
-  isChatCompletionError,
-} from "@/utils/types";
 import { actionInputs } from "@/utils/actionType";
 import { withError } from "@/utils/middleware";
 
@@ -19,24 +14,26 @@ export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
 export type CategorizeRuleResponse = Awaited<ReturnType<typeof categorizeRule>>;
 
 async function aiCategorizeRule(
-  rule: Rule
+  rule: Rule,
+  user: UserAIFields
 ): Promise<
   Pick<Action, "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content">[]
 > {
-  const aiResponse = await openai.createChatCompletion({
-    model: AI_MODEL,
-    messages: [
-      {
-        role: "system",
-        content: `You are an AI assistant that helps people manage their emails. This is the list of actions you are able to take:
+  const aiResponse = await getOpenAI(user.openAIApiKey).chat.completions.create(
+    {
+      model: user.aiModel || DEFAULT_AI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `You are an AI assistant that helps people manage their emails. This is the list of actions you are able to take:
 ${Object.entries(actionInputs).map(([actionType, { fields }]) => {
   return `- ${actionType}
     Optional fields: ${fields.map((field) => field.name).join(", ")}`;
 })}`,
-      },
-      {
-        role: "user",
-        content: `Return a JSON array of actions that this instruction would require taking.
+        },
+        {
+          role: "user",
+          content: `Return a JSON array of actions that this instruction would require taking.
 
 An example response is:
 [{ type: "FORWARD", to: "example@gmail.com" }, { type: "ARCHIVE" }]
@@ -49,19 +46,14 @@ Keep the actions to a minimum. Only "type" is required. Other fields are optiona
 ###
 Instruction:
 ${rule.instructions}`,
-      },
-    ],
-  });
+        },
+      ],
+    }
+  );
 
-  const json: ChatCompletionResponse | ChatCompletionError =
-    await aiResponse.json();
+  const contentString = aiResponse.choices?.[0]?.message.content;
 
-  if (isChatCompletionError(json)) {
-    console.error(json);
-    return [];
-  }
-
-  const contentString = json.choices?.[0]?.message.content;
+  if (!contentString) return [];
 
   try {
     const contentJson = json5.parse(contentString);
@@ -84,7 +76,11 @@ function isAction(action: any): action is Action {
 }
 
 // suggest actions to add to the rule
-async function categorizeRule(body: CategorizeRuleBody, userId: string) {
+async function categorizeRule(
+  body: CategorizeRuleBody,
+  userId: string,
+  userAiFields: UserAIFields
+) {
   const rule = await prisma.rule.findUniqueOrThrow({
     where: { id: body.ruleId },
   });
@@ -92,7 +88,7 @@ async function categorizeRule(body: CategorizeRuleBody, userId: string) {
   if (rule.userId !== userId) throw new Error("Unauthorized");
 
   // ask ai to categorize the rule
-  const actions = await aiCategorizeRule(rule);
+  const actions = await aiCategorizeRule(rule, userAiFields);
 
   if (!actions.length) return;
 
@@ -130,7 +126,18 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = categorizeRuleBody.parse(json);
 
-  const result = await categorizeRule(body, session.user.id);
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      aiModel: true,
+      openAIApiKey: true,
+    },
+  });
+
+  const result = await categorizeRule(body, session.user.id, {
+    aiModel: user.aiModel as AIModel,
+    openAIApiKey: user.openAIApiKey,
+  });
 
   return NextResponse.json(result);
 });

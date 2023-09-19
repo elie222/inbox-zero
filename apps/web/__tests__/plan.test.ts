@@ -1,6 +1,6 @@
 import { getAiResponse, planAct } from "@/app/api/ai/act/controller";
 import { getAiResponseOld } from "@/app/api/ai/act/old-planner";
-import { ChatFunction } from "@/utils/types";
+import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 // NOTE: these tests cost money to run as they call the OpenAI API.
 // Be careful when running them in watch mode as they'll run on every file change.
@@ -12,7 +12,7 @@ const TIMEOUT = 15_000;
 const MODEL = "gpt-3.5-turbo" as const;
 // const MODEL = "gpt-4" as const;
 
-const functions: ChatFunction[] = [
+const functions: ChatCompletionCreateParams.Function[] = [
   {
     name: "forward_receipts",
     description: "Forward receipts to my accountant",
@@ -106,7 +106,6 @@ describe("AI Plan", () => {
     "AI responds with unknown rule",
     async () => {
       const response = await getAiResponseOld({
-        model: MODEL,
         email: {
           from: "elie@test.com",
           subject: "Catching up",
@@ -115,6 +114,8 @@ describe("AI Plan", () => {
         functions,
         userAbout: "",
         userEmail: "",
+        aiModel: MODEL,
+        openAIApiKey: null,
       });
 
       expect(response).toBeUndefined();
@@ -134,6 +135,8 @@ describe("AI Plan 1", () => {
     functions,
     userAbout: "",
     userEmail: "",
+    aiModel: MODEL,
+    openAIApiKey: null,
   };
 
   it(
@@ -159,7 +162,6 @@ describe("AI Plan 1", () => {
 
 describe("AI Plan 2", () => {
   const options = {
-    model: MODEL,
     email: {
       from: "Max Percy <notifications@github.com>",
       subject:
@@ -173,6 +175,8 @@ You are receiving this because you commented.Message ID: <upstash/sdk-qstash-ts/
     functions,
     userAbout: "",
     userEmail: "",
+    aiModel: MODEL,
+    openAIApiKey: null,
   };
 
   // fails with gpt 3.5 turbo
@@ -199,7 +203,6 @@ You are receiving this because you commented.Message ID: <upstash/sdk-qstash-ts/
 
 describe("Plan act", () => {
   const options = {
-    model: MODEL,
     email: {
       from: "billing@stripe.com",
       subject: "Your receipt from IZ",
@@ -211,9 +214,11 @@ describe("Plan act", () => {
     functions,
     userAbout: "",
     userEmail: "",
+    aiModel: MODEL,
+    openAIApiKey: null,
     rules: functions.map((f) => {
       return {
-        instructions: f.description,
+        instructions: f.description || "",
         name: f.name,
         actions: [],
 

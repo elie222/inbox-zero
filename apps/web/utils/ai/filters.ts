@@ -1,4 +1,5 @@
 import { Plan } from "@/utils/redis/plan";
+import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 type PlanWithThread = Plan & { threadId: string };
 
@@ -9,11 +10,7 @@ export type FilterFunction = (
 export type FilterArgs = any;
 export type Filters = "label" | "to_respond" | "by_id";
 
-export const filterFunctions: {
-  name: Filters;
-  description: string;
-  parameters: object;
-}[] = [
+export const filterFunctions: ChatCompletionCreateParams.Function[] = [
   {
     name: "label",
     description:
