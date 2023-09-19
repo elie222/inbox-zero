@@ -6,7 +6,7 @@ import { Container } from "@/components/Container";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/Button";
 import { Select } from "@/components/Select";
-import { isErrorMessage } from "@/utils/error";
+import { isError } from "@/utils/error";
 import { postRequest } from "@/utils/api";
 import {
   BulkArchiveBody,
@@ -58,7 +58,7 @@ const BulkArchiveForm = () => {
       data
     );
 
-    if (isErrorMessage(res))
+    if (isError(res))
       toastError({ description: `Error performing bulk archive.` });
     else toastSuccess({ description: `Archived ${res.count} emails!` });
   }, []);

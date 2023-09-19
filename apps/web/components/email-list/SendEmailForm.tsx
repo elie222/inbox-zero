@@ -5,7 +5,7 @@ import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
-import { isErrorMessage } from "@/utils/error";
+import { isError } from "@/utils/error";
 
 export const SendEmailForm = (props: {
   threadId: string;
@@ -51,7 +51,7 @@ export const SendEmailForm = (props: {
         "/api/google/messages/send",
         data
       );
-      if (isErrorMessage(res))
+      if (isError(res))
         toastError({ description: `There was an error sending the email :(` });
       else toastSuccess({ description: `Email sent!` });
     } catch (error) {
