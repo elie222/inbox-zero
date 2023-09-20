@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
+import { parseJSON } from "@/utils/json";
 import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
-import json5 from "json5";
 import { DEFAULT_AI_MODEL, generalPrompt } from "@/utils/config";
 import { getPlan, planSchema, savePlan } from "@/utils/redis/plan";
 import { saveUsage } from "@/utils/redis/usage";
@@ -109,7 +109,7 @@ export async function plan(
     console.error("aiResponse", aiResponse);
   }
 
-  const planJson = planSchema.parse(json5.parse(planString!));
+  const planJson = planSchema.parse(parseJSON(planString!));
 
   // cache result
   await savePlan({

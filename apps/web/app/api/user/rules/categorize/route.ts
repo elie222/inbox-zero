@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import json5 from "json5";
+import { parseJSON } from "@/utils/json";
 import { getAuthSession } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
@@ -56,7 +56,7 @@ ${rule.instructions}`,
   if (!contentString) return [];
 
   try {
-    const contentJson = json5.parse(contentString);
+    const contentJson = parseJSON(contentString);
 
     if (!Array.isArray(contentJson)) {
       // TODO check correct format with zod parse. if there's an error ask the ai to fix it

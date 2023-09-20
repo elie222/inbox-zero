@@ -1,5 +1,5 @@
 import { z } from "zod";
-import json5 from "json5";
+import { parseJSON } from "@/utils/json";
 import { UserAIFields, getOpenAI } from "@/utils/openai";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { getCategory, saveCategory } from "@/utils/redis/category";
@@ -66,7 +66,7 @@ ${body.content}
   if (!content) return;
 
   try {
-    const res = json5.parse(content);
+    const res = parseJSON(content);
 
     return aiResponseSchema.parse(res);
   } catch (error) {

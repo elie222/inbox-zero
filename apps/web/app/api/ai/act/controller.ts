@@ -1,4 +1,3 @@
-import json5 from "json5";
 import { gmail_v1 } from "googleapis";
 import { z } from "zod";
 import { UserAIFields, getOpenAI } from "@/utils/openai";
@@ -18,6 +17,7 @@ import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
+import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 
 export type ActResponse = Awaited<ReturnType<typeof planAct>>;
 
@@ -102,7 +102,7 @@ ${email.content}`,
 
   try {
     return responseSchema.parse(
-      json5.parse(aiResponse.choices[0].message.content)
+      parseJSON(aiResponse.choices[0].message.content)
     );
   } catch (error) {
     console.warn(
@@ -172,10 +172,13 @@ ${email.content}`,
     temperature: 0,
   });
 
+  console.log("🚀 ~ file: controller.ts:188 ~ aiResponse:", aiResponse);
+
   if (aiResponse.usage)
     await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
   const functionCall = aiResponse?.choices?.[0]?.message.function_call;
+  console.log("🚀 ~ file: controller.ts:181 ~ functionCall:", functionCall);
 
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
@@ -289,7 +292,7 @@ export async function planAct(
   });
 
   const aiGeneratedArgs = aiArgsResponse?.arguments
-    ? json5.parse(aiArgsResponse.arguments)
+    ? parseJSONWithMultilines(aiArgsResponse.arguments)
     : undefined;
 
   // use prefilled values where we have them

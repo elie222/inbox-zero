@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useSWRConfig } from "swr";
-import json5 from "json5";
 import { SparklesIcon } from "@heroicons/react/20/solid";
+import { parseJSON } from "@/utils/json";
 import { useGmail } from "@/providers/GmailProvider";
 import { usePromptContext } from "@/providers/PromptProvider";
 import { createFilterFromPromptAction } from "@/utils/actions";
@@ -34,7 +34,7 @@ export function PromptBar(props: {}) {
         if (res.filter) {
           setFunction({
             name: res.filter.name || "",
-            args: res.filter.arguments ? json5.parse(res.filter.arguments) : {},
+            args: res.filter.arguments ? parseJSON(res.filter.arguments) : {},
           });
         } else {
           console.log("no filter");
