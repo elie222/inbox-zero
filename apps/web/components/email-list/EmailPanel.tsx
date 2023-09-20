@@ -232,7 +232,8 @@ function PlanExplanation(props: {
         {Object.entries(plan.functionArgs).map(([key, value]) => {
           return (
             <div key={key}>
-              {key}: {value as string}
+              <strong>{capitalCase(key)}: </strong>
+              <span className="whitespace-pre-wrap">{value as string}</span>
             </div>
           );
         })}
