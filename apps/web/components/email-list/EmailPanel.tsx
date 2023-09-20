@@ -219,7 +219,7 @@ function PlanExplanation(props: {
         </div>
         <div className="ml-2">{plan.databaseRule?.instructions}</div>
       </div>
-      <div className="mt-4 flex">
+      <div className="mt-4 flex space-x-1">
         {plan.rule.actions?.map((action, i) => {
           return (
             <div key={i}>

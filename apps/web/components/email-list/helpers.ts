@@ -2,7 +2,7 @@ import { ParsedMessage } from "@/utils/types";
 
 export function fromName(email: string) {
   // converts "John Doe <john.doe@gmail>" to "John Doe"
-  return email.split("<")[0];
+  return email?.split("<")[0];
 }
 
 export function participant(parsedMessage: ParsedMessage, userEmail: string) {

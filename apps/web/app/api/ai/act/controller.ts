@@ -1,5 +1,6 @@
 import { gmail_v1 } from "googleapis";
 import { z } from "zod";
+import uniq from "lodash/uniq";
 import { UserAIFields, getOpenAI } from "@/utils/openai";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
@@ -172,13 +173,10 @@ ${email.content}`,
     temperature: 0,
   });
 
-  console.log("🚀 ~ file: controller.ts:188 ~ aiResponse:", aiResponse);
-
   if (aiResponse.usage)
     await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
   const functionCall = aiResponse?.choices?.[0]?.message.function_call;
-  console.log("🚀 ~ file: controller.ts:181 ~ functionCall:", functionCall);
 
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
@@ -220,9 +218,11 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
             };
           }
         ),
-        required: rule.actions.flatMap((action) => {
-          return actionFunctionDefs[action.type].parameters.required;
-        }),
+        required: uniq(
+          rule.actions.flatMap((action) => {
+            return actionFunctionDefs[action.type].parameters.required;
+          })
+        ),
       },
     };
   });
