@@ -65,7 +65,17 @@ const DRAFT_EMAIL: ActionFunctionDef = {
     properties: {
       to: {
         type: "string",
-        description: "The email address of the recipient to respond to.",
+        description: "A comma separated list of the recipient email addresses.",
+      },
+      cc: {
+        type: "string",
+        description:
+          "A comma separated list of email addresses of the cc recipients to send to.",
+      },
+      bcc: {
+        type: "string",
+        description:
+          "A comma separated list of email addresses of the bcc recipients to send to.",
       },
       subject: {
         type: "string",

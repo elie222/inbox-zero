@@ -59,13 +59,17 @@ function truncate(str: string, length: number) {
 
 // extract replies can sometimes return no content.
 // as we don't run ai on threads with multiple messages, 'extractReply' can be disabled for now
-export function parseEmail(html: string, extractReply = false) {
+export function parseEmail(
+  html: string,
+  extractReply = false,
+  maxLength = 2000
+) {
   // 1. remove replies
   // 2. remove html
   // 3. truncate
 
   const text = htmlToText(extractReply ? parseReply(html) : html);
-  const truncatedText = truncate(text, 2000);
+  const truncatedText = truncate(text, maxLength);
 
   return truncatedText;
 }

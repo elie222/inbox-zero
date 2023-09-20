@@ -281,6 +281,7 @@ export async function planAct(
 
   if (selectedRule.name === REQUIRES_MORE_INFO) return;
 
+  // TODO may want to pass full email content to this function so it has maximum context to act on
   const aiArgsResponse = await getArgsAiResponse({
     email,
     userAbout: options.userAbout,
