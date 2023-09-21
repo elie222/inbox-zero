@@ -20,7 +20,7 @@ export function LoginForm() {
 
   return (
     <>
-      <div className="flex justify-center px-4 pt-4 sm:px-16">
+      <div className="flex justify-center px-4 sm:px-16">
         <Button onClick={openModal} size="2xl">
           <span className="flex items-center justify-center">
             <Image
@@ -41,7 +41,22 @@ export function LoginForm() {
               train or improve their AI models. Inbox Zero does not store your
               emails.
             </SectionDescription>
-            <div className="mt-4">
+
+            <div className="mt-8">
+              <SectionDescription>
+                Inbox Zero{"'"}s use and transfer of information received from
+                Google APIs to any other app will adhere to{" "}
+                <a
+                  href="https://developers.google.com/terms/api-services-user-data-policy"
+                  className="underline underline-offset-4 hover:text-gray-900"
+                >
+                  Google API Services User Data
+                </a>{" "}
+                Policy, including the Limited Use requirements.
+              </SectionDescription>
+            </div>
+
+            <div className="mt-8">
               <Button
                 loading={loading}
                 onClick={() => {
