@@ -7,7 +7,6 @@ import { Button } from "@/components/Button";
 import { Modal, useModal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
 import { useState } from "react";
-import { EarlyAccessModal } from "@/app/(landing)/login/EarlyAccessModal";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -75,7 +74,6 @@ export function LoginForm() {
           </div>
         </Modal>
       </div>
-      <EarlyAccessModal />
     </>
   );
 }
