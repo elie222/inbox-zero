@@ -86,6 +86,9 @@ importers:
       "@hookform/resolvers":
         specifier: ^3.3.1
         version: 3.3.1(react-hook-form@7.46.1)
+      "@inboxzero/tinybird":
+        specifier: workspace:*
+        version: link:../../packages/tinybird
       "@prisma/client":
         specifier: ^5.3.1
         version: 5.3.1(prisma@5.3.1)
@@ -324,6 +327,25 @@ importers:
       eslint-plugin-react:
         specifier: 7.28.0
         version: 7.28.0(eslint@7.32.0)
+
+  packages/tinybird:
+    dependencies:
+      "@chronark/zod-bird":
+        specifier: 0.2.2
+        version: 0.2.2
+      zod:
+        specifier: 3.22.4
+        version: 3.22.4
+    devDependencies:
+      "@types/node":
+        specifier: 20.8.3
+        version: 20.8.3
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 5.2.2
+        version: 5.2.2
 
   packages/tsconfig: {}
 
@@ -858,6 +880,15 @@ packages:
       }
     dev: true
 
+  /@chronark/zod-bird@0.2.2:
+    resolution:
+      {
+        integrity: sha512-0mmiiw4dny1aiEOmawsIJUaYW16vhWRuDGsDa62GfFhdD3F7hHrTi3lWNWYCVq2KsCS+CYwMj8nkdFuOnejCTA==,
+      }
+    dependencies:
+      zod: 3.22.4
+    dev: false
+
   /@contentlayer/cli@0.3.4(esbuild@0.18.13):
     resolution:
       {
@@ -937,7 +968,7 @@ packages:
       ts-pattern: 4.3.0
       unified: 10.1.2
       yaml: 2.3.1
-      zod: 3.22.2
+      zod: 3.22.4
     transitivePeerDependencies:
       - "@effect-ts/otel-node"
       - esbuild
@@ -4049,6 +4080,13 @@ packages:
     resolution:
       {
         integrity: sha512-Y+/1vGBHV/cYk6OI1Na/LHzwnlNCAfU3ZNGrc1LdRe/LAIbdDPTTv/HU3M7yXN448aTVDq3eKRm2cg7iKLb8gw==,
+      }
+    dev: true
+
+  /@types/node@20.8.3:
+    resolution:
+      {
+        integrity: sha512-jxiZQFpb+NlH5kjW49vXxvxTjeeqlbsnTAdBTKpzEdPs9itay7MscYXz3Fo9VYFEsfQ6LJFitHad3faerLAjCw==,
       }
     dev: true
 
@@ -15441,6 +15479,13 @@ packages:
     resolution:
       {
         integrity: sha512-wvWkphh5WQsJbVk1tbx1l1Ly4yg+XecD+Mq280uBGt9wa5BKSWf4Mhp6GmrkPixhMxmabYY7RbzlwVP32pbGCg==,
+      }
+    dev: false
+
+  /zod@3.22.4:
+    resolution:
+      {
+        integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==,
       }
     dev: false
 
