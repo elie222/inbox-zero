@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
-import { publishEmail } from "@inboxzero/tinybird";
+import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
+import { isDefined } from "@/utils/types";
+
+const PAGE_SIZE = 50;
 
 export type PublishAllEmailsResponse = Awaited<
   ReturnType<typeof publishAllEmails>
@@ -17,36 +20,72 @@ async function publishAllEmails(options: {
 }) {
   const { ownerEmail, gmail } = options;
 
+  let nextPageToken: string | undefined = undefined;
+  let pages = 0;
+
+  while (true) {
+    console.log("Page", pages);
+    const res = await saveBatch({ ownerEmail, gmail, nextPageToken });
+
+    nextPageToken = res.data.nextPageToken ?? undefined;
+
+    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+    else pages++;
+  }
+
+  return { pages };
+}
+
+async function saveBatch(options: {
+  ownerEmail: string;
+  gmail: gmail_v1.Gmail;
+  nextPageToken?: string;
+}) {
+  const { ownerEmail, gmail, nextPageToken } = options;
+
   // 1. find all emails since the last time we ran this function
   const res = await gmail.users.messages.list({
     userId: "me",
-    maxResults: 500,
+    maxResults: PAGE_SIZE,
+    pageToken: nextPageToken,
   });
 
   // 2. fetch each email and publish it to tinybird
-  for (const m of res.data.messages || []) {
-    if (!m.id || !m.threadId) continue;
+  const emailsToPublish: TinybirdEmail[] = (
+    await Promise.all(
+      res.data.messages?.map(async (m) => {
+        if (!m.id || !m.threadId) return;
 
-    const message = await getMessage(m.id, gmail);
-    const parsedEmail = parseMessage(message);
+        console.log("Fetching message", m.id);
 
-    await publishEmail({
-      ownerEmail,
-      threadId: m.threadId,
-      gmailMessageId: m.id,
-      from: parsedEmail.headers.from,
-      to: parsedEmail.headers.to || "Missing",
-      subject: parsedEmail.headers.subject,
-      timestamp: +new Date(parsedEmail.headers.date),
-      hasUnsubscribe: !!parsedEmail.textHtml?.includes("Unsubscribe"),
-      read: !parsedEmail.labelIds?.includes("UNREAD"),
-      sent: parsedEmail.labelIds?.includes("SENT"),
-      draft: parsedEmail.labelIds?.includes("DRAFT"),
-      inbox: parsedEmail.labelIds?.includes("INBOX"),
-    });
-  }
+        const message = await getMessage(m.id, gmail);
+        const parsedEmail = parseMessage(message);
 
-  return { emailsPublished: res.data.messages?.length };
+        const tinybirdEmail: TinybirdEmail = {
+          ownerEmail,
+          threadId: m.threadId,
+          gmailMessageId: m.id,
+          from: parsedEmail.headers.from,
+          to: parsedEmail.headers.to || "Missing",
+          subject: parsedEmail.headers.subject,
+          timestamp: +new Date(parsedEmail.headers.date),
+          hasUnsubscribe: !!parsedEmail.textHtml?.includes("Unsubscribe"),
+          read: !parsedEmail.labelIds?.includes("UNREAD"),
+          sent: !!parsedEmail.labelIds?.includes("SENT"),
+          draft: !!parsedEmail.labelIds?.includes("DRAFT"),
+          inbox: !!parsedEmail.labelIds?.includes("INBOX"),
+        };
+
+        return tinybirdEmail;
+      }) || []
+    )
+  ).filter(isDefined);
+
+  console.log("Publishing", emailsToPublish.length, "emails");
+
+  await publishEmail(emailsToPublish);
+
+  return res;
 }
 
 export const GET = withError(async (request: Request) => {

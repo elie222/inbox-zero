@@ -22,3 +22,9 @@ source .venv/bin/activate
 ```sh
 tb push datasources/email.datasource
 ```
+
+## Pipe
+
+```sh
+tb push datasources/get_emails_by_week.pipe
+```

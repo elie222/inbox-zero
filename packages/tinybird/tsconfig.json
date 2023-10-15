@@ -1,14 +1,5 @@
 {
   "extends": "tsconfig/base.json",
   "exclude": ["node_modules"],
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
-    "moduleResolution": "node",
-    "preserveWatchOutput": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "strict": true
-  }
+  "compilerOptions": {}
 }
