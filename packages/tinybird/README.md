@@ -26,5 +26,5 @@ tb push datasources/email.datasource
 ## Pipe
 
 ```sh
-tb push datasources/get_emails_by_week.pipe
+tb push pipes/get_emails_by_week.pipe
 ```
