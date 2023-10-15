@@ -11,14 +11,14 @@
     "prepare": "husky install"
   },
   "devDependencies": {
-    "@turbo/gen": "^1.10.14",
-    "eslint": "^7.32.0",
+    "@turbo/gen": "^1.10.15",
+    "eslint": "^8.51.0",
     "eslint-config-custom": "workspace:*",
     "husky": "^8.0.3",
-    "lint-staged": "^13.2.3",
+    "lint-staged": "^15.0.1",
     "prettier": "2.8.8",
     "pretty-quick": "^3.1.3",
-    "turbo": "^1.10.14"
+    "turbo": "^1.10.15"
   },
   "packageManager": "pnpm@8.6.10",
   "lint-staged": {
