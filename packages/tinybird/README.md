@@ -17,6 +17,24 @@ Thereafter:
 source .venv/bin/activate
 ```
 
+### Docker
+
+You can also use the Docker image. This worked a lot better for me.
+
+Run the following from this directory:
+
+```sh
+docker run -v .:/mnt/data -it tinybirdco/tinybird-cli-docker
+```
+
+Then within Docker:
+
+```sh
+cd mnt/data
+```
+
+Now you can run `tb` commands.
+
 ## Datasource
 
 ```sh
