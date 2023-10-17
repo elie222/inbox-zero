@@ -1,8 +1,8 @@
-VERSION 2
+VERSION 1
 
-NODE get_emails_by_week
+NODE get_sent_emails_by_week
 DESCRIPTION >
-  Get the number of emails received by week
+  Get the number of sent emails by week
 
 SQL >
   %
@@ -12,7 +12,6 @@ SQL >
     FROM email__v3
     WHERE
         "ownerEmail" = {{ String(ownerEmail) }}
-        AND "sent" = 0
-        AND "draft" = 0
+        AND "sent" = 1
     GROUP BY week_start
     ORDER BY week_start

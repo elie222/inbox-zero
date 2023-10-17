@@ -15,5 +15,5 @@ SCHEMA >
     `inbox` UInt8 `json:$.inbox`
 
 ENGINE "ReplacingMergeTree"
-ENGINE_SORTING_KEY "gmailMessageId"
+ENGINE_SORTING_KEY "ownerEmail", "gmailMessageId"
 ENGINE_PARTITION_KEY "toYYYYMM(fromUnixTimestamp64Milli(timestamp))"

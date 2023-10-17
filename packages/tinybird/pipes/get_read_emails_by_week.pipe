@@ -1,18 +1,19 @@
-VERSION 2
+VERSION 1
 
-NODE get_emails_by_week
+NODE get_read_emails_by_week
 DESCRIPTION >
-  Get the number of emails received by week
+  Get the number of read/unread emails by week
 
 SQL >
   %
     SELECT
         toStartOfWeek(fromUnixTimestamp64Milli(timestamp)) AS week_start,
+        "read",
         COUNT(*) as count
     FROM email__v3
     WHERE
         "ownerEmail" = {{ String(ownerEmail) }}
         AND "sent" = 0
         AND "draft" = 0
-    GROUP BY week_start
+    GROUP BY week_start, "read"
     ORDER BY week_start

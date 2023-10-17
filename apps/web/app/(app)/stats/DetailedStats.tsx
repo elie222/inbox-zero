@@ -12,10 +12,6 @@ export function DetailedStats() {
     { error: string }
   >("/api/user/stats/tinybird");
 
-  console.log(
-    "🚀 ~ file: DetailedStats.tsx:11 ~ DetailedStats ~ data:",
-    data?.stats
-  );
   return (
     <LoadingContent
       loading={isLoading}
@@ -37,10 +33,10 @@ export function DetailedStats() {
               <Title>Detailed Analytics</Title>
               <BarChart
                 className="mt-4 h-72"
-                data={data.stats}
+                data={data.result}
                 index="week_start"
-                categories={["Emails"]}
-                colors={["blue"]}
+                categories={["All", "Read", "Unread", "Sent"]}
+                colors={["blue", "amber", "cyan", "emerald"]}
               />
             </Card>
           </div>
