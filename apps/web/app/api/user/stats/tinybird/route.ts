@@ -7,7 +7,7 @@ export type StatsByWeekResponse = Awaited<ReturnType<typeof getStatsByWeek>>;
 
 async function getStatsByWeek(options: { email: string }) {
   const result = await getEmailsByWeek({ ownerEmail: options.email });
-  return { result };
+  return { stats: result.data };
 }
 
 export const GET = withError(async () => {

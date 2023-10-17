@@ -20,11 +20,16 @@ import { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import { Button } from "@/components/Button";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
+import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 
 export default function StatsPage() {
   return (
     <div className="pb-20">
       <StatsSummary />
+
+      <div className="mx-4">
+        <DetailedStats />
+      </div>
 
       <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
         <div>
@@ -57,7 +62,7 @@ function StatsSummary() {
     <LoadingContent
       loading={isLoading}
       error={error}
-      loadingComponent={<Skeleton className="m-4 h-64 w-full rounded" />}
+      loadingComponent={<Skeleton className="m-4 h-64 rounded" />}
     >
       {data && (
         <div>
