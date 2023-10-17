@@ -17,26 +17,26 @@ const getEmailsData = z.object({
   count: z.number(),
 });
 
-export const getEmailsByWeek = tb.buildPipe({
-  pipe: "get_emails_by_week__v3",
+export const getEmailsByPeriod = tb.buildPipe({
+  pipe: "get_emails_by_period",
   parameters: getEmailsParameters,
   data: getEmailsData,
 });
 
-export const getReadEmailsByWeek = tb.buildPipe({
-  pipe: "get_read_emails_by_week__v2",
+export const getReadEmailsByPeriod = tb.buildPipe({
+  pipe: "get_read_emails_by_period",
   parameters: getEmailsParameters,
   data: getEmailsData.merge(z.object({ read: zodNumberToBoolean })),
 });
 
-export const getSentEmailsByWeek = tb.buildPipe({
-  pipe: "get_sent_emails_by_week__v2",
+export const getSentEmailsByPeriod = tb.buildPipe({
+  pipe: "get_sent_emails_by_period",
   parameters: getEmailsParameters,
   data: getEmailsData,
 });
 
-export const getInboxEmailsByWeek = tb.buildPipe({
-  pipe: "get_inbox_emails_by_week__v1",
+export const getInboxEmailsByPeriod = tb.buildPipe({
+  pipe: "get_inbox_emails_by_period",
   parameters: getEmailsParameters,
   data: getEmailsData.merge(z.object({ inbox: zodNumberToBoolean })),
 });

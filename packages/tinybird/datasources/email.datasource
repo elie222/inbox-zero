@@ -1,5 +1,3 @@
-VERSION 4
-
 SCHEMA >
     `ownerEmail` String `json:$.ownerEmail`,
     `threadId` String `json:$.threadId`,

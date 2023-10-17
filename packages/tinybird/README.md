@@ -38,11 +38,15 @@ Now you can run `tb` commands.
 ## Datasource
 
 ```sh
+tb push datasources
+# or:
 tb push datasources/email.datasource
 ```
 
 ## Pipe
 
 ```sh
-tb push pipes/get_emails_by_week.pipe
+tb push pipes
+# or:
+tb push pipes/get_emails_by_period.pipe
 ```

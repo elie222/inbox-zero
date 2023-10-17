@@ -4,50 +4,50 @@ import keyBy from "lodash/keyBy";
 import groupBy from "lodash/groupBy";
 import merge from "lodash/merge";
 import {
-  getEmailsByWeek,
-  getReadEmailsByWeek,
-  getSentEmailsByWeek,
+  getEmailsByPeriod,
+  getReadEmailsByPeriod,
+  getSentEmailsByPeriod,
 } from "@inboxzero/tinybird";
 import { getAuthSession } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
 
-export type StatsByWeekResponse = Awaited<ReturnType<typeof getStatsByWeek>>;
+export type StatsByWeekResponse = Awaited<ReturnType<typeof getStatsByPeriod>>;
 
-async function getStatsByWeek(options: { email: string }) {
+async function getStatsByPeriod(options: { email: string }) {
   const [all, read, sent] = await Promise.all([
-    getEmailsByWeek({ ownerEmail: options.email }),
-    getReadEmailsByWeek({ ownerEmail: options.email }),
-    getSentEmailsByWeek({ ownerEmail: options.email }),
+    getEmailsByPeriod({ ownerEmail: options.email, period: "week" }),
+    getReadEmailsByPeriod({ ownerEmail: options.email, period: "week" }),
+    getSentEmailsByPeriod({ ownerEmail: options.email, period: "week" }),
   ]);
 
   const allObject = keyBy(
     all.data.map((d) => ({
-      week_start: format(d.week_start, "LLL dd, y"),
+      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       All: d.count,
     })),
-    "week_start"
+    "startOfPeriod"
   );
   const readUnreadGroups = groupBy(read.data, "read");
   const readObject = keyBy(
     readUnreadGroups["true"].map((d) => ({
-      week_start: format(d.week_start, "LLL dd, y"),
+      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Read: d.count,
     })),
-    "week_start"
+    "startOfPeriod"
   );
   const unreadObject = keyBy(
     readUnreadGroups["false"].map((d) => ({
-      week_start: format(d.week_start, "LLL dd, y"),
+      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Unread: d.count,
     })),
-    "week_start"
+    "startOfPeriod"
   );
   const sentObject = keyBy(
     sent.data.map((d) => ({
-      week_start: format(d.week_start, "LLL dd, y"),
+      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Sent: d.count,
     })),
-    "week_start"
+    "startOfPeriod"
   );
 
   const merged = merge(allObject, readObject, unreadObject, sentObject);
@@ -59,7 +59,7 @@ export const GET = withError(async () => {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
-  const result = await getStatsByWeek({ email: session.user.email });
+  const result = await getStatsByPeriod({ email: session.user.email });
 
   return NextResponse.json(result);
 });

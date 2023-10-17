@@ -1,8 +1,6 @@
-VERSION 2
-
-NODE get_sent_emails_by_week
+NODE get_emails_by_period
 DESCRIPTION >
-  Get the number of sent emails by week
+  Get the number of emails received by period
 
 SQL >
   %
@@ -17,10 +15,11 @@ SQL >
           toStartOfYear(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
         {% end %}
         COUNT(*) as count
-    FROM email__v4
+    FROM email
     WHERE
         "ownerEmail" = {{ String(ownerEmail) }}
-        AND "sent" = 1
+        AND "sent" = 0
+        AND "draft" = 0
         {% if defined(fromDate) %}
           AND "timestamp" >= {{ Int64(fromDate, 0) }}
         {% end %}

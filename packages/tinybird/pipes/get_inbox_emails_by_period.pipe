@@ -1,8 +1,6 @@
-VERSION 2
-
-NODE get_read_emails_by_week
+NODE get_inbox_emails_by_period
 DESCRIPTION >
-  Get the number of read/unread emails by week
+  Get the number of inbox/archived emails by period
 
 SQL >
   %
@@ -16,9 +14,9 @@ SQL >
         {% else %}
           toStartOfYear(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
         {% end %}
-        "read",
+        "inbox",
         COUNT(*) as count
-    FROM email__v4
+    FROM email
     WHERE
         "ownerEmail" = {{ String(ownerEmail) }}
         AND "sent" = 0
@@ -29,5 +27,5 @@ SQL >
         {% if defined(toDate) %}
           AND "timestamp" <= {{ Int64(toDate, 0) }}
         {% end %}
-    GROUP BY startOfPeriod, "read"
-    ORDER BY startOfPeriod
+    GROUP BY "startOfPeriod", "inbox"
+    ORDER BY "startOfPeriod"

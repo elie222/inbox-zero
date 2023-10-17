@@ -1,8 +1,6 @@
-VERSION 1
-
-NODE get_inbox_emails_by_week
+NODE get_sent_emails_by_period
 DESCRIPTION >
-  Get the number of inbox/archived emails by week
+  Get the number of sent emails by period
 
 SQL >
   %
@@ -16,18 +14,16 @@ SQL >
         {% else %}
           toStartOfYear(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
         {% end %}
-        "inbox",
         COUNT(*) as count
-    FROM email__v4
+    FROM email
     WHERE
         "ownerEmail" = {{ String(ownerEmail) }}
-        AND "sent" = 0
-        AND "draft" = 0
+        AND "sent" = 1
         {% if defined(fromDate) %}
           AND "timestamp" >= {{ Int64(fromDate, 0) }}
         {% end %}
         {% if defined(toDate) %}
           AND "timestamp" <= {{ Int64(toDate, 0) }}
         {% end %}
-    GROUP BY "startOfPeriod", "inbox"
-    ORDER BY "startOfPeriod"
+    GROUP BY startOfPeriod
+    ORDER BY startOfPeriod
