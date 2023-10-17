@@ -8,8 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -31,12 +29,10 @@ export function DetailedStatsFilter(props: {
           className="ml-auto hidden h-10 lg:flex"
         >
           <FilterIcon className="mr-2 h-4 w-4" />
-          View
+          Filter
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[150px]">
-        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-        <DropdownMenuSeparator />
         {props.columns.map((column) => {
           return (
             <DropdownMenuCheckboxItem
