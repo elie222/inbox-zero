@@ -1,4 +1,4 @@
-VERSION 3
+VERSION 4
 
 SCHEMA >
     `ownerEmail` String `json:$.ownerEmail`,
@@ -12,8 +12,9 @@ SCHEMA >
     `read` UInt8 `json:$.read`,
     `sent` UInt8 `json:$.sent`,
     `draft` UInt8 `json:$.draft`,
-    `inbox` UInt8 `json:$.inbox`
+    `inbox` UInt8 `json:$.inbox`,
+    `sizeEstimate` UInt64 `json:$.sizeEstimate`
 
 ENGINE "ReplacingMergeTree"
-ENGINE_SORTING_KEY "ownerEmail", "gmailMessageId"
+ENGINE_SORTING_KEY ownerEmail, timestamp
 ENGINE_PARTITION_KEY "toYYYYMM(fromUnixTimestamp64Milli(timestamp))"

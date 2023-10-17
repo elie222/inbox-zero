@@ -74,6 +74,7 @@ async function saveBatch(options: {
           sent: !!parsedEmail.labelIds?.includes("SENT"),
           draft: !!parsedEmail.labelIds?.includes("DRAFT"),
           inbox: !!parsedEmail.labelIds?.includes("INBOX"),
+          sizeEstimate: message.sizeEstimate,
         };
 
         return tinybirdEmail;

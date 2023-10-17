@@ -1,8 +1,8 @@
-VERSION 3
+VERSION 1
 
-NODE get_emails_by_week
+NODE get_inbox_emails_by_week
 DESCRIPTION >
-  Get the number of emails received by week
+  Get the number of inbox/archived emails by week
 
 SQL >
   %
@@ -16,6 +16,7 @@ SQL >
         {% else %}
           toStartOfYear(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
         {% end %}
+        "inbox",
         COUNT(*) as count
     FROM email__v4
     WHERE
@@ -28,5 +29,5 @@ SQL >
         {% if defined(toDate) %}
           AND "timestamp" <= {{ Int64(toDate, 0) }}
         {% end %}
-    GROUP BY startOfPeriod
-    ORDER BY startOfPeriod
+    GROUP BY "startOfPeriod", "inbox"
+    ORDER BY "startOfPeriod"

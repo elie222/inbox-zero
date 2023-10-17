@@ -94,7 +94,7 @@ export function DetailedStats() {
               <AreaChart
                 className="mt-4 h-72"
                 data={data.result}
-                index="week_start"
+                index="startOfPeriod"
                 categories={[
                   visibleBars.all ? "All" : "",
                   visibleBars.read ? "Read" : "",
@@ -107,7 +107,7 @@ export function DetailedStats() {
               <BarChart
                 className="mt-4 h-72"
                 data={data.result}
-                index="week_start"
+                index="startOfPeriod"
                 categories={[
                   visibleBars.all ? "All" : "",
                   visibleBars.read ? "Read" : "",

@@ -7,7 +7,7 @@ const tinybirdEmail = z.object({
   gmailMessageId: z.string(),
   from: z.string(),
   to: z.string(),
-  subject: z.string(),
+  subject: z.string().optional(),
   timestamp: z.number(), // date
   hasUnsubscribe: z.boolean(),
   // labels when email was saved to tinybird
@@ -15,10 +15,11 @@ const tinybirdEmail = z.object({
   sent: z.boolean(),
   draft: z.boolean(),
   inbox: z.boolean(),
+  sizeEstimate: z.number().nullish(), // Estimated size in bytes
 });
 export type TinybirdEmail = z.infer<typeof tinybirdEmail>;
 
 export const publishEmail = tb.buildIngestEndpoint({
-  datasource: "email__v3",
+  datasource: "email__v4",
   event: tinybirdEmail,
 });

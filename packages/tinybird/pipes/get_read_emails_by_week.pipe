@@ -1,4 +1,4 @@
-VERSION 1
+VERSION 2
 
 NODE get_read_emails_by_week
 DESCRIPTION >
@@ -7,13 +7,27 @@ DESCRIPTION >
 SQL >
   %
     SELECT
-        toStartOfWeek(fromUnixTimestamp64Milli(timestamp)) AS week_start,
+        {% if String(period) == "day" %}
+          toStartOfDay(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% elif String(period) == "week" %}
+          toStartOfWeek(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% elif String(period) == "month" %}
+          toStartOfMonth(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% else %}
+          toStartOfYear(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% end %}
         "read",
         COUNT(*) as count
-    FROM email__v3
+    FROM email__v4
     WHERE
         "ownerEmail" = {{ String(ownerEmail) }}
         AND "sent" = 0
         AND "draft" = 0
-    GROUP BY week_start, "read"
-    ORDER BY week_start
+        {% if defined(fromDate) %}
+          AND "timestamp" >= {{ Int64(fromDate, 0) }}
+        {% end %}
+        {% if defined(toDate) %}
+          AND "timestamp" <= {{ Int64(toDate, 0) }}
+        {% end %}
+    GROUP BY startOfPeriod, "read"
+    ORDER BY startOfPeriod
