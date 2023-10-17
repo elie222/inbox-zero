@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWRImmutable from "swr/immutable";
+import { DateRange } from "react-day-picker";
+import { subDays } from "date-fns";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +23,12 @@ export function DetailedStats() {
     read: true,
     unread: true,
     sent: true,
+  });
+
+  const now = useMemo(() => new Date(), []);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(now, 365),
+    to: now,
   });
 
   return (
@@ -77,9 +85,8 @@ export function DetailedStats() {
                     ]}
                   />
                   <DatePickerWithRange
-                    from={new Date()}
-                    to={new Date()}
-                    onSelect={() => {}}
+                    dateRange={dateRange}
+                    onSetDateRange={setDateRange}
                   />
                 </div>
               </div>
