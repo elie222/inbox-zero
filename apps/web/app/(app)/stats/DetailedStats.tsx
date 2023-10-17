@@ -39,7 +39,7 @@ export function DetailedStats() {
                 className="mt-4 h-72"
                 data={data.stats}
                 index="week_start"
-                categories={["count"]}
+                categories={["Emails"]}
                 colors={["blue"]}
               />
             </Card>
