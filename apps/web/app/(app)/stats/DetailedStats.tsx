@@ -4,7 +4,7 @@ import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/Card";
-import { BarChart, Title } from "@tremor/react";
+import { AreaChart, BarChart, Title } from "@tremor/react";
 import { StatsByWeekResponse } from "@/app/api/user/stats/tinybird/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 
@@ -83,6 +83,19 @@ export function DetailedStats() {
                   />
                 </div>
               </div>
+
+              <AreaChart
+                className="mt-4 h-72"
+                data={data.result}
+                index="week_start"
+                categories={[
+                  visibleBars.all ? "All" : "",
+                  visibleBars.read ? "Read" : "",
+                  visibleBars.unread ? "Unread" : "",
+                  visibleBars.sent ? "Sent" : "",
+                ]}
+                colors={["blue", "amber", "cyan", "emerald"]}
+              />
 
               <BarChart
                 className="mt-4 h-72"

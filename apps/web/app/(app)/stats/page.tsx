@@ -27,7 +27,11 @@ export default function StatsPage() {
     <div className="pb-20">
       <StatsSummary />
 
-      <div className="mx-4">
+      <div className="px-4">
+        <EmailAnalytics />
+      </div>
+
+      <div className="mx-4 mt-4">
         <DetailedStats />
       </div>
 
@@ -45,10 +49,6 @@ export default function StatsPage() {
 
       <div className="mt-4 px-4">
         <CombinedStatsChart title="Combined Chart" />
-      </div>
-
-      <div className="mt-4 px-4">
-        <EmailAnalytics />
       </div>
     </div>
   );
