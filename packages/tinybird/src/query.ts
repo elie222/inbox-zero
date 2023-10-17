@@ -1,15 +1,16 @@
 import { z } from "zod";
 import { tb } from "./client";
 
-const zodPeriod = z.enum(["day", "week", "month", "year"]);
+export const zodPeriod = z.enum(["day", "week", "month", "year"]);
+export type ZodPeriod = z.infer<typeof zodPeriod>;
 const zodStartOfPeriod = z.string().transform((t) => new Date(t));
 const zodNumberToBoolean = z.number().transform((t) => t === 1);
 
 const getEmailsParameters = z.object({
   ownerEmail: z.string(),
   period: zodPeriod,
-  fromDate: z.string().optional(),
-  toDate: z.string().optional(),
+  fromDate: z.string().nullish(),
+  toDate: z.string().nullish(),
 });
 
 const getEmailsData = z.object({
