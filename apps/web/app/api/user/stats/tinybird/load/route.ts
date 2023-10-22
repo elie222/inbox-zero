@@ -10,7 +10,7 @@ import { isDefined } from "@/utils/types";
 
 const PAGE_SIZE = 50;
 
-export type PublishAllEmailsResponse = Awaited<
+export type LoadTinybirdEmailsResponse = Awaited<
   ReturnType<typeof publishAllEmails>
 >;
 

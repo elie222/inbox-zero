@@ -21,10 +21,15 @@ import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import { Button } from "@/components/Button";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
+import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 
 export default function StatsPage() {
   return (
     <div className="pb-20">
+      <div className="flex justify-end border-b p-2 shadow">
+        <LoadStatsButton />
+      </div>
+
       <StatsSummary />
 
       <div className="px-4">
