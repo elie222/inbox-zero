@@ -53,6 +53,7 @@ export const getAuthOptions: (options?: {
         // Google sends us refresh_token only on first sign in so we need to save it to the database then
         // On future log ins, we retrieve the refresh_token from the database
         if (account.refresh_token) {
+          console.log("Saving refresh token", token.email);
           await saveRefreshToken(
             {
               access_token: account.access_token,
@@ -85,11 +86,14 @@ export const getAuthOptions: (options?: {
         token.user = user;
 
         return token;
-      } else if (token.expires_at && Date.now() < token.expires_at) {
+      } else if (token.expires_at && Date.now() < token.expires_at * 1000) {
         // If the access token has not expired yet, return it
         return token;
       } else {
         // If the access token has expired, try to refresh it
+        console.log(
+          `Token expired at: ${token.expires_at}. Attempting refresh.`
+        );
         return await refreshAccessToken(token);
       }
     },
@@ -132,6 +136,8 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       error: "RefreshAccessTokenError",
     };
   }
+
+  console.log("Refreshing access token for", token.email);
 
   try {
     const response = await fetch("https://oauth2.googleapis.com/token", {
