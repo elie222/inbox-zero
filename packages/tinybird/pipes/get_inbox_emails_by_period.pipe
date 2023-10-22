@@ -1,4 +1,4 @@
-NODE get_inbox_emails_by_period
+NODE get_inbox_emails
 DESCRIPTION >
   Get the number of inbox/archived emails by period
 

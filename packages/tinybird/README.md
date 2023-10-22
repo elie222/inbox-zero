@@ -49,4 +49,6 @@ tb push datasources/email.datasource
 tb push pipes
 # or:
 tb push pipes/get_emails_by_period.pipe
+# or to force changes:
+tb push pipes --force --no-check
 ```

@@ -272,15 +272,10 @@ function EmailAnalytics() {
             subtitle="Last 50 emails"
             col1="Sender"
             col2="Emails"
-            data={sortBy(
-              Object.entries(data.countBySender),
-              ([, count]) => -count
-            )
-              .slice(0, expanded ? undefined : 5)
-              .map(([sender, count]) => ({
-                name: sender,
-                value: count,
-              }))}
+            data={data.mostActiveSenderEmails.slice(
+              0,
+              expanded ? undefined : 5
+            )}
             extra={extra}
           />
         )}
@@ -296,15 +291,10 @@ function EmailAnalytics() {
             subtitle="Last 50 emails"
             col1="Domain"
             col2="Emails"
-            data={sortBy(
-              Object.entries(data.countByDomain),
-              ([, count]) => -count
-            )
-              .slice(0, expanded ? undefined : 5)
-              .map(([sender, count]) => ({
-                name: sender,
-                value: count,
-              }))}
+            data={data.mostActiveSenderDomains.slice(
+              0,
+              expanded ? undefined : 5
+            )}
             extra={extra}
           />
         )}
@@ -320,15 +310,10 @@ function EmailAnalytics() {
             subtitle="Last 50 emails"
             col1="Recipient"
             col2="Emails"
-            data={sortBy(
-              Object.entries(dataRecipients.countByRecipient),
-              ([, count]) => -count
-            )
-              .slice(0, expanded ? undefined : 5)
-              .map(([sender, count]) => ({
-                name: sender,
-                value: count,
-              }))}
+            data={dataRecipients.mostActiveRecipientEmails.slice(
+              0,
+              expanded ? undefined : 5
+            )}
             extra={extra}
           />
         )}

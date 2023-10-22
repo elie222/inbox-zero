@@ -1,4 +1,4 @@
-NODE get_sent_emails_by_period
+NODE get_sent_emails
 DESCRIPTION >
   Get the number of sent emails by period
 

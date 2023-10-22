@@ -41,3 +41,57 @@ export const getInboxEmailsByPeriod = tb.buildPipe({
   parameters: getEmailsParameters,
   data: getEmailsData.merge(z.object({ inbox: zodNumberToBoolean })),
 });
+
+export const getMostReceivedFrom = tb.buildPipe({
+  pipe: "most_received_from",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    limit: z.number().nullish(),
+    fromDate: z.number().nullish(),
+    toDate: z.number().nullish(),
+  }),
+  data: z.object({
+    from: z.string(),
+    count: z.number(),
+  }),
+});
+export const getMostSentTo = tb.buildPipe({
+  pipe: "most_sent_to",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    limit: z.number().nullish(),
+    fromDate: z.number().nullish(),
+    toDate: z.number().nullish(),
+  }),
+  data: z.object({
+    to: z.string(),
+    count: z.number(),
+  }),
+});
+
+export const getDomainsMostReceivedFrom = tb.buildPipe({
+  pipe: "get_popular_senders_domains",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    limit: z.number().nullish(),
+    fromDate: z.number().nullish(),
+    toDate: z.number().nullish(),
+  }),
+  data: z.object({
+    from: z.string(),
+    count: z.number(),
+  }),
+});
+export const getDomainsMostSentTo = tb.buildPipe({
+  pipe: "get_popular_recipients_domains",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    limit: z.number().nullish(),
+    fromDate: z.number().nullish(),
+    toDate: z.number().nullish(),
+  }),
+  data: z.object({
+    to: z.string(),
+    count: z.number(),
+  }),
+});

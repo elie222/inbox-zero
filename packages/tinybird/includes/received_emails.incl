@@ -1,0 +1,8 @@
+NODE received_emails
+DESCRIPTION >
+  Filter received emails for user.
+
+SQL >
+  %
+    SELECT "from" FROM email
+    WHERE sent = false AND draft = false AND ownerEmail = {{ String(ownerEmail) }}

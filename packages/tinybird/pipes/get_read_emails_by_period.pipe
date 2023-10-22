@@ -1,4 +1,4 @@
-NODE get_read_emails_by_period
+NODE get_read_emails
 DESCRIPTION >
   Get the number of read/unread emails by period
 

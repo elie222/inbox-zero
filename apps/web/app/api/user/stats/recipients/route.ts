@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import countBy from "lodash/countBy";
+import sortBy from "lodash/sortBy";
 import { gmail_v1 } from "googleapis";
 import { getAuthSession } from "@/utils/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { parseDomain } from "@/app/api/user/stats/senders/route";
+import { getDomainsMostSentTo, getMostSentTo } from "@inboxzero/tinybird";
 
 export type RecipientsResponse = Awaited<ReturnType<typeof getRecipients>>;
 
@@ -35,9 +37,45 @@ async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
   const countByDomain = countBy(messages, (m) =>
     parseDomain(m.parsedMessage.headers.to)
   );
-  return { countByRecipient, countByDomain };
 
-  // TODO store results in redis with history id?
+  const mostActiveRecipientEmails = sortBy(
+    Object.entries(countByRecipient),
+    ([, count]) => -count
+  ).map(([recipient, count]) => ({
+    name: recipient,
+    value: count,
+  }));
+
+  const mostActiveRecipientDomains = sortBy(
+    Object.entries(countByDomain),
+    ([, count]) => -count
+  ).map(([recipient, count]) => ({
+    name: recipient,
+    value: count,
+  }));
+
+  return { mostActiveRecipientEmails, mostActiveRecipientDomains };
+}
+
+async function getRecipientsTinybird(options: {
+  ownerEmail: string;
+}): Promise<RecipientsResponse> {
+  const { ownerEmail } = options;
+  const [mostReceived, mostReceivedDomains] = await Promise.all([
+    getMostSentTo({ ownerEmail }),
+    getDomainsMostSentTo({ ownerEmail }),
+  ]);
+
+  return {
+    mostActiveRecipientEmails: mostReceived.data.map((d) => ({
+      name: d.to,
+      value: d.count,
+    })),
+    mostActiveRecipientDomains: mostReceivedDomains.data.map((d) => ({
+      name: d.to,
+      value: d.count,
+    })),
+  };
 }
 
 export async function GET() {
@@ -46,7 +84,10 @@ export async function GET() {
 
   const gmail = getGmailClient(session);
 
-  const result = await getRecipients({ gmail });
+  // const result = await getRecipients({ gmail });
+  const result = await getRecipientsTinybird({
+    ownerEmail: session.user.email,
+  });
 
   return NextResponse.json(result);
 }
