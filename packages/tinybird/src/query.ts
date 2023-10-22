@@ -9,8 +9,8 @@ const zodNumberToBoolean = z.number().transform((t) => t === 1);
 const getEmailsParameters = z.object({
   ownerEmail: z.string(),
   period: zodPeriod,
-  fromDate: z.string().nullish(),
-  toDate: z.string().nullish(),
+  fromDate: z.number().nullish(),
+  toDate: z.number().nullish(),
 });
 
 const getEmailsData = z.object({

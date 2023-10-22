@@ -1,28 +1,40 @@
 import { useMemo, useState } from "react";
-import useSWRImmutable from "swr/immutable";
+import useSWR from "swr";
 import { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/Card";
-import { AreaChart, BarChart, Title } from "@tremor/react";
-import { StatsByWeekResponse } from "@/app/api/user/stats/tinybird/route";
+import { AreaChart, Title } from "@tremor/react";
+import {
+  StatsByWeekResponse,
+  StatsByWeekParams,
+} from "@/app/api/user/stats/tinybird/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 
-export function DetailedStats() {
-  const { data, isLoading, error } = useSWRImmutable<
-    StatsByWeekResponse,
-    { error: string }
-  >("/api/user/stats/tinybird");
+const selectOptions = [
+  { label: "Last week", value: "7" },
+  { label: "Last month", value: "30" },
+  { label: "Last 3 months", value: "90" },
+  { label: "Last year", value: "365" },
+  { label: "All", value: "0" },
+  { label: "Custom", value: "custom" },
+];
 
+export function DetailedStats() {
   const [visibleBars, setVisibleBars] = useState<
-    Record<"all" | "read" | "unread" | "sent", boolean>
+    Record<
+      "all" | "read" | "unread" | "sent" | "archived" | "unarchived",
+      boolean
+    >
   >({
     all: true,
     read: true,
     unread: true,
     sent: true,
+    archived: true,
+    unarchived: true,
   });
 
   const now = useMemo(() => new Date(), []);
@@ -30,6 +42,16 @@ export function DetailedStats() {
     from: subDays(now, 365),
     to: now,
   });
+
+  const params: StatsByWeekParams = {
+    period: "week",
+    fromDate: dateRange?.from ? +dateRange?.from : undefined,
+    toDate: dateRange?.to ? +dateRange?.to : undefined,
+  };
+  const { data, isLoading, error } = useSWR<
+    StatsByWeekResponse,
+    { error: string }
+  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`);
 
   return (
     <LoadingContent
@@ -74,6 +96,24 @@ export function DetailedStats() {
                           }),
                       },
                       {
+                        label: "Unarchived",
+                        checked: visibleBars.unarchived,
+                        setChecked: () =>
+                          setVisibleBars({
+                            ...visibleBars,
+                            ["unarchived"]: !visibleBars.unarchived,
+                          }),
+                      },
+                      {
+                        label: "Archived",
+                        checked: visibleBars.archived,
+                        setChecked: () =>
+                          setVisibleBars({
+                            ...visibleBars,
+                            ["archived"]: !visibleBars.archived,
+                          }),
+                      },
+                      {
                         label: "Sent",
                         checked: visibleBars.sent,
                         setChecked: () =>
@@ -85,6 +125,14 @@ export function DetailedStats() {
                     ]}
                   />
                   <DatePickerWithRange
+                    selectOptions={selectOptions}
+                    onSetSelectValue={(value) => {
+                      const days = parseInt(value);
+
+                      if (days === 0) setDateRange(undefined);
+                      if (days)
+                        setDateRange({ from: subDays(now, days), to: now });
+                    }}
                     dateRange={dateRange}
                     onSetDateRange={setDateRange}
                   />
@@ -99,22 +147,11 @@ export function DetailedStats() {
                   visibleBars.all ? "All" : "",
                   visibleBars.read ? "Read" : "",
                   visibleBars.unread ? "Unread" : "",
+                  visibleBars.unarchived ? "Unarchived" : "",
+                  visibleBars.archived ? "Archived" : "",
                   visibleBars.sent ? "Sent" : "",
                 ]}
-                colors={["blue", "amber", "cyan", "emerald"]}
-              />
-
-              <BarChart
-                className="mt-4 h-72"
-                data={data.result}
-                index="startOfPeriod"
-                categories={[
-                  visibleBars.all ? "All" : "",
-                  visibleBars.read ? "Read" : "",
-                  visibleBars.unread ? "Unread" : "",
-                  visibleBars.sent ? "Sent" : "",
-                ]}
-                colors={["blue", "amber", "cyan", "emerald"]}
+                colors={["blue", "amber", "cyan", "emerald", "lime", "orange"]}
               />
             </Card>
           </div>
