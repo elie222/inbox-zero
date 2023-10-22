@@ -5,4 +5,12 @@ DESCRIPTION >
 SQL >
   %
     SELECT "from" FROM email
-    WHERE sent = false AND draft = false AND ownerEmail = {{ String(ownerEmail) }}
+    WHERE sent = false
+      AND draft = false
+      AND ownerEmail = {{ String(ownerEmail) }}
+      {% if defined(fromDate) %}
+        AND "timestamp" >= {{ Int64(fromDate) }}
+      {% end %}
+      {% if defined(toDate) %}
+        AND "timestamp" <= {{ Int64(toDate) }}
+      {% end %}

@@ -1,0 +1,34 @@
+NODE filter_newsletters
+DESCRIPTION >
+    Filter by all newsletters and marketing emails
+
+SQL >
+    %
+    SELECT *
+    FROM email
+    WHERE
+        "hasUnsubscribe" = true
+        AND "sent" = false
+        AND "draft" = false
+        AND "ownerEmail" = {{ String(ownerEmail) }}
+        {% if defined(fromDate) %}
+          AND "timestamp" >= {{ Int64(fromDate) }}
+        {% end %}
+        {% if defined(toDate) %}
+          AND "timestamp" <= {{ Int64(toDate) }}
+        {% end %}
+
+NODE newsletter_counts
+DESCRIPTION >
+    Count newsletters by sender
+
+SQL >
+    %
+    SELECT "from",
+        COUNT(*) as count,
+        SUM(CASE WHEN "read" = 0 THEN 1 ELSE 0 END) AS readEmails,
+        SUM(CASE WHEN "inbox" = 1 THEN 1 ELSE 0 END) AS inboxEmails
+    FROM filter_newsletters
+    GROUP BY "from"
+    ORDER BY count DESC
+    LIMIT {{ Int64(limit, 50) }}

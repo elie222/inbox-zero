@@ -18,10 +18,11 @@ import {
 import { BarList } from "@/components/charts/BarList";
 import { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
-import { Button } from "@/components/Button";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
+import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
+import { useExpanded } from "@/app/(app)/stats/useExpanded";
 
 export default function StatsPage() {
   return (
@@ -251,18 +252,7 @@ function EmailAnalytics() {
     `/api/user/stats/categories`
   );
 
-  const [expanded, setExpanded] = useState(false);
-
-  const onExpand = useCallback(() => setExpanded(true), []);
-
-  const extra = !expanded && (
-    <div className="mt-2">
-      <Button color="white" full onClick={onExpand}>
-        <ExpandIcon className="h-4 w-4" />
-        <span className="ml-3">Show more</span>
-      </Button>
-    </div>
-  );
+  const { expanded, extra } = useExpanded();
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
@@ -350,6 +340,9 @@ function EmailAnalytics() {
           />
         )}
       </LoadingContent>
+      <div className="col-span-4">
+        <NewsletterStats />
+      </div>
     </div>
   );
 }
