@@ -7,6 +7,7 @@ import { StatsChart } from "@/app/(app)/stats/StatsChart";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
 import { CombinedStatsChart } from "@/app/(app)/stats/CombinedStatsChart";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
+import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
 
 export default function StatsPage() {
   return (
@@ -23,6 +24,10 @@ export default function StatsPage() {
 
       <div className="mx-4 mt-4">
         <DetailedStats />
+      </div>
+
+      <div className="mt-4">
+        <NewsletterStats />
       </div>
 
       <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">

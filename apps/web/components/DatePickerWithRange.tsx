@@ -14,23 +14,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 export function DatePickerWithRange({
   className,
-  selectOptions,
-  onSetSelectValue,
   dateRange,
   onSetDateRange,
 }: React.HTMLAttributes<HTMLDivElement> & {
-  selectOptions?: { value: string; label: string }[];
-  onSetSelectValue?: (value: string) => void;
   dateRange?: DateRange;
   onSetDateRange: (dateRange?: DateRange) => void;
 }) {
@@ -62,23 +50,6 @@ export function DatePickerWithRange({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          {!!selectOptions?.length && (
-            <div className="p-2">
-              <Select onValueChange={onSetSelectValue}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Date range" />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {selectOptions?.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           <Calendar
             initialFocus
             mode="range"

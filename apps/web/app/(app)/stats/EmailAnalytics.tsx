@@ -1,7 +1,6 @@
 import { capitalCase } from "capital-case";
 import { sortBy } from "lodash";
 import useSWRImmutable from "swr/immutable";
-import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
 import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
@@ -118,9 +117,6 @@ export function EmailAnalytics() {
           />
         )}
       </LoadingContent>
-      <div className="col-span-4">
-        <NewsletterStats />
-      </div>
     </div>
   );
 }
