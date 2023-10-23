@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getAuthSession } from "@/utils/auth";
 import { getLargestEmails } from "@inboxzero/tinybird";
 
-export const largestEmailsQuery = z.object({
+const largestEmailsQuery = z.object({
   limit: z.number().nullish(),
   fromDate: z.number().nullish(),
   toDate: z.number().nullish(),

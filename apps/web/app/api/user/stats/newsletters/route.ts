@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getAuthSession } from "@/utils/auth";
 import { getNewsletterCounts } from "@inboxzero/tinybird";
 
-export const newsletterStatsQuery = z.object({
+const newsletterStatsQuery = z.object({
   limit: z.number().nullish(),
   fromDate: z.number().nullish(),
   toDate: z.number().nullish(),
