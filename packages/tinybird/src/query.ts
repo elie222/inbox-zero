@@ -111,3 +111,20 @@ export const getNewsletterCounts = tb.buildPipe({
     inboxEmails: z.number(),
   }),
 });
+
+export const getLargestEmails = tb.buildPipe({
+  pipe: "largest_emails",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    limit: z.number().nullish(),
+    fromDate: z.number().nullish(),
+    toDate: z.number().nullish(),
+  }),
+  data: z.object({
+    gmailMessageId: z.string(),
+    from: z.string(),
+    subject: z.string(),
+    timestamp: z.number(),
+    sizeEstimate: z.number().transform((t) => t ?? 0),
+  }),
+});

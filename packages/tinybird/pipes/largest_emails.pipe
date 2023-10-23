@@ -1,0 +1,20 @@
+NODE find_largest_emails
+DESCRIPTION >
+    Find largest emails in a mailbox.
+
+SQL >
+  %
+    SELECT *
+    FROM email
+    WHERE
+        sent = 0
+        AND draft = 0
+        AND "ownerEmail" = {{ String(ownerEmail) }}
+        {% if defined(fromDate) %}
+            AND "timestamp" >= {{ Int64(fromDate) }}
+        {% end %}
+        {% if defined(toDate) %}
+          AND "timestamp" <= {{ Int64(toDate) }}
+      {% end %}
+    ORDER BY sizeEstimate DESC
+    LIMIT {{ Int64(limit, 50) }}
