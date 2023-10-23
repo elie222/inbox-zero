@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { AreaChart, Title } from "@tremor/react";
-import { FilterIcon, GanttChartIcon } from "lucide-react";
+import { FilterIcon, GanttChartIcon, Tally3Icon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
@@ -69,33 +69,7 @@ export function DetailedStats() {
                 <Title>Detailed Analytics</Title>
                 <div className="flex space-x-2">
                   <DetailedStatsFilter
-                    label="Period"
-                    icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
-                    columns={[
-                      {
-                        label: "Day",
-                        checked: period === "day",
-                        setChecked: () => setPeriod("day"),
-                      },
-                      {
-                        label: "Week",
-                        checked: period === "week",
-                        setChecked: () => setPeriod("week"),
-                      },
-                      {
-                        label: "Month",
-                        checked: period === "month",
-                        setChecked: () => setPeriod("month"),
-                      },
-                      {
-                        label: "Year",
-                        checked: period === "year",
-                        setChecked: () => setPeriod("year"),
-                      },
-                    ]}
-                  />
-                  <DetailedStatsFilter
-                    label="Filter"
+                    label="Type"
                     icon={<FilterIcon className="mr-2 h-4 w-4" />}
                     columns={[
                       {
@@ -151,6 +125,32 @@ export function DetailedStats() {
                             ...visibleBars,
                             ["sent"]: !visibleBars.sent,
                           }),
+                      },
+                    ]}
+                  />
+                  <DetailedStatsFilter
+                    label={`By ${period}`}
+                    icon={<Tally3Icon className="mr-2 h-4 w-4" />}
+                    columns={[
+                      {
+                        label: "Day",
+                        checked: period === "day",
+                        setChecked: () => setPeriod("day"),
+                      },
+                      {
+                        label: "Week",
+                        checked: period === "week",
+                        setChecked: () => setPeriod("week"),
+                      },
+                      {
+                        label: "Month",
+                        checked: period === "month",
+                        setChecked: () => setPeriod("month"),
+                      },
+                      {
+                        label: "Year",
+                        checked: period === "year",
+                        setChecked: () => setPeriod("year"),
                       },
                     ]}
                   />

@@ -107,7 +107,6 @@ export async function GET(request: Request) {
     fromDate: searchParams.get("fromDate"),
     toDate: searchParams.get("toDate"),
   });
-  console.log("🚀 ~ file: route.ts:110 ~ GET ~ query:", query);
 
   // const result = await getSenders({ gmail });
   const result = await getSendersTinybird({
