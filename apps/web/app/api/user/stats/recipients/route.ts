@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import countBy from "lodash/countBy";
 import sortBy from "lodash/sortBy";
 import { gmail_v1 } from "googleapis";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/gmail/client";
+// import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { parseDomain } from "@/app/api/user/stats/senders/route";
-import { getDomainsMostSentTo, getMostSentTo } from "@inboxzero/tinybird";
+import {
+  getDomainsMostSentTo,
+  getMostSentTo,
+  zodPeriod,
+} from "@inboxzero/tinybird";
 
+const recipientStatsQuery = z.object({
+  period: zodPeriod,
+  fromDate: z.coerce.number().nullish(),
+  toDate: z.coerce.number().nullish(),
+});
+export type RecipientStatsQuery = z.infer<typeof recipientStatsQuery>;
 export type RecipientsResponse = Awaited<ReturnType<typeof getRecipients>>;
 
 async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
@@ -57,13 +68,14 @@ async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
   return { mostActiveRecipientEmails, mostActiveRecipientDomains };
 }
 
-async function getRecipientsTinybird(options: {
-  ownerEmail: string;
-}): Promise<RecipientsResponse> {
-  const { ownerEmail } = options;
+async function getRecipientsTinybird(
+  options: RecipientStatsQuery & {
+    ownerEmail: string;
+  }
+): Promise<RecipientsResponse> {
   const [mostReceived, mostReceivedDomains] = await Promise.all([
-    getMostSentTo({ ownerEmail }),
-    getDomainsMostSentTo({ ownerEmail }),
+    getMostSentTo(options),
+    getDomainsMostSentTo(options),
   ]);
 
   return {
@@ -78,15 +90,23 @@ async function getRecipientsTinybird(options: {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
-  const gmail = getGmailClient(session);
+  // const gmail = getGmailClient(session);
+
+  const { searchParams } = new URL(request.url);
+  const query = recipientStatsQuery.parse({
+    period: searchParams.get("period") || "week",
+    fromDate: searchParams.get("fromDate"),
+    toDate: searchParams.get("toDate"),
+  });
 
   // const result = await getRecipients({ gmail });
   const result = await getRecipientsTinybird({
     ownerEmail: session.user.email,
+    ...query,
   });
 
   return NextResponse.json(result);

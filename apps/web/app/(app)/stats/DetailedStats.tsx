@@ -149,9 +149,15 @@ export function DetailedStats() {
                   visibleBars.unread ? "Unread" : "",
                   visibleBars.unarchived ? "Unarchived" : "",
                   visibleBars.archived ? "Archived" : "",
-                  visibleBars.sent ? "Sent" : "",
                 ]}
-                colors={["blue", "amber", "cyan", "emerald", "lime", "orange"]}
+                colors={["blue", "amber", "cyan", "emerald", "lime"]}
+              />
+              <AreaChart
+                className="mt-4 h-72"
+                data={data.result}
+                index="startOfPeriod"
+                categories={[visibleBars.sent ? "Sent" : ""]}
+                colors={["orange"]}
               />
             </Card>
           </div>

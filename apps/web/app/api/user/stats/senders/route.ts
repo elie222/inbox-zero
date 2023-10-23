@@ -1,16 +1,24 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
 import countBy from "lodash/countBy";
 import sortBy from "lodash/sortBy";
 import { getAuthSession } from "@/utils/auth";
-import { getGmailClient } from "@/utils/gmail/client";
+// import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import {
   getDomainsMostReceivedFrom,
   getMostReceivedFrom,
+  zodPeriod,
 } from "@inboxzero/tinybird";
 
+const senderStatsQuery = z.object({
+  period: zodPeriod,
+  fromDate: z.coerce.number().nullish(),
+  toDate: z.coerce.number().nullish(),
+});
+export type SenderStatsQuery = z.infer<typeof senderStatsQuery>;
 export type SendersResponse = Awaited<ReturnType<typeof getSenders>>;
 
 async function getSenders(options: { gmail: gmail_v1.Gmail }) {
@@ -59,13 +67,20 @@ async function getSenders(options: { gmail: gmail_v1.Gmail }) {
   return { mostActiveSenderEmails, mostActiveSenderDomains };
 }
 
-async function getSendersTinybird(options: {
-  ownerEmail: string;
-}): Promise<SendersResponse> {
-  const { ownerEmail } = options;
+// Converts "Name <hey@domain.com>" to "domain.com"
+export function parseDomain(email: string) {
+  const domain = email.match(/@([\w.-]+\.[a-zA-Z]{2,6})/)?.[1];
+  return domain;
+}
+
+async function getSendersTinybird(
+  options: SenderStatsQuery & {
+    ownerEmail: string;
+  }
+): Promise<SendersResponse> {
   const [mostSent, mostSentDomains] = await Promise.all([
-    getMostReceivedFrom({ ownerEmail }),
-    getDomainsMostReceivedFrom({ ownerEmail }),
+    getMostReceivedFrom(options),
+    getDomainsMostReceivedFrom(options),
   ]);
 
   return {
@@ -80,21 +95,24 @@ async function getSendersTinybird(options: {
   };
 }
 
-// Converts "Name <hey@domain.com>" to "domain.com"
-export function parseDomain(email: string) {
-  const domain = email.match(/@([\w.-]+\.[a-zA-Z]{2,6})/)?.[1];
-  return domain;
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
-  const gmail = getGmailClient(session);
+  // const gmail = getGmailClient(session);
+
+  const { searchParams } = new URL(request.url);
+  const query = senderStatsQuery.parse({
+    period: searchParams.get("period") || "week",
+    fromDate: searchParams.get("fromDate"),
+    toDate: searchParams.get("toDate"),
+  });
+  console.log("🚀 ~ file: route.ts:110 ~ GET ~ query:", query);
 
   // const result = await getSenders({ gmail });
   const result = await getSendersTinybird({
     ownerEmail: session.user.email,
+    ...query,
   });
 
   return NextResponse.json(result);
