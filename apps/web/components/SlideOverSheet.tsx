@@ -38,7 +38,6 @@ export function SlideOverSheet(props: {
           e.preventDefault();
         }}
         onEscapeKeyDown={close}
-        onClose={close}
       >
         <SheetHeader>
           <SheetTitle>{props.title}</SheetTitle>
