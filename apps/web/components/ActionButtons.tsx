@@ -9,6 +9,7 @@ import {
 import { OrbitIcon } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { getGmailUrl } from "@/utils/url";
 
 export function ActionButtons(props: {
   threadId: string;

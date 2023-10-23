@@ -18,6 +18,7 @@ import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
 import { Button } from "@/components/Button";
+import { getGmailUrl } from "@/utils/url";
 
 export function LargestEmails() {
   const session = useSession();
