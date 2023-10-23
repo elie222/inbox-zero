@@ -1,0 +1,35 @@
+NODE get_emails
+DESCRIPTION >
+  Get the number of emails received by period
+
+SQL >
+  %
+    SELECT
+        {% if String(period) == "day" %}
+          toStartOfDay(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% elif String(period) == "week" %}
+          toStartOfWeek(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% elif String(period) == "month" %}
+          toStartOfMonth(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% else %}
+          toStartOfYear(fromUnixTimestamp64Milli(timestamp)) AS "startOfPeriod",
+        {% end %}
+        COUNT(*) as count
+    FROM email
+    WHERE
+        "ownerEmail" = {{ String(ownerEmail) }}
+        AND "sent" = 0
+        AND "draft" = 0
+        {% if defined(fromDate) %}
+          AND "timestamp" >= {{ Int64(fromDate, 0) }}
+        {% end %}
+        {% if defined(toDate) %}
+          AND "timestamp" <= {{ Int64(toDate, 0) }}
+        {% end %}
+    GROUP BY startOfPeriod
+    ORDER BY startOfPeriod
+    {% if String(period) == "day" %}
+        WITH FILL STEP 86400
+    {% elif String(period) == "week" %}
+        WITH FILL STEP 7
+    {% end %}

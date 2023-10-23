@@ -16,6 +16,8 @@ export const env = createEnv({
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
     LEMON_SQUEEZY_API_SECRET: z.string(),
     LEMON_SQUEEZY_SIGNING_SECRET: z.string(),
+    TINYBIRD_TOKEN: z.string(),
+    TINYBIRD_BASE_URL: z.string(),
   },
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),

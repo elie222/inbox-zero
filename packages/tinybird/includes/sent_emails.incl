@@ -1,0 +1,16 @@
+NODE sent_emails
+DESCRIPTION >
+  Filter sent emails for user.
+
+SQL >
+  %
+    SELECT "to" FROM email
+    WHERE sent = true
+      AND draft = false
+      AND ownerEmail = {{ String(ownerEmail) }}
+      {% if defined(fromDate) %}
+        AND "timestamp" >= {{ Int64(fromDate) }}
+      {% end %}
+      {% if defined(toDate) %}
+        AND "timestamp" <= {{ Int64(toDate) }}
+      {% end %}

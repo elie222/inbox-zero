@@ -43,3 +43,7 @@ next-env.d.ts
 .turbo
 dist
 .next
+
+# tinybird
+.tinyb
+.venv

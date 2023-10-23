@@ -9,6 +9,7 @@ import {
 import { OrbitIcon } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { getGmailUrl } from "@/utils/url";
 
 export function ActionButtons(props: {
   threadId: string;
@@ -36,7 +37,7 @@ export function ActionButtons(props: {
 
   const openInGmail = useCallback(() => {
     // open in gmail
-    const url = `https://mail.google.com/mail/u/${email || 0}/#all/${threadId}`;
+    const url = getGmailUrl(threadId, email);
     window.open(url, "_blank");
   }, [threadId, email]);
 
