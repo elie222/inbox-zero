@@ -1,6 +1,5 @@
 import useSWRImmutable from "swr/immutable";
 import {
-  Button,
   Card,
   Table,
   TableBody,
@@ -11,14 +10,18 @@ import {
   Title,
 } from "@tremor/react";
 import truncate from "lodash/truncate";
+import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
+import { Button } from "@/components/Button";
 
 export function LargestEmails() {
+  const session = useSession();
+
   const { data, isLoading, error } = useSWRImmutable<
     LargestEmailsResponse,
     { error: string }
@@ -65,7 +68,17 @@ export function LargestEmails() {
                         {bytesToMegabytes(item.sizeEstimate).toFixed(1)} MB
                       </TableCell>
                       <TableCell>
-                        <Button size="xs" variant="secondary" color="blue">
+                        <Button
+                          size="sm"
+                          color="primary"
+                          link={{
+                            href: getGmailUrl(
+                              item.gmailMessageId,
+                              session.data?.user.email
+                            ),
+                            target: "_blank",
+                          }}
+                        >
                           View
                         </Button>
                       </TableCell>
