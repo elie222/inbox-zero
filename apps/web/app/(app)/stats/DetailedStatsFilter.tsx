@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { DropdownMenuCheckboxItemProps } from "@radix-ui/react-dropdown-menu";
-import { FilterIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,6 +13,8 @@ import {
 type Checked = DropdownMenuCheckboxItemProps["checked"];
 
 export function DetailedStatsFilter(props: {
+  label: string;
+  icon: React.ReactNode;
   columns: {
     label: string;
     checked: Checked;
@@ -28,8 +29,8 @@ export function DetailedStatsFilter(props: {
           size="sm"
           className="ml-auto hidden h-10 lg:flex"
         >
-          <FilterIcon className="mr-2 h-4 w-4" />
-          Filter
+          {props.icon}
+          {props.label}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[150px]">
@@ -39,7 +40,7 @@ export function DetailedStatsFilter(props: {
               key={column.label}
               className="capitalize"
               checked={column.checked}
-              onCheckedChange={(value) => column.setChecked(!!value)}
+              onCheckedChange={column.setChecked}
             >
               {column.label}
             </DropdownMenuCheckboxItem>

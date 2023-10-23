@@ -12,6 +12,7 @@ import {
   StatsByWeekParams,
 } from "@/app/api/user/stats/tinybird/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
+import { FilterIcon, GanttChartIcon } from "lucide-react";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -36,6 +37,9 @@ export function DetailedStats() {
     archived: true,
     unarchived: true,
   });
+  const [period, setPeriod] = useState<"day" | "week" | "month" | "year">(
+    "week"
+  );
 
   const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -44,7 +48,7 @@ export function DetailedStats() {
   });
 
   const params: StatsByWeekParams = {
-    period: "week",
+    period,
     fromDate: dateRange?.from ? +dateRange?.from : undefined,
     toDate: dateRange?.to ? +dateRange?.to : undefined,
   };
@@ -67,6 +71,34 @@ export function DetailedStats() {
                 <Title>Detailed Analytics</Title>
                 <div className="flex space-x-2">
                   <DetailedStatsFilter
+                    label="Period"
+                    icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
+                    columns={[
+                      {
+                        label: "Day",
+                        checked: period === "day",
+                        setChecked: () => setPeriod("day"),
+                      },
+                      {
+                        label: "Week",
+                        checked: period === "week",
+                        setChecked: () => setPeriod("week"),
+                      },
+                      {
+                        label: "Month",
+                        checked: period === "month",
+                        setChecked: () => setPeriod("month"),
+                      },
+                      {
+                        label: "Year",
+                        checked: period === "year",
+                        setChecked: () => setPeriod("year"),
+                      },
+                    ]}
+                  />
+                  <DetailedStatsFilter
+                    label="Filter"
+                    icon={<FilterIcon className="mr-2 h-4 w-4" />}
                     columns={[
                       {
                         label: "All",
