@@ -1,6 +1,6 @@
-import { ExpandIcon } from "lucide-react";
+import { ChevronsDownIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 
 export const useExpanded = () => {
   const [expanded, setExpanded] = useState(false);
@@ -10,9 +10,14 @@ export const useExpanded = () => {
     return (
       !expanded && (
         <div className="mt-2">
-          <Button color="white" full onClick={onExpand}>
-            <ExpandIcon className="h-4 w-4" />
-            <span className="ml-3">Show more</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExpand}
+            className="w-full"
+          >
+            <ChevronsDownIcon className="h-4 w-4" />
+            <span className="ml-2">Show more</span>
           </Button>
         </div>
       )
