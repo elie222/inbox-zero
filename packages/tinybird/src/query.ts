@@ -103,6 +103,7 @@ export const getNewsletterCounts = tb.buildPipe({
     limit: z.number().nullish(),
     fromDate: z.number().nullish(),
     toDate: z.number().nullish(),
+    orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
   }),
   data: z.object({
     from: z.string(),

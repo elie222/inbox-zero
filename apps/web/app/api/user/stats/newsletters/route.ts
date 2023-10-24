@@ -7,6 +7,7 @@ const newsletterStatsQuery = z.object({
   limit: z.number().nullish(),
   fromDate: z.number().nullish(),
   toDate: z.number().nullish(),
+  orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
     limit: searchParams.get("limit"),
     fromDate: searchParams.get("fromDate"),
     toDate: searchParams.get("toDate"),
+    orderBy: searchParams.get("orderBy"),
   });
 
   const result = await getNewslettersTinybird({

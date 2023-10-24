@@ -1,6 +1,6 @@
+import React, { useState } from "react";
 import useSWRImmutable from "swr/immutable";
 import {
-  Button,
   Card,
   ProgressBar,
   Table,
@@ -11,16 +11,21 @@ import {
   TableRow,
   Title,
 } from "@tremor/react";
+import { ArrowDownIcon, ChevronDown, ChevronsUpDownIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
+import { Button } from "@/components/ui/button";
 
 export function NewsletterStats() {
+  const [sortColumn, setSortColumn] = useState<
+    "emails" | "unread" | "unarchived"
+  >("emails");
   const { data, isLoading, error } = useSWRImmutable<
     NewsletterStatsResponse,
     { error: string }
-  >(`/api/user/stats/newsletters`);
+  >(`/api/user/stats/newsletters?orderBy=${sortColumn}`);
 
   const { expanded, extra } = useExpanded();
 
@@ -36,11 +41,34 @@ export function NewsletterStats() {
           <Table className="mt-6">
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Newsletter</TableHeaderCell>
-                <TableHeaderCell>Emails</TableHeaderCell>
-                <TableHeaderCell>Read</TableHeaderCell>
-                <TableHeaderCell>Archived</TableHeaderCell>
-                <TableHeaderCell>Unsubscribe</TableHeaderCell>
+                <TableHeaderCell>
+                  <span className="text-sm font-medium">Newsletter</span>
+                </TableHeaderCell>
+                <TableHeaderCell>
+                  <HeaderButton
+                    sorted={sortColumn === "emails"}
+                    onClick={() => setSortColumn("emails")}
+                  >
+                    Emails
+                  </HeaderButton>
+                </TableHeaderCell>
+                <TableHeaderCell>
+                  <HeaderButton
+                    sorted={sortColumn === "unread"}
+                    onClick={() => setSortColumn("unread")}
+                  >
+                    Read
+                  </HeaderButton>
+                </TableHeaderCell>
+                <TableHeaderCell>
+                  <HeaderButton
+                    sorted={sortColumn === "unarchived"}
+                    onClick={() => setSortColumn("unarchived")}
+                  >
+                    Archived
+                  </HeaderButton>
+                </TableHeaderCell>
+                <TableHeaderCell></TableHeaderCell>
                 {/* <TableHeaderCell>Auto label and archive</TableHeaderCell> */}
               </TableRow>
             </TableHead>
@@ -79,9 +107,8 @@ export function NewsletterStats() {
                       </TableCell>
                       <TableCell>
                         <Button
-                          size="xs"
+                          size="sm"
                           variant="secondary"
-                          color="blue"
                           disabled={!item.lastUnsubscribeLink}
                           onClick={() =>
                             window.open(item.lastUnsubscribeLink, "_blank")
@@ -109,5 +136,27 @@ export function NewsletterStats() {
         </Card>
       )}
     </LoadingContent>
+  );
+}
+
+function HeaderButton(props: {
+  children: React.ReactNode;
+  sorted: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="data-[state=open]:bg-accent -ml-3 h-8"
+      onClick={props.onClick}
+    >
+      <span>{props.children}</span>
+      {props.sorted ? (
+        <ChevronDown className="ml-2 h-4 w-4" />
+      ) : (
+        <ChevronsUpDownIcon className="ml-2 h-4 w-4" />
+      )}
+    </Button>
   );
 }

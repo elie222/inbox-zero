@@ -26,7 +26,7 @@ export default function StatsPage() {
         <DetailedStats />
       </div>
 
-      <div className="mt-4">
+      <div className="mx-4 mt-4">
         <NewsletterStats />
       </div>
 

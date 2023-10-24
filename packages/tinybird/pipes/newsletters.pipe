@@ -26,10 +26,17 @@ SQL >
     %
     SELECT "from",
         COUNT(*) as count,
-        SUM(CASE WHEN "read" = 0 THEN 1 ELSE 0 END) AS readEmails,
+        SUM(CASE WHEN "read" = 1 THEN 1 ELSE 0 END) AS readEmails,
+        SUM(CASE WHEN "read" = 0 THEN 1 ELSE 0 END) AS unreadEmails,
         SUM(CASE WHEN "inbox" = 1 THEN 1 ELSE 0 END) AS inboxEmails,
         argMax("unsubscribeLink", timestamp) AS lastUnsubscribeLink
     FROM filter_newsletters
     GROUP BY "from"
-    ORDER BY count DESC
+    {% if String(orderBy) == 'unread' %}
+        ORDER BY unreadEmails DESC
+    {% elif String(orderBy) == 'unarchived' %}
+        ORDER BY inboxEmails DESC
+    {% else %}
+        ORDER BY count DESC
+    {% end %}
     LIMIT {{ Int64(limit, 50) }}
