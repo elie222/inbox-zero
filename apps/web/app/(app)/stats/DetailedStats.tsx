@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { AreaChart, Title } from "@tremor/react";
+import { BarChart, Title } from "@tremor/react";
 import { FilterIcon, GanttChartIcon, Tally3Icon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
@@ -178,28 +178,35 @@ export function DetailedStats() {
                 </div>
               </div>
 
-              <AreaChart
+              <BarChart
                 className="mt-4 h-72"
                 data={data.result}
                 index="startOfPeriod"
                 categories={[
-                  visibleBars.all ? "All" : "",
-                  visibleBars.unarchived ? "Unarchived" : "",
-                  visibleBars.archived ? "Archived" : "",
-                  visibleBars.read ? "Read" : "",
-                  visibleBars.unread ? "Unread" : "",
-                  visibleBars.sent ? "Sent" : "",
+                  ...(visibleBars.all ? ["All"] : []),
+                  ...(visibleBars.unarchived ? ["Unarchived"] : []),
+                  ...(visibleBars.archived ? ["Archived"] : []),
+                  ...(visibleBars.read ? ["Read"] : []),
+                  ...(visibleBars.unread ? ["Unread"] : []),
+                  ...(visibleBars.sent ? ["Sent"] : []),
                 ]}
-                colors={["blue", "amber", "cyan", "emerald", "lime", "orange"]}
+                colors={[
+                  ...(visibleBars.all ? (["blue"] as const) : []),
+                  ...(visibleBars.unarchived ? (["amber"] as const) : []),
+                  ...(visibleBars.archived ? (["cyan"] as const) : []),
+                  ...(visibleBars.read ? (["emerald"] as const) : []),
+                  ...(visibleBars.unread ? (["lime"] as const) : []),
+                  ...(visibleBars.sent ? (["orange"] as const) : []),
+                ]}
               />
-              <AreaChart
+              <BarChart
                 className="mt-4 h-72"
                 data={data.result}
                 index="startOfPeriod"
                 categories={["Read", "Unread"]}
                 colors={["emerald", "lime"]}
               />
-              <AreaChart
+              <BarChart
                 className="mt-4 h-72"
                 data={data.result}
                 index="startOfPeriod"
