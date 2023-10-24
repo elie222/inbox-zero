@@ -3,9 +3,9 @@
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
-import { StatsChart } from "@/app/(app)/stats/StatsChart";
+// import { StatsChart } from "@/app/(app)/stats/StatsChart";
+// import { CombinedStatsChart } from "@/app/(app)/stats/CombinedStatsChart";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
-import { CombinedStatsChart } from "@/app/(app)/stats/CombinedStatsChart";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
 import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
 
@@ -30,7 +30,7 @@ export default function StatsPage() {
         <NewsletterStats />
       </div>
 
-      <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
+      {/* <div className="mt-4 grid gap-4 px-4 md:grid-cols-3">
         <div>
           <StatsChart type="inbox" title="Inbox Emails" color="blue" />
         </div>
@@ -44,7 +44,7 @@ export default function StatsPage() {
 
       <div className="mt-4 px-4">
         <CombinedStatsChart title="Combined Chart" />
-      </div>
+      </div> */}
 
       <div className="mt-4 px-4">
         <LargestEmails />

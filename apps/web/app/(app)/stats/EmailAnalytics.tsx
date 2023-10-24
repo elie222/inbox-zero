@@ -40,8 +40,8 @@ export function EmailAnalytics() {
       >
         {data && (
           <BarList
-            title="Who is sending you the most emails"
-            subtitle="Last 50 emails"
+            title="Who emails you most"
+            // subtitle="Last 50 emails"
             col1="Sender"
             col2="Emails"
             data={data.mostActiveSenderEmails.slice(
@@ -59,8 +59,8 @@ export function EmailAnalytics() {
       >
         {data && (
           <BarList
-            title="Domains sending you the most emails"
-            subtitle="Last 50 emails"
+            title="Domains that email you most"
+            // subtitle="Last 50 emails"
             col1="Domain"
             col2="Emails"
             data={data.mostActiveSenderDomains.slice(
@@ -78,8 +78,8 @@ export function EmailAnalytics() {
       >
         {dataRecipients && (
           <BarList
-            title="Who you send the most emails"
-            subtitle="Last 50 emails"
+            title="Who you email the most"
+            // subtitle="Last 50 emails"
             col1="Recipient"
             col2="Emails"
             data={dataRecipients.mostActiveRecipientEmails.slice(
@@ -97,8 +97,8 @@ export function EmailAnalytics() {
       >
         {dataCategories && (
           <BarList
-            title="What types of emails you're receiving"
-            subtitle="Last 50 threads"
+            title="Types of email you're receiving"
+            // subtitle="Last 50 threads"
             col1="Category"
             col2="Emails"
             data={sortBy(
