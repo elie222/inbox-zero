@@ -9,6 +9,8 @@ import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 
+export const maxDuration = 300;
+
 const PAGE_SIZE = 50;
 
 export type LoadTinybirdEmailsResponse = Awaited<
