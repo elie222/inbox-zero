@@ -7,6 +7,7 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     serverActions: true,
+    instrumentationHook: true,
   },
   async redirects() {
     return [

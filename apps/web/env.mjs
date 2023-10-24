@@ -13,6 +13,8 @@ export const env = createEnv({
     UPSTASH_REDIS_URL: z.string().min(1),
     UPSTASH_REDIS_TOKEN: z.string().min(1),
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
+    BASELIME_PROJECT_NAME: z.string().optional(),
+    BASELIME_KEY: z.string().optional(),
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
     LEMON_SQUEEZY_API_SECRET: z.string(),
     LEMON_SQUEEZY_SIGNING_SECRET: z.string(),
