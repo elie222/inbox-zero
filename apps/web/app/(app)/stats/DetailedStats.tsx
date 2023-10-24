@@ -193,10 +193,10 @@ export function DetailedStats() {
                 colors={[
                   ...(visibleBars.all ? (["blue"] as const) : []),
                   ...(visibleBars.unarchived ? (["amber"] as const) : []),
-                  ...(visibleBars.archived ? (["cyan"] as const) : []),
-                  ...(visibleBars.read ? (["emerald"] as const) : []),
-                  ...(visibleBars.unread ? (["lime"] as const) : []),
-                  ...(visibleBars.sent ? (["orange"] as const) : []),
+                  ...(visibleBars.archived ? (["emerald"] as const) : []),
+                  ...(visibleBars.read ? (["lime"] as const) : []),
+                  ...(visibleBars.unread ? (["pink"] as const) : []),
+                  ...(visibleBars.sent ? (["cyan"] as const) : []),
                 ]}
               />
               <BarChart
@@ -204,14 +204,14 @@ export function DetailedStats() {
                 data={data.result}
                 index="startOfPeriod"
                 categories={["Read", "Unread"]}
-                colors={["emerald", "lime"]}
+                colors={["lime", "pink"]}
               />
               <BarChart
                 className="mt-4 h-72"
                 data={data.result}
                 index="startOfPeriod"
                 categories={["Sent"]}
-                colors={["orange"]}
+                colors={["cyan"]}
               />
             </Card>
           </div>
