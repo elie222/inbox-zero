@@ -184,19 +184,19 @@ export function DetailedStats() {
                 index="startOfPeriod"
                 categories={[
                   ...(visibleBars.all ? ["All"] : []),
-                  ...(visibleBars.unarchived ? ["Unarchived"] : []),
                   ...(visibleBars.archived ? ["Archived"] : []),
+                  ...(visibleBars.unarchived ? ["Unarchived"] : []),
                   ...(visibleBars.read ? ["Read"] : []),
                   ...(visibleBars.unread ? ["Unread"] : []),
                   ...(visibleBars.sent ? ["Sent"] : []),
                 ]}
                 colors={[
-                  ...(visibleBars.all ? (["blue"] as const) : []),
-                  ...(visibleBars.unarchived ? (["amber"] as const) : []),
+                  ...(visibleBars.all ? (["fuchsia"] as const) : []),
                   ...(visibleBars.archived ? (["emerald"] as const) : []),
+                  ...(visibleBars.unarchived ? (["amber"] as const) : []),
                   ...(visibleBars.read ? (["lime"] as const) : []),
                   ...(visibleBars.unread ? (["pink"] as const) : []),
-                  ...(visibleBars.sent ? (["cyan"] as const) : []),
+                  ...(visibleBars.sent ? (["blue"] as const) : []),
                 ]}
               />
               <BarChart
@@ -211,7 +211,7 @@ export function DetailedStats() {
                 data={data.result}
                 index="startOfPeriod"
                 categories={["Sent"]}
-                colors={["cyan"]}
+                colors={["blue"]}
               />
             </Card>
           </div>
