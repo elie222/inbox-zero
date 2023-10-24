@@ -9,7 +9,7 @@ const tinybirdEmail = z.object({
   to: z.string(),
   subject: z.string().optional(),
   timestamp: z.number(), // date
-  hasUnsubscribe: z.boolean(),
+  unsubscribeLink: z.string().optional(),
   // labels when email was saved to tinybird
   read: z.boolean(),
   sent: z.boolean(),

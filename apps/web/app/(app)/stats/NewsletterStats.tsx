@@ -40,8 +40,8 @@ export function NewsletterStats() {
                 <TableHeaderCell>Emails</TableHeaderCell>
                 <TableHeaderCell>Read</TableHeaderCell>
                 <TableHeaderCell>Archived</TableHeaderCell>
-                {/* <TableHeaderCell>Unsubscribe</TableHeaderCell>
-                <TableHeaderCell>Auto label and archive</TableHeaderCell> */}
+                <TableHeaderCell>Unsubscribe</TableHeaderCell>
+                {/* <TableHeaderCell>Auto label and archive</TableHeaderCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -77,17 +77,20 @@ export function NewsletterStats() {
                           className="w-[150px]"
                         />
                       </TableCell>
-                      {/* <TableCell>
+                      <TableCell>
                         <Button
                           size="xs"
                           variant="secondary"
                           color="blue"
-                          onClick={() => alert("Not implemented yet")}
+                          disabled={!item.lastUnsubscribeLink}
+                          onClick={() =>
+                            window.open(item.lastUnsubscribeLink, "_blank")
+                          }
                         >
                           Unsubscribe
                         </Button>
                       </TableCell>
-                      <TableCell>
+                      {/* <TableCell>
                         <Button
                           size="xs"
                           variant="secondary"

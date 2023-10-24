@@ -24,6 +24,7 @@ async function getNewslettersTinybird(
       value: d.count,
       inboxEmails: d.inboxEmails,
       readEmails: d.readEmails,
+      lastUnsubscribeLink: d.lastUnsubscribeLink,
     })),
   };
 }

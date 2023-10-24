@@ -109,6 +109,7 @@ export const getNewsletterCounts = tb.buildPipe({
     count: z.number(),
     readEmails: z.number(),
     inboxEmails: z.number(),
+    lastUnsubscribeLink: z.string().optional(),
   }),
 });
 

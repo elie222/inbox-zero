@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as cheerio from "cheerio";
 import { getAuthSession } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
 import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
@@ -61,6 +62,10 @@ async function saveBatch(options: {
         const message = await getMessage(m.id, gmail);
         const parsedEmail = parseMessage(message);
 
+        const unsubscribeLink = parsedEmail.textHtml
+          ? findUnsubscribeLink(parsedEmail.textHtml)
+          : undefined;
+
         const tinybirdEmail: TinybirdEmail = {
           ownerEmail,
           threadId: m.threadId,
@@ -69,7 +74,7 @@ async function saveBatch(options: {
           to: parsedEmail.headers.to || "Missing",
           subject: parsedEmail.headers.subject,
           timestamp: +new Date(parsedEmail.headers.date),
-          hasUnsubscribe: !!parsedEmail.textHtml?.includes("Unsubscribe"),
+          unsubscribeLink,
           read: !parsedEmail.labelIds?.includes("UNREAD"),
           sent: !!parsedEmail.labelIds?.includes("SENT"),
           draft: !!parsedEmail.labelIds?.includes("DRAFT"),
@@ -87,6 +92,21 @@ async function saveBatch(options: {
   await publishEmail(emailsToPublish);
 
   return res;
+}
+
+function findUnsubscribeLink(html: string) {
+  const $ = cheerio.load(html);
+  let unsubscribeLink: string | undefined;
+
+  $("a").each((_index, element) => {
+    const text = $(element).text().toLowerCase();
+    if (text.includes("unsubscribe")) {
+      unsubscribeLink = $(element).attr("href");
+      return false; // break the loop
+    }
+  });
+
+  return unsubscribeLink;
 }
 
 export const POST = withError(async (request: Request) => {
