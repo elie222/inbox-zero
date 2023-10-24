@@ -29,10 +29,10 @@ export function DetailedStats() {
       boolean
     >
   >({
-    all: true,
-    read: true,
-    unread: true,
-    sent: true,
+    all: false,
+    read: false,
+    unread: false,
+    sent: false,
     archived: true,
     unarchived: true,
   });
@@ -184,18 +184,26 @@ export function DetailedStats() {
                 index="startOfPeriod"
                 categories={[
                   visibleBars.all ? "All" : "",
-                  visibleBars.read ? "Read" : "",
-                  visibleBars.unread ? "Unread" : "",
                   visibleBars.unarchived ? "Unarchived" : "",
                   visibleBars.archived ? "Archived" : "",
+                  visibleBars.read ? "Read" : "",
+                  visibleBars.unread ? "Unread" : "",
+                  visibleBars.sent ? "Sent" : "",
                 ]}
-                colors={["blue", "amber", "cyan", "emerald", "lime"]}
+                colors={["blue", "amber", "cyan", "emerald", "lime", "orange"]}
               />
               <AreaChart
                 className="mt-4 h-72"
                 data={data.result}
                 index="startOfPeriod"
-                categories={[visibleBars.sent ? "Sent" : ""]}
+                categories={["Read", "Unread"]}
+                colors={["emerald", "lime"]}
+              />
+              <AreaChart
+                className="mt-4 h-72"
+                data={data.result}
+                index="startOfPeriod"
+                categories={["Sent"]}
                 colors={["orange"]}
               />
             </Card>
