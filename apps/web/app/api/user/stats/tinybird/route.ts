@@ -53,14 +53,14 @@ async function getStatsByPeriod(
   // read/unread
   const readUnreadGroups = groupBy(read.data, "read");
   const readObject = keyBy(
-    readUnreadGroups["true"].map((d) => ({
+    (readUnreadGroups["true"] || []).map((d) => ({
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Read: d.count,
     })),
     "startOfPeriod"
   );
   const unreadObject = keyBy(
-    readUnreadGroups["false"].map((d) => ({
+    (readUnreadGroups["false"] || []).map((d) => ({
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Unread: d.count,
     })),
@@ -70,14 +70,14 @@ async function getStatsByPeriod(
   // inbox/archived
   const inboxArchiveGroups = groupBy(inbox.data, "inbox");
   const inboxObject = keyBy(
-    inboxArchiveGroups["true"].map((d) => ({
+    (inboxArchiveGroups["true"] || []).map((d) => ({
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Unarchived: d.count,
     })),
     "startOfPeriod"
   );
   const archiveObject = keyBy(
-    inboxArchiveGroups["false"].map((d) => ({
+    (inboxArchiveGroups["false"] || []).map((d) => ({
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Archived: d.count,
     })),
