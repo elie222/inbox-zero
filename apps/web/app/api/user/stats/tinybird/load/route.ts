@@ -136,7 +136,7 @@ async function saveBatch(
       res.data.messages?.map(async (m) => {
         if (!m.id || !m.threadId) return;
 
-        console.debug("Fetching message", m.id);
+        // console.debug("Fetching message", m.id);
 
         const message = await getMessage(m.id, gmail);
         const parsedEmail = parseMessage(message);

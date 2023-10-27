@@ -3,7 +3,7 @@
 import React, { useCallback } from "react";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
-import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { AreaChartIcon, Loader2 } from "lucide-react";
 import { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,9 @@ export function LoadStatsButton() {
   const [loading, setLoading] = React.useState(false);
 
   const onClick = useCallback(async () => {
-    setLoading(true);
+    if (loading) return;
 
-    toastInfo({
-      description: `Loading stats... This can take a few hours the first time you run it.`,
-    });
+    setLoading(true);
 
     const res = await postRequest<LoadTinybirdEmailsResponse, {}>(
       "/api/user/stats/tinybird/load",
@@ -26,12 +24,14 @@ export function LoadStatsButton() {
     if (isError(res)) {
       toastError({ description: `Error loading stats.` });
     } else {
-      toastSuccess({
-        description: `Stats loaded!`,
-      });
+      toastSuccess({ description: `Stats loaded!` });
     }
     setLoading(false);
-  }, []);
+  }, [loading]);
+
+  // useEffect(() => {
+  //   if (!loading) onClick();
+  // }, [loading, onClick]);
 
   return (
     <div>
