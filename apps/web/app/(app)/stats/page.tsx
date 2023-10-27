@@ -1,5 +1,8 @@
 "use client";
 
+import { subDays } from "date-fns";
+import { useState, useMemo, useCallback } from "react";
+import { DateRange } from "react-day-picker";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
@@ -10,9 +13,6 @@ import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
 import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
 import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
-import { subDays } from "date-fns";
-import { useState, useMemo } from "react";
-import { DateRange } from "react-day-picker";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -34,15 +34,37 @@ export default function StatsPage() {
     to: now,
   });
 
+  const [period, setPeriod] = useState<"day" | "week" | "month" | "year">(
+    "week"
+  );
+
+  const onSetDateDropdown = useCallback(
+    (option: { label: string; value: string }) => {
+      const { label, value } = option;
+      setDateDropdown(label);
+
+      if (value === "7") {
+        setPeriod("day");
+      } else if (value === "30" && (period === "month" || period === "year")) {
+        setPeriod("week");
+      } else if (value === "90" && period === "year") {
+        setPeriod("month");
+      }
+    },
+    [period]
+  );
+
   return (
     <div className="pb-20">
       <div className="sticky top-0 z-10 flex justify-end space-x-1 border-b bg-white px-4 py-2 shadow">
         <ActionBar
+          selectOptions={selectOptions}
           dateDropdown={dateDropdown}
-          setDateDropdown={setDateDropdown}
+          setDateDropdown={onSetDateDropdown}
           dateRange={dateRange}
           setDateRange={setDateRange}
-          selectOptions={selectOptions}
+          period={period}
+          setPeriod={setPeriod}
         />
         <LoadStatsButton />
       </div>
@@ -56,7 +78,7 @@ export default function StatsPage() {
       </div>
 
       <div className="mx-4 mt-4">
-        <DetailedStats dateRange={dateRange} />
+        <DetailedStats dateRange={dateRange} period={period} />
       </div>
 
       <div className="mx-4 mt-4">

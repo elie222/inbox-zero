@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { BarChart, Title } from "@tremor/react";
-import { FilterIcon, Tally3Icon } from "lucide-react";
+import { FilterIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,8 +14,11 @@ import {
 } from "@/app/api/user/stats/tinybird/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 
-export function DetailedStats(props: { dateRange?: DateRange | undefined }) {
-  const { dateRange } = props;
+export function DetailedStats(props: {
+  dateRange?: DateRange | undefined;
+  period: "day" | "week" | "month" | "year";
+}) {
+  const { dateRange, period } = props;
 
   const [visibleBars, setVisibleBars] = useState<
     Record<
@@ -30,9 +33,6 @@ export function DetailedStats(props: { dateRange?: DateRange | undefined }) {
     archived: true,
     unarchived: true,
   });
-  const [period, setPeriod] = useState<"day" | "week" | "month" | "year">(
-    "week"
-  );
 
   const params: StatsByWeekParams = { period };
   if (dateRange?.from) params.fromDate = +dateRange?.from;
@@ -112,32 +112,6 @@ export function DetailedStats(props: { dateRange?: DateRange | undefined }) {
                             ...visibleBars,
                             ["sent"]: !visibleBars.sent,
                           }),
-                      },
-                    ]}
-                  />
-                  <DetailedStatsFilter
-                    label={`By ${period}`}
-                    icon={<Tally3Icon className="mr-2 h-4 w-4" />}
-                    columns={[
-                      {
-                        label: "Day",
-                        checked: period === "day",
-                        setChecked: () => setPeriod("day"),
-                      },
-                      {
-                        label: "Week",
-                        checked: period === "week",
-                        setChecked: () => setPeriod("week"),
-                      },
-                      {
-                        label: "Month",
-                        checked: period === "month",
-                        setChecked: () => setPeriod("month"),
-                      },
-                      {
-                        label: "Year",
-                        checked: period === "year",
-                        setChecked: () => setPeriod("year"),
                       },
                     ]}
                   />

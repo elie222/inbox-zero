@@ -1,27 +1,57 @@
 import React from "react";
 import { subDays } from "date-fns";
-import { GanttChartIcon } from "lucide-react";
+import { GanttChartIcon, Tally3Icon } from "lucide-react";
+import { DateRange } from "react-day-picker";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
-import { DateRange } from "react-day-picker";
 
 export function ActionBar(props: {
   dateDropdown: string;
-  setDateDropdown: (value: string) => void;
+  setDateDropdown: (option: { label: string; value: string }) => void;
   dateRange?: DateRange | undefined;
   setDateRange: (dateRange?: DateRange) => void;
   selectOptions: { label: string; value: string }[];
+  period: "day" | "week" | "month" | "year";
+  setPeriod: (value: "day" | "week" | "month" | "year") => void;
 }) {
   const {
+    selectOptions,
     dateDropdown,
     setDateDropdown,
-    setDateRange,
-    selectOptions,
     dateRange,
+    setDateRange,
+    period,
+    setPeriod,
   } = props;
 
   return (
     <>
+      <DetailedStatsFilter
+        label={`By ${period}`}
+        icon={<Tally3Icon className="mr-2 h-4 w-4" />}
+        columns={[
+          {
+            label: "Day",
+            checked: period === "day",
+            setChecked: () => setPeriod("day"),
+          },
+          {
+            label: "Week",
+            checked: period === "week",
+            setChecked: () => setPeriod("week"),
+          },
+          {
+            label: "Month",
+            checked: period === "month",
+            setChecked: () => setPeriod("month"),
+          },
+          {
+            label: "Year",
+            checked: period === "year",
+            setChecked: () => setPeriod("year"),
+          },
+        ]}
+      />
       <DetailedStatsFilter
         label={dateDropdown || "Set date range"}
         icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
@@ -29,7 +59,7 @@ export function ActionBar(props: {
           ...option,
           checked: option.label === dateDropdown,
           setChecked: () => {
-            setDateDropdown(option.label);
+            setDateDropdown(option);
 
             const days = parseInt(option.value);
 
