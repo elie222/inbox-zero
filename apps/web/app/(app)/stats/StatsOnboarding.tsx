@@ -19,7 +19,7 @@ export function StatsOnboarding() {
   useEffect(() => setIsOpen(true), []);
 
   return (
-    <Dialog open={isOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Welcome to email analytics</DialogTitle>
