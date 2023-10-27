@@ -4,6 +4,7 @@ import { z } from "zod";
 import keyBy from "lodash/keyBy";
 import groupBy from "lodash/groupBy";
 import merge from "lodash/merge";
+import sumBy from "lodash/sumBy";
 import {
   getEmailsByPeriod,
   getInboxEmailsByPeriod,
@@ -93,7 +94,13 @@ async function getStatsByPeriod(
     archiveObject
   );
 
-  return { result: Object.values(merged) };
+  return {
+    result: Object.values(merged),
+    allCount: sumBy(all.data, "count"),
+    inboxCount: sumBy(inboxArchiveGroups["true"], "count"),
+    readCount: sumBy(readUnreadGroups["true"], "count"),
+    sentCount: sumBy(sent.data, "count"),
+  };
 }
 
 export const GET = withError(async (request: Request) => {

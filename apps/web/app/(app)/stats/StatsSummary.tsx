@@ -1,14 +1,31 @@
 "use client";
 
-import useSWRImmutable from "swr/immutable";
-import { StatsResponse } from "@/app/api/user/stats/route";
+import { DateRange } from "react-day-picker";
+import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Stats } from "@/components/Stats";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import {
+  MailCheckIcon,
+  MailOpenIcon,
+  MailsIcon,
+  SendHorizonalIcon,
+} from "lucide-react";
+import {
+  StatsByWeekParams,
+  StatsByWeekResponse,
+} from "@/app/api/user/stats/tinybird/route";
 
-export function StatsSummary() {
-  const { data, isLoading, error } =
-    useSWRImmutable<StatsResponse>(`/api/user/stats`);
+export function StatsSummary(props: { dateRange?: DateRange }) {
+  const { dateRange } = props;
+
+  const params: StatsByWeekParams = { period: "week" };
+  if (dateRange?.from) params.fromDate = +dateRange?.from;
+  if (dateRange?.to) params.toDate = +dateRange?.to;
+  const { data, isLoading, error } = useSWR<
+    StatsByWeekResponse,
+    { error: string }
+  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`);
 
   return (
     <LoadingContent
@@ -18,41 +35,31 @@ export function StatsSummary() {
     >
       {data && (
         <div>
-          <Stats
+          <StatsCards
             stats={[
               {
-                name: "Emails received (last 24h)",
-                value: formatStat(data.emailsReceived24hrs),
+                name: "Received",
+                value: formatStat(data.allCount),
+                subvalue: "emails",
+                icon: <MailsIcon className="h-4 w-4" />,
               },
               {
-                name: "Inbox emails (last 24h)",
-                value: formatStat(data.emailsInbox24hrs),
+                name: "Read",
+                value: formatStat(data.readCount),
+                subvalue: "emails",
+                icon: <MailOpenIcon className="h-4 w-4" />,
               },
               {
-                name: "Emails sent (last 24h)",
-                value: formatStat(data.emailsSent24hrs),
-              },
-
-              {
-                name: "Emails received (last 7d)",
-                value: formatStat(data.emailsReceived7days),
-                subvalue: `${((data.emailsReceived7days || 0) / 7).toFixed(
-                  1
-                )} per day`,
+                name: "Archived",
+                value: formatStat(data.allCount - data.inboxCount),
+                subvalue: "emails",
+                icon: <MailCheckIcon className="h-4 w-4" />,
               },
               {
-                name: "Inbox emails (last 7d)",
-                value: formatStat(data.emailsInbox7days),
-                subvalue: `${((data.emailsInbox7days || 0) / 7).toFixed(
-                  1
-                )} per day`,
-              },
-              {
-                name: "Emails sent (last 7d)",
-                value: formatStat(data.emailsSent7days),
-                subvalue: `${((data.emailsSent7days || 0) / 7).toFixed(
-                  1
-                )} per day`,
+                name: "Sent",
+                value: formatStat(data.sentCount),
+                subvalue: "emails",
+                icon: <SendHorizonalIcon className="h-4 w-4" />,
               },
             ]}
           />
@@ -62,10 +69,39 @@ export function StatsSummary() {
   );
 }
 
-// we are limiting our queries to max 500 emails.
-// so if the number returned is 500 this likely means there are 500+.
-function formatStat(stat?: number) {
-  if (stat === 500) return "500+";
+function StatsCards(props: {
+  stats: {
+    name: string;
+    value: string | number;
+    subvalue?: string;
+    icon: React.ReactNode;
+  }[];
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {props.stats.map((stat) => {
+        return (
+          <Card key={stat.name}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{stat.name}</CardTitle>
+              {stat.icon}
+            </CardHeader>
+            <CardContent>
+              <div className="">
+                <span className="text-2xl font-bold">{stat.value}</span>
+                <span className="text-muted-foreground ml-2 text-sm">
+                  {stat.subvalue}
+                </span>
+              </div>
+              {/* <p className="text-muted-foreground text-xs">{stat.subvalue}</p> */}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
 
-  return stat || 0;
+function formatStat(stat?: number) {
+  return stat ? stat.toLocaleString() : 0;
 }

@@ -21,13 +21,16 @@ const selectOptions = [
   { label: "Last year", value: "365" },
   { label: "All", value: "0" },
 ];
+const defaultSelected = selectOptions[1];
 
 export default function StatsPage() {
-  const [dateDropdown, setDateDropdown] = useState<string>("Last year");
+  const [dateDropdown, setDateDropdown] = useState<string>(
+    defaultSelected.label
+  );
 
   const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(now, 365),
+    from: subDays(now, parseInt(defaultSelected.value)),
     to: now,
   });
 
@@ -45,7 +48,7 @@ export default function StatsPage() {
       </div>
 
       <div className="px-4 py-4">
-        <StatsSummary />
+        <StatsSummary dateRange={dateRange} />
       </div>
 
       <div className="px-4">
