@@ -1,5 +1,3 @@
-"use client";
-
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
@@ -8,6 +6,7 @@ import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
 import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
+import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
 
 export default function StatsPage() {
   return (
@@ -49,6 +48,8 @@ export default function StatsPage() {
       <div className="mt-4 px-4">
         <LargestEmails />
       </div>
+
+      <StatsOnboarding />
     </div>
   );
 }

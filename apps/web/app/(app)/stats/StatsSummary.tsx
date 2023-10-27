@@ -1,3 +1,5 @@
+"use client";
+
 import useSWRImmutable from "swr/immutable";
 import { StatsResponse } from "@/app/api/user/stats/route";
 import { LoadingContent } from "@/components/LoadingContent";

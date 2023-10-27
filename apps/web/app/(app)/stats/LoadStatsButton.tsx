@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useCallback } from "react";
 import { Button } from "@/components/Button";
 import { postRequest } from "@/utils/api";

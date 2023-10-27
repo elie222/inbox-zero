@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { BarChart, Title } from "@tremor/react";

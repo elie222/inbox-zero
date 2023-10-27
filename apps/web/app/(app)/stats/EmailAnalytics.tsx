@@ -1,3 +1,5 @@
+"use client";
+
 import { capitalCase } from "capital-case";
 import { sortBy } from "lodash";
 import useSWRImmutable from "swr/immutable";
