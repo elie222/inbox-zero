@@ -22,8 +22,11 @@ const SCOPES = [
 export const getAuthOptions: (options?: {
   consent: boolean;
 }) => NextAuthOptions = (options) => ({
+  debug: true,
   providers: [
     GoogleProvider({
+      id: "google",
+      name: "Google",
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       authorization: {
@@ -46,12 +49,17 @@ export const getAuthOptions: (options?: {
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
     jwt: async ({ token, user, account }) => {
+      if (user) {
+        console.log("🚀TOKEN", token);
+        console.log("🚀USER", !!user, user);
+        console.log("🚀ACCOUNT", !!account, account);
+      }
+
       // Signing in
-      // on first sign in account and user are defined
-      // thereafter only token is defined
+      // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
-        // Google sends us refresh_token only on first sign in so we need to save it to the database then
-        // On future log ins, we retrieve the refresh_token from the database
+        // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
+        // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
           console.log("Saving refresh token", token.email);
           await saveRefreshToken(
