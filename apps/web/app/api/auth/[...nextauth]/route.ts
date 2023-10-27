@@ -1,6 +1,8 @@
 import NextAuth from "next-auth";
 import { authOptions, getAuthOptions } from "@/utils/auth";
 
+export const dynamic = "force-dynamic";
+
 // https://next-auth.js.org/configuration/initialization#advanced-initialization
 async function handler(
   request: Request,
