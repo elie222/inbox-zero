@@ -13,7 +13,7 @@ model Account {
   id                String   @id @default(cuid())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  userId            String
+  userId            String   @unique // `@unique` was added here. It's not part of the original schema. May remove this in the future
   type              String
   provider          String
   providerAccountId String
