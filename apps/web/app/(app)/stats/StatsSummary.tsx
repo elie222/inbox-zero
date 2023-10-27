@@ -31,7 +31,7 @@ export function StatsSummary(props: { dateRange?: DateRange }) {
     <LoadingContent
       loading={isLoading}
       error={error}
-      loadingComponent={<Skeleton className="m-4 h-64 rounded" />}
+      loadingComponent={<Skeleton className="h-64 rounded" />}
     >
       {data && (
         <div>

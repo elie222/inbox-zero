@@ -12,7 +12,8 @@ import { sleep } from "@/utils/sleep";
 
 export const maxDuration = 300;
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 500;
+const PAUSE_AFTER_RATE_LIMIT = 20_000;
 
 export type LoadTinybirdEmailsResponse = Awaited<
   ReturnType<typeof publishAllEmails>
@@ -27,24 +28,35 @@ async function publishAllEmails(options: {
   let nextPageToken: string | undefined = undefined;
   let pages = 0;
 
-  const lastEmailSaved = await getLastEmail({
-    ownerEmail,
-    direction: "oldest",
-  });
+  const [oldestEmailSaved, newestEmailSaved] = await Promise.all([
+    getLastEmail({ ownerEmail, direction: "oldest" }),
+    getLastEmail({ ownerEmail, direction: "newest" }),
+  ]);
 
-  const before = lastEmailSaved.data?.[0].timestamp;
-  console.log("Loading emails before:", before);
-  // const after = `after:${startOfDayInSeconds}`;
+  const after = newestEmailSaved.data?.[0]?.timestamp;
+  console.log("Loading emails after:", after);
 
   while (true) {
-    console.log("Page", pages);
+    console.log("After Page", pages);
     let res;
     try {
-      res = await saveBatch({ ownerEmail, gmail, nextPageToken, before });
+      res = await saveBatch({
+        ownerEmail,
+        gmail,
+        nextPageToken,
+        after,
+        before: undefined,
+      });
     } catch (error) {
       console.log("Rate limited. Waiting 10 seconds...");
-      await sleep(10_000);
-      res = await saveBatch({ ownerEmail, gmail, nextPageToken, before });
+      await sleep(PAUSE_AFTER_RATE_LIMIT);
+      res = await saveBatch({
+        ownerEmail,
+        gmail,
+        nextPageToken,
+        after,
+        before: undefined,
+      });
     }
 
     nextPageToken = res.data.nextPageToken ?? undefined;
@@ -53,23 +65,69 @@ async function publishAllEmails(options: {
     else pages++;
   }
 
+  console.log("Completed emails after:", after);
+
+  const before = oldestEmailSaved.data?.[0]?.timestamp;
+  console.log("Loading emails before:", before);
+
+  while (true) {
+    console.log("Before Page", pages);
+    let res;
+    try {
+      res = await saveBatch({
+        ownerEmail,
+        gmail,
+        nextPageToken,
+        before,
+        after: undefined,
+      });
+    } catch (error) {
+      console.log("Rate limited. Waiting 10 seconds...");
+      await sleep(PAUSE_AFTER_RATE_LIMIT);
+      res = await saveBatch({
+        ownerEmail,
+        gmail,
+        nextPageToken,
+        before,
+        after: undefined,
+      });
+    }
+
+    nextPageToken = res.data.nextPageToken ?? undefined;
+
+    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+    else pages++;
+  }
+
+  console.log("Completed emails before:", before);
+
   return { pages };
 }
 
-async function saveBatch(options: {
-  ownerEmail: string;
-  gmail: gmail_v1.Gmail;
-  nextPageToken?: string;
-  before?: number;
-}) {
-  const { ownerEmail, gmail, nextPageToken, before } = options;
+async function saveBatch(
+  options: {
+    ownerEmail: string;
+    gmail: gmail_v1.Gmail;
+    nextPageToken?: string;
+  } & (
+    | { before: number; after: undefined }
+    | { before: undefined; after: number }
+  )
+) {
+  const { ownerEmail, gmail, nextPageToken, before, after } = options;
 
   // 1. find all emails since the last time we ran this function
+  const q = before
+    ? `before:${before / 1000 + 1}`
+    : after
+    ? `after:${after / 1000 - 1}`
+    : undefined;
+
   const res = await gmail.users.messages.list({
     userId: "me",
     maxResults: PAGE_SIZE,
     pageToken: nextPageToken,
-    q: before ? `before:${before / 1000 + 1}` : undefined,
+    q,
   });
 
   // 2. fetch each email and publish it to tinybird
@@ -78,7 +136,7 @@ async function saveBatch(options: {
       res.data.messages?.map(async (m) => {
         if (!m.id || !m.threadId) return;
 
-        console.log("Fetching message", m.id);
+        console.debug("Fetching message", m.id);
 
         const message = await getMessage(m.id, gmail);
         const parsedEmail = parseMessage(message);
