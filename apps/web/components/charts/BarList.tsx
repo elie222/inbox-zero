@@ -3,7 +3,6 @@ import {
   BarList as TremorBarList,
   Card,
   Title,
-  Bold,
   Flex,
   Text,
 } from "@tremor/react";
@@ -26,12 +25,8 @@ export const BarList = (props: {
       <Title>{props.title}</Title>
       {props.subtitle ? <Text>{props.subtitle}</Text> : null}
       <Flex className="mt-4">
-        <Text>
-          <Bold>{props.col1}</Bold>
-        </Text>
-        <Text>
-          <Bold>{props.col2}</Bold>
-        </Text>
+        <Text>{props.col1}</Text>
+        <Text>{props.col2}</Text>
       </Flex>
       <TremorBarList data={props.data} className="mt-2" />
       {props.extra}

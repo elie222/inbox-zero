@@ -1,12 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { BarChart, Title } from "@tremor/react";
-import { FilterIcon, GanttChartIcon, Tally3Icon } from "lucide-react";
+import { FilterIcon, Tally3Icon } from "lucide-react";
 import { DateRange } from "react-day-picker";
-import { subDays } from "date-fns";
-import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/Card";
@@ -16,15 +14,9 @@ import {
 } from "@/app/api/user/stats/tinybird/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 
-const selectOptions = [
-  { label: "Last week", value: "7" },
-  { label: "Last month", value: "30" },
-  { label: "Last 3 months", value: "90" },
-  { label: "Last year", value: "365" },
-  { label: "All", value: "0" },
-];
+export function DetailedStats(props: { dateRange?: DateRange | undefined }) {
+  const { dateRange } = props;
 
-export function DetailedStats() {
   const [visibleBars, setVisibleBars] = useState<
     Record<
       "all" | "read" | "unread" | "sent" | "archived" | "unarchived",
@@ -41,13 +33,6 @@ export function DetailedStats() {
   const [period, setPeriod] = useState<"day" | "week" | "month" | "year">(
     "week"
   );
-  const [dateDropdown, setDateDropdown] = useState<string>("Last year");
-
-  const now = useMemo(() => new Date(), []);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(now, 365),
-    to: now,
-  });
 
   const params: StatsByWeekParams = { period };
   if (dateRange?.from) params.fromDate = +dateRange?.from;
@@ -155,27 +140,6 @@ export function DetailedStats() {
                         setChecked: () => setPeriod("year"),
                       },
                     ]}
-                  />
-                  <DetailedStatsFilter
-                    label={dateDropdown || "Set date range"}
-                    icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
-                    columns={selectOptions.map((option) => ({
-                      ...option,
-                      checked: option.label === dateDropdown,
-                      setChecked: () => {
-                        setDateDropdown(option.label);
-
-                        const days = parseInt(option.value);
-
-                        if (days === 0) setDateRange(undefined);
-                        if (days)
-                          setDateRange({ from: subDays(now, days), to: now });
-                      },
-                    }))}
-                  />
-                  <DatePickerWithRange
-                    dateRange={dateRange}
-                    onSetDateRange={setDateRange}
                   />
                 </div>
               </div>

@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { Button } from "@/components/Button";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
-import { AreaChartIcon } from "lucide-react";
+import { AreaChartIcon, Loader2 } from "lucide-react";
 import { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
+import { Button } from "@/components/ui/button";
 
 export function LoadStatsButton() {
   const [clicked, setClicked] = React.useState(false);
@@ -35,8 +35,17 @@ export function LoadStatsButton() {
 
   return (
     <div>
-      <Button onClick={onClick} loading={clicked} disabled={clicked}>
-        <AreaChartIcon className="mr-2 h-4 w-4" />
+      <Button
+        color="blue"
+        variant="outline"
+        onClick={onClick}
+        disabled={clicked}
+      >
+        {clicked ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <AreaChartIcon className="mr-2 h-4 w-4" />
+        )}
         Load Stats
       </Button>
     </div>
