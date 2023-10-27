@@ -10,7 +10,7 @@
     "bull": "^4.11.4"
   },
   "devDependencies": {
-    "@types/node": "^20.8.7",
+    "@types/node": "^20.8.9",
     "eslint-config-custom": "workspace:*",
     "nodemon": "^3.0.1",
     "ts-node": "^10.9.1",

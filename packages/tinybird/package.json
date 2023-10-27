@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "tsconfig": "workspace:*",
-    "@types/node": "20.8.7",
+    "@types/node": "20.8.9",
     "typescript": "5.2.2"
   }
 }

@@ -6,7 +6,6 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   experimental: {
-    serverActions: true,
     instrumentationHook: true,
   },
   async redirects() {
