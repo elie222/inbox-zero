@@ -9,10 +9,10 @@ import { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/r
 import { Button } from "@/components/ui/button";
 
 export function LoadStatsButton() {
-  const [clicked, setClicked] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
 
   const onClick = useCallback(async () => {
-    setClicked(true);
+    setLoading(true);
 
     toastInfo({
       description: `Loading stats... This can take a few hours the first time you run it.`,
@@ -24,13 +24,13 @@ export function LoadStatsButton() {
     );
 
     if (isError(res)) {
-      setClicked(false);
       toastError({ description: `Error loading stats.` });
     } else {
       toastSuccess({
         description: `Stats loaded!`,
       });
     }
+    setLoading(false);
   }, []);
 
   return (
@@ -39,9 +39,9 @@ export function LoadStatsButton() {
         color="blue"
         variant="outline"
         onClick={onClick}
-        disabled={clicked}
+        disabled={loading}
       >
-        {clicked ? (
+        {loading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <AreaChartIcon className="mr-2 h-4 w-4" />

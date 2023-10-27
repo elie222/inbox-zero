@@ -1,0 +1,15 @@
+NODE find_oldest_email
+DESCRIPTION >
+    Find the last/first email stored for the user
+
+SQL >
+    %
+        SELECT timestamp, gmailMessageId
+        FROM email
+        WHERE ownerEmail = {{ String(ownerEmail) }}
+        {% if String(direction) == "oldest" %}
+            ORDER BY timestamp ASC
+        {% else %}
+            ORDER BY timestamp DESC
+        {% end %}
+        LIMIT 1

@@ -2,16 +2,17 @@ import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import { getAuthSession } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
-import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
+import { TinybirdEmail, getLastEmail, publishEmail } from "@inboxzero/tinybird";
 import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
+import { sleep } from "@/utils/sleep";
 
 export const maxDuration = 300;
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 200;
 
 export type LoadTinybirdEmailsResponse = Awaited<
   ReturnType<typeof publishAllEmails>
@@ -26,9 +27,25 @@ async function publishAllEmails(options: {
   let nextPageToken: string | undefined = undefined;
   let pages = 0;
 
+  const lastEmailSaved = await getLastEmail({
+    ownerEmail,
+    direction: "oldest",
+  });
+
+  const before = lastEmailSaved.data?.[0].timestamp;
+  console.log("Loading emails before:", before);
+  // const after = `after:${startOfDayInSeconds}`;
+
   while (true) {
     console.log("Page", pages);
-    const res = await saveBatch({ ownerEmail, gmail, nextPageToken });
+    let res;
+    try {
+      res = await saveBatch({ ownerEmail, gmail, nextPageToken, before });
+    } catch (error) {
+      console.log("Rate limited. Waiting 10 seconds...");
+      await sleep(10_000);
+      res = await saveBatch({ ownerEmail, gmail, nextPageToken, before });
+    }
 
     nextPageToken = res.data.nextPageToken ?? undefined;
 
@@ -43,14 +60,16 @@ async function saveBatch(options: {
   ownerEmail: string;
   gmail: gmail_v1.Gmail;
   nextPageToken?: string;
+  before?: number;
 }) {
-  const { ownerEmail, gmail, nextPageToken } = options;
+  const { ownerEmail, gmail, nextPageToken, before } = options;
 
   // 1. find all emails since the last time we ran this function
   const res = await gmail.users.messages.list({
     userId: "me",
     maxResults: PAGE_SIZE,
     pageToken: nextPageToken,
+    q: before ? `before:${before / 1000 + 1}` : undefined,
   });
 
   // 2. fetch each email and publish it to tinybird

@@ -130,3 +130,15 @@ export const getLargestEmails = tb.buildPipe({
     sizeEstimate: z.number().transform((t) => t ?? 0),
   }),
 });
+
+export const getLastEmail = tb.buildPipe({
+  pipe: "last_email",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    direction: z.enum(["oldest", "newest"]),
+  }),
+  data: z.object({
+    timestamp: z.number(),
+    gmailMessageId: z.string(),
+  }),
+});
