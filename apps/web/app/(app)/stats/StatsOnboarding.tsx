@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
+import { ArchiveIcon, Layers3Icon, BarChartBigIcon } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import {
@@ -9,14 +12,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChartBarIcon } from "@heroicons/react/24/outline";
-import { ArchiveIcon, Layers3Icon } from "lucide-react";
-import { useEffect, useState } from "react";
 
 export function StatsOnboarding() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  // to fix hydration mismatch
-  useEffect(() => setIsOpen(true), []);
+
+  const [viewedStatsOnboarding, setViewedStatsOnboarding] = useLocalStorage(
+    "viewedStatsOnboarding",
+    false
+  );
+
+  useEffect(() => {
+    if (!viewedStatsOnboarding) {
+      setIsOpen(true);
+      setViewedStatsOnboarding(true);
+    }
+  }, [setViewedStatsOnboarding, viewedStatsOnboarding]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -30,7 +40,7 @@ export function StatsOnboarding() {
             </p>
             <div className="mt-4 grid gap-4">
               <Card className="flex items-center">
-                <ChartBarIcon className="mr-3 h-5 w-5" />
+                <BarChartBigIcon className="mr-3 h-5 w-5" />
                 Visualise your data
               </Card>
               <Card className="flex items-center">
