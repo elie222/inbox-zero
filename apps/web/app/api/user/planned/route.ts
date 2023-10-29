@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 // import groupBy from "lodash/groupBy";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
 import { parseMessage } from "@/utils/mail";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export type PlannedResponse = Awaited<ReturnType<typeof getPlanned>>;
 
 async function getPlanned() {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
   const plans = await getPlans({ userId: session.user.id });

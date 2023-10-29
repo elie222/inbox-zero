@@ -1,29 +1,32 @@
-import NextAuth from "next-auth";
-import { authOptions, getAuthOptions } from "@/utils/auth";
+export { GET, POST } from "./auth";
+// export const runtime = "edge" // optional
 
-export const dynamic = "force-dynamic";
+// import NextAuth from "next-auth";
+// import { authOptions, getAuthOptions } from "@/utils/auth";
 
-// https://next-auth.js.org/configuration/initialization#advanced-initialization
-async function handler(
-  request: Request,
-  context: { params?: { nextauth?: string[] } }
-) {
-  let authOpts = authOptions;
+// export const dynamic = "force-dynamic";
 
-  if (
-    request.method === "POST" &&
-    context.params?.nextauth?.[0] === "signin" &&
-    context.params.nextauth[1] === "google"
-  ) {
-    const clonedRequest = request.clone();
-    const formData = await clonedRequest.formData();
-    const requestConsent = formData.get("consent") === "true";
+// // https://next-auth.js.org/configuration/initialization#advanced-initialization
+// async function handler(
+//   request: Request,
+//   context: { params?: { nextauth?: string[] } }
+// ) {
+//   let authOpts = authOptions;
 
-    authOpts = getAuthOptions({ consent: requestConsent });
-  }
+//   if (
+//     request.method === "POST" &&
+//     context.params?.nextauth?.[0] === "signin" &&
+//     context.params.nextauth[1] === "google"
+//   ) {
+//     const clonedRequest = request.clone();
+//     const formData = await clonedRequest.formData();
+//     const requestConsent = formData.get("consent") === "true";
 
-  // can remove `as any` once this is fixed: https://github.com/nextauthjs/next-auth/issues/8120
-  return await NextAuth(request as any, context as any, authOpts);
-}
+//     authOpts = getAuthOptions({ consent: requestConsent });
+//   }
 
-export { handler as GET, handler as POST };
+//   // can remove `as any` once this is fixed: https://github.com/nextauthjs/next-auth/issues/8120
+//   return await NextAuth(request as any, context as any, authOpts);
+// }
+
+// export { handler as GET, handler as POST };

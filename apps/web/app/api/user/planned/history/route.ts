@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export type PlanHistoryResponse = Awaited<ReturnType<typeof getPlanHistory>>;
 
 async function getPlanHistory() {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
   const history = await prisma.executedRule.findMany({

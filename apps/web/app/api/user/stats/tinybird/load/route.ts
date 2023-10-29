@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
 import * as cheerio from "cheerio";
 import { z } from "zod";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { TinybirdEmail, getLastEmail, publishEmail } from "@inboxzero/tinybird";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -199,8 +199,9 @@ function findUnsubscribeLink(html: string) {
 }
 
 export const POST = withError(async (request: Request) => {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const body = loadTinybirdEmailsBody.parse(json);

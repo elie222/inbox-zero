@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { plan, planBody } from "@/app/api/ai/plan/controller";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
@@ -11,7 +11,7 @@ import { AIModel } from "@/utils/openai";
 // export const runtime = "edge";
 
 export const POST = withError(async (request: Request) => {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
 
@@ -12,7 +12,7 @@ export type LabelThreadBody = z.infer<typeof labelThreadBody>;
 export type LabelThreadResponse = Awaited<ReturnType<typeof labelThread>>;
 
 export async function labelThread(body: LabelThreadBody) {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session?.user.email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);

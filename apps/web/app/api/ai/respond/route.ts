@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { withError } from "@/utils/middleware";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 
 const respondBody = z.object({ message: z.string() });
@@ -32,7 +32,7 @@ async function respond(body: RespondBody, userAIFields: UserAIFields) {
 }
 
 export const POST = withError(async (request: Request) => {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 

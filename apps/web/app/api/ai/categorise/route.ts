@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { categorise } from "@/app/api/ai/categorise/controller";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { categoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { parseEmail } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { AIModel } from "@/utils/openai";
 
 export const POST = withError(async (request: Request) => {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const body = categoriseBodyWithHtml.parse(json);

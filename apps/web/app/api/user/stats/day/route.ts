@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
 
@@ -82,7 +82,7 @@ function getQuery(type: StatsByDayQuery["type"], date: Date) {
 }
 
 export async function GET(request: Request) {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session)
     return NextResponse.json<{ error: string }>({ error: "Not authenticated" });
 

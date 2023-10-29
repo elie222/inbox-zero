@@ -12,6 +12,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@auth/core": "^0.18.0",
     "@auth/prisma-adapter": "^1.0.5",
     "@baselime/node-opentelemetry": "^0.2.8",
     "@headlessui/react": "^1.7.17",
@@ -56,7 +57,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.290.0",
     "next": "14.0.0",
-    "next-auth": "^4.24.3",
+    "next-auth": "5.0.0-beta.3",
     "next-contentlayer": "^0.3.4",
     "node-email-reply-parser": "^0.1.4",
     "nodemailer": "^6.9.7",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
   getRule,
   updateRule,
@@ -12,8 +12,9 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const result = await getRule({ id: params.id, userId: session.user.id });
 
@@ -22,8 +23,9 @@ export async function GET(
 
 export const POST = withError(
   async (request, { params }: { params: { id?: string } }) => {
-    const session = await getAuthSession();
-    if (!session) return NextResponse.json({ error: "Not authenticated" });
+    const session = await auth();
+    if (!session?.user.email)
+      return NextResponse.json({ error: "Not authenticated" });
     if (!params.id) return NextResponse.json({ error: "Missing id" });
 
     const json = await request.json();
@@ -40,8 +42,9 @@ export const POST = withError(
 );
 
 export async function DELETE(_request: Request, params: { id: string }) {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const result = await deleteRule({ id: params.id, userId: session.user.id });
 

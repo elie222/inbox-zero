@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getOpenAI } from "@/utils/openai";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { filterFunctions } from "@/utils/ai/filters";
 import prisma from "@/utils/prisma";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
@@ -13,7 +13,7 @@ export type PromptQuery = z.infer<typeof promptQuery>;
 export type PromptResponse = Awaited<ReturnType<typeof prompt>>;
 
 export async function createFilterFromPrompt(body: PromptQuery) {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session?.user) throw new Error("Not logged in");
 
   const aiResponsePromise = getOpenAI(null).chat.completions.create({
