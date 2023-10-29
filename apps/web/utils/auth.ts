@@ -25,8 +25,6 @@ export const getAuthOptions: (options?: {
   debug: true,
   providers: [
     GoogleProvider({
-      id: "google",
-      name: "Google",
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       authorization: {
@@ -49,12 +47,6 @@ export const getAuthOptions: (options?: {
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
     jwt: async ({ token, user, account }) => {
-      if (user) {
-        console.log("🚀TOKEN", token);
-        console.log("🚀USER", !!user, user);
-        console.log("🚀ACCOUNT", !!account, account);
-      }
-
       // Signing in
       // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
