@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React from "react";
+import useSWRMutation from "swr/mutation";
+import { AreaChartIcon, Loader2 } from "lucide-react";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { AreaChartIcon, Loader2 } from "lucide-react";
 import { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
 import { Button } from "@/components/ui/button";
 
-export function LoadStatsButton() {
+export function useLoading() {
   const [loading, setLoading] = React.useState(false);
 
-  const onClick = useCallback(async () => {
+  const { trigger, isMutating } = useSWRMutation("/api/user", async () => {
     if (loading) return;
 
     setLoading(true);
@@ -27,18 +28,23 @@ export function LoadStatsButton() {
       toastSuccess({ description: `Stats loaded!` });
     }
     setLoading(false);
-  }, [loading]);
+  });
 
-  // useEffect(() => {
-  //   if (!loading) onClick();
-  // }, [loading, onClick]);
+  return { loading: isMutating, onLoad: trigger };
+}
+
+export function LoadStatsButton(props: {
+  loading: boolean;
+  onLoad: () => void;
+}) {
+  const { loading, onLoad } = props;
 
   return (
     <div>
       <Button
         color="blue"
         variant="outline"
-        onClick={onClick}
+        onClick={onLoad}
         disabled={loading}
       >
         {loading ? (

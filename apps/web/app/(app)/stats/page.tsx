@@ -1,10 +1,10 @@
 "use client";
 
 import { subDays } from "date-fns";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { DateRange } from "react-day-picker";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
-import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
+import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
@@ -52,6 +52,16 @@ export default function StatsPage() {
     [period]
   );
 
+  const { loading, onLoad } = useLoading();
+
+  const isLoading = useRef(false);
+  useEffect(() => {
+    if (!isLoading.current) {
+      onLoad();
+      isLoading.current = true;
+    }
+  }, [onLoad]);
+
   return (
     <div className="pb-20">
       <div className="sticky top-0 z-10 flex justify-end space-x-1 border-b bg-white px-4 py-2 shadow">
@@ -64,7 +74,7 @@ export default function StatsPage() {
           period={period}
           setPeriod={setPeriod}
         />
-        <LoadStatsButton />
+        <LoadStatsButton loading={loading} onLoad={onLoad} />
       </div>
 
       <div className="px-4 py-4">
