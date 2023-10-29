@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { gmail_v1 } from "googleapis";
 import * as cheerio from "cheerio";
+import { z } from "zod";
 import { getAuthSession } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
 import { TinybirdEmail, getLastEmail, publishEmail } from "@inboxzero/tinybird";
-import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
@@ -15,14 +16,21 @@ export const maxDuration = 300;
 const PAGE_SIZE = 500;
 const PAUSE_AFTER_RATE_LIMIT = 20_000;
 
+export const loadTinybirdEmailsBody = z.object({
+  loadBefore: z.coerce.boolean().optional(),
+});
+export type LoadTinybirdEmailsBody = z.infer<typeof loadTinybirdEmailsBody>;
 export type LoadTinybirdEmailsResponse = Awaited<
   ReturnType<typeof publishAllEmails>
 >;
 
-async function publishAllEmails(options: {
-  ownerEmail: string;
-  gmail: gmail_v1.Gmail;
-}) {
+async function publishAllEmails(
+  options: {
+    ownerEmail: string;
+    gmail: gmail_v1.Gmail;
+  },
+  body: LoadTinybirdEmailsBody
+) {
   const { ownerEmail, gmail } = options;
 
   let nextPageToken: string | undefined = undefined;
@@ -48,7 +56,7 @@ async function publishAllEmails(options: {
         before: undefined,
       });
     } catch (error) {
-      console.log("Rate limited. Waiting 10 seconds...");
+      console.log(`Rate limited. Waiting ${PAUSE_AFTER_RATE_LIMIT} seconds...`);
       await sleep(PAUSE_AFTER_RATE_LIMIT);
       res = await saveBatch({
         ownerEmail,
@@ -66,6 +74,8 @@ async function publishAllEmails(options: {
   }
 
   console.log("Completed emails after:", after);
+
+  if (!body.loadBefore) return { pages };
 
   const before = oldestEmailSaved.data?.[0]?.timestamp;
   console.log("Loading emails before:", before);
@@ -192,12 +202,18 @@ export const POST = withError(async (request: Request) => {
   const session = await getAuthSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" });
 
+  const json = await request.json();
+  const body = loadTinybirdEmailsBody.parse(json);
+
   const gmail = getGmailClient(session);
 
-  const result = await publishAllEmails({
-    ownerEmail: session.user.email,
-    gmail,
-  });
+  const result = await publishAllEmails(
+    {
+      ownerEmail: session.user.email,
+      gmail,
+    },
+    body
+  );
 
   return NextResponse.json(result);
 });
