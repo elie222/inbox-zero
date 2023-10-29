@@ -13,21 +13,30 @@ import {
   TableRow,
   Title,
 } from "@tremor/react";
-import { ArrowDownIcon, ChevronDown, ChevronsUpDownIcon } from "lucide-react";
+import { ChevronDown, ChevronsUpDownIcon } from "lucide-react";
+import { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { Button } from "@/components/ui/button";
+import { getDateRangeParams } from "@/app/(app)/stats/params";
 
-export function NewsletterStats() {
+export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
+
+  const params = getDateRangeParams(props.dateRange);
+
   const { data, isLoading, error } = useSWRImmutable<
     NewsletterStatsResponse,
     { error: string }
-  >(`/api/user/stats/newsletters?orderBy=${sortColumn}`);
+  >(
+    `/api/user/stats/newsletters?orderBy=${sortColumn}&${new URLSearchParams(
+      params as any
+    )}`
+  );
 
   const { expanded, extra } = useExpanded();
 

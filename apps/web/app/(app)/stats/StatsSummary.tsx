@@ -15,13 +15,16 @@ import {
   StatsByWeekParams,
   StatsByWeekResponse,
 } from "@/app/api/user/stats/tinybird/route";
+import { getDateRangeParams } from "./params";
 
 export function StatsSummary(props: { dateRange?: DateRange }) {
   const { dateRange } = props;
 
-  const params: StatsByWeekParams = { period: "week" };
-  if (dateRange?.from) params.fromDate = +dateRange?.from;
-  if (dateRange?.to) params.toDate = +dateRange?.to;
+  const params: StatsByWeekParams = {
+    period: "week",
+    ...getDateRangeParams(dateRange),
+  };
+
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }

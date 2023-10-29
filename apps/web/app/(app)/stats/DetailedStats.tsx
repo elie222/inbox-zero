@@ -13,6 +13,7 @@ import {
   StatsByWeekParams,
 } from "@/app/api/user/stats/tinybird/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
+import { getDateRangeParams } from "@/app/(app)/stats/params";
 
 export function DetailedStats(props: {
   dateRange?: DateRange | undefined;
@@ -34,9 +35,11 @@ export function DetailedStats(props: {
     unarchived: true,
   });
 
-  const params: StatsByWeekParams = { period };
-  if (dateRange?.from) params.fromDate = +dateRange?.from;
-  if (dateRange?.to) params.toDate = +dateRange?.to;
+  const params: StatsByWeekParams = {
+    period: "week",
+    ...getDateRangeParams(dateRange),
+  };
+
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }

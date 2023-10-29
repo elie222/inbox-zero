@@ -3,6 +3,7 @@
 import { capitalCase } from "capital-case";
 import { sortBy } from "lodash";
 import useSWRImmutable from "swr/immutable";
+import { DateRange } from "react-day-picker";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
 import { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
@@ -10,12 +11,15 @@ import { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarList } from "@/components/charts/BarList";
+import { getDateRangeParams } from "@/app/(app)/stats/params";
 
-export function EmailAnalytics() {
+export function EmailAnalytics(props: { dateRange?: DateRange | undefined }) {
+  const params = getDateRangeParams(props.dateRange);
+
   const { data, isLoading, error } = useSWRImmutable<
     SendersResponse,
     { error: string }
-  >(`/api/user/stats/senders`);
+  >(`/api/user/stats/senders?${new URLSearchParams(params as any)}`);
   const {
     data: dataRecipients,
     isLoading: isLoadingRecipients,

@@ -5,8 +5,8 @@ import { getNewsletterCounts } from "@inboxzero/tinybird";
 
 const newsletterStatsQuery = z.object({
   limit: z.number().nullish(),
-  fromDate: z.number().nullish(),
-  toDate: z.number().nullish(),
+  fromDate: z.coerce.number().nullish(),
+  toDate: z.coerce.number().nullish(),
   orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
