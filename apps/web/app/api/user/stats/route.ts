@@ -1,6 +1,6 @@
 import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
@@ -79,8 +79,9 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
 }
 
 export async function GET() {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);
   const result = await getStats({ gmail });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getNewsletterCounts } from "@inboxzero/tinybird";
 
 const newsletterStatsQuery = z.object({
@@ -31,8 +31,9 @@ async function getNewslettersTinybird(
 }
 
 export async function GET(request: Request) {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const { searchParams } = new URL(request.url);
   const params = newsletterStatsQuery.parse({

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { ThreadWithPayloadMessages } from "@/utils/types";
 
@@ -30,8 +30,9 @@ export async function GET(
 ) {
   const query = threadQuery.parse(params);
 
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);
 

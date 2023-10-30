@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
+import { env } from "@/env.mjs";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,6 +34,10 @@ export const metadata: Metadata = {
     description,
     creator: "@getinboxzero",
   },
+  metadataBase: new URL(env.NEXT_PUBLIC_BASE_URL),
+};
+
+export const viewport = {
   themeColor: "#FFF",
 };
 

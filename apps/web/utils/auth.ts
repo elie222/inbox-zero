@@ -1,13 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import {
-  getServerSession,
-  TokenSet,
-  type NextAuthOptions,
-  type DefaultSession,
-  Account,
-} from "next-auth";
-import { type JWT } from "next-auth/jwt";
+import { type NextAuthConfig, type DefaultSession, Account } from "next-auth";
+import { type JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import prisma from "@/utils/prisma";
 import { env } from "@/env.mjs";
@@ -21,8 +15,8 @@ const SCOPES = [
 
 export const getAuthOptions: (options?: {
   consent: boolean;
-}) => NextAuthOptions = (options) => ({
-  debug: true,
+}) => NextAuthConfig = (options) => ({
+  // debug: true,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
@@ -36,17 +30,17 @@ export const getAuthOptions: (options?: {
           // when we don't have the refresh token
           // refresh token is only provided on first sign up unless we pass prompt=consent
           // https://github.com/nextauthjs/next-auth/issues/269#issuecomment-644274504
-          prompt: options?.consent ? "consent" : undefined,
+          ...(options?.consent ? { prompt: "consent" } : {}),
         },
       },
     }),
   ],
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   // based on: https://authjs.dev/guides/basics/refresh-token-rotation
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
-    jwt: async ({ token, user, account }) => {
+    jwt: async ({ token, user, account }): Promise<JWT> => {
       // Signing in
       // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
@@ -86,7 +80,10 @@ export const getAuthOptions: (options?: {
         token.user = user;
 
         return token;
-      } else if (token.expires_at && Date.now() < token.expires_at * 1000) {
+      } else if (
+        token.expires_at &&
+        Date.now() < (token.expires_at as number) * 1000
+      ) {
         // If the access token has not expired yet, return it
         return token;
       } else {
@@ -104,8 +101,8 @@ export const getAuthOptions: (options?: {
       };
 
       // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
-      session.accessToken = token?.access_token;
-      session.error = token?.error;
+      session.accessToken = token?.access_token as string | undefined;
+      session.error = token?.error as string | undefined;
 
       if (session.error) console.error("session.error", session.error);
 
@@ -151,7 +148,11 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       method: "POST",
     });
 
-    const tokens: TokenSet & { expires_in: number } = await response.json();
+    const tokens: {
+      expires_in: number;
+      access_token: string;
+      refresh_token: string;
+    } = await response.json();
 
     if (!response.ok) throw tokens;
 
@@ -212,17 +213,17 @@ export async function saveRefreshToken(
   });
 }
 
-export function getAuthSession() {
-  return getServerSession(authOptions) as Promise<{
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      image: string;
-    };
-    accessToken?: string;
-  } | null>;
-}
+// export function getAuthSession() {
+//   return auth(authOptions) as Promise<{
+//     user: {
+//       id: string;
+//       name: string;
+//       email: string;
+//       image: string;
+//     };
+//     accessToken?: string;
+//   } | null>;
+// }
 
 declare module "next-auth" {
   /**
@@ -231,11 +232,11 @@ declare module "next-auth" {
   interface Session {
     user: {} & DefaultSession["user"] & { id: string };
     accessToken?: string;
-    error?: "RefreshAccessTokenError";
+    error?: string | "RefreshAccessTokenError";
   }
 }
 
-declare module "next-auth/jwt" {
+declare module "@auth/core/jwt" {
   interface JWT {
     access_token?: string;
     expires_at?: number;

@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload } from "@/utils/types";
+// import { MessageWithPayload } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
 async function getMessages() {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);

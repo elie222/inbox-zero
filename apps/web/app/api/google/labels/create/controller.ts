@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getGmailClient } from "@/utils/gmail/client";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { saveUserLabel, saveUserLabels } from "@/utils/redis/label";
 
@@ -12,8 +12,8 @@ export type CreateLabelBody = z.infer<typeof createLabelBody>;
 export type CreateLabelResponse = Awaited<ReturnType<typeof createLabel>>;
 
 export async function createLabel(body: CreateLabelBody) {
-  const session = await getAuthSession();
-  if (!session) throw new Error("Not authenticated");
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not authenticated");
   const gmail = getGmailClient(session);
   const res = await gmail.users.labels.create({
     userId: "me",

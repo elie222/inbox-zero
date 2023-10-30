@@ -2,12 +2,12 @@
 
 import { NotLoggedIn } from "@/components/ErrorDisplay";
 import { Stats } from "@/components/Stats";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getUsage } from "@/utils/redis/usage";
 
 export default async function Usage() {
-  const session = await getAuthSession();
-  if (!session?.user) return <NotLoggedIn></NotLoggedIn>;
+  const session = await auth();
+  if (!session?.user.email) return <NotLoggedIn></NotLoggedIn>;
 
   const usage = await getUsage({ email: session.user.email });
 

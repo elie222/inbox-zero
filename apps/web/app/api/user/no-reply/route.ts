@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
 import { MessageWithPayload, isDefined } from "@/utils/types";
@@ -51,8 +51,9 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
 }
 
 export async function GET() {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);
   const result = await getNoReply({ email: session.user.email, gmail });

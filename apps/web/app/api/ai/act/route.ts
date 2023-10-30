@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
@@ -9,7 +9,7 @@ import { parseEmail } from "@/utils/mail";
 import { AIModel } from "@/utils/openai";
 
 export const POST = withError(async (request: Request) => {
-  const session = await getAuthSession();
+  const session = await auth();
   if (!session)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 

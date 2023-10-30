@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import {
@@ -10,8 +10,8 @@ import {
 export type SaveSettingsResponse = Awaited<ReturnType<typeof saveAISettings>>;
 
 async function saveAISettings(options: SaveSettingsBody) {
-  const session = await getAuthSession();
-  if (!session?.user) throw new Error("Not logged in");
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
 
   return await prisma.user.update({
     where: { email: session.user.email },
@@ -23,8 +23,9 @@ async function saveAISettings(options: SaveSettingsBody) {
 }
 
 export const POST = withError(async (request: Request) => {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const body = saveSettingsBody.parse(json);

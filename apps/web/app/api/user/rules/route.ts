@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
   deleteRule,
   getRules,
@@ -12,8 +12,9 @@ import {
 import { withError } from "@/utils/middleware";
 
 export async function GET() {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const result = await getRules({ userId: session.user.id });
 
@@ -21,8 +22,9 @@ export async function GET() {
 }
 
 export const POST = withError(async (request: Request) => {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const body = updateRulesBody.parse(json);
@@ -33,8 +35,9 @@ export const POST = withError(async (request: Request) => {
 });
 
 export async function DELETE(request: Request) {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const body = deleteRulesBody.parse(json);

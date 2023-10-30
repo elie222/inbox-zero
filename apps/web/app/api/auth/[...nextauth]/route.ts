@@ -1,29 +1,36 @@
-import NextAuth from "next-auth";
-import { authOptions, getAuthOptions } from "@/utils/auth";
+export { GET, POST } from "./auth";
+// export const runtime = "edge" // optional
 
-export const dynamic = "force-dynamic";
+// This code was used in the past to reask for consent when signing in with Google.
+// This doesn't happen often, but I'm keeping it here for now just in case we decide to put it back.
+// This code worked with Next Auth v4. We've since moved to v5.
 
-// https://next-auth.js.org/configuration/initialization#advanced-initialization
-async function handler(
-  request: Request,
-  context: { params?: { nextauth?: string[] } }
-) {
-  let authOpts = authOptions;
+// import NextAuth from "next-auth";
+// import { authOptions, getAuthOptions } from "@/utils/auth";
 
-  if (
-    request.method === "POST" &&
-    context.params?.nextauth?.[0] === "signin" &&
-    context.params.nextauth[1] === "google"
-  ) {
-    const clonedRequest = request.clone();
-    const formData = await clonedRequest.formData();
-    const requestConsent = formData.get("consent") === "true";
+// export const dynamic = "force-dynamic";
 
-    authOpts = getAuthOptions({ consent: requestConsent });
-  }
+// // https://next-auth.js.org/configuration/initialization#advanced-initialization
+// async function handler(
+//   request: Request,
+//   context: { params?: { nextauth?: string[] } }
+// ) {
+//   let authOpts = authOptions;
 
-  // can remove `as any` once this is fixed: https://github.com/nextauthjs/next-auth/issues/8120
-  return await NextAuth(request as any, context as any, authOpts);
-}
+//   if (
+//     request.method === "POST" &&
+//     context.params?.nextauth?.[0] === "signin" &&
+//     context.params.nextauth[1] === "google"
+//   ) {
+//     const clonedRequest = request.clone();
+//     const formData = await clonedRequest.formData();
+//     const requestConsent = formData.get("consent") === "true";
 
-export { handler as GET, handler as POST };
+//     authOpts = getAuthOptions({ consent: requestConsent });
+//   }
+
+//   // can remove `as any` once this is fixed: https://github.com/nextauthjs/next-auth/issues/8120
+//   return await NextAuth(request as any, context as any, authOpts);
+// }
+
+// export { handler as GET, handler as POST };

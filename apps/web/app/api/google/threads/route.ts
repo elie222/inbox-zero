@@ -2,7 +2,7 @@ import { z } from "zod";
 import he from "he";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
@@ -17,8 +17,9 @@ export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
 async function getThreads(query: ThreadsQuery) {
-  const session = await getAuthSession();
-  if (!session) throw new Error("Not authenticated");
+  const session = await auth();
+  const email = session?.user.email;
+  if (!email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
 
@@ -48,10 +49,7 @@ async function getThreads(query: ThreadsQuery) {
         messages,
         snippet: he.decode(t.snippet || ""),
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
-        category: await getCategory({
-          email: session.user.email,
-          threadId: id,
-        }),
+        category: await getCategory({ email, threadId: id }),
       };
     }) || []
   );

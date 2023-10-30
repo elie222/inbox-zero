@@ -12,7 +12,7 @@ import {
   getSentEmailsByPeriod,
   zodPeriod,
 } from "@inboxzero/tinybird";
-import { getAuthSession } from "@/utils/auth";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 
 const statsByWeekParams = z.object({
@@ -104,8 +104,9 @@ async function getStatsByPeriod(
 }
 
 export const GET = withError(async (request: Request) => {
-  const session = await getAuthSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" });
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
   const { searchParams } = new URL(request.url);
   const params = statsByWeekParams.parse({
