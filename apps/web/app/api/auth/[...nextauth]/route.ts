@@ -1,6 +1,10 @@
 export { GET, POST } from "./auth";
 // export const runtime = "edge" // optional
 
+// This code was used in the past to reask for consent when signing in with Google.
+// This doesn't happen often, but I'm keeping it here for now just in case we decide to put it back.
+// This code worked with Next Auth v4. We've since moved to v5.
+
 // import NextAuth from "next-auth";
 // import { authOptions, getAuthOptions } from "@/utils/auth";
 
