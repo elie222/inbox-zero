@@ -2,7 +2,6 @@ import "../../styles/globals.css";
 import React from "react";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
-// import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { TokenCheck } from "@/components/TokenCheck";
 import Providers from "@/app/(app)/providers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
