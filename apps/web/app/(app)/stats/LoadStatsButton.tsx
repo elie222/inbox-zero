@@ -6,33 +6,36 @@ import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
 import {
-  LoadTinybirdEmailsBody,
-  LoadTinybirdEmailsResponse,
+  type LoadTinybirdEmailsBody,
+  type LoadTinybirdEmailsResponse,
 } from "@/app/api/user/stats/tinybird/load/route";
 import { Button } from "@/components/ui/button";
 
 export function useLoading() {
   const [loading, setLoading] = useState(false);
 
-  const onLoad = useCallback(async (loadBefore: boolean) => {
-    if (loading) return;
+  const onLoad = useCallback(
+    async (loadBefore: boolean) => {
+      if (loading) return;
 
-    setLoading(true);
+      setLoading(true);
 
-    const res = await postRequest<
-      LoadTinybirdEmailsResponse,
-      LoadTinybirdEmailsBody
-    >("/api/user/stats/tinybird/load", {
-      loadBefore,
-    });
+      const res = await postRequest<
+        LoadTinybirdEmailsResponse,
+        LoadTinybirdEmailsBody
+      >("/api/user/stats/tinybird/load", {
+        loadBefore,
+      });
 
-    if (isError(res)) {
-      toastError({ description: `Error loading stats.` });
-    } else {
-      toastSuccess({ description: `Stats loaded!` });
-    }
-    setLoading(false);
-  }, []);
+      if (isError(res)) {
+        toastError({ description: `Error loading stats.` });
+      } else {
+        toastSuccess({ description: `Stats loaded!` });
+      }
+      setLoading(false);
+    },
+    [loading]
+  );
 
   return { loading, onLoad };
 }

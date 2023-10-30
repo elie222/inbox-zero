@@ -18,7 +18,8 @@ export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
 async function getThreads(query: ThreadsQuery) {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  const email = session?.user.email;
+  if (!email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
 
@@ -48,10 +49,7 @@ async function getThreads(query: ThreadsQuery) {
         messages,
         snippet: he.decode(t.snippet || ""),
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
-        category: await getCategory({
-          email: session.user.email,
-          threadId: id,
-        }),
+        category: await getCategory({ email, threadId: id }),
       };
     }) || []
   );

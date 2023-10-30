@@ -13,7 +13,7 @@ export type CreateLabelResponse = Awaited<ReturnType<typeof createLabel>>;
 
 export async function createLabel(body: CreateLabelBody) {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session?.user.email) throw new Error("Not authenticated");
   const gmail = getGmailClient(session);
   const res = await gmail.users.labels.create({
     userId: "me",

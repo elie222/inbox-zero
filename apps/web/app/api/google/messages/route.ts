@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload } from "@/utils/types";
+// import { MessageWithPayload } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;

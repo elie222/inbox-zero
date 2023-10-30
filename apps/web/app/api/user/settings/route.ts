@@ -11,7 +11,7 @@ export type SaveSettingsResponse = Awaited<ReturnType<typeof saveAISettings>>;
 
 async function saveAISettings(options: SaveSettingsBody) {
   const session = await auth();
-  if (!session?.user) throw new Error("Not logged in");
+  if (!session?.user.email) throw new Error("Not logged in");
 
   return await prisma.user.update({
     where: { email: session.user.email },

@@ -7,7 +7,7 @@ import { getUsage } from "@/utils/redis/usage";
 
 export default async function Usage() {
   const session = await auth();
-  if (!session?.user) return <NotLoggedIn></NotLoggedIn>;
+  if (!session?.user.email) return <NotLoggedIn></NotLoggedIn>;
 
   const usage = await getUsage({ email: session.user.email });
 

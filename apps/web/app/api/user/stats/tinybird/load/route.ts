@@ -16,7 +16,7 @@ export const maxDuration = 300;
 const PAGE_SIZE = 500;
 const PAUSE_AFTER_RATE_LIMIT = 20_000;
 
-export const loadTinybirdEmailsBody = z.object({
+const loadTinybirdEmailsBody = z.object({
   loadBefore: z.coerce.boolean().optional(),
 });
 export type LoadTinybirdEmailsBody = z.infer<typeof loadTinybirdEmailsBody>;

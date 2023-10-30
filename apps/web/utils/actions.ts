@@ -58,7 +58,7 @@ export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export async function saveAboutAction(options: SaveAboutBody) {
   const session = await auth();
-  if (!session?.user) throw new Error("Not logged in");
+  if (!session?.user.email) throw new Error("Not logged in");
 
   await prisma.user.update({
     where: { email: session.user.email },
@@ -68,7 +68,7 @@ export async function saveAboutAction(options: SaveAboutBody) {
 
 export async function deleteAccountAction() {
   const session = await auth();
-  if (!session?.user) throw new Error("Not logged in");
+  if (!session?.user.email) throw new Error("Not logged in");
 
   await prisma.user.delete({
     where: { email: session.user.email },
@@ -85,7 +85,7 @@ export async function updateLabels(
   labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[]
 ) {
   const session = await auth();
-  if (!session?.user) throw new Error("Not logged in");
+  if (!session?.user.email) throw new Error("Not logged in");
 
   const userId = session.user.id;
 

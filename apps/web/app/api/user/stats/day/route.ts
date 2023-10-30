@@ -83,7 +83,7 @@ function getQuery(type: StatsByDayQuery["type"], date: Date) {
 
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session)
+  if (!session?.user.email)
     return NextResponse.json<{ error: string }>({ error: "Not authenticated" });
 
   const { searchParams } = new URL(request.url);

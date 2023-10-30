@@ -28,6 +28,7 @@ export const POST = withError(async (request: Request) => {
 
   const res = await plan(body, {
     ...session.user,
+    email: session.user.email,
     aiModel: user.aiModel as AIModel,
     openAIApiKey: user.openAIApiKey,
   });
