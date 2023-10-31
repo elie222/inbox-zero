@@ -6,8 +6,7 @@ import { TokenCheck } from "@/components/TokenCheck";
 import Providers from "@/app/(app)/providers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-// NOTE: inherits from top level layout
-export default async function RootLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -17,13 +16,9 @@ export default async function RootLayout({
   if (!session?.user.email) redirect("/login");
 
   return (
-    <html lang="en">
-      <body>
-        <Providers>
-          <TokenCheck />
-          <SideNavWithTopNav>{children}</SideNavWithTopNav>
-        </Providers>
-      </body>
-    </html>
+    <Providers>
+      <TokenCheck />
+      <SideNavWithTopNav>{children}</SideNavWithTopNav>
+    </Providers>
   );
 }
