@@ -114,6 +114,12 @@ export const getNewsletterCounts = tb.buildPipe({
   }),
 });
 
+export const getEmailsFromSender = tb.buildPipe({
+  pipe: "emails_from_sender",
+  parameters: getEmailsParameters.merge(z.object({ fromEmail: z.string() })),
+  data: getEmailsData,
+});
+
 export const getLargestEmails = tb.buildPipe({
   pipe: "largest_emails",
   parameters: z.object({

@@ -21,6 +21,7 @@ import { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route"
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { Button } from "@/components/ui/button";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
+import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 
 export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
   const [sortColumn, setSortColumn] = useState<
@@ -39,6 +40,8 @@ export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
   );
 
   const { expanded, extra } = useExpanded();
+  const [selectedNewsletter, setSelectedNewsletter] =
+    React.useState<NewsletterStatsResponse["newsletterCounts"][number]>();
 
   return (
     <LoadingContent
@@ -79,6 +82,7 @@ export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
                     Archived
                   </HeaderButton>
                 </TableHeaderCell>
+                <TableHeaderCell></TableHeaderCell>
                 <TableHeaderCell></TableHeaderCell>
                 {/* <TableHeaderCell>Auto label and archive</TableHeaderCell> */}
               </TableRow>
@@ -128,6 +132,16 @@ export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
                           Unsubscribe
                         </Button>
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!item.lastUnsubscribeLink}
+                          onClick={() => setSelectedNewsletter(item)}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
                       {/* <TableCell>
                         <Button
                           size="xs"
@@ -146,6 +160,10 @@ export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
           <div className="mt-2">{extra}</div>
         </Card>
       )}
+      <NewsletterModal
+        newsletter={selectedNewsletter}
+        onClose={() => setSelectedNewsletter(undefined)}
+      />
     </LoadingContent>
   );
 }

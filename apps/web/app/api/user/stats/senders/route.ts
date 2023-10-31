@@ -111,8 +111,8 @@ export async function GET(request: Request) {
 
   // const result = await getSenders({ gmail });
   const result = await getSendersTinybird({
-    ownerEmail: session.user.email,
     ...query,
+    ownerEmail: session.user.email,
   });
 
   return NextResponse.json(result);
