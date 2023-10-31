@@ -36,7 +36,7 @@ export function Features() {
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
             Running a small business you{"'"}re constantly bombarded with the
-            same questions. Same your time and your customers time by having our
+            same questions. Save your time and your customers time by having our
             AI answer them for you.
           </p>
         </div>
