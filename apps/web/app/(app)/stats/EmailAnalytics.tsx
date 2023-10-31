@@ -25,14 +25,14 @@ export function EmailAnalytics(props: { dateRange?: DateRange | undefined }) {
     isLoading: isLoadingRecipients,
     error: errorRecipients,
   } = useSWRImmutable<RecipientsResponse, { error: string }>(
-    `/api/user/stats/recipients`
+    `/api/user/stats/recipients?${new URLSearchParams(params as any)}`
   );
   const {
     data: dataCategories,
     isLoading: isLoadingCategories,
     error: errorCategories,
   } = useSWRImmutable<CategoryStatsResponse, { error: string }>(
-    `/api/user/stats/categories`
+    `/api/user/stats/categories?${new URLSearchParams(params as any)}`
   );
 
   const { expanded, extra } = useExpanded();
