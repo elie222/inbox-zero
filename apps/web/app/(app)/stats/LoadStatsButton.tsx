@@ -15,7 +15,7 @@ export function useLoading() {
   const [loading, setLoading] = useState(false);
 
   const onLoad = useCallback(
-    async (loadBefore: boolean) => {
+    async (loadBefore: boolean, showSuccess: boolean) => {
       if (loading) return;
 
       setLoading(true);
@@ -30,7 +30,7 @@ export function useLoading() {
       if (isError(res)) {
         toastError({ description: `Error loading stats.` });
       } else {
-        toastSuccess({ description: `Stats loaded!` });
+        if (showSuccess) toastSuccess({ description: `Stats loaded!` });
       }
       setLoading(false);
     },
@@ -42,7 +42,7 @@ export function useLoading() {
 
 export function LoadStatsButton(props: {
   loading: boolean;
-  onLoad: (loadBefore: boolean) => void;
+  onLoad: (loadBefore: boolean, showSuccess: boolean) => void;
 }) {
   const { loading, onLoad } = props;
 
@@ -51,7 +51,7 @@ export function LoadStatsButton(props: {
       <Button
         color="blue"
         variant="outline"
-        onClick={() => onLoad(true)}
+        onClick={() => onLoad(true, true)}
         disabled={loading}
       >
         {loading ? (

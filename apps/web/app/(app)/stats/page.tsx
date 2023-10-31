@@ -57,7 +57,7 @@ export default function StatsPage() {
   const isLoading = useRef(false);
   useEffect(() => {
     if (!isLoading.current) {
-      onLoad(false);
+      onLoad(false, false);
       isLoading.current = true;
     }
   }, [onLoad]);
