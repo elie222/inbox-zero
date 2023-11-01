@@ -13,31 +13,46 @@ import {
   TableRow,
   Title,
 } from "@tremor/react";
-import { ChevronDown, ChevronsUpDownIcon } from "lucide-react";
+import { ChevronDown, ChevronsUpDownIcon, FilterIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
+import {
+  NewsletterStatsQuery,
+  NewsletterStatsResponse,
+} from "@/app/api/user/stats/newsletters/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { Button } from "@/components/ui/button";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
+import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 
 export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
 
-  const params = getDateRangeParams(props.dateRange);
+  const [types, setTypes] = useState<
+    Record<"read" | "unread" | "archived" | "unarchived", boolean>
+  >({
+    read: true,
+    unread: true,
+    archived: true,
+    unarchived: true,
+  });
+
+  const params: NewsletterStatsQuery = {
+    types: Object.entries(types)
+      .filter(([, selected]) => selected)
+      .map(([key]) => key) as ("read" | "unread" | "archived" | "unarchived")[],
+    orderBy: sortColumn,
+    ...getDateRangeParams(props.dateRange),
+  };
 
   const { data, isLoading, error } = useSWRImmutable<
     NewsletterStatsResponse,
     { error: string }
-  >(
-    `/api/user/stats/newsletters?orderBy=${sortColumn}&${new URLSearchParams(
-      params as any
-    )}`
-  );
+  >(`/api/user/stats/newsletters?${new URLSearchParams(params as any)}`);
 
   const { expanded, extra } = useExpanded();
   const [selectedNewsletter, setSelectedNewsletter] =
@@ -51,7 +66,42 @@ export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
     >
       {data && (
         <Card>
-          <Title>Which newsletters do you get the most?</Title>
+          <div className="flex items-center justify-between">
+            <Title>Which newsletters do you get the most?</Title>
+            <div className="flex space-x-2">
+              <DetailedStatsFilter
+                label="Types"
+                icon={<FilterIcon className="mr-2 h-4 w-4" />}
+                columns={[
+                  {
+                    label: "Read",
+                    checked: types.read,
+                    setChecked: () =>
+                      setTypes({ ...types, ["read"]: !types.read }),
+                  },
+                  {
+                    label: "Unread",
+                    checked: types.unread,
+                    setChecked: () =>
+                      setTypes({ ...types, ["unread"]: !types.unread }),
+                  },
+                  {
+                    label: "Unarchived",
+                    checked: types.unarchived,
+                    setChecked: () =>
+                      setTypes({ ...types, ["unarchived"]: !types.unarchived }),
+                  },
+                  {
+                    label: "Archived",
+                    checked: types.archived,
+                    setChecked: () =>
+                      setTypes({ ...types, ["archived"]: !types.archived }),
+                  },
+                ]}
+              />
+            </div>
+          </div>
+
           <Table className="mt-6">
             <TableHead>
               <TableRow>

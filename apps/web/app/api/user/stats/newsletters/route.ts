@@ -8,6 +8,9 @@ const newsletterStatsQuery = z.object({
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
   orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
+  types: z
+    .array(z.enum(["read", "unread", "archived", "unarchived"]))
+    .optional(),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
@@ -17,7 +20,14 @@ export type NewsletterStatsResponse = Awaited<
 async function getNewslettersTinybird(
   options: { ownerEmail: string } & NewsletterStatsQuery
 ) {
-  const newsletterCounts = await getNewsletterCounts(options);
+  const newsletterCounts = await getNewsletterCounts({
+    ...options,
+    all: !options.types?.length,
+    read: !!options.types?.includes("read"),
+    unread: !!options.types?.includes("unread"),
+    archived: !!options.types?.includes("archived"),
+    unarchived: !!options.types?.includes("unarchived"),
+  });
 
   return {
     newsletterCounts: newsletterCounts.data.map((d) => ({
@@ -41,11 +51,12 @@ export async function GET(request: Request) {
     fromDate: searchParams.get("fromDate"),
     toDate: searchParams.get("toDate"),
     orderBy: searchParams.get("orderBy"),
+    types: searchParams.get("types")?.split(","),
   });
 
   const result = await getNewslettersTinybird({
-    ownerEmail: session.user.email,
     ...params,
+    ownerEmail: session.user.email,
   });
 
   return NextResponse.json(result);
