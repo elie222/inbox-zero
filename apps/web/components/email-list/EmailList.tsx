@@ -41,6 +41,7 @@ import {
   ArchiveBody,
   ArchiveResponse,
 } from "@/app/api/google/threads/archive/controller";
+import { MessageText } from "@/components/Typography";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -600,7 +601,9 @@ export function EmailList(props: {
           ))}
         </ul>
 
-        {props.threads.length === 0 && props.emptyMessage}
+        {props.threads.length === 0 && (
+          <MessageText className="py-4">{props.emptyMessage}</MessageText>
+        )}
 
         {!!(openedRowId && openedRow) && (
           <EmailPanel

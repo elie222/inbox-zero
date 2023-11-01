@@ -90,7 +90,7 @@ function Emails(props: { fromEmail: string }) {
             <EmailList
               threads={data.threads}
               refetch={mutate}
-              emptyMessage="There are no emails."
+              emptyMessage="There are no unarchived emails."
             />
           )}
         </LoadingContent>
