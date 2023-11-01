@@ -19,7 +19,6 @@ import { type NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/r
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
-import { parseFromEmail } from "@/utils/email";
 
 export function NewsletterModal(props: {
   newsletter?: NewsletterStatsResponse["newsletterCounts"][number];
@@ -76,9 +75,8 @@ function EmailsChart(props: {
 }
 
 function Emails(props: { fromEmail: string }) {
-  const fromEmail = parseFromEmail(props.fromEmail);
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
-    `/api/google/threads?&fromEmail=${fromEmail}`
+    `/api/google/threads?&fromEmail=${encodeURIComponent(props.fromEmail)}`
   );
 
   return (

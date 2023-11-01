@@ -5,11 +5,6 @@ export function fromName(email: string) {
   return email?.split("<")[0];
 }
 
-export function parseFromEmail(email: string) {
-  // converts "John Doe <john.doe@gmail.com>" to "john.doe@gmail.com"
-  return email?.split("<")[1]?.split(">")[0];
-}
-
 export function participant(parsedMessage: ParsedMessage, userEmail: string) {
   // returns the other side of the conversation
   // if we're the sender, then return the recipient
