@@ -12,7 +12,10 @@ import { getCategory } from "@/utils/redis/category";
 
 export const dynamic = "force-dynamic";
 
-const threadsQuery = z.object({ limit: z.coerce.number().max(500).optional() });
+const threadsQuery = z.object({
+  fromEmail: z.string().optional(),
+  limit: z.coerce.number().max(500).optional(),
+});
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
@@ -28,6 +31,7 @@ async function getThreads(query: ThreadsQuery) {
       userId: "me",
       labelIds: [INBOX_LABEL_ID],
       maxResults: query.limit || 50,
+      q: query.fromEmail ? `from:${query.fromEmail}` : undefined,
     }),
     prisma.rule.findMany({ where: { userId: session.user.id } }),
   ]);
@@ -60,7 +64,8 @@ async function getThreads(query: ThreadsQuery) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const limit = searchParams.get("limit");
-  const query = threadsQuery.parse({ limit });
+  const fromEmail = searchParams.get("fromEmail");
+  const query = threadsQuery.parse({ limit, fromEmail });
 
   try {
     const threads = await getThreads(query);

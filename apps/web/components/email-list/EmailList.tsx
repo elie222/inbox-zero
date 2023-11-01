@@ -29,7 +29,7 @@ import {
   PlanActions,
   useExecutePlan,
 } from "@/components/email-list/PlanActions";
-import { fromName, participant } from "@/components/email-list/helpers";
+import { fromName, participant } from "@/utils/email";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
 import { Card } from "@/components/Card";
