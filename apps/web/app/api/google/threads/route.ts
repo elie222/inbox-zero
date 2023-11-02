@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 const threadsQuery = z.object({
   fromEmail: z.string().optional(),
   limit: z.coerce.number().max(500).optional(),
+  includeAll: z.coerce.boolean().optional(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
@@ -25,11 +26,10 @@ async function getThreads(query: ThreadsQuery) {
   if (!email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
-
   const [gmailThreads, rules] = await Promise.all([
     gmail.users.threads.list({
       userId: "me",
-      labelIds: [INBOX_LABEL_ID],
+      labelIds: query.includeAll ? undefined : [INBOX_LABEL_ID],
       maxResults: query.limit || 50,
       q: query.fromEmail ? `from:${query.fromEmail}` : undefined,
     }),
@@ -65,7 +65,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const limit = searchParams.get("limit");
   const fromEmail = searchParams.get("fromEmail");
-  const query = threadsQuery.parse({ limit, fromEmail });
+  const includeAll = searchParams.get("includeAll");
+  const query = threadsQuery.parse({ limit, fromEmail, includeAll });
 
   try {
     const threads = await getThreads(query);

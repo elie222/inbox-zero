@@ -1,3 +1,4 @@
+import { useState } from "react";
 import useSWR from "swr";
 import { BarChart } from "@tremor/react";
 import {
@@ -19,6 +20,7 @@ import { type NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/r
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function NewsletterModal(props: {
   newsletter?: NewsletterStatsResponse["newsletterCounts"][number];
@@ -75,13 +77,25 @@ function EmailsChart(props: {
 }
 
 function Emails(props: { fromEmail: string }) {
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
-    `/api/google/threads?&fromEmail=${encodeURIComponent(props.fromEmail)}`
-  );
+  const [tab, setTab] = useState<"unarchived" | "all">("unarchived");
+  const url = `/api/google/threads?&fromEmail=${encodeURIComponent(
+    props.fromEmail
+  )}${tab === "all" ? "&includeAll=true" : ""}`;
+  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url);
 
   return (
     <>
       <SectionHeader>Emails</SectionHeader>
+      <Tabs
+        defaultValue="unarchived"
+        className="mt-2"
+        onValueChange={setTab as any}
+      >
+        <TabsList>
+          <TabsTrigger value="unarchived">Unarchived</TabsTrigger>
+          <TabsTrigger value="all">All</TabsTrigger>
+        </TabsList>
+      </Tabs>
       <div className="mt-2">
         <LoadingContent loading={isLoading} error={error}>
           {data && (
