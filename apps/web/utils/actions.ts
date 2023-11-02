@@ -70,15 +70,13 @@ export async function deleteAccountAction() {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
-  await prisma.user.delete({
-    where: { email: session.user.email },
-  });
-
   await deleteUserLabels({ email: session.user.email });
   await deleteInboxZeroLabels({ email: session.user.email });
   await deletePlans({ userId: session.user.id });
   await deleteUserStats({ email: session.user.email });
   await deleteTinybirdEmails({ email: session.user.email });
+
+  await prisma.user.delete({ where: { email: session.user.email } });
 }
 
 export async function updateLabels(
