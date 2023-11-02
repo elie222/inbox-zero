@@ -171,6 +171,16 @@ async function saveBatch(
           sizeEstimate: message.sizeEstimate,
         };
 
+        if (!tinybirdEmail.timestamp) {
+          console.error(
+            "No timestamp for email",
+            tinybirdEmail.ownerEmail,
+            tinybirdEmail.gmailMessageId,
+            parsedEmail.headers.date
+          );
+          return;
+        }
+
         return tinybirdEmail;
       }) || []
     )

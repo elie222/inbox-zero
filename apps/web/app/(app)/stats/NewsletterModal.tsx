@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export function NewsletterModal(props: {
   newsletter?: NewsletterStatsResponse["newsletterCounts"][number];
   onClose: (isOpen: boolean) => void;
+  refreshInterval: number;
 }) {
   return (
     <Dialog open={!!props.newsletter} onOpenChange={props.onClose}>
@@ -37,10 +38,17 @@ export function NewsletterModal(props: {
         </DialogHeader>
 
         <div>
-          <EmailsChart fromEmail={props.newsletter?.name!} period="week" />
+          <EmailsChart
+            fromEmail={props.newsletter?.name!}
+            period="week"
+            refreshInterval={props.refreshInterval}
+          />
         </div>
         <div className="lg:max-w-[820px] xl:max-w-[1220px]">
-          <Emails fromEmail={props.newsletter?.name!} />
+          <Emails
+            fromEmail={props.newsletter?.name!}
+            refreshInterval={props.refreshInterval}
+          />
         </div>
       </DialogContent>
     </Dialog>
@@ -51,6 +59,7 @@ function EmailsChart(props: {
   fromEmail: string;
   dateRange?: DateRange | undefined;
   period: ZodPeriod;
+  refreshInterval: number;
 }) {
   const params: SenderEmailsQuery = {
     ...props,
@@ -59,7 +68,9 @@ function EmailsChart(props: {
   const { data, isLoading, error } = useSWR<
     SenderEmailsResponse,
     { error: string }
-  >(`/api/user/stats/sender-emails/?${new URLSearchParams(params as any)}`);
+  >(`/api/user/stats/sender-emails/?${new URLSearchParams(params as any)}`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -76,12 +87,14 @@ function EmailsChart(props: {
   );
 }
 
-function Emails(props: { fromEmail: string }) {
+function Emails(props: { fromEmail: string; refreshInterval: number }) {
   const [tab, setTab] = useState<"unarchived" | "all">("unarchived");
   const url = `/api/google/threads?&fromEmail=${encodeURIComponent(
     props.fromEmail
   )}${tab === "all" ? "&includeAll=true" : ""}`;
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url);
+  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
+    refreshInterval: props.refreshInterval,
+  });
 
   return (
     <>

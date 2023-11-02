@@ -11,6 +11,7 @@ import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
 import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
 import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
+import { LoadProgress } from "@/app/(app)/stats/LoadProgress";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -62,39 +63,54 @@ export default function StatsPage() {
     }
   }, [onLoad]);
 
+  const refreshInterval = loading ? 5_000 : 60_000;
+
   return (
     <div className="pb-20">
-      <div className="sticky top-0 z-10 flex justify-end space-x-1 border-b bg-white px-4 py-2 shadow">
-        <ActionBar
-          selectOptions={selectOptions}
-          dateDropdown={dateDropdown}
-          setDateDropdown={onSetDateDropdown}
-          dateRange={dateRange}
-          setDateRange={setDateRange}
-          period={period}
-          setPeriod={setPeriod}
-        />
-        <LoadStatsButton loading={loading} onLoad={onLoad} />
+      <div className="sticky top-0 z-10 flex justify-between border-b bg-white px-4 py-2 shadow">
+        {loading ? <LoadProgress /> : <div />}
+        <div className="flex space-x-1">
+          <ActionBar
+            selectOptions={selectOptions}
+            dateDropdown={dateDropdown}
+            setDateDropdown={onSetDateDropdown}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            period={period}
+            setPeriod={setPeriod}
+          />
+          <LoadStatsButton loading={loading} onLoad={onLoad} />
+        </div>
       </div>
 
       <div className="px-4 py-4">
-        <StatsSummary dateRange={dateRange} />
+        <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
       </div>
 
       <div className="px-4">
-        <EmailAnalytics dateRange={dateRange} />
+        <EmailAnalytics
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+        />
       </div>
 
       <div className="mx-4 mt-4">
-        <DetailedStats dateRange={dateRange} period={period} />
+        <DetailedStats
+          dateRange={dateRange}
+          period={period}
+          refreshInterval={refreshInterval}
+        />
       </div>
 
       <div className="mx-4 mt-4">
-        <NewsletterStats dateRange={dateRange} />
+        <NewsletterStats
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+        />
       </div>
 
       <div className="mt-4 px-4">
-        <LargestEmails />
+        <LargestEmails refreshInterval={refreshInterval} />
       </div>
 
       <StatsOnboarding />

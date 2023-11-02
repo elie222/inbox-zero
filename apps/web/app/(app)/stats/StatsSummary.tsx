@@ -17,7 +17,10 @@ import {
 } from "@/app/api/user/stats/tinybird/route";
 import { getDateRangeParams } from "./params";
 
-export function StatsSummary(props: { dateRange?: DateRange }) {
+export function StatsSummary(props: {
+  dateRange?: DateRange;
+  refreshInterval: number;
+}) {
   const { dateRange } = props;
 
   const params: StatsByWeekParams = {
@@ -28,7 +31,9 @@ export function StatsSummary(props: { dateRange?: DateRange }) {
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`);
+  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   return (
     <LoadingContent

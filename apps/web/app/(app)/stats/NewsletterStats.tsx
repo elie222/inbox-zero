@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import useSWRImmutable from "swr/immutable";
+import useSWR from "swr";
 import {
   Card,
   ProgressBar,
@@ -27,7 +27,10 @@ import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 
-export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
+export function NewsletterStats(props: {
+  dateRange?: DateRange | undefined;
+  refreshInterval: number;
+}) {
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
@@ -49,10 +52,12 @@ export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
     ...getDateRangeParams(props.dateRange),
   };
 
-  const { data, isLoading, error } = useSWRImmutable<
+  const { data, isLoading, error } = useSWR<
     NewsletterStatsResponse,
     { error: string }
-  >(`/api/user/stats/newsletters?${new URLSearchParams(params as any)}`);
+  >(`/api/user/stats/newsletters?${new URLSearchParams(params as any)}`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   const { expanded, extra } = useExpanded();
   const [selectedNewsletter, setSelectedNewsletter] =
@@ -213,6 +218,7 @@ export function NewsletterStats(props: { dateRange?: DateRange | undefined }) {
       <NewsletterModal
         newsletter={selectedNewsletter}
         onClose={() => setSelectedNewsletter(undefined)}
+        refreshInterval={props.refreshInterval}
       />
     </LoadingContent>
   );

@@ -1,5 +1,5 @@
 import { Color, Card, Title, BarChart } from "@tremor/react";
-import useSWRImmutable from "swr/immutable";
+import useSWR from "swr";
 import {
   StatsByDayQuery,
   StatsByDayResponse,
@@ -11,12 +11,15 @@ export function StatsChart(props: {
   title: string;
   type: StatsByDayQuery["type"];
   color: Color;
+  refreshInterval: number;
 }) {
   const searchParams: StatsByDayQuery = { type: props.type };
-  const { data, isLoading, error } = useSWRImmutable<
+  const { data, isLoading, error } = useSWR<
     StatsByDayResponse,
     { error: string }
-  >(`/api/user/stats/day?${new URLSearchParams(searchParams).toString()}`);
+  >(`/api/user/stats/day?${new URLSearchParams(searchParams).toString()}`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   return (
     <LoadingContent

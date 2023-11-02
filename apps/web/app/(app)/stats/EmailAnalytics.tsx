@@ -2,7 +2,7 @@
 
 import { capitalCase } from "capital-case";
 import { sortBy } from "lodash";
-import useSWRImmutable from "swr/immutable";
+import useSWR from "swr";
 import { DateRange } from "react-day-picker";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
@@ -13,26 +13,38 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BarList } from "@/components/charts/BarList";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
 
-export function EmailAnalytics(props: { dateRange?: DateRange | undefined }) {
+export function EmailAnalytics(props: {
+  dateRange?: DateRange | undefined;
+  refreshInterval: number;
+}) {
   const params = getDateRangeParams(props.dateRange);
 
-  const { data, isLoading, error } = useSWRImmutable<
-    SendersResponse,
-    { error: string }
-  >(`/api/user/stats/senders?${new URLSearchParams(params as any)}`);
+  const { data, isLoading, error } = useSWR<SendersResponse, { error: string }>(
+    `/api/user/stats/senders?${new URLSearchParams(params as any)}`,
+    {
+      refreshInterval: props.refreshInterval,
+    }
+  );
+
   const {
     data: dataRecipients,
     isLoading: isLoadingRecipients,
     error: errorRecipients,
-  } = useSWRImmutable<RecipientsResponse, { error: string }>(
-    `/api/user/stats/recipients?${new URLSearchParams(params as any)}`
+  } = useSWR<RecipientsResponse, { error: string }>(
+    `/api/user/stats/recipients?${new URLSearchParams(params as any)}`,
+    {
+      refreshInterval: props.refreshInterval,
+    }
   );
   const {
     data: dataCategories,
     isLoading: isLoadingCategories,
     error: errorCategories,
-  } = useSWRImmutable<CategoryStatsResponse, { error: string }>(
-    `/api/user/stats/categories?${new URLSearchParams(params as any)}`
+  } = useSWR<CategoryStatsResponse, { error: string }>(
+    `/api/user/stats/categories?${new URLSearchParams(params as any)}`,
+    {
+      refreshInterval: props.refreshInterval,
+    }
   );
 
   const { expanded, extra } = useExpanded();

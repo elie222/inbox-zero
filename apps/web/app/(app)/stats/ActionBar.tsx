@@ -25,7 +25,7 @@ export function ActionBar(props: {
   } = props;
 
   return (
-    <>
+    <div className="flex space-x-1">
       <DetailedStatsFilter
         label={`By ${period}`}
         icon={<Tally3Icon className="mr-2 h-4 w-4" />}
@@ -75,6 +75,6 @@ export function ActionBar(props: {
         dateRange={dateRange}
         onSetDateRange={setDateRange}
       />
-    </>
+    </div>
   );
 }

@@ -23,13 +23,15 @@ import { formatShortDate } from "@/utils/date";
 import { Button } from "@/components/ui/button";
 import { getGmailUrl } from "@/utils/url";
 
-export function LargestEmails() {
+export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
 
   const { data, isLoading, error } = useSWRImmutable<
     LargestEmailsResponse,
     { error: string }
-  >(`/api/user/stats/largest-emails`);
+  >(`/api/user/stats/largest-emails`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   const { expanded, extra } = useExpanded();
 
