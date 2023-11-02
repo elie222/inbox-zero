@@ -72,7 +72,7 @@ export function LargestEmails() {
                         {bytesToMegabytes(item.sizeEstimate).toFixed(1)} MB
                       </TableCell>
                       <TableCell>
-                        <Button asChild variant="secondary">
+                        <Button asChild variant="secondary" size="sm">
                           <Link
                             href={getGmailUrl(
                               item.gmailMessageId,
