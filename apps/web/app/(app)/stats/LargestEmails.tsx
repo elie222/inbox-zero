@@ -1,6 +1,7 @@
 "use client";
 
 import useSWRImmutable from "swr/immutable";
+import Link from "next/link";
 import {
   Card,
   Table,
@@ -19,7 +20,7 @@ import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { getGmailUrl } from "@/utils/url";
 
 export function LargestEmails() {
@@ -71,18 +72,16 @@ export function LargestEmails() {
                         {bytesToMegabytes(item.sizeEstimate).toFixed(1)} MB
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          color="primary"
-                          link={{
-                            href: getGmailUrl(
+                        <Button asChild variant="secondary">
+                          <Link
+                            href={getGmailUrl(
                               item.gmailMessageId,
                               session.data?.user.email
-                            ),
-                            target: "_blank",
-                          }}
-                        >
-                          View
+                            )}
+                            target="_blank"
+                          >
+                            View
+                          </Link>
                         </Button>
                       </TableCell>
                     </TableRow>
