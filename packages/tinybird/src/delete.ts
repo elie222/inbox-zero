@@ -9,7 +9,10 @@ async function deleteFromDatasource(
   let res = await fetch(url, {
     method: "POST",
     body: `delete_condition=(${deleteCondition})`,
-    headers: { Authorization: `Bearer ${process.env.TINYBIRD_TOKEN}` },
+    headers: {
+      Authorization: `Bearer ${process.env.TINYBIRD_TOKEN}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
   });
 
   if (!res.ok) {
