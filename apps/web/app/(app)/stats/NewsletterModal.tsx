@@ -28,7 +28,7 @@ export function NewsletterModal(props: {
 }) {
   return (
     <Dialog open={!!props.newsletter} onOpenChange={props.onClose}>
-      <DialogContent className="max-h-screen overflow-x-scroll overflow-y-scroll lg:min-w-[1280px]">
+      <DialogContent className="max-h-screen overflow-x-scroll overflow-y-scroll lg:min-w-[880px] xl:min-w-[1280px]">
         <DialogHeader>
           <DialogTitle>{props.newsletter?.name}</DialogTitle>
           <DialogDescription>
@@ -39,7 +39,7 @@ export function NewsletterModal(props: {
         <div>
           <EmailsChart fromEmail={props.newsletter?.name!} period="week" />
         </div>
-        <div className="lg:max-w-[1220px]">
+        <div className="lg:max-w-[820px] xl:max-w-[1220px]">
           <Emails fromEmail={props.newsletter?.name!} />
         </div>
       </DialogContent>
