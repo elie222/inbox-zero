@@ -13,9 +13,9 @@ import { getCategory } from "@/utils/redis/category";
 export const dynamic = "force-dynamic";
 
 const threadsQuery = z.object({
-  fromEmail: z.string().optional(),
-  limit: z.coerce.number().max(500).optional(),
-  includeAll: z.coerce.boolean().optional(),
+  fromEmail: z.string().nullish(),
+  limit: z.coerce.number().max(500).nullish(),
+  includeAll: z.coerce.boolean().nullish(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
