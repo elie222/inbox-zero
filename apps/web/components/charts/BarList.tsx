@@ -15,8 +15,8 @@ export const BarList = (props: {
   data: {
     name: string;
     value: number;
-    // href: string;
-    // icon: () => JSX.Element;
+    href?: string;
+    target?: string;
   }[];
   extra?: React.ReactNode;
 }) => {

@@ -3,6 +3,7 @@
 import { capitalCase } from "capital-case";
 import { sortBy } from "lodash";
 import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import { DateRange } from "react-day-picker";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
@@ -12,11 +13,15 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarList } from "@/components/charts/BarList";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
+import { getGmailSearchUrl } from "@/utils/url";
 
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
+  const session = useSession();
+  const email = session.data?.user.email;
+
   const params = getDateRangeParams(props.dateRange);
 
   const { data, isLoading, error } = useSWR<SendersResponse, { error: string }>(
@@ -62,10 +67,13 @@ export function EmailAnalytics(props: {
             // subtitle="Last 50 emails"
             col1="Sender"
             col2="Emails"
-            data={data.mostActiveSenderEmails.slice(
-              0,
-              expanded ? undefined : 5
-            )}
+            data={data.mostActiveSenderEmails
+              .slice(0, expanded ? undefined : 5)
+              .map((d) => ({
+                ...d,
+                href: getGmailSearchUrl(d.name, email),
+                target: "_blank",
+              }))}
             extra={extra}
           />
         )}
@@ -81,10 +89,13 @@ export function EmailAnalytics(props: {
             // subtitle="Last 50 emails"
             col1="Domain"
             col2="Emails"
-            data={data.mostActiveSenderDomains.slice(
-              0,
-              expanded ? undefined : 5
-            )}
+            data={data.mostActiveSenderDomains
+              .slice(0, expanded ? undefined : 5)
+              .map((d) => ({
+                ...d,
+                href: getGmailSearchUrl(d.name, email),
+                target: "_blank",
+              }))}
             extra={extra}
           />
         )}
@@ -100,10 +111,13 @@ export function EmailAnalytics(props: {
             // subtitle="Last 50 emails"
             col1="Recipient"
             col2="Emails"
-            data={dataRecipients.mostActiveRecipientEmails.slice(
-              0,
-              expanded ? undefined : 5
-            )}
+            data={dataRecipients.mostActiveRecipientEmails
+              .slice(0, expanded ? undefined : 5)
+              .map((d) => ({
+                ...d,
+                href: getGmailSearchUrl(d.name, email),
+                target: "_blank",
+              }))}
             extra={extra}
           />
         )}
