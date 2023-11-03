@@ -15,6 +15,7 @@ import {
 } from "@tremor/react";
 import { ChevronDown, ChevronsUpDownIcon, FilterIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
+import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -26,11 +27,16 @@ import { Button } from "@/components/ui/button";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
+import { Tooltip } from "@/components/Tooltip";
+import { getGmailCreateFilterUrl } from "@/utils/url";
 
 export function NewsletterStats(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
+  const session = useSession();
+  const email = session.data?.user.email;
+
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
@@ -139,7 +145,7 @@ export function NewsletterStats(props: {
                 </TableHeaderCell>
                 <TableHeaderCell></TableHeaderCell>
                 <TableHeaderCell></TableHeaderCell>
-                {/* <TableHeaderCell>Auto label and archive</TableHeaderCell> */}
+                <TableHeaderCell></TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -180,12 +186,24 @@ export function NewsletterStats(props: {
                           size="sm"
                           variant="secondary"
                           disabled={!item.lastUnsubscribeLink}
-                          onClick={() =>
-                            window.open(item.lastUnsubscribeLink, "_blank")
-                          }
+                          asChild
                         >
-                          Unsubscribe
+                          <a href={item.lastUnsubscribeLink} target="_blank">
+                            Unsubscribe
+                          </a>
                         </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip content="Auto archive emails from this sender in Gmail">
+                          <Button size="sm" variant="secondary" asChild>
+                            <a
+                              href={getGmailCreateFilterUrl(item.name, email)}
+                              target="_blank"
+                            >
+                              Auto archive
+                            </a>
+                          </Button>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
                         <Button
@@ -197,16 +215,6 @@ export function NewsletterStats(props: {
                           View
                         </Button>
                       </TableCell>
-                      {/* <TableCell>
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          color="blue"
-                          onClick={() => alert("Not implemented yet")}
-                        >
-                          Auto archive
-                        </Button>
-                      </TableCell> */}
                     </TableRow>
                   );
                 })}
