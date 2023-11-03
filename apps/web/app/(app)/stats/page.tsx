@@ -63,7 +63,7 @@ export default function StatsPage() {
     }
   }, [onLoad]);
 
-  const refreshInterval = loading ? 5_000 : 60_000;
+  const refreshInterval = loading ? 3_000 : 1_000_000;
 
   return (
     <div className="pb-20">

@@ -20,6 +20,8 @@ export const env = createEnv({
     LEMON_SQUEEZY_SIGNING_SECRET: z.string(),
     TINYBIRD_TOKEN: z.string(),
     TINYBIRD_BASE_URL: z.string(),
+    ENCRYPT_SECRET: z.string().optional(),
+    ENCRYPT_SALT: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),

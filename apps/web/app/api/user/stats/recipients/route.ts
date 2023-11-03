@@ -7,12 +7,12 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 // import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
-import { parseDomain } from "@/app/api/user/stats/senders/route";
 import {
   getDomainsMostSentTo,
   getMostSentTo,
   zodPeriod,
 } from "@inboxzero/tinybird";
+import { parseDomain } from "@/utils/email";
 
 const recipientStatsQuery = z.object({
   period: zodPeriod,

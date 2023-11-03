@@ -1,13 +1,25 @@
 import { z } from "zod";
 import { tb } from "./client";
+import { encrypt } from "./encrypt";
 
 const tinybirdEmail = z.object({
   ownerEmail: z.string(),
   threadId: z.string(),
   gmailMessageId: z.string(),
-  from: z.string(),
-  to: z.string(),
-  subject: z.string().optional(),
+  from: z.string().transform(encrypt),
+  fromDomain: z
+    .string()
+    .optional()
+    .transform((s) => s && encrypt(s)),
+  to: z.string().transform(encrypt),
+  toDomain: z
+    .string()
+    .optional()
+    .transform((s) => s && encrypt(s)),
+  subject: z
+    .string()
+    .optional()
+    .transform((s) => s && encrypt(s)),
   timestamp: z.number(), // date
   unsubscribeLink: z.string().optional(),
   // labels when email was saved to tinybird
