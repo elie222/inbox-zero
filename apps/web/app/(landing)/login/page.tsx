@@ -1,6 +1,6 @@
-import { LoginForm } from "@/app/(landing)/login/LoginForm";
 import { Metadata } from "next";
 import Link from "next/link";
+import { LoginForm } from "@/app/(landing)/login/LoginForm";
 
 export const metadata: Metadata = {
   title: "Authentication",

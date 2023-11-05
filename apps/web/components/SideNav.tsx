@@ -18,16 +18,16 @@ import { Logo } from "@/components/Logo";
 import { CrownIcon } from "lucide-react";
 
 const navigation = [
+  {
+    name: "Stats",
+    href: "/stats",
+    icon: ChartBarIcon,
+  },
   { name: "Mail", href: "/mail", icon: InboxIcon },
   {
     name: "Planned",
     href: "/planned",
     icon: SparklesIcon,
-  },
-  {
-    name: "Stats",
-    href: "/stats",
-    icon: ChartBarIcon,
   },
   // {
   //   name: "Subscriptions",
@@ -153,7 +153,7 @@ function Sidebar(props: { isMobile: boolean }) {
         }
       )}
     >
-      <Link href="/mail">
+      <Link href="/stats">
         <div className="flex h-16 shrink-0 items-center text-white">
           <Logo className="h-4" />
         </div>
