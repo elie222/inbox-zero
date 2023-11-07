@@ -448,36 +448,38 @@ export function EmailList(props: {
     [refetch]
   );
 
-  const onArchive = useCallback(
-    (thread: Thread) => {
-      toast.promise(
-        async () => {
-          setIsArchiving((s) => ({ ...s, [thread.id!]: true }));
+  const archive = useCallback(
+    async (thread: Thread) => {
+      setIsArchiving((s) => ({ ...s, [thread.id!]: true }));
 
-          const res = await postRequest<ArchiveResponse, ArchiveBody>(
-            "/api/google/threads/archive",
-            {
-              id: thread.id!,
-            }
-          );
-
-          if (isError(res)) {
-            console.error(res);
-            setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
-            throw new Error(`There was an error archiving the email.`);
-          } else {
-            refetch();
-          }
-          setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
-        },
+      const res = await postRequest<ArchiveResponse, ArchiveBody>(
+        "/api/google/threads/archive",
         {
-          loading: "Archiving...",
-          success: "Archived!",
-          error: "There was an error archiving the email :(",
+          id: thread.id!,
         }
       );
+
+      if (isError(res)) {
+        console.error(res);
+        setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
+        throw new Error(`There was an error archiving the email.`);
+      } else {
+        refetch();
+      }
+      setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
     },
     [refetch]
+  );
+
+  const onArchive = useCallback(
+    (thread: Thread) => {
+      toast.promise(() => archive(thread), {
+        loading: "Archiving...",
+        success: "Archived!",
+        error: "There was an error archiving the email :(",
+      });
+    },
+    [archive]
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -529,12 +531,21 @@ export function EmailList(props: {
   }, [onAiCategorize, props.threads, selectedRows]);
 
   const onArchiveAiBulk = useCallback(async () => {
-    for (const [threadId, selected] of Object.entries(selectedRows)) {
-      if (!selected) continue;
-      const thread = props.threads.find((t) => t.id === threadId);
-      if (thread) onArchive(thread);
-    }
-  }, [onArchive, props.threads, selectedRows]);
+    toast.promise(
+      async () => {
+        for (const [threadId, selected] of Object.entries(selectedRows)) {
+          if (!selected) continue;
+          const thread = props.threads.find((t) => t.id === threadId);
+          if (thread) await archive(thread);
+        }
+      },
+      {
+        loading: "Archiving emails...",
+        success: "Emails archived!",
+        error: "There was an error archiving the emails :(",
+      }
+    );
+  }, [archive, props.threads, selectedRows]);
 
   return (
     <>
