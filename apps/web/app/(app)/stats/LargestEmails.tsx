@@ -14,6 +14,7 @@ import {
 } from "@tremor/react";
 import truncate from "lodash/truncate";
 import { useSession } from "next-auth/react";
+import { ExternalLinkIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
@@ -82,7 +83,8 @@ export function LargestEmails(props: { refreshInterval: number }) {
                             )}
                             target="_blank"
                           >
-                            View
+                            <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                            Open in Gmail
                           </Link>
                         </Button>
                       </TableCell>

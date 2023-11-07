@@ -1,6 +1,10 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { BarChart } from "@tremor/react";
+import { DateRange } from "react-day-picker";
+import Link from "next/link";
+import { ExternalLinkIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +13,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
-import { DateRange } from "react-day-picker";
 import {
   SenderEmailsQuery,
   SenderEmailsResponse,
@@ -21,35 +24,80 @@ import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { getGmailCreateFilterUrl, getGmailSearchUrl } from "@/utils/url";
+import { Tooltip } from "@/components/Tooltip";
 
 export function NewsletterModal(props: {
   newsletter?: NewsletterStatsResponse["newsletterCounts"][number];
   onClose: (isOpen: boolean) => void;
   refreshInterval: number;
 }) {
+  const session = useSession();
+  const email = session.data?.user.email;
+
   return (
     <Dialog open={!!props.newsletter} onOpenChange={props.onClose}>
       <DialogContent className="max-h-screen overflow-x-scroll overflow-y-scroll lg:min-w-[880px] xl:min-w-[1280px]">
-        <DialogHeader>
-          <DialogTitle>{props.newsletter?.name}</DialogTitle>
-          <DialogDescription>
-            <p>{props.newsletter?.name}</p>
-          </DialogDescription>
-        </DialogHeader>
+        {props.newsletter && (
+          <>
+            <DialogHeader>
+              <DialogTitle>{props.newsletter.name}</DialogTitle>
+              <DialogDescription>
+                <p>{props.newsletter.name}</p>
+              </DialogDescription>
 
-        <div>
-          <EmailsChart
-            fromEmail={props.newsletter?.name!}
-            period="week"
-            refreshInterval={props.refreshInterval}
-          />
-        </div>
-        <div className="lg:max-w-[820px] xl:max-w-[1220px]">
-          <Emails
-            fromEmail={props.newsletter?.name!}
-            refreshInterval={props.refreshInterval}
-          />
-        </div>
+              <div className="flex space-x-2 pt-2">
+                <Button size="sm" variant="secondary">
+                  <a
+                    href={props.newsletter.lastUnsubscribeLink}
+                    target="_blank"
+                  >
+                    Unsubscribe
+                  </a>
+                </Button>
+
+                <Tooltip content="Auto archive emails using Gmail filters">
+                  <Button asChild size="sm" variant="secondary">
+                    <Link
+                      href={getGmailCreateFilterUrl(
+                        props.newsletter.name,
+                        email
+                      )}
+                      target="_blank"
+                    >
+                      <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                      Auto archive
+                    </Link>
+                  </Button>
+                </Tooltip>
+                <Button asChild size="sm" variant="secondary">
+                  <Link
+                    href={getGmailSearchUrl(props.newsletter.name, email)}
+                    target="_blank"
+                  >
+                    <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                    View emails in Gmail
+                  </Link>
+                </Button>
+              </div>
+            </DialogHeader>
+
+            <div>
+              <EmailsChart
+                fromEmail={props.newsletter?.name!}
+                period="week"
+                refreshInterval={props.refreshInterval}
+              />
+            </div>
+            <div className="lg:max-w-[820px] xl:max-w-[1220px]">
+              <Emails
+                fromEmail={props.newsletter.name}
+                refreshInterval={props.refreshInterval}
+              />
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -115,7 +163,7 @@ function Emails(props: { fromEmail: string; refreshInterval: number }) {
             <EmailList
               threads={data.threads}
               refetch={mutate}
-              emptyMessage="There are no unarchived emails."
+              emptyMessage={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
             />
           )}
         </LoadingContent>

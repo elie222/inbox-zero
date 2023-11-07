@@ -143,8 +143,8 @@ export function NewsletterStats(props: {
                     Archived
                   </HeaderButton>
                 </TableHeaderCell>
-                <TableHeaderCell></TableHeaderCell>
-                <TableHeaderCell></TableHeaderCell>
+                <TableHeaderCell className="hidden xl:table-cell"></TableHeaderCell>
+                <TableHeaderCell className="hidden xl:table-cell"></TableHeaderCell>
                 <TableHeaderCell></TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -159,7 +159,9 @@ export function NewsletterStats(props: {
 
                   return (
                     <TableRow key={item.name}>
-                      <TableCell>{item.name}</TableCell>
+                      <TableCell className="max-w-[200px] truncate lg:max-w-[300px] 2xl:max-w-none">
+                        {item.name}
+                      </TableCell>
                       <TableCell>{item.value}</TableCell>
                       <TableCell>
                         <ProgressBar
@@ -181,7 +183,7 @@ export function NewsletterStats(props: {
                           className="w-[150px]"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden xl:table-cell">
                         <Button
                           size="sm"
                           variant="secondary"
@@ -193,8 +195,8 @@ export function NewsletterStats(props: {
                           </a>
                         </Button>
                       </TableCell>
-                      <TableCell>
-                        <Tooltip content="Auto archive emails from this sender in Gmail">
+                      <TableCell className="hidden xl:table-cell">
+                        <Tooltip content="Auto archive emails using Gmail filters">
                           <Button size="sm" variant="secondary" asChild>
                             <a
                               href={getGmailCreateFilterUrl(item.name, email)}
