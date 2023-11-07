@@ -152,9 +152,15 @@ async function saveBatch(
         const message = await getMessage(m.id, gmail);
         const parsedEmail = parseMessage(message);
 
-        const unsubscribeLink = parsedEmail.textHtml
+        let unsubscribeLink = parsedEmail.textHtml
           ? findUnsubscribeLink(parsedEmail.textHtml)
           : undefined;
+
+        if (!unsubscribeLink) {
+          // if we still haven't found the unsubscribe link, look for it in the email headers
+          unsubscribeLink =
+            parsedEmail.headers["List-Unsubscribe"] || undefined;
+        }
 
         const tinybirdEmail: TinybirdEmail = {
           ownerEmail,

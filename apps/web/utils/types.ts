@@ -95,5 +95,6 @@ interface Headers3 {
   cc?: string;
   date: string;
   ["message-id"]: string;
+  ["List-Unsubscribe"]?: string;
   [key: string]: string | undefined;
 }
