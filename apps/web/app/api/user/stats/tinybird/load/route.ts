@@ -217,7 +217,7 @@ function findUnsubscribeLink(html: string) {
       text.includes("email options")
     ) {
       unsubscribeLink = $(element).attr("href");
-      console.log(
+      console.debug(
         `Found link with text '${text}' and a link: ${unsubscribeLink}`
       );
       return false; // break the loop
@@ -241,7 +241,7 @@ function findUnsubscribeLink(html: string) {
     const parent = $(textNode).parent();
     const link = parent.find("a").attr("href");
     if (link) {
-      console.log(`Found text including 'unsubscribe' and a link: ${link}`);
+      console.debug(`Found text including 'unsubscribe' and a link: ${link}`);
       unsubscribeLink = link;
       return false; // break the loop
     }
