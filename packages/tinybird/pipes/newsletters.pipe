@@ -35,19 +35,45 @@ SQL >
         {% if Boolean(all) %}
             1
         {% else %}
-            0
+            {% if Boolean(andClause) %}
+                1
+            {% else %}
+                0
+            {% end %}
         {% end %}
-        {% if Boolean(read) %}
-            OR "read" = 1
-        {% end %}
-        {% if Boolean(unread) %}
-            OR "read" = 0
-        {% end %}
-        {% if Boolean(unarchived) %}
-            OR "inbox" = 1
-        {% end %}
-        {% if Boolean(archived) %}
-            OR "inbox" = 0
+        
+        {% if Boolean(andClause) %}
+
+            {% if Boolean(read) %}
+                AND "read" = 1
+            {% end %}
+            {% if Boolean(unread) %}
+                AND "read" = 0
+            {% end %}
+
+            {% if Boolean(unarchived) %}
+                AND "inbox" = 1
+            {% end %}
+            {% if Boolean(archived) %}
+                AND "inbox" = 0
+            {% end %}
+
+        {% else %}
+        
+            {% if Boolean(read) %}
+                OR "read" = 1
+            {% end %}
+            {% if Boolean(unread) %}
+                OR "read" = 0
+            {% end %}
+
+            {% if Boolean(unarchived) %}
+                OR "inbox" = 1
+            {% end %}
+            {% if Boolean(archived) %}
+                OR "inbox" = 0
+            {% end %}
+
         {% end %}
     GROUP BY "from"
     {% if String(orderBy) == 'unread' %}

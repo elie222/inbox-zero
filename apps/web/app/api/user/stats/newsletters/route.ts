@@ -10,7 +10,6 @@ const newsletterStatsQuery = z.object({
   orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
   types: z
     .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
-    .optional()
     .transform((arr) => arr?.filter(Boolean)),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
@@ -21,13 +20,33 @@ export type NewsletterStatsResponse = Awaited<
 async function getNewslettersTinybird(
   options: { ownerEmail: string } & NewsletterStatsQuery
 ) {
+  const typeMap = Object.fromEntries(options.types.map((type) => [type, true]));
+
+  // only use the read flag if unread is unmarked
+  // if read and unread are both set or both unset, we don't need to filter by read/unread at all
+  const read = Boolean(typeMap.read && !typeMap.unread);
+  const unread = Boolean(!typeMap.read && typeMap.unread);
+
+  // similar logic to read/unread
+  const archived = Boolean(typeMap.archived && !typeMap.unarchived);
+  const unarchived = Boolean(!typeMap.archived && typeMap.unarchived);
+
+  // we only need AND if both read/unread and archived/unarchived are set
+  const andClause = (read || unread) && (archived || unarchived);
+
+  const all =
+    !options.types.length ||
+    options.types.length === 4 ||
+    (!read && !unread && !archived && !unarchived);
+
   const newsletterCounts = await getNewsletterCounts({
     ...options,
-    all: !options.types?.length,
-    read: !!options.types?.includes("read"),
-    unread: !!options.types?.includes("unread"),
-    archived: !!options.types?.includes("archived"),
-    unarchived: !!options.types?.includes("unarchived"),
+    all,
+    read,
+    unread,
+    archived,
+    unarchived,
+    andClause,
   });
 
   return {
@@ -52,7 +71,7 @@ export async function GET(request: Request) {
     fromDate: searchParams.get("fromDate"),
     toDate: searchParams.get("toDate"),
     orderBy: searchParams.get("orderBy"),
-    types: searchParams.get("types")?.split(","),
+    types: searchParams.get("types")?.split(",") || [],
   });
 
   const result = await getNewslettersTinybird({

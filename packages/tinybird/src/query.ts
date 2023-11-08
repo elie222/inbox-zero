@@ -110,6 +110,7 @@ export const getNewsletterCounts = tb.buildPipe({
     unread: z.boolean(),
     archived: z.boolean(),
     unarchived: z.boolean(),
+    andClause: z.boolean().optional(),
   }),
   data: z.object({
     from: z.string().transform(decrypt),
