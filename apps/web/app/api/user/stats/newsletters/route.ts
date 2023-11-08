@@ -9,8 +9,9 @@ const newsletterStatsQuery = z.object({
   toDate: z.coerce.number().nullish(),
   orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
   types: z
-    .array(z.enum(["read", "unread", "archived", "unarchived"]))
-    .optional(),
+    .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
+    .optional()
+    .transform((arr) => arr?.filter(Boolean)),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<

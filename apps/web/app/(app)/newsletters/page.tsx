@@ -14,7 +14,7 @@ const selectOptions = [
   { label: "Last year", value: "365" },
   { label: "All", value: "0" },
 ];
-const defaultSelected = selectOptions[1];
+const defaultSelected = selectOptions[2];
 
 // Some copy paste from /stats page in here
 // May want to refactor some of this into a shared hook
@@ -65,7 +65,7 @@ export default function NewslettersPage() {
         </div>
       </div>
 
-      <div className="mx-4 mt-4">
+      <div className="m-4">
         <NewsletterStats
           dateRange={dateRange}
           refreshInterval={refreshInterval}
