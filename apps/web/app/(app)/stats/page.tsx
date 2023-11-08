@@ -8,10 +8,10 @@ import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
-import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
 import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { LoadProgress } from "@/app/(app)/stats/LoadProgress";
+// import { Insights } from "@/app/(app)/stats/Insights";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -102,12 +102,9 @@ export default function StatsPage() {
         />
       </div>
 
-      <div className="mx-4 mt-4">
-        <NewsletterStats
-          dateRange={dateRange}
-          refreshInterval={refreshInterval}
-        />
-      </div>
+      {/* <div className="px-4">
+        <Insights />
+      </div> */}
 
       <div className="mt-4 px-4">
         <LargestEmails refreshInterval={refreshInterval} />

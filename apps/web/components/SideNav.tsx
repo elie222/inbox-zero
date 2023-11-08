@@ -15,7 +15,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Logo } from "@/components/Logo";
-import { CrownIcon } from "lucide-react";
+import { CrownIcon, MailsIcon } from "lucide-react";
 
 const navigation = [
   {
@@ -23,17 +23,17 @@ const navigation = [
     href: "/stats",
     icon: ChartBarIcon,
   },
+  {
+    name: "Newsletters",
+    href: "/newsletters",
+    icon: MailsIcon,
+  },
   { name: "Mail", href: "/mail", icon: InboxIcon },
   {
     name: "Planned",
     href: "/planned",
     icon: SparklesIcon,
   },
-  // {
-  //   name: "Subscriptions",
-  //   href: "/stats",
-  //   icon: ChartBarIcon,
-  // },
   // {
   //   name: "No reply",
   //   href: "/no-reply",

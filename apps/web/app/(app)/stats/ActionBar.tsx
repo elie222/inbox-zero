@@ -11,8 +11,8 @@ export function ActionBar(props: {
   dateRange?: DateRange | undefined;
   setDateRange: (dateRange?: DateRange) => void;
   selectOptions: { label: string; value: string }[];
-  period: "day" | "week" | "month" | "year";
-  setPeriod: (value: "day" | "week" | "month" | "year") => void;
+  period?: "day" | "week" | "month" | "year";
+  setPeriod?: (value: "day" | "week" | "month" | "year") => void;
 }) {
   const {
     selectOptions,
@@ -26,32 +26,34 @@ export function ActionBar(props: {
 
   return (
     <div className="flex space-x-1">
-      <DetailedStatsFilter
-        label={`By ${period}`}
-        icon={<Tally3Icon className="mr-2 h-4 w-4" />}
-        columns={[
-          {
-            label: "Day",
-            checked: period === "day",
-            setChecked: () => setPeriod("day"),
-          },
-          {
-            label: "Week",
-            checked: period === "week",
-            setChecked: () => setPeriod("week"),
-          },
-          {
-            label: "Month",
-            checked: period === "month",
-            setChecked: () => setPeriod("month"),
-          },
-          {
-            label: "Year",
-            checked: period === "year",
-            setChecked: () => setPeriod("year"),
-          },
-        ]}
-      />
+      {period && setPeriod && (
+        <DetailedStatsFilter
+          label={`By ${period}`}
+          icon={<Tally3Icon className="mr-2 h-4 w-4" />}
+          columns={[
+            {
+              label: "Day",
+              checked: period === "day",
+              setChecked: () => setPeriod("day"),
+            },
+            {
+              label: "Week",
+              checked: period === "week",
+              setChecked: () => setPeriod("week"),
+            },
+            {
+              label: "Month",
+              checked: period === "month",
+              setChecked: () => setPeriod("month"),
+            },
+            {
+              label: "Year",
+              checked: period === "year",
+              setChecked: () => setPeriod("year"),
+            },
+          ]}
+        />
+      )}
       <DetailedStatsFilter
         label={dateDropdown || "Set date range"}
         icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
