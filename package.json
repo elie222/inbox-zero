@@ -8,7 +8,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "pretty-quick": "npx pretty-quick --write \"**/*.{ts,tsx}\"",
     "prettier": "npx prettier --write \"**/*.{ts,tsx}\"",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "ncu": "ncu -u -ws"
   },
   "devDependencies": {
     "@turbo/gen": "^1.10.15",
