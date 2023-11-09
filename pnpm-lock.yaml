@@ -48,7 +48,7 @@ importers:
         version: 4.11.4
     devDependencies:
       "@types/node":
-        specifier: ^20.9.0
+        specifier: ^20.8.9
         version: 20.9.0
       eslint-config-custom:
         specifier: workspace:*
@@ -381,8 +381,8 @@ importers:
         version: 3.22.4
     devDependencies:
       "@types/node":
-        specifier: 20.9.0
-        version: 20.9.0
+        specifier: 20.8.9
+        version: 20.8.9
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
