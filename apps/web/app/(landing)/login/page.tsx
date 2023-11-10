@@ -3,8 +3,8 @@ import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 
 export const metadata: Metadata = {
-  title: "Authentication",
-  description: "Authentication forms built using the components.",
+  title: "Log in",
+  description: "Log in to Inbox Zero.",
 };
 
 export default function AuthenticationPage() {
