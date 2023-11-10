@@ -55,9 +55,10 @@ export function Hero() {
               <HeroHeadingAB />
             </h1>
             <p className="mt-6 text-lg leading-8 text-gray-600">
-              Inbox Zero helps you handle emails faster with AI assistance.
-              Automate replies and answer your users in seconds. Understand what
-              {"'"}s filling up your inbox with our detailed analytics.
+              Inbox Zero puts you back in control of your inbox. Understand what
+              {"'"}s filling up your inbox with our email analytics. One-click
+              unsubscribe from newsletters. Automate replies and answer your
+              users in seconds.
             </p>
             <CTAButtons />
           </div>

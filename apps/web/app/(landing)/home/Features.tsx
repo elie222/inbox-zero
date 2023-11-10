@@ -1,5 +1,13 @@
 import clsx from "clsx";
-import { LineChart, LucideIcon, Orbit, Sparkles } from "lucide-react";
+import {
+  BarChart2Icon,
+  EyeIcon,
+  LineChart,
+  LucideIcon,
+  MousePointer2Icon,
+  Orbit,
+  Sparkles,
+} from "lucide-react";
 import Image from "next/image";
 
 const features = [
@@ -209,6 +217,40 @@ export function FeaturesStats() {
       description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
       image="/images/stats.png"
       features={featuresStats}
+    />
+  );
+}
+
+const featuresUnsubscribe = [
+  {
+    name: "One-click unsubscribe",
+    description:
+      "Don't search for the unsubscribe button. Unsubscribe with a single click or auto archive emails instead.",
+    icon: MousePointer2Icon,
+  },
+  {
+    name: "See who emails you most",
+    description:
+      "See who's sending you the most marketing and newsletter emails to prioritise who to unsubscribe from.",
+    icon: EyeIcon,
+  },
+  {
+    name: "How often they email",
+    description:
+      "View analytic charts to see how often you get emails from certain senders to take action.",
+    icon: BarChart2Icon,
+  },
+];
+
+export function FeaturesUnsubscribe() {
+  return (
+    <FeaturesWithImage
+      imageSide="left"
+      title="Newsletter Management"
+      subtitle="Clean up your subscriptions"
+      description="See all newsletter and marketing subscriptions in one place. Unsubscribe in a click."
+      image="/images/newsletters.png"
+      features={featuresUnsubscribe}
     />
   );
 }
