@@ -222,6 +222,15 @@ function findUnsubscribeLink(html: string) {
       );
       return false; // break the loop
     }
+
+    const href = $(element).attr("href")?.toLowerCase() || "";
+    if (href.includes("unsubcribe")) {
+      unsubscribeLink = $(element).attr("href");
+      console.debug(
+        `Found link with href '${href}' and a link: ${unsubscribeLink}`
+      );
+      return false; // break the loop
+    }
   });
 
   if (unsubscribeLink) return unsubscribeLink;
