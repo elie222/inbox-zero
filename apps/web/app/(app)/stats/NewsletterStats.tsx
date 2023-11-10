@@ -14,12 +14,7 @@ import {
   Title,
   Text,
 } from "@tremor/react";
-import {
-  ChevronDown,
-  ChevronsUpDownIcon,
-  CircleDashedIcon,
-  FilterIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronsUpDownIcon, FilterIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
