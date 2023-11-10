@@ -127,9 +127,7 @@ export function NewsletterStats(props: {
         <LoadingContent
           loading={!data && isLoading}
           error={error}
-          loadingComponent={
-            <Skeleton className="m-4 h-screen w-full rounded" />
-          }
+          loadingComponent={<Skeleton className="m-4 h-screen rounded" />}
         >
           {data && (
             <Table className="mt-4">
@@ -263,7 +261,7 @@ function HeaderButton(props: {
     <Button
       variant="ghost"
       size="sm"
-      className="data-[state=open]:bg-accent -ml-3 h-8"
+      className="-ml-3 h-8 data-[state=open]:bg-accent"
       onClick={props.onClick}
     >
       <span>{props.children}</span>
