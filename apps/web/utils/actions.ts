@@ -133,3 +133,13 @@ export async function deletePromptHistoryAction(options: { id: string }) {
 
   return deletePromptHistory({ id: options.id, userId: session.user.id });
 }
+
+export async function completedOnboarding() {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { completedOnboarding: true },
+  });
+}

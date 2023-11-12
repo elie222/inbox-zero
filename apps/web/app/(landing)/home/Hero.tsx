@@ -1,40 +1,12 @@
 import Image from "next/image";
 import { HeroHeadingAB } from "@/app/(landing)/home/HeroHeadingAB";
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
+import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 
 export function Hero() {
   return (
     <div className="relative pt-14">
-      {/* square pattern */}
-      <svg
-        className="absolute inset-0 -z-10 h-full w-full stroke-gray-200 [mask-image:radial-gradient(100%_100%_at_top_right,white,transparent)]"
-        aria-hidden="true"
-      >
-        <defs>
-          <pattern
-            id="83fd4e5a-9d52-42fc-97b6-718e5d7ee527"
-            width={200}
-            height={200}
-            x="50%"
-            y={-1}
-            patternUnits="userSpaceOnUse"
-          >
-            <path d="M100 200V.5M.5 .5H200" fill="none" />
-          </pattern>
-        </defs>
-        <svg x="50%" y={-1} className="overflow-visible fill-gray-50">
-          <path
-            d="M-100.5 0h201v201h-201Z M699.5 0h201v201h-201Z M499.5 400h201v201h-201Z M-300.5 600h201v201h-201Z"
-            strokeWidth={0}
-          />
-        </svg>
-        <rect
-          width="100%"
-          height="100%"
-          strokeWidth={0}
-          fill="url(#83fd4e5a-9d52-42fc-97b6-718e5d7ee527)"
-        />
-      </svg>
+      <SquaresPattern />
 
       {/* <div
         className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"

@@ -27,6 +27,7 @@ export const env = createEnv({
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
     NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK: z.string().min(1),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
+    NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string().default("https://getinboxzero.com"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
@@ -35,6 +36,8 @@ export const env = createEnv({
     NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK:
       process.env.NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
+      process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
   },
 });

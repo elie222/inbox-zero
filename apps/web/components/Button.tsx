@@ -27,6 +27,7 @@ export const Button = (props: ButtonProps) => {
     roundedSize = "md",
     full,
     loading,
+    className,
     ...rest
   } = props;
 
@@ -66,7 +67,8 @@ export const Button = (props: ButtonProps) => {
             color === "red",
           "border border-gray-100 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-200":
             color === "white",
-        }
+        },
+        className
       )}
       {...rest}
       disabled={loading || props.disabled}
