@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
+import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
@@ -51,7 +53,10 @@ export default function RootLayout({
       <body
         className={`h-full ${inter.variable} ${calFont.variable} font-sans`}
       >
-        {children}
+        <Suspense>
+          <PostHogPageview />
+        </Suspense>
+        <PostHogProvider>{children}</PostHogProvider>
       </body>
     </html>
   );
