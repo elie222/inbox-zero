@@ -56,6 +56,7 @@ export function NewsletterStats(props: {
       .filter(([, selected]) => selected)
       .map(([key]) => key) as ("read" | "unread" | "archived" | "unarchived")[],
     orderBy: sortColumn,
+    limit: 100,
     ...getDateRangeParams(props.dateRange),
   };
 
@@ -162,7 +163,7 @@ export function NewsletterStats(props: {
               </TableHead>
               <TableBody>
                 {data.newsletterCounts
-                  .slice(0, expanded ? undefined : 10)
+                  .slice(0, expanded ? undefined : 50)
                   .map((item) => {
                     const readPercentage = (item.readEmails / item.value) * 100;
                     const archivedEmails = item.value - item.inboxEmails;

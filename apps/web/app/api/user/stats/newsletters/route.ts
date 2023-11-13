@@ -4,7 +4,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getNewsletterCounts } from "@inboxzero/tinybird";
 
 const newsletterStatsQuery = z.object({
-  limit: z.number().nullish(),
+  limit: z.coerce.number().nullish(),
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
   orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
