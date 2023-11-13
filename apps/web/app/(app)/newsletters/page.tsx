@@ -51,9 +51,9 @@ export default function NewslettersPage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 flex justify-between border-b bg-white px-4 py-2 shadow">
+      <div className="sticky top-0 z-10 flex border-b bg-white px-4 py-2 shadow sm:justify-between">
         <div />
-        <div className="flex space-x-1">
+        <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
           <ActionBar
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}
