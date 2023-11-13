@@ -13,7 +13,7 @@ const inter = Inter({
   display: "swap",
 });
 const calFont = localFont({
-  src: "../styles/CalSans-SemiBold.ttf",
+  src: "../styles/CalSans-SemiBold.woff2",
   variable: "--font-cal",
   preload: true,
   display: "swap",
