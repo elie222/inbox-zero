@@ -4,7 +4,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getLargestEmails } from "@inboxzero/tinybird";
 
 const largestEmailsQuery = z.object({
-  limit: z.number().nullish(),
+  limit: z.coerce.number().nullish(),
   fromDate: z.number().nullish(),
   toDate: z.number().nullish(),
 });
