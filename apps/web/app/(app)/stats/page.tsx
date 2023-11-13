@@ -67,9 +67,9 @@ export default function StatsPage() {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-0 z-10 flex justify-between border-b bg-white px-4 py-2 shadow">
+      <div className="sticky top-0 z-10 justify-between border-b bg-white px-4 py-2 shadow sm:flex">
         {loading ? <LoadProgress /> : <div />}
-        <div className="flex space-x-1">
+        <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
           <ActionBar
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}

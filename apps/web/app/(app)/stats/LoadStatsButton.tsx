@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { AreaChartIcon, Loader2 } from "lucide-react";
+import { AreaChartIcon } from "lucide-react";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
