@@ -64,7 +64,7 @@ export function LoginForm() {
                     consent: error === "RefreshAccessTokenError",
                     ...(next && next.length > 0
                       ? { callbackUrl: next }
-                      : { callbackUrl: "/stats" }),
+                      : { callbackUrl: "/welcome" }),
                   });
                 }}
               >
