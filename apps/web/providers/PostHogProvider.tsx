@@ -21,8 +21,6 @@ export function PostHogPageview(): JSX.Element {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const session = useSession();
-
   useEffect(() => {
     if (pathname) {
       let url = window.origin + pathname;
@@ -35,8 +33,21 @@ export function PostHogPageview(): JSX.Element {
     }
   }, [pathname, searchParams]);
 
+  return <></>;
+}
+
+export function PostHogIdentify(): JSX.Element {
+  const session = useSession();
+
   useEffect(() => {
-    if (session.data?.user.email) posthog.identify(session.data?.user.email);
+    try {
+      if (session.data?.user.email) posthog.identify(session.data?.user.email);
+    } catch (error) {
+      console.log(
+        "🚀 ~ file: PostHogProvider.tsx:47 ~ useEffect ~ error:",
+        error
+      );
+    }
   }, [session.data?.user.email]);
 
   return <></>;
