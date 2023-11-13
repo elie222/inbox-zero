@@ -38,9 +38,7 @@ export default async function WelcomePage({
 
       <Card className="mx-auto flex max-w-5xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         <div className="flex flex-col text-center">
-          <h1 className="font-cal text-2xl font-semibold">
-            Welcome to Inbox Zero
-          </h1>
+          <h1 className="font-cal text-2xl">Welcome to Inbox Zero</h1>
           <p className="mt-2">Clean your inbox, fast.</p>
           <div className="mt-8">
             <OnboardingForm questionIndex={questionIndex} />

@@ -70,10 +70,7 @@ export function Modal(props: ModalProps) {
                 )}
               >
                 {props.title && (
-                  <Dialog.Title
-                    as="h3"
-                    className="font-cal text-xl font-medium leading-6"
-                  >
+                  <Dialog.Title as="h3" className="font-cal text-xl leading-6">
                     {props.title}
                   </Dialog.Title>
                 )}

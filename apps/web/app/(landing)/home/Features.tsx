@@ -36,10 +36,10 @@ export function Features() {
     <div className="bg-white py-24 sm:py-32" id="features">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
+          <h2 className="font-cal text-base leading-7 text-blue-600">
             Handle emails faster
           </h2>
-          <p className="mt-2 font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
+          <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
             Respond faster. Remove the clutter. Get your time back.
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
@@ -104,10 +104,10 @@ function FeaturesWithImage(props: {
             )}
           >
             <div className="lg:max-w-lg">
-              <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
+              <h2 className="font-cal text-base leading-7 text-blue-600">
                 {props.title}
               </h2>
-              <p className="mt-2 font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
+              <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
                 {props.subtitle}
               </p>
               <p className="mt-6 text-lg leading-8 text-gray-600">

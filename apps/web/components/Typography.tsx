@@ -3,18 +3,14 @@ import { cn } from "@/utils";
 
 export function PageHeading(props: { children: React.ReactNode }) {
   return (
-    <h2 className="font-cal text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl">
+    <h2 className="font-cal text-2xl leading-7 text-gray-900 sm:truncate sm:text-3xl">
       {props.children}
     </h2>
   );
 }
 
 export function SectionHeader(props: { children: React.ReactNode }) {
-  return (
-    <h2 className="font-cal text-base font-semibold leading-7">
-      {props.children}
-    </h2>
-  );
+  return <h2 className="font-cal text-base leading-7">{props.children}</h2>;
 }
 
 export function SectionDescription(props: { children: React.ReactNode }) {

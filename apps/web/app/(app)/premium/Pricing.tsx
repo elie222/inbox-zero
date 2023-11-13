@@ -67,10 +67,10 @@ export function Pricing() {
         />
       </div> */}
           <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
-            <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
+            <h2 className="font-cal text-base leading-7 text-blue-600">
               Pricing
             </h2>
-            <p className="mt-2 font-cal text-4xl font-bold text-gray-900 sm:text-5xl">
+            <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
               Simple, affordable pricing
             </p>
           </div>
@@ -97,7 +97,7 @@ export function Pricing() {
                   id={tier.id}
                   className={clsx(
                     tier.featured ? "text-blue-400" : "text-blue-600",
-                    "font-cal text-base font-semibold leading-7"
+                    "font-cal text-base leading-7"
                   )}
                 >
                   {tier.name}
