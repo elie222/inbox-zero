@@ -41,14 +41,19 @@ export function PostHogIdentify(): JSX.Element {
 
   useEffect(() => {
     try {
-      if (session.data?.user.email) posthog.identify(session.data?.user.email);
+      console.log(
+        "🚀 ~ file: PostHogProvider.tsx:41 ~ PostHogIdentify ~ session:",
+        session
+      );
+      if (session?.data?.user.email)
+        posthog.identify(session?.data?.user.email);
     } catch (error) {
       console.log(
         "🚀 ~ file: PostHogProvider.tsx:47 ~ useEffect ~ error:",
         error
       );
     }
-  }, [session.data?.user.email]);
+  }, [session?.data?.user.email]);
 
   return <></>;
 }
