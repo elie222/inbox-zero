@@ -162,7 +162,7 @@ export function Pricing() {
                   {tier.id === "tier-pro" &&
                   isPremium(data.lemonSqueezyRenewsAt)
                     ? "Current plan"
-                    : "Get started today"}
+                    : "Upgrade"}
                 </a>
               </div>
             ))}
