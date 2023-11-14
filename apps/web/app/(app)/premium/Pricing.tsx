@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { env } from "@/env.mjs";
 import { UserResponse } from "@/app/api/user/me/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { isPremium } from "@/utils/premium";
 
 const tiers = [
   {
@@ -158,8 +159,8 @@ export function Pricing() {
                     "mt-8 block rounded-md px-3.5 py-2.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:mt-10"
                   )}
                 >
-                  {/* TODO check that plan is still active */}
-                  {tier.id === "tier-pro" && data.lemonSqueezyRenewsAt
+                  {tier.id === "tier-pro" &&
+                  isPremium(data.lemonSqueezyRenewsAt)
                     ? "Current plan"
                     : "Get started today"}
                 </a>
