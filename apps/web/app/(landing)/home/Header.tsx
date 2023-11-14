@@ -8,8 +8,8 @@ import { usePostHog } from "posthog-js/react";
 import { Logo } from "@/components/Logo";
 
 const navigation = [
-  { name: "Features", href: "#features" },
-  { name: "FAQ", href: "#faq" },
+  { name: "Features", href: "/#features" },
+  { name: "FAQ", href: "/#faq" },
   { name: "Open Source", href: "/github", target: "_blank" as const },
 ];
 

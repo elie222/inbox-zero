@@ -5,6 +5,7 @@ const navigation = {
     { name: "Open Source", href: "/github" },
     { name: "Feature Requests", href: "/feature-requests" },
     { name: "Roadmap", href: "/roadmap" },
+    { name: "OSS Friends", href: "/oss-friends" },
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
   ],

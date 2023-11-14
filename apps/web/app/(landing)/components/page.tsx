@@ -5,6 +5,8 @@ import {
   SectionDescription,
   SectionHeader,
   MessageText,
+  TypographyP,
+  TypographyH3,
 } from "@/components/Typography";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -19,9 +21,11 @@ export default function Components() {
         <div className="space-y-6">
           <div className="underline">Typography</div>
           <PageHeading>PageHeading</PageHeading>
+          <TypographyH3>TypographyH3</TypographyH3>
           <SectionHeader>SectionHeader</SectionHeader>
           <SectionDescription>SectionDescription</SectionDescription>
           <MessageText>MessageText</MessageText>
+          <TypographyP>TypographyP</TypographyP>
         </div>
 
         <div className="space-y-6">

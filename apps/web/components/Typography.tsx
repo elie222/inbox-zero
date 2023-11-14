@@ -5,7 +5,7 @@ const PageHeading = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <p
+  <h1
     ref={ref}
     className={cn(
       "font-cal text-2xl leading-7 text-gray-900 sm:truncate sm:text-3xl",
@@ -20,7 +20,7 @@ const SectionHeader = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <p
+  <h4
     ref={ref}
     className={cn("font-cal text-base leading-7", className)}
     {...props}
@@ -48,6 +48,18 @@ const MessageText = React.forwardRef<
 ));
 MessageText.displayName = "MessageText";
 
+const TypographyH3 = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h3
+    ref={ref}
+    className={cn("scroll-m-20 font-cal text-2xl", className)}
+    {...props}
+  />
+));
+TypographyH3.displayName = "TypographyH3";
+
 const TypographyP = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
@@ -59,6 +71,7 @@ TypographyP.displayName = "TypographyP";
 export {
   PageHeading,
   SectionHeader,
+  TypographyH3,
   SectionDescription,
   MessageText,
   TypographyP,

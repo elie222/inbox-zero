@@ -3,6 +3,16 @@ import { HeroHeadingAB } from "@/app/(landing)/home/HeroHeadingAB";
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 
+export function HeroText(props: { children: React.ReactNode }) {
+  return (
+    <h1 className="font-cal text-4xl text-gray-900 sm:text-6xl" {...props} />
+  );
+}
+
+export function HeroSubtitle(props: { children: React.ReactNode }) {
+  return <p className="mt-6 text-lg leading-8 text-gray-600" {...props} />;
+}
+
 export function Hero() {
   return (
     <div className="relative pt-14">
@@ -23,15 +33,15 @@ export function Hero() {
       <div className="py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <h1 className="font-cal text-4xl text-gray-900 sm:text-6xl">
+            <HeroText>
               <HeroHeadingAB />
-            </h1>
-            <p className="mt-6 text-lg leading-8 text-gray-600">
+            </HeroText>
+            <HeroSubtitle>
               Inbox Zero puts you back in control of your inbox. Understand what
               {"'"}s filling up your inbox with our email analytics. One-click
               unsubscribe from newsletters. Automate replies and answer your
               users in seconds.
-            </p>
+            </HeroSubtitle>
             <CTAButtons />
           </div>
           <div className="mt-16 flow-root sm:mt-24">
