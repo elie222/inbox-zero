@@ -1,23 +1,44 @@
 import React from "react";
 import { cn } from "@/utils";
 
-export function PageHeading(props: { children: React.ReactNode }) {
-  return (
-    <h2 className="font-cal text-2xl leading-7 text-gray-900 sm:truncate sm:text-3xl">
-      {props.children}
-    </h2>
-  );
-}
+const PageHeading = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <p
+    ref={ref}
+    className={cn(
+      "font-cal text-2xl leading-7 text-gray-900 sm:truncate sm:text-3xl",
+      className
+    )}
+    {...props}
+  />
+));
+PageHeading.displayName = "PageHeading";
 
-export function SectionHeader(props: { children: React.ReactNode }) {
-  return <h2 className="font-cal text-base leading-7">{props.children}</h2>;
-}
+const SectionHeader = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <p
+    ref={ref}
+    className={cn("font-cal text-base leading-7", className)}
+    {...props}
+  />
+));
+SectionHeader.displayName = "SectionHeader";
 
-export function SectionDescription(props: { children: React.ReactNode }) {
-  return (
-    <p className="mt-1 text-sm leading-6 text-gray-700">{props.children}</p>
-  );
-}
+const SectionDescription = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p
+    ref={ref}
+    className={cn("mt-1 text-sm leading-6 text-gray-700", className)}
+    {...props}
+  />
+));
+SectionDescription.displayName = "SectionDescription";
 
 const MessageText = React.forwardRef<
   HTMLParagraphElement,
@@ -27,4 +48,18 @@ const MessageText = React.forwardRef<
 ));
 MessageText.displayName = "MessageText";
 
-export { MessageText };
+const TypographyP = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p ref={ref} className={cn("leading-7", className)} {...props} />
+));
+TypographyP.displayName = "TypographyP";
+
+export {
+  PageHeading,
+  SectionHeader,
+  SectionDescription,
+  MessageText,
+  TypographyP,
+};

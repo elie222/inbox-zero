@@ -6,6 +6,7 @@ import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { env } from "@/env.mjs";
 import prisma from "@/utils/prisma";
+import { PageHeading, TypographyP } from "@/components/Typography";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -36,11 +37,11 @@ export default async function WelcomePage({
     <div className="flex h-screen flex-col justify-center p-6 text-gray-900">
       <SquaresPattern />
 
-      <Card className="mx-auto flex max-w-5xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
+      <Card className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         <div className="flex flex-col text-center">
-          <h1 className="font-cal text-2xl">Welcome to Inbox Zero</h1>
-          <p className="mt-2">Clean your inbox, fast.</p>
-          <div className="mt-8">
+          <PageHeading>Welcome to Inbox Zero</PageHeading>
+          <TypographyP className="mt-2">Clean your inbox, fast.</TypographyP>
+          <div className="mt-4">
             <OnboardingForm questionIndex={questionIndex} />
           </div>
         </div>
