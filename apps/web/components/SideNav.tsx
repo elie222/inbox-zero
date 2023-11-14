@@ -13,9 +13,11 @@ import {
   SparklesIcon,
   StarIcon,
   XMarkIcon,
+  ChatBubbleBottomCenterTextIcon,
+  ArchiveBoxArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { Logo } from "@/components/Logo";
-import { CrownIcon, MailsIcon } from "lucide-react";
+import { CrownIcon, MailsIcon, ShieldHalfIcon } from "lucide-react";
 
 const navigation = [
   {
@@ -28,11 +30,26 @@ const navigation = [
     href: "/newsletters",
     icon: MailsIcon,
   },
+  {
+    name: "Cold email blocker",
+    href: "/request-access?type=cold-email-blocker",
+    icon: ShieldHalfIcon,
+  },
   { name: "Mail", href: "/mail", icon: InboxIcon },
   {
     name: "Planned",
     href: "/planned",
     icon: SparklesIcon,
+  },
+  {
+    name: "No reply",
+    href: "/request-access?type=no-reply",
+    icon: ChatBubbleBottomCenterTextIcon,
+  },
+  {
+    name: "Bulk Archive",
+    href: "/request-access?type=bulk-archive",
+    icon: ArchiveBoxArrowDownIcon,
   },
   // {
   //   name: "No reply",
