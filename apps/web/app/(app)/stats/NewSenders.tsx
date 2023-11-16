@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import useSWR from "swr";
 import {
   Card,
@@ -13,7 +13,6 @@ import {
   Title,
   Text,
 } from "@tremor/react";
-import { FilterIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import groupBy from "lodash/groupBy";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -21,7 +20,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { Button } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
-import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { Tooltip } from "@/components/Tooltip";
 import { getGmailCreateFilterUrl } from "@/utils/url";
 import {
@@ -30,21 +28,18 @@ import {
 } from "@/app/api/user/stats/new-senders/route";
 import { formatShortDate } from "@/utils/date";
 import { MessageText } from "@/components/Typography";
+import {
+  EmailsToIncludeFilter,
+  useEmailsToIncludeFilter,
+} from "@/app/(app)/stats/EmailsToIncludeFilter";
 
 export function NewSenders() {
   const session = useSession();
   const email = session.data?.user.email;
 
-  const [types, setTypes] = useState<
-    Record<"read" | "unread" | "archived" | "unarchived", boolean>
-  >({
-    read: true,
-    unread: true,
-    archived: true,
-    unarchived: true,
-  });
+  const { typesArray, types, setTypes } = useEmailsToIncludeFilter();
 
-  const params: NewSendersQuery = { cutOffDate: 0 };
+  const params: NewSendersQuery = { cutOffDate: 0, types: typesArray };
 
   const { data, isLoading, error } = useSWR<
     NewSendersResponse,
@@ -83,37 +78,7 @@ export function NewSenders() {
             </Text>
           </div>
           <div className="flex space-x-2">
-            <DetailedStatsFilter
-              label="Emails to include"
-              icon={<FilterIcon className="mr-2 h-4 w-4" />}
-              keepOpenOnSelect
-              columns={[
-                {
-                  label: "Read",
-                  checked: types.read,
-                  setChecked: () =>
-                    setTypes({ ...types, ["read"]: !types.read }),
-                },
-                {
-                  label: "Unread",
-                  checked: types.unread,
-                  setChecked: () =>
-                    setTypes({ ...types, ["unread"]: !types.unread }),
-                },
-                {
-                  label: "Unarchived",
-                  checked: types.unarchived,
-                  setChecked: () =>
-                    setTypes({ ...types, ["unarchived"]: !types.unarchived }),
-                },
-                {
-                  label: "Archived",
-                  checked: types.archived,
-                  setChecked: () =>
-                    setTypes({ ...types, ["archived"]: !types.archived }),
-                },
-              ]}
-            />
+            <EmailsToIncludeFilter types={types} setTypes={setTypes} />
           </div>
         </div>
 
