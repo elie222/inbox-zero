@@ -14,14 +14,12 @@ import {
   Text,
 } from "@tremor/react";
 import { FilterIcon } from "lucide-react";
-import { DateRange } from "react-day-picker";
 import { useSession } from "next-auth/react";
 import groupBy from "lodash/groupBy";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { Button } from "@/components/ui/button";
-import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { Tooltip } from "@/components/Tooltip";
@@ -33,16 +31,9 @@ import {
 import { formatShortDate } from "@/utils/date";
 import { MessageText } from "@/components/Typography";
 
-export function NewSenders(props: {
-  dateRange?: DateRange | undefined;
-  refreshInterval: number;
-}) {
+export function NewSenders() {
   const session = useSession();
   const email = session.data?.user.email;
-
-  const [sortColumn, setSortColumn] = useState<
-    "emails" | "unread" | "unarchived"
-  >("emails");
 
   const [types, setTypes] = useState<
     Record<"read" | "unread" | "archived" | "unarchived", boolean>
@@ -53,16 +44,12 @@ export function NewSenders(props: {
     unarchived: true,
   });
 
-  const params: NewSendersQuery = {
-    cutOffDate: 0,
-    // ...getDateRangeParams(props.dateRange),
-  };
+  const params: NewSendersQuery = { cutOffDate: 0 };
 
   const { data, isLoading, error } = useSWR<
     NewSendersResponse,
     { error: string }
   >(`/api/user/stats/new-senders?${new URLSearchParams(params as any)}`, {
-    refreshInterval: props.refreshInterval,
     keepPreviousData: true,
   });
 
@@ -71,7 +58,6 @@ export function NewSenders(props: {
     React.useState<NewSendersResponse["emails"][number]>();
 
   const groupedSenders = groupBy(data?.emails, (email) => email.fromDomain);
-  console.log("🚀 ~ file: NewSenders.tsx:74 ~ groupedSenders:", groupedSenders);
   const newSenders = Object.entries(groupedSenders);
 
   return (
@@ -234,7 +220,6 @@ export function NewSenders(props: {
             : undefined
         }
         onClose={() => setSelectedEmail(undefined)}
-        refreshInterval={props.refreshInterval}
       />
     </>
   );
