@@ -130,7 +130,7 @@ export function NewsletterStats(props: {
               <TableHead>
                 <TableRow>
                   <TableHeaderCell className="pl-6">
-                    <span className="text-sm font-medium">Newsletter</span>
+                    <span className="text-sm font-medium">From</span>
                   </TableHeaderCell>
                   <TableHeaderCell>
                     <HeaderButton
@@ -201,7 +201,7 @@ export function NewsletterStats(props: {
                             size="sm"
                             variant="secondary"
                             disabled={!item.lastUnsubscribeLink}
-                            asChild
+                            asChild={!!item.lastUnsubscribeLink}
                           >
                             <a href={item.lastUnsubscribeLink} target="_blank">
                               Unsubscribe
