@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import {
   Card,
-  ProgressBar,
   Table,
   TableBody,
   TableCell,
@@ -14,15 +13,12 @@ import {
   Title,
   Text,
 } from "@tremor/react";
-import { ChevronDown, ChevronsUpDownIcon, FilterIcon } from "lucide-react";
+import { FilterIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { useSession } from "next-auth/react";
+import groupBy from "lodash/groupBy";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  NewsletterStatsQuery,
-  NewsletterStatsResponse,
-} from "@/app/api/user/stats/newsletters/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { Button } from "@/components/ui/button";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
@@ -30,8 +26,14 @@ import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { Tooltip } from "@/components/Tooltip";
 import { getGmailCreateFilterUrl } from "@/utils/url";
+import {
+  NewSendersQuery,
+  NewSendersResponse,
+} from "@/app/api/user/stats/new-senders/route";
+import { formatShortDate } from "@/utils/date";
+import { MessageText } from "@/components/Typography";
 
-export function NewsletterStats(props: {
+export function NewSenders(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
@@ -51,38 +53,47 @@ export function NewsletterStats(props: {
     unarchived: true,
   });
 
-  const params: NewsletterStatsQuery = {
-    types: Object.entries(types)
-      .filter(([, selected]) => selected)
-      .map(([key]) => key) as ("read" | "unread" | "archived" | "unarchived")[],
-    orderBy: sortColumn,
-    limit: 100,
-    ...getDateRangeParams(props.dateRange),
+  const params: NewSendersQuery = {
+    cutOffDate: 0,
+    // ...getDateRangeParams(props.dateRange),
   };
 
   const { data, isLoading, error } = useSWR<
-    NewsletterStatsResponse,
+    NewSendersResponse,
     { error: string }
-  >(`/api/user/stats/newsletters?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/new-senders?${new URLSearchParams(params as any)}`, {
     refreshInterval: props.refreshInterval,
     keepPreviousData: true,
   });
 
   const { expanded, extra } = useExpanded();
-  const [selectedNewsletter, setSelectedNewsletter] =
-    React.useState<NewsletterStatsResponse["newsletterCounts"][number]>();
+  const [selectedEmail, setSelectedEmail] =
+    React.useState<NewSendersResponse["emails"][number]>();
+
+  const groupedSenders = groupBy(data?.emails, (email) => email.fromDomain);
+  console.log("🚀 ~ file: NewSenders.tsx:74 ~ groupedSenders:", groupedSenders);
+  const newSenders = Object.entries(groupedSenders);
 
   return (
     <>
-      <Card className="p-0">
+      <LoadingContent
+        loading={!data && isLoading}
+        error={error}
+        loadingComponent={<Skeleton className="h-24 rounded" />}
+      >
+        <Card>
+          <MessageText>
+            You received emails from {newSenders.length} new senders this week.
+          </MessageText>
+        </Card>
+      </LoadingContent>
+
+      <Card className="mt-4 p-0">
         <div className="flex items-center justify-between px-6 pt-6">
           <div className="">
-            <Title>
-              Which newsletters and marketing emails do you get the most?
-            </Title>
+            <Title>Who are the first time senders?</Title>
             <Text className="mt-2">
-              A list of are your email subscriptions. Quickly unsubscribe or
-              view the emails in more detail.
+              A list of emails that you received for the first time.
             </Text>
           </div>
           <div className="flex space-x-2">
@@ -132,87 +143,62 @@ export function NewsletterStats(props: {
                   <TableHeaderCell className="pl-6">
                     <span className="text-sm font-medium">From</span>
                   </TableHeaderCell>
-                  <TableHeaderCell>
-                    <HeaderButton
-                      sorted={sortColumn === "emails"}
-                      onClick={() => setSortColumn("emails")}
-                    >
-                      Emails
-                    </HeaderButton>
-                  </TableHeaderCell>
-                  <TableHeaderCell>
-                    <HeaderButton
-                      sorted={sortColumn === "unread"}
-                      onClick={() => setSortColumn("unread")}
-                    >
-                      Read
-                    </HeaderButton>
-                  </TableHeaderCell>
-                  <TableHeaderCell>
-                    <HeaderButton
-                      sorted={sortColumn === "unarchived"}
-                      onClick={() => setSortColumn("unarchived")}
-                    >
-                      Archived
-                    </HeaderButton>
-                  </TableHeaderCell>
+                  <TableHeaderCell>Subject</TableHeaderCell>
+                  <TableHeaderCell>Date</TableHeaderCell>
+                  <TableHeaderCell>Emails</TableHeaderCell>
                   <TableHeaderCell className="hidden xl:table-cell"></TableHeaderCell>
                   <TableHeaderCell className="hidden xl:table-cell"></TableHeaderCell>
                   <TableHeaderCell></TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.newsletterCounts
+                {newSenders
                   .slice(0, expanded ? undefined : 50)
-                  .map((item) => {
-                    const readPercentage = (item.readEmails / item.value) * 100;
-                    const archivedEmails = item.value - item.inboxEmails;
-                    const archivedPercentage =
-                      (archivedEmails / item.value) * 100;
+                  .map(([_fromDomain, emails]) => {
+                    const firstEmail = emails[0];
 
                     return (
-                      <TableRow key={item.name}>
-                        <TableCell className="max-w-[200px] truncate pl-6 lg:max-w-[300px] 2xl:max-w-none">
-                          {item.name}
+                      <TableRow key={firstEmail.gmailMessageId}>
+                        <TableCell className="max-w-[200px] truncate pl-6 lg:max-w-[300px]">
+                          {firstEmail.from}
                         </TableCell>
-                        <TableCell>{item.value}</TableCell>
-                        <TableCell>
-                          <ProgressBar
-                            label={`${Math.round(readPercentage)}%`}
-                            value={readPercentage}
-                            tooltip={`${item.readEmails} read. ${
-                              item.value - item.readEmails
-                            } unread.`}
-                            color="blue"
-                            className="w-[150px]"
-                          />
+                        <TableCell className="max-w-[300px] truncate lg:max-w-[400px]">
+                          {firstEmail.subject}
                         </TableCell>
                         <TableCell>
-                          <ProgressBar
-                            label={`${Math.round(archivedPercentage)}%`}
-                            value={archivedPercentage}
-                            tooltip={`${archivedEmails} archived. ${item.inboxEmails} unarchived.`}
-                            color="blue"
-                            className="w-[150px]"
-                          />
+                          {formatShortDate(new Date(firstEmail.timestamp))}
                         </TableCell>
+                        <TableCell className="text-center">
+                          {emails.length}
+                        </TableCell>
+
                         <TableCell className="hidden xl:table-cell">
                           <Button
                             size="sm"
                             variant="secondary"
-                            disabled={!item.lastUnsubscribeLink}
-                            asChild={!!item.lastUnsubscribeLink}
+                            disabled={!firstEmail.unsubscribeLink}
+                            asChild={!!firstEmail.unsubscribeLink}
                           >
-                            <a href={item.lastUnsubscribeLink} target="_blank">
-                              Unsubscribe
-                            </a>
+                            {firstEmail.unsubscribeLink ? (
+                              <a
+                                href={firstEmail.unsubscribeLink}
+                                target="_blank"
+                              >
+                                Unsubscribe
+                              </a>
+                            ) : (
+                              <>Unsubscribe</>
+                            )}
                           </Button>
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
                           <Tooltip content="Auto archive emails using Gmail filters">
                             <Button size="sm" variant="secondary" asChild>
                               <a
-                                href={getGmailCreateFilterUrl(item.name, email)}
+                                href={getGmailCreateFilterUrl(
+                                  firstEmail.from,
+                                  email
+                                )}
                                 target="_blank"
                               >
                                 Auto archive
@@ -224,7 +210,7 @@ export function NewsletterStats(props: {
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => setSelectedNewsletter(item)}
+                            onClick={() => setSelectedEmail(firstEmail)}
                           >
                             More
                           </Button>
@@ -239,32 +225,17 @@ export function NewsletterStats(props: {
         </LoadingContent>
       </Card>
       <NewsletterModal
-        newsletter={selectedNewsletter}
-        onClose={() => setSelectedNewsletter(undefined)}
+        newsletter={
+          selectedEmail
+            ? {
+                name: selectedEmail.from,
+                lastUnsubscribeLink: selectedEmail.unsubscribeLink || undefined,
+              }
+            : undefined
+        }
+        onClose={() => setSelectedEmail(undefined)}
         refreshInterval={props.refreshInterval}
       />
     </>
-  );
-}
-
-function HeaderButton(props: {
-  children: React.ReactNode;
-  sorted: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="-ml-3 h-8 data-[state=open]:bg-accent"
-      onClick={props.onClick}
-    >
-      <span>{props.children}</span>
-      {props.sorted ? (
-        <ChevronDown className="ml-2 h-4 w-4" />
-      ) : (
-        <ChevronsUpDownIcon className="ml-2 h-4 w-4" />
-      )}
-    </Button>
   );
 }

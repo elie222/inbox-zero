@@ -29,7 +29,10 @@ import { getGmailCreateFilterUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 
 export function NewsletterModal(props: {
-  newsletter?: NewsletterStatsResponse["newsletterCounts"][number];
+  newsletter?: Pick<
+    NewsletterStatsResponse["newsletterCounts"][number],
+    "name" | "lastUnsubscribeLink"
+  >;
   onClose: (isOpen: boolean) => void;
   refreshInterval: number;
 }) {
