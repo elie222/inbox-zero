@@ -17,11 +17,11 @@ import {
   ArchiveBoxArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { Logo } from "@/components/Logo";
-import { CrownIcon, MailsIcon, ShieldHalfIcon } from "lucide-react";
+import { CrownIcon, MailsIcon, Users2Icon } from "lucide-react";
 
 const navigation = [
   {
-    name: "Stats",
+    name: "Analytics",
     href: "/stats",
     icon: ChartBarIcon,
   },
@@ -31,9 +31,9 @@ const navigation = [
     icon: MailsIcon,
   },
   {
-    name: "Cold email blocker",
-    href: "/request-access?type=cold-email-blocker",
-    icon: ShieldHalfIcon,
+    name: "New Senders",
+    href: "/new-senders",
+    icon: Users2Icon,
   },
   { name: "Mail", href: "/mail", icon: InboxIcon },
   {

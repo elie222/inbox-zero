@@ -1,0 +1,27 @@
+NODE new_emailers
+DESCRIPTION >
+    Find all new emailers from a given date
+
+SQL >
+    %
+WITH old_emails AS (
+    SELECT DISTINCT `fromDomain`
+    FROM email
+    WHERE
+        `ownerEmail` = {{ String(ownerEmail) }}
+        AND `sent` = 0
+        AND `draft` = 0
+        AND `timestamp` < {{ Int64(cutOffDate) }}
+)
+SELECT *
+FROM email
+WHERE
+    `ownerEmail` = {{ String(ownerEmail) }}
+    AND `sent` = 0
+    AND `draft` = 0
+    AND `timestamp` >= {{ Int64(cutOffDate) }}
+    AND `fromDomain` NOT IN (
+        SELECT `fromDomain`
+        FROM old_emails
+    )
+    ORDER BY `timestamp` DESC

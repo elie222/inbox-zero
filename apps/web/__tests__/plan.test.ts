@@ -235,7 +235,6 @@ describe("Plan act", () => {
     "Should plan act",
     async () => {
       const response = await planAct(options);
-      console.log("🚀 ~ file: plan.test.ts:228 ~ response:", response);
       expect(response).toEqual({
         rule: noRule,
       });

@@ -157,3 +157,19 @@ export const getLastEmail = tb.buildPipe({
     gmailMessageId: z.string(),
   }),
 });
+
+export const getNewSenders = tb.buildPipe({
+  pipe: "new_senders",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    cutOffDate: z.number(),
+  }),
+  data: z.object({
+    gmailMessageId: z.string(),
+    from: z.string().transform(decrypt),
+    fromDomain: z.string().transform(decrypt),
+    subject: z.string().transform(decrypt),
+    timestamp: z.number(),
+    unsubscribeLink: z.string().nullish(),
+  }),
+});

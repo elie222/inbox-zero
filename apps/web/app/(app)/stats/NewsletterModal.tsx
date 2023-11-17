@@ -29,9 +29,12 @@ import { getGmailCreateFilterUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 
 export function NewsletterModal(props: {
-  newsletter?: NewsletterStatsResponse["newsletterCounts"][number];
+  newsletter?: Pick<
+    NewsletterStatsResponse["newsletterCounts"][number],
+    "name" | "lastUnsubscribeLink"
+  >;
   onClose: (isOpen: boolean) => void;
-  refreshInterval: number;
+  refreshInterval?: number;
 }) {
   const session = useSession();
   const email = session.data?.user.email;
@@ -107,7 +110,7 @@ function EmailsChart(props: {
   fromEmail: string;
   dateRange?: DateRange | undefined;
   period: ZodPeriod;
-  refreshInterval: number;
+  refreshInterval?: number;
 }) {
   const params: SenderEmailsQuery = {
     ...props,
@@ -135,7 +138,7 @@ function EmailsChart(props: {
   );
 }
 
-function Emails(props: { fromEmail: string; refreshInterval: number }) {
+function Emails(props: { fromEmail: string; refreshInterval?: number }) {
   const [tab, setTab] = useState<"unarchived" | "all">("unarchived");
   const url = `/api/google/threads?&fromEmail=${encodeURIComponent(
     props.fromEmail
