@@ -17,10 +17,8 @@ export type NewsletterStatsResponse = Awaited<
   ReturnType<typeof getNewslettersTinybird>
 >;
 
-async function getNewslettersTinybird(
-  options: { ownerEmail: string } & NewsletterStatsQuery
-) {
-  const typeMap = Object.fromEntries(options.types.map((type) => [type, true]));
+function getFilters(types: NewsletterStatsQuery["types"]) {
+  const typeMap = Object.fromEntries(types.map((type) => [type, true]));
 
   // only use the read flag if unread is unmarked
   // if read and unread are both set or both unset, we don't need to filter by read/unread at all
@@ -35,18 +33,28 @@ async function getNewslettersTinybird(
   const andClause = (read || unread) && (archived || unarchived);
 
   const all =
-    !options.types.length ||
-    options.types.length === 4 ||
+    !types.length ||
+    types.length === 4 ||
     (!read && !unread && !archived && !unarchived);
 
-  const newsletterCounts = await getNewsletterCounts({
-    ...options,
+  return {
     all,
     read,
     unread,
     archived,
     unarchived,
     andClause,
+  };
+}
+
+async function getNewslettersTinybird(
+  options: { ownerEmail: string } & NewsletterStatsQuery
+) {
+  const filters = getFilters(options.types);
+
+  const newsletterCounts = await getNewsletterCounts({
+    ...options,
+    ...filters,
   });
 
   return {

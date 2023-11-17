@@ -28,10 +28,6 @@ import {
   NewSendersResponse,
 } from "@/app/api/user/stats/new-senders/route";
 import { formatShortDate } from "@/utils/date";
-import {
-  EmailsToIncludeFilter,
-  useEmailsToIncludeFilter,
-} from "@/app/(app)/stats/EmailsToIncludeFilter";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
 
@@ -39,9 +35,7 @@ export function NewSenders() {
   const session = useSession();
   const email = session.data?.user.email;
 
-  const { typesArray, types, setTypes } = useEmailsToIncludeFilter();
-
-  const params: NewSendersQuery = { cutOffDate: 0, types: typesArray };
+  const params: NewSendersQuery = { cutOffDate: 0 };
 
   const { data, isLoading, error } = useSWR<
     NewSendersResponse,
@@ -83,9 +77,6 @@ export function NewSenders() {
             <Text className="mt-2">
               A list of emails that you received for the first time.
             </Text>
-          </div>
-          <div className="flex space-x-2">
-            <EmailsToIncludeFilter types={types} setTypes={setTypes} />
           </div>
         </div>
 

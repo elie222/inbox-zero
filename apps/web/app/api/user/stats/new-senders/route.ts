@@ -6,9 +6,6 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 const newSendersQuery = z.object({
   cutOffDate: z.coerce.number().nullish(),
-  types: z
-    .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
-    .transform((arr) => arr?.filter(Boolean)),
 });
 export type NewSendersQuery = z.infer<typeof newSendersQuery>;
 export type NewSendersResponse = Awaited<ReturnType<typeof getNewEmailSenders>>;
@@ -17,7 +14,11 @@ async function getNewEmailSenders(
   options: NewSendersQuery & { ownerEmail: string }
 ) {
   const cutOffDate = options.cutOffDate || subDays(new Date(), 7).getTime();
-  const newSenders = await getNewSenders({ ...options, cutOffDate });
+
+  const newSenders = await getNewSenders({
+    ...options,
+    cutOffDate,
+  });
 
   return { emails: newSenders.data };
 }
