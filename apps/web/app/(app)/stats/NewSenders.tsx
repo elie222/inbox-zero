@@ -15,6 +15,7 @@ import {
 } from "@tremor/react";
 import { useSession } from "next-auth/react";
 import groupBy from "lodash/groupBy";
+import { Users2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
@@ -27,11 +28,12 @@ import {
   NewSendersResponse,
 } from "@/app/api/user/stats/new-senders/route";
 import { formatShortDate } from "@/utils/date";
-import { MessageText } from "@/components/Typography";
 import {
   EmailsToIncludeFilter,
   useEmailsToIncludeFilter,
 } from "@/app/(app)/stats/EmailsToIncludeFilter";
+import { formatStat } from "@/utils/stats";
+import { StatsCards } from "@/components/StatsCards";
 
 export function NewSenders() {
   const session = useSession();
@@ -62,11 +64,16 @@ export function NewSenders() {
         error={error}
         loadingComponent={<Skeleton className="h-24 rounded" />}
       >
-        <Card>
-          <MessageText>
-            You received emails from {newSenders.length} new senders this week.
-          </MessageText>
-        </Card>
+        <StatsCards
+          stats={[
+            {
+              name: "New senders this week",
+              value: formatStat(newSenders.length),
+              subvalue: "senders",
+              icon: <Users2Icon className="h-4 w-4" />,
+            },
+          ]}
+        />
       </LoadingContent>
 
       <Card className="mt-4 p-0">
