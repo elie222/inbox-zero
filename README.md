@@ -1,7 +1,9 @@
-<p align="center" style="margin-top: 120px">
-  <h3 align="center">Inbox Zero</h3>
+<p align="center">
+  <a href="https://www.getinboxzero.com">
+    <h1 align="center">Inbox Zero</h1>
+  </a>
   <p align="center">
-    Get to inbox zero fast with AI assistance.
+    Open source email management tools to reach inbox zero fast.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -13,24 +15,19 @@
   </p>
 </p>
 
-## About Inbox Zero
+## About
 
-Inbox Zero is an open-source project to help people manage their email inbox better with AI assistance.
-The project is open-source so users can see exactly how their emails are being processed, and to allow contributions from the community.
+Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. It streamlines your email management, helping you achieve 'Inbox Zero' swiftly with features like email analytics, newsletter management, and AI assistance. Enhance your email experience without replacing your client!
 
-You can choose to host it yourself or use our hosted version at [getinboxzero.com](https://getinboxzero.com).
+## Key Features
 
-The initial focus is automating responses to emails. Perfect for those that are often asked the same questions.
-
-Roadmap features include:
-
-- Email anayltics - we already provide basic analytics
-- Auto archiving and labelling of emails - using AI we can keep your inbox clean and move less important emails out of your own inbox.
-- Easy unsubscribe - show all your newsletter subscriptions with an easy unsubscribe option.
-
-You can make additional [feature requests](https://getinboxzero.com/feature-requests).
-
-Initially the aim is that people will use Inbox Zero side-by-side their existing email client and develop Inbox Zero over time into a full fledged email client.
+- **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
+- **Newsletter Management:** Easily manage and unsubscribe from newsletters.
+- **New Senders:** Identify and block new spam senders.
+- **Unreplied Emails:** Keep track of emails awaiting responses.
+- **Large Email Finder:** Free up space by locating and deleting large emails.
+- **AI Auto-Responder:** Automate responses for common queries.
+- **AI Email Assistant:** Auto-archive, label, and forward emails based on set rules.
 
 ## Built with
 
@@ -38,10 +35,15 @@ Initially the aim is that people will use Inbox Zero side-by-side their existing
 - [Tailwind CSS](https://tailwindcss.com/)
 - [shadcn/ui](https://ui.shadcn.com/)
 - [Prisma](https://www.prisma.io/)
+- [Tinybird](https://tinybird.co/)
 - [Upstash](https://upstash.com/)
 - [Turbo](https://turbo.build/)
 
-## Getting Started
+## Roadmap
+
+Explore our upcoming features and improvements on our [Roadmap](https://www.getinboxzero.com/roadmap). Your feedback and [feature requests](https://getinboxzero.com/feature-requests) are always welcome!
+
+## Getting Started for Developers
 
 ### Requirements
 
@@ -59,13 +61,9 @@ pnpm install
 turbo dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-## Roadmap
-
-Here's our [roadmap](https://www.getinboxzero.com/roadmap). Feel free to make feature requests.
-
-## Set up push notifications via Google PubSub to handle emails in real time
+### Set up push notifications via Google PubSub to handle emails in real time
 
 Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
 
