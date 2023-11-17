@@ -60,9 +60,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       // submit on last question
       if (questionIndex === survey.questions.length - 1) {
         submitPosthog(newSeachParams);
-
         await completedOnboarding();
-
         router.push(`/stats`);
       } else {
         router.push(`/welcome?${newSeachParams}`);
@@ -113,9 +111,12 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         <Button
           variant="ghost"
           className="mt-8"
-          onClick={() => {
+          type="button"
+          onClick={async () => {
             submitPosthog(searchParams);
             posthog.capture("survey dismissed", { $survey_id: surveyId });
+            await completedOnboarding();
+            router.push(`/stats`);
           }}
         >
           Skip Onboarding
