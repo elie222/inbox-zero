@@ -19,6 +19,10 @@
 
 Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. It streamlines your email management, helping you achieve 'Inbox Zero' swiftly with features like email analytics, newsletter management, and AI assistance. Enhance your email experience without replacing your client!
 
+## Demo Video
+
+[![Inbox Zero demo](https://img.youtube.com/vi/WP2ZTcZq3RM/0.jpg)](http://www.youtube.com/watch?v=WP2ZTcZq3RM)
+
 ## Key Features
 
 - **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
