@@ -21,7 +21,7 @@ Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. I
 
 ## Demo Video
 
-[![Inbox Zero demo](https://img.youtube.com/vi/WP2ZTcZq3RM/0.jpg)](http://www.youtube.com/watch?v=WP2ZTcZq3RM)
+[![Inbox Zero demo](/video-thumbnail.png)](http://www.youtube.com/watch?v=WP2ZTcZq3RM)
 
 ## Key Features
 
