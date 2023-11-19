@@ -23,6 +23,7 @@ import { RulesSection } from "@/app/(app)/automation/RulesSection";
 import { SectionDescription } from "@/components/Typography";
 import { TopSection } from "@/components/TopSection";
 import { AlertBasic } from "@/components/Alert";
+import { PremiumAlert } from "@/components/PremiumAlert";
 
 export default function PlannedPage() {
   const params = useSearchParams();
@@ -42,6 +43,9 @@ export default function PlannedPage() {
               actually doing anything. Alternatively, activate automated mode to
               enable the AI to automatically process your emails.
             </SectionDescription>
+            <div className="mt-4">
+              <PremiumAlert />
+            </div>
           </>
         }
       />
@@ -50,27 +54,29 @@ export default function PlannedPage() {
         <RulesSection />
       </div>
 
-      <div className="p-2">
-        <Tabs
-          selected={selectedTab}
-          tabs={[
-            {
-              label: "History",
-              value: "history",
-              href: "/automation?tab=history",
-            },
-            // {
-            //   label: "Planned",
-            //   value: "planned",
-            //   href: "/automation?tab=planned",
-            // },
-          ]}
-          breakpoint="md"
-        />
-      </div>
+      <div className="sm:px-4">
+        <div className="p-2">
+          <Tabs
+            selected={selectedTab}
+            tabs={[
+              {
+                label: "History",
+                value: "history",
+                href: "/automation?tab=history",
+              },
+              // {
+              //   label: "Planned",
+              //   value: "planned",
+              //   href: "/automation?tab=planned",
+              // },
+            ]}
+            breakpoint="md"
+          />
+        </div>
 
-      {selectedTab === "planned" && <Planned />}
-      {selectedTab === "history" && <PlanHistory />}
+        {selectedTab === "planned" && <Planned />}
+        {selectedTab === "history" && <PlanHistory />}
+      </div>
     </div>
   );
 }
