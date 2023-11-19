@@ -19,7 +19,7 @@ export function SlideOverSheet(props: {
   const close = useCallback(() => setOpen(false), []);
 
   return (
-    <Sheet modal={false} open={open}>
+    <Sheet modal={false} open={open} onOpenChange={setOpen}>
       <SheetTrigger
         asChild
         onClick={(e) => {
