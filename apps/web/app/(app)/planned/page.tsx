@@ -19,7 +19,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Tabs } from "@/components/Tabs";
 import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { PlanBadge } from "@/components/PlanBadge";
-import { RulesSection } from "@/app/(app)/settings/RulesSection";
+import { RulesSection } from "@/app/(app)/planned/RulesSection";
 import { SectionDescription } from "@/components/Typography";
 import { TopSection } from "@/components/TopSection";
 import { AlertBasic } from "@/components/Alert";
