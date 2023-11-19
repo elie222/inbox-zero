@@ -12,11 +12,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
 import { Card } from "@/components/Card";
 import {
+  BookOpenCheckIcon,
   CheckCircle2Icon,
   HelpCircleIcon,
   PenIcon,
   SparklesIcon,
-  TerminalIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import {
@@ -63,7 +63,7 @@ import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { Select } from "@/components/Select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertBasic } from "@/components/Alert";
 
 export function RulesSection() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -170,8 +170,8 @@ export function RulesForm(props: {
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
 
   return (
-    <FormSection>
-      <div className="">
+    <FormSection className="py-8 md:grid-cols-5">
+      <div className="md:col-span-2">
         <SectionHeader>Rules</SectionHeader>
         <SectionDescription>
           Instruct the AI how you want it to handle your emails.
@@ -198,7 +198,7 @@ export function RulesForm(props: {
         <TestRules />
       </div>
 
-      <div className="md:col-span-2">
+      <div className="md:col-span-3">
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormSectionRight>
             <div className="space-y-6 sm:col-span-full">
@@ -479,7 +479,10 @@ function TestRules() {
       content={<TestRulesContent />}
     >
       <div className="mt-4">
-        <Button color="white">Test</Button>
+        <Button color="white">
+          <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+          Test
+        </Button>
       </div>
     </SlideOverSheet>
   );
@@ -667,23 +670,20 @@ function Plan(props: { plan: ActResponse }) {
 
   if (plan.rule === null) {
     return (
-      <Alert className="mb-4">
-        <TerminalIcon className="h-4 w-4" />
-        <AlertTitle>No rule found!</AlertTitle>
-        <AlertDescription>
-          This email does not match any of the rules you have set.
-        </AlertDescription>
-      </Alert>
+      <AlertBasic
+        title="No rule found!"
+        description="This email does not match any of the rules you have set."
+      />
     );
   }
 
   if (plan.plannedAction.actions) {
     return (
-      <Alert className="mb-4">
-        <CheckCircle2Icon className="h-4 w-4" />
-        <AlertTitle>Rule found!</AlertTitle>
-        <AlertDescription>{plan.rule.instructions}</AlertDescription>
-      </Alert>
+      <AlertBasic
+        title="Rule found!"
+        description={plan.rule.instructions}
+        icon={<CheckCircle2Icon className="h-4 w-4" />}
+      />
     );
   }
 }
