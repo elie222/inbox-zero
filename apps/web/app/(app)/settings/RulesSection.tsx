@@ -11,7 +11,13 @@ import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
 import { Card } from "@/components/Card";
-import { HelpCircleIcon, PenIcon } from "lucide-react";
+import {
+  CheckCircle2Icon,
+  HelpCircleIcon,
+  PenIcon,
+  SparklesIcon,
+  TerminalIcon,
+} from "lucide-react";
 import { Button } from "@/components/Button";
 import {
   FormSection,
@@ -20,7 +26,11 @@ import {
 } from "@/components/Form";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, SectionHeader } from "@/components/Typography";
+import {
+  MessageText,
+  SectionDescription,
+  SectionHeader,
+} from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -53,6 +63,7 @@ import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { Select } from "@/components/Select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function RulesSection() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -475,7 +486,7 @@ function TestRules() {
 }
 
 function TestRulesContent() {
-  const { data, isLoading, error, mutate } = useSWR<MessagesResponse>(
+  const { data, isLoading, error } = useSWR<MessagesResponse>(
     "/api/google/messages",
     {
       keepPreviousData: true,
@@ -495,7 +506,7 @@ function TestRulesContent() {
 
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <div className="">
+          <div>
             {data.messages.map((message) => {
               return <TestRulesContentRow key={message.id} message={message} />;
             })}
@@ -559,6 +570,7 @@ const TestRulesForm = () => {
           error={errors.message}
         />
         <Button type="submit" loading={isSubmitting}>
+          <SparklesIcon className="mr-2 h-4 w-4" />
           Plan
         </Button>
       </form>
@@ -582,7 +594,12 @@ function TestRulesContentRow(props: {
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-4">
-        <div className="">{message.snippet?.trim()}</div>
+        <div className="min-w-0 break-words">
+          <MessageText className="font-bold">
+            {message.parsedMessage.headers.subject}
+          </MessageText>
+          <MessageText className="mt-1">{message.snippet?.trim()}</MessageText>
+        </div>
         <div className="ml-4">
           <Button
             color="white"
@@ -631,6 +648,7 @@ function TestRulesContentRow(props: {
               setPlanning(false);
             }}
           >
+            <SparklesIcon className="mr-2 h-4 w-4" />
             Plan
           </Button>
         </div>
@@ -647,14 +665,25 @@ function Plan(props: { plan: ActResponse }) {
 
   if (!plan) return null;
 
-  if (plan.rule === null) return <Card>No rule found to apply.</Card>;
+  if (plan.rule === null) {
+    return (
+      <Alert className="mb-4">
+        <TerminalIcon className="h-4 w-4" />
+        <AlertTitle>No rule found!</AlertTitle>
+        <AlertDescription>
+          This email does not match any of the rules you have set.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   if (plan.plannedAction.actions) {
     return (
-      <Card>
-        <div className="font-semibold">Rule to apply:</div>
-        {plan.rule.instructions}
-      </Card>
+      <Alert className="mb-4">
+        <CheckCircle2Icon className="h-4 w-4" />
+        <AlertTitle>Rule found!</AlertTitle>
+        <AlertDescription>{plan.rule.instructions}</AlertDescription>
+      </Alert>
     );
   }
 }
