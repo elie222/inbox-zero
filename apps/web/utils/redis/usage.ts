@@ -46,6 +46,29 @@ export async function saveUsage(options: {
   ]);
 }
 
+// https://openai.com/pricing
+const costs: Record<
+  AIModel,
+  {
+    input: number;
+    output: number;
+  }
+> = {
+  // TODO: gpt-3.5-turbo-1106 and gpt-3.5-turbo-instruct have different pricing
+  "gpt-3.5-turbo": {
+    input: 0.0015 / 1000,
+    output: 0.002 / 1000,
+  },
+  "gpt-4": {
+    input: 0.03 / 1000,
+    output: 0.06 / 1000,
+  },
+  "gpt-4-1106-preview": {
+    input: 0.01 / 1000,
+    output: 0.03 / 1000,
+  },
+};
+
 // returns cost in cents
 function calcuateCost(
   model: AIModel,
@@ -54,19 +77,7 @@ function calcuateCost(
     completion_tokens: number;
   }
 ): number {
-  let costPerCompletionToken: number;
-  let costPerPromptToken: number;
+  const { input, output } = costs[model];
 
-  if (model === "gpt-4") {
-    costPerCompletionToken = 0.003;
-    costPerPromptToken = 0.006;
-  } else {
-    costPerCompletionToken = 0.00015;
-    costPerPromptToken = 0.0002;
-  }
-
-  return (
-    usage.completion_tokens * costPerCompletionToken +
-    usage.prompt_tokens * costPerPromptToken
-  );
+  return usage.prompt_tokens * input + usage.completion_tokens * output;
 }

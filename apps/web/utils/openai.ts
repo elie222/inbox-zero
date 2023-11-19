@@ -14,7 +14,11 @@ export function getOpenAI(apiKey: string | null) {
   return openAIs[key];
 }
 
-export const zodAIModel = z.enum(["gpt-3.5-turbo", "gpt-4"]);
+export const zodAIModel = z.enum([
+  "gpt-3.5-turbo",
+  "gpt-4",
+  "gpt-4-1106-preview",
+]);
 export type AIModel = z.infer<typeof zodAIModel>;
 
 export type UserAIFields = {

@@ -90,6 +90,10 @@ function ModelSectionForm(props: {
             label: "GPT-4",
             value: "gpt-4",
           },
+          {
+            label: "GPT-4 1106 Preview",
+            value: "gpt-4-1106-preview",
+          },
         ]}
         registerProps={register("aiModel")}
         error={errors.aiModel}
