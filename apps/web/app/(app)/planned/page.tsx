@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { List } from "@/components/email-list/EmailList";
+// import { List } from "@/components/email-list/EmailList";
 import { useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PlannedResponse } from "@/app/api/user/planned/route";
@@ -22,6 +22,7 @@ import { PlanBadge } from "@/components/PlanBadge";
 import { RulesSection } from "@/app/(app)/settings/RulesSection";
 import { SectionDescription } from "@/components/Typography";
 import { TopSection } from "@/components/TopSection";
+import { AlertBasic } from "@/components/Alert";
 
 export default function PlannedPage() {
   const params = useSearchParams();
@@ -262,8 +263,11 @@ function PlanHistory() {
         })}
       </div>
       {!data?.history?.length && (
-        <div className="p-4">
-          <Card>No history.</Card>
+        <div className="px-2">
+          <AlertBasic
+            title="No history"
+            description="You have no history of AI automations yet."
+          />
         </div>
       )}
     </LoadingContent>
