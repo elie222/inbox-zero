@@ -19,6 +19,9 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Tabs } from "@/components/Tabs";
 import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { PlanBadge } from "@/components/PlanBadge";
+import { RulesSection } from "@/app/(app)/settings/RulesSection";
+import { SectionDescription } from "@/components/Typography";
+import { TopSection } from "@/components/TopSection";
 
 export default function PlannedPage() {
   const params = useSearchParams();
@@ -26,6 +29,26 @@ export default function PlannedPage() {
 
   return (
     <div>
+      <TopSection
+        title="AI Automation"
+        descriptionComponent={
+          <>
+            <SectionDescription>
+              Set rules for our AI to handle incoming emails automatically.
+            </SectionDescription>
+            <SectionDescription>
+              Run in planning mode to see what the AI would do without it
+              actually doing anything. Alternatively, activate automated mode to
+              enable the AI to automatically process your emails.
+            </SectionDescription>
+          </>
+        }
+      />
+
+      <div className="border-b border-gray-200 bg-white shadow-sm">
+        <RulesSection />
+      </div>
+
       <div className="p-2">
         <Tabs
           selected={selectedTab}

@@ -37,7 +37,7 @@ const navigation = [
   },
   { name: "Mail", href: "/mail", icon: InboxIcon },
   {
-    name: "Planned",
+    name: "AI Automation",
     href: "/planned",
     icon: SparklesIcon,
   },
