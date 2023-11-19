@@ -1,6 +1,19 @@
+import useSWR from "swr";
 import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
 import { Button } from "@/components/Button";
+import { UserResponse } from "@/app/api/user/me/route";
+import { isPremium } from "@/utils/premium";
+
+export function usePremium() {
+  const swrResponse = useSWR<UserResponse>("/api/user/me");
+
+  return {
+    ...swrResponse,
+    isPremium:
+      swrResponse.data && isPremium(swrResponse.data.lemonSqueezyRenewsAt),
+  };
+}
 
 export function PremiumAlert() {
   return (

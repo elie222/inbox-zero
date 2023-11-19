@@ -23,11 +23,13 @@ import { RulesSection } from "@/app/(app)/automation/RulesSection";
 import { SectionDescription } from "@/components/Typography";
 import { TopSection } from "@/components/TopSection";
 import { AlertBasic } from "@/components/Alert";
-import { PremiumAlert } from "@/components/PremiumAlert";
+import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
 
 export default function PlannedPage() {
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "history";
+
+  const { isPremium } = usePremium();
 
   return (
     <div>
@@ -43,9 +45,11 @@ export default function PlannedPage() {
               actually doing anything. Alternatively, activate automated mode to
               enable the AI to automatically process your emails.
             </SectionDescription>
-            <div className="mt-4">
-              <PremiumAlert />
-            </div>
+            {!isPremium && (
+              <div className="mt-4">
+                <PremiumAlert />
+              </div>
+            )}
           </>
         }
       />
