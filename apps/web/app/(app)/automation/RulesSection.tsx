@@ -184,7 +184,7 @@ export function RulesForm(props: {
           </li>
           <li>
             If someone asks how much the premium plan is respond: {'"'}Our
-            premium plan is $10 per month. You can learn more at
+            premium plan is $8 per month. You can learn more at
             https://getinboxzero.com/pricing.{'"'}
           </li>
         </ul>
