@@ -18,7 +18,7 @@ export function Hero() {
   return (
     <div className="relative pt-14">
       <SquaresPattern />
-      <div className="py-24 sm:py-32">
+      <div className="pt-24 sm:pb-12 sm:pt-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <HeroText>

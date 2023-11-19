@@ -2,7 +2,7 @@ import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 
 export function CTA() {
   return (
-    <div className="relative -z-10 mt-32 px-6 lg:px-8">
+    <div className="relative -z-10 mt-12 px-6 lg:px-8">
       {/* <div
         className="absolute inset-x-0 top-1/2 -z-10 flex -translate-y-1/2 transform-gpu justify-center overflow-hidden blur-3xl sm:bottom-0 sm:right-[calc(50%-6rem)] sm:top-auto sm:translate-y-0 sm:transform-gpu sm:justify-end"
         aria-hidden="true"

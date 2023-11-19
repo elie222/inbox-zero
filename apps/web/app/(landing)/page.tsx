@@ -28,9 +28,7 @@ export default function Home() {
         <FeaturesAutomation />
         {/* <Testimonials /> */}
         {/* <Pricing /> */}
-        <div className="mt-32">
-          <FAQs />
-        </div>
+        <FAQs />
         <CTA />
       </main>
 
