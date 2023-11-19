@@ -19,7 +19,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Tabs } from "@/components/Tabs";
 import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { PlanBadge } from "@/components/PlanBadge";
-import { RulesSection } from "@/app/(app)/planned/RulesSection";
+import { RulesSection } from "@/app/(app)/automation/RulesSection";
 import { SectionDescription } from "@/components/Typography";
 import { TopSection } from "@/components/TopSection";
 import { AlertBasic } from "@/components/Alert";
@@ -57,12 +57,12 @@ export default function PlannedPage() {
             {
               label: "History",
               value: "history",
-              href: "/planned?tab=history",
+              href: "/automation?tab=history",
             },
             // {
             //   label: "Planned",
             //   value: "planned",
-            //   href: "/planned?tab=planned",
+            //   href: "/automation?tab=planned",
             // },
           ]}
           breakpoint="md"
