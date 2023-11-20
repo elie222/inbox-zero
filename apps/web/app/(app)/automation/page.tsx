@@ -5,8 +5,6 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PlannedResponse } from "@/app/api/user/planned/route";
-import Link from "next/link";
-import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { postRequest } from "@/utils/api";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
@@ -68,11 +66,11 @@ export default function PlannedPage() {
                 value: "history",
                 href: "/automation?tab=history",
               },
-              // {
-              //   label: "Planned",
-              //   value: "planned",
-              //   href: "/automation?tab=planned",
-              // },
+              {
+                label: "Planned",
+                value: "planned",
+                href: "/automation?tab=planned",
+              },
             ]}
             breakpoint="md"
           />
@@ -193,15 +191,10 @@ function Planned() {
           })}
         </div>
       ) : (
-        <div className="mx-auto max-w-2xl p-8">
-          <Card>
-            No planned actions. Set rules in your{" "}
-            <Link href="/settings" className="font-semibold hover:underline">
-              Settings
-            </Link>{" "}
-            for the AI to handle incoming emails for you.
-          </Card>
-        </div>
+        <AlertBasic
+          title="No planned actions"
+          description="Set rules above for our AI to handle incoming emails for you."
+        />
       )}
     </LoadingContent>
   );
