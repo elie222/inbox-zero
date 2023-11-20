@@ -18,8 +18,7 @@ import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { getGmailSearchUrl } from "@/utils/url";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
-import { isPremium } from "@/utils/premium";
-import { UserResponse } from "@/app/api/user/me/route";
+import { usePremium } from "@/components/PremiumAlert";
 
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
@@ -58,8 +57,7 @@ export function EmailAnalytics(props: {
     }
   );
 
-  const { data: userData, isLoading: userIsLoading } =
-    useSWR<UserResponse>("/api/user/me");
+  const { isPremium } = usePremium();
 
   const { expanded, extra } = useExpanded();
 
@@ -158,7 +156,7 @@ export function EmailAnalytics(props: {
               extra={extra}
             />
 
-            {!userIsLoading && !isPremium(userData?.lemonSqueezyRenewsAt) && (
+            {!isPremium && (
               <div className="absolute inset-0 flex items-center justify-center rounded bg-slate-900/30">
                 <div className="m-4 w-full max-w-full">
                   <Card>

@@ -2,11 +2,9 @@
 
 import { CheckIcon } from "@heroicons/react/20/solid";
 import clsx from "clsx";
-import useSWR from "swr";
 import { env } from "@/env.mjs";
-import { UserResponse } from "@/app/api/user/me/route";
 import { LoadingContent } from "@/components/LoadingContent";
-import { isPremium } from "@/utils/premium";
+import { usePremium } from "@/components/PremiumAlert";
 
 const tiers = [
   {
@@ -47,7 +45,7 @@ const tiers = [
 ];
 
 export function Pricing() {
-  const { data, isLoading, error } = useSWR<UserResponse>("/api/user/me");
+  const { isPremium, data, isLoading, error } = usePremium();
 
   const userId = data?.id;
 
@@ -159,8 +157,7 @@ export function Pricing() {
                     "mt-8 block rounded-md px-3.5 py-2.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:mt-10"
                   )}
                 >
-                  {tier.id === "tier-pro" &&
-                  isPremium(data.lemonSqueezyRenewsAt)
+                  {tier.id === "tier-pro" && isPremium
                     ? "Current plan"
                     : "Upgrade"}
                 </a>

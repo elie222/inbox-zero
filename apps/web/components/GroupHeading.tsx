@@ -4,7 +4,7 @@ import React from "react";
 
 export function GroupHeading(props: {
   leftContent: React.ReactNode;
-  buttons: { label: string; loading?: boolean; onClick: () => void }[];
+  buttons?: { label: string; loading?: boolean; onClick: () => void }[];
 }) {
   return (
     <div className="flex max-w-full flex-wrap items-center gap-x-6 px-4 sm:flex-nowrap sm:px-6">
@@ -17,7 +17,7 @@ export function GroupHeading(props: {
       </h1>
 
       <div className="ml-auto flex items-center gap-x-1 py-2">
-        {props.buttons.map((button) => (
+        {props.buttons?.map((button) => (
           <Button
             key={button.label}
             size="md"
