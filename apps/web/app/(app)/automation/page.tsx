@@ -11,7 +11,7 @@ import { PlanHistory } from "@/app/(app)/automation/PlanHistory";
 
 export default function PlannedPage() {
   const params = useSearchParams();
-  const selectedTab = params.get("tab") || "history";
+  const selectedTab = params.get("tab") || "planned";
 
   const { isPremium } = usePremium();
 
@@ -48,14 +48,14 @@ export default function PlannedPage() {
             selected={selectedTab}
             tabs={[
               {
-                label: "History",
-                value: "history",
-                href: "/automation?tab=history",
-              },
-              {
                 label: "Planned",
                 value: "planned",
                 href: "/automation?tab=planned",
+              },
+              {
+                label: "History",
+                value: "history",
+                href: "/automation?tab=history",
               },
             ]}
             breakpoint="md"
