@@ -14,72 +14,82 @@ import {
   RejectPlanResponse,
 } from "@/app/api/user/planned/reject/route";
 
-export function useExecutePlan() {
+export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
   const [rejectingPlan, setRejectingPlan] = useState<Executing>({});
 
-  const executePlan = useCallback(async (thread: Thread) => {
-    if (!thread.plan?.rule) return;
+  const executePlan = useCallback(
+    async (thread: Thread) => {
+      if (!thread.plan?.rule) return;
 
-    setExecutingPlan((s) => ({ ...s, [thread.id!]: true }));
+      setExecutingPlan((s) => ({ ...s, [thread.id!]: true }));
 
-    const lastMessage = thread.messages?.[thread.messages.length - 1];
+      const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-    try {
-      await postRequest<ExecutePlanResponse, ExecutePlanBody>(
-        `/api/user/planned/${thread.plan.id}`,
-        {
-          email: {
-            subject: lastMessage.parsedMessage.headers.subject,
-            from: lastMessage.parsedMessage.headers.from,
-            to: lastMessage.parsedMessage.headers.to,
-            cc: lastMessage.parsedMessage.headers.cc,
-            replyTo: lastMessage.parsedMessage.headers["reply-to"],
-            references: lastMessage.parsedMessage.headers["references"],
-            date: lastMessage.parsedMessage.headers.date,
-            headerMessageId: lastMessage.parsedMessage.headers["message-id"],
-            textPlain: lastMessage.parsedMessage.textPlain || null,
-            textHtml: lastMessage.parsedMessage.textHtml || null,
-            snippet: lastMessage.snippet || null,
-            messageId: lastMessage.id || "",
-            threadId: lastMessage.threadId || "",
-          },
-          ruleId: thread.plan.rule.id,
-          actions: thread.plan.rule.actions,
-          args: thread.plan.functionArgs,
-        }
-      );
+      try {
+        await postRequest<ExecutePlanResponse, ExecutePlanBody>(
+          `/api/user/planned/${thread.plan.id}`,
+          {
+            email: {
+              subject: lastMessage.parsedMessage.headers.subject,
+              from: lastMessage.parsedMessage.headers.from,
+              to: lastMessage.parsedMessage.headers.to,
+              cc: lastMessage.parsedMessage.headers.cc,
+              replyTo: lastMessage.parsedMessage.headers["reply-to"],
+              references: lastMessage.parsedMessage.headers["references"],
+              date: lastMessage.parsedMessage.headers.date,
+              headerMessageId: lastMessage.parsedMessage.headers["message-id"],
+              textPlain: lastMessage.parsedMessage.textPlain || null,
+              textHtml: lastMessage.parsedMessage.textHtml || null,
+              snippet: lastMessage.snippet || null,
+              messageId: lastMessage.id || "",
+              threadId: lastMessage.threadId || "",
+            },
+            ruleId: thread.plan.rule.id,
+            actions: thread.plan.rule.actions,
+            args: thread.plan.functionArgs,
+          }
+        );
 
-      toastSuccess({ description: "Executed!" });
-    } catch (error) {
-      console.error(error);
-      toastError({
-        description: "Unable to execute plan :(",
-      });
-    }
+        toastSuccess({ description: "Executed!" });
+      } catch (error) {
+        console.error(error);
+        toastError({
+          description: "Unable to execute plan :(",
+        });
+      }
 
-    setExecutingPlan((s) => ({ ...s, [thread.id!]: false }));
-  }, []);
+      refetch();
 
-  const rejectPlan = useCallback(async (thread: Thread) => {
-    setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
+      setExecutingPlan((s) => ({ ...s, [thread.id!]: false }));
+    },
+    [refetch]
+  );
 
-    try {
-      await postRequest<RejectPlanResponse, RejectPlanBody>(
-        `/api/user/planned/reject`,
-        { threadId: thread.id! }
-      );
+  const rejectPlan = useCallback(
+    async (thread: Thread) => {
+      setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
-      toastSuccess({ description: "Plan rejected" });
-    } catch (error) {
-      console.error(error);
-      toastError({
-        description: "Unable to reject plan :(",
-      });
-    }
+      try {
+        await postRequest<RejectPlanResponse, RejectPlanBody>(
+          `/api/user/planned/reject`,
+          { threadId: thread.id! }
+        );
 
-    setRejectingPlan((s) => ({ ...s, [thread.id!]: false }));
-  }, []);
+        toastSuccess({ description: "Plan rejected" });
+      } catch (error) {
+        console.error(error);
+        toastError({
+          description: "Unable to reject plan :(",
+        });
+      }
+
+      refetch();
+
+      setRejectingPlan((s) => ({ ...s, [thread.id!]: false }));
+    },
+    [refetch]
+  );
 
   return {
     executingPlan,

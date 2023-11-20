@@ -32,7 +32,6 @@ import {
 import { fromName, participant } from "@/utils/email";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
-import { Card } from "@/components/Card";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
 import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
@@ -42,6 +41,7 @@ import {
   ArchiveResponse,
 } from "@/app/api/google/threads/archive/controller";
 import { MessageText } from "@/components/Typography";
+import { AlertBasic } from "@/components/Alert";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -101,176 +101,6 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
               <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
             </div>
           }
-          buttons={[]}
-          // buttons={
-          //   label
-          //     ? [
-          //         {
-          //           label: "Label All",
-          //           onClick: async () => {
-          //             try {
-          //               await labelThreadsAction({
-          //                 labelId: label?.id!,
-          //                 threadIds: tabThreads.map((thread) => thread.id!),
-          //                 archive: false,
-          //               });
-          //               toastSuccess({
-          //                 description: `Labeled emails "${label.name}".`,
-          //               });
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error labeling emails "${label.name}".`,
-          //               });
-          //             }
-          //           },
-          //         },
-          //         {
-          //           label: "Label + Archive All",
-          //           onClick: async () => {
-          //             try {
-          //               await labelThreadsAction({
-          //                 labelId: label?.id!,
-          //                 threadIds: tabThreads.map((email) => email.id!),
-          //                 archive: true,
-          //               });
-          //               toastSuccess({
-          //                 description: `Labeled and archived emails "${label.name}".`,
-          //               });
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error labeling and archiving emails "${label.name}".`,
-          //               });
-          //             }
-          //           },
-          //         },
-          //       ]
-          //     : [
-          //         {
-          //           label: "Replan All",
-          //           onClick: async () => {
-          //             setReplanningAiSuggestions(true);
-          //             try {
-          //               for (const email of tabThreads) {
-          //                 if (!email.plan) continue;
-
-          //                 const emailMessage = email.messages?.[0];
-          //                 const subject =
-          //                   emailMessage?.parsedMessage.headers.subject || "";
-          //                 const message =
-          //                   emailMessage?.parsedMessage.textPlain ||
-          //                   emailMessage?.parsedMessage.textHtml ||
-          //                   "";
-
-          //                 const senderEmail =
-          //                   emailMessage?.parsedMessage.headers.from || "";
-
-          //                 try {
-          //                   // had trouble with server actions here
-          //                   const res = await postRequest<
-          //                     PlanResponse,
-          //                     PlanBody
-          //                   >("/api/ai/plan", {
-          //                     id: email.id!,
-          //                     subject,
-          //                     message,
-          //                     senderEmail,
-          //                     replan: true,
-          //                   });
-
-          //                   if (isErrorMessage(res)) {
-          //                     console.error(res);
-          //                     toastError({
-          //                       description: `Error planning  ${subject}`,
-          //                     });
-          //                   }
-          //                 } catch (error) {
-          //                   console.error(error);
-          //                   toastError({
-          //                     description: `Error archiving ${subject}`,
-          //                   });
-          //                 }
-          //               }
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error applying the AI suggestions.`,
-          //               });
-          //             }
-          //             setReplanningAiSuggestions(false);
-          //           },
-          //           loading: replanningAiSuggestions,
-          //         },
-          //         {
-          //           label: "Apply AI Suggestions",
-          //           onClick: async () => {
-          //             setApplyingAiSuggestions(true);
-          //             try {
-          //               for (const email of tabThreads) {
-          //                 if (!email.plan) continue;
-
-          //                 const subject =
-          //                   email.messages?.[0]?.parsedMessage.headers
-          //                     .subject || "";
-
-          //                 // if (email.plan.action === "archive") {
-          //                 //   try {
-          //                 //     // had trouble with server actions here
-          //                 //     const res = await postRequest<
-          //                 //       ArchiveResponse,
-          //                 //       ArchiveBody
-          //                 //     >("/api/google/threads/archive", {
-          //                 //       id: email.id!,
-          //                 //     });
-
-          //                 //     if (isErrorMessage(res)) {
-          //                 //       console.error(res);
-          //                 //       toastError({
-          //                 //         description: `Error archiving  ${subject}`,
-          //                 //       });
-          //                 //     } else {
-          //                 //       toastSuccess({
-          //                 //         title: "Archvied!",
-          //                 //         description: `Archived ${subject}`,
-          //                 //       });
-          //                 //     }
-          //                 //   } catch (error) {
-          //                 //     console.error(error);
-          //                 //     toastError({
-          //                 //       description: `Error archiving ${subject}`,
-          //                 //     });
-          //                 //   }
-          //                 // } else if (email.plan.action === "label") {
-          //                 //   const labelName = email.plan.label;
-          //                 //   const label = labelsArray.find(
-          //                 //     (label) => label.name === labelName
-          //                 //   );
-          //                 //   if (!label) continue;
-
-          //                 //   await labelThreadsAction({
-          //                 //     labelId: label.id,
-          //                 //     threadIds: [email.id!],
-          //                 //     // threadIds: tabEmails
-          //                 //     //   .map((email) => email.id)
-          //                 //     //   .filter(isDefined),
-          //                 //     archive: true,
-          //                 //   });
-
-          //                 //   toastSuccess({
-          //                 //     title: "Labelled",
-          //                 //     description: `Labelled ${subject}`,
-          //                 //   });
-          //                 // }
-          //               }
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error applying the AI suggestions.`,
-          //               });
-          //             }
-          //             setApplyingAiSuggestions(false);
-          //           },
-          //           loading: applyingAiSuggestions,
-          //         },
-          //       ]
-          // }
         />
       </div>
       {props.emails.length ? (
@@ -278,18 +108,26 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
           threads={filteredEmails}
           emptyMessage={
             selectedTab === "planned" ? (
-              <Card className="m-4">
-                No planned emails. Set rules in your{" "}
-                <Link
-                  href="/settings"
-                  className="font-semibold hover:underline"
-                >
-                  Settings
-                </Link>{" "}
-                for the AI to handle incoming emails for you.
-              </Card>
+              <AlertBasic
+                title="No planned emails"
+                description={
+                  <>
+                    Set rules on the{" "}
+                    <Link
+                      href="/automation"
+                      className="font-semibold hover:underline"
+                    >
+                      Automation page
+                    </Link>{" "}
+                    for our AI to handle incoming emails for you.
+                  </>
+                }
+              />
             ) : (
-              <Card className="m-4">All emails handled!</Card>
+              <AlertBasic
+                title="All emails handled"
+                description="Great work!"
+              />
             )
           }
           refetch={props.refetch}
@@ -512,7 +350,7 @@ export function EmailList(props: {
   }
 
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
-    useExecutePlan();
+    useExecutePlan(props.refetch);
 
   const onPlanAiBulk = useCallback(async () => {
     for (const [threadId, selected] of Object.entries(selectedRows)) {
@@ -547,6 +385,8 @@ export function EmailList(props: {
     );
   }, [archive, props.threads, selectedRows]);
 
+  const isEmpty = props.threads.length === 0;
+
   return (
     <>
       <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
@@ -564,7 +404,7 @@ export function EmailList(props: {
       </div>
       <div
         className={clsx("h-full overflow-hidden", {
-          "grid grid-cols-2": openedRowId,
+          "grid grid-cols-2": openedRowId && !isEmpty,
           "overflow-y-auto": !openedRowId,
         })}
       >
@@ -612,8 +452,14 @@ export function EmailList(props: {
           ))}
         </ul>
 
-        {props.threads.length === 0 && (
-          <MessageText className="py-4">{props.emptyMessage}</MessageText>
+        {isEmpty && (
+          <div className="py-2">
+            {typeof props.emptyMessage === "string" ? (
+              <MessageText>{props.emptyMessage}</MessageText>
+            ) : (
+              props.emptyMessage
+            )}
+          </div>
         )}
 
         {!!(openedRowId && openedRow) && (

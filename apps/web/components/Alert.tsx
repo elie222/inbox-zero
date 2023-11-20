@@ -1,9 +1,10 @@
+import React from "react";
 import { AlertCircle, TerminalIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function AlertBasic(props: {
   title: string;
-  description: string;
+  description: React.ReactNode;
   icon?: React.ReactNode;
   variant?: "default" | "destructive" | "success";
 }) {
