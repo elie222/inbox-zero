@@ -56,7 +56,7 @@ export default function PlannedPage() {
         <RulesSection />
       </div>
 
-      <div className="sm:px-4">
+      <div className="mb-8 sm:px-4">
         <div className="p-2">
           <Tabs
             selected={selectedTab}
