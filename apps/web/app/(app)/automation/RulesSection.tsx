@@ -478,12 +478,10 @@ function TestRules() {
       description="Test how your rules perform against real emails."
       content={<TestRulesContent />}
     >
-      <div className="mt-4">
-        <Button color="white">
-          <BookOpenCheckIcon className="mr-2 h-4 w-4" />
-          Test
-        </Button>
-      </div>
+      <Button color="white" className="mt-4">
+        <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+        Test
+      </Button>
     </SlideOverSheet>
   );
 }

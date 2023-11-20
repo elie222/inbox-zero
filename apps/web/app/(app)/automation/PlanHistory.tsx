@@ -66,7 +66,7 @@ export function PlanHistory() {
                   }
                 )}
               </div>
-              <div className="">{h.automated ? "Automated" : "Manual"}</div>
+              <div>{h.automated ? "Automated" : "Manual"}</div>
             </div>
           );
         })}
