@@ -19,7 +19,7 @@ export function PremiumAlert() {
   return (
     <AlertWithButton
       title="Premium"
-      description="This is a premium feature. Upgrade to premium."
+      description="This is a premium feature. Upgrade to premium or set an OpenAI API key on the settings page."
       icon={<CrownIcon className="h-4 w-4" />}
       button={<Button link={{ href: "/premium" }}>Upgrade</Button>}
     />
