@@ -9,8 +9,8 @@ import { ChatCompletionCreateParams } from "openai/resources/chat";
 // This test suite makes it easier to test different models and parameters.
 
 const TIMEOUT = 15_000;
-const MODEL = "gpt-3.5-turbo" as const;
-// const MODEL = "gpt-4" as const;
+// const MODEL = "gpt-3.5-turbo" as const;
+const MODEL = "gpt-4-1106-preview" as const;
 
 const functions: ChatCompletionCreateParams.Function[] = [
   {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
@@ -76,25 +76,30 @@ function ModelSectionForm(props: {
     []
   );
 
+  const options: { label: string; value: AIModel }[] = useMemo(
+    () => [
+      {
+        label: "GPT 3.5 Turbo",
+        value: "gpt-3.5-turbo",
+      },
+      {
+        label: "GPT-4",
+        value: "gpt-4",
+      },
+      {
+        label: "GPT-4 1106 Preview",
+        value: "gpt-4-1106-preview",
+      },
+    ],
+    []
+  );
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Select
         name="aiModel"
         label="Model"
-        options={[
-          {
-            label: "GPT 3.5 Turbo",
-            value: "gpt-3.5-turbo",
-          },
-          {
-            label: "GPT-4",
-            value: "gpt-4",
-          },
-          {
-            label: "GPT-4 1106 Preview",
-            value: "gpt-4-1106-preview",
-          },
-        ]}
+        options={options}
         registerProps={register("aiModel")}
         error={errors.aiModel}
       />
