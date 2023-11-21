@@ -142,6 +142,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
 export function EmailList(props: {
   threads: Thread[];
   emptyMessage?: React.ReactNode;
+  hideActionBarWhenEmpty?: boolean;
   refetch: () => void;
 }) {
   const { refetch } = props;
@@ -389,19 +390,21 @@ export function EmailList(props: {
 
   return (
     <>
-      <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
-        <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
-        <div className="ml-4">
-          <ActionButtonsBulk
-            isPlanning={false}
-            isCategorizing={false}
-            isArchiving={false}
-            onAiCategorize={onCategorizeAiBulk}
-            onPlanAiAction={onPlanAiBulk}
-            onArchive={onArchiveAiBulk}
-          />
+      {!(isEmpty && props.hideActionBarWhenEmpty) && (
+        <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
+          <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+          <div className="ml-4">
+            <ActionButtonsBulk
+              isPlanning={false}
+              isCategorizing={false}
+              isArchiving={false}
+              onAiCategorize={onCategorizeAiBulk}
+              onPlanAiAction={onPlanAiBulk}
+              onArchive={onArchiveAiBulk}
+            />
+          </div>
         </div>
-      </div>
+      )}
       <div
         className={clsx("h-full overflow-hidden", {
           "grid grid-cols-2": openedRowId && !isEmpty,

@@ -26,6 +26,7 @@ export function Planned() {
               description="Set rules above for our AI to handle incoming emails for you."
             />
           }
+          hideActionBarWhenEmpty
           refetch={mutate}
         />
       )}

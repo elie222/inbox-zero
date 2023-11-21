@@ -165,8 +165,9 @@ function Emails(props: { fromEmail: string; refreshInterval?: number }) {
           {data && (
             <EmailList
               threads={data.threads}
-              refetch={mutate}
               emptyMessage={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
+              hideActionBarWhenEmpty
+              refetch={mutate}
             />
           )}
         </LoadingContent>
