@@ -72,7 +72,7 @@ export function PlanHistory() {
         })}
       </div>
       {!data?.history?.length && (
-        <div className="px-2">
+        <div className="py-2">
           <AlertBasic
             title="No history"
             description="You have no history of AI automations yet."
