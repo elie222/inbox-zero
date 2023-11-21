@@ -1,5 +1,5 @@
 import { ActBody } from "@/app/api/ai/act/validation";
-import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
+import { UserAIFields, functionsToTools, getOpenAI } from "@/utils/openai";
 import { saveUsage } from "@/utils/redis/usage";
 import { REQUIRES_MORE_INFO } from "@/app/api/ai/act/controller";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
@@ -59,7 +59,7 @@ export async function getAiResponseOld(
   ).chat.completions.create({
     model,
     messages,
-    functions,
+    tools: functionsToTools(functions),
     function_call: "auto",
     temperature: 0,
   });

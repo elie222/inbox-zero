@@ -1,7 +1,7 @@
 import { gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import { UserAIFields, getOpenAI } from "@/utils/openai";
+import { UserAIFields, functionsToTools, getOpenAI } from "@/utils/openai";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
@@ -168,7 +168,7 @@ ${email.content}`,
   ).chat.completions.create({
     model,
     messages,
-    functions,
+    tools: functionsToTools(functions),
     function_call: "auto",
     temperature: 0,
   });

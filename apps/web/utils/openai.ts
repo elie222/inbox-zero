@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { env } from "@/env.mjs";
 import { OpenAI } from "openai";
+import {
+  ChatCompletionCreateParams,
+  ChatCompletionTool,
+} from "openai/resources";
 
 const openAIs: Record<string, OpenAI> = {};
 
@@ -25,3 +29,12 @@ export type UserAIFields = {
   aiModel: AIModel | null;
   openAIApiKey: string | null;
 };
+
+export function functionsToTools(
+  functions: ChatCompletionCreateParams.Function[]
+): ChatCompletionTool[] {
+  return functions.map((f) => ({
+    function: f,
+    type: "function",
+  }));
+}
