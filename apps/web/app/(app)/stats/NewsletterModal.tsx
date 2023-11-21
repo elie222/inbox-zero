@@ -27,6 +27,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getGmailCreateFilterUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
+import { AlertBasic } from "@/components/Alert";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<
@@ -47,42 +48,36 @@ export function NewsletterModal(props: {
             <DialogHeader>
               <DialogTitle>{props.newsletter.name}</DialogTitle>
               <DialogDescription>{props.newsletter.name}</DialogDescription>
+            </DialogHeader>
 
-              <div className="flex space-x-2 pt-2">
-                <Button size="sm" variant="secondary">
-                  <a
-                    href={props.newsletter.lastUnsubscribeLink}
-                    target="_blank"
-                  >
-                    Unsubscribe
-                  </a>
-                </Button>
+            <div className="flex space-x-2">
+              <Button size="sm" variant="secondary">
+                <a href={props.newsletter.lastUnsubscribeLink} target="_blank">
+                  Unsubscribe
+                </a>
+              </Button>
 
-                <Tooltip content="Auto archive emails using Gmail filters">
-                  <Button asChild size="sm" variant="secondary">
-                    <Link
-                      href={getGmailCreateFilterUrl(
-                        props.newsletter.name,
-                        email
-                      )}
-                      target="_blank"
-                    >
-                      <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                      Auto archive
-                    </Link>
-                  </Button>
-                </Tooltip>
+              <Tooltip content="Auto archive emails using Gmail filters">
                 <Button asChild size="sm" variant="secondary">
                   <Link
-                    href={getGmailSearchUrl(props.newsletter.name, email)}
+                    href={getGmailCreateFilterUrl(props.newsletter.name, email)}
                     target="_blank"
                   >
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                    View emails in Gmail
+                    Auto archive
                   </Link>
                 </Button>
-              </div>
-            </DialogHeader>
+              </Tooltip>
+              <Button asChild size="sm" variant="secondary">
+                <Link
+                  href={getGmailSearchUrl(props.newsletter.name, email)}
+                  target="_blank"
+                >
+                  <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                  View emails in Gmail
+                </Link>
+              </Button>
+            </div>
 
             <div>
               <EmailsChart
@@ -163,7 +158,12 @@ function Emails(props: { fromEmail: string; refreshInterval?: number }) {
           {data && (
             <EmailList
               threads={data.threads}
-              emptyMessage={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
+              emptyMessage={
+                <AlertBasic
+                  title="No emails"
+                  description={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
+                />
+              }
               hideActionBarWhenEmpty
               refetch={mutate}
             />
