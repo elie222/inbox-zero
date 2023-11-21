@@ -15,13 +15,14 @@ export type CategorizeRuleResponse = Awaited<ReturnType<typeof categorizeRule>>;
 
 async function aiCategorizeRule(
   rule: Rule,
-  user: UserAIFields
+  user: UserAIFields,
 ): Promise<
   Pick<Action, "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content">[]
 > {
   const aiResponse = await getOpenAI(user.openAIApiKey).chat.completions.create(
     {
       model: user.aiModel || DEFAULT_AI_MODEL,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
@@ -48,7 +49,7 @@ Instruction:
 ${rule.instructions}`,
         },
       ],
-    }
+    },
   );
 
   const contentString = aiResponse.choices?.[0]?.message.content;
@@ -79,7 +80,7 @@ function isAction(action: any): action is Action {
 async function categorizeRule(
   body: CategorizeRuleBody,
   userId: string,
-  userAiFields: UserAIFields
+  userAiFields: UserAIFields,
 ) {
   const rule = await prisma.rule.findUniqueOrThrow({
     where: { id: body.ruleId },

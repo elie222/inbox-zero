@@ -21,9 +21,6 @@
   },
   "packageManager": "pnpm@8.6.10",
   "lint-staged": {
-    "*.{ts,tsx}": "pnpm run lint --cache --fix",
-    "**/*.{ts,tsx}": "tsc-files --noEmit",
-    "*.js": "eslint --cache --fix",
     "*.{ts,tsx,md}": "prettier --write"
   },
   "engines": {

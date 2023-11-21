@@ -10,7 +10,7 @@ export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 const aiResponseSchema = z.object({ category: z.string() });
 
 async function aiCategorise(
-  body: CategoriseBody & { content: string } & UserAIFields
+  body: CategoriseBody & { content: string } & UserAIFields,
 ) {
   const message = `Categorize this email.
 Return a JSON object with a "category" field.
@@ -49,6 +49,7 @@ ${body.content}
 
   const response = await getOpenAI(body.openAIApiKey).chat.completions.create({
     model: body.aiModel || DEFAULT_AI_MODEL,
+    response_format: { type: "json_object" },
     messages: [
       {
         role: "system",
@@ -77,7 +78,7 @@ ${body.content}
 
 export async function categorise(
   body: CategoriseBody & { content: string } & UserAIFields,
-  options: { email: string }
+  options: { email: string },
 ) {
   // 1. check redis cache
   const existingCategory = await getCategory({
