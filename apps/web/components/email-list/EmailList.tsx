@@ -107,28 +107,30 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         <EmailList
           threads={filteredEmails}
           emptyMessage={
-            selectedTab === "planned" ? (
-              <AlertBasic
-                title="No planned emails"
-                description={
-                  <>
-                    Set rules on the{" "}
-                    <Link
-                      href="/automation"
-                      className="font-semibold hover:underline"
-                    >
-                      Automation page
-                    </Link>{" "}
-                    for our AI to handle incoming emails for you.
-                  </>
-                }
-              />
-            ) : (
-              <AlertBasic
-                title="All emails handled"
-                description="Great work!"
-              />
-            )
+            <div className="px-2">
+              {selectedTab === "planned" ? (
+                <AlertBasic
+                  title="No planned emails"
+                  description={
+                    <>
+                      Set rules on the{" "}
+                      <Link
+                        href="/automation"
+                        className="font-semibold hover:underline"
+                      >
+                        Automation page
+                      </Link>{" "}
+                      for our AI to handle incoming emails for you.
+                    </>
+                  }
+                />
+              ) : (
+                <AlertBasic
+                  title="All emails handled"
+                  description="Great work!"
+                />
+              )}
+            </div>
           }
           refetch={props.refetch}
         />
