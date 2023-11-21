@@ -6,25 +6,25 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "pretty-quick": "npx pretty-quick --write \"**/*.{ts,tsx}\"",
     "prettier": "npx prettier --write \"**/*.{ts,tsx}\"",
     "prepare": "husky install",
     "ncu": "ncu -u -ws"
   },
   "devDependencies": {
-    "@turbo/gen": "^1.10.15",
-    "eslint": "^8.51.0",
+    "@turbo/gen": "^1.10.16",
+    "eslint": "^8.54.0",
     "eslint-config-custom": "workspace:*",
     "husky": "^8.0.3",
-    "lint-staged": "^15.0.1",
-    "prettier": "2.8.8",
-    "pretty-quick": "^3.1.3",
+    "lint-staged": "^15.1.0",
+    "prettier": "^3.1.0",
     "turbo": "^1.10.16"
   },
   "packageManager": "pnpm@8.6.10",
   "lint-staged": {
     "*.{ts,tsx}": "pnpm run lint --cache --fix",
-    "**/*.{ts,tsx}": "tsc-files --noEmit"
+    "**/*.{ts,tsx}": "tsc-files --noEmit",
+    "*.js": "eslint --cache --fix",
+    "*.{ts,tsx,md}": "prettier --write"
   },
   "engines": {
     "node": ">=18.0.0"
