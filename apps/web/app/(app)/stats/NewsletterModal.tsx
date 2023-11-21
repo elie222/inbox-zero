@@ -46,9 +46,7 @@ export function NewsletterModal(props: {
           <>
             <DialogHeader>
               <DialogTitle>{props.newsletter.name}</DialogTitle>
-              <DialogDescription>
-                <p>{props.newsletter.name}</p>
-              </DialogDescription>
+              <DialogDescription>{props.newsletter.name}</DialogDescription>
 
               <div className="flex space-x-2 pt-2">
                 <Button size="sm" variant="secondary">
