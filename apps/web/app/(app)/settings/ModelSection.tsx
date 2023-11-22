@@ -62,7 +62,7 @@ function ModelSectionForm(props: {
     async (data) => {
       const res = await postRequest<SaveSettingsResponse, SaveSettingsBody>(
         "/api/user/settings",
-        data
+        data,
       );
 
       if (isError(res)) {
@@ -73,25 +73,21 @@ function ModelSectionForm(props: {
         toastSuccess({ description: "Settings updated!" });
       }
     },
-    []
+    [],
   );
 
   const options: { label: string; value: AIModel }[] = useMemo(
     () => [
       {
         label: "GPT 3.5 Turbo",
-        value: "gpt-3.5-turbo",
+        value: "gpt-3.5-turbo-1106",
       },
       {
         label: "GPT-4",
-        value: "gpt-4",
-      },
-      {
-        label: "GPT-4 1106 Preview",
         value: "gpt-4-1106-preview",
       },
     ],
-    []
+    [],
   );
 
   return (

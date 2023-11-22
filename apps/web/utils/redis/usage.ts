@@ -54,14 +54,9 @@ const costs: Record<
     output: number;
   }
 > = {
-  // TODO: gpt-3.5-turbo-1106 and gpt-3.5-turbo-instruct have different pricing
-  "gpt-3.5-turbo": {
+  "gpt-3.5-turbo-1106": {
     input: 0.0015 / 1000,
     output: 0.002 / 1000,
-  },
-  "gpt-4": {
-    input: 0.03 / 1000,
-    output: 0.06 / 1000,
   },
   "gpt-4-1106-preview": {
     input: 0.01 / 1000,
@@ -75,7 +70,7 @@ function calcuateCost(
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
-  }
+  },
 ): number {
   const { input, output } = costs[model];
 

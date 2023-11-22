@@ -18,11 +18,8 @@ export function getOpenAI(apiKey: string | null) {
   return openAIs[key];
 }
 
-export const zodAIModel = z.enum([
-  "gpt-3.5-turbo",
-  "gpt-4",
-  "gpt-4-1106-preview",
-]);
+// model must support response_type: json_object
+export const zodAIModel = z.enum(["gpt-3.5-turbo-1106", "gpt-4-1106-preview"]);
 export type AIModel = z.infer<typeof zodAIModel>;
 
 export type UserAIFields = {
@@ -31,7 +28,7 @@ export type UserAIFields = {
 };
 
 export function functionsToTools(
-  functions: ChatCompletionCreateParams.Function[]
+  functions: ChatCompletionCreateParams.Function[],
 ): ChatCompletionTool[] {
   return functions.map((f) => ({
     function: f,

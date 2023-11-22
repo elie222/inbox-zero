@@ -9,7 +9,7 @@ import { ChatCompletionCreateParams } from "openai/resources/chat";
 // This test suite makes it easier to test different models and parameters.
 
 const TIMEOUT = 15_000;
-// const MODEL = "gpt-3.5-turbo" as const;
+// const MODEL = "gpt-3.5-turbo-1106" as const;
 const MODEL = "gpt-4-1106-preview" as const;
 
 const functions: ChatCompletionCreateParams.Function[] = [
@@ -120,7 +120,7 @@ describe("AI Plan", () => {
 
       expect(response).toBeUndefined();
     },
-    TIMEOUT
+    TIMEOUT,
   );
 });
 
@@ -145,7 +145,7 @@ describe("AI Plan 1", () => {
       const response = await getAiResponseOld(options);
       expect(response).toEqual({ name: "forward_receipts", arguments: "{}" });
     },
-    TIMEOUT
+    TIMEOUT,
   );
 
   it(
@@ -156,7 +156,7 @@ describe("AI Plan 1", () => {
         rule: 1,
       });
     },
-    TIMEOUT
+    TIMEOUT,
   );
 });
 
@@ -197,7 +197,7 @@ You are receiving this because you commented.Message ID: <upstash/sdk-qstash-ts/
         rule: noRule,
       });
     },
-    TIMEOUT
+    TIMEOUT,
   );
 });
 
@@ -239,6 +239,6 @@ describe("Plan act", () => {
         rule: noRule,
       });
     },
-    TIMEOUT
+    TIMEOUT,
   );
 });
