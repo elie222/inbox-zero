@@ -21,6 +21,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { MessagesBatchResponse } from "@/app/api/google/messages/batch/route";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
+import { Badge } from "@/components/Badge";
 
 export function PlanHistory() {
   const session = useSession();
@@ -141,7 +142,13 @@ export function PlanHistory() {
                     },
                   )}
                 </TableCell>
-                <TableCell>{h.automated ? "Automated" : "Manual"}</TableCell>
+                <TableCell>
+                  {h.automated ? (
+                    <Badge color="green">Automated</Badge>
+                  ) : (
+                    <Badge color="yellow">Manual</Badge>
+                  )}
+                </TableCell>
                 <TableCell className="whitespace-nowrap">
                   <Tooltip content={new Date(h.createdAt).toLocaleString()}>
                     <div>{formatShortDate(new Date(h.createdAt))}</div>
