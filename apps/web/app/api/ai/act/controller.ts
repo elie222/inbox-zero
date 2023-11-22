@@ -195,14 +195,14 @@ ${email.content}`,
     model,
     messages,
     tools: functionsToTools(functions),
-    function_call: "auto",
     temperature: 0,
   });
 
   if (aiResponse.usage)
     await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
-  const functionCall = aiResponse?.choices?.[0]?.message.function_call;
+  const functionCall =
+    aiResponse?.choices?.[0]?.message.tool_calls?.[0]?.function;
 
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
