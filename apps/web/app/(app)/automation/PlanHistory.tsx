@@ -96,7 +96,7 @@ export function PlanHistory() {
                       ).toLocaleString()}.`}
                     >
                       <div className="flex max-w-[800px] items-center">
-                        <span className="flex-1 flex-shrink-0 whitespace-nowrap text-gray-900">
+                        <span className="flex-shrink-0 whitespace-nowrap text-gray-900">
                           {message.parsedMessage.headers.subject}
                         </span>
                         <span className="ml-2 overflow-hidden truncate overflow-ellipsis whitespace-nowrap text-gray-500">
@@ -142,7 +142,7 @@ export function PlanHistory() {
                   )}
                 </TableCell>
                 <TableCell>{h.automated ? "Automated" : "Manual"}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Tooltip content={new Date(h.createdAt).toLocaleString()}>
                     <div>{formatShortDate(new Date(h.createdAt))}</div>
                   </Tooltip>

@@ -76,7 +76,7 @@ Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
 3. [Grant publish rights on your topic](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic)
 
 Set env var `GOOGLE_PUBSUB_TOPIC_NAME`.
-When creating the subscription select Push and the url should look something like: `https://getinboxzero.com/api/google/webhook` where the domain is your domain.
+When creating the subscription select Push and the url should look something like: `https://getinboxzero.com/api/google/webhook` or `https://abc.ngrok-free.app/api/google/webhook` where the domain is your domain.
 
 To run in development ngrok can be helpful:
 
@@ -85,3 +85,5 @@ ngrok http 3000
 ```
 
 And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
+
+To start watching emails visit: `/api/google/watch/all`.
