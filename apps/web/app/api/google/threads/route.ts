@@ -12,6 +12,8 @@ import { getCategory } from "@/utils/redis/category";
 
 export const dynamic = "force-dynamic";
 
+export const maxDuration = 30;
+
 const threadsQuery = z.object({
   fromEmail: z.string().nullish(),
   limit: z.coerce.number().max(500).nullish(),
@@ -55,7 +57,7 @@ async function getThreads(query: ThreadsQuery) {
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
         category: await getCategory({ email, threadId: id }),
       };
-    }) || []
+    }) || [],
   );
 
   return { threads: threadsWithMessages };

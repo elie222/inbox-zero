@@ -8,6 +8,8 @@ import { withError } from "@/utils/middleware";
 import { parseEmail } from "@/utils/mail";
 import { AIModel } from "@/utils/openai";
 
+export const maxDuration = 60;
+
 export const POST = withError(async (request: Request) => {
   const session = await auth();
   if (!session)
