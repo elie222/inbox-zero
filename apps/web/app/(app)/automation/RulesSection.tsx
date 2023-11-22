@@ -110,9 +110,12 @@ export function RulesForm(props: {
 
   const onSubmit: SubmitHandler<UpdateRulesBody> = useCallback(
     async (data) => {
+      // First save the rules to the database
+      // Then AI categorize them
+
       const res = await postRequest<UpdateRulesResponse, UpdateRulesBody>(
         "/api/user/rules",
-        data
+        data,
       );
 
       if (isError(res)) {
@@ -122,14 +125,15 @@ export function RulesForm(props: {
         for (let i = 0; i < data.rules.length; i++) {
           const rule = data.rules[i];
           const updatedRule = res.find(
-            (r) => r.instructions === rule.instructions
+            (r) => r.instructions === rule.instructions,
           );
           if (updatedRule) setValue(`rules.${i}.id`, updatedRule.id);
         }
 
+        // AI categorize rules
         await Promise.all(
           res.map(async (r, i) => {
-            // if the rule is the same, don't recategorize
+            // if the rule hasn't changed, don't recategorize
             if (r.instructions === props.rules?.[i]?.instructions) return;
 
             const categorizedRule = await postRequest<
@@ -147,12 +151,12 @@ export function RulesForm(props: {
 
             if (categorizedRule) {
               const index = data.rules.findIndex(
-                (r) => r.id === categorizedRule.id
+                (r) => r.id === categorizedRule.id,
               );
 
               if (index !== -1) setValue(`rules.${index}`, categorizedRule);
             }
-          })
+          }),
         );
 
         await refetchRules();
@@ -164,7 +168,7 @@ export function RulesForm(props: {
 
       await refetchRules();
     },
-    [setValue, props.rules, refetchRules]
+    [setValue, props.rules, refetchRules],
   );
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
@@ -312,7 +316,7 @@ function UpdateRuleForm(props: {
   const [editingActionType, setEditingActionType] = useState(false);
   const toggleEdittingActionType = useCallback(
     () => setEditingActionType(!editingActionType),
-    [setEditingActionType, editingActionType]
+    [setEditingActionType, editingActionType],
   );
 
   const {
@@ -333,7 +337,7 @@ function UpdateRuleForm(props: {
       if (!props.rule.id) return;
       const res = await postRequest<UpdateRuleResponse, UpdateRuleBody>(
         `/api/user/rules/${props.rule.id}`,
-        data
+        data,
       );
 
       await refetchRules();
@@ -346,7 +350,7 @@ function UpdateRuleForm(props: {
         closeModal();
       }
     },
-    [props.rule.id, closeModal, refetchRules]
+    [props.rule.id, closeModal, refetchRules],
   );
 
   return (
@@ -427,7 +431,7 @@ function UpdateRuleForm(props: {
                           error={errors["actions"]?.[i]?.[field.name]}
                         />
                       );
-                    }
+                    },
                   )}
                 </div>
               </div>
@@ -492,7 +496,7 @@ function TestRulesContent() {
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
-    }
+    },
   );
 
   return (
@@ -635,7 +639,7 @@ function TestRulesContentRow(props: {
                     references: message.parsedMessage.headers.references,
                   },
                   allowExecute: false,
-                }
+                },
               );
 
               if (isError(res)) {
