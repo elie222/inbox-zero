@@ -3,12 +3,13 @@ import he from "he";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { getPlan } from "@/utils/redis/plan";
 import { INBOX_LABEL_ID } from "@/utils/label";
 import { ThreadWithPayloadMessages } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
+import { getThreadsBatch } from "@/utils/gmail/thread";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export const maxDuration = 30;
 
 const threadsQuery = z.object({
   fromEmail: z.string().nullish(),
-  limit: z.coerce.number().max(500).nullish(),
+  limit: z.coerce.number().max(100).nullish(),
   includeAll: z.coerce.boolean().nullish(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
@@ -28,6 +29,11 @@ async function getThreads(query: ThreadsQuery) {
   if (!email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
+  const token = await getGmailAccessToken(session);
+  const accessToken = token?.token;
+
+  if (!accessToken) throw new Error("Missing access token");
+
   const [gmailThreads, rules] = await Promise.all([
     gmail.users.threads.list({
       userId: "me",
@@ -38,11 +44,15 @@ async function getThreads(query: ThreadsQuery) {
     prisma.rule.findMany({ where: { userId: session.user.id } }),
   ]);
 
+  const threads = await getThreadsBatch(
+    gmailThreads.data.threads?.map((thread) => thread.id!) || [],
+    accessToken,
+  );
+
   const threadsWithMessages = await Promise.all(
-    gmailThreads.data.threads?.map(async (t) => {
-      const id = t.id!;
-      const thread = await gmail.users.threads.get({ userId: "me", id });
-      const messages = parseMessages(thread.data as ThreadWithPayloadMessages);
+    threads.map(async (thread) => {
+      const id = thread.id!;
+      const messages = parseMessages(thread as ThreadWithPayloadMessages);
 
       const plan = await getPlan({ userId: session.user.id, threadId: id });
       const rule = plan
@@ -50,10 +60,9 @@ async function getThreads(query: ThreadsQuery) {
         : undefined;
 
       return {
-        ...t,
-        ...thread.data,
+        id,
         messages,
-        snippet: he.decode(t.snippet || ""),
+        snippet: he.decode(thread.snippet || ""),
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
         category: await getCategory({ email, threadId: id }),
       };
