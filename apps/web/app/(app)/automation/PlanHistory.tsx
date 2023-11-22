@@ -11,7 +11,7 @@ export function PlanHistory() {
     "/api/user/planned/history",
     {
       keepPreviousData: true,
-    }
+    },
   );
 
   return (
@@ -63,7 +63,7 @@ export function PlanHistory() {
                         <div className="text-gray-500">{value}</div>
                       </div>
                     );
-                  }
+                  },
                 )}
               </div>
               <div>{h.automated ? "Automated" : "Manual"}</div>
@@ -72,7 +72,7 @@ export function PlanHistory() {
         })}
       </div>
       {!data?.history?.length && (
-        <div className="py-2">
+        <div className="px-6 py-2">
           <AlertBasic
             title="No history"
             description="You have no history of AI automations yet."

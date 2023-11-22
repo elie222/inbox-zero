@@ -20,7 +20,7 @@ export default function PlannedPage() {
 
   const [expandRules, setExpandRules] = useLocalStorage(
     "automationRulesExpanded",
-    true
+    true,
   );
   const toggleExpandRules = () => setExpandRules((prev) => !prev);
 
@@ -80,8 +80,8 @@ export default function PlannedPage() {
         )}
       </>
 
-      <div className="mb-8 sm:px-4">
-        <div className="py-2">
+      <div className="mb-8">
+        <div className="px-2 py-2 sm:px-6">
           <Tabs
             selected={selectedTab}
             tabs={[

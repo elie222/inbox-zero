@@ -12,7 +12,7 @@ export function Planned() {
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
-    }
+    },
   );
 
   return (
@@ -21,10 +21,12 @@ export function Planned() {
         <EmailList
           threads={data.messages || []}
           emptyMessage={
-            <AlertBasic
-              title="No planned emails"
-              description="Set rules above for our AI to handle incoming emails for you."
-            />
+            <div className="px-6">
+              <AlertBasic
+                title="No planned emails"
+                description="Set rules above for our AI to handle incoming emails for you."
+              />
+            </div>
           }
           hideActionBarWhenEmpty
           refetch={mutate}
