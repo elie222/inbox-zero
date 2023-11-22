@@ -356,7 +356,11 @@ function UpdateRuleForm(props: {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mt-4">
-        <Card>{props.rule?.instructions}</Card>
+        <AlertBasic
+          title="Instructions"
+          description={props.rule.instructions}
+          icon={null}
+        />
 
         <div className="mt-4">
           <Input
