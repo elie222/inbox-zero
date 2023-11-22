@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 
 export default function PlannedPage() {
   const params = useSearchParams();
-  const selectedTab = params.get("tab") || "planned";
+  const selectedTab = params.get("tab") || "history";
 
   const { isPremium } = usePremium();
 
@@ -81,27 +81,27 @@ export default function PlannedPage() {
       </>
 
       <div className="mb-8">
-        <div className="px-2 py-2 sm:px-6">
+        <div className="mx-2 my-2 sm:mx-6">
           <Tabs
             selected={selectedTab}
             tabs={[
               {
-                label: "Planned",
-                value: "planned",
-                href: "/automation?tab=planned",
-              },
-              {
                 label: "History",
                 value: "history",
                 href: "/automation?tab=history",
+              },
+              {
+                label: "Planned",
+                value: "planned",
+                href: "/automation?tab=planned",
               },
             ]}
             breakpoint="xs"
           />
         </div>
 
-        {selectedTab === "planned" && <Planned />}
         {selectedTab === "history" && <PlanHistory />}
+        {selectedTab === "planned" && <Planned />}
       </div>
     </div>
   );

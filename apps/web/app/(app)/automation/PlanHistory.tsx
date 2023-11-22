@@ -96,7 +96,7 @@ export function PlanHistory() {
                         message.parsedMessage.headers.date,
                       ).toLocaleString()}.`}
                     >
-                      <div className="flex max-w-[800px] items-center">
+                      <div className="flex max-w-[600px] items-center">
                         <span className="flex-shrink-0 whitespace-nowrap text-gray-900">
                           {message.parsedMessage.headers.subject}
                         </span>
