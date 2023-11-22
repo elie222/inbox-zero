@@ -77,9 +77,19 @@ export async function getUserLabels(options: {
   return [];
 }
 
+// TODO should fallback to asking gmail if not found?
+export async function getUserLabel(options: {
+  email: string;
+  labelName: string;
+}): Promise<RedisLabel | undefined> {
+  const { email, labelName } = options;
+  const labels = await getUserLabels({ email });
+  return labels?.find((l) => l.name === labelName);
+}
+
 export async function getOrCreateInboxZeroLabels(
   email: string,
-  gmail: gmail_v1.Gmail
+  gmail: gmail_v1.Gmail,
 ): Promise<InboxZeroLabels> {
   // 1. check redis
   const redisLabels = await getInboxZeroLabels({ email });
@@ -98,7 +108,7 @@ export async function getOrCreateInboxZeroLabels(
     await Promise.all(
       inboxZeroLabelKeys.map(async (key) => {
         let gmailLabel = gmailLabels?.find(
-          (l) => l.name === inboxZeroLabels[key]
+          (l) => l.name === inboxZeroLabels[key],
         );
 
         if (!gmailLabel) {
@@ -117,7 +127,7 @@ export async function getOrCreateInboxZeroLabels(
           });
           return [key, label] as [InboxZeroLabelKey, RedisLabel];
         }
-      })
+      }),
     )
   ).filter(isDefined);
 

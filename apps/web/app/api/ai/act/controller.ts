@@ -352,7 +352,7 @@ export async function executeAct(options: {
 
   await Promise.all(
     act.actions.map(async (action) => {
-      return runActionFunction(gmail, email, action.type, act.args);
+      return runActionFunction(gmail, email, action.type, act.args, userEmail);
     }),
   );
 
