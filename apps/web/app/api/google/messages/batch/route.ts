@@ -12,6 +12,8 @@ export type MessagesBatchResponse = Awaited<
   ReturnType<typeof getMessagesBatch>
 >;
 
+// Uses Gmail batch API to get multiple messages in one request
+// https://developers.google.com/gmail/api/guides/batch
 async function getMessagesBatch(
   query: MessagesBatchQuery,
   accessToken: string,

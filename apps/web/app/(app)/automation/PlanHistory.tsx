@@ -68,6 +68,20 @@ export function PlanHistory() {
               (m) => m.id === h.messageId,
             );
 
+            const openInGmailButton = (
+              <button
+                className="ml-4 text-gray-700 hover:text-gray-900"
+                onClick={() => {
+                  window.open(
+                    getGmailUrl(h.messageId, session.data?.user.email),
+                    "_blank",
+                  );
+                }}
+              >
+                <ExternalLinkIcon className="h-4 w-4" />
+              </button>
+            );
+
             return (
               <TableRow key={h.id}>
                 <TableCell>
@@ -83,25 +97,14 @@ export function PlanHistory() {
                     >
                       <div className="flex items-center">
                         {message.parsedMessage.headers.subject}
-                        <button
-                          className="ml-4 text-gray-700 hover:text-gray-900"
-                          onClick={() => {
-                            console.log("xx");
-                            window.open(
-                              getGmailUrl(
-                                h.messageId,
-                                session.data?.user.email,
-                              ),
-                              "_blank",
-                            );
-                          }}
-                        >
-                          <ExternalLinkIcon className="h-4 w-4" />
-                        </button>
+                        {openInGmailButton}
                       </div>
                     </Tooltip>
                   ) : (
-                    `Message ID: ${h.messageId}`
+                    <div className="flex items-center">
+                      <span>Message ID: ${h.messageId}</span>
+                      {openInGmailButton}
+                    </div>
                   )}
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
