@@ -77,14 +77,24 @@ export async function getUserLabels(options: {
   return [];
 }
 
-// TODO should fallback to asking gmail if not found?
 export async function getUserLabel(options: {
   email: string;
   labelName: string;
-}): Promise<RedisLabel | undefined> {
+  gmail: gmail_v1.Gmail;
+}): Promise<
+  | { id?: string | null; name?: string | null; description?: string | null }
+  | undefined
+> {
   const { email, labelName } = options;
   const labels = await getUserLabels({ email });
-  return labels?.find((l) => l.name === labelName);
+  const label = labels?.find((l) => l.name === labelName);
+
+  if (label) return label;
+
+  // fallback to gmail if not found
+  const gmailLabels = await getGmailLabels(options.gmail);
+  const gmailLabel = gmailLabels?.find((l) => l.name === labelName);
+  return gmailLabel;
 }
 
 export async function getOrCreateInboxZeroLabels(

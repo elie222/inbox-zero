@@ -247,12 +247,12 @@ const label: ActionFunction = async (
   userEmail,
 ) => {
   const label = await getUserLabel({
-    // gmail,
+    gmail,
     email: userEmail,
     labelName: args.label,
   });
 
-  if (!label) return;
+  if (!label?.id) return;
 
   await labelThread({
     gmail,
