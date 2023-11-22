@@ -1,38 +1,22 @@
-import {
-  type ForwardedRef,
-  type MouseEventHandler,
-  forwardRef,
-  useCallback,
-  useRef,
-  useState,
-  useMemo,
-} from "react";
+import { useCallback, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ActionButtons } from "@/components/ActionButtons";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { postRequest } from "@/utils/api";
-import { formatShortDate } from "@/utils/date";
 import { isError } from "@/utils/error";
 import { useSession } from "next-auth/react";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
-import { PlanBadge } from "@/components/PlanBadge";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import { type Thread } from "@/components/email-list/types";
-import {
-  PlanActions,
-  useExecutePlan,
-} from "@/components/email-list/PlanActions";
-import { fromName, participant } from "@/utils/email";
+import { useExecutePlan } from "@/components/email-list/PlanActions";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
-import { CategoryBadge } from "@/components/CategoryBadge";
 import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
 import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { Checkbox } from "@/components/Checkbox";
@@ -42,6 +26,7 @@ import {
 } from "@/app/api/google/threads/archive/controller";
 import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
+import { EmailListItem } from "@/components/email-list/EmailListItem";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -50,7 +35,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
   const categories = useMemo(() => {
     return countBy(
       props.emails,
-      (email) => email.category?.category || "Uncategorized"
+      (email) => email.category?.category || "Uncategorized",
     );
   }, [props.emails]);
 
@@ -76,7 +61,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         href: `/mail?tab=${category}`,
       })),
     ],
-    [categories, planned]
+    [categories, planned],
   );
 
   const filteredEmails = useMemo(() => {
@@ -88,7 +73,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
       return props.emails.filter((email) => !email.category?.category);
 
     return props.emails.filter(
-      (email) => email.category?.category === selectedTab
+      (email) => email.category?.category === selectedTab,
     );
   }, [props.emails, selectedTab, planned]);
 
@@ -157,7 +142,7 @@ export function EmailList(props: {
 
   const openedRow = useMemo(
     () => props.threads.find((thread) => thread.id === openedRowId),
-    [openedRowId, props.threads]
+    [openedRowId, props.threads],
   );
 
   // if checkbox for a row has been checked
@@ -167,7 +152,7 @@ export function EmailList(props: {
     (id: string) => {
       setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
     },
-    [setSelectedRows]
+    [setSelectedRows],
   );
 
   const isAllSelected = useMemo(() => {
@@ -186,7 +171,7 @@ export function EmailList(props: {
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
-    {}
+    {},
   );
   const [isArchiving, setIsArchiving] = useState<Record<string, boolean>>({});
 
@@ -219,7 +204,7 @@ export function EmailList(props: {
                 references: message.parsedMessage.headers.references,
               },
               allowExecute: false,
-            }
+            },
           );
 
           if (isError(res)) {
@@ -237,10 +222,10 @@ export function EmailList(props: {
           loading: "Planning...",
           success: (rule) => `Planned as ${rule?.name || "No Plan"}`,
           error: "There was an error planning the email :(",
-        }
+        },
       );
     },
-    [refetch]
+    [refetch],
   );
 
   const onAiCategorize = useCallback(
@@ -283,10 +268,10 @@ export function EmailList(props: {
           success: (category) =>
             `Categorized as ${capitalCase(category || "Unknown")}!`,
           error: "There was an error categorizing the email :(",
-        }
+        },
       );
     },
-    [refetch]
+    [refetch],
   );
 
   const archive = useCallback(
@@ -297,7 +282,7 @@ export function EmailList(props: {
         "/api/google/threads/archive",
         {
           id: thread.id!,
-        }
+        },
       );
 
       if (isError(res)) {
@@ -309,7 +294,7 @@ export function EmailList(props: {
       }
       setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
     },
-    [refetch]
+    [refetch],
   );
 
   const onArchive = useCallback(
@@ -320,7 +305,7 @@ export function EmailList(props: {
         error: "There was an error archiving the email :(",
       });
     },
-    [archive]
+    [archive],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -384,7 +369,7 @@ export function EmailList(props: {
         loading: "Archiving emails...",
         success: "Emails archived!",
         error: "There was an error archiving the emails :(",
-      }
+      },
     );
   }, [archive, props.threads, selectedRows]);
 
@@ -489,162 +474,3 @@ export function EmailList(props: {
     </>
   );
 }
-
-const EmailListItem = forwardRef(
-  (
-    props: {
-      userEmailAddress: string;
-      thread: Thread;
-      opened: boolean;
-      selected: boolean;
-      splitView: boolean;
-      onClick: MouseEventHandler<HTMLLIElement>;
-      closePanel: () => void;
-      onSelected: (id: string) => void;
-      onShowReply: () => void;
-      isPlanning: boolean;
-      isCategorizing: boolean;
-      isArchiving: boolean;
-      onPlanAiAction: (thread: Thread) => void;
-      onAiCategorize: (thread: Thread) => void;
-      onArchive: (thread: Thread) => void;
-
-      executingPlan: boolean;
-      rejectingPlan: boolean;
-      executePlan: (thread: Thread) => Promise<void>;
-      rejectPlan: (thread: Thread) => Promise<void>;
-    },
-    ref: ForwardedRef<HTMLLIElement>
-  ) => {
-    const { thread, splitView, onSelected } = props;
-
-    const lastMessage = thread.messages?.[thread.messages.length - 1];
-
-    const isUnread = useMemo(() => {
-      return lastMessage?.labelIds?.includes("UNREAD");
-    }, [lastMessage?.labelIds]);
-
-    const preventPropagation: MouseEventHandler<HTMLSpanElement> = useCallback(
-      (e) => e.stopPropagation(),
-      []
-    );
-
-    const onRowSelected = useCallback(
-      () => onSelected(props.thread.id!),
-      [onSelected, props.thread.id]
-    );
-
-    return (
-      <li
-        ref={ref}
-        className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
-          "hover:bg-gray-50": !props.selected && !props.opened,
-          "bg-blue-50": props.selected,
-          "bg-blue-100": props.opened,
-          "bg-gray-100": !isUnread && !props.selected && !props.opened,
-        })}
-        onClick={props.onClick}
-      >
-        <div className="px-4 sm:px-6">
-          <div className="mx-auto flex">
-            {/* left */}
-            <div
-              className={clsx(
-                "flex flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
-                {
-                  "font-semibold": isUnread,
-                }
-              )}
-            >
-              <div className="flex items-center" onClick={preventPropagation}>
-                <Checkbox checked={props.selected} onChange={onRowSelected} />
-              </div>
-
-              <div className="ml-4 w-40 min-w-0 overflow-hidden truncate text-gray-900">
-                {fromName(
-                  participant(lastMessage.parsedMessage, props.userEmailAddress)
-                )}
-
-                {thread.messages.length > 1 ? (
-                  <span className="font-normal">
-                    ({thread.messages.length})
-                  </span>
-                ) : null}
-              </div>
-              {!splitView && (
-                <>
-                  <div className="ml-4 min-w-0 overflow-hidden text-gray-700">
-                    {lastMessage.parsedMessage.headers.subject}
-                  </div>
-                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                    {thread.snippet || lastMessage.snippet}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* right */}
-            <div className="flex w-[350px] items-center justify-between">
-              <div className="relative flex items-center">
-                <div
-                  className="absolute right-0 z-20 hidden group-hover:block"
-                  // prevent email panel being opened when clicking on action buttons
-                  onClick={preventPropagation}
-                >
-                  <ActionButtons
-                    threadId={thread.id!}
-                    onReply={props.onShowReply}
-                    isPlanning={props.isPlanning}
-                    isCategorizing={props.isCategorizing}
-                    isArchiving={props.isArchiving}
-                    onPlanAiAction={() => props.onPlanAiAction(thread)}
-                    onAiCategorize={() => props.onAiCategorize(thread)}
-                    onArchive={() => {
-                      props.onArchive(thread);
-                      props.closePanel();
-                    }}
-                  />
-                </div>
-                <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
-                  {formatShortDate(
-                    new Date(+(lastMessage?.internalDate || ""))
-                  )}
-                </div>
-              </div>
-
-              <div className="ml-3 flex items-center whitespace-nowrap">
-                <CategoryBadge category={thread.category?.category} />
-                <div className="ml-3">
-                  <PlanBadge plan={thread.plan} />
-                </div>
-
-                <div className="ml-3">
-                  <PlanActions
-                    thread={thread}
-                    executePlan={props.executePlan}
-                    rejectPlan={props.rejectPlan}
-                    executingPlan={props.executingPlan}
-                    rejectingPlan={props.rejectingPlan}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {splitView && (
-            <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
-              <div className="min-w-0 overflow-hidden font-medium text-gray-700">
-                {lastMessage.parsedMessage.headers.subject}
-              </div>
-              <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                {thread.snippet}
-              </div>
-            </div>
-          )}
-        </div>
-      </li>
-    );
-  }
-);
-
-EmailListItem.displayName = "EmailListItem";
