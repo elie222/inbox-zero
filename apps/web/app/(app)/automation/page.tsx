@@ -96,7 +96,7 @@ export default function PlannedPage() {
                 href: "/automation?tab=history",
               },
             ]}
-            breakpoint="md"
+            breakpoint="xs"
           />
         </div>
 

@@ -1,6 +1,9 @@
 "use client";
 
 import useSWR from "swr";
+import { useSession } from "next-auth/react";
+import { capitalCase } from "capital-case";
+import { ExternalLinkIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { PlanBadge } from "@/components/PlanBadge";
@@ -15,8 +18,13 @@ import {
 } from "@/components/ui/table";
 import { formatShortDate } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
+import { MessagesBatchResponse } from "@/app/api/google/messages/batch/route";
+import { LoadingMiniSpinner } from "@/components/Loading";
+import { getGmailUrl } from "@/utils/url";
 
 export function PlanHistory() {
+  const session = useSession();
+
   const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
     "/api/user/planned/history",
     {
@@ -24,13 +32,29 @@ export function PlanHistory() {
     },
   );
 
+  const {
+    data: dataMessages,
+    isLoading: isLoadingMessages,
+    error: errorMessages,
+  } = useSWR<MessagesBatchResponse>(
+    data
+      ? `/api/google/messages/batch?${new URLSearchParams({
+          messageIds: data.history.map((h) => h.messageId).join(","),
+        })}`
+      : null,
+    {
+      keepPreviousData: true,
+    },
+  );
+
+  if (errorMessages) console.error(errorMessages);
+
   return (
     <LoadingContent loading={isLoading} error={error}>
       <Table>
         <TableHeader>
           <TableRow>
-            {/* TODO change `message id` to `subject` */}
-            <TableHead>Message ID</TableHead>
+            <TableHead>Subject</TableHead>
             <TableHead>Rule</TableHead>
             <TableHead>Actions</TableHead>
             <TableHead>Values</TableHead>
@@ -40,9 +64,46 @@ export function PlanHistory() {
         </TableHeader>
         <TableBody>
           {data?.history.map((h) => {
+            const message = dataMessages?.messages.find(
+              (m) => m.id === h.messageId,
+            );
+
             return (
               <TableRow key={h.id}>
-                <TableCell>{h.messageId}</TableCell>
+                <TableCell>
+                  {isLoadingMessages ? (
+                    <LoadingMiniSpinner />
+                  ) : message ? (
+                    <Tooltip
+                      content={`From: ${
+                        message.parsedMessage.headers.from
+                      }. Date: ${new Date(
+                        message.parsedMessage.headers.date,
+                      ).toLocaleString()}.`}
+                    >
+                      <div className="flex items-center">
+                        {message.parsedMessage.headers.subject}
+                        <button
+                          className="ml-4 text-gray-700 hover:text-gray-900"
+                          onClick={() => {
+                            console.log("xx");
+                            window.open(
+                              getGmailUrl(
+                                h.messageId,
+                                session.data?.user.email,
+                              ),
+                              "_blank",
+                            );
+                          }}
+                        >
+                          <ExternalLinkIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </Tooltip>
+                  ) : (
+                    `Message ID: ${h.messageId}`
+                  )}
+                </TableCell>
                 <TableCell className="whitespace-nowrap">
                   <PlanBadge
                     plan={{
@@ -58,28 +119,15 @@ export function PlanHistory() {
                     }}
                   />
                 </TableCell>
-                {/* {JSON.stringify(h, null, 2)} */}
                 <TableCell className="space-x-2">
-                  {h.actions.map((action, i) => {
-                    return (
-                      <div key={i}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div>{action}</div>
-                            {/* <div className="text-gray-500">{a.args}</div> */}
-                          </div>
-                          {/* <div className="text-gray-500">{a.createdAt}</div> */}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {h.actions.map((action) => capitalCase(action)).join(", ")}
                 </TableCell>
-                <TableCell className="space-x-2">
+                <TableCell className="space-x-4">
                   {Object.entries(h.data as any).map(
                     ([key, value]: [string, any]) => {
                       return (
                         <span key={key}>
-                          {key}: {value}
+                          {capitalCase(key)}: {value}
                         </span>
                       );
                     },
