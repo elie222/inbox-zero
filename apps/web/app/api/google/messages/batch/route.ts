@@ -5,8 +5,11 @@ import { withError } from "@/utils/middleware";
 import { getGmailAccessToken } from "@/utils/gmail/client";
 import { MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
+import { uniq } from "lodash";
 
-const messagesBatchQuery = z.object({ messageIds: z.array(z.string()) });
+const messagesBatchQuery = z.object({
+  messageIds: z.array(z.string()).transform((arr) => uniq(arr)),
+});
 export type MessagesBatchQuery = z.infer<typeof messagesBatchQuery>;
 export type MessagesBatchResponse = Awaited<
   ReturnType<typeof getMessagesBatch>

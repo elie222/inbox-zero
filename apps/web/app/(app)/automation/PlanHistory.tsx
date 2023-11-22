@@ -38,9 +38,9 @@ export function PlanHistory() {
     error: errorMessages,
   } = useSWR<MessagesBatchResponse>(
     data
-      ? `/api/google/messages/batch?${new URLSearchParams({
-          messageIds: data.history.map((h) => h.messageId).join(","),
-        })}`
+      ? `/api/google/messages/batch?${new URLSearchParams(
+          data.history.map((h) => ["messageIds", h.messageId]),
+        )}`
       : null,
     {
       keepPreviousData: true,
@@ -102,7 +102,7 @@ export function PlanHistory() {
                     </Tooltip>
                   ) : (
                     <div className="flex items-center">
-                      <span>Message ID: ${h.messageId}</span>
+                      <span>Message ID: {h.messageId}</span>
                       {openInGmailButton}
                     </div>
                   )}
