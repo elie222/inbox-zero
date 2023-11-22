@@ -95,8 +95,13 @@ export function PlanHistory() {
                         message.parsedMessage.headers.date,
                       ).toLocaleString()}.`}
                     >
-                      <div className="flex items-center">
-                        {message.parsedMessage.headers.subject}
+                      <div className="flex max-w-[800px] items-center">
+                        <span className="flex-1 flex-shrink-0 whitespace-nowrap text-gray-900">
+                          {message.parsedMessage.headers.subject}
+                        </span>
+                        <span className="ml-2 overflow-hidden truncate overflow-ellipsis whitespace-nowrap text-gray-500">
+                          {message.parsedMessage.snippet}
+                        </span>
                         {openInGmailButton}
                       </div>
                     </Tooltip>

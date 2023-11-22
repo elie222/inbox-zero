@@ -51,7 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body
-        className={`h-full ${inter.variable} ${calFont.variable} font-sans`}
+        className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
         <Suspense>
           <PostHogPageview />

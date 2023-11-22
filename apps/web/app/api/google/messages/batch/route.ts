@@ -38,7 +38,10 @@ async function getMessagesBatch(
 
   const textRes = await res.text();
 
-  const batchMessages: MessageWithPayload[] = parseResponse(textRes);
+  const batchMessages: MessageWithPayload[] = parseResponse(
+    textRes,
+    res.headers.get("Content-Type"),
+  );
   const messages = batchMessages.map((message) => {
     return {
       ...message,
@@ -49,8 +52,15 @@ async function getMessagesBatch(
   return { messages };
 }
 
-function parseResponse(batchResponse: string) {
-  const parts = batchResponse.split("--batch_boundary");
+function parseResponse(batchResponse: string, contentType: string | null) {
+  // Extracting boundary from the Content-Type header
+  const boundaryRegex = /boundary=(.*?)(;|$)/;
+  const boundaryMatch = contentType?.match(boundaryRegex);
+  const boundary = boundaryMatch ? boundaryMatch[1] : null;
+
+  if (!boundary) throw new Error("No boundary found in response");
+
+  const parts = batchResponse.split(`--${boundary}`);
 
   // Process each part
   const decodedParts = parts.map((part) => {
@@ -62,9 +72,7 @@ function parseResponse(batchResponse: string) {
     if (jsonStartIndex === -1) return; // Skip if no JSON data found
 
     // Extract the JSON string
-    const jsonResponseStart = part.substring(jsonStartIndex);
-    const jsonEndIndex = jsonResponseStart.indexOf("--batch_");
-    const jsonResponse = jsonResponseStart.substring(0, jsonEndIndex);
+    const jsonResponse = part.substring(jsonStartIndex);
 
     // Parse the JSON string
     try {
