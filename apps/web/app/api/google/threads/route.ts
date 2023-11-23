@@ -60,7 +60,8 @@ async function getThreads(query: ThreadsQuery) {
         : undefined;
 
       return {
-        id,
+        id: thread.id,
+        historyId: thread.historyId,
         messages,
         snippet: he.decode(thread.snippet || ""),
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
