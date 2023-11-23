@@ -11,7 +11,16 @@ import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
 import { Card } from "@/components/Card";
-import { HelpCircleIcon, PenIcon } from "lucide-react";
+import {
+  BookOpenCheckIcon,
+  CheckCircle2Icon,
+  ForwardIcon,
+  HelpCircleIcon,
+  MailQuestionIcon,
+  PenIcon,
+  SnowflakeIcon,
+  SparklesIcon,
+} from "lucide-react";
 import { Button } from "@/components/Button";
 import {
   FormSection,
@@ -20,7 +29,11 @@ import {
 } from "@/components/Form";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, SectionHeader } from "@/components/Typography";
+import {
+  MessageText,
+  SectionDescription,
+  SectionHeader,
+} from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -53,6 +66,7 @@ import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { Select } from "@/components/Select";
+import { AlertBasic } from "@/components/Alert";
 
 export function RulesSection() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -66,6 +80,24 @@ export function RulesSection() {
     </LoadingContent>
   );
 }
+
+const examples = [
+  {
+    title: "Archive and label cold emails",
+    description: `Archive cold emails and label them "Cold Email".`,
+    icon: <SnowflakeIcon className="h-4 w-4" />,
+  },
+  {
+    title: "Forward receipts",
+    description: "Forward receipts to alice@accountant.com.",
+    icon: <ForwardIcon className="h-4 w-4" />,
+  },
+  {
+    title: "Question response",
+    description: `If someone asks how much the premium plan is, respond: "Our premium plan is $8 per month. You can learn more at https://getinboxzero.com/pricing."`,
+    icon: <MailQuestionIcon className="h-4 w-4" />,
+  },
+];
 
 export function RulesForm(props: {
   rules: RulesResponse;
@@ -99,9 +131,12 @@ export function RulesForm(props: {
 
   const onSubmit: SubmitHandler<UpdateRulesBody> = useCallback(
     async (data) => {
+      // First save the rules to the database
+      // Then AI categorize them
+
       const res = await postRequest<UpdateRulesResponse, UpdateRulesBody>(
         "/api/user/rules",
-        data
+        data,
       );
 
       if (isError(res)) {
@@ -111,14 +146,15 @@ export function RulesForm(props: {
         for (let i = 0; i < data.rules.length; i++) {
           const rule = data.rules[i];
           const updatedRule = res.find(
-            (r) => r.instructions === rule.instructions
+            (r) => r.instructions === rule.instructions,
           );
           if (updatedRule) setValue(`rules.${i}.id`, updatedRule.id);
         }
 
+        // AI categorize rules
         await Promise.all(
           res.map(async (r, i) => {
-            // if the rule is the same, don't recategorize
+            // if the rule hasn't changed, don't recategorize
             if (r.instructions === props.rules?.[i]?.instructions) return;
 
             const categorizedRule = await postRequest<
@@ -136,12 +172,12 @@ export function RulesForm(props: {
 
             if (categorizedRule) {
               const index = data.rules.findIndex(
-                (r) => r.id === categorizedRule.id
+                (r) => r.id === categorizedRule.id,
               );
 
               if (index !== -1) setValue(`rules.${index}`, categorizedRule);
             }
-          })
+          }),
         );
 
         await refetchRules();
@@ -153,31 +189,41 @@ export function RulesForm(props: {
 
       await refetchRules();
     },
-    [setValue, props.rules, refetchRules]
+    [setValue, props.rules, refetchRules],
   );
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
 
   return (
-    <FormSection>
-      <div className="">
+    <FormSection className="py-8 md:grid-cols-5">
+      <div className="md:col-span-2">
         <SectionHeader>Rules</SectionHeader>
         <SectionDescription>
-          Instruct the AI how you want it to handle your emails.
+          Instruct the AI how you want it to handle your emails. Examples:
         </SectionDescription>
-        <SectionDescription>Examples of rules you can add:</SectionDescription>
-        <ul className="mt-1 list-inside list-disc text-sm leading-6 text-gray-700">
-          <li>Forward all receipts to alice@accountant.com.</li>
-          <li>
-            Label all cold emails as {'"'}Cold Email{'"'}.
-          </li>
-          <li>
-            If someone asks how much the premium plan is respond: {'"'}Our
-            premium plan is $10 per month. You can learn more at
-            https://getinboxzero.com/pricing.{'"'}
-          </li>
-        </ul>
-        <SectionDescription>
+        <div className="mt-2 space-y-1 text-sm leading-6 text-gray-700">
+          {examples.map((example) => {
+            return (
+              <button
+                key={example.title}
+                onClick={() => {
+                  if (fields.length === 1 && !fields[0].instructions) remove(0);
+
+                  append({ instructions: example.description });
+                }}
+                className="w-full text-left"
+              >
+                <AlertBasic
+                  title={example.title}
+                  description={example.description}
+                  icon={example.icon}
+                  className="cursor-pointer hover:bg-gray-100"
+                />
+              </button>
+            );
+          })}
+        </div>
+        <SectionDescription className="mt-4">
           These are the actions we can take on your behalf:{" "}
           {Object.keys(ActionType)
             .map((action) => capitalCase(action))
@@ -187,7 +233,7 @@ export function RulesForm(props: {
         <TestRules />
       </div>
 
-      <div className="md:col-span-2">
+      <div className="md:col-span-3">
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormSectionRight>
             <div className="space-y-6 sm:col-span-full">
@@ -301,7 +347,7 @@ function UpdateRuleForm(props: {
   const [editingActionType, setEditingActionType] = useState(false);
   const toggleEdittingActionType = useCallback(
     () => setEditingActionType(!editingActionType),
-    [setEditingActionType, editingActionType]
+    [setEditingActionType, editingActionType],
   );
 
   const {
@@ -322,7 +368,7 @@ function UpdateRuleForm(props: {
       if (!props.rule.id) return;
       const res = await postRequest<UpdateRuleResponse, UpdateRuleBody>(
         `/api/user/rules/${props.rule.id}`,
-        data
+        data,
       );
 
       await refetchRules();
@@ -335,13 +381,17 @@ function UpdateRuleForm(props: {
         closeModal();
       }
     },
-    [props.rule.id, closeModal, refetchRules]
+    [props.rule.id, closeModal, refetchRules],
   );
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mt-4">
-        <Card>{props.rule?.instructions}</Card>
+        <AlertBasic
+          title="Instructions"
+          description={props.rule.instructions}
+          icon={null}
+        />
 
         <div className="mt-4">
           <Input
@@ -416,7 +466,7 @@ function UpdateRuleForm(props: {
                           error={errors["actions"]?.[i]?.[field.name]}
                         />
                       );
-                    }
+                    },
                   )}
                 </div>
               </div>
@@ -467,20 +517,21 @@ function TestRules() {
       description="Test how your rules perform against real emails."
       content={<TestRulesContent />}
     >
-      <div className="mt-4">
-        <Button color="white">Test</Button>
-      </div>
+      <Button color="white" className="mt-4">
+        <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+        Test
+      </Button>
     </SlideOverSheet>
   );
 }
 
 function TestRulesContent() {
-  const { data, isLoading, error, mutate } = useSWR<MessagesResponse>(
+  const { data, isLoading, error } = useSWR<MessagesResponse>(
     "/api/google/messages",
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
-    }
+    },
   );
 
   return (
@@ -495,7 +546,7 @@ function TestRulesContent() {
 
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <div className="">
+          <div>
             {data.messages.map((message) => {
               return <TestRulesContentRow key={message.id} message={message} />;
             })}
@@ -559,6 +610,7 @@ const TestRulesForm = () => {
           error={errors.message}
         />
         <Button type="submit" loading={isSubmitting}>
+          <SparklesIcon className="mr-2 h-4 w-4" />
           Plan
         </Button>
       </form>
@@ -582,7 +634,12 @@ function TestRulesContentRow(props: {
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-4">
-        <div className="">{message.snippet?.trim()}</div>
+        <div className="min-w-0 break-words">
+          <MessageText className="font-bold">
+            {message.parsedMessage.headers.subject}
+          </MessageText>
+          <MessageText className="mt-1">{message.snippet?.trim()}</MessageText>
+        </div>
         <div className="ml-4">
           <Button
             color="white"
@@ -617,7 +674,7 @@ function TestRulesContentRow(props: {
                     references: message.parsedMessage.headers.references,
                   },
                   allowExecute: false,
-                }
+                },
               );
 
               if (isError(res)) {
@@ -631,6 +688,7 @@ function TestRulesContentRow(props: {
               setPlanning(false);
             }}
           >
+            <SparklesIcon className="mr-2 h-4 w-4" />
             Plan
           </Button>
         </div>
@@ -647,14 +705,22 @@ function Plan(props: { plan: ActResponse }) {
 
   if (!plan) return null;
 
-  if (plan.rule === null) return <Card>No rule found to apply.</Card>;
+  if (plan.rule === null) {
+    return (
+      <AlertBasic
+        title="No rule found!"
+        description="This email does not match any of the rules you have set."
+      />
+    );
+  }
 
   if (plan.plannedAction.actions) {
     return (
-      <Card>
-        <div className="font-semibold">Rule to apply:</div>
-        {plan.rule.instructions}
-      </Card>
+      <AlertBasic
+        title="Rule found!"
+        description={plan.rule.instructions}
+        icon={<CheckCircle2Icon className="h-4 w-4" />}
+      />
     );
   }
 }

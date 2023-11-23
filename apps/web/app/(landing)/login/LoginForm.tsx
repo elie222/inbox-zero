@@ -37,8 +37,7 @@ export function LoginForm() {
             <SectionDescription>
               By continuing you agree to allow Inbox Zero to send your emails to
               OpenAI for processing. OpenAI does not use the submitted data to
-              train or improve their AI models. Inbox Zero does not store your
-              emails.
+              train or improve their AI models.
             </SectionDescription>
 
             <div className="mt-8">
@@ -64,7 +63,7 @@ export function LoginForm() {
                     consent: error === "RefreshAccessTokenError",
                     ...(next && next.length > 0
                       ? { callbackUrl: next }
-                      : { callbackUrl: "/mail" }),
+                      : { callbackUrl: "/welcome" }),
                   });
                 }}
               >

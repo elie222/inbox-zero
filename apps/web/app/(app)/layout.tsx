@@ -5,6 +5,7 @@ import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { TokenCheck } from "@/components/TokenCheck";
 import Providers from "@/app/(app)/providers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { PostHogIdentify } from "@/providers/PostHogProvider";
 
 export default async function AppLayout({
   children,
@@ -17,6 +18,7 @@ export default async function AppLayout({
 
   return (
     <Providers>
+      <PostHogIdentify />
       <TokenCheck />
       <SideNavWithTopNav>{children}</SideNavWithTopNav>
     </Providers>

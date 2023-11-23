@@ -23,7 +23,7 @@ async function calculatePlan(
   message: string,
   senderEmail: string,
   labels: { name?: string; description?: string | null }[],
-  userAIFields: UserAIFields
+  userAIFields: UserAIFields,
 ) {
   const systemMessage = `You are an AI assistant that helps people manage their emails by replying, archiving and labelling emails on the user's behalf.
 It is your job to plan a course of action for emails.
@@ -51,10 +51,11 @@ Do not include any explanations, only provide a RFC8259 compliant JSON response 
 
   const model = userAIFields.aiModel || DEFAULT_AI_MODEL;
   const aiResponse = await getOpenAI(
-    userAIFields.openAIApiKey
+    userAIFields.openAIApiKey,
   ).chat.completions.create({
     model,
     max_tokens: 400,
+    response_format: { type: "json_object" },
     messages: [
       {
         role: "system",
@@ -81,7 +82,7 @@ ${message.substring(0, 3000)}
 
 export async function plan(
   body: PlanBody,
-  user: { id: string; email: string } & UserAIFields
+  user: { id: string; email: string } & UserAIFields,
 ) {
   // check cache
   const data = body.replan
@@ -96,7 +97,7 @@ export async function plan(
     body.message,
     body.senderEmail,
     labels || [],
-    user
+    user,
   );
 
   // if (isChatCompletionError(json)) return { plan: undefined };

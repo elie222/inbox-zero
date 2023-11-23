@@ -31,6 +31,50 @@ SQL >
         SUM(CASE WHEN "inbox" = 1 THEN 1 ELSE 0 END) AS inboxEmails,
         argMax("unsubscribeLink", timestamp) AS lastUnsubscribeLink
     FROM filter_newsletters
+    WHERE
+        {% if Boolean(all) %}
+            1
+        {% else %}
+            {% if Boolean(andClause) %}
+                1
+            {% else %}
+                0
+            {% end %}
+        {% end %}
+        
+        {% if Boolean(andClause) %}
+
+            {% if Boolean(read) %}
+                AND "read" = 1
+            {% end %}
+            {% if Boolean(unread) %}
+                AND "read" = 0
+            {% end %}
+
+            {% if Boolean(unarchived) %}
+                AND "inbox" = 1
+            {% end %}
+            {% if Boolean(archived) %}
+                AND "inbox" = 0
+            {% end %}
+
+        {% else %}
+        
+            {% if Boolean(read) %}
+                OR "read" = 1
+            {% end %}
+            {% if Boolean(unread) %}
+                OR "read" = 0
+            {% end %}
+
+            {% if Boolean(unarchived) %}
+                OR "inbox" = 1
+            {% end %}
+            {% if Boolean(archived) %}
+                OR "inbox" = 0
+            {% end %}
+
+        {% end %}
     GROUP BY "from"
     {% if String(orderBy) == 'unread' %}
         ORDER BY unreadEmails DESC

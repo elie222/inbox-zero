@@ -6,6 +6,7 @@ import {
   Features,
   FeaturesAutomation,
   FeaturesStats,
+  FeaturesUnsubscribe,
 } from "@/app/(landing)/home/Features";
 // import { Testimonials } from "@/app/(landing)/home/Testimonials";
 // import { Pricing } from "@/app/(landing)/home/Pricing";
@@ -22,13 +23,12 @@ export default function Home() {
         <Hero />
         {/* <LogoCloud /> */}
         <Features />
-        <FeaturesAutomation />
+        <FeaturesUnsubscribe />
         <FeaturesStats />
+        <FeaturesAutomation />
         {/* <Testimonials /> */}
         {/* <Pricing /> */}
-        <div className="mt-32">
-          <FAQs />
-        </div>
+        <FAQs />
         <CTA />
       </main>
 

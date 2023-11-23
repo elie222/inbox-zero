@@ -20,11 +20,16 @@ export const env = createEnv({
     LEMON_SQUEEZY_SIGNING_SECRET: z.string(),
     TINYBIRD_TOKEN: z.string(),
     TINYBIRD_BASE_URL: z.string(),
+    ENCRYPT_SECRET: z.string().optional(),
+    ENCRYPT_SALT: z.string().optional(),
+    POSTHOG_API_SECRET: z.string().optional(),
+    POSTHOG_PROJECT_ID: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
     NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK: z.string().min(1),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
+    NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string().default("https://getinboxzero.com"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
@@ -33,6 +38,8 @@ export const env = createEnv({
     NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK:
       process.env.NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
+      process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
   },
 });

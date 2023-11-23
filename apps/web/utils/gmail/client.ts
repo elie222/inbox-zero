@@ -27,9 +27,14 @@ export const getGmailClient = (session: ClientOptions) => {
   return gmail;
 };
 
+export const getGmailAccessToken = (session: ClientOptions) => {
+  const auth = getClient(session);
+  return auth.getAccessToken();
+};
+
 export const getGmailClientWithRefresh = async (
   session: ClientOptions & { refreshToken: string; expiryDate?: number | null },
-  providerAccountId: string
+  providerAccountId: string,
 ) => {
   const auth = getClient(session);
   const gmail = google.gmail({ version: "v1", auth });
@@ -49,7 +54,7 @@ export const getGmailClientWithRefresh = async (
       {
         refresh_token: session.refreshToken,
         providerAccountId,
-      }
+      },
     );
   }
 

@@ -7,7 +7,7 @@ import { Badge } from "@/components/Badge";
 import { SendEmailForm } from "@/components/email-list/SendEmailForm";
 import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
-import { fromName } from "@/components/email-list/helpers";
+import { fromName } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 
 export function EmailPanel(props: {

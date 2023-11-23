@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { AreaChartIcon, Loader2 } from "lucide-react";
+import { AreaChartIcon } from "lucide-react";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -9,7 +9,7 @@ import {
   type LoadTinybirdEmailsBody,
   type LoadTinybirdEmailsResponse,
 } from "@/app/api/user/stats/tinybird/load/route";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 
 export function useLoading() {
   const [loading, setLoading] = useState(false);
@@ -55,7 +55,7 @@ export function LoadStatsButton(props: {
         disabled={loading}
       >
         {loading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <ButtonLoader />
         ) : (
           <AreaChartIcon className="mr-2 h-4 w-4" />
         )}

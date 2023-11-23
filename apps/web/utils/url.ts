@@ -1,8 +1,28 @@
+function getGmailBaseUrl(emailAddress?: string | null) {
+  return `https://mail.google.com/mail/u/${emailAddress || 0}`;
+}
+
 export function getGmailUrl(
   messageOrThreadId: string,
   emailAddress?: string | null
 ) {
-  return `https://mail.google.com/mail/u/${
-    emailAddress || 0
-  }/#all/${messageOrThreadId}`;
+  return `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`;
+}
+
+export function getGmailSearchUrl(
+  search: string,
+  emailAddress?: string | null
+) {
+  return `${getGmailBaseUrl(emailAddress)}/#search/${encodeURIComponent(
+    search
+  )}`;
+}
+
+export function getGmailCreateFilterUrl(
+  search: string,
+  emailAddress?: string | null
+) {
+  return `${getGmailBaseUrl(
+    emailAddress
+  )}/#create-filter/from=${encodeURIComponent(search)}`;
 }

@@ -34,37 +34,36 @@ export function StatsOnboarding() {
         <DialogHeader>
           <DialogTitle>Welcome to email analytics</DialogTitle>
           <DialogDescription>
-            <p>
-              Get insights from the depths of your email and clean it up it no
-              time.
-            </p>
-            <div className="mt-4 grid gap-4">
-              <Card className="flex items-center">
-                <BarChartBigIcon className="mr-3 h-5 w-5" />
-                Visualise your data
-              </Card>
-              <Card className="flex items-center">
-                <Layers3Icon className="mr-3 h-5 w-5" />
-                Understand what{`'`}s filling up your inbox
-              </Card>
-              <Card className="flex items-center">
-                <ArchiveIcon className="mr-3 h-5 w-5" />
-                Unsubscribe and bulk archive
-              </Card>
-            </div>
-            <div className="mt-4">
-              <Button
-                full
-                size="xl"
-                onClick={() => {
-                  setIsOpen(false);
-                }}
-              >
-                Get Started
-              </Button>
-            </div>
+            Get insights from the depths of your email and clean it up it no
+            time.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid gap-4">
+          <Card className="flex items-center">
+            <BarChartBigIcon className="mr-3 h-5 w-5" />
+            Visualise your data
+          </Card>
+          <Card className="flex items-center">
+            <Layers3Icon className="mr-3 h-5 w-5" />
+            Understand what{`'`}s filling up your inbox
+          </Card>
+          <Card className="flex items-center">
+            <ArchiveIcon className="mr-3 h-5 w-5" />
+            Unsubscribe and bulk archive
+          </Card>
+        </div>
+        <div>
+          <Button
+            full
+            size="xl"
+            onClick={() => {
+              setIsOpen(false);
+            }}
+          >
+            Get Started
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -4,11 +4,13 @@ import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { labelThread } from "@/utils/gmail/label";
+import { getUserLabel } from "@/utils/label";
 
 type ActionFunction = (
   gmail: gmail_v1.Gmail,
   email: ActBodyWithHtml["email"],
-  args: any
+  args: any,
+  userEmail: string,
 ) => Promise<any>;
 
 type ActionFunctionDef = {
@@ -238,11 +240,24 @@ const archive: ActionFunction = async (gmail, email) => {
   });
 };
 
-const label: ActionFunction = async (gmail, email, args: { label: string }) => {
+const label: ActionFunction = async (
+  gmail,
+  email,
+  args: { label: string },
+  userEmail,
+) => {
+  const label = await getUserLabel({
+    gmail,
+    email: userEmail,
+    labelName: args.label,
+  });
+
+  if (!label?.id) return;
+
   await labelThread({
     gmail,
     threadId: email.threadId,
-    labelId: args.label,
+    labelId: label.id,
   });
 };
 
@@ -253,7 +268,7 @@ const draft: ActionFunction = async (
     to: string;
     subject: string;
     content: string;
-  }
+  },
 ) => {
   await draftEmail(gmail, {
     subject: args.subject,
@@ -276,7 +291,7 @@ const send_email: ActionFunction = async (
     content: string;
     cc: string;
     bcc: string;
-  }
+  },
 ) => {
   await sendEmail(gmail, {
     to: args.to,
@@ -294,7 +309,7 @@ const reply: ActionFunction = async (
     content: string;
     cc: string; // TODO - do we allow the ai to adjust this?
     bcc: string;
-  }
+  },
 ) => {
   await sendEmail(gmail, {
     replyToEmail: {
@@ -318,7 +333,7 @@ const forward: ActionFunction = async (
     content: string;
     cc: string;
     bcc: string;
-  }
+  },
 ) => {
   // We may need to make sure the AI isn't adding the extra forward content on its own
   // TODO handle HTML emails
@@ -363,21 +378,22 @@ export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
   email: ActBodyWithHtml["email"],
   action: ActionType,
-  args: PartialRecord<ActionProperty, string>
+  args: PartialRecord<ActionProperty, string>,
+  userEmail: string,
 ): Promise<any> => {
   switch (action) {
     case ActionType.ARCHIVE:
-      return archive(gmail, email, args);
+      return archive(gmail, email, args, userEmail);
     case ActionType.LABEL:
-      return label(gmail, email, args);
+      return label(gmail, email, args, userEmail);
     case ActionType.DRAFT_EMAIL:
-      return draft(gmail, email, args);
+      return draft(gmail, email, args, userEmail);
     case ActionType.REPLY:
-      return reply(gmail, email, args);
+      return reply(gmail, email, args, userEmail);
     case ActionType.SEND_EMAIL:
-      return send_email(gmail, email, args);
+      return send_email(gmail, email, args, userEmail);
     case ActionType.FORWARD:
-      return forward(gmail, email, args);
+      return forward(gmail, email, args, userEmail);
     // case "ask_for_more_information":
     //   return;
     // case "add_to_do":

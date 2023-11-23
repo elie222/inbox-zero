@@ -77,9 +77,29 @@ export async function getUserLabels(options: {
   return [];
 }
 
+export async function getUserLabel(options: {
+  email: string;
+  labelName: string;
+  gmail: gmail_v1.Gmail;
+}): Promise<
+  | { id?: string | null; name?: string | null; description?: string | null }
+  | undefined
+> {
+  const { email, labelName } = options;
+  const labels = await getUserLabels({ email });
+  const label = labels?.find((l) => l.name === labelName);
+
+  if (label) return label;
+
+  // fallback to gmail if not found
+  const gmailLabels = await getGmailLabels(options.gmail);
+  const gmailLabel = gmailLabels?.find((l) => l.name === labelName);
+  return gmailLabel;
+}
+
 export async function getOrCreateInboxZeroLabels(
   email: string,
-  gmail: gmail_v1.Gmail
+  gmail: gmail_v1.Gmail,
 ): Promise<InboxZeroLabels> {
   // 1. check redis
   const redisLabels = await getInboxZeroLabels({ email });
@@ -98,7 +118,7 @@ export async function getOrCreateInboxZeroLabels(
     await Promise.all(
       inboxZeroLabelKeys.map(async (key) => {
         let gmailLabel = gmailLabels?.find(
-          (l) => l.name === inboxZeroLabels[key]
+          (l) => l.name === inboxZeroLabels[key],
         );
 
         if (!gmailLabel) {
@@ -117,7 +137,7 @@ export async function getOrCreateInboxZeroLabels(
           });
           return [key, label] as [InboxZeroLabelKey, RedisLabel];
         }
-      })
+      }),
     )
   ).filter(isDefined);
 

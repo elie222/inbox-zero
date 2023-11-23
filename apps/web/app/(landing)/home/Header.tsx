@@ -4,16 +4,18 @@ import { useState } from "react";
 import { Dialog } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { usePostHog } from "posthog-js/react";
 import { Logo } from "@/components/Logo";
 
 const navigation = [
-  { name: "Features", href: "#features" },
-  { name: "FAQ", href: "#faq" },
+  { name: "Features", href: "/#features" },
+  { name: "FAQ", href: "/#faq" },
   { name: "Open Source", href: "/github", target: "_blank" as const },
 ];
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const posthog = usePostHog();
 
   return (
     <header className="absolute inset-x-0 top-0 z-50">
@@ -51,7 +53,7 @@ export function Header() {
         </div>
         <div className="hidden lg:flex lg:flex-1 lg:justify-end">
           <Link
-            href="/login"
+            href="/welcome"
             className="text-sm font-semibold leading-6 text-gray-900"
           >
             Log in <span aria-hidden="true">&rarr;</span>
@@ -95,8 +97,11 @@ export function Header() {
               </div>
               <div className="py-6">
                 <Link
-                  href="/login"
+                  href="/welcome"
                   className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                  onClick={() => {
+                    posthog.capture("Clicked Log In", { position: "top-nav" });
+                  }}
                 >
                   Log in
                 </Link>

@@ -8,9 +8,10 @@ import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
-import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
 import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
+import { LoadProgress } from "@/app/(app)/stats/LoadProgress";
+// import { Insights } from "@/app/(app)/stats/Insights";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -62,39 +63,51 @@ export default function StatsPage() {
     }
   }, [onLoad]);
 
+  const refreshInterval = loading ? 3_000 : 1_000_000;
+
   return (
     <div className="pb-20">
-      <div className="sticky top-0 z-10 flex justify-end space-x-1 border-b bg-white px-4 py-2 shadow">
-        <ActionBar
-          selectOptions={selectOptions}
-          dateDropdown={dateDropdown}
-          setDateDropdown={onSetDateDropdown}
-          dateRange={dateRange}
-          setDateRange={setDateRange}
-          period={period}
-          setPeriod={setPeriod}
-        />
-        <LoadStatsButton loading={loading} onLoad={onLoad} />
+      <div className="sticky top-0 z-10 justify-between border-b bg-white px-4 py-2 shadow sm:flex">
+        {loading ? <LoadProgress /> : <div />}
+        <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
+          <ActionBar
+            selectOptions={selectOptions}
+            dateDropdown={dateDropdown}
+            setDateDropdown={onSetDateDropdown}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            period={period}
+            setPeriod={setPeriod}
+          />
+          <LoadStatsButton loading={loading} onLoad={onLoad} />
+        </div>
       </div>
 
       <div className="px-4 py-4">
-        <StatsSummary dateRange={dateRange} />
+        <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
       </div>
 
       <div className="px-4">
-        <EmailAnalytics dateRange={dateRange} />
+        <EmailAnalytics
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+        />
       </div>
 
       <div className="mx-4 mt-4">
-        <DetailedStats dateRange={dateRange} period={period} />
+        <DetailedStats
+          dateRange={dateRange}
+          period={period}
+          refreshInterval={refreshInterval}
+        />
       </div>
 
-      <div className="mx-4 mt-4">
-        <NewsletterStats dateRange={dateRange} />
-      </div>
+      {/* <div className="px-4">
+        <Insights />
+      </div> */}
 
       <div className="mt-4 px-4">
-        <LargestEmails />
+        <LargestEmails refreshInterval={refreshInterval} />
       </div>
 
       <StatsOnboarding />

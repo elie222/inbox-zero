@@ -25,8 +25,8 @@ export const POST = withError(async (request, { params }) => {
       userId: session.user.id,
       userEmail: session.user.email,
     },
-    gmail
+    gmail,
   );
 
-  return NextResponse.json(result);
+  return NextResponse.json({ success: true });
 });

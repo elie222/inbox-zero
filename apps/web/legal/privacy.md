@@ -1,6 +1,6 @@
 ---
 title: Privacy Policy
-updatedAt: 2023-09-14
+updatedAt: 2023-11-12
 ---
 
 ## Introduction
@@ -32,7 +32,7 @@ We may share the information collected with the following parties:
 **OpenAI:** We send email data to OpenAI for AI processing of each email. As per the [OpenAI data usage policies](https://openai.com/policies/api-data-usage-policies), OpenAI will not use data submitted by customers via their API to train or improve their models.
 Any data sent through the API will be retained for abuse and misuse monitoring purposes for a maximum of 30 days, after which it will be deleted (unless otherwise required by law).
 
-**PostHog:** The landing page and pages you see when not logged in use PostHog for analytic purposes. PostHog is not used for log in gated pages and no email data is sent to PostHog.
+**PostHog:** We use PostHog for product analytics.
 
 ## Data Security
 

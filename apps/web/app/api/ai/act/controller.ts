@@ -1,7 +1,7 @@
 import { gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import { UserAIFields, getOpenAI } from "@/utils/openai";
+import { UserAIFields, functionsToTools, getOpenAI } from "@/utils/openai";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
@@ -43,7 +43,7 @@ export async function getAiResponse(
     userAbout: string;
     userEmail: string;
     functions: ChatCompletionCreateParams.Function[];
-  } & UserAIFields
+  } & UserAIFields,
 ) {
   const { email, userAbout, userEmail, functions } = options;
 
@@ -84,11 +84,37 @@ ${email.content}`,
 
   const model = options.aiModel || DEFAULT_AI_MODEL;
   const aiResponse = await getOpenAI(
-    options.openAIApiKey
+    options.openAIApiKey,
   ).chat.completions.create({
     model,
     messages,
     temperature: 0,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+    response_format: { type: "json_object" },
+    // tools: [
+    //   {
+    //     type: "function",
+    //     function: {
+    //       name: "selectRule",
+    //       description: "Select a rule to apply to the email.",
+    //       parameters: {
+    //         type: "object",
+    //         properties: {
+    //           ruleNumber: {
+    //             type: "number",
+    //             description: "The number of the rule to apply.",
+    //           },
+    //           reason: {
+    //             type: "string",
+    //             description: "The reason for choosing this rule.",
+    //           },
+    //         },
+    //         required: ["ruleNumber"],
+    //       },
+    //     },
+    //   },
+    // ],
   });
 
   if (aiResponse.usage)
@@ -103,14 +129,14 @@ ${email.content}`,
 
   try {
     return responseSchema.parse(
-      parseJSON(aiResponse.choices[0].message.content)
+      parseJSON(aiResponse.choices[0].message.content),
     );
   } catch (error) {
     console.warn(
       "Error parsing data.\nResponse:",
       aiResponse?.choices?.[0]?.message?.content,
       "\nError:",
-      error
+      error,
     );
     return;
   }
@@ -125,7 +151,7 @@ async function getArgsAiResponse(
     userEmail: string;
     functions: ChatCompletionCreateParams.Function[];
     selectedFunction: ChatCompletionCreateParams.Function;
-  } & UserAIFields
+  } & UserAIFields,
 ) {
   const { email, userAbout, userEmail, functions, selectedFunction } = options;
 
@@ -164,19 +190,19 @@ ${email.content}`,
 
   const model = options.aiModel || DEFAULT_AI_MODEL;
   const aiResponse = await getOpenAI(
-    options.openAIApiKey
+    options.openAIApiKey,
   ).chat.completions.create({
     model,
     messages,
-    functions,
-    function_call: "auto",
+    tools: functionsToTools(functions),
     temperature: 0,
   });
 
   if (aiResponse.usage)
     await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
-  const functionCall = aiResponse?.choices?.[0]?.message.function_call;
+  const functionCall =
+    aiResponse?.choices?.[0]?.message.tool_calls?.[0]?.function;
 
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
@@ -216,12 +242,12 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
               type: string;
               description: string;
             };
-          }
+          },
         ),
         required: uniq(
           rule.actions.flatMap((action) => {
             return actionFunctionDefs[action.type].parameters.required;
-          })
+          }),
         ),
       },
     };
@@ -255,7 +281,7 @@ export async function planAct(
     rules: RuleWithActions[];
     userAbout: string;
     userEmail: string;
-  } & UserAIFields
+  } & UserAIFields,
 ): Promise<{ rule: Rule; plannedAction: PlannedAction } | undefined> {
   const { email, rules } = options;
 
@@ -326,8 +352,8 @@ export async function executeAct(options: {
 
   await Promise.all(
     act.actions.map(async (action) => {
-      return runActionFunction(gmail, email, action.type, act.args);
-    })
+      return runActionFunction(gmail, email, action.type, act.args, userEmail);
+    }),
   );
 
   async function labelActed() {
@@ -375,7 +401,7 @@ export async function planOrExecuteAct(
     userEmail: string;
     userAbout: string;
     automated: boolean;
-  } & UserAIFields
+  } & UserAIFields,
 ) {
   if (!options.rules.length) return;
 

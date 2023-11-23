@@ -19,7 +19,7 @@ export function SlideOverSheet(props: {
   const close = useCallback(() => setOpen(false), []);
 
   return (
-    <Sheet modal={false} open={open}>
+    <Sheet modal={false} open={open} onOpenChange={setOpen}>
       <SheetTrigger
         asChild
         onClick={(e) => {
@@ -30,7 +30,7 @@ export function SlideOverSheet(props: {
         {props.children}
       </SheetTrigger>
       <SheetContent
-        className="w-[400px] overflow-y-auto sm:w-[540px] md:w-[700px]"
+        className="w-[400px] overflow-y-auto sm:w-[540px] md:w-[1000px] md:max-w-2xl"
         onPointerDownOutside={(e) => {
           e.preventDefault();
         }}

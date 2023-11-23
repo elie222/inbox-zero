@@ -23,9 +23,19 @@ export const POST = withError(async (request: Request) => {
   const data = body.message.data;
 
   // data is base64url-encoded JSON
-  const decodedData: { emailAddress: string; historyId: string } = JSON.parse(
-    Buffer.from(data, "base64").toString().replace(/-/g, "+").replace(/_/g, "/")
-  );
+  const decodedData: { emailAddress: string; historyId: number | string } =
+    JSON.parse(
+      Buffer.from(data, "base64")
+        .toString()
+        .replace(/-/g, "+")
+        .replace(/_/g, "/"),
+    );
+
+  // seem to get this in different formats? so unifying as number
+  const historyId: number =
+    typeof decodedData.historyId === "string"
+      ? parseInt(decodedData.historyId)
+      : decodedData.historyId;
 
   console.log("Webhook. Processing:", decodedData);
 
@@ -54,7 +64,7 @@ export const POST = withError(async (request: Request) => {
 
   if (!account.access_token || !account.refresh_token) {
     console.error(
-      "Missing access or refresh token. User needs to re-authenticate."
+      "Missing access or refresh token. User needs to re-authenticate.",
     );
     return NextResponse.json({ ok: true });
   }
@@ -72,14 +82,14 @@ export const POST = withError(async (request: Request) => {
         refreshToken: account.refresh_token,
         expiryDate: account.expires_at,
       },
-      account.providerAccountId
+      account.providerAccountId,
     );
 
     console.log("Webhook: Listing history...");
 
     const startHistoryId = Math.max(
       parseInt(account.user.lastSyncedHistoryId || "0"),
-      parseInt(decodedData.historyId) - 100 // avoid going too far back
+      historyId - 100, // avoid going too far back
     ).toString();
 
     const history = await listHistory(
@@ -89,7 +99,7 @@ export const POST = withError(async (request: Request) => {
         // NOTE this doesn't include startHistoryId in the results
         startHistoryId,
       },
-      gmail
+      gmail,
     );
 
     if (history?.length) {
@@ -112,7 +122,7 @@ export const POST = withError(async (request: Request) => {
       // important to save this or we can get into a loop with never receiving history
       await prisma.user.update({
         where: { email: account.user.email },
-        data: { lastSyncedHistoryId: decodedData.historyId },
+        data: { lastSyncedHistoryId: historyId.toString() },
       });
     }
 
@@ -129,7 +139,7 @@ export const POST = withError(async (request: Request) => {
 
 async function listHistory(
   options: { email: string; startHistoryId: string },
-  gmail: gmail_v1.Gmail
+  gmail: gmail_v1.Gmail,
 ): Promise<gmail_v1.Schema$History[] | undefined> {
   const { startHistoryId } = options;
 
@@ -153,7 +163,7 @@ async function planHistory(
     about: string;
     gmail: gmail_v1.Gmail;
     rules: RuleWithActions[];
-  } & UserAIFields
+  } & UserAIFields,
 ) {
   const { history, userId, userEmail, email, gmail, rules, about } = options;
 
@@ -180,7 +190,7 @@ async function planHistory(
         const gmailThread = await getThread(m.message.threadId!, gmail);
         if ((gmailThread.messages?.length || 0) > 1) {
           console.log(
-            `Skipping thread with ${gmailThread.messages?.length} messages`
+            `Skipping thread with ${gmailThread.messages?.length} messages`,
           );
           continue;
         }
@@ -216,7 +226,7 @@ async function planHistory(
           },
           {
             email,
-          }
+          },
         );
 
         console.log("Plan or act on message...");

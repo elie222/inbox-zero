@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
+import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
@@ -11,7 +13,7 @@ const inter = Inter({
   display: "swap",
 });
 const calFont = localFont({
-  src: "../styles/CalSans-SemiBold.otf",
+  src: "../styles/CalSans-SemiBold.woff2",
   variable: "--font-cal",
   preload: true,
   display: "swap",
@@ -49,9 +51,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body
-        className={`h-full ${inter.variable} ${calFont.variable} font-sans`}
+        className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
-        {children}
+        <Suspense>
+          <PostHogPageview />
+        </Suspense>
+        <PostHogProvider>{children}</PostHogProvider>
       </body>
     </html>
   );

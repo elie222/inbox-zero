@@ -13,15 +13,53 @@ const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
 export type CategorizeRuleResponse = Awaited<ReturnType<typeof categorizeRule>>;
 
+const categorizeRuleResponse = z.object({
+  name: z.string(),
+  actions: z.array(
+    z.object({
+      type: z.nativeEnum(ActionType),
+      label: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? null),
+      to: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? null),
+      cc: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? null),
+      bcc: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? null),
+      subject: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? null),
+      content: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? null),
+    }),
+  ),
+});
+
 async function aiCategorizeRule(
   rule: Rule,
-  user: UserAIFields
-): Promise<
-  Pick<Action, "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content">[]
-> {
+  user: UserAIFields,
+): Promise<{
+  name: string;
+  actions: Pick<
+    Action,
+    "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content"
+  >[];
+} | void> {
   const aiResponse = await getOpenAI(user.openAIApiKey).chat.completions.create(
     {
       model: user.aiModel || DEFAULT_AI_MODEL,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
@@ -36,50 +74,46 @@ ${Object.entries(actionInputs).map(([actionType, { fields }]) => {
           content: `Return a JSON array of actions that this instruction would require taking.
 
 An example response is:
-[{ type: "FORWARD", to: "example@gmail.com" }, { type: "ARCHIVE" }]
+{ "name": "Archive examples", "actions": [{ type: "FORWARD", to: "example@gmail.com" }, { type: "ARCHIVE" }] }
 
 Another example response is:
-[{ type: "FORWARD" }]
+{ "name": "Forward XYZ", "actions": [{ type: "FORWARD" }] }
 
-Keep the actions to a minimum. Only "type" is required. Other fields are optional and may only be available at run time. Leave other fields blank if you do not have enough information to fill them out. Do not use an example value.
+Keep the actions to a minimum.
+Only "type" is required. Other fields are optional and may only be available at runtime.
+Leave other fields blank if you do not have enough information to fill them out.
+Do not use an example value.
+"name" should be 1-2 words that describe the rule.
 
 ###
 Instruction:
 ${rule.instructions}`,
         },
       ],
-    }
+    },
   );
 
   const contentString = aiResponse.choices?.[0]?.message.content;
 
-  if (!contentString) return [];
+  if (!contentString) return;
 
   try {
-    const contentJson = parseJSON(contentString);
-
-    if (!Array.isArray(contentJson)) {
-      // TODO check correct format with zod parse. if there's an error ask the ai to fix it
-      console.error(`Invalid response: ${contentString}`);
-      return [];
-    }
-
-    return contentJson.filter(isAction);
+    const categorizedRule = categorizeRuleResponse.parse(
+      parseJSON(contentString),
+    );
+    return categorizedRule;
   } catch (error) {
+    // TODO if there's an error ask the ai to fix it?
     console.error(`Invalid response: ${error} ${contentString}`);
-    return [];
+    return;
   }
-}
-
-function isAction(action: any): action is Action {
-  return action?.type in ActionType;
 }
 
 // suggest actions to add to the rule
 async function categorizeRule(
   body: CategorizeRuleBody,
   userId: string,
-  userAiFields: UserAIFields
+  userAiFields: UserAIFields,
 ) {
   const rule = await prisma.rule.findUniqueOrThrow({
     where: { id: body.ruleId },
@@ -88,9 +122,11 @@ async function categorizeRule(
   if (rule.userId !== userId) throw new Error("Unauthorized");
 
   // ask ai to categorize the rule
-  const actions = await aiCategorizeRule(rule, userAiFields);
+  const categorizedRule = await aiCategorizeRule(rule, userAiFields);
 
-  if (!actions.length) return;
+  if (!categorizedRule?.actions?.length) return;
+
+  const actions = categorizedRule?.actions;
 
   // save the result to the rule
   const [, updatedRule] = await prisma.$transaction([
@@ -104,6 +140,7 @@ async function categorizeRule(
         id: body.ruleId,
       },
       data: {
+        name: categorizedRule.name,
         actions: {
           createMany: {
             data: actions,

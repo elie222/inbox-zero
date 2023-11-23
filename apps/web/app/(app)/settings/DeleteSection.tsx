@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -29,7 +30,7 @@ export function DeleteSection() {
             try {
               await deleteAccountAction();
               toastSuccess({ description: "Account deleted!" });
-              router.push("/");
+              await signOut({ callbackUrl: "/" });
             } catch (error) {
               toastError({ description: "Error deleting account." });
             }

@@ -1,39 +1,22 @@
-import {
-  type ForwardedRef,
-  type MouseEventHandler,
-  forwardRef,
-  useCallback,
-  useRef,
-  useState,
-  useMemo,
-} from "react";
+import { useCallback, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ActionButtons } from "@/components/ActionButtons";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { postRequest } from "@/utils/api";
-import { formatShortDate } from "@/utils/date";
 import { isError } from "@/utils/error";
 import { useSession } from "next-auth/react";
 import { ActResponse } from "@/app/api/ai/act/controller";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
-import { PlanBadge } from "@/components/PlanBadge";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import { type Thread } from "@/components/email-list/types";
-import {
-  PlanActions,
-  useExecutePlan,
-} from "@/components/email-list/PlanActions";
-import { fromName, participant } from "@/components/email-list/helpers";
+import { useExecutePlan } from "@/components/email-list/PlanActions";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
-import { Card } from "@/components/Card";
-import { CategoryBadge } from "@/components/CategoryBadge";
 import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
 import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { Checkbox } from "@/components/Checkbox";
@@ -41,6 +24,9 @@ import {
   ArchiveBody,
   ArchiveResponse,
 } from "@/app/api/google/threads/archive/controller";
+import { MessageText } from "@/components/Typography";
+import { AlertBasic } from "@/components/Alert";
+import { EmailListItem } from "@/components/email-list/EmailListItem";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const params = useSearchParams();
@@ -49,7 +35,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
   const categories = useMemo(() => {
     return countBy(
       props.emails,
-      (email) => email.category?.category || "Uncategorized"
+      (email) => email.category?.category || "Uncategorized",
     );
   }, [props.emails]);
 
@@ -75,7 +61,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
         href: `/mail?tab=${category}`,
       })),
     ],
-    [categories, planned]
+    [categories, planned],
   );
 
   const filteredEmails = useMemo(() => {
@@ -87,7 +73,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
       return props.emails.filter((email) => !email.category?.category);
 
     return props.emails.filter(
-      (email) => email.category?.category === selectedTab
+      (email) => email.category?.category === selectedTab,
     );
   }, [props.emails, selectedTab, planned]);
 
@@ -100,196 +86,36 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
               <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
             </div>
           }
-          buttons={[]}
-          // buttons={
-          //   label
-          //     ? [
-          //         {
-          //           label: "Label All",
-          //           onClick: async () => {
-          //             try {
-          //               await labelThreadsAction({
-          //                 labelId: label?.id!,
-          //                 threadIds: tabThreads.map((thread) => thread.id!),
-          //                 archive: false,
-          //               });
-          //               toastSuccess({
-          //                 description: `Labeled emails "${label.name}".`,
-          //               });
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error labeling emails "${label.name}".`,
-          //               });
-          //             }
-          //           },
-          //         },
-          //         {
-          //           label: "Label + Archive All",
-          //           onClick: async () => {
-          //             try {
-          //               await labelThreadsAction({
-          //                 labelId: label?.id!,
-          //                 threadIds: tabThreads.map((email) => email.id!),
-          //                 archive: true,
-          //               });
-          //               toastSuccess({
-          //                 description: `Labeled and archived emails "${label.name}".`,
-          //               });
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error labeling and archiving emails "${label.name}".`,
-          //               });
-          //             }
-          //           },
-          //         },
-          //       ]
-          //     : [
-          //         {
-          //           label: "Replan All",
-          //           onClick: async () => {
-          //             setReplanningAiSuggestions(true);
-          //             try {
-          //               for (const email of tabThreads) {
-          //                 if (!email.plan) continue;
-
-          //                 const emailMessage = email.messages?.[0];
-          //                 const subject =
-          //                   emailMessage?.parsedMessage.headers.subject || "";
-          //                 const message =
-          //                   emailMessage?.parsedMessage.textPlain ||
-          //                   emailMessage?.parsedMessage.textHtml ||
-          //                   "";
-
-          //                 const senderEmail =
-          //                   emailMessage?.parsedMessage.headers.from || "";
-
-          //                 try {
-          //                   // had trouble with server actions here
-          //                   const res = await postRequest<
-          //                     PlanResponse,
-          //                     PlanBody
-          //                   >("/api/ai/plan", {
-          //                     id: email.id!,
-          //                     subject,
-          //                     message,
-          //                     senderEmail,
-          //                     replan: true,
-          //                   });
-
-          //                   if (isErrorMessage(res)) {
-          //                     console.error(res);
-          //                     toastError({
-          //                       description: `Error planning  ${subject}`,
-          //                     });
-          //                   }
-          //                 } catch (error) {
-          //                   console.error(error);
-          //                   toastError({
-          //                     description: `Error archiving ${subject}`,
-          //                   });
-          //                 }
-          //               }
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error applying the AI suggestions.`,
-          //               });
-          //             }
-          //             setReplanningAiSuggestions(false);
-          //           },
-          //           loading: replanningAiSuggestions,
-          //         },
-          //         {
-          //           label: "Apply AI Suggestions",
-          //           onClick: async () => {
-          //             setApplyingAiSuggestions(true);
-          //             try {
-          //               for (const email of tabThreads) {
-          //                 if (!email.plan) continue;
-
-          //                 const subject =
-          //                   email.messages?.[0]?.parsedMessage.headers
-          //                     .subject || "";
-
-          //                 // if (email.plan.action === "archive") {
-          //                 //   try {
-          //                 //     // had trouble with server actions here
-          //                 //     const res = await postRequest<
-          //                 //       ArchiveResponse,
-          //                 //       ArchiveBody
-          //                 //     >("/api/google/threads/archive", {
-          //                 //       id: email.id!,
-          //                 //     });
-
-          //                 //     if (isErrorMessage(res)) {
-          //                 //       console.error(res);
-          //                 //       toastError({
-          //                 //         description: `Error archiving  ${subject}`,
-          //                 //       });
-          //                 //     } else {
-          //                 //       toastSuccess({
-          //                 //         title: "Archvied!",
-          //                 //         description: `Archived ${subject}`,
-          //                 //       });
-          //                 //     }
-          //                 //   } catch (error) {
-          //                 //     console.error(error);
-          //                 //     toastError({
-          //                 //       description: `Error archiving ${subject}`,
-          //                 //     });
-          //                 //   }
-          //                 // } else if (email.plan.action === "label") {
-          //                 //   const labelName = email.plan.label;
-          //                 //   const label = labelsArray.find(
-          //                 //     (label) => label.name === labelName
-          //                 //   );
-          //                 //   if (!label) continue;
-
-          //                 //   await labelThreadsAction({
-          //                 //     labelId: label.id,
-          //                 //     threadIds: [email.id!],
-          //                 //     // threadIds: tabEmails
-          //                 //     //   .map((email) => email.id)
-          //                 //     //   .filter(isDefined),
-          //                 //     archive: true,
-          //                 //   });
-
-          //                 //   toastSuccess({
-          //                 //     title: "Labelled",
-          //                 //     description: `Labelled ${subject}`,
-          //                 //   });
-          //                 // }
-          //               }
-          //             } catch (error) {
-          //               toastError({
-          //                 description: `There was an error applying the AI suggestions.`,
-          //               });
-          //             }
-          //             setApplyingAiSuggestions(false);
-          //           },
-          //           loading: applyingAiSuggestions,
-          //         },
-          //       ]
-          // }
         />
       </div>
       {props.emails.length ? (
         <EmailList
           threads={filteredEmails}
           emptyMessage={
-            selectedTab === "planned" ? (
-              <Card className="m-4">
-                No planned emails. Set rules in your{" "}
-                <Link
-                  href="/settings"
-                  className="font-semibold hover:underline"
-                >
-                  Settings
-                </Link>{" "}
-                for the AI to handle incoming emails for you.
-              </Card>
-            ) : (
-              <Card className="m-4">All emails handled!</Card>
-            )
+            <div className="px-2">
+              {selectedTab === "planned" ? (
+                <AlertBasic
+                  title="No planned emails"
+                  description={
+                    <>
+                      Set rules on the{" "}
+                      <Link
+                        href="/automation"
+                        className="font-semibold hover:underline"
+                      >
+                        Automation page
+                      </Link>{" "}
+                      for our AI to handle incoming emails for you.
+                    </>
+                  }
+                />
+              ) : (
+                <AlertBasic
+                  title="All emails handled"
+                  description="Great work!"
+                />
+              )}
+            </div>
           }
           refetch={props.refetch}
         />
@@ -303,6 +129,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
 export function EmailList(props: {
   threads: Thread[];
   emptyMessage?: React.ReactNode;
+  hideActionBarWhenEmpty?: boolean;
   refetch: () => void;
 }) {
   const { refetch } = props;
@@ -315,7 +142,7 @@ export function EmailList(props: {
 
   const openedRow = useMemo(
     () => props.threads.find((thread) => thread.id === openedRowId),
-    [openedRowId, props.threads]
+    [openedRowId, props.threads],
   );
 
   // if checkbox for a row has been checked
@@ -325,7 +152,7 @@ export function EmailList(props: {
     (id: string) => {
       setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
     },
-    [setSelectedRows]
+    [setSelectedRows],
   );
 
   const isAllSelected = useMemo(() => {
@@ -344,7 +171,7 @@ export function EmailList(props: {
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
-    {}
+    {},
   );
   const [isArchiving, setIsArchiving] = useState<Record<string, boolean>>({});
 
@@ -377,7 +204,7 @@ export function EmailList(props: {
                 references: message.parsedMessage.headers.references,
               },
               allowExecute: false,
-            }
+            },
           );
 
           if (isError(res)) {
@@ -395,10 +222,10 @@ export function EmailList(props: {
           loading: "Planning...",
           success: (rule) => `Planned as ${rule?.name || "No Plan"}`,
           error: "There was an error planning the email :(",
-        }
+        },
       );
     },
-    [refetch]
+    [refetch],
   );
 
   const onAiCategorize = useCallback(
@@ -441,42 +268,44 @@ export function EmailList(props: {
           success: (category) =>
             `Categorized as ${capitalCase(category || "Unknown")}!`,
           error: "There was an error categorizing the email :(",
-        }
+        },
       );
     },
-    [refetch]
+    [refetch],
+  );
+
+  const archive = useCallback(
+    async (thread: Thread) => {
+      setIsArchiving((s) => ({ ...s, [thread.id!]: true }));
+
+      const res = await postRequest<ArchiveResponse, ArchiveBody>(
+        "/api/google/threads/archive",
+        {
+          id: thread.id!,
+        },
+      );
+
+      if (isError(res)) {
+        console.error(res);
+        setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
+        throw new Error(`There was an error archiving the email.`);
+      } else {
+        refetch();
+      }
+      setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
+    },
+    [refetch],
   );
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      toast.promise(
-        async () => {
-          setIsArchiving((s) => ({ ...s, [thread.id!]: true }));
-
-          const res = await postRequest<ArchiveResponse, ArchiveBody>(
-            "/api/google/threads/archive",
-            {
-              id: thread.id!,
-            }
-          );
-
-          if (isError(res)) {
-            console.error(res);
-            setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
-            throw new Error(`There was an error archiving the email.`);
-          } else {
-            refetch();
-          }
-          setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
-        },
-        {
-          loading: "Archiving...",
-          success: "Archived!",
-          error: "There was an error archiving the email :(",
-        }
-      );
+      toast.promise(() => archive(thread), {
+        loading: "Archiving...",
+        success: "Archived!",
+        error: "There was an error archiving the email :(",
+      });
     },
-    [refetch]
+    [archive],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -509,7 +338,7 @@ export function EmailList(props: {
   }
 
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
-    useExecutePlan();
+    useExecutePlan(props.refetch);
 
   const onPlanAiBulk = useCallback(async () => {
     for (const [threadId, selected] of Object.entries(selectedRows)) {
@@ -528,31 +357,44 @@ export function EmailList(props: {
   }, [onAiCategorize, props.threads, selectedRows]);
 
   const onArchiveAiBulk = useCallback(async () => {
-    for (const [threadId, selected] of Object.entries(selectedRows)) {
-      if (!selected) continue;
-      const thread = props.threads.find((t) => t.id === threadId);
-      if (thread) onArchive(thread);
-    }
-  }, [onArchive, props.threads, selectedRows]);
+    toast.promise(
+      async () => {
+        for (const [threadId, selected] of Object.entries(selectedRows)) {
+          if (!selected) continue;
+          const thread = props.threads.find((t) => t.id === threadId);
+          if (thread) await archive(thread);
+        }
+      },
+      {
+        loading: "Archiving emails...",
+        success: "Emails archived!",
+        error: "There was an error archiving the emails :(",
+      },
+    );
+  }, [archive, props.threads, selectedRows]);
+
+  const isEmpty = props.threads.length === 0;
 
   return (
     <>
-      <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
-        <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
-        <div className="ml-4">
-          <ActionButtonsBulk
-            isPlanning={false}
-            isCategorizing={false}
-            isArchiving={false}
-            onAiCategorize={onCategorizeAiBulk}
-            onPlanAiAction={onPlanAiBulk}
-            onArchive={onArchiveAiBulk}
-          />
+      {!(isEmpty && props.hideActionBarWhenEmpty) && (
+        <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
+          <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+          <div className="ml-4">
+            <ActionButtonsBulk
+              isPlanning={false}
+              isCategorizing={false}
+              isArchiving={false}
+              onAiCategorize={onCategorizeAiBulk}
+              onPlanAiAction={onPlanAiBulk}
+              onArchive={onArchiveAiBulk}
+            />
+          </div>
         </div>
-      </div>
+      )}
       <div
         className={clsx("h-full overflow-hidden", {
-          "grid grid-cols-2": openedRowId,
+          "grid grid-cols-2": openedRowId && !isEmpty,
           "overflow-y-auto": !openedRowId,
         })}
       >
@@ -600,7 +442,15 @@ export function EmailList(props: {
           ))}
         </ul>
 
-        {props.threads.length === 0 && props.emptyMessage}
+        {isEmpty && (
+          <div className="py-2">
+            {typeof props.emptyMessage === "string" ? (
+              <MessageText>{props.emptyMessage}</MessageText>
+            ) : (
+              props.emptyMessage
+            )}
+          </div>
+        )}
 
         {!!(openedRowId && openedRow) && (
           <EmailPanel
@@ -624,162 +474,3 @@ export function EmailList(props: {
     </>
   );
 }
-
-const EmailListItem = forwardRef(
-  (
-    props: {
-      userEmailAddress: string;
-      thread: Thread;
-      opened: boolean;
-      selected: boolean;
-      splitView: boolean;
-      onClick: MouseEventHandler<HTMLLIElement>;
-      closePanel: () => void;
-      onSelected: (id: string) => void;
-      onShowReply: () => void;
-      isPlanning: boolean;
-      isCategorizing: boolean;
-      isArchiving: boolean;
-      onPlanAiAction: (thread: Thread) => void;
-      onAiCategorize: (thread: Thread) => void;
-      onArchive: (thread: Thread) => void;
-
-      executingPlan: boolean;
-      rejectingPlan: boolean;
-      executePlan: (thread: Thread) => Promise<void>;
-      rejectPlan: (thread: Thread) => Promise<void>;
-    },
-    ref: ForwardedRef<HTMLLIElement>
-  ) => {
-    const { thread, splitView, onSelected } = props;
-
-    const lastMessage = thread.messages?.[thread.messages.length - 1];
-
-    const isUnread = useMemo(() => {
-      return lastMessage?.labelIds?.includes("UNREAD");
-    }, [lastMessage?.labelIds]);
-
-    const preventPropagation: MouseEventHandler<HTMLSpanElement> = useCallback(
-      (e) => e.stopPropagation(),
-      []
-    );
-
-    const onRowSelected = useCallback(
-      () => onSelected(props.thread.id!),
-      [onSelected, props.thread.id]
-    );
-
-    return (
-      <li
-        ref={ref}
-        className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
-          "hover:bg-gray-50": !props.selected && !props.opened,
-          "bg-blue-50": props.selected,
-          "bg-blue-100": props.opened,
-          "bg-gray-100": !isUnread && !props.selected && !props.opened,
-        })}
-        onClick={props.onClick}
-      >
-        <div className="px-4 sm:px-6">
-          <div className="mx-auto flex">
-            {/* left */}
-            <div
-              className={clsx(
-                "flex flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
-                {
-                  "font-semibold": isUnread,
-                }
-              )}
-            >
-              <div className="flex items-center" onClick={preventPropagation}>
-                <Checkbox checked={props.selected} onChange={onRowSelected} />
-              </div>
-
-              <div className="ml-4 w-40 min-w-0 overflow-hidden truncate text-gray-900">
-                {fromName(
-                  participant(lastMessage.parsedMessage, props.userEmailAddress)
-                )}
-
-                {thread.messages.length > 1 ? (
-                  <span className="font-normal">
-                    ({thread.messages.length})
-                  </span>
-                ) : null}
-              </div>
-              {!splitView && (
-                <>
-                  <div className="ml-4 min-w-0 overflow-hidden text-gray-700">
-                    {lastMessage.parsedMessage.headers.subject}
-                  </div>
-                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                    {thread.snippet || lastMessage.snippet}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* right */}
-            <div className="flex w-[350px] items-center justify-between">
-              <div className="relative flex items-center">
-                <div
-                  className="absolute right-0 z-20 hidden group-hover:block"
-                  // prevent email panel being opened when clicking on action buttons
-                  onClick={preventPropagation}
-                >
-                  <ActionButtons
-                    threadId={thread.id!}
-                    onReply={props.onShowReply}
-                    isPlanning={props.isPlanning}
-                    isCategorizing={props.isCategorizing}
-                    isArchiving={props.isArchiving}
-                    onPlanAiAction={() => props.onPlanAiAction(thread)}
-                    onAiCategorize={() => props.onAiCategorize(thread)}
-                    onArchive={() => {
-                      props.onArchive(thread);
-                      props.closePanel();
-                    }}
-                  />
-                </div>
-                <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
-                  {formatShortDate(
-                    new Date(+(lastMessage?.internalDate || ""))
-                  )}
-                </div>
-              </div>
-
-              <div className="ml-3 flex items-center whitespace-nowrap">
-                <CategoryBadge category={thread.category?.category} />
-                <div className="ml-3">
-                  <PlanBadge plan={thread.plan} />
-                </div>
-
-                <div className="ml-3">
-                  <PlanActions
-                    thread={thread}
-                    executePlan={props.executePlan}
-                    rejectPlan={props.rejectPlan}
-                    executingPlan={props.executingPlan}
-                    rejectingPlan={props.rejectingPlan}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {splitView && (
-            <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
-              <div className="min-w-0 overflow-hidden font-medium text-gray-700">
-                {lastMessage.parsedMessage.headers.subject}
-              </div>
-              <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                {thread.snippet}
-              </div>
-            </div>
-          )}
-        </div>
-      </li>
-    );
-  }
-);
-
-EmailListItem.displayName = "EmailListItem";

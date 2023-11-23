@@ -1,5 +1,5 @@
 import { ActBody } from "@/app/api/ai/act/validation";
-import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
+import { UserAIFields, functionsToTools, getOpenAI } from "@/utils/openai";
 import { saveUsage } from "@/utils/redis/usage";
 import { REQUIRES_MORE_INFO } from "@/app/api/ai/act/controller";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
@@ -16,7 +16,7 @@ export async function getAiResponseOld(
     userAbout: string;
     userEmail: string;
     functions: ChatCompletionCreateParams.Function[];
-  } & UserAIFields
+  } & UserAIFields,
 ) {
   const { email, userAbout, userEmail, functions } = options;
 
@@ -55,19 +55,19 @@ export async function getAiResponseOld(
   const model = options.aiModel || DEFAULT_AI_MODEL;
 
   const aiResponse = await getOpenAI(
-    options.openAIApiKey
+    options.openAIApiKey,
   ).chat.completions.create({
     model,
     messages,
-    functions,
-    function_call: "auto",
+    tools: functionsToTools(functions),
     temperature: 0,
   });
 
   if (aiResponse.usage)
     await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
 
-  const functionCall = aiResponse?.choices?.[0]?.message.function_call;
+  const functionCall =
+    aiResponse?.choices?.[0]?.message.tool_calls?.[0]?.function;
 
   if (!functionCall?.name) return;
 

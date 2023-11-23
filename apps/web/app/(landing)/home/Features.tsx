@@ -1,5 +1,13 @@
 import clsx from "clsx";
-import { LineChart, LucideIcon, Orbit, Sparkles } from "lucide-react";
+import {
+  BarChart2Icon,
+  EyeIcon,
+  LineChart,
+  LucideIcon,
+  MousePointer2Icon,
+  Orbit,
+  Sparkles,
+} from "lucide-react";
 import Image from "next/image";
 
 const features = [
@@ -28,10 +36,10 @@ export function Features() {
     <div className="bg-white py-24 sm:py-32" id="features">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
+          <h2 className="font-cal text-base leading-7 text-blue-600">
             Handle emails faster
           </h2>
-          <p className="mt-2 font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
+          <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
             Respond faster. Remove the clutter. Get your time back.
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
@@ -96,10 +104,10 @@ function FeaturesWithImage(props: {
             )}
           >
             <div className="lg:max-w-lg">
-              <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
+              <h2 className="font-cal text-base leading-7 text-blue-600">
                 {props.title}
               </h2>
-              <p className="mt-2 font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
+              <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
                 {props.subtitle}
               </p>
               <p className="mt-6 text-lg leading-8 text-gray-600">
@@ -209,6 +217,40 @@ export function FeaturesStats() {
       description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
       image="/images/stats.png"
       features={featuresStats}
+    />
+  );
+}
+
+const featuresUnsubscribe = [
+  {
+    name: "One-click unsubscribe",
+    description:
+      "Don't search for the unsubscribe button. Unsubscribe with a single click or auto archive emails instead.",
+    icon: MousePointer2Icon,
+  },
+  {
+    name: "See who emails you most",
+    description:
+      "See who's sending you the most marketing and newsletter emails to prioritise who to unsubscribe from.",
+    icon: EyeIcon,
+  },
+  {
+    name: "How often they email",
+    description:
+      "View analytic charts to see how often you get emails from certain senders to take action.",
+    icon: BarChart2Icon,
+  },
+];
+
+export function FeaturesUnsubscribe() {
+  return (
+    <FeaturesWithImage
+      imageSide="left"
+      title="Newsletter Management"
+      subtitle="Clean up your subscriptions"
+      description="See all newsletter and marketing subscriptions in one place. Unsubscribe in a click."
+      image="/images/newsletters.png"
+      features={featuresUnsubscribe}
     />
   );
 }

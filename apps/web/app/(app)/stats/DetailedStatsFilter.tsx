@@ -20,9 +20,22 @@ export function DetailedStatsFilter(props: {
     checked: Checked;
     setChecked: (value: Checked) => void;
   }[];
+  keepOpenOnSelect?: boolean;
 }) {
+  const { keepOpenOnSelect } = props;
+  const [isOpen, setIsOpen] = React.useState(false);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      open={keepOpenOnSelect ? isOpen : undefined}
+      onOpenChange={
+        keepOpenOnSelect
+          ? () => {
+              if (!isOpen) setIsOpen(true);
+            }
+          : undefined
+      }
+    >
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
@@ -33,7 +46,13 @@ export function DetailedStatsFilter(props: {
           {props.label}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[150px]">
+      <DropdownMenuContent
+        align="end"
+        className="w-[150px]"
+        onInteractOutside={
+          keepOpenOnSelect ? () => setIsOpen(false) : undefined
+        }
+      >
         {props.columns.map((column) => {
           return (
             <DropdownMenuCheckboxItem

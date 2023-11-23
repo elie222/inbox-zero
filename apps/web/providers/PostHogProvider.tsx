@@ -1,6 +1,8 @@
 "use client";
+
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
+import { useSession } from "next-auth/react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { env } from "@/env.mjs";
@@ -30,6 +32,16 @@ export function PostHogPageview(): JSX.Element {
       });
     }
   }, [pathname, searchParams]);
+
+  return <></>;
+}
+
+export function PostHogIdentify(): JSX.Element {
+  const session = useSession();
+
+  useEffect(() => {
+    if (session?.data?.user.email) posthog.identify(session?.data?.user.email);
+  }, [session?.data?.user.email]);
 
   return <></>;
 }

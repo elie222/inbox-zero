@@ -2,7 +2,7 @@ import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 
 export function CTA() {
   return (
-    <div className="relative -z-10 mt-32 px-6 lg:px-8">
+    <div className="relative -z-10 mt-12 px-6 lg:px-8">
       {/* <div
         className="absolute inset-x-0 top-1/2 -z-10 flex -translate-y-1/2 transform-gpu justify-center overflow-hidden blur-3xl sm:bottom-0 sm:right-[calc(50%-6rem)] sm:top-auto sm:translate-y-0 sm:transform-gpu sm:justify-end"
         aria-hidden="true"
@@ -16,7 +16,7 @@ export function CTA() {
         />
       </div> */}
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-cal text-3xl font-bold text-gray-900 sm:text-4xl">
+        <h2 className="font-cal text-3xl text-gray-900 sm:text-4xl">
           Boost your productivity.
           <br />
           Start using Inbox Zero today.

@@ -4,9 +4,13 @@ import {
   PageHeading,
   SectionDescription,
   SectionHeader,
+  MessageText,
+  TypographyP,
+  TypographyH3,
 } from "@/components/Typography";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Components() {
   return (
@@ -17,8 +21,11 @@ export default function Components() {
         <div className="space-y-6">
           <div className="underline">Typography</div>
           <PageHeading>PageHeading</PageHeading>
+          <TypographyH3>TypographyH3</TypographyH3>
           <SectionHeader>SectionHeader</SectionHeader>
           <SectionDescription>SectionDescription</SectionDescription>
+          <MessageText>MessageText</MessageText>
+          <TypographyP>TypographyP</TypographyP>
         </div>
 
         <div className="space-y-6">
@@ -56,6 +63,20 @@ export default function Components() {
             <Badge color="purple">Purple</Badge>
             <Badge color="pink">Pink</Badge>
             <Badge color="gray">Gray</Badge>
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Tabs</div>
+          <div className="mt-4">
+            <Tabs defaultValue="account" className="w-[400px]">
+              <TabsList>
+                <TabsTrigger value="account">Account</TabsTrigger>
+                <TabsTrigger value="password">Password</TabsTrigger>
+              </TabsList>
+              <TabsContent value="account">Account content</TabsContent>
+              <TabsContent value="password">Password content</TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>

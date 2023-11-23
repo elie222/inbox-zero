@@ -18,6 +18,7 @@ import { getDateRangeParams } from "@/app/(app)/stats/params";
 export function DetailedStats(props: {
   dateRange?: DateRange | undefined;
   period: "day" | "week" | "month" | "year";
+  refreshInterval: number;
 }) {
   const { dateRange, period } = props;
 
@@ -36,14 +37,16 @@ export function DetailedStats(props: {
   });
 
   const params: StatsByWeekParams = {
-    period: "week",
+    period,
     ...getDateRangeParams(dateRange),
   };
 
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`);
+  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   return (
     <LoadingContent
@@ -59,7 +62,7 @@ export function DetailedStats(props: {
                 <Title>Detailed Analytics</Title>
                 <div className="flex space-x-2">
                   <DetailedStatsFilter
-                    label="Type"
+                    label="Types"
                     icon={<FilterIcon className="mr-2 h-4 w-4" />}
                     columns={[
                       {

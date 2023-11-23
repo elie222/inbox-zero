@@ -1,6 +1,7 @@
 "use client";
 
 import useSWRImmutable from "swr/immutable";
+import Link from "next/link";
 import {
   Card,
   Table,
@@ -13,22 +14,25 @@ import {
 } from "@tremor/react";
 import truncate from "lodash/truncate";
 import { useSession } from "next-auth/react";
+import { ExternalLinkIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { getGmailUrl } from "@/utils/url";
 
-export function LargestEmails() {
+export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
 
   const { data, isLoading, error } = useSWRImmutable<
     LargestEmailsResponse,
     { error: string }
-  >(`/api/user/stats/largest-emails`);
+  >(`/api/user/stats/largest-emails`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   const { expanded, extra } = useExpanded();
 
@@ -71,18 +75,17 @@ export function LargestEmails() {
                         {bytesToMegabytes(item.sizeEstimate).toFixed(1)} MB
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          color="primary"
-                          link={{
-                            href: getGmailUrl(
+                        <Button asChild variant="secondary" size="sm">
+                          <Link
+                            href={getGmailUrl(
                               item.gmailMessageId,
                               session.data?.user.email
-                            ),
-                            target: "_blank",
-                          }}
-                        >
-                          View
+                            )}
+                            target="_blank"
+                          >
+                            <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                            Open in Gmail
+                          </Link>
                         </Button>
                       </TableCell>
                     </TableRow>

@@ -4,7 +4,7 @@ DESCRIPTION >
 
 SQL >
   %
-    SELECT "to" FROM email
+    SELECT "to", "toDomain" FROM email
     WHERE sent = true
       AND draft = false
       AND ownerEmail = {{ String(ownerEmail) }}

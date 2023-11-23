@@ -23,7 +23,12 @@ export function parseMessages(thread: ThreadWithPayloadMessages) {
     thread.messages?.map((message: MessageWithPayload) => {
       const parsedMessage = parseMessage(message);
       return {
-        ...message,
+        // ...message,
+        id: message.id,
+        threadId: message.threadId,
+        labelIds: message.labelIds,
+        snippet: message.snippet,
+        internalDate: message.internalDate,
         parsedMessage,
         // parsedReply: parseReply(
         //   parsedMessage.textPlain || parsedMessage.textHtml
@@ -62,7 +67,7 @@ function truncate(str: string, length: number) {
 export function parseEmail(
   html: string,
   extractReply = false,
-  maxLength = 2000
+  maxLength = 2000,
 ) {
   // 1. remove replies
   // 2. remove html

@@ -9,7 +9,7 @@ export function CTAButtons() {
 
   return (
     <div className="mt-10 flex items-center justify-center gap-x-6">
-      <Button
+      {/* <Button
         size="2xl"
         link={{ href: "/waitlist" }}
         onClick={() => {
@@ -17,6 +17,15 @@ export function CTAButtons() {
         }}
       >
         Join Waitlist
+      </Button> */}
+      <Button
+        size="2xl"
+        link={{ href: "/welcome" }}
+        onClick={() => {
+          posthog.capture("Clicked Get Started");
+        }}
+      >
+        Get Started
       </Button>
       <Button
         size="2xl"

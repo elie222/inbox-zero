@@ -15,13 +15,13 @@ export const BarList = (props: {
   data: {
     name: string;
     value: number;
-    // href: string;
-    // icon: () => JSX.Element;
+    href?: string;
+    target?: string;
   }[];
   extra?: React.ReactNode;
 }) => {
   return (
-    <Card>
+    <Card className="h-full">
       <Title>{props.title}</Title>
       {props.subtitle ? <Text>{props.subtitle}</Text> : null}
       <Flex className="mt-4">

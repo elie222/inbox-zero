@@ -3,6 +3,7 @@
 import React, { Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import clsx from "clsx";
+import { cn } from "@/utils";
 
 export interface ModalProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ export interface ModalProps {
   size?: "xl" | "2xl" | "4xl" | "6xl";
   padding?: "sm" | "none";
   disableOverflowHidden?: boolean;
+  backdropClass?: string;
 }
 
 export function useModal() {
@@ -36,7 +38,12 @@ export function Modal(props: ModalProps) {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-25" />
+          <div
+            className={cn(
+              "fixed inset-0 bg-black bg-opacity-25",
+              props.backdropClass
+            )}
+          />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -70,10 +77,7 @@ export function Modal(props: ModalProps) {
                 )}
               >
                 {props.title && (
-                  <Dialog.Title
-                    as="h3"
-                    className="font-cal text-xl font-medium leading-6"
-                  >
+                  <Dialog.Title as="h3" className="font-cal text-xl leading-6">
                     {props.title}
                   </Dialog.Title>
                 )}

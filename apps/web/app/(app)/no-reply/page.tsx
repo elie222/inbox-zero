@@ -7,9 +7,10 @@ import { PageHeading } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 
 export default function NoReplyPage() {
-  const { data, isLoading, error } = useSWR<NoReplyResponse, { error: string }>(
-    `/api/user/no-reply`
-  );
+  const { data, isLoading, error, mutate } = useSWR<
+    NoReplyResponse,
+    { error: string }
+  >(`/api/user/no-reply`);
 
   return (
     <div>
@@ -19,7 +20,11 @@ export default function NoReplyPage() {
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <div>
-            <EmailList threads={data as any} refetch={() => {}} />
+            <EmailList
+              threads={data as any}
+              hideActionBarWhenEmpty
+              refetch={mutate}
+            />
           </div>
         )}
       </LoadingContent>

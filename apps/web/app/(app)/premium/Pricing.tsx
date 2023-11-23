@@ -2,10 +2,9 @@
 
 import { CheckIcon } from "@heroicons/react/20/solid";
 import clsx from "clsx";
-import useSWR from "swr";
 import { env } from "@/env.mjs";
-import { UserResponse } from "@/app/api/user/me/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { usePremium } from "@/components/PremiumAlert";
 
 const tiers = [
   {
@@ -46,7 +45,7 @@ const tiers = [
 ];
 
 export function Pricing() {
-  const { data, isLoading, error } = useSWR<UserResponse>("/api/user/me");
+  const { isPremium, data, isLoading, error } = usePremium();
 
   const userId = data?.id;
 
@@ -67,10 +66,10 @@ export function Pricing() {
         />
       </div> */}
           <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
-            <h2 className="font-cal text-base font-semibold leading-7 text-blue-600">
+            <h2 className="font-cal text-base leading-7 text-blue-600">
               Pricing
             </h2>
-            <p className="mt-2 font-cal text-4xl font-bold text-gray-900 sm:text-5xl">
+            <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
               Simple, affordable pricing
             </p>
           </div>
@@ -97,7 +96,7 @@ export function Pricing() {
                   id={tier.id}
                   className={clsx(
                     tier.featured ? "text-blue-400" : "text-blue-600",
-                    "font-cal text-base font-semibold leading-7"
+                    "font-cal text-base leading-7"
                   )}
                 >
                   {tier.name}
@@ -158,10 +157,9 @@ export function Pricing() {
                     "mt-8 block rounded-md px-3.5 py-2.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:mt-10"
                   )}
                 >
-                  {/* TODO check that plan is still active */}
-                  {tier.id === "tier-pro" && data.lemonSqueezyRenewsAt
+                  {tier.id === "tier-pro" && isPremium
                     ? "Current plan"
-                    : "Get started today"}
+                    : "Upgrade"}
                 </a>
               </div>
             ))}

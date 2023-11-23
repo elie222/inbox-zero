@@ -1,55 +1,67 @@
 import { NextResponse } from "next/server";
-// import groupBy from "lodash/groupBy";
+import he from "he";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
 import { parseMessage } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
+import { Thread } from "@/components/email-list/types";
+import { getCategory } from "@/utils/redis/category";
+import prisma from "@/utils/prisma";
 
 export const dynamic = "force-dynamic";
 
 export type PlannedResponse = Awaited<ReturnType<typeof getPlanned>>;
 
-async function getPlanned() {
+// overlapping code with apps/web/app/api/google/threads/route.ts
+async function getPlanned(): Promise<{ messages: Thread[] }> {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session?.user) throw new Error("Not authenticated");
 
   const plans = await getPlans({ userId: session.user.id });
 
   const gmail = getGmailClient(session);
 
-  // const messagesByThreadId = groupBy(plans, (p) => p.threadId);
+  const rules = await prisma.rule.findMany({
+    where: { userId: session.user.id },
+  });
 
-  // const threads = await Promise.all(
-  //   Object.entries(messagesByThreadId).map(async ([threadId, plans]) => {
-  //     if (!plans.length) return;
-
-  //     const thread = await gmail.users.threads.get({
-  //       userId: "me",
-  //       id: threadId,
-  //     });
-
-  //     return {
-  //       ...thread.data,
-  //       plans,
-  //     }
-
-  //   })
-  // );
-
+  // should we fetch threads instead here?
   const messages = await Promise.all(
     plans.map(async (plan) => {
       if (!plan.rule) return;
 
-      const res = await getMessage(plan.messageId, gmail);
+      const message = await getMessage(plan.messageId, gmail);
 
-      return {
-        ...res,
-        parsedMessage: parseMessage(res),
-        plan,
+      const rule = plan
+        ? rules.find((r) => r.id === plan?.rule?.id)
+        : undefined;
+
+      const thread: Thread = {
+        id: message.threadId,
+        historyId: message.historyId,
+        snippet: he.decode(message.snippet || ""),
+        messages: [
+          {
+            // ...message,
+            id: message.id,
+            threadId: message.threadId,
+            labelIds: message.labelIds,
+            snippet: message.snippet,
+            internalDate: message.internalDate,
+            parsedMessage: parseMessage(message),
+          },
+        ],
+        plan: plan ? { ...plan, databaseRule: rule } : undefined,
+        category: await getCategory({
+          email: session.user.email!,
+          threadId: message.threadId!,
+        }),
       };
-    })
+
+      return thread;
+    }),
   );
 
   return { messages: messages.filter(isDefined) };

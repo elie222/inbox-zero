@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { tb } from "./client";
+import { decrypt, encrypt } from "./encrypt";
 
 export const zodPeriod = z.enum(["day", "week", "month", "year"]);
 export type ZodPeriod = z.infer<typeof zodPeriod>;
@@ -51,7 +52,7 @@ export const getMostReceivedFrom = tb.buildPipe({
     toDate: z.number().nullish(),
   }),
   data: z.object({
-    from: z.string(),
+    from: z.string().transform(decrypt),
     count: z.number(),
   }),
 });
@@ -64,7 +65,7 @@ export const getMostSentTo = tb.buildPipe({
     toDate: z.number().nullish(),
   }),
   data: z.object({
-    to: z.string(),
+    to: z.string().transform(decrypt),
     count: z.number(),
   }),
 });
@@ -78,7 +79,7 @@ export const getDomainsMostReceivedFrom = tb.buildPipe({
     toDate: z.number().nullish(),
   }),
   data: z.object({
-    from: z.string(),
+    from: z.string().transform(decrypt),
     count: z.number(),
   }),
 });
@@ -91,7 +92,7 @@ export const getDomainsMostSentTo = tb.buildPipe({
     toDate: z.number().nullish(),
   }),
   data: z.object({
-    to: z.string(),
+    to: z.string().transform(decrypt),
     count: z.number(),
   }),
 });
@@ -104,14 +105,28 @@ export const getNewsletterCounts = tb.buildPipe({
     fromDate: z.number().nullish(),
     toDate: z.number().nullish(),
     orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
+    all: z.boolean(),
+    read: z.boolean(),
+    unread: z.boolean(),
+    archived: z.boolean(),
+    unarchived: z.boolean(),
+    andClause: z.boolean().optional(),
   }),
   data: z.object({
-    from: z.string(),
+    from: z.string().transform(decrypt),
     count: z.number(),
     readEmails: z.number(),
     inboxEmails: z.number(),
     lastUnsubscribeLink: z.string().optional(),
   }),
+});
+
+export const getEmailsFromSender = tb.buildPipe({
+  pipe: "emails_from_sender",
+  parameters: getEmailsParameters.merge(
+    z.object({ fromEmail: z.string().transform(encrypt) })
+  ),
+  data: getEmailsData,
 });
 
 export const getLargestEmails = tb.buildPipe({
@@ -124,8 +139,8 @@ export const getLargestEmails = tb.buildPipe({
   }),
   data: z.object({
     gmailMessageId: z.string(),
-    from: z.string(),
-    subject: z.string(),
+    from: z.string().transform(decrypt),
+    subject: z.string().transform(decrypt),
     timestamp: z.number(),
     sizeEstimate: z.number().transform((t) => t ?? 0),
   }),
@@ -140,5 +155,21 @@ export const getLastEmail = tb.buildPipe({
   data: z.object({
     timestamp: z.number(),
     gmailMessageId: z.string(),
+  }),
+});
+
+export const getNewSenders = tb.buildPipe({
+  pipe: "new_senders",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    cutOffDate: z.number(),
+  }),
+  data: z.object({
+    gmailMessageId: z.string(),
+    from: z.string().transform(decrypt),
+    fromDomain: z.string().transform(decrypt),
+    subject: z.string().transform(decrypt),
+    timestamp: z.number(),
+    unsubscribeLink: z.string().nullish(),
   }),
 });

@@ -19,6 +19,7 @@ import {
 import { deletePlans } from "@/utils/redis/plan";
 import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
+import { deletePosthogUser } from "@/utils/posthog";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -70,15 +71,14 @@ export async function deleteAccountAction() {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
-  await prisma.user.delete({
-    where: { email: session.user.email },
-  });
-
   await deleteUserLabels({ email: session.user.email });
   await deleteInboxZeroLabels({ email: session.user.email });
   await deletePlans({ userId: session.user.id });
   await deleteUserStats({ email: session.user.email });
   await deleteTinybirdEmails({ email: session.user.email });
+  await deletePosthogUser({ email: session.user.email });
+
+  await prisma.user.delete({ where: { email: session.user.email } });
 }
 
 export async function updateLabels(
@@ -134,4 +134,14 @@ export async function deletePromptHistoryAction(options: { id: string }) {
   if (!session) throw new Error("Not logged in");
 
   return deletePromptHistory({ id: options.id, userId: session.user.id });
+}
+
+export async function completedOnboarding() {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { completedOnboarding: true },
+  });
 }

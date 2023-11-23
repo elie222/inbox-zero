@@ -1,20 +1,12 @@
 INCLUDE "../includes/received_emails.incl"
 
-NODE sender_domains
-DESCRIPTION >
-  Get most active sender domains for a given period of time.
-
-SQL >
-  %
-    SELECT extract("from", '@([a-zA-Z0-9.-]+)>') AS from_domain FROM received_emails
-
 NODE get_senders
 DESCRIPTION >
   Get most active senders for a given period of time.
 
 SQL >
   %
-    SELECT from_domain as "from", COUNT(*) as count FROM sender_domains
+    SELECT fromDomain as "from", COUNT(*) as count FROM received_emails
     WHERE "from" != ''
     GROUP BY "from"
     ORDER BY count DESC

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
@@ -62,7 +62,7 @@ function ModelSectionForm(props: {
     async (data) => {
       const res = await postRequest<SaveSettingsResponse, SaveSettingsBody>(
         "/api/user/settings",
-        data
+        data,
       );
 
       if (isError(res)) {
@@ -73,7 +73,21 @@ function ModelSectionForm(props: {
         toastSuccess({ description: "Settings updated!" });
       }
     },
-    []
+    [],
+  );
+
+  const options: { label: string; value: AIModel }[] = useMemo(
+    () => [
+      {
+        label: "GPT 3.5 Turbo",
+        value: "gpt-3.5-turbo-1106",
+      },
+      {
+        label: "GPT-4",
+        value: "gpt-4-1106-preview",
+      },
+    ],
+    [],
   );
 
   return (
@@ -81,16 +95,7 @@ function ModelSectionForm(props: {
       <Select
         name="aiModel"
         label="Model"
-        options={[
-          {
-            label: "GPT 3.5 Turbo",
-            value: "gpt-3.5-turbo",
-          },
-          {
-            label: "GPT-4",
-            value: "gpt-4",
-          },
-        ]}
+        options={options}
         registerProps={register("aiModel")}
         error={errors.aiModel}
       />

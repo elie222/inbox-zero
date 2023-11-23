@@ -7,18 +7,39 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const accounts = await prisma.account.findMany({
+    where: {
+      user: {
+        OR: [
+          {
+            lemonSqueezyRenewsAt: {
+              gt: new Date(),
+            },
+          },
+          {
+            openAIApiKey: { not: null },
+          },
+        ],
+      },
+    },
     select: {
       access_token: true,
       refresh_token: true,
       expires_at: true,
       providerAccountId: true,
       userId: true,
+      user: {
+        select: {
+          email: true,
+        },
+      },
     },
   });
 
+  console.log(`Watching emails for ${accounts.length} accounts`);
+
   for (const account of accounts) {
     try {
-      console.log(account.userId);
+      console.log(`Watching emails for ${account.user.email}`);
 
       const gmail = await getGmailClientWithRefresh(
         {
@@ -26,7 +47,7 @@ export async function GET() {
           refreshToken: account.refresh_token!,
           expiryDate: account.expires_at,
         },
-        account.providerAccountId
+        account.providerAccountId,
       );
 
       await watchEmails(account.userId, gmail);
