@@ -14,8 +14,11 @@ import { Card } from "@/components/Card";
 import {
   BookOpenCheckIcon,
   CheckCircle2Icon,
+  ForwardIcon,
   HelpCircleIcon,
+  MailQuestionIcon,
   PenIcon,
+  SnowflakeIcon,
   SparklesIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -77,6 +80,24 @@ export function RulesSection() {
     </LoadingContent>
   );
 }
+
+const examples = [
+  {
+    title: "Archive and label cold emails",
+    description: `Archive cold emails and label them "Cold Email".`,
+    icon: <SnowflakeIcon className="h-4 w-4" />,
+  },
+  {
+    title: "Forward receipts",
+    description: "Forward receipts to alice@accountant.com.",
+    icon: <ForwardIcon className="h-4 w-4" />,
+  },
+  {
+    title: "Question response",
+    description: `If someone asks how much the premium plan is, respond: "Our premium plan is $8 per month. You can learn more at https://getinboxzero.com/pricing."`,
+    icon: <MailQuestionIcon className="h-4 w-4" />,
+  },
+];
 
 export function RulesForm(props: {
   rules: RulesResponse;
@@ -178,21 +199,31 @@ export function RulesForm(props: {
       <div className="md:col-span-2">
         <SectionHeader>Rules</SectionHeader>
         <SectionDescription>
-          Instruct the AI how you want it to handle your emails.
+          Instruct the AI how you want it to handle your emails. Examples:
         </SectionDescription>
-        <SectionDescription>Examples of rules you can add:</SectionDescription>
-        <ul className="mt-1 list-inside list-disc text-sm leading-6 text-gray-700">
-          <li>Forward all receipts to alice@accountant.com.</li>
-          <li>
-            Label all cold emails as {'"'}Cold Email{'"'}.
-          </li>
-          <li>
-            If someone asks how much the premium plan is respond: {'"'}Our
-            premium plan is $8 per month. You can learn more at
-            https://getinboxzero.com/pricing.{'"'}
-          </li>
-        </ul>
-        <SectionDescription>
+        <div className="mt-2 space-y-1 text-sm leading-6 text-gray-700">
+          {examples.map((example) => {
+            return (
+              <button
+                key={example.title}
+                onClick={() => {
+                  if (fields.length === 1 && !fields[0].instructions) remove(0);
+
+                  append({ instructions: example.description });
+                }}
+                className="w-full text-left"
+              >
+                <AlertBasic
+                  title={example.title}
+                  description={example.description}
+                  icon={example.icon}
+                  className="cursor-pointer hover:bg-gray-100"
+                />
+              </button>
+            );
+          })}
+        </div>
+        <SectionDescription className="mt-4">
           These are the actions we can take on your behalf:{" "}
           {Object.keys(ActionType)
             .map((action) => capitalCase(action))

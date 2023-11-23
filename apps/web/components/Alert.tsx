@@ -7,9 +7,10 @@ export function AlertBasic(props: {
   description: React.ReactNode;
   icon?: React.ReactNode | null;
   variant?: "default" | "destructive" | "success";
+  className?: string;
 }) {
   return (
-    <Alert variant={props.variant}>
+    <Alert variant={props.variant} className={props.className}>
       {props.icon === null
         ? null
         : props.icon || <TerminalIcon className="h-4 w-4" />}
