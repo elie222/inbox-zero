@@ -32,28 +32,31 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
     plans.map(async (plan) => {
       if (!plan.rule) return;
 
-      const res = await getMessage(plan.messageId, gmail);
+      const message = await getMessage(plan.messageId, gmail);
 
       const rule = plan
         ? rules.find((r) => r.id === plan?.rule?.id)
         : undefined;
 
       const thread: Thread = {
-        id: res.threadId,
-        historyId: res.historyId,
-        snippet: he.decode(res.snippet || ""),
+        id: message.threadId,
+        historyId: message.historyId,
+        snippet: he.decode(message.snippet || ""),
         messages: [
           {
-            // ...res,
-            id: res.id,
-            threadId: res.threadId,
-            parsedMessage: parseMessage(res),
+            // ...message,
+            id: message.id,
+            threadId: message.threadId,
+            labelIds: message.labelIds,
+            snippet: message.snippet,
+            internalDate: message.internalDate,
+            parsedMessage: parseMessage(message),
           },
         ],
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
         category: await getCategory({
           email: session.user.email!,
-          threadId: res.threadId!,
+          threadId: message.threadId!,
         }),
       };
 

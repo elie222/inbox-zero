@@ -26,6 +26,9 @@ export function parseMessages(thread: ThreadWithPayloadMessages) {
         // ...message,
         id: message.id,
         threadId: message.threadId,
+        labelIds: message.labelIds,
+        snippet: message.snippet,
+        internalDate: message.internalDate,
         parsedMessage,
         // parsedReply: parseReply(
         //   parsedMessage.textPlain || parsedMessage.textHtml
