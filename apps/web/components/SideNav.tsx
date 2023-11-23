@@ -31,15 +31,15 @@ const navigation = [
     icon: MailsIcon,
   },
   {
-    name: "New Senders",
-    href: "/new-senders",
-    icon: Users2Icon,
-  },
-  { name: "Mail", href: "/mail", icon: InboxIcon },
-  {
     name: "AI Automation",
     href: "/automation",
     icon: SparklesIcon,
+  },
+  { name: "Mail", href: "/mail", icon: InboxIcon },
+  {
+    name: "New Senders",
+    href: "/new-senders",
+    icon: Users2Icon,
   },
   {
     name: "No reply",
@@ -179,7 +179,7 @@ function Sidebar(props: { isMobile: boolean }) {
         "flex grow flex-col gap-y-5 overflow-y-auto bg-black px-6 pb-4",
         {
           "ring-1 ring-white/10": props.isMobile,
-        }
+        },
       )}
     >
       <Link href="/stats">
@@ -199,7 +199,7 @@ function Sidebar(props: { isMobile: boolean }) {
                       item.href === path
                         ? "bg-gray-800 text-white"
                         : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                      "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6"
+                      "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
                     )}
                   >
                     <item.icon
@@ -226,7 +226,7 @@ function Sidebar(props: { isMobile: boolean }) {
                         "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
                         link.href === path
                           ? "bg-gray-800 text-white"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                          : "text-gray-400 hover:bg-gray-800 hover:text-white",
                       )}
                     >
                       <link.icon
