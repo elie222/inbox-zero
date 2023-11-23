@@ -44,7 +44,9 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
         snippet: he.decode(res.snippet || ""),
         messages: [
           {
-            ...res,
+            // ...res,
+            id: res.id,
+            threadId: res.threadId,
             parsedMessage: parseMessage(res),
           },
         ],
@@ -56,7 +58,7 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
       };
 
       return thread;
-    })
+    }),
   );
 
   return { messages: messages.filter(isDefined) };

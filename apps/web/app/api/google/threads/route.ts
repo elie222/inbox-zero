@@ -44,6 +44,7 @@ async function getThreads(query: ThreadsQuery) {
     prisma.rule.findMany({ where: { userId: session.user.id } }),
   ]);
 
+  // may have been faster not using batch method, but doing 50 getMessages in parallel
   const threads = await getThreadsBatch(
     gmailThreads.data.threads?.map((thread) => thread.id!) || [],
     accessToken,
