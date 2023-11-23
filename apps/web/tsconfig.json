@@ -6,7 +6,8 @@
     "paths": {
       "@/*": ["./*"],
       "contentlayer/generated": ["./.contentlayer/generated"]
-    }
+    },
+    "jsx": "preserve"
   },
   "include": [
     "next-env.d.ts",
