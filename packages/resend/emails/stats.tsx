@@ -118,7 +118,7 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
                   <Text style={paragraph}>
                     {sender.from}{" "}
                     <Link
-                      href={`https://mail.google.com/mail/u/${userEmail}/#search/${encodeURIComponent(
+                      href={`https://mail.google.com/mail/u/${userEmail}/#advanced-search/from=${encodeURIComponent(
                         sender.from,
                       )}`}
                     >
