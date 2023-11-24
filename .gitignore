@@ -47,3 +47,5 @@ dist
 # tinybird
 .tinyb
 .venv
+
+.react-email

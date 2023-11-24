@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
+import { hasCronSecret } from "@/utils/cron";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (!hasCronSecret(request))
+    return new Response("Unauthorized", { status: 401 });
+
   const accounts = await prisma.account.findMany({
     where: {
       user: {

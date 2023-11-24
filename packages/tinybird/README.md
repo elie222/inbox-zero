@@ -52,3 +52,10 @@ tb push pipes/get_emails_by_period.pipe
 # or to force changes:
 tb push pipes --force --no-check
 ```
+
+## Switch workspace
+
+```sh
+tb workspace ls # list workspaces
+tb workspace use <workspace_name>
+```

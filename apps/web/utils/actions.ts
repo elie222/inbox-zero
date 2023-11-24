@@ -44,7 +44,7 @@ export async function labelThreadsAction(options: {
         threadId,
         archive: options.archive,
       });
-    })
+    }),
   );
 }
 
@@ -82,7 +82,7 @@ export async function deleteAccountAction() {
 }
 
 export async function updateLabels(
-  labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[]
+  labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[],
 ) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");

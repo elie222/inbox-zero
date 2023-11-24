@@ -6,6 +6,10 @@
     {
       "path": "/api/google/watch/all",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/resend/all",
+      "schedule": "0 0 * * 0"
     }
   ]
 }
