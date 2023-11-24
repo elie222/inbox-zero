@@ -10,7 +10,9 @@ const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
   "https://www.googleapis.com/auth/userinfo.email",
 
-  "https://www.googleapis.com/auth/gmail.modify",
+  "https://mail.google.com/",
+  "https://www.googleapis.com/auth/gmail.settings.basic",
+  "https://www.googleapis.com/auth/contacts",
 ];
 
 export const getAuthOptions: (options?: {
@@ -53,13 +55,13 @@ export const getAuthOptions: (options?: {
               access_token: account.access_token,
               refresh_token: account.refresh_token,
               expires_at: calculateExpiresAt(
-                account.expires_in as number | undefined
+                account.expires_in as number | undefined,
               ),
             },
             {
               providerAccountId: account.providerAccountId,
               refresh_token: account.refresh_token,
-            }
+            },
           );
           token.refresh_token = account.refresh_token;
         } else {
@@ -89,7 +91,7 @@ export const getAuthOptions: (options?: {
       } else {
         // If the access token has expired, try to refresh it
         console.log(
-          `Token expired at: ${token.expires_at}. Attempting refresh.`
+          `Token expired at: ${token.expires_at}. Attempting refresh.`,
         );
         return await refreshAccessToken(token);
       }
@@ -162,7 +164,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       {
         providerAccountId: account.providerAccountId,
         refresh_token: account.refresh_token,
-      }
+      },
     );
 
     return {
@@ -196,7 +198,7 @@ export async function saveRefreshToken(
     refresh_token?: string;
     expires_at?: number;
   },
-  account: Pick<Account, "refresh_token" | "providerAccountId">
+  account: Pick<Account, "refresh_token" | "providerAccountId">,
 ) {
   return await prisma.account.update({
     data: {
