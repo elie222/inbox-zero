@@ -22,7 +22,6 @@ import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { Button } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { Tooltip } from "@/components/Tooltip";
-import { getGmailCreateFilterUrl } from "@/utils/url";
 import {
   NewSendersQuery,
   NewSendersResponse,
@@ -30,6 +29,7 @@ import {
 import { formatShortDate } from "@/utils/date";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
+import { onAutoArchive } from "@/utils/actions-client";
 
 export function NewSenders() {
   const session = useSession();
@@ -142,16 +142,12 @@ export function NewSenders() {
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
                           <Tooltip content="Auto archive emails using Gmail filters">
-                            <Button size="sm" variant="secondary" asChild>
-                              <a
-                                href={getGmailCreateFilterUrl(
-                                  firstEmail.from,
-                                  email
-                                )}
-                                target="_blank"
-                              >
-                                Auto archive
-                              </a>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => onAutoArchive(firstEmail.from)}
+                            >
+                              Auto archive
                             </Button>
                           </Tooltip>
                         </TableCell>

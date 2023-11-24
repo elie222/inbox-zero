@@ -20,6 +20,8 @@ import { deletePlans } from "@/utils/redis/plan";
 import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deletePosthogUser } from "@/utils/posthog";
+import { createAutoArchiveFilter } from "@/utils/gmail/filter";
+import { getGmailClient } from "@/utils/gmail/client";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -144,4 +146,16 @@ export async function completedOnboarding() {
     where: { id: session.user.id },
     data: { completedOnboarding: true },
   });
+}
+
+export async function createAutoArchiveFilterAction(from: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const gmail = getGmailClient(session);
+
+  const res = await createAutoArchiveFilter({ gmail, from });
+
+  // do not return functions to the client or we'll get an error
+  return res.status === 200 ? { ok: true } : res;
 }

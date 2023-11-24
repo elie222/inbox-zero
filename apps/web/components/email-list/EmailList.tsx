@@ -29,19 +29,21 @@ import { AlertBasic } from "@/components/Alert";
 import { EmailListItem } from "@/components/email-list/EmailListItem";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
+  const { emails, refetch } = props;
+
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "all";
 
   const categories = useMemo(() => {
     return countBy(
-      props.emails,
+      emails,
       (email) => email.category?.category || "Uncategorized",
     );
-  }, [props.emails]);
+  }, [emails]);
 
   const planned = useMemo(() => {
-    return props.emails.filter((email) => email.plan?.rule);
-  }, [props.emails]);
+    return emails.filter((email) => email.plan?.rule);
+  }, [emails]);
 
   const tabs = useMemo(
     () => [
@@ -67,15 +69,13 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
   const filteredEmails = useMemo(() => {
     if (selectedTab === "planned") return planned;
 
-    if (selectedTab === "all") return props.emails;
+    if (selectedTab === "all") return emails;
 
     if (selectedTab === "Uncategorized")
-      return props.emails.filter((email) => !email.category?.category);
+      return emails.filter((email) => !email.category?.category);
 
-    return props.emails.filter(
-      (email) => email.category?.category === selectedTab,
-    );
-  }, [props.emails, selectedTab, planned]);
+    return emails.filter((email) => email.category?.category === selectedTab);
+  }, [emails, selectedTab, planned]);
 
   return (
     <>
@@ -88,7 +88,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
           }
         />
       </div>
-      {props.emails.length ? (
+      {emails.length ? (
         <EmailList
           threads={filteredEmails}
           emptyMessage={
@@ -117,7 +117,7 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
               )}
             </div>
           }
-          refetch={props.refetch}
+          refetch={refetch}
         />
       ) : (
         <Celebration />
@@ -132,7 +132,7 @@ export function EmailList(props: {
   hideActionBarWhenEmpty?: boolean;
   refetch: () => void;
 }) {
-  const { refetch } = props;
+  const { threads, emptyMessage, hideActionBarWhenEmpty, refetch } = props;
 
   const session = useSession();
 
@@ -141,8 +141,8 @@ export function EmailList(props: {
   const closePanel = useCallback(() => setOpenedRowId(undefined), []);
 
   const openedRow = useMemo(
-    () => props.threads.find((thread) => thread.id === openedRowId),
-    [openedRowId, props.threads],
+    () => threads.find((thread) => thread.id === openedRowId),
+    [openedRowId, threads],
   );
 
   // if checkbox for a row has been checked
@@ -156,14 +156,14 @@ export function EmailList(props: {
   );
 
   const isAllSelected = useMemo(() => {
-    return props.threads.every((thread) => selectedRows[thread.id!]);
-  }, [props.threads, selectedRows]);
+    return threads.every((thread) => selectedRows[thread.id!]);
+  }, [threads, selectedRows]);
 
   const onToggleSelectAll = useCallback(() => {
-    props.threads.forEach((thread) => {
+    threads.forEach((thread) => {
       setSelectedRows((s) => ({ ...s, [thread.id!]: !isAllSelected }));
     });
-  }, [props.threads, isAllSelected]);
+  }, [threads, isAllSelected]);
 
   // could make this row specific in the future
   const [showReply, setShowReply] = useState(false);
@@ -338,30 +338,30 @@ export function EmailList(props: {
   }
 
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
-    useExecutePlan(props.refetch);
+    useExecutePlan(refetch);
 
   const onPlanAiBulk = useCallback(async () => {
     for (const [threadId, selected] of Object.entries(selectedRows)) {
       if (!selected) continue;
-      const thread = props.threads.find((t) => t.id === threadId);
+      const thread = threads.find((t) => t.id === threadId);
       if (thread) onPlanAiAction(thread);
     }
-  }, [onPlanAiAction, props.threads, selectedRows]);
+  }, [onPlanAiAction, threads, selectedRows]);
 
   const onCategorizeAiBulk = useCallback(async () => {
     for (const [threadId, selected] of Object.entries(selectedRows)) {
       if (!selected) continue;
-      const thread = props.threads.find((t) => t.id === threadId);
+      const thread = threads.find((t) => t.id === threadId);
       if (thread) onAiCategorize(thread);
     }
-  }, [onAiCategorize, props.threads, selectedRows]);
+  }, [onAiCategorize, threads, selectedRows]);
 
   const onArchiveAiBulk = useCallback(async () => {
     toast.promise(
       async () => {
         for (const [threadId, selected] of Object.entries(selectedRows)) {
           if (!selected) continue;
-          const thread = props.threads.find((t) => t.id === threadId);
+          const thread = threads.find((t) => t.id === threadId);
           if (thread) await archive(thread);
         }
       },
@@ -371,13 +371,13 @@ export function EmailList(props: {
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [archive, props.threads, selectedRows]);
+  }, [archive, threads, selectedRows]);
 
-  const isEmpty = props.threads.length === 0;
+  const isEmpty = threads.length === 0;
 
   return (
     <>
-      {!(isEmpty && props.hideActionBarWhenEmpty) && (
+      {!(isEmpty && hideActionBarWhenEmpty) && (
         <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2 sm:px-6">
           <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
           <div className="ml-4">
@@ -403,7 +403,7 @@ export function EmailList(props: {
           className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
           ref={listRef}
         >
-          {props.threads.map((thread) => (
+          {threads.map((thread) => (
             <EmailListItem
               ref={(node) => {
                 const map = getMap();
@@ -444,10 +444,10 @@ export function EmailList(props: {
 
         {isEmpty && (
           <div className="py-2">
-            {typeof props.emptyMessage === "string" ? (
-              <MessageText>{props.emptyMessage}</MessageText>
+            {typeof emptyMessage === "string" ? (
+              <MessageText>{emptyMessage}</MessageText>
             ) : (
-              props.emptyMessage
+              emptyMessage
             )}
           </div>
         )}
