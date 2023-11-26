@@ -36,10 +36,7 @@ const createMail = async (options: Mail.Options) => {
   return encodeMessage(message);
 };
 
-const createRawMailMessage = async (
-  gmail: gmail_v1.Gmail,
-  body: SendEmailBody
-) => {
+const createRawMailMessage = async (body: SendEmailBody) => {
   return await createMail({
     to: body.to,
     cc: body.cc,
@@ -56,18 +53,21 @@ const createRawMailMessage = async (
         }`.trim()
       : "",
     inReplyTo: body.replyToEmail ? body.replyToEmail.headerMessageId : "",
+    headers: {
+      "X-Mailer": "Inbox Zero Web",
+    },
   });
 };
 
 // https://developers.google.com/gmail/api/guides/sending
 // https://www.labnol.org/google-api-service-account-220405
 export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
-  const raw = await createRawMailMessage(gmail, body);
+  const raw = await createRawMailMessage(body);
 
   const result = await gmail.users.messages.send({
     userId: "me",
     requestBody: {
-      threadId: body.replyToEmail ? body.replyToEmail.threadId : "",
+      threadId: body.replyToEmail ? body.replyToEmail.threadId : undefined,
       raw,
     },
   });
@@ -76,7 +76,7 @@ export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
 }
 
 export async function draftEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
-  const raw = await createRawMailMessage(gmail, body);
+  const raw = await createRawMailMessage(body);
 
   const result = await gmail.users.drafts.create({
     userId: "me",
