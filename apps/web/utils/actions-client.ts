@@ -1,5 +1,8 @@
 import { toastSuccess, toastError } from "@/components/Toast";
-import { createAutoArchiveFilterAction } from "@/utils/actions";
+import {
+  createAutoArchiveFilterAction,
+  deleteThreadAction,
+} from "@/utils/actions";
 
 export async function onAutoArchive(from: string) {
   try {
@@ -8,6 +11,17 @@ export async function onAutoArchive(from: string) {
   } catch (error: any) {
     toastError({
       description: `There was an error creating the filter: ${error.message}`,
+    });
+  }
+}
+
+export async function onDeleteThread(threadId: string) {
+  try {
+    await deleteThreadAction(threadId);
+    toastSuccess({ description: "Thread deleted!" });
+  } catch (error: any) {
+    toastError({
+      description: `There was an error deleting the thread: ${error.message}`,
     });
   }
 }

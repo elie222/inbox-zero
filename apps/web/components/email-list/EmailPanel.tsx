@@ -26,6 +26,7 @@ export function EmailPanel(props: {
   rejectingPlan: boolean;
   executePlan: (thread: Thread) => Promise<void>;
   rejectPlan: (thread: Thread) => Promise<void>;
+  refetch: () => void;
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
@@ -62,6 +63,7 @@ export function EmailPanel(props: {
               props.onArchive(props.row);
               props.close();
             }}
+            refetch={props.refetch}
           />
           <div className="ml-2 flex items-center">
             <Tooltip content="Close">
@@ -130,7 +132,7 @@ function EmailThread(props: { messages: Thread["messages"] }) {
               <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
                 <time dateTime={message.parsedMessage.headers.date}>
                   {formatShortDate(
-                    new Date(message.parsedMessage.headers.date)
+                    new Date(message.parsedMessage.headers.date),
                   )}
                 </time>
               </p>
@@ -162,7 +164,7 @@ function HtmlEmail(props: { html: string }) {
           "px"; // +5 to give a bit of extra space to avoid scrollbar
       }
     },
-    []
+    [],
   );
 
   return <iframe srcDoc={srcDoc} onLoad={onLoad} className="h-full w-full" />;
@@ -189,7 +191,7 @@ function getIframeHtml(html: string) {
   } else {
     htmlWithHead = htmlWithFontFamily.replace(
       "</head>",
-      `<base target="_blank"></head>`
+      `<base target="_blank"></head>`,
     );
   }
 

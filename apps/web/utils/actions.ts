@@ -22,6 +22,7 @@ import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
+import { deleteThread } from "@/utils/gmail/delete";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -148,6 +149,9 @@ export async function completedOnboarding() {
   });
 }
 
+// do not return functions to the client or we'll get an error
+const isStatusOk = (status: number) => status >= 200 && status < 300;
+
 export async function createAutoArchiveFilterAction(from: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
@@ -156,6 +160,16 @@ export async function createAutoArchiveFilterAction(from: string) {
 
   const res = await createAutoArchiveFilter({ gmail, from });
 
-  // do not return functions to the client or we'll get an error
-  return res.status === 200 ? { ok: true } : res;
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function deleteThreadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const gmail = getGmailClient(session);
+
+  const res = await deleteThread({ gmail, threadId });
+
+  return isStatusOk(res.status) ? { ok: true } : res;
 }

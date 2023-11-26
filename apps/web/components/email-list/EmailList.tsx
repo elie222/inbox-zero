@@ -438,6 +438,7 @@ export function EmailList(props: {
               rejectPlan={rejectPlan}
               executingPlan={executingPlan[thread.id!]}
               rejectingPlan={rejectingPlan[thread.id!]}
+              refetch={refetch}
             />
           ))}
         </ul>
@@ -468,6 +469,7 @@ export function EmailList(props: {
             rejectPlan={rejectPlan}
             executingPlan={executingPlan[openedRowId]}
             rejectingPlan={rejectingPlan[openedRowId]}
+            refetch={refetch}
           />
         )}
       </div>
