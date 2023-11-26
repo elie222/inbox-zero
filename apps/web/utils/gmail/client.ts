@@ -27,6 +27,13 @@ export const getGmailClient = (session: ClientOptions) => {
   return gmail;
 };
 
+export const getContactsClient = (session: ClientOptions) => {
+  const auth = getClient(session);
+  const contacts = google.people({ version: "v1", auth });
+
+  return contacts;
+};
+
 export const getGmailAccessToken = (session: ClientOptions) => {
   const auth = getClient(session);
   return auth.getAccessToken();
