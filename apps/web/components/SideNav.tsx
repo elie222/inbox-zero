@@ -17,7 +17,7 @@ import {
   ArchiveBoxArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { Logo } from "@/components/Logo";
-import { CrownIcon, MailsIcon, Users2Icon } from "lucide-react";
+import { CrownIcon, MailsIcon, SendIcon, Users2Icon } from "lucide-react";
 
 const navigation = [
   {
@@ -42,15 +42,22 @@ const navigation = [
     icon: Users2Icon,
   },
   {
-    name: "No reply",
-    href: "/request-access?type=no-reply",
-    icon: ChatBubbleBottomCenterTextIcon,
+    name: "Send Email",
+    href: "/compose",
+    icon: SendIcon,
   },
-  {
-    name: "Bulk Archive",
-    href: "/request-access?type=bulk-archive",
-    icon: ArchiveBoxArrowDownIcon,
-  },
+  // disable till live
+  // {
+  //   name: "No reply",
+  //   href: "/request-access?type=no-reply",
+  //   icon: ChatBubbleBottomCenterTextIcon,
+  // },
+  // {
+  //   name: "Bulk Archive",
+  //   href: "/request-access?type=bulk-archive",
+  //   icon: ArchiveBoxArrowDownIcon,
+  // },
+
   // {
   //   name: "No reply",
   //   href: "/no-reply",
