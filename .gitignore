@@ -48,4 +48,4 @@ dist
 .tinyb
 .venv
 
-packages/resend/.react-email
+.react-email
