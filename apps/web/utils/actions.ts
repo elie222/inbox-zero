@@ -22,7 +22,7 @@ import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
-import { deleteThread } from "@/utils/gmail/delete";
+import { trashThread } from "@/utils/gmail/trash";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -163,13 +163,13 @@ export async function createAutoArchiveFilterAction(from: string) {
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
-export async function deleteThreadAction(threadId: string) {
+export async function trashThreadAction(threadId: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
   const gmail = getGmailClient(session);
 
-  const res = await deleteThread({ gmail, threadId });
+  const res = await trashThread({ gmail, threadId });
 
   return isStatusOk(res.status) ? { ok: true } : res;
 }

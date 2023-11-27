@@ -10,7 +10,7 @@ import { DeleteIcon, OrbitIcon } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
-import { onDeleteThread } from "@/utils/actions-client";
+import { onTrashThread } from "@/utils/actions-client";
 
 export function ActionButtons(props: {
   threadId: string;
@@ -44,15 +44,15 @@ export function ActionButtons(props: {
     window.open(url, "_blank");
   }, [threadId, email]);
 
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isTrashing, setIsTrashing] = useState(false);
 
-  // TODO lift this up to the parent component to be consistent / to support bulk delete
+  // TODO lift this up to the parent component to be consistent / to support bulk trash
   // TODO show loading toast
-  const onDelete = useCallback(async () => {
-    setIsDeleting(true);
-    await onDeleteThread(threadId);
+  const onTrash = useCallback(async () => {
+    setIsTrashing(true);
+    await onTrashThread(threadId);
     refetch();
-    setIsDeleting(false);
+    setIsTrashing(false);
   }, [threadId, refetch]);
 
   const buttons = useMemo(
@@ -99,8 +99,8 @@ export function ActionButtons(props: {
       // may remove later
       {
         tooltip: "Delete",
-        onClick: onDelete,
-        icon: isDeleting ? (
+        onClick: onTrash,
+        icon: isTrashing ? (
           <LoadingMiniSpinner />
         ) : (
           <DeleteIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
@@ -121,8 +121,8 @@ export function ActionButtons(props: {
       },
     ],
     [
-      onDelete,
-      isDeleting,
+      onTrash,
+      isTrashing,
       onArchive,
       isArchiving,
       onPlanAiAction,
