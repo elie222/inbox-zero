@@ -87,6 +87,9 @@ importers:
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
+      '@inboxzero/resend':
+        specifier: workspace:*
+        version: link:../../packages/resend
       '@inboxzero/tinybird':
         specifier: workspace:*
         version: link:../../packages/tinybird
@@ -355,6 +358,59 @@ importers:
       eslint-plugin-react:
         specifier: 7.33.2
         version: 7.33.2(eslint@8.54.0)
+
+  packages/loops:
+    dependencies:
+      loops:
+        specifier: ^0.1.1
+        version: 0.1.1
+    devDependencies:
+      '@types/node':
+        specifier: 20.9.0
+        version: 20.9.0
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 5.2.2
+        version: 5.2.2
+
+  packages/resend:
+    dependencies:
+      '@react-email/components':
+        specifier: ^0.0.11
+        version: 0.0.11(@types/react@18.2.38)(react@18.2.0)
+      nanoid:
+        specifier: ^5.0.3
+        version: 5.0.3
+      react:
+        specifier: 18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: 18.2.0
+        version: 18.2.0(react@18.2.0)
+      react-email:
+        specifier: 1.9.5
+        version: 1.9.5
+      resend:
+        specifier: ^2.0.0
+        version: 2.0.0
+    devDependencies:
+      '@types/node':
+        specifier: 20.9.3
+        version: 20.9.3
+      '@types/react':
+        specifier: 18.2.38
+        version: 18.2.38
+      '@types/react-dom':
+        specifier: 18.2.16
+        version: 18.2.16
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 5.3.2
+        version: 5.3.2
 
   packages/tinybird:
     dependencies:
