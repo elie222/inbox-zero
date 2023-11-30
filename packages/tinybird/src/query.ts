@@ -124,7 +124,7 @@ export const getNewsletterCounts = tb.buildPipe({
 export const getEmailsFromSender = tb.buildPipe({
   pipe: "emails_from_sender",
   parameters: getEmailsParameters.merge(
-    z.object({ fromEmail: z.string().transform(encrypt) })
+    z.object({ fromEmail: z.string().transform(encrypt) }),
   ),
   data: getEmailsData,
 });
@@ -171,5 +171,20 @@ export const getNewSenders = tb.buildPipe({
     subject: z.string().transform(decrypt),
     timestamp: z.number(),
     unsubscribeLink: z.string().nullish(),
+  }),
+});
+
+export const getWeeklyStats = tb.buildPipe({
+  pipe: "weekly_stats",
+  parameters: z.object({
+    ownerEmail: z.string(),
+    cutOffDate: z.number(),
+  }),
+  data: z.object({
+    totalEmails: z.number(),
+    readEmails: z.number(),
+    sentEmails: z.number(),
+    archivedEmails: z.number(),
+    unsubscribeEmails: z.number(),
   }),
 });

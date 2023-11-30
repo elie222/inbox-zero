@@ -24,6 +24,8 @@ export const env = createEnv({
     ENCRYPT_SALT: z.string().optional(),
     POSTHOG_API_SECRET: z.string().optional(),
     POSTHOG_PROJECT_ID: z.string().optional(),
+    RESEND_API_KEY: z.string().optional(),
+    CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
   },
   client: {

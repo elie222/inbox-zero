@@ -1,0 +1,24 @@
+{
+  "name": "@inboxzero/resend",
+  "version": "0.0.0",
+  "main": "src/index.tsx",
+  "license": "MIT",
+  "scripts": {
+    "dev": "email dev --port 3333"
+  },
+  "dependencies": {
+    "@react-email/components": "^0.0.11",
+    "nanoid": "^5.0.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-email": "1.9.5",
+    "resend": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.9.3",
+    "@types/react": "18.2.38",
+    "@types/react-dom": "18.2.16",
+    "tsconfig": "workspace:*",
+    "typescript": "5.3.2"
+  }
+}

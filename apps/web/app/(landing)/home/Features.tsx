@@ -100,7 +100,7 @@ function FeaturesWithImage(props: {
               "lg:pt-4",
               props.imageSide === "left"
                 ? "lg:ml-auto lg:pl-4"
-                : "lg:mr-auto lg:pr-4"
+                : "lg:mr-auto lg:pr-4",
             )}
           >
             <div className="lg:max-w-lg">
@@ -134,7 +134,7 @@ function FeaturesWithImage(props: {
               "flex items-start",
               props.imageSide === "left"
                 ? "justify-end lg:order-first"
-                : "justify-start lg:order-last"
+                : "justify-start lg:order-last",
             )}
           >
             <div className="rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:rounded-2xl lg:p-4">

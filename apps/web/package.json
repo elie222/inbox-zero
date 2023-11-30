@@ -19,6 +19,7 @@
     "@heroicons/react": "^2.0.18",
     "@hookform/resolvers": "^3.3.2",
     "@inboxzero/loops": "workspace:*",
+    "@inboxzero/resend": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@prisma/client": "^5.6.0",
     "@radix-ui/react-avatar": "^1.0.4",

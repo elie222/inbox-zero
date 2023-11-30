@@ -1,12 +1,12 @@
 import { ZodError } from "zod";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { captureException } from "@/utils/error";
 import { StreamingTextResponse } from "ai";
 import { env } from "@/env.mjs";
 
 export type NextHandler = (
-  req: Request,
-  { params }: { params: Record<string, string | undefined> }
+  req: NextRequest,
+  { params }: { params: Record<string, string | undefined> },
 ) => Promise<NextResponse | StreamingTextResponse>;
 
 export function withError(handler: NextHandler): NextHandler {
@@ -21,7 +21,7 @@ export function withError(handler: NextHandler): NextHandler {
         }
         return NextResponse.json(
           { error: { issues: error.issues } },
-          { status: 400 }
+          { status: 400 },
         );
       }
       captureException(error);

@@ -1,0 +1,21 @@
+NODE get_last_weeks_emails
+SQL >
+
+    %
+    SELECT *
+    FROM email
+    WHERE
+        `ownerEmail` = {{ String(ownerEmail) }}
+        AND `draft` = 0
+        AND `timestamp` >= {{ Int64(cutOffDate) }}
+
+
+NODE get_totals
+SQL >
+
+    SELECT count(*) AS totalEmails,
+        SUM(`read`) AS readEmails,
+        SUM(`sent`) AS sentEmails,
+        SUM(1 - `inbox`) AS archivedEmails,
+        SUM(`unsubscribeLink` IS NOT NULL) AS unsubscribeEmails
+    FROM get_last_weeks_emails

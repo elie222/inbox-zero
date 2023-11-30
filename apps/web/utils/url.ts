@@ -4,25 +4,25 @@ function getGmailBaseUrl(emailAddress?: string | null) {
 
 export function getGmailUrl(
   messageOrThreadId: string,
-  emailAddress?: string | null
+  emailAddress?: string | null,
 ) {
   return `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`;
 }
 
 export function getGmailSearchUrl(
   search: string,
-  emailAddress?: string | null
+  emailAddress?: string | null,
 ) {
-  return `${getGmailBaseUrl(emailAddress)}/#search/${encodeURIComponent(
-    search
-  )}`;
+  return `${getGmailBaseUrl(
+    emailAddress,
+  )}/#advanced-search/from=${encodeURIComponent(search)}`;
 }
 
 export function getGmailCreateFilterUrl(
   search: string,
-  emailAddress?: string | null
+  emailAddress?: string | null,
 ) {
   return `${getGmailBaseUrl(
-    emailAddress
+    emailAddress,
   )}/#create-filter/from=${encodeURIComponent(search)}`;
 }
