@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { deleteContact } from "@inboxzero/loops";
 import {
   createFilterFromPrompt,
   type PromptQuery,
@@ -77,6 +78,7 @@ export async function deleteAccountAction() {
   await deleteUserStats({ email: session.user.email });
   await deleteTinybirdEmails({ email: session.user.email });
   await deletePosthogUser({ email: session.user.email });
+  await deleteContact(session.user.email);
 
   await prisma.user.delete({ where: { email: session.user.email } });
 }

@@ -84,9 +84,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.3.2
         version: 3.3.2(react-hook-form@7.48.2)
-      '@inboxzero/resend':
+      '@inboxzero/loops':
         specifier: workspace:*
-        version: link:../../packages/resend
+        version: link:../../packages/loops
       '@inboxzero/tinybird':
         specifier: workspace:*
         version: link:../../packages/tinybird
@@ -355,43 +355,6 @@ importers:
       eslint-plugin-react:
         specifier: 7.33.2
         version: 7.33.2(eslint@8.54.0)
-
-  packages/resend:
-    dependencies:
-      '@react-email/components':
-        specifier: ^0.0.11
-        version: 0.0.11(@types/react@18.2.38)(react@18.2.0)
-      nanoid:
-        specifier: ^5.0.3
-        version: 5.0.3
-      react:
-        specifier: 18.2.0
-        version: 18.2.0
-      react-dom:
-        specifier: 18.2.0
-        version: 18.2.0(react@18.2.0)
-      react-email:
-        specifier: 1.9.5
-        version: 1.9.5
-      resend:
-        specifier: ^2.0.0
-        version: 2.0.0
-    devDependencies:
-      '@types/node':
-        specifier: 20.9.3
-        version: 20.9.3
-      '@types/react':
-        specifier: 18.2.38
-        version: 18.2.38
-      '@types/react-dom':
-        specifier: 18.2.16
-        version: 18.2.16
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      typescript:
-        specifier: 5.3.2
-        version: 5.3.2
 
   packages/tinybird:
     dependencies:
@@ -4313,6 +4276,12 @@ packages:
   /@types/node@18.17.17:
     resolution: {integrity: sha512-cOxcXsQ2sxiwkykdJqvyFS+MLQPLvIdwh5l6gNg8qF6s+C7XSkEWOZjK+XhUZd+mYvHV/180g2cnCcIl4l06Pw==}
     dev: false
+
+  /@types/node@20.9.0:
+    resolution: {integrity: sha512-nekiGu2NDb1BcVofVcEKMIwzlx4NjHlcjhoxxKBNLtz15Y1z7MYf549DFvkHSId02Ax6kGwWntIBPC3l/JZcmw==}
+    dependencies:
+      undici-types: 5.26.5
+    dev: true
 
   /@types/node@20.9.3:
     resolution: {integrity: sha512-nk5wXLAXGBKfrhLB0cyHGbSqopS+nz0BUgZkUQqSHSSgdee0kssp1IAqlQOu333bW+gMNs2QREx7iynm19Abxw==}
@@ -8990,6 +8959,10 @@ packages:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
     dev: false
 
+  /loops@0.1.1:
+    resolution: {integrity: sha512-JxJJn2kxdCxR6enyU/8QH3toy5E+aZBzPnQupgvHuHABjd2jGh2HyT8ekv7PsB5zPKWhQnAVkAgvKHlRZWMMNw==}
+    dev: false
+
   /loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
@@ -12251,6 +12224,12 @@ packages:
       for-each: 0.3.3
       is-typed-array: 1.1.10
     dev: false
+
+  /typescript@5.2.2:
+    resolution: {integrity: sha512-mI4WrpHsbCIcwT9cF4FZvr80QUeKvsUsUvKDoR+X/7XHQH98xYD8YHZg7ANtz2GtZt/CBq2QJ0thkGJMHfqc1w==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+    dev: true
 
   /typescript@5.3.2:
     resolution: {integrity: sha512-6l+RyNy7oAHDfxC4FzSJcz9vnjTKxrLpDG5M2Vu4SHRVNg6xzqZp6LYSR9zjqQTu8DU/f5xwxUdADOkbrIX2gQ==}
