@@ -84,6 +84,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.3.2
         version: 3.3.2(react-hook-form@7.48.2)
+      '@inboxzero/loops':
+        specifier: workspace:*
+        version: link:../../packages/loops
       '@inboxzero/tinybird':
         specifier: workspace:*
         version: link:../../packages/tinybird

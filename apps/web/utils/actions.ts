@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { deleteContact } from "@inboxzero/loops";
 import {
   createFilterFromPrompt,
   type PromptQuery,
@@ -44,7 +45,7 @@ export async function labelThreadsAction(options: {
         threadId,
         archive: options.archive,
       });
-    })
+    }),
   );
 }
 
@@ -77,12 +78,13 @@ export async function deleteAccountAction() {
   await deleteUserStats({ email: session.user.email });
   await deleteTinybirdEmails({ email: session.user.email });
   await deletePosthogUser({ email: session.user.email });
+  await deleteContact(session.user.email);
 
   await prisma.user.delete({ where: { email: session.user.email } });
 }
 
 export async function updateLabels(
-  labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[]
+  labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[],
 ) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
