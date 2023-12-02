@@ -7,10 +7,10 @@ import {
 export async function onAutoArchive(from: string) {
   try {
     await createAutoArchiveFilterAction(from);
-    toastSuccess({ description: "Filter created!" });
+    toastSuccess({ description: "Auto archive enabled!" });
   } catch (error: any) {
     toastError({
-      description: `There was an error creating the filter: ${error.message}`,
+      description: `There was an error creating the filter to auto archive the emails: ${error.message}`,
     });
   }
 }
