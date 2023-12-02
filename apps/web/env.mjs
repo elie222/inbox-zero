@@ -26,6 +26,7 @@ export const env = createEnv({
     POSTHOG_PROJECT_ID: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     CRON_SECRET: z.string().optional(),
+    LOOPS_API_SECRET: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),

@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type NextAuthConfig, type DefaultSession, Account } from "next-auth";
 import { type JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
+import { createContact } from "@inboxzero/loops";
 import prisma from "@/utils/prisma";
 import { env } from "@/env.mjs";
 
@@ -109,6 +110,13 @@ export const getAuthOptions: (options?: {
       if (session.error) console.error("session.error", session.error);
 
       return session;
+    },
+  },
+  events: {
+    signIn: async ({ isNewUser, user }) => {
+      if (isNewUser && user.email) {
+        await createContact(user.email);
+      }
     },
   },
   pages: {
