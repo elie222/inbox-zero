@@ -38,6 +38,8 @@ export const EmailListItem = forwardRef(
       rejectingPlan: boolean;
       executePlan: (thread: Thread) => Promise<void>;
       rejectPlan: (thread: Thread) => Promise<void>;
+
+      refetch: () => void;
     },
     ref: ForwardedRef<HTMLLIElement>,
   ) => {
@@ -131,6 +133,7 @@ export const EmailListItem = forwardRef(
                       props.onArchive(thread);
                       props.closePanel();
                     }}
+                    refetch={props.refetch}
                   />
                 </div>
                 <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">

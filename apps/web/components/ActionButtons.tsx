@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   ArchiveBoxArrowDownIcon,
@@ -6,10 +6,11 @@ import {
   ChatBubbleBottomCenterIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { OrbitIcon } from "lucide-react";
+import { DeleteIcon, OrbitIcon } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
+import { onTrashThread } from "@/utils/actions-client";
 
 export function ActionButtons(props: {
   threadId: string;
@@ -20,6 +21,7 @@ export function ActionButtons(props: {
   onAiCategorize: () => void;
   onReply: () => void;
   onArchive: () => void;
+  refetch: () => void;
 }) {
   const session = useSession();
   const email = session.data?.user.email;
@@ -33,6 +35,7 @@ export function ActionButtons(props: {
     isCategorizing,
     isPlanning,
     isArchiving,
+    refetch,
   } = props;
 
   const openInGmail = useCallback(() => {
@@ -40,6 +43,17 @@ export function ActionButtons(props: {
     const url = getGmailUrl(threadId, email);
     window.open(url, "_blank");
   }, [threadId, email]);
+
+  const [isTrashing, setIsTrashing] = useState(false);
+
+  // TODO lift this up to the parent component to be consistent / to support bulk trash
+  // TODO show loading toast
+  const onTrash = useCallback(async () => {
+    setIsTrashing(true);
+    await onTrashThread(threadId);
+    refetch();
+    setIsTrashing(false);
+  }, [threadId, refetch]);
 
   const buttons = useMemo(
     () => [
@@ -81,6 +95,18 @@ export function ActionButtons(props: {
           <SparklesIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
+
+      // may remove later
+      {
+        tooltip: "Delete",
+        onClick: onTrash,
+        icon: isTrashing ? (
+          <LoadingMiniSpinner />
+        ) : (
+          <DeleteIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+        ),
+      },
+
       {
         tooltip: "Archive",
         onClick: onArchive,
@@ -95,6 +121,8 @@ export function ActionButtons(props: {
       },
     ],
     [
+      onTrash,
+      isTrashing,
       onArchive,
       isArchiving,
       onPlanAiAction,
@@ -103,7 +131,7 @@ export function ActionButtons(props: {
       isCategorizing,
       onReply,
       openInGmail,
-    ]
+    ],
   );
 
   return <ButtonGroup buttons={buttons} />;

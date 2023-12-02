@@ -28,11 +28,11 @@ import { Button } from "@/components/ui/button";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { Tooltip } from "@/components/Tooltip";
-import { getGmailCreateFilterUrl } from "@/utils/url";
 import {
   EmailsToIncludeFilter,
   useEmailsToIncludeFilter,
 } from "@/app/(app)/stats/EmailsToIncludeFilter";
+import { onAutoArchive } from "@/utils/actions-client";
 
 export function NewsletterStats(props: {
   dateRange?: DateRange | undefined;
@@ -174,13 +174,12 @@ export function NewsletterStats(props: {
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
                           <Tooltip content="Auto archive emails using Gmail filters">
-                            <Button size="sm" variant="secondary" asChild>
-                              <a
-                                href={getGmailCreateFilterUrl(item.name, email)}
-                                target="_blank"
-                              >
-                                Auto archive
-                              </a>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => onAutoArchive(item.name)}
+                            >
+                              Auto archive
                             </Button>
                           </Tooltip>
                         </TableCell>

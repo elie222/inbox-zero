@@ -18,11 +18,11 @@ export function getGmailSearchUrl(
   )}/#advanced-search/from=${encodeURIComponent(search)}`;
 }
 
-export function getGmailCreateFilterUrl(
-  search: string,
-  emailAddress?: string | null,
-) {
-  return `${getGmailBaseUrl(
-    emailAddress,
-  )}/#create-filter/from=${encodeURIComponent(search)}`;
-}
+// export function getGmailCreateFilterUrl(
+//   search: string,
+//   emailAddress?: string | null,
+// ) {
+//   return `${getGmailBaseUrl(
+//     emailAddress,
+//   )}/#create-filter/from=${encodeURIComponent(search)}`;
+// }

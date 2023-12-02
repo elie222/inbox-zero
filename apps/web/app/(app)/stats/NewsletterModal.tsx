@@ -25,9 +25,10 @@ import { EmailList } from "@/components/email-list/EmailList";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { getGmailCreateFilterUrl, getGmailSearchUrl } from "@/utils/url";
+import { getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
+import { onAutoArchive } from "@/utils/actions-client";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<
@@ -37,40 +38,39 @@ export function NewsletterModal(props: {
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
 }) {
+  const { newsletter, refreshInterval, onClose } = props;
+
   const session = useSession();
   const email = session.data?.user.email;
 
   return (
-    <Dialog open={!!props.newsletter} onOpenChange={props.onClose}>
+    <Dialog open={!!newsletter} onOpenChange={onClose}>
       <DialogContent className="max-h-screen overflow-x-scroll overflow-y-scroll lg:min-w-[880px] xl:min-w-[1280px]">
-        {props.newsletter && (
+        {newsletter && (
           <>
             <DialogHeader>
-              <DialogTitle>{props.newsletter.name}</DialogTitle>
-              <DialogDescription>{props.newsletter.name}</DialogDescription>
+              <DialogTitle>{newsletter.name}</DialogTitle>
+              <DialogDescription>{newsletter.name}</DialogDescription>
             </DialogHeader>
 
             <div className="flex space-x-2">
               <Button size="sm" variant="secondary">
-                <a href={props.newsletter.lastUnsubscribeLink} target="_blank">
+                <a href={newsletter.lastUnsubscribeLink} target="_blank">
                   Unsubscribe
                 </a>
               </Button>
-
               <Tooltip content="Auto archive emails using Gmail filters">
-                <Button asChild size="sm" variant="secondary">
-                  <Link
-                    href={getGmailCreateFilterUrl(props.newsletter.name, email)}
-                    target="_blank"
-                  >
-                    <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                    Auto archive
-                  </Link>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onAutoArchive(newsletter.name)}
+                >
+                  Auto archive
                 </Button>
               </Tooltip>
               <Button asChild size="sm" variant="secondary">
                 <Link
-                  href={getGmailSearchUrl(props.newsletter.name, email)}
+                  href={getGmailSearchUrl(newsletter.name, email)}
                   target="_blank"
                 >
                   <ExternalLinkIcon className="mr-2 h-4 w-4" />
@@ -81,15 +81,15 @@ export function NewsletterModal(props: {
 
             <div>
               <EmailsChart
-                fromEmail={props.newsletter?.name!}
+                fromEmail={newsletter.name}
                 period="week"
-                refreshInterval={props.refreshInterval}
+                refreshInterval={refreshInterval}
               />
             </div>
             <div className="lg:max-w-[820px] xl:max-w-[1220px]">
               <Emails
-                fromEmail={props.newsletter.name}
-                refreshInterval={props.refreshInterval}
+                fromEmail={newsletter.name}
+                refreshInterval={refreshInterval}
               />
             </div>
           </>
@@ -134,7 +134,7 @@ function EmailsChart(props: {
 function Emails(props: { fromEmail: string; refreshInterval?: number }) {
   const [tab, setTab] = useState<"unarchived" | "all">("unarchived");
   const url = `/api/google/threads?&fromEmail=${encodeURIComponent(
-    props.fromEmail
+    props.fromEmail,
   )}${tab === "all" ? "&includeAll=true" : ""}`;
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
     refreshInterval: props.refreshInterval,
