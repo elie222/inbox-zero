@@ -6,24 +6,26 @@ import Link from "next/link";
 import { Dialog, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import {
-  ChartBarIcon,
-  Cog6ToothIcon,
+  ArchiveIcon,
+  BarChartBigIcon,
+  CogIcon,
+  CrownIcon,
   InboxIcon,
-  LightBulbIcon,
+  LightbulbIcon,
+  MailsIcon,
+  MessageSquareDashedIcon,
   SparklesIcon,
   StarIcon,
-  XMarkIcon,
-  ChatBubbleBottomCenterTextIcon,
-  ArchiveBoxArrowDownIcon,
-} from "@heroicons/react/24/outline";
+  Users2Icon,
+  XIcon,
+} from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { CrownIcon, MailsIcon, SendIcon, Users2Icon } from "lucide-react";
 
 const navigation = [
   {
     name: "Analytics",
     href: "/stats",
-    icon: ChartBarIcon,
+    icon: BarChartBigIcon,
   },
   {
     name: "Newsletters",
@@ -41,22 +43,21 @@ const navigation = [
     href: "/new-senders",
     icon: Users2Icon,
   },
+  // {
+  //   name: "Send Email",
+  //   href: "/compose",
+  //   icon: SendIcon,
+  // },
   {
-    name: "Send Email",
-    href: "/compose",
-    icon: SendIcon,
+    name: "No reply",
+    href: "/request-access?type=no-reply",
+    icon: MessageSquareDashedIcon,
   },
-  // disable till live
-  // {
-  //   name: "No reply",
-  //   href: "/request-access?type=no-reply",
-  //   icon: ChatBubbleBottomCenterTextIcon,
-  // },
-  // {
-  //   name: "Bulk Archive",
-  //   href: "/request-access?type=bulk-archive",
-  //   icon: ArchiveBoxArrowDownIcon,
-  // },
+  {
+    name: "Bulk Archive",
+    href: "/request-access?type=bulk-archive",
+    icon: ArchiveIcon,
+  },
 
   // {
   //   name: "No reply",
@@ -76,7 +77,7 @@ const navigation = [
 ];
 
 const bottomLinks = [
-  { name: "Feature Requests", href: "/feature-requests", icon: LightBulbIcon },
+  { name: "Feature Requests", href: "/feature-requests", icon: LightbulbIcon },
   {
     name: "Join Discord",
     href: "/discord",
@@ -91,7 +92,7 @@ const bottomLinks = [
   },
   { name: "Star on GitHub", href: "/github", icon: StarIcon },
   { name: "Premium", href: "/premium", icon: CrownIcon },
-  { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
+  { name: "Settings", href: "/settings", icon: CogIcon },
 ];
 
 export function SideNav(props: {
@@ -148,7 +149,7 @@ export function SideNav(props: {
                         onClick={() => props.setSidebarOpen(false)}
                       >
                         <span className="sr-only">Close sidebar</span>
-                        <XMarkIcon
+                        <XIcon
                           className="h-6 w-6 text-white"
                           aria-hidden="true"
                         />
