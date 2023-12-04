@@ -10,9 +10,9 @@
     "bull": "^4.11.5"
   },
   "devDependencies": {
-    "@types/node": "^20.9.3",
+    "@types/node": "20.9.3",
     "eslint-config-custom": "workspace:*",
-    "nodemon": "^3.0.1",
+    "nodemon": "^3.0.2",
     "ts-node": "^10.9.1",
     "tsconfig": "workspace:*",
     "typescript": "5.3.2"
