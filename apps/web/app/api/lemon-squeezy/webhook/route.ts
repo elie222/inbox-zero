@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env.mjs";
+import { posthogCaptureEvent } from "@/utils/posthog";
 
 // https://docs.lemonsqueezy.com/help/webhooks#signing-requests
 // https://gist.github.com/amosbastian/e403e1d8ccf4f7153f7840dd11a85a69
@@ -12,7 +13,7 @@ export const POST = withError(async (request: Request) => {
   const digest = Buffer.from(hmac.update(text).digest("hex"), "utf8");
   const signature = Buffer.from(
     request.headers.get("x-signature") as string,
-    "utf8"
+    "utf8",
   );
 
   if (!crypto.timingSafeEqual(digest, signature))
@@ -26,7 +27,7 @@ export const POST = withError(async (request: Request) => {
   if (!userId) {
     return NextResponse.json(
       { message: "No userId provided" },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
@@ -35,14 +36,23 @@ export const POST = withError(async (request: Request) => {
     const lemonSqueezySubscriptionId = payload.data.id;
     const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         lemonSqueezyRenewsAt,
         lemonSqueezySubscriptionId,
         lemonSqueezyCustomerId,
       },
+      select: { email: true },
     });
+
+    if (updatedUser.email) {
+      await posthogCaptureEvent(
+        updatedUser.email,
+        "Upgraded to premium",
+        payload.data.attributes,
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });
