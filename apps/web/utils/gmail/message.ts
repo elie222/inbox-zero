@@ -36,3 +36,19 @@ export async function getMessagesBatch(
 
   return messages;
 }
+
+export async function findPreviousEmailsBySender(
+  gmail: gmail_v1.Gmail,
+  options: {
+    sender: string;
+    dateInSeconds: number;
+  },
+) {
+  const messages = await gmail.users.messages.list({
+    userId: "me",
+    q: `from:${options.sender} before:${options.dateInSeconds}`,
+    maxResults: 2,
+  });
+
+  return messages.data.messages;
+}

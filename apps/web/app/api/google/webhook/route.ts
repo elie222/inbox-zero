@@ -8,11 +8,12 @@ import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
-import { getMessage } from "@/utils/gmail/message";
+import { findPreviousEmailsBySender, getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { categorise } from "@/app/api/ai/categorise/controller";
 import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
+import { findUnsubscribeLink } from "@/app/api/user/stats/tinybird/load/route";
 
 export const dynamic = "force-dynamic";
 
@@ -211,18 +212,34 @@ async function planHistory(
         console.log("Categorising thread...");
 
         const content =
-          (parsedMessage.textHtml && parseEmail(parsedMessage.textHtml)) ||
+          (parsedMessage.textHtml &&
+            parseEmail(parsedMessage.textHtml, false, null)) ||
           parsedMessage.textPlain ||
           parsedMessage.snippet;
+
+        const unsubscribeLink =
+          parsedMessage.textHtml && findUnsubscribeLink(parsedMessage.textHtml);
+
+        // check if user has emailed us before this email
+        const previousEmails = await findPreviousEmailsBySender(gmail, {
+          sender: parsedMessage.headers.from,
+          dateInSeconds: +new Date(parsedMessage.headers.date) / 1000, // TODO use internal date?
+        });
+        const hasPreviousEmail = !!previousEmails?.find(
+          (p) => p.id !== parsedMessage.id,
+        );
 
         await categorise(
           {
             from: parsedMessage.headers.from,
             subject: parsedMessage.headers.subject,
             content,
+            snippet: parsedMessage.snippet,
             threadId: m.message.threadId,
             aiModel: options.aiModel,
             openAIApiKey: options.openAIApiKey,
+            unsubscribeLink,
+            hasPreviousEmail,
           },
           {
             email,
