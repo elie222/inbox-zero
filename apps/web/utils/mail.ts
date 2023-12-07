@@ -58,7 +58,7 @@ function htmlToText(html: string, removeLinks = true, removeImages = true) {
   return text;
 }
 
-function truncate(str: string, length: number) {
+export function truncate(str: string, length: number) {
   return str.length > length ? str.slice(0, length) + "..." : str;
 }
 
@@ -67,14 +67,14 @@ function truncate(str: string, length: number) {
 export function parseEmail(
   html: string,
   extractReply = false,
-  maxLength = 2000,
+  maxLength: number | null = 2000,
 ) {
   // 1. remove replies
   // 2. remove html
   // 3. truncate
 
   const text = htmlToText(extractReply ? parseReply(html) : html);
-  const truncatedText = truncate(text, maxLength);
+  const truncatedText = maxLength === null ? text : truncate(text, maxLength);
 
   return truncatedText;
 }

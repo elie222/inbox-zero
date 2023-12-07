@@ -4,16 +4,40 @@ import { UserAIFields, getOpenAI } from "@/utils/openai";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
+import { truncate } from "@/utils/mail";
 
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
-const aiResponseSchema = z.object({ category: z.string() });
+const aiResponseSchema = z.object({
+  requiresMoreInformation: z.boolean(),
+  category: z
+    .enum([
+      "NEWSLETTER",
+      "PROMOTIONAL",
+      "RECEIPT",
+      "ALERT",
+      "NOTIFICATION",
+      "FORUM",
+      "EVENT",
+      "TRAVEL",
+      "QUESTION",
+      "SUPPORT",
+      "COLD_EMAIL",
+      "SOCIAL_MEDIA",
+      "LEGAL_UPDATE",
+      "OTHER",
+    ])
+    .optional(),
+});
 
 async function aiCategorise(
   body: CategoriseBody & { content: string } & UserAIFields,
+  expanded: boolean,
 ) {
+  console.log("snippet", body.snippet);
+
   const message = `Categorize this email.
-Return a JSON object with a "category" field.
+Return a JSON object with a "category" and "requiresMoreInformation" field.
 
 These are the categories to choose from, with an explanation of each one:
 NEWSLETTER - emails that contain long-form articles, thought leadership, insights, or educational resources.
@@ -31,20 +55,27 @@ SOCIAL_MEDIA - social media notifications
 LEGAL_UPDATE - updates about changes to terms of service or privacy policy
 OTHER - anything else
 
+We only provide you with a snippet of the email. If you need more information, set "requiresMoreInformation" to true and we will provide you with the full email to better categorize it.
+
 An example response would be:
 {
-  "category": "NEWSLETTER"
+  "category": "NEWSLETTER",
+  "requiresMoreInformation": false
 }
 
-A mistake you often make is categorizing an email as NEWSLETTER when it is actually PROMOTIONAL or NOTIFICATION. Do not do this. If it is not a long-form article it is not a newsletter.
+If the sender domain includes Beehiiv or Substack it probably is a newsletter.
 
-##
 The email:
 
+###
 From: ${body.from}
 Subject: ${body.subject}
+Unsubscribe link: ${body.unsubscribeLink || "Not found"}
+Has emailed us before: ${body.hasPreviousEmail ? "yes" : "no"}
 
-${body.content}
+Content:
+${expanded ? truncate(body.content, 2000) : body.snippet}
+###
 `;
 
   const response = await getOpenAI(body.openAIApiKey).chat.completions.create({
@@ -68,7 +99,6 @@ ${body.content}
 
   try {
     const res = parseJSON(content);
-
     return aiResponseSchema.parse(res);
   } catch (error) {
     console.error("Error parsing json:", content);
@@ -85,21 +115,21 @@ export async function categorise(
     email: options.email,
     threadId: body.threadId,
   });
-
   if (existingCategory) return existingCategory;
-
   // 2. ai categorise
-  const category = await aiCategorise(body);
+  let category = await aiCategorise(body, false);
+  if (category?.requiresMoreInformation) {
+    console.log("Not enough information, expanding email and trying again");
+    category = await aiCategorise(body, true);
+  }
+
   console.log("category:", category);
-
-  if (!category) return;
-
+  if (!category?.category) return;
   // 3. save category
   await saveCategory({
     email: options.email,
     threadId: body.threadId,
-    category,
+    category: { category: category.category },
   });
-
   return category;
 }

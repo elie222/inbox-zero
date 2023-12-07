@@ -54,9 +54,13 @@ model User {
   about                     String?
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
-  aiModel                   String?
-  openAIApiKey              String?
   completedOnboarding       Boolean   @default(false)
+
+  // settings
+  aiModel             String?
+  openAIApiKey        String?
+  statsEmailFrequency Frequency @default(WEEKLY)
+  categorizeEmails    Boolean   @default(true)
 
   // lemon squeezy
   lemonSqueezyCustomerId     Int?
@@ -166,4 +170,12 @@ enum ActionType {
   // ADD_TO_DO
   // CALL_WEBHOOK
   // INTEGRATION // for example, add to Notion
+}
+
+enum Frequency {
+  NEVER
+  // DAILY
+  WEEKLY
+  // MONTHLY
+  // YEARLY
 }

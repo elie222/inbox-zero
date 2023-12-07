@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
@@ -8,8 +7,6 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { deleteAccountAction } from "@/utils/actions";
 
 export function DeleteSection() {
-  const router = useRouter();
-
   return (
     <FormSection>
       <FormSectionLeft
@@ -22,7 +19,7 @@ export function DeleteSection() {
           color="red"
           onClick={async () => {
             const yes = window.confirm(
-              "Are you sure you want to delete your account?"
+              "Are you sure you want to delete your account?",
             );
 
             if (!yes) return;

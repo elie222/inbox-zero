@@ -249,6 +249,7 @@ export function EmailList(props: {
             textHtml: message.parsedMessage.textHtml || null,
             snippet: thread.snippet,
             threadId: message.threadId || "",
+            date: message.parsedMessage.headers.date || "",
           });
 
           if (isError(res)) {

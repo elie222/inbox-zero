@@ -14,6 +14,7 @@ async function getUser(userId: string) {
       lemonSqueezyRenewsAt: true,
       aiModel: true,
       openAIApiKey: true,
+      statsEmailFrequency: true,
     },
   });
 }

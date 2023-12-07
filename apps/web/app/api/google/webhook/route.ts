@@ -8,11 +8,12 @@ import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
-import { getMessage } from "@/utils/gmail/message";
+import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { categorise } from "@/app/api/ai/categorise/controller";
 import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
+import { findUnsubscribeLink } from "@/app/api/user/stats/tinybird/load/route";
 
 export const dynamic = "force-dynamic";
 
@@ -211,18 +212,29 @@ async function planHistory(
         console.log("Categorising thread...");
 
         const content =
-          (parsedMessage.textHtml && parseEmail(parsedMessage.textHtml)) ||
+          (parsedMessage.textHtml &&
+            parseEmail(parsedMessage.textHtml, false, null)) ||
           parsedMessage.textPlain ||
           parsedMessage.snippet;
+
+        const unsubscribeLink = findUnsubscribeLink(parsedMessage.textHtml);
+        const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
+          from: parsedMessage.headers.from,
+          date: parsedMessage.headers.date,
+          threadId: m.message.threadId,
+        });
 
         await categorise(
           {
             from: parsedMessage.headers.from,
             subject: parsedMessage.headers.subject,
             content,
+            snippet: parsedMessage.snippet,
             threadId: m.message.threadId,
             aiModel: options.aiModel,
             openAIApiKey: options.openAIApiKey,
+            unsubscribeLink,
+            hasPreviousEmail,
           },
           {
             email,

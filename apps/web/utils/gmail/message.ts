@@ -36,3 +36,34 @@ export async function getMessagesBatch(
 
   return messages;
 }
+
+async function findPreviousEmailsBySender(
+  gmail: gmail_v1.Gmail,
+  options: {
+    sender: string;
+    dateInSeconds: number;
+  },
+) {
+  const messages = await gmail.users.messages.list({
+    userId: "me",
+    q: `from:${options.sender} before:${options.dateInSeconds}`,
+    maxResults: 2,
+  });
+
+  return messages.data.messages;
+}
+
+export async function hasPreviousEmailsFromSender(
+  gmail: gmail_v1.Gmail,
+  options: { from: string; date: string; threadId: string },
+) {
+  const previousEmails = await findPreviousEmailsBySender(gmail, {
+    sender: options.from,
+    dateInSeconds: +new Date(options.date) / 1000,
+  });
+  const hasPreviousEmail = !!previousEmails?.find(
+    (p) => p.threadId !== options.threadId,
+  );
+
+  return hasPreviousEmail;
+}
