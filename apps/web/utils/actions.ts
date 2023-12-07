@@ -24,6 +24,7 @@ import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
+import { env } from "@/env.mjs";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -174,4 +175,20 @@ export async function trashThreadAction(threadId: string) {
   const res = await trashThread({ gmail, threadId });
 
   return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function changePremiumStatus(userEmail: string, upgrade: boolean) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+
+  if (!env.ADMINS?.includes(session.user.email)) throw new Error("Not admin");
+
+  const ONE_YEAR = 1000 * 60 * 60 * 24 * 365;
+
+  await prisma.user.update({
+    where: { email: userEmail },
+    data: upgrade
+      ? { lemonSqueezyRenewsAt: new Date(+new Date() + ONE_YEAR) }
+      : { lemonSqueezyRenewsAt: null },
+  });
 }

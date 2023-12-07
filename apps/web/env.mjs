@@ -27,6 +27,10 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    ADMINS: z
+      .string()
+      .optional()
+      .transform((value) => value?.split(",")),
   },
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
