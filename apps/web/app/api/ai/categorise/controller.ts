@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { parseJSON } from "@/utils/json";
 import { UserAIFields, getOpenAI } from "@/utils/openai";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
@@ -6,6 +7,7 @@ import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { RunnableFunctionWithParse } from "openai/lib/RunnableFunction";
 import { truncate } from "@/utils/mail";
+import { JSONSchema } from "openai/lib/jsonschema";
 
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
@@ -46,6 +48,8 @@ const categorizeFunctionSchema = z.object({
   `),
 });
 
+const categorizeFunctionJsonSchema = zodToJsonSchema(categorizeFunctionSchema);
+
 export function getFunctions(options: { expandedEmail: string }) {
   const functions: Record<string, RunnableFunctionWithParse<any>> = {
     // We pass in a truncated snippet initially to try reduce tokens used
@@ -56,7 +60,6 @@ export function getFunctions(options: { expandedEmail: string }) {
       },
       description: "Expand the email if you do not have enough context.",
       parse: (args: string) => z.object({}).parse(JSON.parse(args)),
-      // TODO use zodToJsonSchema
       parameters: { type: "object", properties: {} },
     },
     categorizeEmail: {
@@ -69,11 +72,7 @@ export function getFunctions(options: { expandedEmail: string }) {
       },
       description: "Categorize the email.",
       parse: (args: string) => categorizeFunctionSchema.parse(JSON.parse(args)),
-      // TODO use zodToJsonSchema
-      parameters: {
-        type: "object",
-        properties: {},
-      },
+      parameters: categorizeFunctionJsonSchema as JSONSchema,
     },
   };
 
@@ -116,7 +115,8 @@ ${body.snippet}
     frequency_penalty: 0,
   });
 
-  const content = (await runner.finalFunctionCall())?.arguments?.[0];
+  const finalCall = await runner.finalFunctionCall();
+  const content = finalCall?.arguments;
 
   if (!content) return;
 

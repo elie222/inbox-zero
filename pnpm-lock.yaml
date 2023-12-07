@@ -285,6 +285,9 @@ importers:
       zod:
         specifier: ^3.22.4
         version: 3.22.4
+      zod-to-json-schema:
+        specifier: ^3.22.1
+        version: 3.22.1(zod@3.22.4)
     devDependencies:
       '@headlessui/tailwindcss':
         specifier: ^0.2.0
@@ -12929,6 +12932,14 @@ packages:
       sister: 3.0.2
     transitivePeerDependencies:
       - supports-color
+    dev: false
+
+  /zod-to-json-schema@3.22.1(zod@3.22.4):
+    resolution: {integrity: sha512-bVSWQ2JF3ZglQefafkM+Kk9KQ2fqqSi4VhxWaup1NJX9FS5jDg0EkEioVCWui0PiIQvcXJUjmN71bg672+a+tA==}
+    peerDependencies:
+      zod: ^3.22.4
+    dependencies:
+      zod: 3.22.4
     dev: false
 
   /zod@3.22.4:
