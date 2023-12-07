@@ -4,6 +4,7 @@ import { withError } from "@/utils/middleware";
 import { sleep } from "@/utils/sleep";
 import { env } from "@/env.mjs";
 import { hasCronSecret } from "@/utils/cron";
+import { Frequency } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -14,19 +15,7 @@ export type SendWeeklyStatsAllUpdateResponse = Awaited<
 async function sendWeeklyStatsAllUpdate() {
   const users = await prisma.user.findMany({
     select: { email: true },
-    // this is temporary limit. will release to all users soon
-    where: {
-      OR: [
-        {
-          lemonSqueezyRenewsAt: {
-            gt: new Date(),
-          },
-        },
-        {
-          openAIApiKey: { not: null },
-        },
-      ],
-    },
+    where: { statsEmailFrequency: { not: Frequency.NEVER } },
   });
 
   users.map(async (user) => {

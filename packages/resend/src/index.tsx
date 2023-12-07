@@ -36,7 +36,7 @@ const sendEmail = async ({
     react,
     headers: {
       ...(listUnsubscribe
-        ? { "List-Unsubscribe": "<https://getinboxzero.com/unsubscribe>" }
+        ? { "List-Unsubscribe": "<https://getinboxzero.com/settings>" }
         : {}),
       // Prevent threading on Gmail
       "X-Entity-Ref-ID": nanoid(),
