@@ -214,7 +214,9 @@ async function saveBatch(
   return res;
 }
 
-export function findUnsubscribeLink(html: string) {
+export function findUnsubscribeLink(html?: string | null) {
+  if (!html) return;
+
   const $ = cheerio.load(html);
   let unsubscribeLink: string | undefined;
 

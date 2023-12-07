@@ -7,7 +7,7 @@ import { parseEmail, truncate } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { AIModel } from "@/utils/openai";
 import { findUnsubscribeLink } from "@/app/api/user/stats/tinybird/load/route";
-import { findPreviousEmailsBySender } from "@/utils/gmail/message";
+import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
 
 export const POST = withError(async (request: Request) => {
@@ -29,19 +29,10 @@ export const POST = withError(async (request: Request) => {
     },
   });
 
-  const unsubscribeLink =
-    (body.textHtml && findUnsubscribeLink(body.textHtml)) || "";
-
   const gmail = getGmailClient(session);
 
-  // check if user has emailed us before this email
-  const previousEmails = await findPreviousEmailsBySender(gmail, {
-    sender: body.from,
-    dateInSeconds: +new Date(body.date) / 1000, // TODO use internal date?
-  });
-  const hasPreviousEmail = !!previousEmails?.find(
-    (p) => p.threadId !== body.threadId,
-  );
+  const unsubscribeLink = findUnsubscribeLink(body.textHtml) || "";
+  const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, body);
 
   const res = await categorise(
     {

@@ -8,7 +8,7 @@ import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
-import { findPreviousEmailsBySender, getMessage } from "@/utils/gmail/message";
+import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { categorise } from "@/app/api/ai/categorise/controller";
 import { parseEmail } from "@/utils/mail";
@@ -217,17 +217,12 @@ async function planHistory(
           parsedMessage.textPlain ||
           parsedMessage.snippet;
 
-        const unsubscribeLink =
-          parsedMessage.textHtml && findUnsubscribeLink(parsedMessage.textHtml);
-
-        // check if user has emailed us before this email
-        const previousEmails = await findPreviousEmailsBySender(gmail, {
-          sender: parsedMessage.headers.from,
-          dateInSeconds: +new Date(parsedMessage.headers.date) / 1000, // TODO use internal date?
+        const unsubscribeLink = findUnsubscribeLink(parsedMessage.textHtml);
+        const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
+          from: parsedMessage.headers.from,
+          date: parsedMessage.headers.date,
+          threadId: m.message.threadId,
         });
-        const hasPreviousEmail = !!previousEmails?.find(
-          (p) => p.id !== parsedMessage.id,
-        );
 
         await categorise(
           {

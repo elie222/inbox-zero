@@ -37,7 +37,7 @@ export async function getMessagesBatch(
   return messages;
 }
 
-export async function findPreviousEmailsBySender(
+async function findPreviousEmailsBySender(
   gmail: gmail_v1.Gmail,
   options: {
     sender: string;
@@ -51,4 +51,19 @@ export async function findPreviousEmailsBySender(
   });
 
   return messages.data.messages;
+}
+
+export async function hasPreviousEmailsFromSender(
+  gmail: gmail_v1.Gmail,
+  options: { from: string; date: string; threadId: string },
+) {
+  const previousEmails = await findPreviousEmailsBySender(gmail, {
+    sender: options.from,
+    dateInSeconds: +new Date(options.date) / 1000,
+  });
+  const hasPreviousEmail = !!previousEmails?.find(
+    (p) => p.threadId !== options.threadId,
+  );
+
+  return hasPreviousEmail;
 }
