@@ -13,7 +13,7 @@ import { getThread } from "@/utils/gmail/thread";
 import { categorise } from "@/app/api/ai/categorise/controller";
 import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
-import { findUnsubscribeLink } from "@/app/api/user/stats/tinybird/load/route";
+import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
 
 export const dynamic = "force-dynamic";
 
@@ -217,7 +217,10 @@ async function planHistory(
           parsedMessage.textPlain ||
           parsedMessage.snippet;
 
-        const unsubscribeLink = findUnsubscribeLink(parsedMessage.textHtml);
+        const unsubscribeLink =
+          findUnsubscribeLink(parsedMessage.textHtml) ||
+          getHeaderUnsubscribe(parsedMessage.headers);
+
         const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
           from: parsedMessage.headers.from,
           date: parsedMessage.headers.date,

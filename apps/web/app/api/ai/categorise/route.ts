@@ -6,7 +6,7 @@ import { categoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { parseEmail, truncate } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { AIModel } from "@/utils/openai";
-import { findUnsubscribeLink } from "@/app/api/user/stats/tinybird/load/route";
+import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
 
@@ -31,7 +31,7 @@ export const POST = withError(async (request: Request) => {
 
   const gmail = getGmailClient(session);
 
-  const unsubscribeLink = findUnsubscribeLink(body.textHtml) || "";
+  const unsubscribeLink = findUnsubscribeLink(body.textHtml);
   const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, body);
 
   const res = await categorise(
