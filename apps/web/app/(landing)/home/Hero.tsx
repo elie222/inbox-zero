@@ -39,7 +39,7 @@ export function Hero() {
                 alt="Inbox screenshot"
                 width={2432}
                 height={1442}
-                className="rounded-md shadow-2xl ring-1 ring-gray-900/10"
+                className="rounded-md shadow ring-1 ring-gray-900/10"
               />
 
               <VideoDemo />

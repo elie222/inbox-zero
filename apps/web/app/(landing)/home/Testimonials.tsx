@@ -1,58 +1,158 @@
-/* eslint-disable @next/next/no-img-element */
+import clsx from "clsx";
+import Image from "next/image";
+
+const featuredTestimonial = {
+  body: "Loving it so far! Cleaned up my top cluttering newsletter and promotional email subscriptions in just a few minutes.",
+  author: {
+    name: "Jonni Lundy",
+    handle: "jonnilundy",
+    imageUrl:
+      "https://pbs.twimg.com/profile_images/1651273413053542400/6ul40RRM_400x400.jpg",
+    logoUrl: "/images/testimonials/resend-wordmark-black.svg",
+  },
+};
+const testimonials = [
+  [
+    [
+      {
+        body: "hey bro, your tool is legit what I been looking for for ages haha. its a god send",
+        author: {
+          name: "James",
+          handle: "james",
+          imageUrl:
+            "/images/testimonials/midas-hofstra-a6PMA5JEmWE-unsplash.jpg",
+        },
+      },
+      // More testimonials...
+    ],
+    // [
+    //   {
+    //     body: "abc",
+    //     author: {
+    //       name: "abc",
+    //       handle: "abc",
+    //       imageUrl:
+    //         "https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
+    //     },
+    //   },
+    //   // More testimonials...
+    // ],
+  ],
+  [
+    [
+      {
+        body: "fwiw this looks pretty slick. Connected one of my accounts to check it out.",
+        author: {
+          name: "Nate Kadlac",
+          handle: "kadlac",
+          imageUrl:
+            "https://pbs.twimg.com/profile_images/1558195781089120256/RWvUylSb_400x400.jpg",
+        },
+      },
+      // More testimonials...
+    ],
+    // [
+    //   {
+    //     body: "Molestias ea earum quos nostrum doloremque sed. Quaerat quasi aut velit incidunt excepturi rerum voluptatem minus harum.",
+    //     author: {
+    //       name: "Leonard Krasner",
+    //       handle: "leonardkrasner",
+    //       imageUrl:
+    //         "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
+    //     },
+    //   },
+    //   // More testimonials...
+    // ],
+  ],
+];
+
 export function Testimonials() {
   return (
-    <div className="mx-auto mt-32 max-w-7xl sm:mt-56 sm:px-6 lg:px-8">
-      <div className="relative overflow-hidden bg-gray-900 px-6 py-20 shadow-xl sm:rounded-3xl sm:px-10 sm:py-24 md:px-12 lg:px-20">
-        <img
-          className="absolute inset-0 h-full w-full object-cover brightness-150 saturate-0"
-          src="https://images.unsplash.com/photo-1601381718415-a05fb0a261f3?ixid=MXwxMjA3fDB8MHxwcm9maWxlLXBhZ2V8ODl8fHxlbnwwfHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=1216&q=80"
-          alt=""
-        />
-        <div className="absolute inset-0 bg-gray-900/90 mix-blend-multiply" />
-        <div
-          className="absolute -left-80 -top-56 transform-gpu blur-3xl"
-          aria-hidden="true"
-        >
-          <div
-            className="aspect-[1097/845] w-[68.5625rem] bg-gradient-to-r from-[#ff4694] to-[#776fff] opacity-[0.45]"
-            style={{
-              clipPath:
-                "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
-            }}
-          />
+    <div className="relative isolate bg-white pb-20 pt-24 sm:pt-32">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="mx-auto max-w-xl text-center">
+          <h2 className="text-lg font-semibold leading-8 tracking-tight text-blue-600">
+            Inbox Zero Love
+          </h2>
+          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            Clean inbox, happy life.
+          </p>
         </div>
-        <div
-          className="hidden md:absolute md:bottom-16 md:left-[50rem] md:block md:transform-gpu md:blur-3xl"
-          aria-hidden="true"
-        >
-          <div
-            className="aspect-[1097/845] w-[68.5625rem] bg-gradient-to-r from-[#ff4694] to-[#776fff] opacity-25"
-            style={{
-              clipPath:
-                "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
-            }}
-          />
-        </div>
-        <div className="relative mx-auto max-w-2xl lg:mx-0">
-          <img
-            className="h-12 w-auto"
-            src="https://tailwindui.com/img/logos/workcation-logo-white.svg"
-            alt=""
-          />
-          <figure>
-            <blockquote className="mt-6 text-lg font-semibold text-white sm:text-xl sm:leading-8">
-              <p>
-                “Amet amet eget scelerisque tellus sit neque faucibus non
-                eleifend. Integer eu praesent at a. Ornare arcu gravida natoque
-                erat et cursus tortor consequat at. Vulputate gravida sociis
-                enim nullam ultricies habitant malesuada lorem ac.”
-              </p>
+        <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 grid-rows-1 gap-8 text-sm leading-6 text-gray-900 sm:mt-20 sm:grid-cols-2 xl:mx-0 xl:max-w-none xl:grid-flow-col xl:grid-cols-4">
+          <figure className="rounded-2xl bg-white shadow-lg ring-1 ring-gray-900/5 sm:col-span-2 xl:col-start-2 xl:row-end-1">
+            <blockquote className="p-6 text-lg font-semibold leading-7 tracking-tight text-gray-900 sm:p-12 sm:text-xl sm:leading-8">
+              <p>{`“${featuredTestimonial.body}”`}</p>
             </blockquote>
-            <figcaption className="mt-6 text-base text-white">
-              <div className="font-semibold">Judith Black</div>
-              <div className="mt-1">CEO of Tuple</div>
+            <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-4 border-t border-gray-900/10 px-6 py-4 sm:flex-nowrap">
+              <Image
+                className="h-10 w-10 flex-none rounded-full bg-gray-50"
+                src={featuredTestimonial.author.imageUrl}
+                alt=""
+                width={40}
+                height={40}
+              />
+              <div className="flex-auto">
+                <div className="font-semibold">
+                  {featuredTestimonial.author.name}
+                </div>
+                <div className="text-gray-600">{`@${featuredTestimonial.author.handle}`}</div>
+              </div>
+              <Image
+                className="h-8 w-auto flex-none"
+                src={featuredTestimonial.author.logoUrl}
+                alt=""
+                height={32}
+                width={98}
+                unoptimized
+              />
             </figcaption>
           </figure>
+          {testimonials.map((columnGroup, columnGroupIdx) => (
+            <div
+              key={columnGroupIdx}
+              className="space-y-8 xl:contents xl:space-y-0"
+            >
+              {columnGroup.map((column, columnIdx) => (
+                <div
+                  key={columnIdx}
+                  className={clsx(
+                    (columnGroupIdx === 0 && columnIdx === 0) ||
+                      (columnGroupIdx === testimonials.length - 1 &&
+                        columnIdx === columnGroup.length - 1)
+                      ? "xl:row-span-2"
+                      : "xl:row-start-1",
+                    "space-y-8",
+                  )}
+                >
+                  {column.map((testimonial) => (
+                    <figure
+                      key={testimonial.author.handle}
+                      className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-900/5"
+                    >
+                      <blockquote className="text-gray-900">
+                        <p>{`“${testimonial.body}”`}</p>
+                      </blockquote>
+                      <figcaption className="mt-6 flex items-center gap-x-4">
+                        <Image
+                          className="h-10 w-10 rounded-full bg-gray-50"
+                          src={testimonial.author.imageUrl}
+                          alt=""
+                          width={40}
+                          height={40}
+                        />
+                        <div>
+                          <div className="font-semibold">
+                            {testimonial.author.name}
+                          </div>
+                          <div className="text-gray-600">{`@${testimonial.author.handle}`}</div>
+                        </div>
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     </div>
