@@ -14,7 +14,12 @@ import {
   Title,
   Text,
 } from "@tremor/react";
-import { ChevronDown, ChevronsUpDownIcon, MailsIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronsUpDownIcon,
+  ExpandIcon,
+  MailsIcon,
+} from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,7 +74,7 @@ export function NewsletterStats(props: {
 
   const { expanded, extra } = useExpanded();
   const [selectedNewsletter, setSelectedNewsletter] =
-    React.useState<NewsletterStatsResponse["newsletterCounts"][number]>();
+    React.useState<NewsletterStatsResponse["newsletters"][number]>();
 
   return (
     <>
@@ -140,7 +145,7 @@ export function NewsletterStats(props: {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.newsletterCounts
+                {data.newsletters
                   .slice(0, expanded ? undefined : 50)
                   .map((item) => {
                     const readPercentage = (item.readEmails / item.value) * 100;
@@ -190,10 +195,14 @@ export function NewsletterStats(props: {
                           <Tooltip content="Auto archive emails using Gmail filters">
                             <Button
                               size="sm"
-                              variant="secondary"
+                              variant={
+                                item.autoArchived ? "ghost" : "secondary"
+                              }
                               onClick={() => onAutoArchive(item.name)}
                             >
-                              Auto archive
+                              {item.autoArchived
+                                ? "Auto archived"
+                                : "Auto archive"}
                             </Button>
                           </Tooltip>
                         </TableCell>
@@ -203,7 +212,8 @@ export function NewsletterStats(props: {
                             variant="secondary"
                             onClick={() => setSelectedNewsletter(item)}
                           >
-                            More
+                            <ExpandIcon className="mr-2 h-4 w-4" />
+                            View
                           </Button>
                         </TableCell>
                       </TableRow>

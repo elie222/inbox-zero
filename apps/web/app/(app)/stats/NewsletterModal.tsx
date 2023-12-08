@@ -32,7 +32,7 @@ import { onAutoArchive } from "@/utils/actions-client";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<
-    NewsletterStatsResponse["newsletterCounts"][number],
+    NewsletterStatsResponse["newsletters"][number],
     "name" | "lastUnsubscribeLink"
   >;
   onClose: (isOpen: boolean) => void;

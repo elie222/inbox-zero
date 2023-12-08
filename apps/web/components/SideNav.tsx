@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
-const navigation = [
+export const navigation = [
   {
     name: "Analytics",
     href: "/stats",

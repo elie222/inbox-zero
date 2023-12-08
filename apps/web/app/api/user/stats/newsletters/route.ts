@@ -52,9 +52,7 @@ function getFilters(types: NewsletterStatsQuery["types"]) {
   };
 }
 
-async function filterOutAutoArchiveEmails<T extends { from: string }>(
-  emails: T[],
-) {
+async function getAutoArchiveFilters() {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
@@ -67,16 +65,7 @@ async function filterOutAutoArchiveEmails<T extends { from: string }>(
     );
   });
 
-  if (!autoArchiveFilters?.length) return emails;
-
-  return emails.filter((email) => {
-    const hasFilter = autoArchiveFilters.find((filter) => {
-      const from = extractEmailAddress(email.from);
-      return filter.criteria?.from?.includes(from);
-    });
-
-    return !hasFilter;
-  });
+  return autoArchiveFilters;
 }
 
 async function getNewslettersTinybird(
@@ -89,18 +78,28 @@ async function getNewslettersTinybird(
     ...filters,
   });
 
-  const emails = options.includeFilteredEmails
-    ? newsletterCounts.data
-    : await filterOutAutoArchiveEmails(newsletterCounts.data);
+  const autoArchiveFilters = await getAutoArchiveFilters();
+
+  const newsletters = newsletterCounts.data.map((email) => {
+    const autoArchived = autoArchiveFilters?.find((filter) => {
+      const from = extractEmailAddress(email.from);
+      return filter.criteria?.from?.includes(from);
+    });
+
+    return {
+      name: email.from,
+      value: email.count,
+      inboxEmails: email.inboxEmails,
+      readEmails: email.readEmails,
+      lastUnsubscribeLink: email.lastUnsubscribeLink,
+      autoArchived,
+    };
+  });
 
   return {
-    newsletterCounts: emails.map((d) => ({
-      name: d.from,
-      value: d.count,
-      inboxEmails: d.inboxEmails,
-      readEmails: d.readEmails,
-      lastUnsubscribeLink: d.lastUnsubscribeLink,
-    })),
+    newsletters: options.includeFilteredEmails
+      ? newsletters
+      : newsletters.filter((email) => !email.autoArchived),
   };
 }
 
