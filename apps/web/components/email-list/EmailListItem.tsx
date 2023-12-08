@@ -11,7 +11,7 @@ import { formatShortDate } from "@/utils/date";
 import { PlanBadge } from "@/components/PlanBadge";
 import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
-import { fromName, participant } from "@/utils/email";
+import { extractNameFromEmail, participant } from "@/utils/email";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
 
@@ -88,7 +88,7 @@ export const EmailListItem = forwardRef(
               </div>
 
               <div className="ml-4 w-40 min-w-0 overflow-hidden truncate text-gray-900">
-                {fromName(
+                {extractNameFromEmail(
                   participant(
                     lastMessage.parsedMessage,
                     props.userEmailAddress,

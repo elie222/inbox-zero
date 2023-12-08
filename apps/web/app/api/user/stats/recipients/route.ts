@@ -12,7 +12,7 @@ import {
   getMostSentTo,
   zodPeriod,
 } from "@inboxzero/tinybird";
-import { parseDomain } from "@/utils/email";
+import { extractDomainFromEmail } from "@/utils/email";
 
 const recipientStatsQuery = z.object({
   period: zodPeriod,
@@ -41,17 +41,17 @@ async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
         ...message,
         parsedMessage,
       };
-    }) || []
+    }) || [],
   );
 
   const countByRecipient = countBy(messages, (m) => m.parsedMessage.headers.to);
   const countByDomain = countBy(messages, (m) =>
-    parseDomain(m.parsedMessage.headers.to)
+    extractDomainFromEmail(m.parsedMessage.headers.to),
   );
 
   const mostActiveRecipientEmails = sortBy(
     Object.entries(countByRecipient),
-    ([, count]) => -count
+    ([, count]) => -count,
   ).map(([recipient, count]) => ({
     name: recipient,
     value: count,
@@ -59,7 +59,7 @@ async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
 
   const mostActiveRecipientDomains = sortBy(
     Object.entries(countByDomain),
-    ([, count]) => -count
+    ([, count]) => -count,
   ).map(([recipient, count]) => ({
     name: recipient,
     value: count,
@@ -71,7 +71,7 @@ async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
 async function getRecipientsTinybird(
   options: RecipientStatsQuery & {
     ownerEmail: string;
-  }
+  },
 ): Promise<RecipientsResponse> {
   const [mostReceived, mostReceivedDomains] = await Promise.all([
     getMostSentTo(options),

@@ -9,7 +9,7 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { sleep } from "@/utils/sleep";
-import { parseDomain } from "@/utils/email";
+import { extractDomainFromEmail } from "@/utils/email";
 
 export const maxDuration = 300;
 
@@ -177,10 +177,10 @@ async function saveBatch(
           threadId: m.threadId,
           gmailMessageId: m.id,
           from: parsedEmail.headers.from,
-          fromDomain: parseDomain(parsedEmail.headers.from),
+          fromDomain: extractDomainFromEmail(parsedEmail.headers.from),
           to: parsedEmail.headers.to || "Missing",
           toDomain: parsedEmail.headers.to
-            ? parseDomain(parsedEmail.headers.to)
+            ? extractDomainFromEmail(parsedEmail.headers.to)
             : "Missing",
           subject: parsedEmail.headers.subject,
           timestamp: +new Date(parsedEmail.headers.date),

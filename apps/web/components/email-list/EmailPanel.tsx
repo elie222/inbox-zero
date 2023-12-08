@@ -7,7 +7,7 @@ import { Badge } from "@/components/Badge";
 import { SendEmailForm } from "@/components/email-list/SendEmailForm";
 import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
-import { fromName } from "@/utils/email";
+import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 
 export function EmailPanel(props: {
@@ -125,7 +125,7 @@ function EmailThread(props: { messages: Thread["messages"] }) {
             <div className="sm:flex sm:items-baseline sm:justify-between">
               <h3 className="text-base font-medium">
                 <span className="text-gray-900">
-                  {fromName(message.parsedMessage.headers.from)}
+                  {extractNameFromEmail(message.parsedMessage.headers.from)}
                 </span>{" "}
                 <span className="text-gray-600">wrote</span>
               </h3>

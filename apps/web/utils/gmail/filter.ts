@@ -32,3 +32,7 @@ export async function createAutoArchiveFilter(options: {
     removeLabelIds: ["INBOX"],
   });
 }
+
+export async function getFiltersList(options: { gmail: gmail_v1.Gmail }) {
+  return options.gmail.users.settings.filters.list({ userId: "me" });
+}

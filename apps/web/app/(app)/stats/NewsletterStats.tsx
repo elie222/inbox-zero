@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import useSWR from "swr";
 import {
   Card,
@@ -14,9 +14,8 @@ import {
   Title,
   Text,
 } from "@tremor/react";
-import { ChevronDown, ChevronsUpDownIcon } from "lucide-react";
+import { ChevronDown, ChevronsUpDownIcon, MailsIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
-import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -33,17 +32,20 @@ import {
   useEmailsToIncludeFilter,
 } from "@/app/(app)/stats/EmailsToIncludeFilter";
 import { onAutoArchive } from "@/utils/actions-client";
+import { Toggle } from "@/components/ui/toggle";
 
 export function NewsletterStats(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
-  const session = useSession();
-  const email = session.data?.user.email;
-
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
+  const [includeFilteredEmails, setIncludeFilteredEmails] = useState(false);
+  const toggleIncludeFilteredEmails = useCallback(
+    () => setIncludeFilteredEmails((v) => !v),
+    [],
+  );
 
   const { typesArray, types, setTypes } = useEmailsToIncludeFilter();
 
@@ -52,12 +54,15 @@ export function NewsletterStats(props: {
     orderBy: sortColumn,
     limit: 100,
     ...getDateRangeParams(props.dateRange),
+    includeFilteredEmails,
   };
+
+  const urlParams = new URLSearchParams(params as any);
 
   const { data, isLoading, error } = useSWR<
     NewsletterStatsResponse,
     { error: string }
-  >(`/api/user/stats/newsletters?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/newsletters?${urlParams}`, {
     refreshInterval: props.refreshInterval,
     keepPreviousData: true,
   });
@@ -80,6 +85,15 @@ export function NewsletterStats(props: {
             </Text>
           </div>
           <div className="flex space-x-2">
+            <Toggle
+              aria-label="Toggle Auto Archived Emails"
+              onClick={toggleIncludeFilteredEmails}
+            >
+              <Tooltip content="Toggle Auto Archived Emails">
+                <MailsIcon className="h-4 w-4" />
+              </Tooltip>
+            </Toggle>
+
             <EmailsToIncludeFilter types={types} setTypes={setTypes} />
           </div>
         </div>

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getNewsletterCounts } from "@inboxzero/tinybird";
+import { getGmailClient } from "@/utils/gmail/client";
+import { getFiltersList } from "@/utils/gmail/filter";
+import { extractEmailAddress } from "@/utils/email";
+import { zodTrueFalse } from "@/utils/zod";
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -11,6 +15,7 @@ const newsletterStatsQuery = z.object({
   types: z
     .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
     .transform((arr) => arr?.filter(Boolean)),
+  includeFilteredEmails: zodTrueFalse,
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
@@ -47,8 +52,35 @@ function getFilters(types: NewsletterStatsQuery["types"]) {
   };
 }
 
+async function filterOutAutoArchiveEmails<T extends { from: string }>(
+  emails: T[],
+) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+
+  const filters = await getFiltersList({ gmail });
+  const autoArchiveFilters = filters.data.filter?.filter((filter) => {
+    return (
+      filter.action?.removeLabelIds?.includes("INBOX") ||
+      filter.action?.addLabelIds?.includes("TRASH")
+    );
+  });
+
+  if (!autoArchiveFilters?.length) return emails;
+
+  return emails.filter((email) => {
+    const hasFilter = autoArchiveFilters.find((filter) => {
+      const from = extractEmailAddress(email.from);
+      return filter.criteria?.from?.includes(from);
+    });
+
+    return !hasFilter;
+  });
+}
+
 async function getNewslettersTinybird(
-  options: { ownerEmail: string } & NewsletterStatsQuery
+  options: { ownerEmail: string } & NewsletterStatsQuery,
 ) {
   const filters = getFilters(options.types);
 
@@ -57,8 +89,12 @@ async function getNewslettersTinybird(
     ...filters,
   });
 
+  const emails = options.includeFilteredEmails
+    ? newsletterCounts.data
+    : await filterOutAutoArchiveEmails(newsletterCounts.data);
+
   return {
-    newsletterCounts: newsletterCounts.data.map((d) => ({
+    newsletterCounts: emails.map((d) => ({
       name: d.from,
       value: d.count,
       inboxEmails: d.inboxEmails,
@@ -80,6 +116,7 @@ export async function GET(request: Request) {
     toDate: searchParams.get("toDate"),
     orderBy: searchParams.get("orderBy"),
     types: searchParams.get("types")?.split(",") || [],
+    includeFilteredEmails: searchParams.get("includeFilteredEmails"),
   });
 
   const result = await getNewslettersTinybird({
