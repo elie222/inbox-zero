@@ -6,6 +6,7 @@ import { TokenCheck } from "@/components/TokenCheck";
 import Providers from "@/app/(app)/providers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
+import { CommandK } from "@/components/CommandK";
 
 export default async function AppLayout({
   children,
@@ -20,6 +21,7 @@ export default async function AppLayout({
     <Providers>
       <PostHogIdentify />
       <TokenCheck />
+      <CommandK />
       <SideNavWithTopNav>{children}</SideNavWithTopNav>
     </Providers>
   );
