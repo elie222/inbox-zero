@@ -21,6 +21,7 @@ import {
   MailsIcon,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
+import { useLocalStorage } from "usehooks-ts";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -75,6 +76,11 @@ export function NewsletterStats(props: {
   const { expanded, extra } = useExpanded();
   const [selectedNewsletter, setSelectedNewsletter] =
     React.useState<NewsletterStatsResponse["newsletters"][number]>();
+
+  // won't work if user switches devices
+  const [unsubscribedEmails, setUnsubscribedEmails] = useLocalStorage<{
+    [key: string]: boolean;
+  }>("unsubscribedEmails", {});
 
   return (
     <>
@@ -182,12 +188,27 @@ export function NewsletterStats(props: {
                         <TableCell className="hidden xl:table-cell">
                           <Button
                             size="sm"
-                            variant="secondary"
+                            variant={
+                              unsubscribedEmails[item.name]
+                                ? "ghost"
+                                : "secondary"
+                            }
                             disabled={!item.lastUnsubscribeLink}
                             asChild={!!item.lastUnsubscribeLink}
                           >
-                            <a href={item.lastUnsubscribeLink} target="_blank">
-                              Unsubscribe
+                            <a
+                              href={item.lastUnsubscribeLink}
+                              target="_blank"
+                              onClick={() => {
+                                setUnsubscribedEmails((u) => ({
+                                  ...u,
+                                  [item.name]: true,
+                                }));
+                              }}
+                            >
+                              {unsubscribedEmails[item.name]
+                                ? "Unsubscribed"
+                                : "Unsubscribe"}
                             </a>
                           </Button>
                         </TableCell>
