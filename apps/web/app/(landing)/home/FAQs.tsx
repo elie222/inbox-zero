@@ -2,7 +2,7 @@ const faqs = [
   {
     question: "Do you store my emails?",
     answer:
-      "No. We don't store any of your emails in our database. And even better, as our code is open-source you can check our code to see this is true. For full data privacy you can self-host your own instance of Inbox Zero.",
+      "We store a hashed version of your emails for our analytics feature. As our code is open-source you can check our code to see this for yourself. For full data privacy you can self-host your own instance of Inbox Zero.",
   },
   {
     question: "Is the code open-source?",

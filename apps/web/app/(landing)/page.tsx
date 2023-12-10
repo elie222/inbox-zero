@@ -9,7 +9,7 @@ import {
   FeaturesUnsubscribe,
 } from "@/app/(landing)/home/Features";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
-// import { Pricing } from "@/app/(landing)/home/Pricing";
+import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { Footer } from "@/app/(landing)/home/Footer";
@@ -27,7 +27,7 @@ export default function Home() {
         <FeaturesUnsubscribe />
         <FeaturesStats />
         <FeaturesAutomation />
-        {/* <Pricing /> */}
+        <Pricing />
         <FAQs />
         <CTA />
       </main>

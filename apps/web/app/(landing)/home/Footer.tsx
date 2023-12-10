@@ -6,6 +6,11 @@ const navigation = {
     { name: "Feature Requests", href: "/feature-requests" },
     { name: "Roadmap", href: "/roadmap" },
     { name: "OSS Friends", href: "/oss-friends" },
+    {
+      name: "Affiliates",
+      href: "https://inboxzero.lemonsqueezy.com/affiliates",
+    },
+    { name: "Pricing", href: "/#pricing" },
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
   ],
