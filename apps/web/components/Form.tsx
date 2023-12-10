@@ -8,12 +8,14 @@ export function FormWrapper(props: { children: React.ReactNode }) {
 export function FormSection(props: {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <div
+      id={props.id}
       className={cn(
         "grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8",
-        props.className
+        props.className,
       )}
     >
       {props.children}

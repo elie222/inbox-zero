@@ -4,7 +4,7 @@
   "main": "src/index.tsx",
   "license": "MIT",
   "scripts": {
-    "dev": "email dev --port 3333"
+    "dev": "email dev --port 3010"
   },
   "dependencies": {
     "@react-email/components": "^0.0.12",

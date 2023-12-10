@@ -23,7 +23,7 @@ export function EmailUpdatesSection() {
   const { data, isLoading, error } = useSWR<UserResponse>("/api/user/me");
 
   return (
-    <FormSection>
+    <FormSection id="email-updates">
       <FormSectionLeft
         title="Email Updates"
         description="Get updates on your inbox stats direct to your email."

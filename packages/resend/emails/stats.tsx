@@ -13,8 +13,6 @@ import {
   Heading,
 } from "@react-email/components";
 
-const logo = "https://www.getinboxzero.com/icon.png";
-
 export interface StatsUpdateEmailProps {
   baseUrl: string;
   userEmail: string;
@@ -62,13 +60,15 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
         <Body className="bg-white my-auto mx-auto font-sans">
           <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] w-[465px]">
             <Section className="mt-8">
-              <Img
-                src={logo}
-                width="40"
-                height="40"
-                alt="Inbox Zero"
-                className="mx-auto my-0"
-              />
+              <Link href={baseUrl} className="text-[15px]">
+                <Img
+                  src={`${baseUrl}/icon.png`}
+                  width="40"
+                  height="40"
+                  alt="Inbox Zero"
+                  className="mx-auto my-0"
+                />
+              </Link>
             </Section>
 
             <Section>
@@ -141,6 +141,27 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
               >
                 View Full Stats
               </Button>
+            </Section>
+
+            <Section>
+              <Text>
+                You're receiving this email because you're subscribed to Inbox
+                Zero stats updates. You can change this in your{" "}
+                <Link
+                  href={`${baseUrl}/settings#email-updates`}
+                  className="text-[15px]"
+                >
+                  settings
+                </Link>
+                .
+              </Text>
+
+              <Link
+                href={`${baseUrl}/settings#email-updates`}
+                className="text-[15px]"
+              >
+                Unsubscribe from emails like this
+              </Link>
             </Section>
           </Container>
         </Body>

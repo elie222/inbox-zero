@@ -11,8 +11,10 @@ cd .react-email
 yarn # pnpm won't work
 ```
 
-Then to start it you can run:
+Then from the package root, you can run:
 
 ```bash
 yarn dev
 ```
+
+To see the stats email, go to http://localhost:3010/preview/stats.
