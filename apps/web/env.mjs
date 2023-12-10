@@ -34,7 +34,7 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
-    NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK: z.string().min(1),
+    NEXT_PUBLIC_CALL_LINK: z.string().default("https://dub.sh/inbox-zero-call"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string().default("https://www.getinboxzero.com"),
@@ -47,8 +47,8 @@ export const env = createEnv({
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
-    NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK:
-      process.env.NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK,
+    NEXT_PUBLIC_CALL_LINK:
+      process.env.NEXT_PUBLIC_CALL_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,

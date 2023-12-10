@@ -51,7 +51,7 @@ const tiers = [
   {
     name: "Enterprise",
     id: "tier-enterprise",
-    href: "https://dub.sh/inbox-zero-call",
+    href: env.NEXT_PUBLIC_CALL_LINK,
     price: { monthly: "Book a call", annually: "Book a call" },
     description:
       "Self-host on your own servers to ensure complete data privacy. We'll help you set everything up.",
