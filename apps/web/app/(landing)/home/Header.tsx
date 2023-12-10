@@ -11,6 +11,7 @@ const navigation = [
   { name: "Features", href: "/#features" },
   { name: "FAQ", href: "/#faq" },
   { name: "Open Source", href: "/github", target: "_blank" as const },
+  { name: "Pricing", href: "/#pricing" },
 ];
 
 export function Header() {

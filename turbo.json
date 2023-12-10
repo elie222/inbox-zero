@@ -17,8 +17,9 @@
         "LEMON_SQUEEZY_API_SECRET",
         "LEMON_SQUEEZY_SIGNING_SECRET",
         "NEXT_PUBLIC_PRO_PAYMENT_LINK",
-        "NEXT_PUBLIC_ENTERPRISE_PAYMENT_LINK",
-        "NEXT_PUBLIC_POSTHOG_KEY"
+        "NEXT_PUBLIC_CALL_LINK",
+        "NEXT_PUBLIC_POSTHOG_KEY",
+        "NEXT_PUBLIC_LEMON_AFFILIATE_STORE"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
