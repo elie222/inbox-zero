@@ -7,6 +7,9 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     instrumentationHook: true,
+    serverComponents: true,
+    appDir: true,
+    concurrentFeatures: true,
   },
   async redirects() {
     return [
