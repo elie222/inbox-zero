@@ -39,6 +39,10 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string().default("https://www.getinboxzero.com"),
     NEXT_PUBLIC_CONTACTS_ENABLED: z.coerce.boolean().optional().default(false),
+    NEXT_PUBLIC_LEMON_AFFILIATE_STORE: z
+      .string()
+      .nullish()
+      .default("inboxzero"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -50,5 +54,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
+    NEXT_PUBLIC_LEMON_AFFILIATE_STORE:
+      process.env.NEXT_PUBLIC_LEMON_AFFILIATE_STORE,
   },
 });
