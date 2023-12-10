@@ -34,8 +34,6 @@ async function aiCategorise(
   body: CategoriseBody & { content: string } & UserAIFields,
   expanded: boolean,
 ) {
-  console.log("snippet", body.snippet);
-
   const message = `Categorize this email.
 Return a JSON object with a "category" and "requiresMoreInformation" field.
 
@@ -123,7 +121,6 @@ export async function categorise(
     category = await aiCategorise(body, true);
   }
 
-  console.log("category:", category);
   if (!category?.category) return;
   // 3. save category
   await saveCategory({
