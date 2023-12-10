@@ -58,14 +58,42 @@ Create your own `.env` file:
 
 ```bash
 cp apps/web/.env.example apps/web/.env
+cd apps/web
+pnpm install
 ```
 
+Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.mjs`.
+
+The external services that are required are:
+
+- [OpenAI](https://platform.openai.com/api-keys)
+- [Google OAuth](https://console.cloud.google.com/apis/credentials)
+- [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list) - see set up instructions below
+- [Upstash Redis](https://upstash.com/)
+- [Tinybird](https://www.tinybird.co/)
+
+We use Postgres for the database.
+
+To run the migrations:
+
 ```bash
-pnpm install
+pnpm prisma migrate dev
+```
+
+Now run:
+
+```bash
+pnpm run dev
+```
+
+Or from the project root:
+
+```bash
 turbo dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localhost:3000/admin).
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 
