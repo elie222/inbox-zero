@@ -4,9 +4,9 @@ import {
   trashThreadAction,
 } from "@/utils/actions";
 
-export async function onAutoArchive(from: string) {
+export async function onAutoArchive(from: string, gmailLabelId?: string) {
   try {
-    await createAutoArchiveFilterAction(from);
+    await createAutoArchiveFilterAction(from, gmailLabelId);
     toastSuccess({ description: "Auto archive enabled!" });
   } catch (error: any) {
     toastError({

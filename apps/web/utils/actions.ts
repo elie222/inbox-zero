@@ -155,13 +155,16 @@ export async function completedOnboarding() {
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
-export async function createAutoArchiveFilterAction(from: string) {
+export async function createAutoArchiveFilterAction(
+  from: string,
+  gmailLabelId?: string,
+) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
   const gmail = getGmailClient(session);
 
-  const res = await createAutoArchiveFilter({ gmail, from });
+  const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
 
   return isStatusOk(res.status) ? { ok: true } : res;
 }

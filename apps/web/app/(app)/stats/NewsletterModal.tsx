@@ -49,7 +49,7 @@ export function NewsletterModal(props: {
         {newsletter && (
           <>
             <DialogHeader>
-              <DialogTitle>{newsletter.name}</DialogTitle>
+              <DialogTitle>Detailed Stats</DialogTitle>
               <DialogDescription>{newsletter.name}</DialogDescription>
             </DialogHeader>
 

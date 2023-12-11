@@ -23,13 +23,15 @@ async function createFilter(options: {
 export async function createAutoArchiveFilter(options: {
   gmail: gmail_v1.Gmail;
   from: string;
+  gmailLabelId?: string;
 }) {
-  const { gmail, from } = options;
+  const { gmail, from, gmailLabelId } = options;
 
   return createFilter({
     gmail,
     from,
     removeLabelIds: ["INBOX"],
+    addLabelIds: gmailLabelId ? [gmailLabelId] : undefined,
   });
 }
 
