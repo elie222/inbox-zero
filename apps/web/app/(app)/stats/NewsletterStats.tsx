@@ -40,7 +40,7 @@ import {
   EmailsToIncludeFilter,
   useEmailsToIncludeFilter,
 } from "@/app/(app)/stats/EmailsToIncludeFilter";
-import { onAutoArchive } from "@/utils/actions-client";
+import { onAutoArchive, onDeleteFilter } from "@/utils/actions-client";
 import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -78,7 +78,7 @@ export function NewsletterStats(props: {
 
   const urlParams = new URLSearchParams(params as any);
 
-  const { data, isLoading, error } = useSWR<
+  const { data, isLoading, error, mutate } = useSWR<
     NewsletterStatsResponse,
     { error: string }
   >(`/api/user/stats/newsletters?${urlParams}`, {
@@ -86,8 +86,7 @@ export function NewsletterStats(props: {
     keepPreviousData: true,
   });
 
-  const { data: dataLabels, isLoading: isLoadingLabels } =
-    useSWR<LabelsResponse>("/api/google/labels");
+  const { data: dataLabels } = useSWR<LabelsResponse>("/api/google/labels");
 
   const { expanded, extra } = useExpanded();
   const [selectedNewsletter, setSelectedNewsletter] =
@@ -177,6 +176,7 @@ export function NewsletterStats(props: {
                       setUnsubscribedEmails={setUnsubscribedEmails}
                       setSelectedNewsletter={setSelectedNewsletter}
                       gmailLabels={dataLabels}
+                      mutate={mutate}
                     />
                   ))}
               </TableBody>
@@ -206,6 +206,7 @@ function NewsletterRow(props: {
     >
   >;
   gmailLabels?: LabelsResponse;
+  mutate: () => Promise<NewsletterStatsResponse | undefined>;
 }) {
   const { item } = props;
   const readPercentage = (item.readEmails / item.value) * 100;
@@ -276,7 +277,10 @@ function NewsletterRow(props: {
               className="px-3 shadow-none"
               size="sm"
               disabled={!!item.autoArchived}
-              onClick={() => onAutoArchive(item.name)}
+              onClick={() => {
+                onAutoArchive(item.name);
+                props.mutate();
+              }}
             >
               {item.autoArchived ? "Auto Archived" : "Auto Archive"}
             </Button>
@@ -297,9 +301,14 @@ function NewsletterRow(props: {
                 className="max-h-[415px] w-[220px] overflow-auto"
                 forceMount
               >
-                {item.autoArchived && (
+                {item.autoArchived?.id && (
                   <>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        onDeleteFilter(item.autoArchived?.id!);
+                        props.mutate();
+                      }}
+                    >
                       <ArchiveXIcon className="mr-2 h-4 w-4" /> Disable Auto
                       Archive
                     </DropdownMenuItem>
@@ -320,9 +329,10 @@ function NewsletterRow(props: {
                     return (
                       <DropdownMenuItem
                         key={label.id}
-                        onClick={() =>
-                          onAutoArchive(item.name, label.id || undefined)
-                        }
+                        onClick={() => {
+                          onAutoArchive(item.name, label.id || undefined);
+                          props.mutate();
+                        }}
                       >
                         {label.name}
                       </DropdownMenuItem>

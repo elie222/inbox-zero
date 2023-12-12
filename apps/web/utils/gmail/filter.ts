@@ -35,6 +35,15 @@ export async function createAutoArchiveFilter(options: {
   });
 }
 
+export async function deleteFilter(options: {
+  gmail: gmail_v1.Gmail;
+  id: string;
+}) {
+  const { gmail, id } = options;
+
+  return gmail.users.settings.filters.delete({ userId: "me", id });
+}
+
 export async function getFiltersList(options: { gmail: gmail_v1.Gmail }) {
   return options.gmail.users.settings.filters.list({ userId: "me" });
 }

@@ -21,7 +21,7 @@ import { deletePlans } from "@/utils/redis/plan";
 import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deletePosthogUser } from "@/utils/posthog";
-import { createAutoArchiveFilter } from "@/utils/gmail/filter";
+import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
 import { env } from "@/env.mjs";
@@ -165,6 +165,17 @@ export async function createAutoArchiveFilterAction(
   const gmail = getGmailClient(session);
 
   const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
+
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function deleteFilterAction(id: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const gmail = getGmailClient(session);
+
+  const res = await deleteFilter({ gmail, id });
 
   return isStatusOk(res.status) ? { ok: true } : res;
 }
