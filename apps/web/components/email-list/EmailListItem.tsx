@@ -72,7 +72,7 @@ export const EmailListItem = forwardRef(
         })}
         onClick={props.onClick}
       >
-        <div className="px-4 sm:px-6">
+        <div className="px-4">
           <div className="mx-auto flex">
             {/* left */}
             <div
@@ -83,7 +83,10 @@ export const EmailListItem = forwardRef(
                 },
               )}
             >
-              <div className="flex items-center" onClick={preventPropagation}>
+              <div
+                className="flex items-center pl-1"
+                onClick={preventPropagation}
+              >
                 <Checkbox checked={props.selected} onChange={onRowSelected} />
               </div>
 
@@ -166,7 +169,7 @@ export const EmailListItem = forwardRef(
               <div className="min-w-0 overflow-hidden font-medium text-gray-700">
                 {lastMessage.parsedMessage.headers.subject}
               </div>
-              <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+              <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-gray-500">
                 {thread.snippet}
               </div>
             </div>
