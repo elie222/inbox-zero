@@ -124,7 +124,7 @@ export function PlanActions(props: {
       {props.executingPlan ? (
         <LoadingMiniSpinner />
       ) : (
-        <Tooltip content="Execute">
+        <Tooltip content="Execute AI Plan">
           <button
             type="button"
             onClick={execute}
@@ -138,7 +138,7 @@ export function PlanActions(props: {
       {props.rejectingPlan ? (
         <LoadingMiniSpinner />
       ) : (
-        <Tooltip content="Reject">
+        <Tooltip content="Reject AI Plan">
           <button
             type="button"
             onClick={reject}
