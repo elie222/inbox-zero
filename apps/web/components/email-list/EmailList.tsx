@@ -127,12 +127,12 @@ export function List(props: { emails: Thread[]; refetch: () => void }) {
 }
 
 export function EmailList(props: {
-  threads: Thread[];
+  threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
   refetch: () => void;
 }) {
-  const { threads, emptyMessage, hideActionBarWhenEmpty, refetch } = props;
+  const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
 
   const session = useSession();
 
