@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { useLocalStorage } from "usehooks-ts";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
@@ -8,7 +9,7 @@ import { Banner } from "@/components/Banner";
 // import { Filters, getFilterFunction } from "@/utils/filters";
 // import { usePromptContext } from "@/providers/PromptProvider";
 
-export default function Home() {
+export default function Mail() {
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
     "/api/google/threads",
     {
@@ -19,12 +20,19 @@ export default function Home() {
 
   // const { prompt, filterFunction } = usePromptContext();
 
+  const [bannerVisible, setBannerVisible] = useLocalStorage<
+    boolean | undefined
+  >("mailBetaBannerVisibile", true);
+
   return (
     <>
-      <Banner
-        title="Beta"
-        description="Mail is currently in beta. It is not intended to be a full replacement for your email client yet."
-      />
+      {bannerVisible && !!window && (
+        <Banner
+          title="Beta"
+          description="Mail is currently in beta. It is not intended to be a full replacement for your email client yet."
+          onClose={() => setBannerVisible(false)}
+        />
+      )}
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <List
