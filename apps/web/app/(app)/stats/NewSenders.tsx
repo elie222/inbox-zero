@@ -175,6 +175,7 @@ export function NewSenders() {
             ? {
                 name: selectedEmail.from,
                 lastUnsubscribeLink: selectedEmail.unsubscribeLink || undefined,
+                autoArchived: undefined,
               }
             : undefined
         }
