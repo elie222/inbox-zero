@@ -10,7 +10,8 @@ export function LemonScript() {
     <Script
       src="https://lmsqueezy.com/affiliate.js"
       defer
-      onReady={() => {
+      strategy="lazyOnload"
+      onLoad={() => {
         if (window) {
           (window as any).lemonSqueezyAffiliateConfig = {
             store: env.NEXT_PUBLIC_LEMON_AFFILIATE_STORE,
