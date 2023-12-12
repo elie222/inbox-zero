@@ -25,7 +25,7 @@ import { EmailList } from "@/components/email-list/EmailList";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { getGmailSearchUrl } from "@/utils/url";
+import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions-client";
@@ -33,12 +33,13 @@ import { onAutoArchive } from "@/utils/actions-client";
 export function NewsletterModal(props: {
   newsletter?: Pick<
     NewsletterStatsResponse["newsletters"][number],
-    "name" | "lastUnsubscribeLink"
+    "name" | "lastUnsubscribeLink" | "autoArchived"
   >;
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
 }) {
   const { newsletter, refreshInterval, onClose } = props;
+  console.log("🚀 ~ file: NewsletterModal.tsx:42 ~ newsletter:", newsletter);
 
   const session = useSession();
   const email = session.data?.user.email;
@@ -49,7 +50,7 @@ export function NewsletterModal(props: {
         {newsletter && (
           <>
             <DialogHeader>
-              <DialogTitle>{newsletter.name}</DialogTitle>
+              <DialogTitle>Detailed Stats</DialogTitle>
               <DialogDescription>{newsletter.name}</DialogDescription>
             </DialogHeader>
 
@@ -77,6 +78,14 @@ export function NewsletterModal(props: {
                   View emails in Gmail
                 </Link>
               </Button>
+              {newsletter.autoArchived && (
+                <Button asChild size="sm" variant="secondary">
+                  <Link href={getGmailFilterSettingsUrl(email)} target="_blank">
+                    <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                    View Auto Archive Filter
+                  </Link>
+                </Button>
+              )}
             </div>
 
             <div>
