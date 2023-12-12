@@ -19,7 +19,6 @@ export function Banner(props: { title: string; description: string }) {
             <circle cx={1} cy={1} r={1} />
           </svg>
           {props.description}
-          <span aria-hidden="true">&rarr;</span>
         </a>
       </p>
       <div className="flex flex-1 justify-end">
