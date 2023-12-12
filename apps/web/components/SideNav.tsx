@@ -6,14 +6,13 @@ import Link from "next/link";
 import { Dialog, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import {
-  ArchiveIcon,
   BarChartBigIcon,
   CogIcon,
   CrownIcon,
   InboxIcon,
   LightbulbIcon,
   MailsIcon,
-  MessageSquareDashedIcon,
+  RibbonIcon,
   SparklesIcon,
   StarIcon,
   Users2Icon,
@@ -23,14 +22,19 @@ import { Logo } from "@/components/Logo";
 
 export const navigation = [
   {
+    name: "Newsletters",
+    href: "/newsletters",
+    icon: MailsIcon,
+  },
+  {
     name: "Analytics",
     href: "/stats",
     icon: BarChartBigIcon,
   },
   {
-    name: "Newsletters",
-    href: "/newsletters",
-    icon: MailsIcon,
+    name: "New Senders",
+    href: "/new-senders",
+    icon: Users2Icon,
   },
   {
     name: "AI Automation",
@@ -38,27 +42,16 @@ export const navigation = [
     icon: SparklesIcon,
   },
   { name: "Mail", href: "/mail", icon: InboxIcon },
-  {
-    name: "New Senders",
-    href: "/new-senders",
-    icon: Users2Icon,
-  },
   // {
   //   name: "Send Email",
   //   href: "/compose",
   //   icon: SendIcon,
   // },
   {
-    name: "No reply",
-    href: "/request-access?type=no-reply",
-    icon: MessageSquareDashedIcon,
+    name: "Early Access",
+    href: "/request-access?type=early-access",
+    icon: RibbonIcon,
   },
-  {
-    name: "Bulk Archive",
-    href: "/request-access?type=bulk-archive",
-    icon: ArchiveIcon,
-  },
-
   // {
   //   name: "No reply",
   //   href: "/no-reply",

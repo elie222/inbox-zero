@@ -21,13 +21,13 @@ export default async function WelcomePage({
   const session = await auth();
 
   if (!session?.user.email) redirect("/login");
-  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) redirect("/stats");
+  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) redirect("/newsletters");
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: { completedOnboarding: true },
   });
-  if (!searchParams.force && user.completedOnboarding) redirect("/stats");
+  if (!searchParams.force && user.completedOnboarding) redirect("/newsletters");
 
   const questionIndex = searchParams.question
     ? parseInt(searchParams.question)

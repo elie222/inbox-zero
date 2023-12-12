@@ -8,7 +8,7 @@ export default function RequestAccessPage() {
       <PageHeading>Request Access</PageHeading>
       <div className="mt-2 max-w-prose">
         <SectionDescription>
-          This feature is currently in early access.
+          {`"Emails without a Reply" and "Bulk Archive" are currently in early access. Request access to be notified when they are available.`}
         </SectionDescription>
       </div>
       <div className="mt-4">
