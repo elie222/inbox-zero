@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
+import { Banner } from "@/components/Banner";
 // import { Filters, getFilterFunction } from "@/utils/filters";
 // import { usePromptContext } from "@/providers/PromptProvider";
 
@@ -13,13 +14,17 @@ export default function Home() {
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
-    }
+    },
   );
 
   // const { prompt, filterFunction } = usePromptContext();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
+      <Banner
+        title="Beta"
+        description="Mail is currently in beta. It is not intended to be a full replacement for your email client yet."
+      />
       {data && (
         <List
           emails={data?.threads || []}
