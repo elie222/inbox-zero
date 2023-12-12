@@ -114,7 +114,7 @@ export const EmailListItem = forwardRef(
             </div>
 
             {/* right */}
-            <div className="flex w-[350px] items-center justify-between">
+            <div className="flex items-center justify-between">
               <div className="relative flex items-center">
                 <div
                   className="absolute right-0 z-20 hidden group-hover:block"
@@ -149,15 +149,14 @@ export const EmailListItem = forwardRef(
                   <PlanBadge plan={thread.plan} />
                 </div>
 
-                <div className="ml-3">
-                  <PlanActions
-                    thread={thread}
-                    executePlan={props.executePlan}
-                    rejectPlan={props.rejectPlan}
-                    executingPlan={props.executingPlan}
-                    rejectingPlan={props.rejectingPlan}
-                  />
-                </div>
+                <PlanActions
+                  thread={thread}
+                  executePlan={props.executePlan}
+                  rejectPlan={props.rejectPlan}
+                  executingPlan={props.executingPlan}
+                  rejectingPlan={props.rejectingPlan}
+                  className={thread.plan?.rule ? "ml-3" : undefined}
+                />
               </div>
             </div>
           </div>

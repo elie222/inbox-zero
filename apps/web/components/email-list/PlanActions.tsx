@@ -13,6 +13,7 @@ import {
   RejectPlanBody,
   RejectPlanResponse,
 } from "@/app/api/user/planned/reject/route";
+import { cn } from "@/utils";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
@@ -48,7 +49,7 @@ export function useExecutePlan(refetch: () => void) {
             ruleId: thread.plan.rule.id,
             actions: thread.plan.rule.actions,
             args: thread.plan.functionArgs,
-          }
+          },
         );
 
         toastSuccess({ description: "Executed!" });
@@ -63,7 +64,7 @@ export function useExecutePlan(refetch: () => void) {
 
       setExecutingPlan((s) => ({ ...s, [thread.id!]: false }));
     },
-    [refetch]
+    [refetch],
   );
 
   const rejectPlan = useCallback(
@@ -73,7 +74,7 @@ export function useExecutePlan(refetch: () => void) {
       try {
         await postRequest<RejectPlanResponse, RejectPlanBody>(
           `/api/user/planned/reject`,
-          { threadId: thread.id! }
+          { threadId: thread.id! },
         );
 
         toastSuccess({ description: "Plan rejected" });
@@ -88,7 +89,7 @@ export function useExecutePlan(refetch: () => void) {
 
       setRejectingPlan((s) => ({ ...s, [thread.id!]: false }));
     },
-    [refetch]
+    [refetch],
   );
 
   return {
@@ -105,9 +106,9 @@ export function PlanActions(props: {
   rejectingPlan: boolean;
   executePlan: (thread: Thread) => Promise<void>;
   rejectPlan: (thread: Thread) => Promise<void>;
+  className?: string;
 }) {
-  const { thread, executingPlan, rejectingPlan, executePlan, rejectPlan } =
-    props;
+  const { thread, executePlan, rejectPlan } = props;
 
   const execute = useCallback(async () => {
     executePlan(thread);
@@ -116,39 +117,37 @@ export function PlanActions(props: {
     rejectPlan(thread);
   }, [rejectPlan, thread]);
 
-  return (
-    <div className="flex w-14 items-center space-x-1">
-      {thread.plan?.rule ? (
-        <>
-          {executingPlan ? (
-            <LoadingMiniSpinner />
-          ) : (
-            <Tooltip content="Execute">
-              <button
-                type="button"
-                onClick={execute}
-                className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-green-500 hover:text-green-500"
-              >
-                <CheckIcon className="h-4 w-4" />
-              </button>
-            </Tooltip>
-          )}
+  if (!thread.plan?.rule) return null;
 
-          {rejectingPlan ? (
-            <LoadingMiniSpinner />
-          ) : (
-            <Tooltip content="Reject">
-              <button
-                type="button"
-                onClick={reject}
-                className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-red-500 hover:text-red-500"
-              >
-                <XIcon className="h-4 w-4" />
-              </button>
-            </Tooltip>
-          )}
-        </>
-      ) : null}
+  return (
+    <div className={cn("flex items-center space-x-1", props.className)}>
+      {props.executingPlan ? (
+        <LoadingMiniSpinner />
+      ) : (
+        <Tooltip content="Execute">
+          <button
+            type="button"
+            onClick={execute}
+            className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-green-500 hover:text-green-500"
+          >
+            <CheckIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
+      )}
+
+      {props.rejectingPlan ? (
+        <LoadingMiniSpinner />
+      ) : (
+        <Tooltip content="Reject">
+          <button
+            type="button"
+            onClick={reject}
+            className="rounded-full border border-gray-400 p-1 text-gray-400 hover:border-red-500 hover:text-red-500"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
+      )}
     </div>
   );
 }
