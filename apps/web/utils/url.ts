@@ -26,3 +26,7 @@ export function getGmailSearchUrl(
 //     emailAddress,
 //   )}/#create-filter/from=${encodeURIComponent(search)}`;
 // }
+
+export function getGmailFilterSettingsUrl(emailAddress?: string | null) {
+  return `${getGmailBaseUrl(emailAddress)}/#settings/filters`;
+}
