@@ -48,7 +48,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
 
       posthog.capture("survey sent", posthogData);
     },
-    [posthog]
+    [posthog],
   );
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(
@@ -61,12 +61,12 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       if (questionIndex === survey.questions.length - 1) {
         submitPosthog(newSeachParams);
         await completedOnboarding();
-        router.push(`/stats`);
+        router.push("/newsletters");
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
     },
-    [name, questionIndex, router, searchParams, submitPosthog]
+    [name, questionIndex, router, searchParams, submitPosthog],
   );
 
   const question = survey.questions[questionIndex];
@@ -116,7 +116,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             submitPosthog(searchParams);
             posthog.capture("survey dismissed", { $survey_id: surveyId });
             await completedOnboarding();
-            router.push(`/stats`);
+            router.push("/newsletters");
           }}
         >
           Skip Onboarding
