@@ -16,7 +16,7 @@ export default function NewsletterCleaner() {
       <main className="isolate">
         <Hero
           title="Clean up your newsletter subscriptions"
-          subtitle="Effortlessly Manage the Newsletters in your Inbox: One-Click Unsubscribe, Auto Archive, or Approve"
+          subtitle="Effortlessly manage the newsletters in your inbox: one click unsubscribe, auto archive, or approve."
         />
         {/* <LogoCloud /> */}
         <Testimonials />

@@ -79,7 +79,7 @@ export function Features() {
   );
 }
 
-function FeaturesWithImage(props: {
+export function FeaturesWithImage(props: {
   imageSide: "left" | "right";
   title: string;
   subtitle: string;

@@ -5,6 +5,7 @@ const navigation = {
     { name: "Newsletter Cleaner", href: "/newsletter-cleaner" },
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Email AI Automation", href: "/ai-automation" },
+    { name: "New Sender Management", href: "/new-email-senders" },
     { name: "Open Source", href: "/github" },
     { name: "OSS Friends", href: "/oss-friends" },
   ],
