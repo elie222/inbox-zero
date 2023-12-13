@@ -3,6 +3,7 @@ import Link from "next/link";
 const navigation = {
   main: [
     { name: "Newsletter Cleaner", href: "/newsletter-cleaner" },
+    { name: "Email Analytics", href: "/email-analytics" },
     { name: "Open Source", href: "/github" },
     { name: "OSS Friends", href: "/oss-friends" },
   ],
