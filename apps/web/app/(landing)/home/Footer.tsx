@@ -2,14 +2,24 @@ import Link from "next/link";
 
 const navigation = {
   main: [
+    { name: "Newsletter Cleaner", href: "/newsletter-cleaner" },
     { name: "Open Source", href: "/github" },
-    { name: "Feature Requests", href: "/feature-requests" },
-    { name: "Roadmap", href: "/roadmap" },
     { name: "OSS Friends", href: "/oss-friends" },
-    { name: "Affiliates", href: "/affiliates" },
-    { name: "Pricing", href: "/#pricing" },
+  ],
+  legal: [
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
+  ],
+  support: [
+    { name: "Pricing", href: "/#pricing" },
+    { name: "Feature Requests", href: "/feature-requests" },
+    { name: "Roadmap", href: "/roadmap" },
+  ],
+  company: [
+    { name: "Affiliates", href: "/affiliates" },
+    { name: "Twitter", href: "/twitter" },
+    { name: "GitHub", href: "/github" },
+    { name: "Discord", href: "/discord" },
   ],
   social: [
     {
@@ -53,22 +63,26 @@ export function Footer() {
   return (
     <footer className="relative z-50">
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
-        <nav
-          className="-mb-6 columns-2 sm:flex sm:justify-center sm:space-x-12"
-          aria-label="Footer"
-        >
-          {navigation.main.map((item) => (
-            <div key={item.name} className="pb-6">
-              <Link
-                href={item.href}
-                className="text-sm leading-6 text-gray-600 hover:text-gray-900"
-              >
-                {item.name}
-              </Link>
+        <div className="mt-16 grid grid-cols-2 gap-8 xl:col-span-2 xl:mt-0">
+          <div className="md:grid md:grid-cols-2 md:gap-8">
+            <div>
+              <FooterList title="Product" items={navigation.main} />
             </div>
-          ))}
-        </nav>
-        <div className="mt-10 flex justify-center space-x-10">
+            <div className="mt-10 md:mt-0">
+              <FooterList title="Support" items={navigation.support} />
+            </div>
+          </div>
+          <div className="md:grid md:grid-cols-2 md:gap-8">
+            <div>
+              <FooterList title="Company" items={navigation.company} />
+            </div>
+            <div className="mt-10 md:mt-0">
+              <FooterList title="Legal" items={navigation.legal} />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-16 flex justify-center space-x-10">
           {navigation.social.map((item) => (
             <Link
               key={item.name}
@@ -85,5 +99,30 @@ export function Footer() {
         </p>
       </div>
     </footer>
+  );
+}
+
+function FooterList(props: {
+  title: string;
+  items: { name: string; href: string }[];
+}) {
+  return (
+    <>
+      <h3 className="text-sm font-semibold leading-6 text-gray-900">
+        {props.title}
+      </h3>
+      <ul role="list" className="mt-6 space-y-4">
+        {props.items.map((item) => (
+          <li key={item.name}>
+            <a
+              href={item.href}
+              className="text-sm leading-6 text-gray-600 hover:text-gray-900"
+            >
+              {item.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

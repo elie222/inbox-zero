@@ -1,12 +1,7 @@
 import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
 // import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
-import {
-  Features,
-  FeaturesAutomation,
-  FeaturesStats,
-  FeaturesUnsubscribe,
-} from "@/app/(landing)/home/Features";
+import { FeaturesUnsubscribe } from "@/app/(landing)/home/Features";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
@@ -19,13 +14,16 @@ export default function Home() {
       <Header />
 
       <main className="isolate">
-        <Hero />
+        <Hero
+          title="Clean up your newsletter subscriptions"
+          subtitle="Effortlessly Manage the Newsletters in your Inbox: One-Click Unsubscribe, Auto Archive, or Approve"
+        />
         {/* <LogoCloud /> */}
         <Testimonials />
-        <Features />
+        {/* <Features /> */}
         <FeaturesUnsubscribe />
-        <FeaturesStats />
-        <FeaturesAutomation />
+        {/* <FeaturesStats />
+        <FeaturesAutomation /> */}
         <Pricing />
         <FAQs />
         <CTA />
