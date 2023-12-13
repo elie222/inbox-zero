@@ -101,10 +101,11 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
               name={name}
               registerProps={register(name)}
               error={errors[name]}
+              placeholder="Optional"
             />
             <Button className="mt-4 w-full" type="submit">
               {isSubmitting && <ButtonLoader />}
-              Submit
+              Get Started
             </Button>
           </div>
         )}
