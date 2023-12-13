@@ -8,7 +8,7 @@ import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { Footer } from "@/app/(landing)/home/Footer";
 
-export default function Home() {
+export default function NewsletterCleaner() {
   return (
     <div className="bg-white">
       <Header />
