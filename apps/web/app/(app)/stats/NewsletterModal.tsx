@@ -39,7 +39,6 @@ export function NewsletterModal(props: {
   refreshInterval?: number;
 }) {
   const { newsletter, refreshInterval, onClose } = props;
-  console.log("🚀 ~ file: NewsletterModal.tsx:42 ~ newsletter:", newsletter);
 
   const session = useSession();
   const email = session.data?.user.email;

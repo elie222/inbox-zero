@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import clsx from "clsx";
 import {
@@ -16,15 +16,17 @@ import {
   Text,
 } from "@tremor/react";
 import {
+  ArchiveIcon,
   ArchiveXIcon,
+  BadgeCheckIcon,
   ChevronDown,
   ChevronDownIcon,
   ChevronsUpDownIcon,
   ExpandIcon,
-  MailsIcon,
+  FilterIcon,
+  UserRoundMinusIcon,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
-import { useLocalStorage } from "usehooks-ts";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -41,7 +43,6 @@ import {
   useEmailsToIncludeFilter,
 } from "@/app/(app)/stats/EmailsToIncludeFilter";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions-client";
-import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -52,6 +53,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LabelsResponse } from "@/app/api/google/labels/route";
+import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
+import { setNewsletterStatus } from "@/utils/actions";
 
 export function NewsletterStats(props: {
   dateRange?: DateRange | undefined;
@@ -60,20 +63,16 @@ export function NewsletterStats(props: {
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
-  const [includeFilteredEmails, setIncludeFilteredEmails] = useState(false);
-  const toggleIncludeFilteredEmails = useCallback(
-    () => setIncludeFilteredEmails((v) => !v),
-    [],
-  );
 
   const { typesArray, types, setTypes } = useEmailsToIncludeFilter();
+  const { filtersArray, filters, setFilters } = useNewsletterFilter();
 
   const params: NewsletterStatsQuery = {
     types: typesArray,
+    filters: filtersArray,
     orderBy: sortColumn,
     limit: 100,
     ...getDateRangeParams(props.dateRange),
-    includeFilteredEmails,
   };
 
   const urlParams = new URLSearchParams(params as any);
@@ -92,15 +91,10 @@ export function NewsletterStats(props: {
   const [selectedNewsletter, setSelectedNewsletter] =
     React.useState<NewsletterStatsResponse["newsletters"][number]>();
 
-  // won't work if user switches devices
-  const [unsubscribedEmails, setUnsubscribedEmails] = useLocalStorage<{
-    [key: string]: boolean;
-  }>("unsubscribedEmails", {});
-
   return (
     <>
       <Card className="p-0">
-        <div className="flex items-center justify-between px-6 pt-6">
+        <div className="items-center justify-between px-6 pt-6 md:flex">
           <div className="">
             <Title>
               Which newsletters and marketing emails do you get the most?
@@ -110,15 +104,47 @@ export function NewsletterStats(props: {
               view the emails in more detail.
             </Text>
           </div>
-          <div className="flex space-x-2">
-            <Toggle
-              aria-label="Toggle Auto Archived Emails"
-              onClick={toggleIncludeFilteredEmails}
-            >
-              <Tooltip content="Toggle Auto Archived Emails">
-                <MailsIcon className="h-4 w-4" />
-              </Tooltip>
-            </Toggle>
+          <div className="ml-4 mt-2 flex space-x-2 md:mt-0">
+            <DetailedStatsFilter
+              label="Filter"
+              icon={<FilterIcon className="mr-2 h-4 w-4" />}
+              keepOpenOnSelect
+              columns={[
+                {
+                  label: "Unhandled",
+                  checked: filters.unhandled,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["unhandled"]: !filters.unhandled,
+                    }),
+                },
+                {
+                  label: "Auto Archived",
+                  checked: filters.autoArchived,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["autoArchived"]: !filters.autoArchived,
+                    }),
+                },
+                {
+                  label: "Unsubscribed",
+                  checked: filters.unsubscribed,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["unsubscribed"]: !filters.unsubscribed,
+                    }),
+                },
+                {
+                  label: "Approved",
+                  checked: filters.approved,
+                  setChecked: () =>
+                    setFilters({ ...filters, ["approved"]: !filters.approved }),
+                },
+              ]}
+            />
 
             <EmailsToIncludeFilter types={types} setTypes={setTypes} />
           </div>
@@ -144,7 +170,7 @@ export function NewsletterStats(props: {
                       Emails
                     </HeaderButton>
                   </TableHeaderCell>
-                  <TableHeaderCell>
+                  <TableHeaderCell className="hidden lg:table-cell">
                     <HeaderButton
                       sorted={sortColumn === "unread"}
                       onClick={() => setSortColumn("unread")}
@@ -152,7 +178,7 @@ export function NewsletterStats(props: {
                       Read
                     </HeaderButton>
                   </TableHeaderCell>
-                  <TableHeaderCell>
+                  <TableHeaderCell className="hidden md:table-cell">
                     <HeaderButton
                       sorted={sortColumn === "unarchived"}
                       onClick={() => setSortColumn("unarchived")}
@@ -160,8 +186,6 @@ export function NewsletterStats(props: {
                       Archived
                     </HeaderButton>
                   </TableHeaderCell>
-                  <TableHeaderCell />
-                  <TableHeaderCell className="hidden xl:table-cell"></TableHeaderCell>
                   <TableHeaderCell />
                 </TableRow>
               </TableHead>
@@ -172,8 +196,6 @@ export function NewsletterStats(props: {
                     <NewsletterRow
                       key={item.name}
                       item={item}
-                      unsubscribedEmails={unsubscribedEmails}
-                      setUnsubscribedEmails={setUnsubscribedEmails}
                       setSelectedNewsletter={setSelectedNewsletter}
                       gmailLabels={dataLabels}
                       mutate={mutate}
@@ -196,10 +218,6 @@ export function NewsletterStats(props: {
 
 function NewsletterRow(props: {
   item: NewsletterStatsResponse["newsletters"][number];
-  unsubscribedEmails: { [key: string]: boolean };
-  setUnsubscribedEmails: React.Dispatch<
-    React.SetStateAction<{ [key: string]: boolean }>
-  >;
   setSelectedNewsletter: React.Dispatch<
     React.SetStateAction<
       NewsletterStatsResponse["newsletters"][number] | undefined
@@ -215,11 +233,11 @@ function NewsletterRow(props: {
 
   return (
     <TableRow key={item.name}>
-      <TableCell className="max-w-[200px] truncate pl-6 lg:max-w-[300px] 2xl:max-w-none">
+      <TableCell className="max-w-[250px] truncate pl-6 xl:max-w-[300px] 2xl:max-w-none">
         {item.name}
       </TableCell>
       <TableCell>{item.value}</TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         <ProgressBar
           label={`${Math.round(readPercentage)}%`}
           value={readPercentage}
@@ -230,7 +248,7 @@ function NewsletterRow(props: {
           className="w-[150px]"
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell">
         <ProgressBar
           label={`${Math.round(archivedPercentage)}%`}
           value={archivedPercentage}
@@ -239,56 +257,64 @@ function NewsletterRow(props: {
           className="w-[150px]"
         />
       </TableCell>
-      <TableCell className="p-2">
+      <TableCell className="flex justify-end space-x-2 p-2">
         <Button
           size="sm"
-          variant={props.unsubscribedEmails[item.name] ? "ghost" : "secondary"}
+          variant={item.status === "UNSUBSCRIBED" ? "red" : "secondary"}
           disabled={!item.lastUnsubscribeLink}
           asChild={!!item.lastUnsubscribeLink}
         >
           <a
             href={item.lastUnsubscribeLink}
             target="_blank"
-            onClick={() => {
-              props.setUnsubscribedEmails((u) => ({
-                ...u,
-                [item.name]: true,
-              }));
+            onClick={async () => {
+              await setNewsletterStatus({
+                newsletterEmail: item.name,
+                status: "UNSUBSCRIBED",
+              });
+              props.mutate();
             }}
           >
-            <span className="hidden xl:block">
-              {props.unsubscribedEmails[item.name]
-                ? "Unsubscribed"
-                : "Unsubscribe"}
+            <span className="hidden xl:block">Unsubscribe</span>
+            <span className="block xl:hidden">
+              <UserRoundMinusIcon className="h-4 w-4" />
             </span>
           </a>
         </Button>
-      </TableCell>
-      <TableCell className="hidden p-2 xl:table-cell">
         <Tooltip content="Auto archive emails using Gmail filters">
           <div
             className={clsx(
               "flex items-center space-x-1 rounded-md text-secondary-foreground",
-              !item.autoArchived && "bg-secondary",
+              item.autoArchived ? "bg-blue-100" : "bg-secondary",
             )}
           >
             <Button
-              variant={item.autoArchived ? "ghost" : "secondary"}
+              variant={
+                item.status === "AUTO_ARCHIVED" || item.autoArchived
+                  ? "blue"
+                  : "secondary"
+              }
               className="px-3 shadow-none"
               size="sm"
-              disabled={!!item.autoArchived}
               onClick={() => {
                 onAutoArchive(item.name);
                 props.mutate();
               }}
             >
-              {item.autoArchived ? "Auto Archived" : "Auto Archive"}
+              <span className="hidden xl:block">Auto Archive</span>
+              <span className="block xl:hidden">
+                <ArchiveIcon className="h-4 w-4" />
+              </span>
             </Button>
             <Separator orientation="vertical" className="h-[20px]" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={item.autoArchived ? "ghost" : "secondary"}
+                  variant={
+                    item.status === "AUTO_ARCHIVED" || item.autoArchived
+                      ? "blue"
+                      : "secondary"
+                  }
                   className="px-2 shadow-none"
                   size="sm"
                 >
@@ -329,8 +355,12 @@ function NewsletterRow(props: {
                     return (
                       <DropdownMenuItem
                         key={label.id}
-                        onClick={() => {
+                        onClick={async () => {
                           onAutoArchive(item.name, label.id || undefined);
+                          await setNewsletterStatus({
+                            newsletterEmail: item.name,
+                            status: "AUTO_ARCHIVED",
+                          });
                           props.mutate();
                         }}
                       >
@@ -342,15 +372,28 @@ function NewsletterRow(props: {
             </DropdownMenu>
           </div>
         </Tooltip>
-      </TableCell>
-      <TableCell className="p-2">
+        <Button
+          size="sm"
+          variant={item.status === "APPROVED" ? "green" : "secondary"}
+          onClick={async () => {
+            await setNewsletterStatus({
+              newsletterEmail: item.name,
+              status: "APPROVED",
+            });
+            props.mutate();
+          }}
+        >
+          <span className="hidden 2xl:block">Approve</span>
+          <span className="block 2xl:hidden">
+            <BadgeCheckIcon className="h-4 w-4" />
+          </span>
+        </Button>
         <Button
           size="sm"
           variant="secondary"
           onClick={() => props.setSelectedNewsletter(item)}
         >
-          <ExpandIcon className="mr-2 h-4 w-4" />
-          View
+          <ExpandIcon className="h-4 w-4" />
         </Button>
       </TableCell>
     </TableRow>
@@ -377,4 +420,28 @@ function HeaderButton(props: {
       )}
     </Button>
   );
+}
+
+function useNewsletterFilter() {
+  const [filters, setFilters] = useState<
+    Record<"unhandled" | "autoArchived" | "unsubscribed" | "approved", boolean>
+  >({
+    unhandled: true,
+    autoArchived: false,
+    unsubscribed: false,
+    approved: false,
+  });
+
+  return {
+    filters,
+    filtersArray: Object.entries(filters)
+      .filter(([, selected]) => selected)
+      .map(([key]) => key) as (
+      | "unhandled"
+      | "autoArchived"
+      | "unsubscribed"
+      | "approved"
+    )[],
+    setFilters,
+  };
 }
