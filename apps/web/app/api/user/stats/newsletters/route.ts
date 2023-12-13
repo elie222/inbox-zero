@@ -5,7 +5,8 @@ import { getNewsletterCounts } from "@inboxzero/tinybird";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getFiltersList } from "@/utils/gmail/filter";
 import { extractEmailAddress } from "@/utils/email";
-import { zodTrueFalse } from "@/utils/zod";
+import prisma from "@/utils/prisma";
+import { Newsletter } from "@prisma/client";
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -15,14 +16,19 @@ const newsletterStatsQuery = z.object({
   types: z
     .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
     .transform((arr) => arr?.filter(Boolean)),
-  includeFilteredEmails: zodTrueFalse,
+  filters: z
+    .array(
+      z.enum(["unhandled", "autoArchived", "unsubscribed", "approved", ""]),
+    )
+    .optional()
+    .transform((arr) => arr?.filter(Boolean)),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
   ReturnType<typeof getNewslettersTinybird>
 >;
 
-function getFilters(types: NewsletterStatsQuery["types"]) {
+function getTypeFilters(types: NewsletterStatsQuery["types"]) {
   const typeMap = Object.fromEntries(types.map((type) => [type, true]));
 
   // only use the read flag if unread is unmarked
@@ -69,16 +75,26 @@ async function getAutoArchiveFilters() {
 }
 
 async function getNewslettersTinybird(
-  options: { ownerEmail: string } & NewsletterStatsQuery,
+  options: { ownerEmail: string; userId: string } & NewsletterStatsQuery,
 ) {
-  const filters = getFilters(options.types);
+  const types = getTypeFilters(options.types);
 
   const newsletterCounts = await getNewsletterCounts({
     ...options,
-    ...filters,
+    ...types,
   });
 
   const autoArchiveFilters = await getAutoArchiveFilters();
+
+  const showAutoArchived = options.filters?.includes("autoArchived");
+  const showApproved = options.filters?.includes("approved");
+  const showUnsubscribed = options.filters?.includes("unsubscribed");
+  const showUnhandled = options.filters?.includes("unhandled");
+
+  const userNewsletters = await prisma.newsletter.findMany({
+    where: { userId: options.userId },
+    select: { email: true, status: true },
+  });
 
   const newsletters = newsletterCounts.data.map((email) => {
     const autoArchived = autoArchiveFilters?.find((filter) => {
@@ -93,13 +109,25 @@ async function getNewslettersTinybird(
       readEmails: email.readEmails,
       lastUnsubscribeLink: email.lastUnsubscribeLink,
       autoArchived,
+      status: userNewsletters?.find((n) => n.email === email.from)?.status,
     };
   });
 
+  if (!options.filters?.length) return { newsletters };
+
   return {
-    newsletters: options.includeFilteredEmails
-      ? newsletters
-      : newsletters.filter((email) => !email.autoArchived),
+    newsletters: newsletters.filter((email) => {
+      if (
+        showAutoArchived &&
+        (email.autoArchived || email.status === "AUTO_ARCHIVED")
+      )
+        return true;
+      if (showUnsubscribed && email.status === "UNSUBSCRIBED") return true;
+      if (showApproved && email.status === "APPROVED") return true;
+      if (showUnhandled && !email.status && !email.autoArchived) return true;
+
+      return false;
+    }),
   };
 }
 
@@ -115,12 +143,13 @@ export async function GET(request: Request) {
     toDate: searchParams.get("toDate"),
     orderBy: searchParams.get("orderBy"),
     types: searchParams.get("types")?.split(",") || [],
-    includeFilteredEmails: searchParams.get("includeFilteredEmails"),
+    filters: searchParams.get("filters")?.split(",") || [],
   });
 
   const result = await getNewslettersTinybird({
     ...params,
     ownerEmail: session.user.email,
+    userId: session.user.id,
   });
 
   return NextResponse.json(result);

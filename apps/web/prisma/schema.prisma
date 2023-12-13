@@ -71,6 +71,7 @@ model User {
   labels        Label[]
   rules         Rule[]
   executedRules ExecutedRule[]
+  newsletters   Newsletter[]
 }
 
 // not in use as it's only used for passwordless login
@@ -157,6 +158,19 @@ model ExecutedRule {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model Newsletter {
+  id        String            @id @default(cuid())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  email     String
+  status    NewsletterStatus?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([email, userId])
+}
+
 enum ActionType {
   ARCHIVE
   LABEL
@@ -178,4 +192,10 @@ enum Frequency {
   WEEKLY
   // MONTHLY
   // YEARLY
+}
+
+enum NewsletterStatus {
+  APPROVED
+  UNSUBSCRIBED
+  AUTO_ARCHIVED
 }

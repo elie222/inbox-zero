@@ -40,7 +40,7 @@ export function DetailedStatsFilter(props: {
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto hidden h-10 lg:flex"
+          className="ml-auto h-10 whitespace-nowrap"
         >
           {props.icon}
           {props.label}

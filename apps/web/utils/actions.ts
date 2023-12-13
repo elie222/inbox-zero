@@ -11,7 +11,7 @@ import { labelThread } from "@/app/api/google/threads/label/controller";
 import { deletePromptHistory } from "@/app/api/user/prompt-history/controller";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { type Label } from "@prisma/client";
+import { NewsletterStatus, type Label } from "@prisma/client";
 import {
   deleteInboxZeroLabels,
   deleteUserLabels,
@@ -204,5 +204,28 @@ export async function changePremiumStatus(userEmail: string, upgrade: boolean) {
     data: upgrade
       ? { lemonSqueezyRenewsAt: new Date(+new Date() + ONE_YEAR) }
       : { lemonSqueezyRenewsAt: null },
+  });
+}
+
+export async function setNewsletterStatus(options: {
+  newsletterEmail: string;
+  status: NewsletterStatus;
+}) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+
+  return await prisma.newsletter.upsert({
+    where: {
+      email_userId: {
+        email: options.newsletterEmail,
+        userId: session.user.id,
+      },
+    },
+    create: {
+      status: options.status,
+      email: options.newsletterEmail,
+      user: { connect: { id: session.user.id } },
+    },
+    update: { status: options.status },
   });
 }
