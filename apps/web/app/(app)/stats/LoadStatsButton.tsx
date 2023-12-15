@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AreaChartIcon } from "lucide-react";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
@@ -34,7 +34,7 @@ export function useLoading() {
       }
       setLoading(false);
     },
-    [loading]
+    [loading],
   );
 
   return { loading, onLoad };
@@ -63,4 +63,14 @@ export function LoadStatsButton(props: {
       </Button>
     </div>
   );
+}
+
+export function LoadStats() {
+  const { onLoad } = useLoading();
+
+  useEffect(() => {
+    onLoad(true, false);
+  }, [onLoad]);
+
+  return null;
 }

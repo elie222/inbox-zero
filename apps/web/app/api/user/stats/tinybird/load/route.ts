@@ -11,10 +11,11 @@ import { sleep } from "@/utils/sleep";
 import { extractDomainFromEmail } from "@/utils/email";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
 
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 const PAGE_SIZE = 100;
 const PAUSE_AFTER_RATE_LIMIT = 20_000;
+const MAX_PAGES = 100;
 
 const loadTinybirdEmailsBody = z.object({
   loadBefore: z.coerce.boolean().optional(),
@@ -45,7 +46,7 @@ async function publishAllEmails(
   const after = newestEmailSaved.data?.[0]?.timestamp;
   console.log("Loading emails after:", after);
 
-  while (true) {
+  while (pages < MAX_PAGES) {
     console.log("After Page", pages);
     let res;
     try {
@@ -83,7 +84,7 @@ async function publishAllEmails(
   const before = oldestEmailSaved.data?.[0]?.timestamp;
   console.log("Loading emails before:", before);
 
-  while (true) {
+  while (pages < MAX_PAGES) {
     console.log("Before Page", pages);
     let res;
     try {

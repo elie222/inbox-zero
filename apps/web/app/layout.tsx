@@ -54,10 +54,12 @@ export default function RootLayout({
       <body
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
-        <Suspense>
-          <PostHogPageview />
-        </Suspense>
-        <PostHogProvider>{children}</PostHogProvider>
+        <PostHogProvider>
+          <Suspense>
+            <PostHogPageview />
+          </Suspense>
+          {children}
+        </PostHogProvider>
       </body>
       <LemonScript />
     </html>

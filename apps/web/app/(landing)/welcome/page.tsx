@@ -7,6 +7,8 @@ import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { env } from "@/env.mjs";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
+import { LoadStats } from "@/app/(app)/stats/LoadStatsButton";
+import Providers from "@/app/(app)/providers";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -34,18 +36,21 @@ export default async function WelcomePage({
     : 0;
 
   return (
-    <div className="flex h-screen flex-col justify-center p-6 text-gray-900">
-      <SquaresPattern />
+    <Providers>
+      <div className="flex h-screen flex-col justify-center p-6 text-gray-900">
+        <SquaresPattern />
 
-      <Card className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
-        <div className="flex flex-col text-center">
-          <PageHeading>Welcome to Inbox Zero</PageHeading>
-          <TypographyP className="mt-2">Clean your inbox, fast.</TypographyP>
-          <div className="mt-4">
-            <OnboardingForm questionIndex={questionIndex} />
+        <Card className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
+          <div className="flex flex-col text-center">
+            <PageHeading>Welcome to Inbox Zero</PageHeading>
+            <TypographyP className="mt-2">Clean your inbox, fast.</TypographyP>
+            <div className="mt-4">
+              <OnboardingForm questionIndex={questionIndex} />
+            </div>
           </div>
-        </div>
-      </Card>
-    </div>
+        </Card>
+        <LoadStats />
+      </div>
+    </Providers>
   );
 }
