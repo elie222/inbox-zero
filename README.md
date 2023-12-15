@@ -45,7 +45,7 @@ Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. I
 
 ## Roadmap
 
-Explore our upcoming features and improvements on our [Roadmap](https://www.getinboxzero.com/roadmap). Your feedback and [feature requests](https://getinboxzero.com/feature-requests) are always welcome!
+Explore our upcoming features and improvements on our [Roadmap](https://www.getinboxzero.com/roadmap). Your feedback and [feature requests](https://www.getinboxzero.com/feature-requests) are always welcome!
 
 ## Getting Started for Developers
 
@@ -104,7 +104,7 @@ Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
 3. [Grant publish rights on your topic](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic)
 
 Set env var `GOOGLE_PUBSUB_TOPIC_NAME`.
-When creating the subscription select Push and the url should look something like: `https://getinboxzero.com/api/google/webhook` or `https://abc.ngrok-free.app/api/google/webhook` where the domain is your domain.
+When creating the subscription select Push and the url should look something like: `https://www.getinboxzero.com/api/google/webhook` or `https://abc.ngrok-free.app/api/google/webhook` where the domain is your domain.
 
 To run in development ngrok can be helpful:
 
