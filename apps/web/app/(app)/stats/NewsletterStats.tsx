@@ -103,12 +103,8 @@ export function NewsletterStats(props: {
       const item = selectedRow;
       if (!item) return;
 
-      // ignore meta keys
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-      e.preventDefault();
-
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
         const index = data?.newsletters?.findIndex((n) => n.name === item.name);
         if (index === undefined) return;
         const nextItem =
@@ -118,6 +114,7 @@ export function NewsletterStats(props: {
         return;
       } else if (e.key === "e") {
         // auto archive
+        e.preventDefault();
         onAutoArchive(item.name);
         await setNewsletterStatus({
           newsletterEmail: item.name,
@@ -126,6 +123,7 @@ export function NewsletterStats(props: {
         mutate();
       } else if (e.key === "u") {
         // unsubscribe
+        e.preventDefault();
         await setNewsletterStatus({
           newsletterEmail: item.name,
           status: "UNSUBSCRIBED",
@@ -134,6 +132,7 @@ export function NewsletterStats(props: {
         window.open(item.lastUnsubscribeLink, "_blank");
       } else if (e.key === "a") {
         // approve
+        e.preventDefault();
         await setNewsletterStatus({
           newsletterEmail: item.name,
           status: "APPROVED",
@@ -141,6 +140,7 @@ export function NewsletterStats(props: {
         mutate();
       } else if (e.key === "Enter") {
         // open modal
+        e.preventDefault();
         setSelectedNewsletter(item);
       }
     };
