@@ -8,6 +8,7 @@ import {
 interface TooltipProps {
   children: React.ReactElement;
   content?: string;
+  contentComponent?: React.ReactNode;
 }
 
 export const Tooltip = (props: TooltipProps) => {
@@ -16,7 +17,9 @@ export const Tooltip = (props: TooltipProps) => {
       <ShadcnTooltip>
         <TooltipTrigger asChild>{props.children}</TooltipTrigger>
         <TooltipContent>
-          <p className="max-w-xs">{props.content}</p>
+          {props.contentComponent || (
+            <p className="max-w-xs">{props.content}</p>
+          )}
         </TooltipContent>
       </ShadcnTooltip>
     </TooltipProvider>

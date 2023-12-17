@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import clsx from "clsx";
 import {
@@ -24,6 +24,8 @@ import {
   ChevronsUpDownIcon,
   ExpandIcon,
   FilterIcon,
+  HelpCircleIcon,
+  SquareSlashIcon,
   UserRoundMinusIcon,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
@@ -91,14 +93,14 @@ export function NewsletterStats(props: {
   const [selectedNewsletter, setSelectedNewsletter] =
     React.useState<NewsletterStatsResponse["newsletters"][number]>();
 
-  const hoveredRowRef = useRef<
+  const [selectedRow, setSelectedRow] = React.useState<
     NewsletterStatsResponse["newsletters"][number] | undefined
-  >(undefined);
+  >();
 
   // perform actions using keyboard shortcuts
   React.useEffect(() => {
     const down = async (e: KeyboardEvent) => {
-      const item = hoveredRowRef.current;
+      const item = selectedRow;
       if (!item) return;
 
       // ignore meta keys
@@ -106,7 +108,15 @@ export function NewsletterStats(props: {
 
       e.preventDefault();
 
-      if (e.key === "e") {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const index = data?.newsletters?.findIndex((n) => n.name === item.name);
+        if (index === undefined) return;
+        const nextItem =
+          data?.newsletters?.[index + (e.key === "ArrowDown" ? 1 : -1)];
+        if (!nextItem) return;
+        setSelectedRow(nextItem);
+        return;
+      } else if (e.key === "e") {
         // auto archive
         onAutoArchive(item.name);
         await setNewsletterStatus({
@@ -136,7 +146,7 @@ export function NewsletterStats(props: {
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, [mutate]);
+  }, [mutate, data?.newsletters, selectedRow]);
 
   return (
     <>
@@ -152,6 +162,23 @@ export function NewsletterStats(props: {
             </Text>
           </div>
           <div className="ml-4 mt-2 flex space-x-2 md:mt-0">
+            <Tooltip
+              contentComponent={
+                <div>
+                  <h3 className="mb-1 font-semibold">Shortcuts:</h3>
+                  <p>U - Unsubscribe</p>
+                  <p>E - Auto Archive</p>
+                  <p>A - Approve</p>
+                  <p>Enter - View more</p>
+                  <p>Up/down - navigate</p>
+                </div>
+              }
+            >
+              <Button size="icon" variant="link">
+                <SquareSlashIcon className="h-5 w-5" />
+              </Button>
+            </Tooltip>
+
             <DetailedStatsFilter
               label="Filter"
               icon={<FilterIcon className="mr-2 h-4 w-4" />}
@@ -236,11 +263,7 @@ export function NewsletterStats(props: {
                   <TableHeaderCell />
                 </TableRow>
               </TableHead>
-              <TableBody
-                onMouseLeave={() => {
-                  hoveredRowRef.current = undefined;
-                }}
-              >
+              <TableBody>
                 {data.newsletters
                   .slice(0, expanded ? undefined : 50)
                   .map((item) => (
@@ -250,8 +273,9 @@ export function NewsletterStats(props: {
                       setSelectedNewsletter={setSelectedNewsletter}
                       gmailLabels={dataLabels}
                       mutate={mutate}
+                      selected={selectedRow?.name === item.name}
                       onSelectRow={() => {
-                        hoveredRowRef.current = item;
+                        setSelectedRow(item);
                       }}
                     />
                   ))}
@@ -279,6 +303,7 @@ function NewsletterRow(props: {
   >;
   gmailLabels?: LabelsResponse;
   mutate: () => Promise<NewsletterStatsResponse | undefined>;
+  selected: boolean;
   onSelectRow: () => void;
 }) {
   const { item } = props;
@@ -289,7 +314,9 @@ function NewsletterRow(props: {
   return (
     <TableRow
       key={item.name}
-      className="hover:bg-gray-50"
+      className={props.selected ? "bg-blue-50" : undefined}
+      aria-selected={props.selected || undefined}
+      data-selected={props.selected || undefined}
       onMouseEnter={props.onSelectRow}
     >
       <TableCell className="max-w-[250px] truncate pl-6 xl:max-w-[300px] 2xl:max-w-none">
@@ -340,7 +367,7 @@ function NewsletterRow(props: {
             </span>
           </a>
         </Button>
-        <Tooltip content="Auto archive emails using Gmail filters">
+        <Tooltip content="Auto archive emails using Gmail filters.">
           <div
             className={clsx(
               "flex items-center space-x-1 rounded-md text-secondary-foreground",
@@ -389,6 +416,9 @@ function NewsletterRow(props: {
                 alignOffset={-5}
                 className="max-h-[415px] w-[220px] overflow-auto"
                 forceMount
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                }}
               >
                 {item.autoArchived?.id && (
                   <>
