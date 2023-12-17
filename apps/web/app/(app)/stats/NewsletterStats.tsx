@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import useSWR from "swr";
 import clsx from "clsx";
 import {
@@ -90,6 +90,53 @@ export function NewsletterStats(props: {
   const { expanded, extra } = useExpanded();
   const [selectedNewsletter, setSelectedNewsletter] =
     React.useState<NewsletterStatsResponse["newsletters"][number]>();
+
+  const hoveredRowRef = useRef<
+    NewsletterStatsResponse["newsletters"][number] | undefined
+  >(undefined);
+
+  // perform actions using keyboard shortcuts
+  React.useEffect(() => {
+    const down = async (e: KeyboardEvent) => {
+      const item = hoveredRowRef.current;
+      if (!item) return;
+
+      // ignore meta keys
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      e.preventDefault();
+
+      if (e.key === "e") {
+        // auto archive
+        onAutoArchive(item.name);
+        await setNewsletterStatus({
+          newsletterEmail: item.name,
+          status: "AUTO_ARCHIVED",
+        });
+        mutate();
+      } else if (e.key === "u") {
+        // unsubscribe
+        await setNewsletterStatus({
+          newsletterEmail: item.name,
+          status: "UNSUBSCRIBED",
+        });
+        mutate();
+        window.open(item.lastUnsubscribeLink, "_blank");
+      } else if (e.key === "a") {
+        // approve
+        await setNewsletterStatus({
+          newsletterEmail: item.name,
+          status: "APPROVED",
+        });
+        mutate();
+      } else if (e.key === "Enter") {
+        // open modal
+        setSelectedNewsletter(item);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, [mutate]);
 
   return (
     <>
@@ -189,7 +236,11 @@ export function NewsletterStats(props: {
                   <TableHeaderCell />
                 </TableRow>
               </TableHead>
-              <TableBody>
+              <TableBody
+                onMouseLeave={() => {
+                  hoveredRowRef.current = undefined;
+                }}
+              >
                 {data.newsletters
                   .slice(0, expanded ? undefined : 50)
                   .map((item) => (
@@ -199,6 +250,9 @@ export function NewsletterStats(props: {
                       setSelectedNewsletter={setSelectedNewsletter}
                       gmailLabels={dataLabels}
                       mutate={mutate}
+                      onSelectRow={() => {
+                        hoveredRowRef.current = item;
+                      }}
                     />
                   ))}
               </TableBody>
@@ -225,6 +279,7 @@ function NewsletterRow(props: {
   >;
   gmailLabels?: LabelsResponse;
   mutate: () => Promise<NewsletterStatsResponse | undefined>;
+  onSelectRow: () => void;
 }) {
   const { item } = props;
   const readPercentage = (item.readEmails / item.value) * 100;
@@ -232,7 +287,11 @@ function NewsletterRow(props: {
   const archivedPercentage = (archivedEmails / item.value) * 100;
 
   return (
-    <TableRow key={item.name}>
+    <TableRow
+      key={item.name}
+      className="hover:bg-gray-50"
+      onMouseEnter={props.onSelectRow}
+    >
       <TableCell className="max-w-[250px] truncate pl-6 xl:max-w-[300px] 2xl:max-w-none">
         {item.name}
       </TableCell>
@@ -296,8 +355,12 @@ function NewsletterRow(props: {
               }
               className="px-3 shadow-none"
               size="sm"
-              onClick={() => {
+              onClick={async () => {
                 onAutoArchive(item.name);
+                await setNewsletterStatus({
+                  newsletterEmail: item.name,
+                  status: "AUTO_ARCHIVED",
+                });
                 props.mutate();
               }}
             >
@@ -330,8 +393,12 @@ function NewsletterRow(props: {
                 {item.autoArchived?.id && (
                   <>
                     <DropdownMenuItem
-                      onClick={() => {
+                      onClick={async () => {
                         onDeleteFilter(item.autoArchived?.id!);
+                        await setNewsletterStatus({
+                          newsletterEmail: item.name,
+                          status: null,
+                        });
                         props.mutate();
                       }}
                     >
