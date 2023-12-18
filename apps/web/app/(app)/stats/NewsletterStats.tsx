@@ -98,6 +98,7 @@ export function NewsletterStats(props: {
   >();
 
   // perform actions using keyboard shortcuts
+  // TODO make this available to command-K dialog too
   React.useEffect(() => {
     const down = async (e: KeyboardEvent) => {
       const item = selectedRow;
