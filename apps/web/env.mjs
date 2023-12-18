@@ -35,6 +35,7 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
     NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: z.string().min(1),
+    NEXT_PUBLIC_LIFETIME_PLAN_ID: z.string().min(1),
     NEXT_PUBLIC_CALL_LINK: z.string().default("https://dub.sh/inbox-zero-call"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
@@ -50,6 +51,7 @@ export const env = createEnv({
   experimental__runtimeEnv: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
     NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: process.env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+    NEXT_PUBLIC_LIFETIME_PLAN_ID: process.env.NEXT_PUBLIC_LIFETIME_PLAN_ID,
     NEXT_PUBLIC_CALL_LINK: process.env.NEXT_PUBLIC_CALL_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:

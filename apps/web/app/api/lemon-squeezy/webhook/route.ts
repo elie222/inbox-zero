@@ -32,9 +32,15 @@ export const POST = withError(async (request: Request) => {
   }
 
   if (payload.meta.event_name === "subscription_created") {
-    const lemonSqueezyRenewsAt = new Date(payload.data.attributes.renews_at);
     const lemonSqueezySubscriptionId = payload.data.id;
     const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
+
+    const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
+
+    const lemonSqueezyRenewsAt =
+      lemonSqueezySubscriptionId === env.NEXT_PUBLIC_LIFETIME_PLAN_ID
+        ? new Date(Date.now() + TEN_YEARS)
+        : new Date(payload.data.attributes.renews_at);
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
