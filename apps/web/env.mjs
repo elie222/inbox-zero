@@ -34,6 +34,7 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
+    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: z.string().min(1),
     NEXT_PUBLIC_CALL_LINK: z.string().default("https://dub.sh/inbox-zero-call"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
@@ -43,12 +44,13 @@ export const env = createEnv({
       .string()
       .nullish()
       .default("inboxzero"),
+    NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
     NEXT_PUBLIC_PRO_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
-    NEXT_PUBLIC_CALL_LINK:
-      process.env.NEXT_PUBLIC_CALL_LINK,
+    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: process.env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+    NEXT_PUBLIC_CALL_LINK: process.env.NEXT_PUBLIC_CALL_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
@@ -56,5 +58,7 @@ export const env = createEnv({
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_LEMON_AFFILIATE_STORE:
       process.env.NEXT_PUBLIC_LEMON_AFFILIATE_STORE,
+    NEXT_PUBLIC_UNSUBSCRIBE_CREDITS:
+      process.env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
   },
 });
