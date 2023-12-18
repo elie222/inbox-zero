@@ -29,11 +29,10 @@ export function Hero(props: {
             <HeroSubtitle>
               {props.subtitle || (
                 <>
-                  Inbox Zero puts you back in control of your inbox. Understand
-                  what
+                  Inbox Zero puts you back in control of your inbox. View and
+                  one-click unsubscribe from newsletters. Automate replies using
+                  AI automation. Understand what
                   {"'"}s filling up your inbox with our email analytics.
-                  One-click unsubscribe from newsletters. Automate replies and
-                  answer your users in seconds.
                 </>
               )}
             </HeroSubtitle>
