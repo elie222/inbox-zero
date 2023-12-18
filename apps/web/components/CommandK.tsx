@@ -31,8 +31,20 @@ export function CommandK() {
 
   return (
     <>
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Type a command or search..." />
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        commandProps={{
+          onKeyDown: (e) => {
+            // allow closing modal
+            if (e.key !== "Escape") {
+              // stop propagation to prevent keyboard shortcuts from firing on the page
+              e.stopPropagation();
+            }
+          },
+        }}
+      >
+        <CommandInput placeholder="Type a command..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Navigation">

@@ -209,7 +209,7 @@ export async function changePremiumStatus(userEmail: string, upgrade: boolean) {
 
 export async function setNewsletterStatus(options: {
   newsletterEmail: string;
-  status: NewsletterStatus;
+  status: NewsletterStatus | null;
 }) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
