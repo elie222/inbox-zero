@@ -111,8 +111,6 @@ export function NewsletterStats(props: {
   // TODO limit the copy-paste. same logic appears twice in this file
   React.useEffect(() => {
     const down = async (e: KeyboardEvent) => {
-      if (!hasUnsubscribeAccess) return;
-
       const item = selectedRow;
       if (!item) return;
 
@@ -125,7 +123,16 @@ export function NewsletterStats(props: {
         if (!nextItem) return;
         setSelectedRow(nextItem);
         return;
-      } else if (e.key === "e") {
+      } else if (e.key === "Enter") {
+        // open modal
+        e.preventDefault();
+        setSelectedNewsletter(item);
+        return;
+      }
+
+      if (!hasUnsubscribeAccess) return;
+
+      if (e.key === "e") {
         // auto archive
         e.preventDefault();
         onAutoArchive(item.name);
@@ -136,6 +143,7 @@ export function NewsletterStats(props: {
         mutate();
         await decrementUnsubscribeCredit();
         await refetchPremium();
+        return;
       } else if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
@@ -147,6 +155,7 @@ export function NewsletterStats(props: {
         window.open(item.lastUnsubscribeLink, "_blank");
         await decrementUnsubscribeCredit();
         await refetchPremium();
+        return;
       } else if (e.key === "a") {
         // approve
         e.preventDefault();
@@ -155,10 +164,7 @@ export function NewsletterStats(props: {
           status: "APPROVED",
         });
         mutate();
-      } else if (e.key === "Enter") {
-        // open modal
-        e.preventDefault();
-        setSelectedNewsletter(item);
+        return;
       }
     };
     document.addEventListener("keydown", down);
