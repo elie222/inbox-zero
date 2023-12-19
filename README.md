@@ -53,6 +53,23 @@ Explore our upcoming features and improvements on our [Roadmap](https://www.geti
 
 - [Node.js](https://nodejs.org/en/) >= 18.0.0
 - [pnpm](https://pnpm.io/) >= 8.6.12
+- [Docker desktop](https://www.docker.com/products/docker-desktop/)
+
+The external services that are required are:
+
+- [OpenAI](https://platform.openai.com/api-keys)
+- [Google OAuth](https://console.cloud.google.com/apis/credentials)
+- [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list) - see set up instructions below
+- [Upstash Redis](https://upstash.com/)
+- [Tinybird](https://www.tinybird.co/)
+
+We use Postgres for the database.
+
+You can run Postgres & Redis locally using `docker-compose`
+
+```bash
+docker-compose up -d # -d will run the services in the background
+```
 
 Create your own `.env` file:
 
@@ -64,15 +81,13 @@ pnpm install
 
 Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.mjs`.
 
-The external services that are required are:
+The required environment variables:
 
-- [OpenAI](https://platform.openai.com/api-keys)
-- [Google OAuth](https://console.cloud.google.com/apis/credentials)
-- [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list) - see set up instructions below
-- [Upstash Redis](https://upstash.com/)
-- [Tinybird](https://www.tinybird.co/)
-
-We use Postgres for the database.
+- `NEXTAUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
+- `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
+- `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
+- `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region).
+- `OPENAI_API_KEY` -- Standard OpenAI API key.
 
 To run the migrations:
 
