@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { env } from "@/env.mjs";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
+import { Tag } from "@/components/Tag";
 
 const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
@@ -209,7 +210,12 @@ function LifetimePricing() {
     <div className="bg-white py-4 sm:py-8">
       <div className="mx-auto max-w-2xl rounded-3xl ring-1 ring-gray-200 lg:mx-0 lg:flex lg:max-w-none">
         <div className="p-8 sm:p-10 lg:flex-auto">
-          <h3 className="font-cal text-2xl text-gray-900">Lifetime access</h3>
+          <h3 className="flex items-center font-cal text-2xl text-gray-900">
+            Lifetime access
+            <div className="ml-4">
+              <Tag color="green">Limited Time Offer</Tag>
+            </div>
+          </h3>
           <p className="mt-6 text-base leading-7 text-gray-600">
             Get lifetime access to Inbox Zero Pro for a one-time payment. This
             includes $100 in AI credits.
