@@ -40,7 +40,9 @@ export const POST = withError(async (request: Request) => {
     const lemonSqueezyRenewsAt =
       lemonSqueezySubscriptionId === env.NEXT_PUBLIC_LIFETIME_PLAN_ID
         ? new Date(Date.now() + TEN_YEARS)
-        : new Date(payload.data.attributes.renews_at);
+        : payload.data.attributes.renews_at
+          ? new Date(payload.data.attributes.renews_at)
+          : undefined;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -56,6 +58,40 @@ export const POST = withError(async (request: Request) => {
       await posthogCaptureEvent(
         updatedUser.email,
         "Upgraded to premium",
+        payload.data.attributes,
+      );
+    }
+  } else if (payload.meta.event_name === "subscription_payment_success") {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        lemonSqueezyRenewsAt: payload.data.attributes.renews_at
+          ? new Date(payload.data.attributes.renews_at)
+          : undefined,
+      },
+      select: { email: true },
+    });
+
+    if (updatedUser.email) {
+      await posthogCaptureEvent(
+        updatedUser.email,
+        "Premium subscription payment success",
+        payload.data.attributes,
+      );
+    }
+  } else if (payload.data.attributes.ends_at) {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        lemonSqueezyRenewsAt: payload.data.attributes.ends_at,
+      },
+      select: { email: true },
+    });
+
+    if (updatedUser.email) {
+      await posthogCaptureEvent(
+        updatedUser.email,
+        "Cancelled premium subscription",
         payload.data.attributes,
       );
     }
@@ -117,8 +153,8 @@ export interface Attributes {
   billing_anchor: number;
   first_subscription_item: FirstSubscriptionItem;
   urls: Urls;
-  renews_at: string;
-  ends_at: any;
+  renews_at?: string;
+  ends_at?: string;
   created_at: string;
   updated_at: string;
   test_mode: boolean;
