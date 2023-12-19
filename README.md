@@ -95,6 +95,10 @@ turbo dev
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localhost:3000/admin).
 
+### Setting up Tinybird
+
+Follow the instructions [here](./packages/tinybird/README.md) to setup the `pipes` and `datasources`.
+
 ### Set up push notifications via Google PubSub to handle emails in real time
 
 Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
