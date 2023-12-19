@@ -1,3 +1,4 @@
+import Link from "next/link";
 import useSWR from "swr";
 import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
@@ -25,7 +26,16 @@ export function PremiumAlert() {
   return (
     <AlertWithButton
       title="Premium"
-      description="This is a premium feature. Upgrade to premium or set an OpenAI API key on the settings page."
+      description={
+        <>
+          This is a premium feature. Upgrade to premium or set an OpenAI API key
+          on the{" "}
+          <Link href="/settings" className="font-semibold hover:text-gray-700">
+            settings
+          </Link>{" "}
+          page.
+        </>
+      }
       icon={<CrownIcon className="h-4 w-4" />}
       button={<Button link={{ href: "/premium" }}>Upgrade</Button>}
     />

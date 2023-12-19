@@ -254,7 +254,8 @@ export async function decrementUnsubscribeCredit() {
     await prisma.user.update({
       where: { email: session.user.email },
       data: {
-        unsubscribeCredits: env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
+        // reset and use a credit
+        unsubscribeCredits: env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS - 1,
         unsubscribeMonth: currentMonth,
       },
     });

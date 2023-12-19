@@ -1,30 +1,23 @@
 "use server";
 
-import { NotLoggedIn } from "@/components/ErrorDisplay";
-import { Stats } from "@/components/Stats";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getUsage } from "@/utils/redis/usage";
+import { TopSection } from "@/components/TopSection";
+import { NotLoggedIn } from "@/components/ErrorDisplay";
+import { Usage } from "@/app/(app)/usage/usage";
 
-export default async function Usage() {
+export default async function UsagePage() {
   const session = await auth();
-  if (!session?.user.email) return <NotLoggedIn></NotLoggedIn>;
+  if (!session?.user.email) return <NotLoggedIn />;
 
   const usage = await getUsage({ email: session.user.email });
 
   return (
-    <div className="max-w-3xl bg-white">
-      <Stats
-        stats={[
-          {
-            name: "OpenAI API Calls",
-            value: usage?.openaiCalls || 0,
-          },
-          {
-            name: "OpenAI Tokens Used",
-            value: usage?.openaiTokensUsed || 0,
-          },
-        ]}
-      />
+    <div>
+      <TopSection title="Credits and Usage" />
+      <div className="m-4">
+        <Usage usage={usage} />
+      </div>
     </div>
   );
 }
