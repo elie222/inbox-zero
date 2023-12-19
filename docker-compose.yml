@@ -1,0 +1,34 @@
+version: "3.5"
+services:
+  db:
+    image: "postgres"
+    restart: always
+    container_name: inbox-zero
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_DB: "inboxzero"
+      POSTGRES_PASSWORD: password
+    volumes:
+      - database-data:/var/lib/postgresql/data/
+    expose:
+      - 5432
+    ports:
+      - 8009:5432
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+  redis:
+    image: redis
+    ports:
+      - 6380:6379
+    expose:
+      - 6379
+    volumes:
+      - database-data:/data
+
+volumes:
+  database-data:
