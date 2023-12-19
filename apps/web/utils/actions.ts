@@ -25,6 +25,7 @@ import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
 import { env } from "@/env.mjs";
+import { isPremium } from "@/utils/premium";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -228,4 +229,42 @@ export async function setNewsletterStatus(options: {
     },
     update: { status: options.status },
   });
+}
+
+export async function decrementUnsubscribeCredit() {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { email: session.user.email },
+    select: {
+      unsubscribeCredits: true,
+      unsubscribeMonth: true,
+      lemonSqueezyRenewsAt: true,
+    },
+  });
+
+  const premium = isPremium(user.lemonSqueezyRenewsAt);
+  if (premium) return;
+
+  const currentMonth = new Date().getMonth() + 1;
+
+  if (!user.unsubscribeMonth || user.unsubscribeMonth !== currentMonth) {
+    // reset the monthly credits
+    await prisma.user.update({
+      where: { email: session.user.email },
+      data: {
+        unsubscribeCredits: env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
+        unsubscribeMonth: currentMonth,
+      },
+    });
+  } else {
+    if (!user?.unsubscribeCredits || user.unsubscribeCredits <= 0) return;
+
+    // decrement the monthly credits
+    await prisma.user.update({
+      where: { email: session.user.email },
+      data: { unsubscribeCredits: { decrement: 1 } },
+    });
+  }
 }
