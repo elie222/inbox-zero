@@ -95,7 +95,7 @@ export function Pricing() {
         </p>
 
         {isPremium && (
-          <div className="mt-4 text-center">
+          <div className="mt-8 text-center">
             <Button
               link={{
                 href: `https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`,
