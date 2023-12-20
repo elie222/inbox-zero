@@ -1,6 +1,6 @@
 ---
 title: Privacy Policy
-updatedAt: 2023-11-12
+updatedAt: 2023-12-20
 ---
 
 ## Introduction
@@ -56,4 +56,4 @@ We may update our Privacy Policy from time to time. Any changes will be posted o
 
 ## Contact Us
 
-If you have any questions or concerns about our Privacy Policy, please contact us at: [elie@getinbox.com](mailto:elie@getinbox.com).
+If you have any questions or concerns about our Privacy Policy, please contact us at: [elie@getinboxzero.com](mailto:elie@getinboxzero.com).
