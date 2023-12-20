@@ -24,7 +24,6 @@ import {
   ChevronsUpDownIcon,
   ExpandIcon,
   FilterIcon,
-  HelpCircleIcon,
   SquareSlashIcon,
   UserRoundMinusIcon,
 } from "lucide-react";
@@ -56,7 +55,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
-import { setNewsletterStatus } from "@/utils/actions";
+import {
+  decrementUnsubscribeCredit,
+  setNewsletterStatus,
+} from "@/utils/actions";
+import {
+  PremiumTooltip,
+  PremiumTooltipContent,
+  usePremium,
+} from "@/components/PremiumAlert";
 
 export function NewsletterStats(props: {
   dateRange?: DateRange | undefined;
@@ -97,8 +104,11 @@ export function NewsletterStats(props: {
     NewsletterStatsResponse["newsletters"][number] | undefined
   >();
 
+  const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
+
   // perform actions using keyboard shortcuts
   // TODO make this available to command-K dialog too
+  // TODO limit the copy-paste. same logic appears twice in this file
   React.useEffect(() => {
     const down = async (e: KeyboardEvent) => {
       const item = selectedRow;
@@ -113,7 +123,16 @@ export function NewsletterStats(props: {
         if (!nextItem) return;
         setSelectedRow(nextItem);
         return;
-      } else if (e.key === "e") {
+      } else if (e.key === "Enter") {
+        // open modal
+        e.preventDefault();
+        setSelectedNewsletter(item);
+        return;
+      }
+
+      if (!hasUnsubscribeAccess) return;
+
+      if (e.key === "e") {
         // auto archive
         e.preventDefault();
         onAutoArchive(item.name);
@@ -122,6 +141,9 @@ export function NewsletterStats(props: {
           status: "AUTO_ARCHIVED",
         });
         mutate();
+        await decrementUnsubscribeCredit();
+        await refetchPremium();
+        return;
       } else if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
@@ -131,6 +153,9 @@ export function NewsletterStats(props: {
         });
         mutate();
         window.open(item.lastUnsubscribeLink, "_blank");
+        await decrementUnsubscribeCredit();
+        await refetchPremium();
+        return;
       } else if (e.key === "a") {
         // approve
         e.preventDefault();
@@ -139,15 +164,18 @@ export function NewsletterStats(props: {
           status: "APPROVED",
         });
         mutate();
-      } else if (e.key === "Enter") {
-        // open modal
-        e.preventDefault();
-        setSelectedNewsletter(item);
+        return;
       }
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, [mutate, data?.newsletters, selectedRow]);
+  }, [
+    mutate,
+    data?.newsletters,
+    selectedRow,
+    hasUnsubscribeAccess,
+    refetchPremium,
+  ]);
 
   return (
     <>
@@ -278,6 +306,8 @@ export function NewsletterStats(props: {
                       onSelectRow={() => {
                         setSelectedRow(item);
                       }}
+                      hasUnsubscribeAccess={hasUnsubscribeAccess}
+                      refetchPremium={refetchPremium}
                     />
                   ))}
               </TableBody>
@@ -306,8 +336,10 @@ function NewsletterRow(props: {
   mutate: () => Promise<NewsletterStatsResponse | undefined>;
   selected: boolean;
   onSelectRow: () => void;
+  hasUnsubscribeAccess: boolean;
+  refetchPremium: () => Promise<any>;
 }) {
-  const { item } = props;
+  const { item, refetchPremium } = props;
   const readPercentage = (item.readEmails / item.value) * 100;
   const archivedEmails = item.value - item.inboxEmails;
   const archivedPercentage = (archivedEmails / item.value) * 100;
@@ -345,30 +377,49 @@ function NewsletterRow(props: {
         />
       </TableCell>
       <TableCell className="flex justify-end space-x-2 p-2">
-        <Button
-          size="sm"
-          variant={item.status === "UNSUBSCRIBED" ? "red" : "secondary"}
-          disabled={!item.lastUnsubscribeLink}
-          asChild={!!item.lastUnsubscribeLink}
-        >
-          <a
-            href={item.lastUnsubscribeLink}
-            target="_blank"
-            onClick={async () => {
-              await setNewsletterStatus({
-                newsletterEmail: item.name,
-                status: "UNSUBSCRIBED",
-              });
-              props.mutate();
-            }}
+        <PremiumTooltip showTooltip={!props.hasUnsubscribeAccess}>
+          <Button
+            size="sm"
+            variant={item.status === "UNSUBSCRIBED" ? "red" : "secondary"}
+            asChild={!!item.lastUnsubscribeLink}
           >
-            <span className="hidden xl:block">Unsubscribe</span>
-            <span className="block xl:hidden">
-              <UserRoundMinusIcon className="h-4 w-4" />
-            </span>
-          </a>
-        </Button>
-        <Tooltip content="Auto archive emails using Gmail filters.">
+            <a
+              className={
+                props.hasUnsubscribeAccess
+                  ? undefined
+                  : "pointer-events-none opacity-50"
+              }
+              href={props.hasUnsubscribeAccess ? item.lastUnsubscribeLink : "#"}
+              target="_blank"
+              onClick={async () => {
+                if (!props.hasUnsubscribeAccess) return;
+
+                await setNewsletterStatus({
+                  newsletterEmail: item.name,
+                  status: "UNSUBSCRIBED",
+                });
+                props.mutate();
+                await decrementUnsubscribeCredit();
+                await refetchPremium();
+              }}
+            >
+              <span className="hidden xl:block">Unsubscribe</span>
+              <span className="block xl:hidden">
+                <UserRoundMinusIcon className="h-4 w-4" />
+              </span>
+            </a>
+          </Button>
+        </PremiumTooltip>
+        <Tooltip
+          contentComponent={
+            !props.hasUnsubscribeAccess ? <PremiumTooltipContent /> : undefined
+          }
+          content={
+            props.hasUnsubscribeAccess
+              ? "Auto archive emails using Gmail filters."
+              : undefined
+          }
+        >
           <div
             className={clsx(
               "flex items-center space-x-1 rounded-md text-secondary-foreground",
@@ -390,7 +441,10 @@ function NewsletterRow(props: {
                   status: "AUTO_ARCHIVED",
                 });
                 props.mutate();
+                await decrementUnsubscribeCredit();
+                await refetchPremium();
               }}
+              disabled={!props.hasUnsubscribeAccess}
             >
               <span className="hidden xl:block">Auto Archive</span>
               <span className="block xl:hidden">
@@ -408,6 +462,7 @@ function NewsletterRow(props: {
                   }
                   className="px-2 shadow-none"
                   size="sm"
+                  disabled={!props.hasUnsubscribeAccess}
                 >
                   <ChevronDownIcon className="h-4 w-4 text-secondary-foreground" />
                 </Button>
@@ -460,6 +515,8 @@ function NewsletterRow(props: {
                             status: "AUTO_ARCHIVED",
                           });
                           props.mutate();
+                          await decrementUnsubscribeCredit();
+                          await refetchPremium();
                         }}
                       >
                         {label.name}
@@ -470,22 +527,25 @@ function NewsletterRow(props: {
             </DropdownMenu>
           </div>
         </Tooltip>
-        <Button
-          size="sm"
-          variant={item.status === "APPROVED" ? "green" : "secondary"}
-          onClick={async () => {
-            await setNewsletterStatus({
-              newsletterEmail: item.name,
-              status: "APPROVED",
-            });
-            props.mutate();
-          }}
-        >
-          <span className="hidden 2xl:block">Approve</span>
-          <span className="block 2xl:hidden">
-            <BadgeCheckIcon className="h-4 w-4" />
-          </span>
-        </Button>
+        <PremiumTooltip showTooltip={!props.hasUnsubscribeAccess}>
+          <Button
+            size="sm"
+            variant={item.status === "APPROVED" ? "green" : "secondary"}
+            onClick={async () => {
+              await setNewsletterStatus({
+                newsletterEmail: item.name,
+                status: "APPROVED",
+              });
+              props.mutate();
+            }}
+            disabled={!props.hasUnsubscribeAccess}
+          >
+            <span className="hidden 2xl:block">Approve</span>
+            <span className="block 2xl:hidden">
+              <BadgeCheckIcon className="h-4 w-4" />
+            </span>
+          </Button>
+        </PremiumTooltip>
         <Button
           size="sm"
           variant="secondary"
@@ -525,9 +585,9 @@ function useNewsletterFilter() {
     Record<"unhandled" | "autoArchived" | "unsubscribed" | "approved", boolean>
   >({
     unhandled: true,
-    autoArchived: false,
-    unsubscribed: false,
-    approved: false,
+    autoArchived: true,
+    unsubscribed: true,
+    approved: true,
   });
 
   return {

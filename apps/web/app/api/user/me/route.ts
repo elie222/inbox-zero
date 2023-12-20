@@ -12,6 +12,7 @@ async function getUser(userId: string) {
       lemonSqueezyCustomerId: true,
       lemonSqueezySubscriptionId: true,
       lemonSqueezyRenewsAt: true,
+      unsubscribeCredits: true,
       aiModel: true,
       openAIApiKey: true,
       statsEmailFrequency: true,

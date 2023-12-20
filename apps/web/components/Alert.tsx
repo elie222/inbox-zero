@@ -22,7 +22,7 @@ export function AlertBasic(props: {
 
 export function AlertWithButton(props: {
   title: string;
-  description: string;
+  description: React.ReactNode;
   icon?: React.ReactNode;
   variant?: "default" | "destructive" | "success";
   button?: React.ReactNode;

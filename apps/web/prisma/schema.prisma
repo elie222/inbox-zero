@@ -67,6 +67,12 @@ model User {
   lemonSqueezySubscriptionId String?
   lemonSqueezyRenewsAt       DateTime?
 
+  // unsubscribe credits
+  // if `unsubscribeMonth` not set to this month, set to current month
+  // reset `unsubscribeCredits` each time month is changed
+  unsubscribeMonth   Int? // 1-12
+  unsubscribeCredits Int?
+
   promptHistory PromptHistory[]
   labels        Label[]
   rules         Rule[]
