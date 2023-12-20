@@ -354,12 +354,12 @@ function NewsletterRow(props: {
       data-selected={props.selected || undefined}
       onMouseEnter={props.onSelectRow}
     >
-      <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-[350px]">
+      <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-none">
         {item.name}
       </TableCell>
       <TableCell>{item.value}</TableCell>
       <TableCell>
-        <div className="hidden lg:block">
+        <div className="hidden xl:block">
           <ProgressBar
             label={`${Math.round(readPercentage)}%`}
             value={readPercentage}
@@ -370,7 +370,7 @@ function NewsletterRow(props: {
             className="w-[150px]"
           />
         </div>
-        <div className="lg:hidden">{Math.round(readPercentage)}%</div>
+        <div className="xl:hidden">{Math.round(readPercentage)}%</div>
       </TableCell>
       <TableCell>
         <div className="hidden 2xl:block">
