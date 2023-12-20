@@ -190,23 +190,25 @@ export function NewsletterStats(props: {
               view the emails in more detail.
             </Text>
           </div>
-          <div className="ml-4 mt-2 flex space-x-2 md:mt-0">
-            <Tooltip
-              contentComponent={
-                <div>
-                  <h3 className="mb-1 font-semibold">Shortcuts:</h3>
-                  <p>U - Unsubscribe</p>
-                  <p>E - Auto Archive</p>
-                  <p>A - Approve</p>
-                  <p>Enter - View more</p>
-                  <p>Up/down - navigate</p>
-                </div>
-              }
-            >
-              <Button size="icon" variant="link">
-                <SquareSlashIcon className="h-5 w-5" />
-              </Button>
-            </Tooltip>
+          <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
+            <div className="hidden md:block">
+              <Tooltip
+                contentComponent={
+                  <div>
+                    <h3 className="mb-1 font-semibold">Shortcuts:</h3>
+                    <p>U - Unsubscribe</p>
+                    <p>E - Auto Archive</p>
+                    <p>A - Approve</p>
+                    <p>Enter - View more</p>
+                    <p>Up/down - navigate</p>
+                  </div>
+                }
+              >
+                <Button size="icon" variant="link">
+                  <SquareSlashIcon className="h-5 w-5" />
+                </Button>
+              </Tooltip>
+            </div>
 
             <DetailedStatsFilter
               label="Filter"
@@ -273,7 +275,7 @@ export function NewsletterStats(props: {
                       Emails
                     </HeaderButton>
                   </TableHeaderCell>
-                  <TableHeaderCell className="hidden lg:table-cell">
+                  <TableHeaderCell>
                     <HeaderButton
                       sorted={sortColumn === "unread"}
                       onClick={() => setSortColumn("unread")}
@@ -281,7 +283,7 @@ export function NewsletterStats(props: {
                       Read
                     </HeaderButton>
                   </TableHeaderCell>
-                  <TableHeaderCell className="hidden md:table-cell">
+                  <TableHeaderCell>
                     <HeaderButton
                       sorted={sortColumn === "unarchived"}
                       onClick={() => setSortColumn("unarchived")}
@@ -352,29 +354,35 @@ function NewsletterRow(props: {
       data-selected={props.selected || undefined}
       onMouseEnter={props.onSelectRow}
     >
-      <TableCell className="max-w-[250px] truncate pl-6 xl:max-w-[300px] 2xl:max-w-none">
+      <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-[350px]">
         {item.name}
       </TableCell>
       <TableCell>{item.value}</TableCell>
-      <TableCell className="hidden lg:table-cell">
-        <ProgressBar
-          label={`${Math.round(readPercentage)}%`}
-          value={readPercentage}
-          tooltip={`${item.readEmails} read. ${
-            item.value - item.readEmails
-          } unread.`}
-          color="blue"
-          className="w-[150px]"
-        />
+      <TableCell>
+        <div className="hidden lg:block">
+          <ProgressBar
+            label={`${Math.round(readPercentage)}%`}
+            value={readPercentage}
+            tooltip={`${item.readEmails} read. ${
+              item.value - item.readEmails
+            } unread.`}
+            color="blue"
+            className="w-[150px]"
+          />
+        </div>
+        <div className="lg:hidden">{Math.round(readPercentage)}%</div>
       </TableCell>
-      <TableCell className="hidden md:table-cell">
-        <ProgressBar
-          label={`${Math.round(archivedPercentage)}%`}
-          value={archivedPercentage}
-          tooltip={`${archivedEmails} archived. ${item.inboxEmails} unarchived.`}
-          color="blue"
-          className="w-[150px]"
-        />
+      <TableCell>
+        <div className="hidden 2xl:block">
+          <ProgressBar
+            label={`${Math.round(archivedPercentage)}%`}
+            value={archivedPercentage}
+            tooltip={`${archivedEmails} archived. ${item.inboxEmails} unarchived.`}
+            color="blue"
+            className="w-[150px]"
+          />
+        </div>
+        <div className="2xl:hidden">{Math.round(archivedPercentage)}%</div>
       </TableCell>
       <TableCell className="flex justify-end space-x-2 p-2">
         <PremiumTooltip showTooltip={!props.hasUnsubscribeAccess}>
@@ -549,8 +557,8 @@ function NewsletterRow(props: {
             }}
             disabled={!props.hasUnsubscribeAccess}
           >
-            <span className="hidden 2xl:block">Approve</span>
-            <span className="block 2xl:hidden">
+            <span className="sr-only">Approve</span>
+            <span>
               <BadgeCheckIcon className="h-4 w-4" />
             </span>
           </Button>
