@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { RadioGroup } from "@headlessui/react";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, CreditCardIcon } from "lucide-react";
 import clsx from "clsx";
 import { env } from "@/env.mjs";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Tag } from "@/components/Tag";
+import { Button } from "@/components/Button";
 
 const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
@@ -92,6 +93,20 @@ export function Pricing() {
         <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
           Clean your email and reach inbox zero fast with AI assistance.
         </p>
+
+        {isPremium && (
+          <div className="mt-4 text-center">
+            <Button
+              link={{
+                href: `https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`,
+                target: "_blank",
+              }}
+            >
+              <CreditCardIcon className="mr-2 h-4 w-4" />
+              Manage subscription
+            </Button>
+          </div>
+        )}
 
         <div className="mt-16 flex justify-center">
           <RadioGroup

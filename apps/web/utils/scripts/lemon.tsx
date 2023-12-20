@@ -4,7 +4,7 @@ import Script from "next/script";
 import { env } from "@/env.mjs";
 
 export function LemonScript() {
-  if (!env.NEXT_PUBLIC_LEMON_AFFILIATE_STORE) return null;
+  if (!env.NEXT_PUBLIC_LEMON_STORE_ID) return null;
 
   return (
     <Script
@@ -14,7 +14,7 @@ export function LemonScript() {
       onLoad={() => {
         if (window) {
           (window as any).lemonSqueezyAffiliateConfig = {
-            store: env.NEXT_PUBLIC_LEMON_AFFILIATE_STORE,
+            store: env.NEXT_PUBLIC_LEMON_STORE_ID,
           };
         }
       }}
