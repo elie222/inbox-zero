@@ -70,10 +70,16 @@ export const navigation = [
 ];
 
 const bottomLinks = [
-  { name: "Feature Requests", href: "/feature-requests", icon: LightbulbIcon },
+  {
+    name: "Feature Requests",
+    href: "/feature-requests",
+    target: "_blank",
+    icon: LightbulbIcon,
+  },
   {
     name: "Join Discord",
     href: "/discord",
+    target: "_blank",
     icon: (props: any) => (
       <svg width="100" height="100" viewBox="0 0 24 24" {...props}>
         <path
@@ -83,7 +89,12 @@ const bottomLinks = [
       </svg>
     ),
   },
-  { name: "Star on GitHub", href: "/github", icon: StarIcon },
+  {
+    name: "Star on GitHub",
+    href: "/github",
+    target: "_blank",
+    icon: StarIcon,
+  },
   { name: "Premium", href: "/premium", icon: CrownIcon },
   { name: "Settings", href: "/settings", icon: CogIcon },
 ];
@@ -229,6 +240,7 @@ function Sidebar(props: { isMobile: boolean }) {
                           ? "bg-gray-800 text-white"
                           : "text-gray-400 hover:bg-gray-800 hover:text-white",
                       )}
+                      target={link.target}
                     >
                       <link.icon
                         className="h-6 w-6 shrink-0"
