@@ -527,7 +527,16 @@ function NewsletterRow(props: {
             </DropdownMenu>
           </div>
         </Tooltip>
-        <PremiumTooltip showTooltip={!props.hasUnsubscribeAccess}>
+        <Tooltip
+          contentComponent={
+            !props.hasUnsubscribeAccess ? <PremiumTooltipContent /> : undefined
+          }
+          content={
+            props.hasUnsubscribeAccess
+              ? "Approve to filter it from the list."
+              : undefined
+          }
+        >
           <Button
             size="sm"
             variant={item.status === "APPROVED" ? "green" : "secondary"}
@@ -545,7 +554,7 @@ function NewsletterRow(props: {
               <BadgeCheckIcon className="h-4 w-4" />
             </span>
           </Button>
-        </PremiumTooltip>
+        </Tooltip>
         <Button
           size="sm"
           variant="secondary"
