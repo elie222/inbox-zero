@@ -15,6 +15,9 @@ export const env = createEnv({
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
     BASELIME_PROJECT_NAME: z.string().optional(),
     BASELIME_KEY: z.string().optional(),
+    SENTRY_AUTH_TOKEN: z.string().optional(),
+    SENTRY_ORGANIZATION: z.string().optional(),
+    SENTRY_PROJECT: z.string().optional(),
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
     LEMON_SQUEEZY_API_SECRET: z.string(),
     LEMON_SQUEEZY_SIGNING_SECRET: z.string(),
@@ -43,6 +46,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string().default("https://www.getinboxzero.com"),
     NEXT_PUBLIC_CONTACTS_ENABLED: z.coerce.boolean().optional().default(false),
+    NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -59,5 +63,6 @@ export const env = createEnv({
     NEXT_PUBLIC_LEMON_STORE_ID: process.env.NEXT_PUBLIC_LEMON_STORE_ID,
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
   },
 });
