@@ -49,3 +49,5 @@ dist
 .venv
 
 .react-email
+
+.sentryclirc
