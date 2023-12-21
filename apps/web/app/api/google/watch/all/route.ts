@@ -3,10 +3,11 @@ import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret } from "@/utils/cron";
+import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export const GET = withError(async (request: Request) => {
   if (!hasCronSecret(request))
     return new Response("Unauthorized", { status: 401 });
 
@@ -62,4 +63,4 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({ ok: true });
-}
+});

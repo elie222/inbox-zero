@@ -4,6 +4,7 @@ import { gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getCategory } from "@/utils/redis/category";
+import { withError } from "@/utils/middleware";
 
 export type CategoryStatsResponse = Awaited<
   ReturnType<typeof getCategoryStats>
@@ -27,7 +28,7 @@ async function getCategoryStats(options: {
       if (!t.id) return;
       const category = await getCategory({ email, threadId: t.id });
       return { ...t, category };
-    }) || []
+    }) || [],
   );
 
   const countByCategory = countBy(threads, (t) => t?.category?.category);
@@ -35,7 +36,7 @@ async function getCategoryStats(options: {
   return { countByCategory };
 }
 
-export async function GET() {
+export const GET = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -45,4 +46,4 @@ export async function GET() {
   const result = await getCategoryStats({ gmail, email: session.user.email });
 
   return NextResponse.json(result);
-}
+});

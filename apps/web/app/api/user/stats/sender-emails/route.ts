@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getEmailsFromSender, zodPeriod } from "@inboxzero/tinybird";
 import { format } from "date-fns";
+import { withError } from "@/utils/middleware";
 
 const senderEmailsQuery = z.object({
   fromEmail: z.string(),
@@ -14,7 +15,7 @@ export type SenderEmailsQuery = z.infer<typeof senderEmailsQuery>;
 export type SenderEmailsResponse = Awaited<ReturnType<typeof getSenderEmails>>;
 
 async function getSenderEmails(
-  options: SenderEmailsQuery & { ownerEmail: string }
+  options: SenderEmailsQuery & { ownerEmail: string },
 ) {
   const senderEmails = await getEmailsFromSender(options);
 
@@ -26,7 +27,7 @@ async function getSenderEmails(
   };
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -46,4 +47,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(result);
-}
+});

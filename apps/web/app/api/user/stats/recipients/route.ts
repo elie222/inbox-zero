@@ -13,6 +13,7 @@ import {
   zodPeriod,
 } from "@inboxzero/tinybird";
 import { extractDomainFromEmail } from "@/utils/email";
+import { withError } from "@/utils/middleware";
 
 const recipientStatsQuery = z.object({
   period: zodPeriod,
@@ -90,7 +91,7 @@ async function getRecipientsTinybird(
   };
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -111,4 +112,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(result);
-}
+});

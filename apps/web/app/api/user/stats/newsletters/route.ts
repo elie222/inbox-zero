@@ -6,7 +6,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { getFiltersList } from "@/utils/gmail/filter";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
-import { Newsletter } from "@prisma/client";
+import { withError } from "@/utils/middleware";
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -131,7 +131,7 @@ async function getNewslettersTinybird(
   };
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -153,4 +153,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(result);
-}
+});

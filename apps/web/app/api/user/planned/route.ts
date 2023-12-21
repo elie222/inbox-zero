@@ -9,6 +9,7 @@ import { getMessage } from "@/utils/gmail/message";
 import { Thread } from "@/components/email-list/types";
 import { getCategory } from "@/utils/redis/category";
 import prisma from "@/utils/prisma";
+import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +68,7 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   return { messages: messages.filter(isDefined) };
 }
 
-export async function GET() {
+export const GET = withError(async () => {
   try {
     const messages = await getPlanned();
     return NextResponse.json(messages);
@@ -75,4 +76,4 @@ export async function GET() {
     console.error(error);
     return NextResponse.json({ error });
   }
-}
+});

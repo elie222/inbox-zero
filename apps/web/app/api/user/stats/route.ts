@@ -2,6 +2,7 @@ import { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
+import { withError } from "@/utils/middleware";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
 
@@ -12,16 +13,16 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
   const twentyFourHoursAgo = new Date(
     now.getFullYear(),
     now.getMonth(),
-    now.getDate() - 1
+    now.getDate() - 1,
   );
   const sevenDaysAgo = new Date(
     now.getFullYear(),
     now.getMonth(),
-    now.getDate() - 7
+    now.getDate() - 7,
   );
 
   const twentyFourHoursAgoInSeconds = Math.floor(
-    twentyFourHoursAgo.getTime() / 1000
+    twentyFourHoursAgo.getTime() / 1000,
   );
   const sevenDaysAgoInSeconds = Math.floor(sevenDaysAgo.getTime() / 1000);
 
@@ -78,7 +79,7 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
   };
 }
 
-export async function GET() {
+export const GET = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -87,4 +88,4 @@ export async function GET() {
   const result = await getStats({ gmail });
 
   return NextResponse.json(result);
-}
+});

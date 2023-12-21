@@ -4,6 +4,7 @@ import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
 import { MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
+import { withError } from "@/utils/middleware";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 
@@ -26,7 +27,7 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
 
         const lastMessage = thread.messages?.[thread.messages?.length - 1];
         const lastMessageFrom = lastMessage?.payload?.headers?.find(
-          (header) => header.name?.toLowerCase() === "from"
+          (header) => header.name?.toLowerCase() === "from",
         )?.value;
         const isSentByUser = lastMessageFrom?.includes(options.email);
 
@@ -43,14 +44,14 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
               }),
             },
           };
-      }) || []
+      }) || [],
     )
   ).filter(isDefined);
 
   return sentEmailsWithThreads;
 }
 
-export async function GET() {
+export const GET = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -59,4 +60,4 @@ export async function GET() {
   const result = await getNoReply({ email: session.user.email, gmail });
 
   return NextResponse.json(result);
-}
+});

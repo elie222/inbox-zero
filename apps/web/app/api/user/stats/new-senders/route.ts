@@ -3,6 +3,7 @@ import { z } from "zod";
 import { subDays } from "date-fns";
 import { getNewSenders } from "@inboxzero/tinybird";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { withError } from "@/utils/middleware";
 
 const newSendersQuery = z.object({
   cutOffDate: z.coerce.number().nullish(),
@@ -11,7 +12,7 @@ export type NewSendersQuery = z.infer<typeof newSendersQuery>;
 export type NewSendersResponse = Awaited<ReturnType<typeof getNewEmailSenders>>;
 
 async function getNewEmailSenders(
-  options: NewSendersQuery & { ownerEmail: string }
+  options: NewSendersQuery & { ownerEmail: string },
 ) {
   const cutOffDate = options.cutOffDate || subDays(new Date(), 7).getTime();
 
@@ -23,7 +24,7 @@ async function getNewEmailSenders(
   return { emails: newSenders.data };
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -41,4 +42,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(result);
-}
+});
