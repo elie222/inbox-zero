@@ -1,4 +1,4 @@
-// import * as Sentry from '@sentry/nextjs';
+import * as Sentry from "@sentry/nextjs";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -14,5 +14,5 @@ export function isErrorMessage(value: any): value is ErrorMessage {
 }
 
 export function captureException(error: unknown) {
-  // Sentry.captureException(error);
+  Sentry.captureException(error);
 }
