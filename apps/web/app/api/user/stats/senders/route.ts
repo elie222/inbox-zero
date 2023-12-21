@@ -6,6 +6,7 @@ import {
   getMostReceivedFrom,
   zodPeriod,
 } from "@inboxzero/tinybird";
+import { withError } from "@/utils/middleware";
 
 const senderStatsQuery = z.object({
   period: zodPeriod,
@@ -18,7 +19,7 @@ export type SendersResponse = Awaited<ReturnType<typeof getSendersTinybird>>;
 async function getSendersTinybird(
   options: SenderStatsQuery & {
     ownerEmail: string;
-  }
+  },
 ) {
   const [mostSent, mostSentDomains] = await Promise.all([
     getMostReceivedFrom(options),
@@ -37,7 +38,7 @@ async function getSendersTinybird(
   };
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -55,4 +56,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(result);
-}
+});

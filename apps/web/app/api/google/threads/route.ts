@@ -10,6 +10,7 @@ import { ThreadWithPayloadMessages } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
 import { getThreadsBatch } from "@/utils/gmail/thread";
+import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,7 @@ async function getThreads(query: ThreadsQuery) {
   return { threads: threadsWithMessages };
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request: Request) => {
   const { searchParams } = new URL(request.url);
   const limit = searchParams.get("limit");
   const fromEmail = searchParams.get("fromEmail");
@@ -88,4 +89,4 @@ export async function GET(request: Request) {
     console.error(error);
     return NextResponse.json({ error });
   }
-}
+});

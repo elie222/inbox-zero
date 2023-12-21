@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import uniqBy from "lodash/uniqBy";
 import { subDays } from "date-fns";
 import { sendStatsEmail } from "@inboxzero/resend";
@@ -74,7 +74,7 @@ async function sendWeeklyStats(options: { email: string }) {
   return { success: true };
 }
 
-export const POST = withError(async (request: NextRequest) => {
+export const POST = withError(async (request: Request) => {
   console.log("sending weekly stats to user");
   if (!hasCronSecret(request))
     return new Response("Unauthorized", { status: 401 });

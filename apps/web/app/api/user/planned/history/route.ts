@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
+import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ async function getPlanHistory() {
   return { history };
 }
 
-export async function GET() {
+export const GET = withError(async () => {
   try {
     const messages = await getPlanHistory();
     return NextResponse.json(messages);
@@ -27,4 +28,4 @@ export async function GET() {
     console.error(error);
     return NextResponse.json({ error });
   }
-}
+});

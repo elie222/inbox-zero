@@ -4,6 +4,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 // import { MessageWithPayload } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
+import { withError } from "@/utils/middleware";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
@@ -26,14 +27,14 @@ async function getMessages() {
         ...res,
         parsedMessage: parseMessage(res),
       };
-    })
+    }),
   );
 
   return { messages: fullMessages };
 }
 
-export async function GET() {
+export const GET = withError(async () => {
   const result = await getMessages();
 
   return NextResponse.json(result);
-}
+});

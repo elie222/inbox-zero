@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { watchEmails } from "./controller";
+import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -19,4 +20,4 @@ export async function GET() {
     console.error("Error watching inbox");
     return NextResponse.json({ error: "Error watching inbox" });
   }
-}
+});

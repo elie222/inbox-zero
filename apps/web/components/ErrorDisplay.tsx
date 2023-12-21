@@ -1,9 +1,16 @@
 import { Panel } from "./Panel";
 import Image from "next/image";
 
-export function ErrorDisplay(props: { error: { error?: string } }) {
-  if (props.error.error)
-    return <NotFound>There was an error: {props.error.error}</NotFound>;
+export function ErrorDisplay(props: {
+  error: { error?: string; message?: string };
+}) {
+  if (props.error?.error || props.error?.message) {
+    return (
+      <NotFound>
+        There was an error: {props.error.error || props.error.message}
+      </NotFound>
+    );
+  }
 
   if (props.error) {
     return (

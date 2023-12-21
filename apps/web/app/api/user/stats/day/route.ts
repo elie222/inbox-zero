@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
+import { withError } from "@/utils/middleware";
 
 const statsByDayQuery = z.object({
   type: z.enum(["inbox", "sent", "archived"]),
@@ -18,7 +19,7 @@ async function getPastSevenDayStats(
   options: {
     email: string;
     gmail: gmail_v1.Gmail;
-  } & StatsByDayQuery
+  } & StatsByDayQuery,
 ) {
   // const { email } = options;
 
@@ -26,7 +27,7 @@ async function getPastSevenDayStats(
   const sevenDaysAgo = new Date(
     today.getFullYear(),
     today.getMonth(),
-    today.getDate() - (DAYS - 1) // include today in stats
+    today.getDate() - (DAYS - 1), // include today in stats
   );
   // const cachedStats = await getAllStats({ email })
 
@@ -59,7 +60,7 @@ async function getPastSevenDayStats(
         date: dateString,
         Emails: count,
       };
-    })
+    }),
   );
 
   return lastSevenDaysCountsArray;
@@ -81,7 +82,7 @@ function getQuery(type: StatsByDayQuery["type"], date: Date) {
   }
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request: Request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json<{ error: string }>({ error: "Not authenticated" });
@@ -99,4 +100,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(result);
-}
+});

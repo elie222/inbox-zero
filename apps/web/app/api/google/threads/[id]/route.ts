@@ -5,6 +5,7 @@ import { parseMessages } from "@/utils/mail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { ThreadWithPayloadMessages } from "@/utils/types";
+import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +25,7 @@ async function getThread(query: ThreadQuery, gmail: gmail_v1.Gmail) {
   return { thread: { ...thread, messages } };
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: ThreadQuery }
-) {
+export const GET = withError(async (_request, { params }) => {
   const query = threadQuery.parse(params);
 
   const session = await auth();
@@ -39,4 +37,4 @@ export async function GET(
   const thread = await getThread(query, gmail);
 
   return NextResponse.json(thread);
-}
+});

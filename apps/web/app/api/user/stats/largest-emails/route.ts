@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getLargestEmails } from "@inboxzero/tinybird";
+import { withError } from "@/utils/middleware";
 
 const largestEmailsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -14,14 +15,14 @@ export type LargestEmailsResponse = Awaited<
 >;
 
 async function getNewslettersTinybird(
-  options: { ownerEmail: string } & LargestEmailsQuery
+  options: { ownerEmail: string } & LargestEmailsQuery,
 ) {
   const largestEmails = await getLargestEmails(options);
 
   return { largestEmails: largestEmails.data };
 }
 
-export async function GET(request: Request) {
+export const GET = withError(async (request: Request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -39,4 +40,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(result);
-}
+});
