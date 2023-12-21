@@ -121,6 +121,7 @@ export const getAuthOptions: (options?: {
   },
   pages: {
     signIn: "/login",
+    error: "/login/error",
   },
 });
 
