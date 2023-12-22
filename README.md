@@ -86,7 +86,7 @@ The required environment variables:
 - `NEXTAUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
 - `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
-- `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region).
+- `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region).
 - `OPENAI_API_KEY` -- Standard OpenAI API key.
 
 To run the migrations:
