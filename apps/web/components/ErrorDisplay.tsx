@@ -1,16 +1,16 @@
 import { Panel } from "./Panel";
 import Image from "next/image";
 
+// TODO would be better to have a consistent definition here. didn't want to break things.
 export function ErrorDisplay(props: {
-  error: { error?: string; message?: string };
+  error: { info?: { error: string }; error?: string };
 }) {
-  if (props.error?.error || props.error?.message) {
+  if (props.error?.info?.error || props.error?.error)
     return (
       <NotFound>
-        There was an error: {props.error.error || props.error.message}
+        There was an error: {props.error?.info?.error || props.error?.error}
       </NotFound>
     );
-  }
 
   if (props.error) {
     return (

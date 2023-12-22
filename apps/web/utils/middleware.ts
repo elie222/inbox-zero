@@ -28,10 +28,8 @@ export function withError(handler: NextHandler): NextHandler {
       if ((error as any)?.errors?.[0]?.reason === "insufficientPermissions") {
         return NextResponse.json(
           {
-            error: {
-              message:
-                "You must grant all Gmail permissions to use the app. Please log out and log in again to grant permissions.",
-            },
+            error:
+              "You must grant all Gmail permissions to use the app. Please log out and log in again to grant permissions.",
           },
           { status: 403 },
         );

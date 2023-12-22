@@ -21,11 +21,6 @@ async function getPlanHistory() {
 }
 
 export const GET = withError(async () => {
-  try {
-    const messages = await getPlanHistory();
-    return NextResponse.json(messages);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error });
-  }
+  const messages = await getPlanHistory();
+  return NextResponse.json(messages);
 });

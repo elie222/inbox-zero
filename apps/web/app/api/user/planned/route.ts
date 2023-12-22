@@ -69,11 +69,6 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
 }
 
 export const GET = withError(async () => {
-  try {
-    const messages = await getPlanned();
-    return NextResponse.json(messages);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error });
-  }
+  const messages = await getPlanned();
+  return NextResponse.json(messages);
 });

@@ -82,11 +82,6 @@ export const GET = withError(async (request: Request) => {
   const includeAll = searchParams.get("includeAll");
   const query = threadsQuery.parse({ limit, fromEmail, includeAll });
 
-  try {
-    const threads = await getThreads(query);
-    return NextResponse.json(threads);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error });
-  }
+  const threads = await getThreads(query);
+  return NextResponse.json(threads);
 });
