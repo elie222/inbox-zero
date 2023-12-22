@@ -605,7 +605,8 @@ const TestRulesForm = () => {
           as="textarea"
           rows={3}
           name="message"
-          label="Message"
+          label="Email to test against"
+          placeholder="Hey, I run a marketing agency, and would love to chat."
           registerProps={register("message", { required: true })}
           error={errors.message}
         />
