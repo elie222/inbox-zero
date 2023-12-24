@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getNewsletterCounts } from "@inboxzero/tinybird";
-import { getGmailClient } from "@/utils/gmail/client";
-import { getFiltersList } from "@/utils/gmail/filter";
-import { extractEmailAddress } from "@/utils/email";
-import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import {
+  filterNewsletters,
+  findAutoArchiveFilter,
+  findNewsletterStatus,
+  getAutoArchiveFilters,
+} from "@/app/api/user/stats/newsletters/helpers";
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -58,22 +60,6 @@ function getTypeFilters(types: NewsletterStatsQuery["types"]) {
   };
 }
 
-async function getAutoArchiveFilters() {
-  const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-
-  const filters = await getFiltersList({ gmail });
-  const autoArchiveFilters = filters.data.filter?.filter((filter) => {
-    return (
-      filter.action?.removeLabelIds?.includes("INBOX") ||
-      filter.action?.addLabelIds?.includes("TRASH")
-    );
-  });
-
-  return autoArchiveFilters;
-}
-
 async function getNewslettersTinybird(
   options: { ownerEmail: string; userId: string } & NewsletterStatsQuery,
 ) {
@@ -85,30 +71,16 @@ async function getNewslettersTinybird(
   });
 
   const autoArchiveFilters = await getAutoArchiveFilters();
-
-  const showAutoArchived = options.filters?.includes("autoArchived");
-  const showApproved = options.filters?.includes("approved");
-  const showUnsubscribed = options.filters?.includes("unsubscribed");
-  const showUnhandled = options.filters?.includes("unhandled");
-
-  const userNewsletters = await prisma.newsletter.findMany({
-    where: { userId: options.userId },
-    select: { email: true, status: true },
-  });
+  const userNewsletters = await findNewsletterStatus(options.userId);
 
   const newsletters = newsletterCounts.data.map((email) => {
-    const autoArchived = autoArchiveFilters?.find((filter) => {
-      const from = extractEmailAddress(email.from);
-      return filter.criteria?.from?.includes(from);
-    });
-
     return {
       name: email.from,
       value: email.count,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       lastUnsubscribeLink: email.lastUnsubscribeLink,
-      autoArchived,
+      autoArchived: findAutoArchiveFilter(autoArchiveFilters, email.from),
       status: userNewsletters?.find((n) => n.email === email.from)?.status,
     };
   });
@@ -116,18 +88,7 @@ async function getNewslettersTinybird(
   if (!options.filters?.length) return { newsletters };
 
   return {
-    newsletters: newsletters.filter((email) => {
-      if (
-        showAutoArchived &&
-        (email.autoArchived || email.status === "AUTO_ARCHIVED")
-      )
-        return true;
-      if (showUnsubscribed && email.status === "UNSUBSCRIBED") return true;
-      if (showApproved && email.status === "APPROVED") return true;
-      if (showUnhandled && !email.status && !email.autoArchived) return true;
-
-      return false;
-    }),
+    newsletters: filterNewsletters(newsletters, options.filters),
   };
 }
 

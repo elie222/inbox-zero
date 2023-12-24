@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import {
   Card,
@@ -10,18 +10,13 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
-  Title,
-  Text,
 } from "@tremor/react";
-import { useSession } from "next-auth/react";
 import groupBy from "lodash/groupBy";
-import { Users2Icon } from "lucide-react";
+import { FilterIcon, Users2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
-import { Button } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
-import { Tooltip } from "@/components/Tooltip";
 import {
   NewSendersQuery,
   NewSendersResponse,
@@ -29,27 +24,76 @@ import {
 import { formatShortDate } from "@/utils/date";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
-import { onAutoArchive } from "@/utils/actions-client";
+import {
+  useNewsletterFilter,
+  useNewsletterShortcuts,
+  ShortcutTooltip,
+  SectionHeader,
+  ActionCell,
+  Row,
+  HeaderButton,
+} from "@/app/(app)/newsletters/common";
+import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
+import { LabelsResponse } from "@/app/api/google/labels/route";
+import { usePremium } from "@/components/PremiumAlert";
+import { DateRange } from "react-day-picker";
 
-export function NewSenders() {
-  const session = useSession();
-  const email = session.data?.user.email;
+export function NewSenders(props: {
+  dateRange?: DateRange | undefined;
+  refreshInterval: number;
+}) {
+  const [sortColumn, setSortColumn] = useState<
+    "subject" | "date" | "numberOfEmails"
+  >("numberOfEmails");
 
-  const params: NewSendersQuery = { cutOffDate: 0 };
+  // const { typesArray, types, setTypes } = useEmailsToIncludeFilter();
+  const { filtersArray, filters, setFilters } = useNewsletterFilter();
 
-  const { data, isLoading, error } = useSWR<
+  const params: NewSendersQuery = { cutOffDate: 0, filters: filtersArray };
+  const urlParams = new URLSearchParams(params as any);
+  const { data, isLoading, error, mutate } = useSWR<
     NewSendersResponse,
     { error: string }
-  >(`/api/user/stats/new-senders?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/new-senders?${urlParams}`, {
     keepPreviousData: true,
   });
 
-  const { expanded, extra } = useExpanded();
-  const [selectedEmail, setSelectedEmail] =
-    React.useState<NewSendersResponse["emails"][number]>();
-
   const groupedSenders = groupBy(data?.emails, (email) => email.fromDomain);
   const newSenders = Object.entries(groupedSenders);
+
+  const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
+  const { data: gmailLabels } = useSWR<LabelsResponse>("/api/google/labels");
+
+  const { expanded, extra } = useExpanded();
+  const [openedNewsletter, setOpenedNewsletter] = React.useState<Row>();
+
+  const [selectedRow, setSelectedRow] = React.useState<Row | undefined>();
+
+  const rows: (Row & {
+    firstEmail: {
+      from: string;
+      subject: string;
+      timestamp: number;
+    };
+    numberOfEmails: number;
+  })[] = newSenders.map(([_, emails]) => {
+    const firstEmail = emails[0];
+    return {
+      ...firstEmail,
+      firstEmail,
+      numberOfEmails: emails.length,
+    };
+  });
+
+  useNewsletterShortcuts({
+    newsletters: rows,
+    selectedRow,
+    setOpenedNewsletter,
+    setSelectedRow,
+    refetchPremium,
+    hasUnsubscribeAccess,
+    mutate,
+  });
 
   return (
     <>
@@ -68,15 +112,60 @@ export function NewSenders() {
             },
           ]}
         />
-      </LoadingContent>
-
+      </LoadingContent>{" "}
       <Card className="mt-4 p-0">
-        <div className="flex items-center justify-between px-6 pt-6">
-          <div className="">
-            <Title>Who are the first time senders?</Title>
-            <Text className="mt-2">
-              A list of emails that you received for the first time.
-            </Text>
+        <div className="items-center justify-between px-6 pt-6 md:flex">
+          <SectionHeader
+            title="Who are the first time senders?"
+            description="A list of emails that you received for the first time."
+          />
+          <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
+            <div className="hidden md:block">
+              <ShortcutTooltip />
+            </div>
+
+            <DetailedStatsFilter
+              label="Filter"
+              icon={<FilterIcon className="mr-2 h-4 w-4" />}
+              keepOpenOnSelect
+              columns={[
+                {
+                  label: "Unhandled",
+                  checked: filters.unhandled,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["unhandled"]: !filters.unhandled,
+                    }),
+                },
+                {
+                  label: "Auto Archived",
+                  checked: filters.autoArchived,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["autoArchived"]: !filters.autoArchived,
+                    }),
+                },
+                {
+                  label: "Unsubscribed",
+                  checked: filters.unsubscribed,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["unsubscribed"]: !filters.unsubscribed,
+                    }),
+                },
+                {
+                  label: "Approved",
+                  checked: filters.approved,
+                  setChecked: () =>
+                    setFilters({ ...filters, ["approved"]: !filters.approved }),
+                },
+              ]}
+            />
+
+            {/* <EmailsToIncludeFilter types={types} setTypes={setTypes} /> */}
           </div>
         </div>
 
@@ -85,102 +174,132 @@ export function NewSenders() {
           error={error}
           loadingComponent={<Skeleton className="m-4 h-screen rounded" />}
         >
-          {data && (
-            <Table className="mt-4">
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell className="pl-6">
-                    <span className="text-sm font-medium">From</span>
-                  </TableHeaderCell>
-                  <TableHeaderCell>Subject</TableHeaderCell>
-                  <TableHeaderCell>Date</TableHeaderCell>
-                  <TableHeaderCell>Emails</TableHeaderCell>
-                  <TableHeaderCell className="hidden xl:table-cell"></TableHeaderCell>
-                  <TableHeaderCell className="hidden xl:table-cell"></TableHeaderCell>
-                  <TableHeaderCell></TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {newSenders
-                  .slice(0, expanded ? undefined : 50)
-                  .map(([_fromDomain, emails]) => {
-                    const firstEmail = emails[0];
-
-                    return (
-                      <TableRow key={firstEmail.gmailMessageId}>
-                        <TableCell className="max-w-[200px] truncate pl-6 lg:max-w-[300px]">
-                          {firstEmail.from}
-                        </TableCell>
-                        <TableCell className="max-w-[300px] truncate lg:max-w-[400px]">
-                          {firstEmail.subject}
-                        </TableCell>
-                        <TableCell>
-                          {formatShortDate(new Date(firstEmail.timestamp))}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {emails.length}
-                        </TableCell>
-
-                        <TableCell className="hidden xl:table-cell">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={!firstEmail.unsubscribeLink}
-                            asChild={!!firstEmail.unsubscribeLink}
-                          >
-                            {firstEmail.unsubscribeLink ? (
-                              <a
-                                href={firstEmail.unsubscribeLink}
-                                target="_blank"
-                              >
-                                Unsubscribe
-                              </a>
-                            ) : (
-                              <>Unsubscribe</>
-                            )}
-                          </Button>
-                        </TableCell>
-                        <TableCell className="hidden xl:table-cell">
-                          <Tooltip content="Auto archive emails using Gmail filters">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => onAutoArchive(firstEmail.from)}
-                            >
-                              Auto archive
-                            </Button>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setSelectedEmail(firstEmail)}
-                          >
-                            More
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-              </TableBody>
-            </Table>
+          {newSenders && (
+            <NewSendersTable
+              sortColumn={sortColumn}
+              setSortColumn={setSortColumn}
+              tableRows={rows
+                .slice(0, expanded ? undefined : 50)
+                .map((item) => {
+                  return (
+                    <NewSenderRow
+                      key={item.name}
+                      item={item}
+                      firstEmail={item.firstEmail}
+                      numberOfEmails={item.numberOfEmails}
+                      setOpenedNewsletter={setOpenedNewsletter}
+                      gmailLabels={gmailLabels?.labels || []}
+                      mutate={mutate}
+                      selected={selectedRow?.name === item.name}
+                      onSelectRow={() => {
+                        setSelectedRow(item);
+                      }}
+                      hasUnsubscribeAccess={hasUnsubscribeAccess}
+                      refetchPremium={refetchPremium}
+                    />
+                  );
+                })}
+            />
           )}
           <div className="mt-2 px-6 pb-6">{extra}</div>
         </LoadingContent>
       </Card>
       <NewsletterModal
-        newsletter={
-          selectedEmail
-            ? {
-                name: selectedEmail.from,
-                lastUnsubscribeLink: selectedEmail.unsubscribeLink || undefined,
-                autoArchived: undefined,
-              }
-            : undefined
-        }
-        onClose={() => setSelectedEmail(undefined)}
+        newsletter={openedNewsletter}
+        onClose={() => setOpenedNewsletter(undefined)}
+        refreshInterval={props.refreshInterval}
       />
     </>
+  );
+}
+
+function NewSendersTable(props: {
+  tableRows?: React.ReactNode;
+  sortColumn: "subject" | "date" | "numberOfEmails";
+  setSortColumn: (sortColumn: "subject" | "date" | "numberOfEmails") => void;
+}) {
+  const { tableRows, sortColumn, setSortColumn } = props;
+
+  return (
+    <Table className="mt-4">
+      <TableHead>
+        <TableRow>
+          <TableHeaderCell className="pl-6">
+            <span className="text-sm font-medium">From</span>
+          </TableHeaderCell>
+          <TableHeaderCell>
+            <HeaderButton
+              sorted={sortColumn === "subject"}
+              onClick={() => setSortColumn("subject")}
+            >
+              Subject
+            </HeaderButton>
+          </TableHeaderCell>
+          <TableHeaderCell>
+            <HeaderButton
+              sorted={sortColumn === "date"}
+              onClick={() => setSortColumn("date")}
+            >
+              Date
+            </HeaderButton>
+          </TableHeaderCell>
+          <TableHeaderCell>
+            <HeaderButton
+              sorted={sortColumn === "numberOfEmails"}
+              onClick={() => setSortColumn("numberOfEmails")}
+            >
+              Emails
+            </HeaderButton>
+          </TableHeaderCell>
+          <TableHeaderCell />
+        </TableRow>
+      </TableHead>
+      <TableBody>{tableRows}</TableBody>
+    </Table>
+  );
+}
+
+function NewSenderRow(props: {
+  item: Row;
+  firstEmail: { from: string; subject: string; timestamp: number };
+  numberOfEmails: number;
+  setOpenedNewsletter: React.Dispatch<React.SetStateAction<Row | undefined>>;
+  gmailLabels: LabelsResponse["labels"];
+  mutate: () => Promise<any>;
+  selected: boolean;
+  onSelectRow: () => void;
+  hasUnsubscribeAccess: boolean;
+  refetchPremium: () => Promise<any>;
+}) {
+  const { item, firstEmail, numberOfEmails, refetchPremium } = props;
+
+  return (
+    <TableRow
+      key={item.name}
+      className={props.selected ? "bg-blue-50" : undefined}
+      aria-selected={props.selected || undefined}
+      data-selected={props.selected || undefined}
+      onMouseEnter={props.onSelectRow}
+    >
+      <TableCell className="max-w-[200px] truncate pl-6 lg:max-w-[300px]">
+        {firstEmail.from}
+      </TableCell>
+      <TableCell className="max-w-[300px] truncate lg:max-w-[400px]">
+        {firstEmail.subject}
+      </TableCell>
+      <TableCell>{formatShortDate(new Date(firstEmail.timestamp))}</TableCell>
+      <TableCell className="text-center">{numberOfEmails}</TableCell>
+      <TableCell className="flex justify-end space-x-2 p-2">
+        <ActionCell
+          item={item}
+          hasUnsubscribeAccess={props.hasUnsubscribeAccess}
+          mutate={props.mutate}
+          refetchPremium={refetchPremium}
+          setOpenedNewsletter={props.setOpenedNewsletter}
+          selected={props.selected}
+          gmailLabels={props.gmailLabels}
+        />
+      </TableCell>
+    </TableRow>
   );
 }

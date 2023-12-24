@@ -27,14 +27,14 @@ export const navigation = [
     icon: MailsIcon,
   },
   {
-    name: "Analytics",
-    href: "/stats",
-    icon: BarChartBigIcon,
-  },
-  {
     name: "New Senders",
     href: "/new-senders",
     icon: Users2Icon,
+  },
+  {
+    name: "Analytics",
+    href: "/stats",
+    icon: BarChartBigIcon,
   },
   {
     name: "AI Automation",
