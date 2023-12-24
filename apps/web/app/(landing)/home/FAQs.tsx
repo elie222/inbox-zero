@@ -6,12 +6,48 @@ const faqs = [
   },
   {
     question: "Is the code open-source?",
-    answer: "Yes! You can see the source code in our GitHub repository.",
+    answer: (
+      <>
+        Yes! You can see the source code in our{" "}
+        <a
+          href="/github"
+          target="_blank"
+          className="font-semibold hover:underline"
+        >
+          GitHub repo
+        </a>
+        .
+      </>
+    ),
   },
   {
     question: "Do you take feature requests?",
+    answer: (
+      <>
+        Yes! Post an issue on{" "}
+        <a
+          href="/github"
+          target="_blank"
+          className="font-semibold hover:underline"
+        >
+          GitHub
+        </a>{" "}
+        or{" "}
+        <a
+          href="mailto:elie@getinboxzero.com"
+          target="_blank"
+          className="font-semibold hover:underline"
+        >
+          email
+        </a>{" "}
+        us. We{"'"}re happy to hear how we can improve your email experience.
+      </>
+    ),
+  },
+  {
+    question: "Can I still use Inbox Zero alonside my current email client?",
     answer:
-      "Yes! Post an issue on GitHub, reach us over email, or tweet us. We're happy to hear how we can improve your email experience.",
+      "Yes! Inbox Zero is intended to be used alongside your existing email client.",
   },
 ];
 
