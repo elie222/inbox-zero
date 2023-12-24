@@ -36,6 +36,7 @@ import {
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@prisma/client";
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 export type Row = {
   name: string;
@@ -92,6 +93,10 @@ export function ActionCell<T extends Row>(props: {
     gmailLabels,
   } = props;
 
+  const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
+  const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
+  const [approveLoading, setApproveLoading] = React.useState(false);
+
   return (
     <>
       <PremiumTooltip showTooltip={!hasUnsubscribeAccess}>
@@ -114,19 +119,29 @@ export function ActionCell<T extends Row>(props: {
             onClick={async () => {
               if (!hasUnsubscribeAccess) return;
 
+              setUnsubscribeLoading(true);
+
               await setNewsletterStatus({
                 newsletterEmail: item.name,
                 status: NewsletterStatus.UNSUBSCRIBED,
               });
-              mutate();
+              await mutate();
               await decrementUnsubscribeCredit();
               await refetchPremium();
+
+              setUnsubscribeLoading(false);
             }}
           >
-            <span className="hidden xl:block">Unsubscribe</span>
-            <span className="block xl:hidden">
-              <UserRoundMinusIcon className="h-4 w-4" />
-            </span>
+            {unsubscribeLoading ? (
+              <LoadingMiniSpinner />
+            ) : (
+              <>
+                <span className="hidden xl:block">Unsubscribe</span>
+                <span className="block xl:hidden">
+                  <UserRoundMinusIcon className="h-4 w-4" />
+                </span>
+              </>
+            )}
           </a>
         </Button>
       </PremiumTooltip>
@@ -156,21 +171,31 @@ export function ActionCell<T extends Row>(props: {
             className="px-3 shadow-none"
             size="sm"
             onClick={async () => {
+              setAutoArchiveLoading(true);
+
               onAutoArchive(item.name);
               await setNewsletterStatus({
                 newsletterEmail: item.name,
                 status: NewsletterStatus.AUTO_ARCHIVED,
               });
-              mutate();
+              await mutate();
               await decrementUnsubscribeCredit();
               await refetchPremium();
+
+              setAutoArchiveLoading(false);
             }}
             disabled={!hasUnsubscribeAccess}
           >
-            <span className="hidden xl:block">Auto Archive</span>
-            <span className="block xl:hidden">
-              <ArchiveIcon className="h-4 w-4" />
-            </span>
+            {autoArchiveLoading ? (
+              <LoadingMiniSpinner />
+            ) : (
+              <>
+                <span className="hidden xl:block">Auto Archive</span>
+                <span className="block xl:hidden">
+                  <ArchiveIcon className="h-4 w-4" />
+                </span>
+              </>
+            )}
           </Button>
           <Separator orientation="vertical" className="h-[20px]" />
           <DropdownMenu>
@@ -202,12 +227,16 @@ export function ActionCell<T extends Row>(props: {
                 <>
                   <DropdownMenuItem
                     onClick={async () => {
+                      setAutoArchiveLoading(true);
+
                       onDeleteFilter(item.autoArchived?.id!);
                       await setNewsletterStatus({
                         newsletterEmail: item.name,
                         status: null,
                       });
-                      mutate();
+                      await mutate();
+
+                      setAutoArchiveLoading(false);
                     }}
                   >
                     <ArchiveXIcon className="mr-2 h-4 w-4" /> Disable Auto
@@ -231,14 +260,18 @@ export function ActionCell<T extends Row>(props: {
                     <DropdownMenuItem
                       key={label.id}
                       onClick={async () => {
+                        setAutoArchiveLoading(true);
+
                         onAutoArchive(item.name, label.id || undefined);
                         await setNewsletterStatus({
                           newsletterEmail: item.name,
                           status: NewsletterStatus.AUTO_ARCHIVED,
                         });
-                        mutate();
+                        await mutate();
                         await decrementUnsubscribeCredit();
                         await refetchPremium();
+
+                        setAutoArchiveLoading(false);
                       }}
                     >
                       {label.name}
@@ -265,18 +298,28 @@ export function ActionCell<T extends Row>(props: {
             item.status === NewsletterStatus.APPROVED ? "green" : "secondary"
           }
           onClick={async () => {
+            setApproveLoading(true);
+
             await setNewsletterStatus({
               newsletterEmail: item.name,
               status: NewsletterStatus.APPROVED,
             });
-            mutate();
+            await mutate();
+
+            setApproveLoading(false);
           }}
           disabled={!hasUnsubscribeAccess}
         >
-          <span className="sr-only">Approve</span>
-          <span>
-            <BadgeCheckIcon className="h-4 w-4" />
-          </span>
+          {approveLoading ? (
+            <LoadingMiniSpinner />
+          ) : (
+            <>
+              <span className="sr-only">Approve</span>
+              <span>
+                <BadgeCheckIcon className="h-4 w-4" />
+              </span>
+            </>
+          )}
         </Button>
       </Tooltip>
       <Button
@@ -363,7 +406,7 @@ export function useNewsletterShortcuts<T extends Row>({
           newsletterEmail: item.name,
           status: NewsletterStatus.AUTO_ARCHIVED,
         });
-        mutate();
+        await mutate();
         await decrementUnsubscribeCredit();
         await refetchPremium();
         return;
@@ -371,12 +414,12 @@ export function useNewsletterShortcuts<T extends Row>({
         // unsubscribe
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
+        window.open(item.lastUnsubscribeLink, "_blank");
         await setNewsletterStatus({
           newsletterEmail: item.name,
           status: NewsletterStatus.UNSUBSCRIBED,
         });
-        mutate();
-        window.open(item.lastUnsubscribeLink, "_blank");
+        await mutate();
         await decrementUnsubscribeCredit();
         await refetchPremium();
         return;
@@ -387,7 +430,7 @@ export function useNewsletterShortcuts<T extends Row>({
           newsletterEmail: item.name,
           status: NewsletterStatus.APPROVED,
         });
-        mutate();
+        await mutate();
         return;
       }
     };
@@ -406,12 +449,12 @@ export function useNewsletterShortcuts<T extends Row>({
 
 export function useNewsletterFilter() {
   const [filters, setFilters] = useState<
-    Record<"unhandled" | "autoArchived" | "unsubscribed" | "approved", boolean>
+    Record<"unhandled" | "unsubscribed" | "autoArchived" | "approved", boolean>
   >({
     unhandled: true,
-    autoArchived: true,
-    unsubscribed: true,
-    approved: true,
+    unsubscribed: false,
+    autoArchived: false,
+    approved: false,
   });
 
   return {
@@ -420,8 +463,8 @@ export function useNewsletterFilter() {
       .filter(([, selected]) => selected)
       .map(([key]) => key) as (
       | "unhandled"
-      | "autoArchived"
       | "unsubscribed"
+      | "autoArchived"
       | "approved"
     )[],
     setFilters,
