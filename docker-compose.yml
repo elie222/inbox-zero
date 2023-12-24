@@ -1,7 +1,8 @@
 version: "3.5"
+name: inbox-zero-services
 services:
   db:
-    image: "postgres"
+    image: postgres
     restart: always
     container_name: inbox-zero
     environment:
@@ -10,8 +11,6 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - database-data:/var/lib/postgresql/data/
-    expose:
-      - 5432
     ports:
       - 8009:5432
 
@@ -19,8 +18,6 @@ services:
     image: redis
     ports:
       - 6380:6379
-    expose:
-      - 6379
     volumes:
       - database-data:/data
 
