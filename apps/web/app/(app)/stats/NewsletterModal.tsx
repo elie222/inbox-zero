@@ -19,7 +19,6 @@ import {
 } from "@/app/api/user/stats/sender-emails/route";
 import { ZodPeriod } from "@inboxzero/tinybird";
 import { LoadingContent } from "@/components/LoadingContent";
-import { type NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 import { ThreadsResponse } from "@/app/api/google/threads/route";
@@ -29,12 +28,10 @@ import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions-client";
+import { Row } from "@/app/(app)/newsletters/common";
 
 export function NewsletterModal(props: {
-  newsletter?: Pick<
-    NewsletterStatsResponse["newsletters"][number],
-    "name" | "lastUnsubscribeLink" | "autoArchived"
-  >;
+  newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
 }) {
@@ -55,7 +52,10 @@ export function NewsletterModal(props: {
 
             <div className="flex space-x-2">
               <Button size="sm" variant="secondary">
-                <a href={newsletter.lastUnsubscribeLink} target="_blank">
+                <a
+                  href={newsletter.lastUnsubscribeLink || undefined}
+                  target="_blank"
+                >
                   Unsubscribe
                 </a>
               </Button>

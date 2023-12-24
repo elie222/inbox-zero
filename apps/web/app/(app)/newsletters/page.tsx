@@ -3,7 +3,7 @@
 import { subDays } from "date-fns";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRange } from "react-day-picker";
-import { NewsletterStats } from "@/app/(app)/stats/NewsletterStats";
+import { NewsletterStats } from "@/app/(app)/newsletters/NewsletterStats";
 import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
 
@@ -20,7 +20,7 @@ const defaultSelected = selectOptions[2];
 // May want to refactor some of this into a shared hook
 export default function NewslettersPage() {
   const [dateDropdown, setDateDropdown] = useState<string>(
-    defaultSelected.label
+    defaultSelected.label,
   );
 
   const onSetDateDropdown = useCallback(
@@ -28,7 +28,7 @@ export default function NewslettersPage() {
       const { label } = option;
       setDateDropdown(label);
     },
-    []
+    [],
   );
 
   const now = useMemo(() => new Date(), []);

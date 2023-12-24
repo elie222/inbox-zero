@@ -1,6 +1,6 @@
 "use client";
 
-import { NewSenders } from "@/app/(app)/stats/NewSenders";
+import { NewSenders } from "@/app/(app)/new-senders/NewSenders";
 import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
 
 export default function NewSendersPage() {
