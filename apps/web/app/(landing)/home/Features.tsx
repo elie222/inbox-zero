@@ -31,7 +31,7 @@ const features = [
   },
 ];
 
-export function Features() {
+function FeaturesOld() {
   return (
     <div className="bg-white py-24 sm:py-32" id="features">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -73,6 +73,29 @@ export function Features() {
               </div>
             ))}
           </dl>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Features() {
+  return (
+    <div className="bg-white py-24 sm:py-32" id="features">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl lg:text-center">
+          <h2 className="font-cal text-base leading-7 text-blue-600">
+            Privacy first
+          </h2>
+          <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
+            Approved by Google. Open Source. See exactly what our code does. Or
+            host it yourself.
+          </p>
+          <p className="mt-6 text-lg leading-8 text-gray-600">
+            Inbox Zero has undergone a thorough security process with Google to
+            ensure the protection of your emails. You can even self-host Inbox
+            Zero on your own infrastructure.
+          </p>
         </div>
       </div>
     </div>
@@ -155,21 +178,21 @@ export function FeaturesWithImage(props: {
 
 const featuresAutomations = [
   {
-    name: "Auto reply",
+    name: "Automate your replies",
     description:
-      "Automate what makes sense. Handle the rest yourself. You + AI is a match made in heaven.",
+      "Our AI agent will reply, forward, or archive emails based on the rules you provide it.",
     icon: Sparkles,
   },
   {
-    name: "Auto forward",
+    name: "Planning mode",
     description:
-      "Need certain emails forwarded to someone else? No problem. Inbox Zero can do that too.",
+      "Let our AI plan what to do for you. Accept or reject in a click. Turn on full automation once you're confident the AI can work on its own.",
     icon: Orbit,
   },
   {
-    name: "Auto archive",
+    name: "Instruct in plain English",
     description:
-      "Certain emails just don't need to hit your inbox. Label and archive them to clean up the noise. Gmail filters are great but limited. Let our AI filter the noise based on your instructions.",
+      "It's as easy as talking to an assistant or sending a prompt to ChatGPT.",
     icon: LineChart,
   },
 ];
@@ -180,7 +203,7 @@ export function FeaturesAutomation() {
       imageSide="left"
       title="Automate your inbox"
       subtitle="Your AI assistant for email"
-      description="Keep getting the same emails over and over? Someone asking about your refund policy? Someone asking about sponsorship? Someone cold emailing you?Let Inbox Zero handle it."
+      description="Keep getting emails that require the same response? Let Inbox Zero handle it."
       image="/images/rules.png"
       features={featuresAutomations}
     />
