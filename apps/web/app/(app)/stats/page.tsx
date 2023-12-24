@@ -4,13 +4,14 @@ import { subDays } from "date-fns";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { DateRange } from "react-day-picker";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
-import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
+import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
 import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { LoadProgress } from "@/app/(app)/stats/LoadProgress";
+import { useStatLoader } from "@/providers/StatLoaderProvider";
 // import { Insights } from "@/app/(app)/stats/Insights";
 
 const selectOptions = [
@@ -24,7 +25,7 @@ const defaultSelected = selectOptions[1];
 
 export default function StatsPage() {
   const [dateDropdown, setDateDropdown] = useState<string>(
-    defaultSelected.label
+    defaultSelected.label,
   );
 
   const now = useMemo(() => new Date(), []);
@@ -34,7 +35,7 @@ export default function StatsPage() {
   });
 
   const [period, setPeriod] = useState<"day" | "week" | "month" | "year">(
-    "week"
+    "week",
   );
 
   const onSetDateDropdown = useCallback(
@@ -50,25 +51,19 @@ export default function StatsPage() {
         setPeriod("month");
       }
     },
-    [period]
+    [period],
   );
 
-  const { loading, onLoad } = useLoading();
-
-  const isLoading = useRef(false);
+  const { isLoading, onLoad } = useStatLoader();
+  const refreshInterval = isLoading ? 3_000 : 1_000_000;
   useEffect(() => {
-    if (!isLoading.current) {
-      onLoad(false, false);
-      isLoading.current = true;
-    }
+    onLoad({ loadBefore: false, showToast: false });
   }, [onLoad]);
-
-  const refreshInterval = loading ? 3_000 : 1_000_000;
 
   return (
     <div className="pb-20">
       <div className="sticky top-0 z-10 justify-between border-b bg-white px-4 py-2 shadow sm:flex">
-        {loading ? <LoadProgress /> : <div />}
+        {isLoading ? <LoadProgress /> : <div />}
         <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
           <ActionBar
             selectOptions={selectOptions}
@@ -79,7 +74,7 @@ export default function StatsPage() {
             period={period}
             setPeriod={setPeriod}
           />
-          <LoadStatsButton loading={loading} onLoad={onLoad} />
+          <LoadStatsButton />
         </div>
       </div>
 

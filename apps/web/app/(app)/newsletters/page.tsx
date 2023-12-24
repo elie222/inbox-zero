@@ -1,11 +1,12 @@
 "use client";
 
 import { subDays } from "date-fns";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
 import { NewsletterStats } from "@/app/(app)/newsletters/NewsletterStats";
-import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
+import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
+import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -37,17 +38,11 @@ export default function NewslettersPage() {
     to: now,
   });
 
-  const { loading, onLoad } = useLoading();
-
-  const isLoading = useRef(false);
+  const { isLoading, onLoad } = useStatLoader();
+  const refreshInterval = isLoading ? 3_000 : 1_000_000;
   useEffect(() => {
-    if (!isLoading.current) {
-      onLoad(false, false);
-      isLoading.current = true;
-    }
+    onLoad({ loadBefore: false, showToast: false });
   }, [onLoad]);
-
-  const refreshInterval = loading ? 3_000 : 1_000_000;
 
   return (
     <div>
@@ -61,7 +56,7 @@ export default function NewslettersPage() {
             dateRange={dateRange}
             setDateRange={setDateRange}
           />
-          <LoadStatsButton loading={loading} onLoad={onLoad} />
+          <LoadStatsButton />
         </div>
       </div>
 

@@ -7,8 +7,8 @@ import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { env } from "@/env.mjs";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { LoadStats } from "@/app/(app)/stats/LoadStatsButton";
 import Providers from "@/app/(app)/providers";
+import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -49,7 +49,7 @@ export default async function WelcomePage({
             </div>
           </div>
         </Card>
-        <LoadStats />
+        <LoadStats loadBefore showToast={false} />
       </div>
     </Providers>
   );
