@@ -5,6 +5,7 @@ import { LoadStatsButton, useLoading } from "@/app/(app)/stats/LoadStatsButton";
 
 export default function NewSendersPage() {
   const { loading, onLoad } = useLoading();
+  const refreshInterval = loading ? 3_000 : 1_000_000;
 
   return (
     <div>
@@ -16,7 +17,7 @@ export default function NewSendersPage() {
       </div>
 
       <div className="m-4">
-        <NewSenders />
+        <NewSenders refreshInterval={refreshInterval} />
       </div>
     </div>
   );
