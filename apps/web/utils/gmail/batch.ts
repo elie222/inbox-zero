@@ -9,6 +9,7 @@ export async function getBatch(
   endpoint: string, // eg. /gmail/v1/users/me/messages
   accessToken: string,
 ) {
+  if (!ids.length) return [];
   if (ids.length > BATCH_LIMIT) {
     throw new Error(
       `Request count exceeds the limit. Received: ${ids.length}, Limit: ${BATCH_LIMIT}`,
@@ -40,14 +41,16 @@ export async function getBatch(
 }
 
 function parseBatchResponse(batchResponse: string, contentType: string | null) {
+  checkBatchResponseForError(batchResponse);
+
   // Extracting boundary from the Content-Type header
   const boundaryRegex = /boundary=(.*?)(;|$)/;
   const boundaryMatch = contentType?.match(boundaryRegex);
   const boundary = boundaryMatch ? boundaryMatch[1] : null;
 
   if (!boundary) {
-    console.error("No boundary found in response", batchResponse, contentType);
-    throw new Error("No boundary found in response");
+    console.error("No boundary found in response:", batchResponse);
+    throw new Error("parseBatchResponse: No boundary found in response");
   }
 
   const parts = batchResponse.split(`--${boundary}`);
@@ -75,4 +78,19 @@ function parseBatchResponse(batchResponse: string, contentType: string | null) {
   });
 
   return decodedParts.filter(isDefined);
+}
+
+function checkBatchResponseForError(batchResponse: string) {
+  try {
+    const jsonResponse = JSON.parse(batchResponse);
+
+    if (jsonResponse.error) {
+      throw new Error(
+        "parseBatchResponse: Error in batch response",
+        jsonResponse.error,
+      );
+    }
+  } catch (error) {
+    // not json. skipping
+  }
 }
