@@ -18,7 +18,7 @@ export type PlannedResponse = Awaited<ReturnType<typeof getPlanned>>;
 // overlapping code with apps/web/app/api/google/threads/route.ts
 async function getPlanned(): Promise<{ messages: Thread[] }> {
   const session = await auth();
-  if (!session?.user) throw new Error("Not authenticated");
+  if (!session?.user.email) throw new Error("Not authenticated");
 
   const plans = await getPlans({ userId: session.user.id });
 
@@ -31,10 +31,15 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   // should we fetch threads instead here?
   const messages = await Promise.all(
     plans.map(async (plan) => {
+      if (!plan.rule) return;
       try {
-        if (!plan.rule) return;
-
-        const message = await getMessage(plan.messageId, gmail);
+        const [message, category] = await Promise.all([
+          getMessage(plan.messageId, gmail),
+          getCategory({
+            email: session.user.email!,
+            threadId: plan.threadId,
+          }),
+        ]);
 
         const rule = plan
           ? rules.find((r) => r.id === plan?.rule?.id)
@@ -46,7 +51,6 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
           snippet: he.decode(message.snippet || ""),
           messages: [
             {
-              // ...message,
               id: message.id,
               threadId: message.threadId,
               labelIds: message.labelIds,
@@ -56,10 +60,7 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
             },
           ],
           plan: plan ? { ...plan, databaseRule: rule } : undefined,
-          category: await getCategory({
-            email: session.user.email!,
-            threadId: message.threadId!,
-          }),
+          category,
         };
 
         return thread;
