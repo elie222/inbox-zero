@@ -12,6 +12,7 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // TODO not great if this is taking more than 15s
 
 export type PlannedResponse = Awaited<ReturnType<typeof getPlanned>>;
 
