@@ -31,37 +31,41 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   // should we fetch threads instead here?
   const messages = await Promise.all(
     plans.map(async (plan) => {
-      if (!plan.rule) return;
+      try {
+        if (!plan.rule) return;
 
-      const message = await getMessage(plan.messageId, gmail);
+        const message = await getMessage(plan.messageId, gmail);
 
-      const rule = plan
-        ? rules.find((r) => r.id === plan?.rule?.id)
-        : undefined;
+        const rule = plan
+          ? rules.find((r) => r.id === plan?.rule?.id)
+          : undefined;
 
-      const thread: Thread = {
-        id: message.threadId,
-        historyId: message.historyId,
-        snippet: he.decode(message.snippet || ""),
-        messages: [
-          {
-            // ...message,
-            id: message.id,
-            threadId: message.threadId,
-            labelIds: message.labelIds,
-            snippet: message.snippet,
-            internalDate: message.internalDate,
-            parsedMessage: parseMessage(message),
-          },
-        ],
-        plan: plan ? { ...plan, databaseRule: rule } : undefined,
-        category: await getCategory({
-          email: session.user.email!,
-          threadId: message.threadId!,
-        }),
-      };
+        const thread: Thread = {
+          id: message.threadId,
+          historyId: message.historyId,
+          snippet: he.decode(message.snippet || ""),
+          messages: [
+            {
+              // ...message,
+              id: message.id,
+              threadId: message.threadId,
+              labelIds: message.labelIds,
+              snippet: message.snippet,
+              internalDate: message.internalDate,
+              parsedMessage: parseMessage(message),
+            },
+          ],
+          plan: plan ? { ...plan, databaseRule: rule } : undefined,
+          category: await getCategory({
+            email: session.user.email!,
+            threadId: message.threadId!,
+          }),
+        };
 
-      return thread;
+        return thread;
+      } catch (error) {
+        console.error("getPlanned: error getting message", error);
+      }
     }),
   );
 
