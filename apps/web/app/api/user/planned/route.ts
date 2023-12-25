@@ -80,7 +80,7 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
 }
 
 function take<T extends { createdAt: Date }>(array: T[], count: number) {
-  return sortBy(array, (x) => -x.createdAt).slice(0, count);
+  return sortBy(array, (x) => -new Date(x.createdAt)).slice(0, count);
 }
 
 export const GET = withError(async () => {
