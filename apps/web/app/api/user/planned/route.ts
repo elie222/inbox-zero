@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import he from "he";
+import sortBy from "lodash/sortBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getPlans } from "@/utils/redis/plan";
@@ -14,6 +15,8 @@ import { withError } from "@/utils/middleware";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30; // TODO not great if this is taking more than 15s
 
+const LIMIT = 50;
+
 export type PlannedResponse = Awaited<ReturnType<typeof getPlanned>>;
 
 // overlapping code with apps/web/app/api/google/threads/route.ts
@@ -21,7 +24,9 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not authenticated");
 
-  const plans = await getPlans({ userId: session.user.id });
+  const allPlans = await getPlans({ userId: session.user.id });
+  console.log(`Fetched ${allPlans.length} plans`);
+  const plans = take(allPlans, LIMIT);
 
   const gmail = getGmailClient(session);
 
@@ -72,6 +77,10 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   );
 
   return { messages: messages.filter(isDefined) };
+}
+
+function take<T extends { createdAt: Date }>(array: T[], count: number) {
+  return sortBy(array, (x) => -x.createdAt).slice(0, count);
 }
 
 export const GET = withError(async () => {
