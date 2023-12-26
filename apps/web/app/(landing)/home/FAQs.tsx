@@ -49,6 +49,27 @@ const faqs = [
     answer:
       "Yes! Inbox Zero is intended to be used alongside your existing email client.",
   },
+  {
+    question: "Which email providers does Inbox Zero support?",
+    answer:
+      "We only support Gmail and Gsuite email accounts today. We may add support for other email providers such as Outlook in the future.",
+  },
+  {
+    question: "Do you offer refunds?",
+    answer: (
+      <>
+        If you don{"'"}t think we provided you with value send us an{" "}
+        <a
+          href="mailto:elie@getinboxzero.com"
+          target="_blank"
+          className="font-semibold hover:underline"
+        >
+          email
+        </a>{" "}
+        within 14 days of upgrading and we{"'"}ll refund you.
+      </>
+    ),
+  },
 ];
 
 export function FAQs() {
