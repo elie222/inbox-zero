@@ -30,7 +30,7 @@ export function VideoDemo() {
       >
         <iframe
           className="aspect-video h-full w-full rounded-lg"
-          src="https://www.youtube.com/embed/WP2ZTcZq3RM?autoplay=1"
+          src="https://www.youtube.com/embed/kc_9WZ1ZWyg?autoplay=1"
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
