@@ -40,6 +40,9 @@ export function Hero(props: {
             </HeroSubtitle>
             <CTAButtons />
           </div>
+
+          <ProductHuntBadge />
+
           <div className="mt-16 flow-root sm:mt-24">
             <div className="relative -m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
               <Image
@@ -78,3 +81,23 @@ export function Hero(props: {
 //     </div>
 //   );
 // }
+
+function ProductHuntBadge() {
+  return (
+    <div className="flex justify-center pt-8">
+      <a
+        href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
+        target="_blank"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=431438&theme=light"
+          alt="Inbox&#0032;Zero - Clean&#0032;up&#0032;your&#0032;inbox&#0032;in&#0032;minutes&#0044;&#0032;open&#0032;source | Product Hunt"
+          className="h-[54px] w-[250px]"
+          width="250"
+          height="54"
+        />
+      </a>
+    </div>
+  );
+}

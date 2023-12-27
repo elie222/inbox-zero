@@ -8,7 +8,7 @@ export function CTAButtons() {
   const posthog = usePostHog();
 
   return (
-    <div className="mt-10 flex items-center justify-center gap-x-6">
+    <div className="mt-10 grid items-center justify-center gap-x-6 gap-y-2 sm:flex">
       <Button
         size="2xl"
         link={{ href: "/welcome" }}
