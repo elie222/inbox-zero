@@ -94,7 +94,7 @@ export function NewsletterStats(props: {
         <div className="items-center justify-between px-6 pt-6 md:flex">
           <SectionHeader
             title="Which newsletters and marketing emails do you get the most?"
-            description="A list of are your email subscriptions. Quickly unsubscribe or view the emails in more detail."
+            description="A list of all your email subscriptions. Quickly unsubscribe or view the emails in more detail."
           />
           <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
             <div className="hidden md:block">
