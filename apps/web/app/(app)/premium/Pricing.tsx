@@ -36,7 +36,7 @@ const tiers = [
     id: "tier-pro",
     href: env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
     checkout: true,
-    price: { monthly: "$8", annually: "$80" },
+    price: { monthly: "$10", annually: "$99" },
     description: "Unlock full platform access.",
     features: [
       "Everything in free",
@@ -61,7 +61,7 @@ const tiers = [
   },
 ];
 
-const LIFETIME_PRICE = 179;
+const LIFETIME_PRICE = 199;
 const LIFETIME_LINK = env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK;
 
 const lifetimeFeatures = [
