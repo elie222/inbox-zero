@@ -94,7 +94,7 @@ const examples = [
   },
   {
     title: "Question response",
-    description: `If someone asks how much the premium plan is, respond: "Our premium plan is $8 per month. You can learn more at https://getinboxzero.com/pricing."`,
+    description: `If someone asks how much the premium plan is, respond: "Our premium plan is $10 per month."`,
     icon: <MailQuestionIcon className="h-4 w-4" />,
   },
 ];
