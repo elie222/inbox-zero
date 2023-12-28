@@ -43,11 +43,15 @@ Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. I
 - [Upstash](https://upstash.com/)
 - [Turbo](https://turbo.build/)
 
-## Roadmap
+## Feature Requests
 
-Explore our upcoming features and improvements on our [Roadmap](https://www.getinboxzero.com/roadmap). Your feedback and [feature requests](https://www.getinboxzero.com/feature-requests) are always welcome!
+To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues). If you don't have a GitHub account you can request features [here](https://www.getinboxzero.com/feature-requests). Or join our [Discord](https://www.getinboxzero.com/discord).
 
 ## Getting Started for Developers
+
+### Contributing to the project
+
+We have a public Kanban available [here](https://github.com/users/elie222/projects/1/views/1). Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
 
 ### Requirements
 
