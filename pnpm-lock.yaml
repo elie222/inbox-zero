@@ -153,6 +153,9 @@ importers:
       '@upstash/redis':
         specifier: ^1.25.1
         version: 1.25.1
+      '@vercel/speed-insights':
+        specifier: ^1.0.2
+        version: 1.0.2
       ai:
         specifier: ^2.2.27
         version: 2.2.27(react@18.2.0)(solid-js@1.7.8)(svelte@4.1.1)(vue@3.3.4)
@@ -4737,6 +4740,11 @@ packages:
     resolution: {integrity: sha512-ACj0GhJ4qrQyBshwFgPod6XufVEfKX2wcaihsEvSdLYnY+m+pa13kGt1RXm/yTHKf4TQi/Dy2A8z/y6WUEOmlg==}
     dependencies:
       crypto-js: 4.2.0
+    dev: false
+
+  /@vercel/speed-insights@1.0.2:
+    resolution: {integrity: sha512-y5HWeB6RmlyVYxJAMrjiDEz8qAIy2cit0fhBq+MD78WaUwQvuBnQlX4+5MuwVTWi46bV3klaRMq83u9zUy1KOg==}
+    requiresBuild: true
     dev: false
 
   /@vue/compiler-core@3.3.4:

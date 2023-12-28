@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import "../styles/globals.css";
 import { Inter } from "next/font/google";
@@ -60,6 +61,7 @@ export default function RootLayout({
           </Suspense>
           {children}
         </PostHogProvider>
+        <SpeedInsights />
       </body>
       <LemonScript />
     </html>

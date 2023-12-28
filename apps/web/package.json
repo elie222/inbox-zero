@@ -41,6 +41,7 @@
     "@tanstack/react-query": "^5.12.2",
     "@tremor/react": "^3.11.1",
     "@upstash/redis": "^1.25.1",
+    "@vercel/speed-insights": "^1.0.2",
     "ai": "^2.2.27",
     "bull": "^4.11.5",
     "capital-case": "^1.0.4",
