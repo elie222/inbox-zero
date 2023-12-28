@@ -46,6 +46,7 @@ export function Header() {
               key={item.name}
               href={item.href}
               target={item.target}
+              prefetch={item.target !== "_blank"}
               className="text-sm font-semibold leading-6 text-gray-900"
             >
               {item.name}
