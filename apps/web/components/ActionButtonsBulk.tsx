@@ -1,11 +1,7 @@
 import { useMemo } from "react";
-import {
-  ArchiveBoxArrowDownIcon,
-  SparklesIcon,
-} from "@heroicons/react/24/outline";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
-import { OrbitIcon } from "lucide-react";
+import { ArchiveIcon, OrbitIcon, SparklesIcon } from "lucide-react";
 
 export function ActionButtonsBulk(props: {
   isPlanning: boolean;
@@ -50,10 +46,7 @@ export function ActionButtonsBulk(props: {
         icon: isArchiving ? (
           <LoadingMiniSpinner />
         ) : (
-          <ArchiveBoxArrowDownIcon
-            className="h-5 w-5 text-gray-700"
-            aria-hidden="true"
-          />
+          <ArchiveIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
     ],
@@ -64,7 +57,7 @@ export function ActionButtonsBulk(props: {
       onAiCategorize,
       onArchive,
       onPlanAiAction,
-    ]
+    ],
   );
 
   return <ButtonGroup buttons={buttons} />;

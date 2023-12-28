@@ -16,7 +16,6 @@
     "@auth/prisma-adapter": "^1.0.9",
     "@baselime/node-opentelemetry": "^0.2.14",
     "@headlessui/react": "^1.7.17",
-    "@heroicons/react": "^2.0.18",
     "@hookform/resolvers": "^3.3.2",
     "@inboxzero/loops": "workspace:*",
     "@inboxzero/resend": "workspace:*",

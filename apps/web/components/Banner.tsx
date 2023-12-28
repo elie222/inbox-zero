@@ -1,5 +1,5 @@
 import React from "react";
-import { XMarkIcon } from "@heroicons/react/20/solid";
+import { XIcon } from "lucide-react";
 
 export function Banner(props: {
   title: string;
@@ -28,7 +28,7 @@ export function Banner(props: {
           onClick={props.onClose}
         >
           <span className="sr-only">Dismiss</span>
-          <XMarkIcon className="h-5 w-5 text-white" aria-hidden="true" />
+          <XIcon className="h-5 w-5 text-white" aria-hidden="true" />
         </button>
       </div>
     </div>

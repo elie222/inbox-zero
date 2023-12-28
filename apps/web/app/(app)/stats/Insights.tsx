@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { CheckCircleIcon } from "@heroicons/react/20/solid";
 import useSWR from "swr";
+import { CheckCircleIcon } from "lucide-react";
 import { InsightsResponse } from "@/app/api/user/stats/insights/route";
 
 export function Insights() {
