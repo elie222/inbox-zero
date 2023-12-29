@@ -71,6 +71,12 @@ const lifetimeFeatures = [
   "Early access to new features",
 ];
 
+function attachUserId(url: string, userId?: string) {
+  if (!userId) return url;
+
+  return `${url}?checkout[custom][user_id]=${userId}`;
+}
+
 export function Pricing() {
   const { isPremium, data, isLoading, error } = usePremium();
 
@@ -193,9 +199,7 @@ export function Pricing() {
 
               <a
                 href={
-                  tier.checkout && data?.id
-                    ? `${tier.href}?checkout[custom][user_id]=${data.id}`
-                    : tier.href
+                  tier.checkout ? attachUserId(tier.href, data?.id) : tier.href
                 }
                 target={tier.href.startsWith("http") ? "_blank" : undefined}
                 aria-describedby={tier.id}
@@ -214,13 +218,13 @@ export function Pricing() {
           ))}
         </div>
 
-        <LifetimePricing />
+        <LifetimePricing userId={data?.id} />
       </div>
     </LoadingContent>
   );
 }
 
-function LifetimePricing() {
+function LifetimePricing(props: { userId?: string }) {
   return (
     <div className="bg-white py-4 sm:py-8">
       <div className="mx-auto max-w-2xl rounded-3xl ring-1 ring-gray-200 lg:mx-0 lg:flex lg:max-w-none">
@@ -271,7 +275,7 @@ function LifetimePricing() {
                 </span>
               </p>
               <a
-                href={LIFETIME_LINK}
+                href={attachUserId(LIFETIME_LINK, props.userId)}
                 target="_blank"
                 className="mt-10 block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
