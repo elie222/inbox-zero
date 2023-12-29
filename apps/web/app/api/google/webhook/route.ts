@@ -217,32 +217,32 @@ async function planHistory(
           parsedMessage.textPlain ||
           parsedMessage.snippet;
 
-        const unsubscribeLink =
-          findUnsubscribeLink(parsedMessage.textHtml) ||
-          getHeaderUnsubscribe(parsedMessage.headers);
+        // const unsubscribeLink =
+        //   findUnsubscribeLink(parsedMessage.textHtml) ||
+        //   getHeaderUnsubscribe(parsedMessage.headers);
 
-        const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
-          from: parsedMessage.headers.from,
-          date: parsedMessage.headers.date,
-          threadId: m.message.threadId,
-        });
+        // const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
+        //   from: parsedMessage.headers.from,
+        //   date: parsedMessage.headers.date,
+        //   threadId: m.message.threadId,
+        // });
 
-        await categorise(
-          {
-            from: parsedMessage.headers.from,
-            subject: parsedMessage.headers.subject,
-            content,
-            snippet: parsedMessage.snippet,
-            threadId: m.message.threadId,
-            aiModel: options.aiModel,
-            openAIApiKey: options.openAIApiKey,
-            unsubscribeLink,
-            hasPreviousEmail,
-          },
-          {
-            email,
-          },
-        );
+        // await categorise(
+        //   {
+        //     from: parsedMessage.headers.from,
+        //     subject: parsedMessage.headers.subject,
+        //     content,
+        //     snippet: parsedMessage.snippet,
+        //     threadId: m.message.threadId,
+        //     aiModel: options.aiModel,
+        //     openAIApiKey: options.openAIApiKey,
+        //     unsubscribeLink,
+        //     hasPreviousEmail,
+        //   },
+        //   {
+        //     email,
+        //   },
+        // );
 
         console.log("Plan or act on message...");
 
