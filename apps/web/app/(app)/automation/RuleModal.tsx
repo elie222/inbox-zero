@@ -9,6 +9,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
+import { PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
@@ -75,7 +76,7 @@ function UpdateRuleForm(props: {
     defaultValues: props.rule,
   });
 
-  const { remove } = useFieldArray({ control, name: "actions" });
+  const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
@@ -189,30 +190,21 @@ function UpdateRuleForm(props: {
         })}
       </div>
 
-      {!props.rule.actions?.length && (
+      {!watch("actions")?.length && (
         <div className="mt-8 flex justify-center">
           <div className="text-gray-700">No actions</div>
         </div>
       )}
-      {/* TODO */}
-      {/* <div className="mt-4">
-    <Button color="white" full>
-      <PlusIcon className="mr-2 h-4 w-4" />
-      Add
-    </Button>
-  </div> */}
-      {/* {Boolean(Object.keys(errors).length) && (
-        <div className="mt-4">
-          <AlertError
-            title="Error"
-            description={`There was an error updating the rule:\n\n${JSON.stringify(
-              errors,
-              null,
-              2
-            )}`}
-          />
-        </div>
-      )} */}
+      <div className="mt-4">
+        <Button
+          color="white"
+          full
+          onClick={() => append({ type: ActionType.LABEL })}
+        >
+          <PlusIcon className="mr-2 h-4 w-4" />
+          Add Action
+        </Button>
+      </div>
       <div className="flex justify-end">
         <SubmitButtonWrapper>
           <Button type="submit" loading={isSubmitting}>

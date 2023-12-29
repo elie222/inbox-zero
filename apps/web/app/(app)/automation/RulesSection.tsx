@@ -1,16 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  FieldError,
-  SubmitHandler,
-  useFieldArray,
-  useForm,
-} from "react-hook-form";
+import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
-import { Card } from "@/components/Card";
 import {
   ForwardIcon,
   HelpCircleIcon,
@@ -46,14 +40,7 @@ import {
   type CategorizeRuleResponse,
 } from "@/app/api/user/rules/categorize/route";
 import { ActionType } from "@prisma/client";
-import { Modal } from "@/components/Modal";
-import {
-  updateRuleBody,
-  type UpdateRuleBody,
-  type UpdateRuleResponse,
-} from "@/app/api/user/rules/[id]/validation";
-import { actionInputs } from "@/utils/actionType";
-import { Select } from "@/components/Select";
+import { type UpdateRuleBody } from "@/app/api/user/rules/[id]/validation";
 import { AlertBasic } from "@/components/Alert";
 import { TestRules } from "@/app/(app)/automation/TestRules";
 import { RuleModal } from "@/app/(app)/automation/RuleModal";
@@ -246,7 +233,7 @@ export function RulesForm(props: {
                       <div className="flex flex-1 space-x-2">
                         {props.rules?.[i]?.actions?.map((action) => {
                           return (
-                            <Tag key={action.type} color="green">
+                            <Tag key={action.id} color="green">
                               {capitalCase(action.type)}
                             </Tag>
                           );
