@@ -8,6 +8,12 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 // https://docs.lemonsqueezy.com/help/webhooks#signing-requests
 // https://gist.github.com/amosbastian/e403e1d8ccf4f7153f7840dd11a85a69
 export const POST = withError(async (request: Request) => {
+  if (!env.LEMON_SQUEEZY_SIGNING_SECRET) {
+    return new Response("No Lemon Squeezy signing secret provided.", {
+      status: 500,
+    });
+  }
+
   const text = await request.text();
   const hmac = crypto.createHmac("sha256", env.LEMON_SQUEEZY_SIGNING_SECRET);
   const digest = Buffer.from(hmac.update(text).digest("hex"), "utf8");
