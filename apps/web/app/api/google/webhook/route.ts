@@ -2,18 +2,15 @@ import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
-// import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
-import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
+import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
-import { categorise } from "@/app/api/ai/categorise/controller";
 import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
-import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
 
 export const dynamic = "force-dynamic";
 
