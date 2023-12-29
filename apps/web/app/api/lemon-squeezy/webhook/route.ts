@@ -27,18 +27,22 @@ export const POST = withError(async (request: Request) => {
   if (!userId) {
     return NextResponse.json(
       { message: "No userId provided" },
-      { status: 403 },
+      { status: 400 },
     );
   }
 
-  if (payload.meta.event_name === "subscription_created") {
+  if (
+    payload.meta.event_name === "subscription_created" ||
+    payload.meta.event_name === "order_created"
+  ) {
     const lemonSqueezySubscriptionId = payload.data.id;
     const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
+    const productId = payload.data.attributes.first_order_item?.product_id;
 
     const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
     const lemonSqueezyRenewsAt =
-      lemonSqueezySubscriptionId === env.NEXT_PUBLIC_LIFETIME_PLAN_ID
+      productId === env.NEXT_PUBLIC_LIFETIME_PLAN_ID
         ? new Date(Date.now() + TEN_YEARS)
         : payload.data.attributes.renews_at
           ? new Date(payload.data.attributes.renews_at)
@@ -158,6 +162,7 @@ export interface Attributes {
   created_at: string;
   updated_at: string;
   test_mode: boolean;
+  first_order_item?: FirstOrderItem;
 }
 
 export interface FirstSubscriptionItem {
@@ -259,4 +264,19 @@ export interface Links8 {
 
 export interface Links9 {
   self: string;
+}
+
+interface FirstOrderItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  variant_id: number;
+  price_id: number;
+  product_name: string;
+  variant_name: string;
+  price: number;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+  test_mode: boolean;
 }
