@@ -35,7 +35,7 @@ const nextConfig = {
       },
       {
         source: "/twitter",
-        destination: "https://twitter.com/getinboxzero",
+        destination: "https://twitter.com/inboxzero_ai",
         permanent: true,
       },
       {

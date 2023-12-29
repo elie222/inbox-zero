@@ -22,7 +22,7 @@ const testimonials: {
   [
     [
       {
-        body: "Love this new open-source app by @elie2222: http://getinboxzero.com",
+        body: "Love this new open-source app by @elie2222: getinboxzero.com",
         author: {
           name: "Steven Tey",
           handle: "steventey",
