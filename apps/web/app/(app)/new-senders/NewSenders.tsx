@@ -112,7 +112,7 @@ export function NewSenders(props: {
             },
           ]}
         />
-      </LoadingContent>{" "}
+      </LoadingContent>
       <Card className="mt-4 p-0">
         <div className="items-center justify-between px-6 pt-6 md:flex">
           <SectionHeader
