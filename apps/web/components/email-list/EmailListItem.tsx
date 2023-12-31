@@ -7,13 +7,13 @@ import {
 } from "react";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
-import { formatShortDate } from "@/utils/date";
 import { PlanBadge } from "@/components/PlanBadge";
 import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail, participant } from "@/utils/email";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
+import { EmailDate } from "@/components/email-list/EmailDate";
 
 export const EmailListItem = forwardRef(
   (
@@ -139,11 +139,9 @@ export const EmailListItem = forwardRef(
                     refetch={props.refetch}
                   />
                 </div>
-                <div className="flex-shrink-0 text-sm font-medium leading-5 text-gray-500">
-                  {formatShortDate(
-                    new Date(+(lastMessage?.internalDate || "")),
-                  )}
-                </div>
+                <EmailDate
+                  date={new Date(+(lastMessage?.internalDate || ""))}
+                />
               </div>
 
               <div className="ml-3 flex items-center whitespace-nowrap">

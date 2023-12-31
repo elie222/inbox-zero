@@ -1,3 +1,5 @@
+"use client";
+
 import useSWR from "swr";
 import { ArchiveIcon, BadgeCheckIcon, UserRoundMinusIcon } from "lucide-react";
 import { StatsCards } from "@/components/StatsCards";
