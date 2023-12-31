@@ -27,20 +27,20 @@ export const POST = withError(async (request: Request) => {
 
   const payload: Payload = JSON.parse(text);
 
-  const userId = payload.meta.custom_data?.user_id;
-
-  // Check if custom defined data i.e. the `userId` is there or not
-  if (!userId) {
-    return NextResponse.json(
-      { message: "No userId provided" },
-      { status: 400 },
-    );
-  }
-
   if (
     payload.meta.event_name === "subscription_created" ||
     payload.meta.event_name === "order_created"
   ) {
+    const userId = payload.meta.custom_data?.user_id;
+
+    // Check if custom defined data i.e. the `userId` is there or not
+    if (!userId) {
+      return NextResponse.json(
+        { message: "No userId provided" },
+        { status: 400 },
+      );
+    }
+
     const lemonSqueezySubscriptionId = payload.data.id;
     const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
     const productId = payload.data.attributes.first_order_item?.product_id;
@@ -71,9 +71,22 @@ export const POST = withError(async (request: Request) => {
         payload.data.attributes,
       );
     }
-  } else if (payload.meta.event_name === "subscription_payment_success") {
+
+    return NextResponse.json({ ok: true });
+  }
+
+  const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
+  const user = await prisma.user.findFirst({
+    where: { lemonSqueezyCustomerId },
+    select: { id: true },
+  });
+
+  if (!user)
+    return NextResponse.json({ message: "User not found" }, { status: 404 });
+
+  if (payload.meta.event_name === "subscription_payment_success") {
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: user.id },
       data: {
         lemonSqueezyRenewsAt: payload.data.attributes.renews_at
           ? new Date(payload.data.attributes.renews_at)
@@ -91,7 +104,7 @@ export const POST = withError(async (request: Request) => {
     }
   } else if (payload.data.attributes.ends_at) {
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: user.id },
       data: {
         lemonSqueezyRenewsAt: payload.data.attributes.ends_at,
       },
