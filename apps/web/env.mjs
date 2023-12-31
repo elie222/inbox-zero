@@ -29,6 +29,7 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    DISABLE_CONTENT_LAYER: z.coerce.boolean().optional(),
     ADMINS: z
       .string()
       .optional()
