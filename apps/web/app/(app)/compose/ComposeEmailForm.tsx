@@ -97,6 +97,7 @@ export const ComposeEmailForm = () => {
         defaultValue=""
         onUpdate={(editor) => {
           editor = editor!;
+          setValue("messageText", editor.getText());
           setValue("messageHtml", editor.getHTML());
         }}
       />

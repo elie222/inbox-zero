@@ -1,14 +1,29 @@
 import { OpenAIStream, StreamingTextResponse } from "ai";
-import { env } from "@/env.mjs";
 import { getOpenAI } from "@/utils/openai";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { NextResponse } from "next/server";
+import { DEFAULT_AI_MODEL } from "@/utils/config";
+import { withError } from "@/utils/middleware";
 
-export async function POST(req: Request): Promise<Response> {
-  const openAiClient = await getOpenAI(env.OPENAI_API_KEY);
+export const POST = withError(async (request: Request): Promise<Response> => {
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
 
-  const { prompt } = await req.json();
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      aiModel: true,
+      openAIApiKey: true,
+    },
+  });
+
+  const { prompt } = await request.json();
+
+  const openAiClient = await getOpenAI(user.openAIApiKey);
 
   const response = await openAiClient.chat.completions.create({
-    model: "gpt-3.5-turbo",
+    model: user.aiModel || DEFAULT_AI_MODEL,
     messages: [
       {
         role: "system",
@@ -33,4 +48,4 @@ export async function POST(req: Request): Promise<Response> {
   const stream = OpenAIStream(response);
 
   return new StreamingTextResponse(stream);
-}
+});
