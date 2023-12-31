@@ -67,6 +67,7 @@
     "next-contentlayer": "^0.3.4",
     "node-email-reply-parser": "^0.1.4",
     "nodemailer": "^6.9.7",
+    "novel": "^0.1.22",
     "openai": "^4.24.1",
     "posthog-js": "^1.96.1",
     "posthog-node": "^3.2.1",
