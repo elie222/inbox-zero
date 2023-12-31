@@ -106,13 +106,13 @@ const sentryConfig = {
   automaticVercelMonitors: true,
 };
 
+const exportConfigContentLayer = env.DISABLE_CONTENT_LAYER
+  ? nextConfig
+  : withContentlayer(nextConfig);
+
 const exportConfig =
   env.NEXT_PUBLIC_SENTRY_DSN && env.SENTRY_ORGANIZATION && env.SENTRY_PROJECT
-    ? withSentryConfig(
-        withContentlayer(nextConfig),
-        sentryOptions,
-        sentryConfig,
-      )
-    : withContentlayer(nextConfig);
+    ? withSentryConfig(exportConfigContentLayer, sentryOptions, sentryConfig)
+    : exportConfigContentLayer;
 
 export default exportConfig;
