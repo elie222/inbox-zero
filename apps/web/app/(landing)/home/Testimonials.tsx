@@ -34,7 +34,7 @@ const testimonials: {
         body: "hey bro, your tool is legit what I been looking for for ages haha. its a god send",
         author: {
           name: "James",
-          handle: "james",
+          handle: "",
           imageUrl:
             "/images/testimonials/midas-hofstra-a6PMA5JEmWE-unsplash.jpg",
         },
@@ -87,7 +87,7 @@ const testimonials: {
         body: "Wow. Onboarded and started unsubscribing from the worst spammers in just 3 minutes... Thank you 🙏🏼",
         author: {
           name: "Yoni",
-          handle: "yoni",
+          handle: "",
           imageUrl:
             "/images/testimonials/joseph-gonzalez-iFgRcqHznqg-unsplash.jpg",
         },
@@ -183,7 +183,11 @@ export function Testimonials() {
                           <div className="font-semibold">
                             {testimonial.author.name}
                           </div>
-                          <div className="text-gray-600">{`@${testimonial.author.handle}`}</div>
+                          {testimonial.author.handle ? (
+                            <div className="text-gray-600">
+                              @{testimonial.author.handle}
+                            </div>
+                          ) : undefined}
                         </div>
                       </figcaption>
                     </figure>
