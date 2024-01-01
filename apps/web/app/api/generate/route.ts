@@ -4,6 +4,8 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { NextResponse } from "next/server";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { withError } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
+import { composeAutocompleteBody } from "@/app/api/generate/validation";
 
 export const POST = withError(async (request: Request): Promise<Response> => {
   const session = await auth();
@@ -18,7 +20,8 @@ export const POST = withError(async (request: Request): Promise<Response> => {
     },
   });
 
-  const { prompt } = await request.json();
+  const json = await request.json();
+  const { prompt } = composeAutocompleteBody.parse(json);
 
   const openAiClient = await getOpenAI(user.openAIApiKey);
 

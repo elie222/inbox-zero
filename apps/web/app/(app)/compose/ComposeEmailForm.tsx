@@ -106,8 +106,8 @@ export const ComposeEmailForm = () => {
       <Button
         type="submit"
         loading={isSubmitting}
-        style={{ backgroundColor: "rgb(17, 24, 39)" }}
         // issue: https://github.com/steven-tey/novel/pull/232
+        style={{ backgroundColor: "rgb(17, 24, 39)" }}
       >
         Send
       </Button>
