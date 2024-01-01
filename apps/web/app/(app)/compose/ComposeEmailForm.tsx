@@ -96,6 +96,7 @@ export const ComposeEmailForm = () => {
       <NovelEditor
         defaultValue=""
         disableLocalStorage={true}
+        completionApi="api/ai/compose-autocomplete"
         onUpdate={(editor) => {
           editor = editor!;
           setValue("messageText", editor.getText());

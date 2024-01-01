@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { composeAutocompleteBody } from "@/app/api/generate/validation";
+import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
 
 export const POST = withError(async (request: Request): Promise<Response> => {
   const session = await auth();
