@@ -12,7 +12,7 @@ import { Combobox } from "@/components/Combobox";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { postRequest } from "@/utils/api";
 import { env } from "@/env.mjs";
-import { Editor } from "novel";
+import { Editor as NovelEditor } from "novel";
 
 export const ComposeEmailForm = () => {
   const {
@@ -93,8 +93,9 @@ export const ComposeEmailForm = () => {
         error={errors.subject}
       />
 
-      <Editor
+      <NovelEditor
         defaultValue=""
+        disableLocalStorage={true}
         onUpdate={(editor) => {
           editor = editor!;
           setValue("messageText", editor.getText());
