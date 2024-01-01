@@ -6,7 +6,6 @@ import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { env } from "@/env.mjs";
-import { LemonScript } from "@/utils/scripts/lemon";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -63,7 +62,6 @@ export default function RootLayout({
         </PostHogProvider>
         <SpeedInsights />
       </body>
-      <LemonScript />
     </html>
   );
 }

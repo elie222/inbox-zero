@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon } from "lucide-react";
 import clsx from "clsx";
@@ -77,10 +78,24 @@ function attachUserId(url: string, userId?: string) {
   return `${url}?checkout[custom][user_id]=${userId}`;
 }
 
+function useAffiliateCode() {
+  const searchParams = useSearchParams();
+  const affiliateCode = searchParams.get("aff");
+  return affiliateCode;
+}
+
+function buildLemonUrl(url: string, affiliateCode: string | null) {
+  if (!affiliateCode) return url;
+  const newUrl = `${url}?aff_ref=${affiliateCode}`;
+  return newUrl;
+}
+
 export function Pricing() {
   const { isPremium, data, isLoading, error } = usePremium();
 
   const [frequency, setFrequency] = useState(frequencies[0]);
+
+  const affiliateCode = useAffiliateCode();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -198,9 +213,10 @@ export function Pricing() {
               </div>
 
               <a
-                href={
-                  tier.checkout ? attachUserId(tier.href, data?.id) : tier.href
-                }
+                href={buildLemonUrl(
+                  tier.checkout ? attachUserId(tier.href, data?.id) : tier.href,
+                  affiliateCode,
+                )}
                 target={tier.href.startsWith("http") ? "_blank" : undefined}
                 aria-describedby={tier.id}
                 className={clsx(
@@ -218,13 +234,16 @@ export function Pricing() {
           ))}
         </div>
 
-        <LifetimePricing userId={data?.id} />
+        <LifetimePricing userId={data?.id} affiliateCode={affiliateCode} />
       </div>
     </LoadingContent>
   );
 }
 
-function LifetimePricing(props: { userId?: string }) {
+function LifetimePricing(props: {
+  userId?: string;
+  affiliateCode: string | null;
+}) {
   return (
     <div className="bg-white py-4 sm:py-8">
       <div className="mx-auto max-w-2xl rounded-3xl ring-1 ring-gray-200 lg:mx-0 lg:flex lg:max-w-none">
@@ -275,7 +294,10 @@ function LifetimePricing(props: { userId?: string }) {
                 </span>
               </p>
               <a
-                href={attachUserId(LIFETIME_LINK, props.userId)}
+                href={buildLemonUrl(
+                  attachUserId(LIFETIME_LINK, props.userId),
+                  props.affiliateCode,
+                )}
                 target="_blank"
                 className="mt-10 block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
