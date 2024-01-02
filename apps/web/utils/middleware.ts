@@ -35,7 +35,7 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
-      captureException(error);
+      captureException(error, { extra: { url: req.url, params } });
       console.error(`Error for url: ${req.url}:`);
       console.error(error);
       return NextResponse.json({ error: "Server error" }, { status: 500 });
