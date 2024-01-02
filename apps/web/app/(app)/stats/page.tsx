@@ -55,7 +55,7 @@ export default function StatsPage() {
   );
 
   const { isLoading, onLoad } = useStatLoader();
-  const refreshInterval = isLoading ? 3_000 : 1_000_000;
+  const refreshInterval = isLoading ? 5_000 : 1_000_000;
   useEffect(() => {
     onLoad({ loadBefore: false, showToast: false });
   }, [onLoad]);
