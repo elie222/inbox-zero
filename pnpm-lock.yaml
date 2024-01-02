@@ -164,9 +164,6 @@ importers:
       eslint-config-next:
         specifier: 14.0.4
         version: 14.0.4(eslint@8.56.0)(typescript@5.3.3)
-      gaxios:
-        specifier: ^6.1.1
-        version: 6.1.1(encoding@0.1.13)
       gmail-api-parse-message:
         specifier: ^2.1.2
         version: 2.1.2

@@ -53,7 +53,6 @@
     "encoding": "^0.1.13",
     "eslint": "8.56.0",
     "eslint-config-next": "14.0.4",
-    "gaxios": "^6.1.1",
     "gmail-api-parse-message": "^2.1.2",
     "googleapis": "129",
     "he": "^1.2.0",
