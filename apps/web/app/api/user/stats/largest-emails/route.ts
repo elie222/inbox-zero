@@ -10,11 +10,9 @@ const largestEmailsQuery = z.object({
   toDate: z.number().nullish(),
 });
 export type LargestEmailsQuery = z.infer<typeof largestEmailsQuery>;
-export type LargestEmailsResponse = Awaited<
-  ReturnType<typeof getNewslettersTinybird>
->;
+export type LargestEmailsResponse = Awaited<ReturnType<typeof getLargeEmails>>;
 
-async function getNewslettersTinybird(
+async function getLargeEmails(
   options: { ownerEmail: string } & LargestEmailsQuery,
 ) {
   const largestEmails = await getLargestEmails(options);
@@ -34,7 +32,7 @@ export const GET = withError(async (request: Request) => {
     toDate: searchParams.get("toDate"),
   });
 
-  const result = await getNewslettersTinybird({
+  const result = await getLargeEmails({
     ownerEmail: session.user.email,
     ...params,
   });
