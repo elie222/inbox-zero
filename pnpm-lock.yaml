@@ -164,6 +164,9 @@ importers:
       eslint-config-next:
         specifier: 14.0.4
         version: 14.0.4(eslint@8.56.0)(typescript@5.3.3)
+      gaxios:
+        specifier: ^6.1.1
+        version: 6.1.1(encoding@0.1.13)
       gmail-api-parse-message:
         specifier: ^2.1.2
         version: 2.1.2
@@ -7406,8 +7409,8 @@ packages:
   /functions-have-names@1.2.3:
     resolution: {integrity: sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==}
 
-  /gaxios@6.0.4(encoding@0.1.13):
-    resolution: {integrity: sha512-mwKfHJn7f3pLRfahdEPNyvygXRwjwgsgDPaIIoBRIDkgP4SFyezkYGWQ2aLCfrAnzimSrP+mAg1aSUj5gidXvw==}
+  /gaxios@6.1.1(encoding@0.1.13):
+    resolution: {integrity: sha512-bw8smrX+XlAoo9o1JAksBwX+hi/RG15J+NTSxmNPIclKC3ZVK6C2afwY8OSdRvOK0+ZLecUJYtj2MmjOt3Dm0w==}
     engines: {node: '>=14'}
     dependencies:
       extend: 3.0.2
@@ -7423,7 +7426,7 @@ packages:
     resolution: {integrity: sha512-Ozxyi23/1Ar51wjUT2RDklK+3HxqDr8TLBNK8rBBFQ7T85iIGnXnVusauj06QyqCXRFZig8LZC+TUddWbndlpQ==}
     engines: {node: '>=14'}
     dependencies:
-      gaxios: 6.0.4(encoding@0.1.13)
+      gaxios: 6.1.1(encoding@0.1.13)
       json-bigint: 1.0.0
     transitivePeerDependencies:
       - encoding
@@ -7644,7 +7647,7 @@ packages:
     dependencies:
       base64-js: 1.5.1
       ecdsa-sig-formatter: 1.0.11
-      gaxios: 6.0.4(encoding@0.1.13)
+      gaxios: 6.1.1(encoding@0.1.13)
       gcp-metadata: 6.0.0(encoding@0.1.13)
       gtoken: 7.0.1(encoding@0.1.13)
       jws: 4.0.0
@@ -7659,7 +7662,7 @@ packages:
     engines: {node: '>=14.0.0'}
     dependencies:
       extend: 3.0.2
-      gaxios: 6.0.4(encoding@0.1.13)
+      gaxios: 6.1.1(encoding@0.1.13)
       google-auth-library: 9.0.0(encoding@0.1.13)
       qs: 6.11.2
       url-template: 2.0.8
@@ -7713,7 +7716,7 @@ packages:
     resolution: {integrity: sha512-KcFVtoP1CVFtQu0aSk3AyAt2og66PFhZAlkUOuWKwzMLoulHXG5W5wE5xAnHb+yl3/wEFoqGW7/cDGMU8igDZQ==}
     engines: {node: '>=14.0.0'}
     dependencies:
-      gaxios: 6.0.4(encoding@0.1.13)
+      gaxios: 6.1.1(encoding@0.1.13)
       jws: 4.0.0
     transitivePeerDependencies:
       - encoding
