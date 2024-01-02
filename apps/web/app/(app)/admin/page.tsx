@@ -57,7 +57,9 @@ const UpgradeToAdminForm = () => {
         type="number"
         name="lemonSqueezyCustomerId"
         label="Lemon Squeezy Customer Id"
-        registerProps={register("lemonSqueezyCustomerId")}
+        registerProps={register("lemonSqueezyCustomerId", {
+          valueAsNumber: true,
+        })}
         error={errors.lemonSqueezyCustomerId}
       />
       <Select
