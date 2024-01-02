@@ -11,7 +11,7 @@ import { sleep } from "@/utils/sleep";
 import { extractDomainFromEmail } from "@/utils/email";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const PAGE_SIZE = 100;
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
