@@ -8,11 +8,8 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 // https://docs.lemonsqueezy.com/help/webhooks#signing-requests
 // https://gist.github.com/amosbastian/e403e1d8ccf4f7153f7840dd11a85a69
 export const POST = withError(async (request: Request) => {
-  if (!env.LEMON_SQUEEZY_SIGNING_SECRET) {
-    return new Response("No Lemon Squeezy signing secret provided.", {
-      status: 500,
-    });
-  }
+  if (!env.LEMON_SQUEEZY_SIGNING_SECRET)
+    throw new Error("No Lemon Squeezy signing secret provided.");
 
   const text = await request.text();
   const hmac = crypto.createHmac("sha256", env.LEMON_SQUEEZY_SIGNING_SECRET);
@@ -23,7 +20,7 @@ export const POST = withError(async (request: Request) => {
   );
 
   if (!crypto.timingSafeEqual(digest, signature))
-    return new Response("Invalid signature.", { status: 400 });
+    throw new Error("Invalid signature.");
 
   const payload: Payload = JSON.parse(text);
 
@@ -34,12 +31,7 @@ export const POST = withError(async (request: Request) => {
     const userId = payload.meta.custom_data?.user_id;
 
     // Check if custom defined data i.e. the `userId` is there or not
-    if (!userId) {
-      return NextResponse.json(
-        { message: "No userId provided" },
-        { status: 400 },
-      );
-    }
+    if (!userId) throw new Error("No userId provided");
 
     const lemonSqueezySubscriptionId = payload.data.id;
     const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
@@ -81,8 +73,7 @@ export const POST = withError(async (request: Request) => {
     select: { id: true },
   });
 
-  if (!user)
-    return NextResponse.json({ message: "User not found" }, { status: 404 });
+  if (!user) throw new Error("No user found for lemonSqueezyCustomerId");
 
   if (payload.meta.event_name === "subscription_payment_success") {
     const updatedUser = await prisma.user.update({
