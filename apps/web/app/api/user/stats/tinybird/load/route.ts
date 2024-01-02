@@ -15,7 +15,7 @@ export const maxDuration = 60;
 
 const PAGE_SIZE = 100;
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
-const MAX_PAGES = 50;
+const MAX_PAGES = 25;
 
 const loadTinybirdEmailsBody = z.object({
   loadBefore: z.coerce.boolean().optional(),
