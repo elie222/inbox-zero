@@ -30,6 +30,7 @@ import {
   cancelUserPremium,
   upgradeUserToPremium,
 } from "@/utils/premium/server";
+import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -195,13 +196,6 @@ export async function trashThreadAction(threadId: string) {
 
   return isStatusOk(res.status) ? { ok: true } : res;
 }
-
-export type ChangePremiumStatusOptions = {
-  email: string;
-  lemonSqueezyCustomerId?: number;
-  period?: "monthly" | "annually" | "lifetime";
-  upgrade: boolean;
-};
 
 export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
   const session = await auth();

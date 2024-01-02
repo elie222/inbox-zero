@@ -7,11 +7,13 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
-import {
-  type ChangePremiumStatusOptions,
-  changePremiumStatus,
-} from "@/utils/actions";
+import { changePremiumStatus } from "@/utils/actions";
 import { Select } from "@/components/Select";
+import {
+  changePremiumStatusSchema,
+  type ChangePremiumStatusOptions,
+} from "@/app/(app)/admin/validation";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 export default function AdminPage() {
   return (
@@ -30,7 +32,9 @@ const UpgradeToAdminForm = () => {
     register,
     formState: { errors, isSubmitting },
     getValues,
-  } = useForm<ChangePremiumStatusOptions>();
+  } = useForm<ChangePremiumStatusOptions>({
+    resolver: zodResolver(changePremiumStatusSchema),
+  });
 
   const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
     async (data) => {
