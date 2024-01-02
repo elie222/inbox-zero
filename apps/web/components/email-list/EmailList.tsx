@@ -27,6 +27,11 @@ import {
 import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
 import { EmailListItem } from "@/components/email-list/EmailListItem";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const { emails, refetch } = props;
@@ -395,56 +400,59 @@ export function EmailList(props: {
           </div>
         </div>
       )}
-      <div
-        className={clsx("h-full overflow-hidden", {
-          "grid grid-cols-2": openedRowId && !isEmpty,
-          "overflow-y-auto": !openedRowId,
-        })}
-      >
-        <ul
-          role="list"
-          className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
-          ref={listRef}
+      <ResizablePanelGroup direction="horizontal">
+        <ResizablePanel
+          style={{
+            overflow: "auto",
+          }}
+          defaultSize={openedRowId ? 50 : 100}
+          minSize={30}
         >
-          {threads.map((thread) => (
-            <EmailListItem
-              ref={(node) => {
-                const map = getMap();
-                if (node) {
-                  map.set(thread.id!, node);
-                } else {
-                  map.delete(thread.id!);
-                }
-              }}
-              key={thread.id}
-              userEmailAddress={session.data?.user.email || ""}
-              thread={thread}
-              opened={openedRowId === thread.id}
-              closePanel={closePanel}
-              selected={selectedRows[thread.id!]}
-              onSelected={onSetSelectedRow}
-              splitView={!!openedRowId}
-              onClick={() => {
-                const alreadyOpen = !!openedRowId;
-                setOpenedRowId(thread.id!);
+          <ul
+            role="list"
+            className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
+            ref={listRef}
+          >
+            {threads.map((thread) => (
+              <EmailListItem
+                ref={(node) => {
+                  const map = getMap();
+                  if (node) {
+                    map.set(thread.id!, node);
+                  } else {
+                    map.delete(thread.id!);
+                  }
+                }}
+                key={thread.id}
+                userEmailAddress={session.data?.user.email || ""}
+                thread={thread}
+                opened={openedRowId === thread.id}
+                closePanel={closePanel}
+                selected={selectedRows[thread.id!]}
+                onSelected={onSetSelectedRow}
+                splitView={!!openedRowId}
+                onClick={() => {
+                  const alreadyOpen = !!openedRowId;
+                  setOpenedRowId(thread.id!);
 
-                if (!alreadyOpen) scrollToId(thread.id!);
-              }}
-              onShowReply={onShowReply}
-              isPlanning={isPlanning[thread.id!]}
-              isCategorizing={isCategorizing[thread.id!]}
-              isArchiving={isArchiving[thread.id!]}
-              onPlanAiAction={onPlanAiAction}
-              onAiCategorize={onAiCategorize}
-              onArchive={onArchive}
-              executePlan={executePlan}
-              rejectPlan={rejectPlan}
-              executingPlan={executingPlan[thread.id!]}
-              rejectingPlan={rejectingPlan[thread.id!]}
-              refetch={refetch}
-            />
-          ))}
-        </ul>
+                  if (!alreadyOpen) scrollToId(thread.id!);
+                }}
+                onShowReply={onShowReply}
+                isPlanning={isPlanning[thread.id!]}
+                isCategorizing={isCategorizing[thread.id!]}
+                isArchiving={isArchiving[thread.id!]}
+                onPlanAiAction={onPlanAiAction}
+                onAiCategorize={onAiCategorize}
+                onArchive={onArchive}
+                executePlan={executePlan}
+                rejectPlan={rejectPlan}
+                executingPlan={executingPlan[thread.id!]}
+                rejectingPlan={rejectingPlan[thread.id!]}
+                refetch={refetch}
+              />
+            ))}
+          </ul>
+        </ResizablePanel>
 
         {isEmpty && (
           <div className="py-2">
@@ -457,25 +465,30 @@ export function EmailList(props: {
         )}
 
         {!!(openedRowId && openedRow) && (
-          <EmailPanel
-            row={openedRow}
-            showReply={showReply}
-            onShowReply={onShowReply}
-            isPlanning={isPlanning[openedRowId]}
-            isCategorizing={isCategorizing[openedRowId]}
-            isArchiving={isArchiving[openedRowId]}
-            onPlanAiAction={onPlanAiAction}
-            onAiCategorize={onAiCategorize}
-            onArchive={onArchive}
-            close={closePanel}
-            executePlan={executePlan}
-            rejectPlan={rejectPlan}
-            executingPlan={executingPlan[openedRowId]}
-            rejectingPlan={rejectingPlan[openedRowId]}
-            refetch={refetch}
-          />
+          <>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <EmailPanel
+                row={openedRow}
+                showReply={showReply}
+                onShowReply={onShowReply}
+                isPlanning={isPlanning[openedRowId]}
+                isCategorizing={isCategorizing[openedRowId]}
+                isArchiving={isArchiving[openedRowId]}
+                onPlanAiAction={onPlanAiAction}
+                onAiCategorize={onAiCategorize}
+                onArchive={onArchive}
+                close={closePanel}
+                executePlan={executePlan}
+                rejectPlan={rejectPlan}
+                executingPlan={executingPlan[openedRowId]}
+                rejectingPlan={rejectingPlan[openedRowId]}
+                refetch={refetch}
+              />
+            </ResizablePanel>
+          </>
         )}
-      </div>
+      </ResizablePanelGroup>
     </>
   );
 }
