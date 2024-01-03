@@ -2,7 +2,7 @@ import { env } from "@/env.mjs";
 
 // https://baselime.io/docs/sending-data/opentelemetry/next.js/
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
+  if (process.env.NEXT_RUNTIME === "nodejs" && env.BASELIME_PROJECT_NAME) {
     const { BaselimeSDK, VercelPlugin, BetterHttpInstrumentation } =
       await import("@baselime/node-opentelemetry");
 
