@@ -1,0 +1,17 @@
+NODE last_and_oldest_emails
+SQL >
+
+    SELECT
+        ownerEmail,
+        argMaxState(gmailMessageId, timestamp) AS latest_message,
+        maxState(timestamp) AS latest_message_ts,
+        argMinState(gmailMessageId, timestamp) AS oldest_message,
+        minState(timestamp) AS oldest_message_ts
+    FROM email
+    GROUP BY ownerEmail
+
+TYPE materialized
+DATASOURCE last_and_oldest_emails_mv
+ENGINE "AggregatingMergeTree"
+ENGINE_SORTING_KEY "ownerEmail"
+
