@@ -49,11 +49,10 @@ export const POST = withError(async (request: Request) => {
     });
 
     if (updatedUser.email) {
-      await posthogCaptureEvent(
-        updatedUser.email,
-        "Upgraded to premium",
-        payload.data.attributes,
-      );
+      await posthogCaptureEvent(updatedUser.email, "Upgraded to premium", {
+        ...payload.data.attributes,
+        $set: { premium: true, premiumTier: "subscription" },
+      });
     }
 
     return NextResponse.json({ ok: true });
@@ -76,7 +75,10 @@ export const POST = withError(async (request: Request) => {
       await posthogCaptureEvent(
         updatedUser.email,
         "Upgraded to lifetime plan",
-        payload.data.attributes,
+        {
+          ...payload.data.attributes,
+          $set: { premium: true, premiumTier: "lifetime" },
+        },
       );
     }
 
@@ -108,7 +110,10 @@ export const POST = withError(async (request: Request) => {
       await posthogCaptureEvent(
         updatedUser.email,
         "Premium subscription payment success",
-        payload.data.attributes,
+        {
+          ...payload.data.attributes,
+          $set: { premium: true, premiumTier: "subscription" },
+        },
       );
     }
 
@@ -126,7 +131,10 @@ export const POST = withError(async (request: Request) => {
       await posthogCaptureEvent(
         updatedUser.email,
         "Cancelled premium subscription",
-        payload.data.attributes,
+        {
+          ...payload.data.attributes,
+          $set: { premiumCancelled: true, premium: false },
+        },
       );
     }
   }
