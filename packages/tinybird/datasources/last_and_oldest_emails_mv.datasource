@@ -1,0 +1,11 @@
+# Data Source created from Pipe 'last_and_oldest_emails_mat'
+
+SCHEMA >
+    `ownerEmail` String,
+    `latest_message` AggregateFunction(argMax, String, Int64),
+    `latest_message_ts` AggregateFunction(max, Int64),
+    `oldest_message` AggregateFunction(argMin, String, Int64),
+    `oldest_message_ts` AggregateFunction(min, Int64)
+
+ENGINE "AggregatingMergeTree"
+ENGINE_SORTING_KEY "ownerEmail"

@@ -60,26 +60,28 @@ export function LargestEmails(props: { refreshInterval: number }) {
                 .slice(0, expanded ? undefined : 5)
                 .map((item) => {
                   return (
-                    <TableRow key={item.gmailMessageId}>
-                      <TableCell>{item.from}</TableCell>
+                    <TableRow key={item.id}>
+                      <TableCell>{item.parsedMessage.headers.from}</TableCell>
                       <TableCell>
-                        {truncate(item.subject, { length: 80 })}
+                        {truncate(item.parsedMessage.headers.subject, {
+                          length: 80,
+                        })}
                       </TableCell>
                       <TableCell>
-                        {formatShortDate(new Date(+item.timestamp), {
+                        {formatShortDate(new Date(+(item.internalDate || 0)), {
                           includeYear: true,
                           lowercase: true,
                         })}
                       </TableCell>
                       <TableCell>
-                        {bytesToMegabytes(item.sizeEstimate).toFixed(1)} MB
+                        {bytesToMegabytes(item.sizeEstimate!).toFixed(1)} MB
                       </TableCell>
                       <TableCell>
                         <Button asChild variant="secondary" size="sm">
                           <Link
                             href={getGmailUrl(
-                              item.gmailMessageId,
-                              session.data?.user.email
+                              item.id!,
+                              session.data?.user.email,
                             )}
                             target="_blank"
                           >
