@@ -1,13 +1,19 @@
 import { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 export const metadata: Metadata = {
   title: "Log in",
   description: "Log in to Inbox Zero.",
 };
 
-export default function AuthenticationPage() {
+export default async function AuthenticationPage() {
+  const session = await auth();
+
+  if (session?.user.id) redirect("/welcome");
+
   return (
     <div className="flex h-screen flex-col justify-center text-gray-900">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
