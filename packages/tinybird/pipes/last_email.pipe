@@ -4,12 +4,14 @@ DESCRIPTION >
 
 SQL >
     %
-        SELECT timestamp, gmailMessageId
-        FROM email
-        WHERE ownerEmail = {{ String(ownerEmail) }}
+        SELECT 
         {% if String(direction) == "oldest" %}
-            ORDER BY timestamp ASC
+            minMerge(oldest_message_ts) timestamp, 
+            argMinMerge(oldest_message) gmailMessageId
         {% else %}
-            ORDER BY timestamp DESC
+            maxMerge(latest_message_ts) timestamp, 
+            argMaxMerge(latest_message) gmailMessageId
         {% end %}
-        LIMIT 1
+        FROM last_and_oldest_emails_mv
+        WHERE ownerEmail = {{ String(ownerEmail) }}
+        GROUP BY ownerEmail

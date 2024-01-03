@@ -3,7 +3,7 @@ import { ErrorMessage, captureException, isErrorMessage } from "@/utils/error";
 export async function postRequest<T, S = any>(
   url: string,
   data: S,
-  method?: "POST" | "DELETE"
+  method?: "POST" | "DELETE",
 ): Promise<T | ErrorMessage> {
   try {
     const res = await fetch(url, {
@@ -13,7 +13,7 @@ export async function postRequest<T, S = any>(
     });
     return await res.json();
   } catch (error) {
-    captureException(error);
+    captureException(error, { extra: { url, data } });
     if (isErrorMessage(error)) {
       if (error.error === "Failed to fetch" || !navigator.onLine)
         return {

@@ -67,3 +67,19 @@ export async function hasPreviousEmailsFromSender(
 
   return hasPreviousEmail;
 }
+
+export async function getMessages(
+  gmail: gmail_v1.Gmail,
+  options: {
+    query?: string;
+    maxResults?: number;
+  },
+) {
+  const messages = await gmail.users.messages.list({
+    userId: "me",
+    maxResults: options.maxResults,
+    q: options.query,
+  });
+
+  return messages.data;
+}

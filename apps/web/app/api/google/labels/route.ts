@@ -6,6 +6,7 @@ import { getGmailLabels } from "@/utils/label";
 import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 // const labelsQuery = z.object({});
 // export type LabelsQuery = z.infer<typeof labelsQuery>;

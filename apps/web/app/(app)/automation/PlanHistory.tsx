@@ -16,12 +16,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatShortDate } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
 import { MessagesBatchResponse } from "@/app/api/google/messages/batch/route";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { Badge } from "@/components/Badge";
+import { EmailDate } from "@/components/email-list/EmailDate";
 
 export function PlanHistory() {
   const session = useSession();
@@ -96,13 +96,15 @@ export function PlanHistory() {
                         message.parsedMessage.headers.date,
                       ).toLocaleString()}.`}
                     >
-                      <div className="flex max-w-[600px] items-center">
-                        <span className="flex-shrink-0 whitespace-nowrap text-gray-900">
-                          {message.parsedMessage.headers.subject}
-                        </span>
-                        <span className="ml-2 overflow-hidden truncate overflow-ellipsis whitespace-nowrap text-gray-500">
-                          {message.parsedMessage.snippet}
-                        </span>
+                      <div className="flex max-w-[500px] items-center justify-between">
+                        <div>
+                          <div className="text-gray-900">
+                            {message.parsedMessage.headers.subject}
+                          </div>
+                          <div className="text-gray-500">
+                            {message.parsedMessage.snippet}
+                          </div>
+                        </div>
                         {openInGmailButton}
                       </div>
                     </Tooltip>
@@ -131,13 +133,14 @@ export function PlanHistory() {
                 <TableCell className="space-x-2">
                   {h.actions.map((action) => capitalCase(action)).join(", ")}
                 </TableCell>
-                <TableCell className="space-x-4">
+                <TableCell className="space-y-4">
                   {Object.entries(h.data as any).map(
                     ([key, value]: [string, any]) => {
                       return (
-                        <span key={key}>
-                          {capitalCase(key)}: {value}
-                        </span>
+                        <div key={key}>
+                          <strong>{capitalCase(key)}:</strong>{" "}
+                          <span className="whitespace-normal">{value}</span>
+                        </div>
                       );
                     },
                   )}
@@ -151,7 +154,7 @@ export function PlanHistory() {
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
                   <Tooltip content={new Date(h.createdAt).toLocaleString()}>
-                    <div>{formatShortDate(new Date(h.createdAt))}</div>
+                    <EmailDate date={new Date(h.createdAt)} />
                   </Tooltip>
                 </TableCell>
               </TableRow>

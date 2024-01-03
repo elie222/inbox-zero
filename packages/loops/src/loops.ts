@@ -3,12 +3,12 @@ import LoopsClient from "loops";
 let loops: LoopsClient | undefined;
 function getLoopsClient(): LoopsClient | undefined {
   // if loops api key hasn't been set this package doesn't do anything
-  if (!process.env.LOOPS_API_KEY) {
-    console.warn("LOOPS_API_KEY is not set");
+  if (!process.env.LOOPS_API_SECRET) {
+    console.warn("LOOPS_API_SECRET is not set");
     return;
   }
 
-  if (!loops) loops = new LoopsClient(process.env.LOOPS_API_KEY);
+  if (!loops) loops = new LoopsClient(process.env.LOOPS_API_SECRET);
 
   return loops;
 }

@@ -6,6 +6,7 @@ import { hasCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export const GET = withError(async (request: Request) => {
   if (!hasCronSecret(request))
@@ -62,5 +63,5 @@ export const GET = withError(async (request: Request) => {
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ success: true });
 });

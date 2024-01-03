@@ -120,13 +120,14 @@ function FooterList(props: {
       <ul role="list" className="mt-6 space-y-4">
         {props.items.map((item) => (
           <li key={item.name}>
-            <a
+            <Link
               href={item.href}
               target={item.target}
+              prefetch={item.target !== "_blank"}
               className="text-sm leading-6 text-gray-600 hover:text-gray-900"
             >
               {item.name}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>

@@ -1,7 +1,7 @@
 import React, { HTMLInputTypeAttribute } from "react";
 import { FieldError } from "react-hook-form";
 import clsx from "clsx";
-import { MinusCircleIcon, PlusCircleIcon } from "@heroicons/react/20/solid";
+import { MinusCircleIcon, PlusCircleIcon } from "lucide-react";
 
 export interface InputProps {
   name: string;
@@ -47,7 +47,7 @@ export const Input = (props: InputProps) => {
     <div
       className={clsx(
         props.condensed &&
-          "mt-6 grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6"
+          "mt-6 grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6",
       )}
     >
       <div className={clsx(props.condensed && "sm:col-span-4")}>
@@ -200,7 +200,7 @@ export const AddRemoveButtons = (props: {
 };
 
 export function LabelWithRightButton(
-  props: LabelProps & { rightButton: { text: string; onClick: () => void } }
+  props: LabelProps & { rightButton: { text: string; onClick: () => void } },
 ) {
   return (
     <div className="flex justify-between">
@@ -218,7 +218,7 @@ export function LabelWithRightButton(
 
 function getErrorMessage(
   errorType?: FieldError["type"],
-  errorMessage?: FieldError["message"]
+  errorMessage?: FieldError["message"],
 ) {
   if (errorType === "required") return "This field is required";
   if (errorType === "minLength") return "This field is too short";

@@ -19,10 +19,9 @@ export const env = createEnv({
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
-    LEMON_SQUEEZY_API_SECRET: z.string(),
-    LEMON_SQUEEZY_SIGNING_SECRET: z.string(),
+    LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
     TINYBIRD_TOKEN: z.string(),
-    TINYBIRD_BASE_URL: z.string().default('https://api.us-east.tinybird.co/'),
+    TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
     ENCRYPT_SECRET: z.string().optional(),
     ENCRYPT_SALT: z.string().optional(),
     POSTHOG_API_SECRET: z.string().optional(),
@@ -30,15 +29,16 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    DISABLE_CONTENT_LAYER: z.coerce.boolean().optional(),
     ADMINS: z
       .string()
       .optional()
       .transform((value) => value?.split(",")),
   },
   client: {
-    NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().min(1),
-    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: z.string().min(1),
-    NEXT_PUBLIC_LIFETIME_PLAN_ID: z.string().min(1),
+    NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_LIFETIME_PLAN_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
     NEXT_PUBLIC_CALL_LINK: z.string().default("https://dub.sh/inbox-zero-call"),

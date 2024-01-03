@@ -232,7 +232,7 @@ function Sidebar(props: { isMobile: boolean }) {
               {bottomLinks.map((link) => {
                 return (
                   <li key={link.name}>
-                    <a
+                    <Link
                       href={link.href}
                       className={clsx(
                         "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
@@ -241,13 +241,14 @@ function Sidebar(props: { isMobile: boolean }) {
                           : "text-gray-400 hover:bg-gray-800 hover:text-white",
                       )}
                       target={link.target}
+                      prefetch={link.target !== "_blank"}
                     >
                       <link.icon
                         className="h-6 w-6 shrink-0"
                         aria-hidden="true"
                       />
                       {link.name}
-                    </a>
+                    </Link>
                   </li>
                 );
               })}

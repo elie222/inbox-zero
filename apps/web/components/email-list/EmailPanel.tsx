@@ -1,6 +1,5 @@
 import { type SyntheticEvent, useCallback, useMemo } from "react";
 import { capitalCase } from "capital-case";
-import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -9,6 +8,7 @@ import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
+import { XIcon } from "lucide-react";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -73,7 +73,7 @@ export function EmailPanel(props: {
                 onClick={props.close}
               >
                 <span className="sr-only">Close</span>
-                <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                <XIcon className="h-5 w-5" aria-hidden="true" />
               </button>
             </Tooltip>
           </div>

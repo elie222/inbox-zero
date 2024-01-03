@@ -39,6 +39,7 @@ export async function getAiResponse(
   options: {
     email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
       content: string;
+      snippet: string;
     };
     userAbout: string;
     userEmail: string;
@@ -78,7 +79,7 @@ Reply to: ${email.replyTo}
 CC: ${email.cc}
 Subject: ${email.subject}
 Body:
-${email.content}`,
+${email.snippet}`,
     },
   ];
 
@@ -277,7 +278,7 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
 
 export async function planAct(
   options: {
-    email: ActBody["email"] & { content: string };
+    email: ActBody["email"] & { content: string; snippet: string };
     rules: RuleWithActions[];
     userAbout: string;
     userEmail: string;
@@ -393,7 +394,7 @@ export async function executeAct(options: {
 export async function planOrExecuteAct(
   options: {
     gmail: gmail_v1.Gmail;
-    email: ActBodyWithHtml["email"] & { content: string };
+    email: ActBodyWithHtml["email"] & { content: string; snippet: string };
     rules: RuleWithActions[];
     allowExecute: boolean;
     forceExecute?: boolean;

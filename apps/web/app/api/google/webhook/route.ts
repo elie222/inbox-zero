@@ -2,20 +2,18 @@ import { NextResponse } from "next/server";
 import { gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
-// import { plan } from "@/app/api/ai/plan/controller";
 import { parseMessage } from "@/utils/mail";
 import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
-import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
+import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
-import { categorise } from "@/app/api/ai/categorise/controller";
 import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
-import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request: Request) => {
@@ -217,32 +215,32 @@ async function planHistory(
           parsedMessage.textPlain ||
           parsedMessage.snippet;
 
-        const unsubscribeLink =
-          findUnsubscribeLink(parsedMessage.textHtml) ||
-          getHeaderUnsubscribe(parsedMessage.headers);
+        // const unsubscribeLink =
+        //   findUnsubscribeLink(parsedMessage.textHtml) ||
+        //   getHeaderUnsubscribe(parsedMessage.headers);
 
-        const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
-          from: parsedMessage.headers.from,
-          date: parsedMessage.headers.date,
-          threadId: m.message.threadId,
-        });
+        // const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
+        //   from: parsedMessage.headers.from,
+        //   date: parsedMessage.headers.date,
+        //   threadId: m.message.threadId,
+        // });
 
-        await categorise(
-          {
-            from: parsedMessage.headers.from,
-            subject: parsedMessage.headers.subject,
-            content,
-            snippet: parsedMessage.snippet,
-            threadId: m.message.threadId,
-            aiModel: options.aiModel,
-            openAIApiKey: options.openAIApiKey,
-            unsubscribeLink,
-            hasPreviousEmail,
-          },
-          {
-            email,
-          },
-        );
+        // await categorise(
+        //   {
+        //     from: parsedMessage.headers.from,
+        //     subject: parsedMessage.headers.subject,
+        //     content,
+        //     snippet: parsedMessage.snippet,
+        //     threadId: m.message.threadId,
+        //     aiModel: options.aiModel,
+        //     openAIApiKey: options.openAIApiKey,
+        //     unsubscribeLink,
+        //     hasPreviousEmail,
+        //   },
+        //   {
+        //     email,
+        //   },
+        // );
 
         console.log("Plan or act on message...");
 
