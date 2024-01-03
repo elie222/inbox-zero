@@ -12,6 +12,7 @@ import { Combobox } from "@/components/Combobox";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { postRequest } from "@/utils/api";
 import { env } from "@/env.mjs";
+import { Editor as NovelEditor } from "novel";
 
 export const ComposeEmailForm = () => {
   const {
@@ -91,16 +92,24 @@ export const ComposeEmailForm = () => {
         registerProps={register("subject", { required: true })}
         error={errors.subject}
       />
-      <Input
-        type="text"
-        as="textarea"
-        rows={6}
-        name="message"
-        label="Message"
-        registerProps={register("messageText", { required: true })}
-        error={errors.messageText}
+
+      <NovelEditor
+        defaultValue=""
+        disableLocalStorage={true}
+        completionApi="api/ai/compose-autocomplete"
+        onUpdate={(editor) => {
+          editor = editor!;
+          setValue("messageText", editor.getText());
+          setValue("messageHtml", editor.getHTML());
+        }}
       />
-      <Button type="submit" loading={isSubmitting}>
+
+      <Button
+        type="submit"
+        loading={isSubmitting}
+        // issue: https://github.com/steven-tey/novel/pull/232
+        style={{ backgroundColor: "rgb(17, 24, 39)" }}
+      >
         Send
       </Button>
     </form>
