@@ -88,7 +88,10 @@ importers:
         version: 1.1.4(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-popover':
         specifier: ^1.0.7
-        version: 1.0.7(@types/react-dom@18.2.17)(@types/react@18.2.41)(react-dom@18.2.0)(react@18.2.0)
+        version: 1.0.7(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
+      '@radix-ui/react-scroll-area':
+        specifier: ^1.0.5
+        version: 1.0.5(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-select':
         specifier: ^2.0.0
         version: 2.0.0(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
@@ -244,7 +247,7 @@ importers:
         version: 4.4.1(react-dom@18.2.0)(react@18.2.0)
       react-resizable-panels:
         specifier: ^1.0.5
-        version: 1.0.5(react-dom@18.2.0)(react@18.2.0)
+        version: 1.0.7(react-dom@18.2.0)(react@18.2.0)
       react-youtube:
         specifier: ^10.1.0
         version: 10.1.0(react@18.2.0)
@@ -1000,10 +1003,10 @@ packages:
     resolution: {integrity: sha512-47gAg0O2pW5Jlo86jfzjdkwL5a7Bzb+Kj5WTmdu4CxYRfWn9ytKjuuYIfsNDW8neuhdKzn+P5wCddgEh0glYyQ==}
     peerDependencies:
       '@effect-ts/core': ^0.60.2
-      '@opentelemetry/api': ^1.4.0
-      '@opentelemetry/core': ^1.13.0
-      '@opentelemetry/exporter-trace-otlp-grpc': ^0.39.0
-      '@opentelemetry/sdk-trace-base': ^1.13.0
+      '@opentelemetry/api': 1.4.1
+      '@opentelemetry/core': 1.13.0
+      '@opentelemetry/exporter-trace-otlp-grpc': 0.39.1
+      '@opentelemetry/sdk-trace-base': 1.13.0
     dependencies:
       '@effect-ts/core': 0.60.5
       '@effect-ts/otel': 0.15.1(@effect-ts/core@0.60.5)(@opentelemetry/api@1.4.1)(@opentelemetry/core@1.13.0)(@opentelemetry/sdk-trace-base@1.13.0)
@@ -1017,10 +1020,10 @@ packages:
     resolution: {integrity: sha512-a2sF0ylmn8xOJs8fNeT/spJ1gUcsksAJCALxo9WOfuTCMtTwMVtVhCKEPEeQoL7wFqU+JgPkVdP91+FJ/Rkeow==}
     peerDependencies:
       '@effect-ts/core': ^0.60.2
-      '@opentelemetry/api': ^1.4.0
-      '@opentelemetry/core': ^1.13.0
-      '@opentelemetry/sdk-trace-base': ^1.13.0
-      '@opentelemetry/sdk-trace-node': ^1.13.0
+      '@opentelemetry/api': 1.4.1
+      '@opentelemetry/core': 1.13.0
+      '@opentelemetry/sdk-trace-base': 1.13.0
+      '@opentelemetry/sdk-trace-node': 1.13.0
     dependencies:
       '@effect-ts/core': 0.60.5
       '@effect-ts/otel': 0.15.1(@effect-ts/core@0.60.5)(@opentelemetry/api@1.4.1)(@opentelemetry/core@1.13.0)(@opentelemetry/sdk-trace-base@1.13.0)
@@ -1034,9 +1037,9 @@ packages:
     resolution: {integrity: sha512-AmZJHl7t0+Peh7Yb2+hqn6r9+rd9/UfeA4AMV9h0YGTdOyouyFfD3wzWlxnAUzAQ4Lrod4kC7Noruret4EpqpA==}
     peerDependencies:
       '@effect-ts/core': ^0.60.2
-      '@opentelemetry/api': ^1.4.0
-      '@opentelemetry/core': ^1.13.0
-      '@opentelemetry/sdk-trace-base': ^1.13.0
+      '@opentelemetry/api': 1.4.1
+      '@opentelemetry/core': 1.13.0
+      '@opentelemetry/sdk-trace-base': 1.13.0
     dependencies:
       '@effect-ts/core': 0.60.5
       '@opentelemetry/api': 1.4.1
@@ -2153,6 +2156,7 @@ packages:
 
   /@next/swc-linux-x64-gnu@13.4.20-canary.15:
     resolution: {integrity: sha512-7AlW4U9laBMcntJ732J2L6dC047MTOSvXNFRD3oi/YDs5IRbnrIZNKgSfvL2cGUX5kKS5PNRYik1QSdZ0jUbJg==}
+    engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     requiresBuild: true
@@ -2188,6 +2192,7 @@ packages:
 
   /@next/swc-win32-arm64-msvc@13.4.20-canary.15:
     resolution: {integrity: sha512-d5NBMDybVhoxqkXA1X4CPUSDtojmVLUbLMbAng3zmwgeZjesTWoR7Af1v6Y9auVbzwdQDuSQc5OWQEusxUqqog==}
+    engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
@@ -2408,7 +2413,7 @@ packages:
     resolution: {integrity: sha512-pS5fU4lrRjOIPZQqA2V1SUM9QUFXbO+8flubAiy6ntLjnAjJJUdRFOUOxK6v86ZHI2p2S8A0vD0BTu95FZYvjA==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
     dev: false
@@ -2417,7 +2422,7 @@ packages:
     resolution: {integrity: sha512-2dBX3Sj99H96uwJKvc2w9NOiNgbvAO6mOFJFramNkKfS9O4Um+VWgpnlAazoYjT6kUJ1MP70KQ5ngD4ed+4NUw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/semantic-conventions': 1.13.0
@@ -2427,7 +2432,7 @@ packages:
     resolution: {integrity: sha512-l5RhLKx6U+yuLhMrtgavTDthX50E1mZM3/SSySC7OPZiArFHV/b/9x9jxAzrOgIQUDxyj4N0V9aLKSA2t7Qzxg==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@grpc/grpc-js': 1.8.18
       '@opentelemetry/api': 1.4.1
@@ -2442,7 +2447,7 @@ packages:
     resolution: {integrity: sha512-a6CGqSG66n5R1mghzLMzyzn3iGap1b0v+0PjKFjfYuwLtpHQBxh2PHxItu+m2mXSwnM4R0GJlk9oUW5sQkCE0w==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2456,7 +2461,7 @@ packages:
     resolution: {integrity: sha512-8QI6QARxNP4y9RUpuQxXjw2HyRNyeuD9CWEhS5ON44Mt+XP7YbOZR3GLx2Ml2JZ8uzB5dd2EGlMgaMuZe36D5Q==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2471,7 +2476,7 @@ packages:
     resolution: {integrity: sha512-RmoWVFXFhvIh3q4szUe8I+/vxuMR0HNsOm39zNxnWJcK7JDwnPra9cLY/M78u6bTgB6Fte8GKgU128vvDzz0Iw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2484,7 +2489,7 @@ packages:
     resolution: {integrity: sha512-ph7kv38Lipg/ggvoNJrwc3RCceLnTkVZwRbE5iu6w7fGsMjjc9jwlSmaOXKxUJjIimil2hL1qBm8xg2lmOVwxg==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.3.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2499,7 +2504,7 @@ packages:
     resolution: {integrity: sha512-V1Cr0g8hSg35lpW3G/GYVZurrhHrQZJdmP68WyJ83f1FDn3iru+/Vnlto9kiOSm7PHhW+pZGdb9Fbv+mkQ31CA==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.3.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@types/shimmer': 1.0.4
@@ -2515,7 +2520,7 @@ packages:
     resolution: {integrity: sha512-Pv5X8fbi6jD/RJBePyn7MnCSuE6MbPB6dl+7YYBWJ5RcMGYMwvLXjd4h2jWsPV2TSUg38H/RoSP0aXvQ06Y7iw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2525,7 +2530,7 @@ packages:
     resolution: {integrity: sha512-Jvd6x8EwWGKEPWF4tkP4LpTPXiIkkafMNMvMJUfJd5DyNAftL1vAz+48jmi3URL2LMPkGryrvWPz8Tdu917gQw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2535,7 +2540,7 @@ packages:
     resolution: {integrity: sha512-u3ErFRQqQFKjjIMuwLWxz/tLPYInfmiAmSy//fGSCzCh2ZdJgqQjMOAxBgqFtCF2xFL+OmMhyuC2ThMzceGRWA==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@grpc/grpc-js': 1.8.18
       '@opentelemetry/api': 1.4.1
@@ -2548,7 +2553,7 @@ packages:
     resolution: {integrity: sha512-jtDkly6EW8TZHpbPpwJV9YT5PgbtL5B2UU8zcyGDiLT1wkIAYjFJZ1AqWmROIpydu8ohMq0dRwe4u0izNMdHpA==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2560,7 +2565,7 @@ packages:
     resolution: {integrity: sha512-0hgVnXXz5efI382B/24NxD4b6Zxlh7nxCdJkxkdmQMbn0yRiwoq/ZT+QG8eUL6JNzsBAV1WJlF5aJNsL8skHvw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.3.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/api-logs': 0.39.1
@@ -2575,7 +2580,7 @@ packages:
     resolution: {integrity: sha512-FhIHgfC0b0XtoBrS5ISfva939yWffNl47ypXR8I7Ru+dunlySpmf2TLocKHYLHGcWiuoeSNO5O4dZCmSKOtpXw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.3.0 <1.8.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/api-logs': 0.45.1
@@ -2590,7 +2595,7 @@ packages:
     resolution: {integrity: sha512-HOo91EI4UbuG8xQVLFziTzrcIn0MJQhy8m9jorh8aonb94jFVFi3CFNIiAnIGOabmnshJLOABxpYXsiPB8Xnzg==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2600,7 +2605,7 @@ packages:
     resolution: {integrity: sha512-IV9TO+u1Jzm9mUDAD3gyXf89eyvgEJUY1t+GB5QmS4wjVeWrSMUtD0JjH3yG9SNqkrQOqOGJq7YUSSetW+Lf5Q==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2610,7 +2615,7 @@ packages:
     resolution: {integrity: sha512-VeOH+vbaawwa2/Tf4fF1LmhakWDxaKffg1eGzm6OjsDrah25XdGbJMhOuJCYBSjsVFBnn1Sjl9gJTlGEJZGP5w==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': ^1.0.0
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2622,7 +2627,7 @@ packages:
     resolution: {integrity: sha512-euqjOkiN6xhjE//0vQYGvbStxoD/WWQRhDiO0OTLlnLBO9Yw2Gd/VoSx2H+svsebjzYk5OxLuREBmcdw6rbUNg==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2633,7 +2638,7 @@ packages:
     resolution: {integrity: sha512-/gmgKfZ1ZVFporKuwsewqIyvaUIGpv76JZ7lBpHQQPb37IMpaXO6pdqFI4ebHAWfNIm3akMyhmdtzivcgF3lgw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.4.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
       '@opentelemetry/api-logs': '>=0.38.0'
     dependencies:
       '@opentelemetry/api': 1.4.1
@@ -2646,7 +2651,7 @@ packages:
     resolution: {integrity: sha512-z0RRgW4LeKEKnhXS4F/HnqB6+7gsy63YK47F4XAJYHs4s1KKg8XnQ2RkbuL31i/a9nXkylttYtvsT50CGr487g==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.4.0 <1.8.0'
+      '@opentelemetry/api': 1.4.1
       '@opentelemetry/api-logs': '>=0.39.1'
     dependencies:
       '@opentelemetry/api': 1.4.1
@@ -2659,7 +2664,7 @@ packages:
     resolution: {integrity: sha512-MOjZX6AnSOqLliCcZUrb+DQKjAWXBiGeICGbHAGe5w0BB18PJIeIo995lO5JSaFfHpmUMgJButTPfJJD27W3Vg==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.3.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2671,7 +2676,7 @@ packages:
     resolution: {integrity: sha512-TEFgeNFhdULBYiCoHbz31Y4PDsfjjxRp8Wmdp6ybLQZPqMNEb+dRq+XN8Xw3ivIgTaf9gYsomgV5ensX99RuEQ==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.3.0 <1.8.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2683,7 +2688,7 @@ packages:
     resolution: {integrity: sha512-VtYvlz2ydfJLuOUhCnGER69mz2KUYk3/kpbqI1FWlUP+kzTwivMuy7hIPPv6KmuOIMYWmW4lM+WyJACHqNvROw==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.3.0 <1.8.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/api-logs': 0.45.1
@@ -2707,7 +2712,7 @@ packages:
     resolution: {integrity: sha512-moTiQtc0uPR1hQLt6gLDJH9IIkeBhgRb71OKjNHZPE1VF45fHtD6nBDi5J/DkTHTwYP5X3kBJLa3xN7ub6J4eg==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2719,7 +2724,7 @@ packages:
     resolution: {integrity: sha512-FXA85lXKTsnbOflA/TBuBf2pmhD3c8uDjNjG0YqK+ap8UayfALmfJhf+aG1yBOUHevCY0JXJ4/xtbXExxpsMog==}
     engines: {node: '>=14'}
     peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.5.0'
+      '@opentelemetry/api': 1.4.1
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/context-async-hooks': 1.13.0(@opentelemetry/api@1.4.1)
@@ -2943,12 +2948,12 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.2
-      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.41)(react@18.2.0)
-      '@radix-ui/react-context': 1.0.1(@types/react@18.2.41)(react@18.2.0)
-      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.17)(@types/react@18.2.41)(react-dom@18.2.0)(react@18.2.0)
-      '@radix-ui/react-slot': 1.0.2(@types/react@18.2.41)(react@18.2.0)
-      '@types/react': 18.2.41
-      '@types/react-dom': 18.2.17
+      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@radix-ui/react-context': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
+      '@radix-ui/react-slot': 1.0.2(@types/react@18.2.46)(react@18.2.0)
+      '@types/react': 18.2.46
+      '@types/react-dom': 18.2.18
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
@@ -2971,8 +2976,22 @@ packages:
       '@types/react':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
-      '@types/react': 18.2.41
+      '@babel/runtime': 7.23.5
+      '@types/react': 18.0.28
+      react: 18.2.0
+    dev: false
+
+  /@radix-ui/react-compose-refs@1.0.1(@types/react@18.2.46)(react@18.2.0):
+    resolution: {integrity: sha512-fDSBgd44FKHa1FRMU59qBMPFcl2PZE+2nmqunj+BWFyYYjnhIDWL2ItDs3rrbJDQOtzt5nIebLCQc4QRfz6LJw==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.23.5
+      '@types/react': 18.2.46
       react: 18.2.0
     dev: false
 
@@ -2994,8 +3013,8 @@ packages:
       '@types/react':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
-      '@types/react': 18.2.41
+      '@babel/runtime': 7.23.5
+      '@types/react': 18.0.28
       react: 18.2.0
     dev: false
 
@@ -3008,7 +3027,7 @@ packages:
       '@types/react':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
+      '@babel/runtime': 7.23.5
       '@types/react': 18.2.46
       react: 18.2.0
     dev: false
@@ -3019,7 +3038,7 @@ packages:
       react: ^16.8 || ^17.0 || ^18.0
       react-dom: ^16.8 || ^17.0 || ^18.0
     dependencies:
-      '@babel/runtime': 7.23.5
+      '@babel/runtime': 7.23.2
       '@radix-ui/primitive': 1.0.0
       '@radix-ui/react-compose-refs': 1.0.0(react@18.2.0)
       '@radix-ui/react-context': 1.0.0(react@18.2.0)
@@ -3083,8 +3102,8 @@ packages:
       '@types/react':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
-      '@types/react': 18.2.41
+      '@babel/runtime': 7.23.5
+      '@types/react': 18.2.46
       react: 18.2.0
     dev: false
 
@@ -3117,7 +3136,7 @@ packages:
       '@types/react-dom':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.5
+      '@babel/runtime': 7.23.2
       '@radix-ui/primitive': 1.0.1
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.0.28)(react@18.2.0)
       '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.0.11)(@types/react@18.0.28)(react-dom@18.2.0)(react@18.2.0)
@@ -3200,7 +3219,21 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.2
-      '@types/react': 18.2.41
+      '@types/react': 18.0.28
+      react: 18.2.0
+    dev: false
+
+  /@radix-ui/react-focus-guards@1.0.1(@types/react@18.2.46)(react@18.2.0):
+    resolution: {integrity: sha512-Rect2dWbQ8waGzhMavsIbmSVCgYxkXLxxR3ZvCX79JOglzdEy4JXMb98lq4hPxUbLr77nP0UOGf4rcMU+s1pUA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.23.2
+      '@types/react': 18.2.46
       react: 18.2.0
     dev: false
 
@@ -3232,11 +3265,11 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.2
-      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.41)(react@18.2.0)
-      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.17)(@types/react@18.2.41)(react-dom@18.2.0)(react@18.2.0)
-      '@radix-ui/react-use-callback-ref': 1.0.1(@types/react@18.2.41)(react@18.2.0)
-      '@types/react': 18.2.41
-      '@types/react-dom': 18.2.17
+      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.0.28)(react@18.2.0)
+      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.0.11)(@types/react@18.0.28)(react-dom@18.2.0)(react@18.2.0)
+      '@radix-ui/react-use-callback-ref': 1.0.1(@types/react@18.0.28)(react@18.2.0)
+      '@types/react': 18.0.28
+      '@types/react-dom': 18.0.11
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
@@ -3313,8 +3346,8 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.2
-      '@radix-ui/react-use-layout-effect': 1.0.1(@types/react@18.2.41)(react@18.2.0)
-      '@types/react': 18.2.41
+      '@radix-ui/react-use-layout-effect': 1.0.1(@types/react@18.0.28)(react@18.2.0)
+      '@types/react': 18.0.28
       react: 18.2.0
     dev: false
 
@@ -3367,7 +3400,7 @@ packages:
       '@types/react-dom':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.5
+      '@babel/runtime': 7.23.2
       '@radix-ui/primitive': 1.0.1
       '@radix-ui/react-collection': 1.0.3(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.46)(react@18.2.0)
@@ -3509,7 +3542,7 @@ packages:
       '@types/react-dom':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.5
+      '@babel/runtime': 7.23.2
       '@floating-ui/react-dom': 2.0.1(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-arrow': 1.0.3(@types/react-dom@18.0.11)(@types/react@18.0.28)(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.0.28)(react@18.2.0)
@@ -3582,9 +3615,30 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.2
-      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.17)(@types/react@18.2.41)(react-dom@18.2.0)(react@18.2.0)
-      '@types/react': 18.2.41
-      '@types/react-dom': 18.2.17
+      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.0.11)(@types/react@18.0.28)(react-dom@18.2.0)(react@18.2.0)
+      '@types/react': 18.0.28
+      '@types/react-dom': 18.0.11
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
+  /@radix-ui/react-portal@1.0.4(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-Qki+C/EuGUVCQTOTD5vzJzJuMUlewbzuKyUy+/iHM2uwGiru9gZeBJtHAPKAEkB5KWGi9mP/CHKcY0wt1aW45Q==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.23.2
+      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
+      '@types/react': 18.2.46
+      '@types/react-dom': 18.2.18
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
@@ -3615,11 +3669,33 @@ packages:
       '@types/react-dom':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
-      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.41)(react@18.2.0)
-      '@radix-ui/react-use-layout-effect': 1.0.1(@types/react@18.2.41)(react@18.2.0)
-      '@types/react': 18.2.41
-      '@types/react-dom': 18.2.17
+      '@babel/runtime': 7.23.5
+      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.0.28)(react@18.2.0)
+      '@radix-ui/react-use-layout-effect': 1.0.1(@types/react@18.0.28)(react@18.2.0)
+      '@types/react': 18.0.28
+      '@types/react-dom': 18.0.11
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
+  /@radix-ui/react-presence@1.0.1(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-UXLW4UAbIY5ZjcvzjfRFo5gxva8QirC9hF7wRE4U5gz+TP0DbRk+//qyuAQ1McDxBt1xNMBTaciFGvEmJvAZCg==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.23.5
+      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@radix-ui/react-use-layout-effect': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@types/react': 18.2.46
+      '@types/react-dom': 18.2.18
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
@@ -3691,7 +3767,7 @@ packages:
       '@types/react-dom':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.5
+      '@babel/runtime': 7.23.2
       '@radix-ui/primitive': 1.0.1
       '@radix-ui/react-collection': 1.0.3(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.46)(react@18.2.0)
@@ -3707,7 +3783,36 @@ packages:
       react-dom: 18.2.0(react@18.2.0)
     dev: false
 
-  /@radix-ui/react-select@2.0.0(@types/react-dom@18.2.17)(@types/react@18.2.41)(react-dom@18.2.0)(react@18.2.0):
+  /@radix-ui/react-scroll-area@1.0.5(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-b6PAgH4GQf9QEn8zbT2XUHpW5z8BzqEc7Kl11TwDrvuTrxlkcjTD5qa/bxgKr+nmuXKu4L/W5UZ4mlP/VG/5Gw==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.23.5
+      '@radix-ui/number': 1.0.1
+      '@radix-ui/primitive': 1.0.1
+      '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@radix-ui/react-context': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@radix-ui/react-direction': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@radix-ui/react-presence': 1.0.1(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
+      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
+      '@radix-ui/react-use-callback-ref': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@radix-ui/react-use-layout-effect': 1.0.1(@types/react@18.2.46)(react@18.2.0)
+      '@types/react': 18.2.46
+      '@types/react-dom': 18.2.18
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
+  /@radix-ui/react-select@2.0.0(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-RH5b7af4oHtkcHS7pG6Sgv5rk5Wxa7XI8W5gvB1N/yiuDGZxko1ynvOiVhFM7Cis2A8zxF9bTOUVbRDzPepe6w==}
     peerDependencies:
       '@types/react': '*'
@@ -3910,8 +4015,22 @@ packages:
       '@types/react':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
-      '@types/react': 18.2.41
+      '@babel/runtime': 7.23.5
+      '@types/react': 18.0.28
+      react: 18.2.0
+    dev: false
+
+  /@radix-ui/react-use-callback-ref@1.0.1(@types/react@18.2.46)(react@18.2.0):
+    resolution: {integrity: sha512-D94LjX4Sp0xJFVaoQOd3OO9k7tpBYNOXdVhkltUbGv2Qb9OXdrg/CpsjlZv7ia14Sylv398LswWBVVu5nqKzAQ==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.23.5
+      '@types/react': 18.2.46
       react: 18.2.0
     dev: false
 
@@ -4013,8 +4132,8 @@ packages:
       '@types/react':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
-      '@types/react': 18.2.41
+      '@babel/runtime': 7.23.5
+      '@types/react': 18.0.28
       react: 18.2.0
     dev: false
 
@@ -4027,7 +4146,7 @@ packages:
       '@types/react':
         optional: true
     dependencies:
-      '@babel/runtime': 7.23.2
+      '@babel/runtime': 7.23.5
       '@types/react': 18.2.46
       react: 18.2.0
     dev: false
@@ -4042,7 +4161,7 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.2
-      '@types/react': 18.2.41
+      '@types/react': 18.2.46
       react: 18.2.0
     dev: false
 
@@ -4120,9 +4239,9 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.2
-      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.17)(@types/react@18.2.41)(react-dom@18.2.0)(react@18.2.0)
-      '@types/react': 18.2.41
-      '@types/react-dom': 18.2.17
+      '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.18)(@types/react@18.2.46)(react-dom@18.2.0)(react@18.2.0)
+      '@types/react': 18.2.46
+      '@types/react-dom': 18.2.18
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
@@ -5274,6 +5393,7 @@ packages:
 
   /@types/jest@29.5.11:
     resolution: {integrity: sha512-S2mHmYIVe13vrm6q4kN6fLYYAka15ALQki/vgDC3mIukEOx8WJlv0kQPM+d4w8Gp6u0uSdKND04IlTXBv0rwnQ==}
+    dependencies:
       expect: 29.7.0
       pretty-format: 29.7.0
     dev: true
@@ -11390,7 +11510,7 @@ packages:
     engines: {node: '>=18.17.0'}
     hasBin: true
     peerDependencies:
-      '@opentelemetry/api': ^1.1.0
+      '@opentelemetry/api': 1.4.1
       react: ^18.2.0
       react-dom: ^18.2.0
       sass: ^1.3.0
@@ -11618,6 +11738,7 @@ packages:
 
   /oauth4webapi@2.4.0:
     resolution: {integrity: sha512-ZWl8ov8HeGVyc9Icl1cag76HvIcDAp23eIIT+UVGir+dEu8BMgMlvZeZwqLVd0P8DqaumH4N+QLQXN69G1QjSA==}
+    dev: false
 
   /object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -12682,8 +12803,9 @@ packages:
       use-sidecar: 1.1.2(@types/react@18.0.28)(react@18.2.0)
     dev: false
 
-  /react-resize-detector@8.1.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-S7szxlaIuiy5UqLhLL1KY3aoyGHbZzsTpYal9eYMwCyKqoqoVLCmIgAgNyIM1FhnP2KyBygASJxdhejrzjMb+w==}
+  /react-remove-scroll@2.5.5(@types/react@18.2.46)(react@18.2.0):
+    resolution: {integrity: sha512-ImKhrzJJsyXJfBZ4bzu8Bwpka14c/fQt0k+cyFp/PBhTfyDnU5hjOtM4AG/0AMyy8oKzOTR0lDgJIM7pYXI0kw==}
+    engines: {node: '>=10'}
     peerDependencies:
       '@types/react': ^16.8.0 || ^17.0.0 || ^18.0.0
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
@@ -12698,6 +12820,16 @@ packages:
       tslib: 2.6.0
       use-callback-ref: 1.3.0(@types/react@18.2.46)(react@18.2.0)
       use-sidecar: 1.1.2(@types/react@18.2.46)(react@18.2.0)
+    dev: false
+
+  /react-resizable-panels@1.0.7(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-CluJkHQheeNqIJly2FYDfri3ME+2h2nCXpf0Y+hTO1K1eVtNxXFA5hVp5cUD6NS70iiufswOmnku9QZiLr1hYg==}
+    peerDependencies:
+      react: ^16.14.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
     dev: false
 
   /react-smooth@2.0.5(prop-types@15.8.1)(react-dom@18.2.0)(react@18.2.0):
@@ -13377,6 +13509,7 @@ packages:
 
   /sonner@1.3.1(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-+rOAO56b2eI3q5BtgljERSn2umRk63KFIvgb2ohbZ5X+Eb5u+a/7/0ZgswYqgBMg8dyl7n6OXd9KasA8QF9ToA==}
+    peerDependencies:
       react: ^18.0.0
       react-dom: ^18.0.0
     dependencies:
@@ -13789,6 +13922,7 @@ packages:
 
   /tailwind-merge@2.2.0:
     resolution: {integrity: sha512-SqqhhaL0T06SW59+JVNfAqKdqLs0497esifRrZ7jOaefP3o64fdFNDMrAQWZFMxTLJPiHVjRLUywT8uFz1xNWQ==}
+    dependencies:
       '@babel/runtime': 7.23.5
     dev: false
 
