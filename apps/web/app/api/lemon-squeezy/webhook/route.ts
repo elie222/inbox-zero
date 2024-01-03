@@ -75,7 +75,7 @@ export const POST = withError(async (request: Request) => {
     if (updatedUser.email) {
       await posthogCaptureEvent(
         updatedUser.email,
-        "Upgraded to premium",
+        "Upgraded to lifetime plan",
         payload.data.attributes,
       );
     }
@@ -89,10 +89,13 @@ export const POST = withError(async (request: Request) => {
     select: { id: true },
   });
 
-  if (!user) throw new Error("No user found for lemonSqueezyCustomerId");
+  if (!user)
+    throw new Error(
+      `No user found for lemonSqueezyCustomerId ${lemonSqueezyCustomerId}`,
+    );
 
   // renewal
-  if (payload.meta.event_name === "subscription_payment_success") {
+  if (payload.meta.event_name === "subscription_updated") {
     if (!payload.data.attributes.renews_at)
       throw new Error("No renews_at provided");
 

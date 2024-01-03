@@ -7,6 +7,7 @@ export type EventName =
   | "order_created"
   | "order_refunded"
   | "subscription_created"
+  | "subscription_updated"
   | "subscription_cancelled"
   | "subscription_resumed"
   | "subscription_expired"
