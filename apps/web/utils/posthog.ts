@@ -43,7 +43,12 @@ export async function deletePosthogUser(options: { email: string }) {
   }
 
   // 1. find user id by distinct id
-  const userId = await getPosthogUserId(options);
+  const userId = await getPosthogUserId({ email: options.email });
+
+  if (!userId) {
+    console.warn(`No Posthog user found with distinct id ${options.email}`);
+    return;
+  }
 
   const personsEndpoint = `https://app.posthog.com/api/projects/${env.POSTHOG_PROJECT_ID}/persons/`;
 
@@ -74,7 +79,10 @@ export async function posthogCaptureEvent(
 
   const distinctId = await getPosthogUserId({ email });
 
-  if (!distinctId) return;
+  if (!distinctId) {
+    console.warn(`No Posthog user found with distinct id ${email}`);
+    return;
+  }
 
   client.capture({
     distinctId,
