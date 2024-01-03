@@ -6,6 +6,7 @@ import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { env } from "@/env.mjs";
+import Providers from "@/app/(app)/providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -58,7 +59,7 @@ export default function RootLayout({
           <Suspense>
             <PostHogPageview />
           </Suspense>
-          {children}
+          <Providers>{children}</Providers>
         </PostHogProvider>
         <SpeedInsights />
       </body>

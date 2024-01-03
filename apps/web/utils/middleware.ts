@@ -1,7 +1,7 @@
 import { ZodError } from "zod";
 import { NextRequest, NextResponse } from "next/server";
-import { captureException } from "@/utils/error";
 import { StreamingTextResponse } from "ai";
+import { captureException } from "@/utils/error";
 import { env } from "@/env.mjs";
 
 export type NextHandler = (
@@ -35,10 +35,35 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
-      captureException(error);
+      if ((error as any)?.errors?.[0]?.reason === "rateLimitExceeded") {
+        return NextResponse.json(
+          {
+            error:
+              "Gmail rate limit exceeded. Please try refresh the page shortly.",
+          },
+          { status: 403 },
+        );
+      }
+
+      if (isErrorWithConfigAndHeaders(error)) {
+        delete error.config.headers;
+      }
+
+      captureException(error, { extra: { url: req.url, params } });
       console.error(`Error for url: ${req.url}:`);
       console.error(error);
       return NextResponse.json({ error: "Server error" }, { status: 500 });
     }
   };
+}
+
+function isErrorWithConfigAndHeaders(
+  error: unknown,
+): error is { config: { headers: unknown } } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "config" in error &&
+    "headers" in (error as { config: any }).config
+  );
 }

@@ -13,6 +13,7 @@ import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request: Request) => {

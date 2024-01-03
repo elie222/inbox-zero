@@ -26,6 +26,11 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
 import { env } from "@/env.mjs";
 import { isPremium } from "@/utils/premium";
+import {
+  cancelUserPremium,
+  upgradeUserToPremium,
+} from "@/utils/premium/server";
+import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -192,20 +197,38 @@ export async function trashThreadAction(threadId: string) {
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
-export async function changePremiumStatus(userEmail: string, upgrade: boolean) {
+export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
   if (!env.ADMINS?.includes(session.user.email)) throw new Error("Not admin");
 
-  const ONE_YEAR = 1000 * 60 * 60 * 24 * 365;
-
-  await prisma.user.update({
-    where: { email: userEmail },
-    data: upgrade
-      ? { lemonSqueezyRenewsAt: new Date(+new Date() + ONE_YEAR) }
-      : { lemonSqueezyRenewsAt: null },
+  const userToUpgrade = await prisma.user.findUniqueOrThrow({
+    where: { email: options.email },
+    select: { id: true },
   });
+
+  const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
+
+  if (options.upgrade) {
+    await upgradeUserToPremium({
+      userId: userToUpgrade.id,
+      isLifetime: options.period === "lifetime",
+      lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || undefined,
+      lemonSqueezySubscriptionId: undefined,
+      lemonSqueezyRenewsAt:
+        options.period === "annually"
+          ? new Date(+new Date() + ONE_MONTH * 12)
+          : options.period === "monthly"
+            ? new Date(+new Date() + ONE_MONTH)
+            : undefined,
+    });
+  } else {
+    await cancelUserPremium({
+      userId: userToUpgrade.id,
+      lemonSqueezyEndsAt: new Date(),
+    });
+  }
 }
 
 export async function setNewsletterStatus(options: {

@@ -1,30 +1,27 @@
+"use client";
+
 import { env } from "@/env.mjs";
+import Script from "next/script";
 
 export function LemonScript() {
   if (!env.NEXT_PUBLIC_LEMON_STORE_ID) return null;
 
-  console.log("Loading lemon script");
-
   return (
     <>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.lemonSqueezyAffiliateConfig = {
-            store: "${env.NEXT_PUBLIC_LEMON_STORE_ID}",
+      <Script
+        src="https://lmsqueezy.com/affiliate.js"
+        defer
+        onLoad={() => {
+          if (!window) return;
+
+          (window as any).lemonSqueezyAffiliateConfig = {
+            store: env.NEXT_PUBLIC_LEMON_STORE_ID,
             debug: true,
-            trackOnLoad: false,
-            onReady: function (e) {
-              const url = new URL(window.location.href);
-              const affiliateCode = url.searchParams.get('aff');
-              e.Track(affiliateCode);
-            },
-            onTrack: function (e) {
-              console.log("onTrack", e);
-            }
-          };`,
+          };
+
+          (window as any).createLemonSqueezyAffiliate();
         }}
       />
-      <script src="https://lmsqueezy.com/affiliate.js" defer />
     </>
   );
 }
