@@ -4,13 +4,18 @@ import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
+import { captureException } from "@/utils/error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export const GET = withError(async (request: Request) => {
-  if (!hasCronSecret(request))
+  if (!hasCronSecret(request)) {
+    captureException(
+      new Error("Unauthorized cron request: api/google/watch/all"),
+    );
     return new Response("Unauthorized", { status: 401 });
+  }
 
   const accounts = await prisma.account.findMany({
     where: {

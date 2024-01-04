@@ -5,6 +5,7 @@ import { sleep } from "@/utils/sleep";
 import { env } from "@/env.mjs";
 import { hasCronSecret } from "@/utils/cron";
 import { Frequency } from "@prisma/client";
+import { captureException } from "@/utils/error";
 
 export const dynamic = "force-dynamic";
 
@@ -36,8 +37,10 @@ async function sendWeeklyStatsAllUpdate() {
 }
 
 export const GET = withError(async (request) => {
-  if (!hasCronSecret(request))
+  if (!hasCronSecret(request)) {
+    captureException(new Error("Unauthorized request: api/resend/all"));
     return new Response("Unauthorized", { status: 401 });
+  }
 
   const result = await sendWeeklyStatsAllUpdate();
 

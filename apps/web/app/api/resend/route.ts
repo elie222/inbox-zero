@@ -12,6 +12,7 @@ import {
 import { getNewSenders, getWeeklyStats } from "@inboxzero/tinybird";
 import { env } from "@/env.mjs";
 import { hasCronSecret } from "@/utils/cron";
+import { captureException } from "@/utils/error";
 
 const sendWeeklyStatsBody = z.object({ email: z.string() });
 export type SendWeeklyStatsBody = z.infer<typeof sendWeeklyStatsBody>;
@@ -76,8 +77,10 @@ async function sendWeeklyStats(options: { email: string }) {
 
 export const POST = withError(async (request: Request) => {
   console.log("sending weekly stats to user");
-  if (!hasCronSecret(request))
+  if (!hasCronSecret(request)) {
+    captureException(new Error("Unauthorized cron request: resend"));
     return new Response("Unauthorized", { status: 401 });
+  }
 
   const json = await request.json();
   const body = sendWeeklyStatsBody.parse(json);
