@@ -106,6 +106,7 @@ export function RulesForm(props: {
   });
 
   const { fields, append, remove } = useFieldArray({ name: "rules", control });
+  const posthog = usePostHog();
 
   const onSubmit: SubmitHandler<UpdateRulesBody> = useCallback(
     async (data) => {
@@ -169,12 +170,10 @@ export function RulesForm(props: {
 
       await refetchRules();
     },
-    [setValue, props.rules, refetchRules],
+    [setValue, props.rules, refetchRules, posthog],
   );
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
-
-  const posthog = usePostHog();
 
   return (
     <FormSection className="py-8 md:grid-cols-5">
