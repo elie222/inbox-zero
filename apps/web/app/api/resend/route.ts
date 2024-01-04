@@ -36,39 +36,34 @@ async function sendWeeklyStats(options: { email: string }) {
   // fetch tinybird stats
   const cutOffDate = subDays(new Date(), 7).getTime();
 
-  const [newSenders, weeklyStats] = await Promise.all([
-    getNewSenders({
-      ownerEmail: email,
-      cutOffDate,
-    }),
-    getWeeklyStats({
-      ownerEmail: email,
-      cutOffDate,
-    }),
-  ]);
+  // const [newSenders, weeklyStats] = await Promise.all([
+  //   getNewSenders({ ownerEmail: email, cutOffDate }),
+  //   getWeeklyStats({ ownerEmail: email, cutOffDate }),
+  // ]);
+  const weeklyStats = await getWeeklyStats({ ownerEmail: email, cutOffDate });
 
   const weeklyTotals = weeklyStats.data[0];
 
   const totalEmailsReceived =
     weeklyTotals.totalEmails - weeklyTotals.sentEmails;
 
-  const newSenderList = uniqBy(newSenders.data, (sender) => sender.from);
+  // const newSenderList = uniqBy(newSenders.data, (sender) => sender.from);
 
   // send email
   await sendStatsEmail({
     to: email,
     emailProps: {
       baseUrl: env.NEXT_PUBLIC_BASE_URL,
-      userEmail: email,
+      // userEmail: email,
       received: totalEmailsReceived,
       receivedPercentageDifference: null, // TODO
       archived: weeklyTotals.archivedEmails,
       read: weeklyTotals.readEmails,
-      archiveRate: weeklyTotals.archivedEmails / totalEmailsReceived,
-      readRate: weeklyTotals.readEmails / totalEmailsReceived,
+      archiveRate: (weeklyTotals.archivedEmails * 100) / totalEmailsReceived,
+      readRate: (weeklyTotals.readEmails * 100) / totalEmailsReceived,
       sent: weeklyTotals.sentEmails,
       sentPercentageDifference: null, // TODO
-      newSenders: newSenderList,
+      // newSenders: newSenderList,
     },
   });
 

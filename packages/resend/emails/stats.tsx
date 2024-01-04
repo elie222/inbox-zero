@@ -15,7 +15,7 @@ import {
 
 export interface StatsUpdateEmailProps {
   baseUrl: string;
-  userEmail: string;
+  // userEmail: string;
   received: number;
   receivedPercentageDifference: number | null;
   archived: number;
@@ -24,13 +24,13 @@ export interface StatsUpdateEmailProps {
   readRate: number;
   sent: number;
   sentPercentageDifference: number | null;
-  newSenders: { from: string }[];
+  // newSenders: { from: string }[];
 }
 
 export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
-    userEmail = "hello@example.com",
+    // userEmail = "hello@example.com",
     received = 112,
     receivedPercentageDifference = 12,
     archived = 89,
@@ -39,17 +39,17 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
     readRate = 22,
     sent = 45,
     sentPercentageDifference = -5,
-    newSenders = [
-      {
-        from: "James <james@example.com>",
-      },
-      {
-        from: "Matt <matt@example.com>",
-      },
-      {
-        from: "Paul <paul@example.com>",
-      },
-    ],
+    // newSenders = [
+    //   {
+    //     from: "James <james@example.com>",
+    //   },
+    //   {
+    //     from: "Matt <matt@example.com>",
+    //   },
+    //   {
+    //     from: "Paul <paul@example.com>",
+    //   },
+    // ],
   } = props;
 
   return (
@@ -62,7 +62,7 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
             <Section className="mt-8">
               <Link href={baseUrl} className="text-[15px]">
                 <Img
-                  src={`${baseUrl}/icon.png`}
+                  src={`https://www.getinboxzero.com/icon.png`}
                   width="40"
                   height="40"
                   alt="Inbox Zero"
@@ -76,9 +76,7 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
                 Your weekly email stats from Inbox Zero
               </Heading>
 
-              <Text style={paragraph}>
-                Here are your weekly email stats from Inbox Zero!
-              </Text>
+              <Text style={paragraph}>Here are your weekly email stats:</Text>
 
               <Text style={paragraph}>
                 You received {received} emails.{" "}
@@ -106,13 +104,13 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
                 )}
               </Text>
 
-              <Text style={paragraph}>
+              {/* <Text style={paragraph}>
                 You received emails from {newSenders.length} new senders this
                 week:
-              </Text>
+              </Text> */}
             </Section>
 
-            <ul>
+            {/* <ul>
               {newSenders.map((sender) => (
                 <li key={sender.from}>
                   <Text style={paragraph}>
@@ -127,11 +125,11 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
                   </Text>
                 </li>
               ))}
-            </ul>
+            </ul> */}
 
             <Section className="text-center mt-[32px] mb-[32px]">
               <Button
-                href={`${baseUrl}stats`}
+                href={`${baseUrl}/stats`}
                 style={{
                   background: "#000",
                   color: "#fff",
