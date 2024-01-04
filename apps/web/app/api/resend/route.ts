@@ -43,6 +43,9 @@ async function sendWeeklyStats(options: { email: string }) {
 
   const weeklyTotals = weeklyStats.data[0];
 
+  // skip if we don't have emails
+  if (!weeklyTotals.totalEmails) return { success: true };
+
   const totalEmailsReceived =
     weeklyTotals.totalEmails - weeklyTotals.sentEmails;
 
