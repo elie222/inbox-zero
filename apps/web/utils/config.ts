@@ -10,4 +10,4 @@ Rules to follow:
 `;
 
 // beware of rate limits for different models
-export const DEFAULT_AI_MODEL = "gpt-4-1106-preview";
+export const DEFAULT_AI_MODEL = "gpt-3.5-turbo-1106";
