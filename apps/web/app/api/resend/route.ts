@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import uniqBy from "lodash/uniqBy";
 import { subDays } from "date-fns";
 import { sendStatsEmail } from "@inboxzero/resend";
 import { withError } from "@/utils/middleware";
@@ -9,7 +8,7 @@ import {
   LoadTinybirdEmailsBody,
   LoadTinybirdEmailsResponse,
 } from "@/app/api/user/stats/tinybird/load/route";
-import { getNewSenders, getWeeklyStats } from "@inboxzero/tinybird";
+import { getWeeklyStats } from "@inboxzero/tinybird";
 import { env } from "@/env.mjs";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
@@ -25,7 +24,7 @@ async function sendWeeklyStats(options: { email: string }) {
 
   // update tinybird stats
   await postRequest<LoadTinybirdEmailsResponse, LoadTinybirdEmailsBody>(
-    "/api/user/stats/tinybird/load",
+    `${env.NEXT_PUBLIC_BASE_URL}/api/user/stats/tinybird/load`,
     {
       loadBefore: false,
     },
