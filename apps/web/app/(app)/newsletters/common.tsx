@@ -14,6 +14,7 @@ import {
   SquareSlashIcon,
   UserRoundMinusIcon,
 } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions-client";
@@ -97,6 +98,8 @@ export function ActionCell<T extends Row>(props: {
   const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
   const [approveLoading, setApproveLoading] = React.useState(false);
 
+  const posthog = usePostHog();
+
   return (
     <>
       <PremiumTooltip showTooltip={!hasUnsubscribeAccess}>
@@ -128,6 +131,8 @@ export function ActionCell<T extends Row>(props: {
               await mutate();
               await decrementUnsubscribeCredit();
               await refetchPremium();
+
+              posthog.capture("Clicked Unsubscribe");
 
               setUnsubscribeLoading(false);
             }}
@@ -181,6 +186,8 @@ export function ActionCell<T extends Row>(props: {
               await mutate();
               await decrementUnsubscribeCredit();
               await refetchPremium();
+
+              posthog.capture("Clicked Auto Archive");
 
               setAutoArchiveLoading(false);
             }}
@@ -236,6 +243,8 @@ export function ActionCell<T extends Row>(props: {
                       });
                       await mutate();
 
+                      posthog.capture("Clicked Disable Auto Archive");
+
                       setAutoArchiveLoading(false);
                     }}
                   >
@@ -270,6 +279,8 @@ export function ActionCell<T extends Row>(props: {
                         await mutate();
                         await decrementUnsubscribeCredit();
                         await refetchPremium();
+
+                        posthog.capture("Clicked Auto Archive and Label");
 
                         setAutoArchiveLoading(false);
                       }}
@@ -306,6 +317,8 @@ export function ActionCell<T extends Row>(props: {
             });
             await mutate();
 
+            posthog.capture("Clicked Approve Sender");
+
             setApproveLoading(false);
           }}
           disabled={!hasUnsubscribeAccess}
@@ -325,7 +338,10 @@ export function ActionCell<T extends Row>(props: {
       <Button
         size="sm"
         variant="secondary"
-        onClick={() => setOpenedNewsletter(item)}
+        onClick={() => {
+          setOpenedNewsletter(item);
+          posthog.capture("Clicked Expand Sender");
+        }}
       >
         <ExpandIcon className="h-4 w-4" />
       </Button>

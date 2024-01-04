@@ -5,6 +5,7 @@ import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
+import { usePostHog } from "posthog-js/react";
 import {
   ForwardIcon,
   HelpCircleIcon,
@@ -116,6 +117,8 @@ export function RulesForm(props: {
         data,
       );
 
+      posthog.capture("Clicked Save Rules");
+
       if (isError(res)) {
         toastError({ description: "There was an error updating the rules." });
       } else {
@@ -171,6 +174,8 @@ export function RulesForm(props: {
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
 
+  const posthog = usePostHog();
+
   return (
     <FormSection className="py-8 md:grid-cols-5">
       <div className="md:col-span-2">
@@ -187,6 +192,10 @@ export function RulesForm(props: {
                   if (fields.length === 1 && !fields[0].instructions) remove(0);
 
                   append({ instructions: example.description });
+
+                  posthog.capture("Clicked Example Rule", {
+                    example: example.title,
+                  });
                 }}
                 className="w-full text-left"
               >
@@ -224,9 +233,17 @@ export function RulesForm(props: {
                       name={`rules.${i}.instructions`}
                       registerProps={register(`rules.${i}.instructions`)}
                       error={errors.rules?.[i]?.instructions}
-                      onClickAdd={() => append({ instructions: "" })}
+                      onClickAdd={() => {
+                        append({ instructions: "" });
+                        posthog.capture("Clicked Add Rule");
+                      }}
                       onClickRemove={
-                        fields.length > 1 ? () => remove(i) : undefined
+                        fields.length > 1
+                          ? () => {
+                              remove(i);
+                              posthog.capture("Clicked Remove Rule");
+                            }
+                          : undefined
                       }
                     />
                     <div className="mt-2 flex">
@@ -246,6 +263,7 @@ export function RulesForm(props: {
                             color="transparent"
                             onClick={() => {
                               setEdittingRule(props.rules?.[i]);
+                              posthog.capture("Clicked Edit Rule");
                             }}
                           >
                             <PenIcon className="h-5 w-5" />
@@ -261,9 +279,10 @@ export function RulesForm(props: {
                             label="Automate"
                             name={`rules.${i}.automate`}
                             enabled={!!watch(`rules.${i}.automate`)}
-                            onChange={(value) =>
-                              setValue(`rules.${i}.automate`, value)
-                            }
+                            onChange={(value) => {
+                              setValue(`rules.${i}.automate`, value);
+                              posthog.capture("Clicked Automate Rule");
+                            }}
                             error={errors.rules?.[i]?.automate}
                           />
                         </div>
