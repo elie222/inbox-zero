@@ -400,95 +400,94 @@ export function EmailList(props: {
           </div>
         </div>
       )}
-      <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel
-          style={{
-            overflow: "auto",
-          }}
-          defaultSize={openedRowId ? 50 : 100}
-          minSize={30}
-        >
-          <ul
-            role="list"
-            className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
-            ref={listRef}
+
+      {isEmpty ? (
+        <div className="py-2">
+          {typeof emptyMessage === "string" ? (
+            <MessageText>{emptyMessage}</MessageText>
+          ) : (
+            emptyMessage
+          )}
+        </div>
+      ) : (
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel
+            style={{ overflow: "auto" }}
+            defaultSize={openedRowId ? 50 : 100}
+            minSize={30}
           >
-            {threads.map((thread) => (
-              <EmailListItem
-                ref={(node) => {
-                  const map = getMap();
-                  if (node) {
-                    map.set(thread.id!, node);
-                  } else {
-                    map.delete(thread.id!);
-                  }
-                }}
-                key={thread.id}
-                userEmailAddress={session.data?.user.email || ""}
-                thread={thread}
-                opened={openedRowId === thread.id}
-                closePanel={closePanel}
-                selected={selectedRows[thread.id!]}
-                onSelected={onSetSelectedRow}
-                splitView={!!openedRowId}
-                onClick={() => {
-                  const alreadyOpen = !!openedRowId;
-                  setOpenedRowId(thread.id!);
+            <ul
+              role="list"
+              className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
+              ref={listRef}
+            >
+              {threads.map((thread) => (
+                <EmailListItem
+                  ref={(node) => {
+                    const map = getMap();
+                    if (node) {
+                      map.set(thread.id!, node);
+                    } else {
+                      map.delete(thread.id!);
+                    }
+                  }}
+                  key={thread.id}
+                  userEmailAddress={session.data?.user.email || ""}
+                  thread={thread}
+                  opened={openedRowId === thread.id}
+                  closePanel={closePanel}
+                  selected={selectedRows[thread.id!]}
+                  onSelected={onSetSelectedRow}
+                  splitView={!!openedRowId}
+                  onClick={() => {
+                    const alreadyOpen = !!openedRowId;
+                    setOpenedRowId(thread.id!);
 
-                  if (!alreadyOpen) scrollToId(thread.id!);
-                }}
-                onShowReply={onShowReply}
-                isPlanning={isPlanning[thread.id!]}
-                isCategorizing={isCategorizing[thread.id!]}
-                isArchiving={isArchiving[thread.id!]}
-                onPlanAiAction={onPlanAiAction}
-                onAiCategorize={onAiCategorize}
-                onArchive={onArchive}
-                executePlan={executePlan}
-                rejectPlan={rejectPlan}
-                executingPlan={executingPlan[thread.id!]}
-                rejectingPlan={rejectingPlan[thread.id!]}
-                refetch={refetch}
-              />
-            ))}
-          </ul>
-        </ResizablePanel>
+                    if (!alreadyOpen) scrollToId(thread.id!);
+                  }}
+                  onShowReply={onShowReply}
+                  isPlanning={isPlanning[thread.id!]}
+                  isCategorizing={isCategorizing[thread.id!]}
+                  isArchiving={isArchiving[thread.id!]}
+                  onPlanAiAction={onPlanAiAction}
+                  onAiCategorize={onAiCategorize}
+                  onArchive={onArchive}
+                  executePlan={executePlan}
+                  rejectPlan={rejectPlan}
+                  executingPlan={executingPlan[thread.id!]}
+                  rejectingPlan={rejectingPlan[thread.id!]}
+                  refetch={refetch}
+                />
+              ))}
+            </ul>
+          </ResizablePanel>
 
-        {isEmpty && (
-          <div className="py-2">
-            {typeof emptyMessage === "string" ? (
-              <MessageText>{emptyMessage}</MessageText>
-            ) : (
-              emptyMessage
-            )}
-          </div>
-        )}
-
-        {!!(openedRowId && openedRow) && (
-          <>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={50} minSize={30}>
-              <EmailPanel
-                row={openedRow}
-                showReply={showReply}
-                onShowReply={onShowReply}
-                isPlanning={isPlanning[openedRowId]}
-                isCategorizing={isCategorizing[openedRowId]}
-                isArchiving={isArchiving[openedRowId]}
-                onPlanAiAction={onPlanAiAction}
-                onAiCategorize={onAiCategorize}
-                onArchive={onArchive}
-                close={closePanel}
-                executePlan={executePlan}
-                rejectPlan={rejectPlan}
-                executingPlan={executingPlan[openedRowId]}
-                rejectingPlan={rejectingPlan[openedRowId]}
-                refetch={refetch}
-              />
-            </ResizablePanel>
-          </>
-        )}
-      </ResizablePanelGroup>
+          {!!(openedRowId && openedRow) && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={50} minSize={30}>
+                <EmailPanel
+                  row={openedRow}
+                  showReply={showReply}
+                  onShowReply={onShowReply}
+                  isPlanning={isPlanning[openedRowId]}
+                  isCategorizing={isCategorizing[openedRowId]}
+                  isArchiving={isArchiving[openedRowId]}
+                  onPlanAiAction={onPlanAiAction}
+                  onAiCategorize={onAiCategorize}
+                  onArchive={onArchive}
+                  close={closePanel}
+                  executePlan={executePlan}
+                  rejectPlan={rejectPlan}
+                  executingPlan={executingPlan[openedRowId]}
+                  rejectingPlan={rejectingPlan[openedRowId]}
+                  refetch={refetch}
+                />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+      )}
     </>
   );
 }
