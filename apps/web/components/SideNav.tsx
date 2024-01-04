@@ -13,6 +13,7 @@ import {
   LightbulbIcon,
   MailsIcon,
   RibbonIcon,
+  ShieldCheckIcon,
   SparklesIcon,
   StarIcon,
   Users2Icon,
@@ -30,6 +31,11 @@ export const navigation = [
     name: "New Senders",
     href: "/new-senders",
     icon: Users2Icon,
+  },
+  {
+    name: "Cold Email Blocker",
+    href: "/cold-email-blocker",
+    icon: ShieldCheckIcon,
   },
   {
     name: "Analytics",

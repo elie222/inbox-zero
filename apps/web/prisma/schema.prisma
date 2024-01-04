@@ -59,8 +59,10 @@ model User {
   // settings
   aiModel             String?
   openAIApiKey        String?
-  statsEmailFrequency Frequency @default(WEEKLY)
-  categorizeEmails    Boolean   @default(true)
+  statsEmailFrequency Frequency         @default(WEEKLY)
+  categorizeEmails    Boolean           @default(true)
+  coldEmailBlocker    ColdEmailSetting?
+  coldEmailPrompt     String?
 
   // lemon squeezy
   lemonSqueezyCustomerId     Int?
@@ -164,12 +166,16 @@ model ExecutedRule {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Represents a sender (`email`) that a user can unsubscribe from,
+// or that our AI can mark as a cold email.
+// `Newsletter` is a bad name for this. Will rename this model in the future.
 model Newsletter {
   id        String            @id @default(cuid())
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   email     String
   status    NewsletterStatus?
+  coldEmail ColdEmailStatus?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -204,4 +210,15 @@ enum NewsletterStatus {
   APPROVED
   UNSUBSCRIBED
   AUTO_ARCHIVED
+}
+
+enum ColdEmailStatus {
+  COLD_EMAIL
+}
+
+enum ColdEmailSetting {
+  DISABLED
+  LIST
+  LABEL
+  ARCHIVE_AND_LABEL
 }
