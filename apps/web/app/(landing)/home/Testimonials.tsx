@@ -11,32 +11,55 @@ const featuredTestimonial = {
     logoUrl: "/images/testimonials/resend-wordmark-black.svg",
   },
 };
-const testimonials = [
+const testimonials: {
+  body: string;
+  author: {
+    name: string;
+    handle: string;
+    imageUrl: string;
+  };
+}[][][] = [
   [
     [
+      {
+        body: "Love this new open-source app by @elie2222: getinboxzero.com",
+        author: {
+          name: "Steven Tey",
+          handle: "steventey",
+          imageUrl:
+            "https://pbs.twimg.com/profile_images/1506792347840888834/dS-r50Je_400x400.jpg",
+        },
+      },
       {
         body: "hey bro, your tool is legit what I been looking for for ages haha. its a god send",
         author: {
           name: "James",
-          handle: "james",
+          handle: "",
           imageUrl:
             "/images/testimonials/midas-hofstra-a6PMA5JEmWE-unsplash.jpg",
         },
       },
-      // More testimonials...
+      {
+        body: "this is something I've been searching for a long time – thanks for building it.",
+        author: {
+          name: "Vinay Katiyar",
+          handle: "ktyr",
+          imageUrl:
+            "https://ph-avatars.imgix.net/2743360/28744c72-2267-49ed-999d-5bdab677ec28?auto=compress&codec=mozjpeg&cs=strip&auto=format&w=120&h=120&fit=crop&dpr=2",
+        },
+      },
     ],
-    // [
-    //   {
-    //     body: "abc",
-    //     author: {
-    //       name: "abc",
-    //       handle: "abc",
-    //       imageUrl:
-    //         "https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-    //     },
-    //   },
-    //   // More testimonials...
-    // ],
+    [
+      {
+        body: `Finally an "unsubscribe app" that let's you *actually* unsubscribe and filter using Gmail filters (instead of always relying on the 3rd party app to filter those emails). Big plus for me, so I have all filters in one place (inside the Gmail filters, that is). Awesome work! Already a fan :)`,
+        author: {
+          name: "Wilco de Kreij",
+          handle: "emarky",
+          imageUrl:
+            "https://ph-avatars.imgix.net/28450/8c4c8039-003a-4b3f-80ec-7035cedb6ac3?auto=compress&codec=mozjpeg&cs=strip&auto=format&w=120&h=120&fit=crop&dpr=2",
+        },
+      },
+    ],
   ],
   [
     [
@@ -49,20 +72,36 @@ const testimonials = [
             "https://pbs.twimg.com/profile_images/1558195781089120256/RWvUylSb_400x400.jpg",
         },
       },
-      // More testimonials...
+      {
+        body: "Kudos on the launch😊 I like how easily subscriptions can be managed!",
+        author: {
+          name: "Prem Saini",
+          handle: "prem_saini1",
+          imageUrl:
+            "https://ph-avatars.imgix.net/4438396/079fabcb-7d01-42d9-a98f-2fc7befce04e?auto=compress&codec=mozjpeg&cs=strip&auto=format&w=120&h=120&fit=crop&dpr=2",
+        },
+      },
     ],
-    // [
-    //   {
-    //     body: "Molestias ea earum quos nostrum doloremque sed. Quaerat quasi aut velit incidunt excepturi rerum voluptatem minus harum.",
-    //     author: {
-    //       name: "Leonard Krasner",
-    //       handle: "leonardkrasner",
-    //       imageUrl:
-    //         "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-    //     },
-    //   },
-    //   // More testimonials...
-    // ],
+    [
+      {
+        body: "Wow. Onboarded and started unsubscribing from the worst spammers in just 3 minutes... Thank you 🙏🏼",
+        author: {
+          name: "Yoni",
+          handle: "",
+          imageUrl:
+            "/images/testimonials/joseph-gonzalez-iFgRcqHznqg-unsplash.jpg",
+        },
+      },
+      {
+        body: `SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email.`,
+        author: {
+          name: "Alex Bass",
+          handle: "alexhbass",
+          imageUrl:
+            "https://ph-avatars.imgix.net/3523155/original?auto=compress&codec=mozjpeg&cs=strip&auto=format&w=120&h=120&fit=crop&dpr=2",
+        },
+      },
+    ],
   ],
 ];
 
@@ -144,7 +183,11 @@ export function Testimonials() {
                           <div className="font-semibold">
                             {testimonial.author.name}
                           </div>
-                          <div className="text-gray-600">{`@${testimonial.author.handle}`}</div>
+                          {testimonial.author.handle ? (
+                            <div className="text-gray-600">
+                              @{testimonial.author.handle}
+                            </div>
+                          ) : undefined}
                         </div>
                       </figcaption>
                     </figure>

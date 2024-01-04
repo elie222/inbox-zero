@@ -1,9 +1,9 @@
 import useSWR from "swr";
 import clsx from "clsx";
+import { XIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PromptHistoryResponse } from "@/app/api/user/prompt-history/controller";
 import { deletePromptHistoryAction } from "@/utils/actions";
-import { XMarkIcon } from "@heroicons/react/20/solid";
 
 type PromptHistoryItem = {
   id: string;
@@ -14,7 +14,7 @@ type PromptHistoryItem = {
 
 export function PromptHistory() {
   const { data, isLoading, error, mutate } = useSWR<PromptHistoryResponse>(
-    "/api/user/prompt-history"
+    "/api/user/prompt-history",
   );
 
   return (
@@ -44,7 +44,7 @@ function PromptHistoryInner(props: {
                 prompt.current
                   ? "bg-gray-800 text-white"
                   : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6"
+                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
               )}
             >
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">
@@ -60,7 +60,7 @@ function PromptHistoryInner(props: {
                   props.refetch();
                 }}
               >
-                <XMarkIcon className="h-5 w-5" />
+                <XIcon className="h-5 w-5" />
               </button>
             </a>
           </li>

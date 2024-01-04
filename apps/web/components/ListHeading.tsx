@@ -1,5 +1,4 @@
 import { Button } from "@/components/Button";
-import { PlusSmallIcon } from "@heroicons/react/20/solid";
 
 export function ListHeading(props: {
   // tabs: { name: string; href: string }[];

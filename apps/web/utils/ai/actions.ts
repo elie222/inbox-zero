@@ -5,6 +5,7 @@ import { PartialRecord } from "@/utils/types";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { labelThread } from "@/utils/gmail/label";
 import { getUserLabel } from "@/utils/label";
+import { markSpam } from "@/utils/gmail/spam";
 
 type ActionFunction = (
   gmail: gmail_v1.Gmail,
@@ -182,6 +183,17 @@ const FORWARD_EMAIL: ActionFunctionDef = {
   action: ActionType.FORWARD,
 };
 
+const MARK_SPAM: ActionFunctionDef = {
+  name: "mark_spam",
+  description: "Mark as spam.",
+  parameters: {
+    type: "object",
+    properties: {},
+    required: [],
+  },
+  action: ActionType.MARK_SPAM,
+};
+
 // const ASK_FOR_MORE_INFORMATION: ActionFunctionDef = {
 //   name: "ask_for_more_information",
 //   description: "Ask for more information on how to handle the email.",
@@ -213,8 +225,7 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.REPLY]: REPLY_TO_EMAIL,
   [ActionType.SEND_EMAIL]: SEND_EMAIL,
   [ActionType.FORWARD]: FORWARD_EMAIL,
-  [ActionType.SUMMARIZE]: {} as any,
-  [ActionType.MARK_SPAM]: {} as any,
+  [ActionType.MARK_SPAM]: MARK_SPAM,
   // [ActionType.ADD_TO_DO]: ADD_TO_DO,
   // [ActionType.CALL_WEBHOOK]: CALL_WEBHOOK,
   // ASK_FOR_MORE_INFORMATION
@@ -359,6 +370,13 @@ ${email.textHtml || email.textPlain}`,
   });
 };
 
+const mark_spam: ActionFunction = async (
+  gmail: gmail_v1.Gmail,
+  email: ActBodyWithHtml["email"],
+) => {
+  return await markSpam({ gmail, threadId: email.threadId });
+};
+
 // const add_to_do: ActionFunction = async (_gmail: gmail_v1.Gmail, args: { email_id: string, title: string }) => {};
 
 // const call_webhook: ActionFunction = async (_gmail: gmail_v1.Gmail, args: { url: string, content: string }) => {};
@@ -394,6 +412,8 @@ export const runActionFunction = async (
       return send_email(gmail, email, args, userEmail);
     case ActionType.FORWARD:
       return forward(gmail, email, args, userEmail);
+    case ActionType.MARK_SPAM:
+      return mark_spam(gmail, email, args, userEmail);
     // case "ask_for_more_information":
     //   return;
     // case "add_to_do":

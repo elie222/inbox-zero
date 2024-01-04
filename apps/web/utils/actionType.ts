@@ -107,6 +107,5 @@ export const actionInputs: Record<
       },
     ],
   },
-  [ActionType.SUMMARIZE]: { fields: [] },
   [ActionType.MARK_SPAM]: { fields: [] },
 };

@@ -32,7 +32,7 @@ export const POST = withError(async (request: Request) => {
     "";
 
   const result = await planOrExecuteAct({
-    email: { ...body.email, content },
+    email: { ...body.email, content, snippet: body.email.snippet || "" },
     rules: user.rules,
     gmail,
     allowExecute: !!body.allowExecute,

@@ -1,10 +1,9 @@
 import { Fragment } from "react";
-import { Bars3Icon } from "@heroicons/react/24/outline";
-import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import clsx from "clsx";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Menu, Transition } from "@headlessui/react";
 import { Button } from "@/components/Button";
+import { ChevronDownIcon, MenuIcon } from "lucide-react";
 // import { PromptBar } from "@/components/PromptBar";
 
 const userNavigation = [
@@ -25,7 +24,7 @@ export function TopNav(props: { setSidebarOpen: (open: boolean) => void }) {
         onClick={() => props.setSidebarOpen(true)}
       >
         <span className="sr-only">Open sidebar</span>
-        <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+        <MenuIcon className="h-6 w-6" aria-hidden="true" />
       </button>
 
       {/* Separator */}
@@ -106,7 +105,7 @@ function ProfileDropdown() {
                     href={item.href}
                     className={clsx(
                       active ? "bg-gray-50" : "",
-                      "block px-3 py-1 text-sm leading-6 text-gray-900"
+                      "block px-3 py-1 text-sm leading-6 text-gray-900",
                     )}
                     onClick={item.onClick}
                   >

@@ -1,11 +1,11 @@
 import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useSWRConfig } from "swr";
-import { SparklesIcon } from "@heroicons/react/20/solid";
 import { parseJSON } from "@/utils/json";
 import { useGmail } from "@/providers/GmailProvider";
 import { usePromptContext } from "@/providers/PromptProvider";
 import { createFilterFromPromptAction } from "@/utils/actions";
+import { SparklesIcon } from "lucide-react";
 
 export function PromptBar(props: {}) {
   const { setPrompt, setFunction } = usePromptContext();

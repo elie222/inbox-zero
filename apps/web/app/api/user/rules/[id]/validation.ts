@@ -12,7 +12,6 @@ export const zodActionType = z.enum([
   ActionType.MARK_SPAM,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
-  ActionType.SUMMARIZE,
 ]);
 
 export const zodAction = z.object({

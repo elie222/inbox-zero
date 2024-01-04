@@ -8,6 +8,12 @@ import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
 import { changePremiumStatus } from "@/utils/actions";
+import { Select } from "@/components/Select";
+import {
+  changePremiumStatusSchema,
+  type ChangePremiumStatusOptions,
+} from "@/app/(app)/admin/validation";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 export default function AdminPage() {
   return (
@@ -21,24 +27,29 @@ export default function AdminPage() {
   );
 }
 
-type Inputs = { email: string; upgrade: boolean };
-
 const UpgradeToAdminForm = () => {
   const {
     register,
     formState: { errors, isSubmitting },
     getValues,
-  } = useForm<Inputs>();
+  } = useForm<ChangePremiumStatusOptions>({
+    resolver: zodResolver(changePremiumStatusSchema),
+  });
 
-  const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
-    const res = await changePremiumStatus(data.email, data.upgrade);
-    if (isErrorMessage(res)) toastError({ description: res.data });
-    else
-      toastSuccess({ description: data.upgrade ? `Upgraded!` : `Downgraded!` });
-  }, []);
+  const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
+    async (data) => {
+      const res = await changePremiumStatus(data);
+      if (isErrorMessage(res)) toastError({ description: res.data });
+      else
+        toastSuccess({
+          description: data.upgrade ? `Upgraded!` : `Downgraded!`,
+        });
+    },
+    [],
+  );
 
   return (
-    <form className="flex items-end gap-2 space-y-4">
+    <form className="max-w-sm space-y-4">
       <Input
         type="text"
         name="email"
@@ -46,31 +57,64 @@ const UpgradeToAdminForm = () => {
         registerProps={register("email", { required: true })}
         error={errors.email}
       />
-      <Button
-        type="button"
-        loading={isSubmitting}
-        onClick={() => {
-          onSubmit({
-            email: getValues("email"),
-            upgrade: true,
-          });
-        }}
-      >
-        Upgrade
-      </Button>
-      <Button
-        type="button"
-        loading={isSubmitting}
-        color="red"
-        onClick={() => {
-          onSubmit({
-            email: getValues("email"),
-            upgrade: false,
-          });
-        }}
-      >
-        Downgrade
-      </Button>
+      <Input
+        type="number"
+        name="lemonSqueezyCustomerId"
+        label="Lemon Squeezy Customer Id"
+        registerProps={register("lemonSqueezyCustomerId", {
+          valueAsNumber: true,
+        })}
+        error={errors.lemonSqueezyCustomerId}
+      />
+      <Select
+        name="period"
+        label="Period"
+        options={[
+          {
+            label: "Monthly",
+            value: "monthly",
+          },
+          {
+            label: "Annually",
+            value: "annually",
+          },
+          {
+            label: "Lifetime",
+            value: "lifetime",
+          },
+        ]}
+        registerProps={register("period")}
+        error={errors.period}
+      />
+      <div className="space-x-2">
+        <Button
+          type="button"
+          loading={isSubmitting}
+          onClick={() => {
+            onSubmit({
+              email: getValues("email"),
+              lemonSqueezyCustomerId: getValues("lemonSqueezyCustomerId"),
+              period: getValues("period"),
+              upgrade: true,
+            });
+          }}
+        >
+          Upgrade
+        </Button>
+        <Button
+          type="button"
+          loading={isSubmitting}
+          color="red"
+          onClick={() => {
+            onSubmit({
+              email: getValues("email"),
+              upgrade: false,
+            });
+          }}
+        >
+          Downgrade
+        </Button>
+      </div>
     </form>
   );
 };
