@@ -17,7 +17,6 @@ const navigation = {
     { name: "Pricing", href: "/#pricing" },
     { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
-    { name: "Roadmap", href: "/roadmap", target: "_blank" },
   ],
   company: [
     { name: "Affiliates", href: "/affiliates", target: "_blank" },

@@ -29,11 +29,6 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: "/roadmap",
-        destination: "https://inboxzero.canny.io/",
-        permanent: true,
-      },
-      {
         source: "/twitter",
         destination: "https://twitter.com/inboxzero_ai",
         permanent: true,

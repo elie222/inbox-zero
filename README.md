@@ -11,7 +11,7 @@
     ·
     <a href="https://github.com/elie222/inbox-zero">Issues</a>
     ·
-    <a href="https://www.getinboxzero.com/roadmap">Roadmap</a>
+    <a href="https://github.com/users/elie222/projects/1">Kanban</a>
   </p>
 </p>
 
