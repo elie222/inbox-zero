@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   ArchiveIcon,
-  DeleteIcon,
+  Trash2Icon,
   ExternalLinkIcon,
   OrbitIcon,
   ReplyIcon,
@@ -101,7 +101,7 @@ export function ActionButtons(props: {
         icon: isTrashing ? (
           <LoadingMiniSpinner />
         ) : (
-          <DeleteIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+          <Trash2Icon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
 
