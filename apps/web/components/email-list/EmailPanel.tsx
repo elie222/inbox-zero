@@ -36,7 +36,7 @@ export function EmailPanel(props: {
   const plan = props.row.plan;
 
   return (
-    <div className="flex flex-col overflow-y-hidden border-l border-l-gray-100">
+    <div className="flex h-full flex-col overflow-y-hidden border-l border-l-gray-100">
       <div className="sticky border-b border-b-gray-100 p-4 md:flex md:items-center md:justify-between">
         <div className="md:w-0 md:flex-1">
           <h1
@@ -159,9 +159,7 @@ function HtmlEmail(props: { html: string }) {
       if (event.currentTarget.contentWindow) {
         event.currentTarget.style.height =
           event.currentTarget.contentWindow.document.documentElement
-            .scrollHeight +
-          5 +
-          "px"; // +5 to give a bit of extra space to avoid scrollbar
+            .scrollHeight + "px";
       }
     },
     [],
