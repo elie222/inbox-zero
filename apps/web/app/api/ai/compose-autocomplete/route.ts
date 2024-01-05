@@ -23,7 +23,7 @@ export const POST = withError(async (request: Request): Promise<Response> => {
   const json = await request.json();
   const { prompt } = composeAutocompleteBody.parse(json);
 
-  const openAiClient = await getOpenAI(user.openAIApiKey);
+  const openAiClient = getOpenAI(user.openAIApiKey);
 
   const response = await openAiClient.chat.completions.create({
     model: user.aiModel || DEFAULT_AI_MODEL,

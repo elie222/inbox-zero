@@ -32,6 +32,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { trashThreadAction } from "@/utils/actions";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const { emails, refetch } = props;
@@ -352,7 +353,9 @@ export function EmailList(props: {
       const thread = threads.find((t) => t.id === threadId);
       if (thread) onPlanAiAction(thread);
     }
-  }, [onPlanAiAction, threads, selectedRows]);
+
+    refetch();
+  }, [onPlanAiAction, threads, selectedRows, refetch]);
 
   const onCategorizeAiBulk = useCallback(async () => {
     for (const [threadId, selected] of Object.entries(selectedRows)) {
@@ -360,9 +363,11 @@ export function EmailList(props: {
       const thread = threads.find((t) => t.id === threadId);
       if (thread) onAiCategorize(thread);
     }
-  }, [onAiCategorize, threads, selectedRows]);
 
-  const onArchiveAiBulk = useCallback(async () => {
+    refetch();
+  }, [onAiCategorize, threads, selectedRows, refetch]);
+
+  const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
         for (const [threadId, selected] of Object.entries(selectedRows)) {
@@ -370,6 +375,8 @@ export function EmailList(props: {
           const thread = threads.find((t) => t.id === threadId);
           if (thread) await archive(thread);
         }
+
+        refetch();
       },
       {
         loading: "Archiving emails...",
@@ -377,7 +384,26 @@ export function EmailList(props: {
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [archive, threads, selectedRows]);
+  }, [archive, threads, selectedRows, refetch]);
+
+  const onTrashBulk = useCallback(async () => {
+    toast.promise(
+      async () => {
+        for (const [threadId, selected] of Object.entries(selectedRows)) {
+          if (!selected) continue;
+          const thread = threads.find((t) => t.id === threadId);
+          if (thread) await trashThreadAction(threadId);
+        }
+
+        refetch();
+      },
+      {
+        loading: "Deleting emails...",
+        success: "Emails deleted!",
+        error: "There was an error deleting the emails :(",
+      },
+    );
+  }, [threads, selectedRows, refetch]);
 
   const isEmpty = threads.length === 0;
 
@@ -393,9 +419,11 @@ export function EmailList(props: {
               isPlanning={false}
               isCategorizing={false}
               isArchiving={false}
+              isDeleting={false}
               onAiCategorize={onCategorizeAiBulk}
               onPlanAiAction={onPlanAiBulk}
-              onArchive={onArchiveAiBulk}
+              onArchive={onArchiveBulk}
+              onDelete={onTrashBulk}
             />
           </div>
         </div>
