@@ -15,3 +15,18 @@ export async function labelThread(options: {
     },
   });
 }
+
+export async function labelMessage(options: {
+  gmail: gmail_v1.Gmail;
+  messageId: string;
+  addLabelIds?: string[];
+  removeLabelIds?: string[];
+}) {
+  const { gmail, messageId, addLabelIds, removeLabelIds } = options;
+
+  return gmail.users.messages.modify({
+    userId: "me",
+    id: messageId,
+    requestBody: { addLabelIds, removeLabelIds },
+  });
+}
