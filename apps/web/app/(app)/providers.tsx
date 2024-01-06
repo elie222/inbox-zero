@@ -3,13 +3,16 @@ import React from "react";
 import { SessionProvider } from "@/providers/SessionProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
 import { StatLoaderProvider } from "@/providers/StatLoaderProvider";
+import { QueueProvider } from "@/providers/QueueProvider";
 
 export default function Providers(props: { children: React.ReactNode }) {
   return (
     <SWRProvider>
       {/* <GmailProvider> */}
       <SessionProvider>
-        <StatLoaderProvider>{props.children}</StatLoaderProvider>
+        <StatLoaderProvider>
+          <QueueProvider>{props.children}</QueueProvider>
+        </StatLoaderProvider>
       </SessionProvider>
       {/* </GmailProvider> */}
     </SWRProvider>

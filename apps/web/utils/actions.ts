@@ -31,6 +31,7 @@ import {
   upgradeUserToPremium,
 } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
+import { archiveThread } from "@/utils/gmail/label";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -291,4 +292,13 @@ export async function decrementUnsubscribeCredit() {
       data: { unsubscribeCredits: { decrement: 1 } },
     });
   }
+}
+
+export async function archiveThreadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+
+  const gmail = getGmailClient(session);
+
+  return await archiveThread({ gmail, threadId });
 }

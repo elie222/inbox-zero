@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import clsx from "clsx";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
@@ -282,31 +281,31 @@ export function EmailList(props: {
   );
 
   const archive = useCallback(
-    async (thread: Thread) => {
-      setIsArchiving((s) => ({ ...s, [thread.id!]: true }));
+    async (threadId: string) => {
+      setIsArchiving((s) => ({ ...s, [threadId]: true }));
 
       const res = await postRequest<ArchiveResponse, ArchiveBody>(
         "/api/google/threads/archive",
         {
-          id: thread.id!,
+          id: threadId,
         },
       );
 
       if (isError(res)) {
         console.error(res);
-        setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
+        setIsArchiving((s) => ({ ...s, [threadId]: false }));
         throw new Error(`There was an error archiving the email.`);
       } else {
         refetch();
       }
-      setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
+      setIsArchiving((s) => ({ ...s, [threadId]: false }));
     },
     [refetch],
   );
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      toast.promise(() => archive(thread), {
+      toast.promise(() => archive(thread.id!), {
         loading: "Archiving...",
         success: "Archived!",
         error: "There was an error archiving the email :(",
@@ -371,9 +370,9 @@ export function EmailList(props: {
     toast.promise(
       async () => {
         for (const [threadId, selected] of Object.entries(selectedRows)) {
-          if (!selected) continue;
-          const thread = threads.find((t) => t.id === threadId);
-          if (thread) await archive(thread);
+          if (selected) {
+            await archive(threadId);
+          }
         }
 
         refetch();
@@ -384,7 +383,7 @@ export function EmailList(props: {
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [archive, threads, selectedRows, refetch]);
+  }, [archive, selectedRows, refetch]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
