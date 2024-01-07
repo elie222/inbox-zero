@@ -1,4 +1,4 @@
-import { type SyntheticEvent, useCallback, useMemo } from "react";
+import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
 import { capitalCase } from "capital-case";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
@@ -29,6 +29,15 @@ export function EmailPanel(props: {
   refetch: () => void;
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
+  const [isRead, setIsRead] = useState(false);
+  const isUnread = useMemo(() => {
+    if (lastMessage?.labelIds?.includes("UNREAD")) {
+      setIsRead(false);
+    } else {
+      setIsRead(true);
+    }
+    return lastMessage?.labelIds?.includes("UNREAD");
+  }, [lastMessage?.labelIds]);
 
   const showReply = props.showReply;
   const showThread = props.row.messages?.length > 1;
@@ -63,8 +72,10 @@ export function EmailPanel(props: {
               props.onArchive(props.row);
               props.close();
             }}
+            isRead={!isUnread}
             refetch={props.refetch}
           />
+
           <div className="ml-2 flex items-center">
             <Tooltip content="Close">
               <button

@@ -7,11 +7,14 @@ import {
   OrbitIcon,
   ReplyIcon,
   SparklesIcon,
+  MailCheckIcon,
+  MailMinusIcon,
 } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { onTrashThread } from "@/utils/actions-client";
+import { onMarkUnmarkReadAction } from "@/utils/actions-client";
 
 export function ActionButtons(props: {
   threadId: string;
@@ -22,6 +25,7 @@ export function ActionButtons(props: {
   onAiCategorize: () => void;
   onReply: () => void;
   onArchive: () => void;
+  isRead?: boolean;
   refetch: () => void;
 }) {
   const session = useSession();
@@ -36,6 +40,7 @@ export function ActionButtons(props: {
     isCategorizing,
     isPlanning,
     isArchiving,
+    isRead,
     refetch,
   } = props;
 
@@ -55,6 +60,20 @@ export function ActionButtons(props: {
     refetch();
     setIsTrashing(false);
   }, [threadId, refetch]);
+
+  const [isReadUnreading, setisReadUnreading] = useState(false);
+  const [isStateRead, setIsStateRead] = useState(isRead);
+  useMemo(() => {
+    setIsStateRead(isRead);
+  }, [isRead]);
+
+  const onReadUnread = useCallback(async () => {
+    setisReadUnreading(true);
+    await onMarkUnmarkReadAction(threadId, isStateRead);
+    setIsStateRead(!isStateRead);
+    refetch();
+    setisReadUnreading(false);
+  }, [threadId, isStateRead, refetch]);
 
   const buttons = useMemo(
     () => [
@@ -114,6 +133,31 @@ export function ActionButtons(props: {
           <ArchiveIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
+      isStateRead
+        ? {
+            tooltip: "Mark Unread",
+            onClick: onReadUnread,
+            icon: isReadUnreading ? (
+              <LoadingMiniSpinner />
+            ) : (
+              <MailMinusIcon
+                className="h-5 w-5 text-gray-700"
+                aria-hidden="true"
+              />
+            ),
+          }
+        : {
+            tooltip: "Mark Read",
+            onClick: onReadUnread,
+            icon: isReadUnreading ? (
+              <LoadingMiniSpinner />
+            ) : (
+              <MailCheckIcon
+                className="h-5 w-5 text-gray-700"
+                aria-hidden="true"
+              />
+            ),
+          },
     ],
     [
       onTrash,
@@ -126,6 +170,7 @@ export function ActionButtons(props: {
       isCategorizing,
       onReply,
       openInGmail,
+      isStateRead,
     ],
   );
 
