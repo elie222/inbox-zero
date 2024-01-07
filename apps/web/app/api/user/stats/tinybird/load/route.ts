@@ -22,10 +22,10 @@ const loadTinybirdEmailsBody = z.object({
 });
 export type LoadTinybirdEmailsBody = z.infer<typeof loadTinybirdEmailsBody>;
 export type LoadTinybirdEmailsResponse = Awaited<
-  ReturnType<typeof publishAllEmails>
+  ReturnType<typeof loadTinybirdEmails>
 >;
 
-async function publishAllEmails(
+export async function loadTinybirdEmails(
   options: {
     ownerEmail: string;
     gmail: gmail_v1.Gmail;
@@ -222,7 +222,7 @@ export const POST = withError(async (request: Request) => {
 
   if (!token.token) return NextResponse.json({ error: "Missing access token" });
 
-  const result = await publishAllEmails(
+  const result = await loadTinybirdEmails(
     {
       ownerEmail: session.user.email,
       gmail,
