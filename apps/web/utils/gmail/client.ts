@@ -4,9 +4,10 @@ import { env } from "@/env.mjs";
 
 type ClientOptions = {
   accessToken?: string;
+  refreshToken?: string;
 };
 
-const getClient = (session: ClientOptions & { refreshToken?: string }) => {
+const getClient = (session: ClientOptions) => {
   const auth = new google.auth.OAuth2({
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,

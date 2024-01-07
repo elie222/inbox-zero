@@ -3,15 +3,13 @@ import { NextResponse } from "next/server";
 import { subDays } from "date-fns";
 import { sendStatsEmail } from "@inboxzero/resend";
 import { withError } from "@/utils/middleware";
-import { postRequest } from "@/utils/api";
-import {
-  LoadTinybirdEmailsBody,
-  LoadTinybirdEmailsResponse,
-} from "@/app/api/user/stats/tinybird/load/route";
+import { loadTinybirdEmails } from "@/app/api/user/stats/tinybird/load/route";
 import { getWeeklyStats } from "@inboxzero/tinybird";
 import { env } from "@/env.mjs";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
+import prisma from "@/utils/prisma";
+import { getGmailClient } from "@/utils/gmail/client";
 
 const sendWeeklyStatsBody = z.object({ email: z.string() });
 export type SendWeeklyStatsBody = z.infer<typeof sendWeeklyStatsBody>;
@@ -22,9 +20,35 @@ export type SendWeeklyStatsResponse = Awaited<
 async function sendWeeklyStats(options: { email: string }) {
   const { email } = options;
 
-  // update tinybird stats
-  await postRequest<LoadTinybirdEmailsResponse, LoadTinybirdEmailsBody>(
-    `${env.NEXT_PUBLIC_BASE_URL}/api/user/stats/tinybird/load`,
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { email },
+    select: {
+      accounts: { select: { access_token: true, refresh_token: true } },
+    },
+  });
+
+  const account = user.accounts[0];
+  const accessToken = account.access_token;
+  const refreshToken = account.refresh_token;
+
+  if (!accessToken) {
+    captureException(
+      new Error(`No access token for user ${email} when sending weekly stats`),
+    );
+    return { success: false };
+  }
+
+  const gmail = getGmailClient({
+    accessToken,
+    refreshToken: refreshToken ?? undefined,
+  });
+
+  await loadTinybirdEmails(
+    {
+      ownerEmail: email,
+      accessToken,
+      gmail,
+    },
     {
       loadBefore: false,
     },
