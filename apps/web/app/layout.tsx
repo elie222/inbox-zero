@@ -39,6 +39,11 @@ export const metadata: Metadata = {
     creator: "@getinboxzero",
   },
   metadataBase: new URL(env.NEXT_PUBLIC_BASE_URL),
+  // issues with robots.txt: https://github.com/vercel/next.js/issues/58615#issuecomment-1852457285
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export const viewport = {
