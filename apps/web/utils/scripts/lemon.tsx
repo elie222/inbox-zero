@@ -19,7 +19,8 @@ export function LemonScript() {
             debug: true,
           };
 
-          (window as any).createLemonSqueezyAffiliate();
+          if ((window as any).createLemonSqueezyAffiliate)
+            (window as any).createLemonSqueezyAffiliate();
         }}
       />
     </>
