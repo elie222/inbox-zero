@@ -7,7 +7,7 @@
     "eslint-config-next": "^14.0.4",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "7.33.2",
-    "eslint-config-turbo": "^1.11.2"
+    "eslint-config-turbo": "^1.11.3"
   },
   "publishConfig": {
     "access": "public"
