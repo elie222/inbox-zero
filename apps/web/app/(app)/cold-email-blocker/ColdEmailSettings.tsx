@@ -18,6 +18,7 @@ import {
   UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
+import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";
 
 export function ColdEmailSettings() {
   const { data, isLoading, error } = useSWR<UserResponse>("/api/user/me");
@@ -30,6 +31,7 @@ export function ColdEmailSettings() {
           coldEmailPrompt={data.coldEmailPrompt}
         />
       )}
+      <TestRules />
     </LoadingContent>
   );
 }

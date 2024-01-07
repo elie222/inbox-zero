@@ -10,7 +10,6 @@ export function ColdEmailList() {
   const { data, isLoading, error, mutate } =
     useSWR<ColdEmailsResponse>(`/api/user/cold-email`);
 
-  console.log("🚀 ~ file: ColdEmailList.tsx:11 ~ ColdEmailList ~ data:", data);
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data && (
