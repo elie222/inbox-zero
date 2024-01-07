@@ -102,10 +102,9 @@ const TestRulesForm = () => {
 
     if (isError(res)) {
       console.error(res);
-      toastError({ description: `Error planning` });
+      toastError({ description: `Error checking if cold email.` });
     } else {
       setIsColdEmail(res.isColdEmail);
-      toastSuccess({ description: `Plan created!` });
     }
   }, []);
 
@@ -165,7 +164,7 @@ function TestRulesContentRow(props: {
 
               if (!text) {
                 toastError({
-                  description: `Unable to plan email. No plain text found.`,
+                  description: `Unable to check if cold email. No text found in email.`,
                 });
 
                 setLoading(false);
@@ -187,7 +186,7 @@ function TestRulesContentRow(props: {
               if (isError(res)) {
                 console.error(res);
                 toastError({
-                  description: `There was an error planning the email.`,
+                  description: `There was an error checking whether it's a cold email.`,
                 });
               } else {
                 setIsColdEmail(res.isColdEmail);
