@@ -23,7 +23,7 @@ const calFont = localFont({
 
 const title = "Inbox Zero";
 const description =
-  "The quickest way to inbox zero. Inbox Zero is your virtual assistant for emails.";
+  "Clean your inbox in minutes. Inbox Zero is the quickest way to reach inbox zero, with our newsletter cleaner, AI automation, and email analytics.";
 
 export const metadata: Metadata = {
   title,
