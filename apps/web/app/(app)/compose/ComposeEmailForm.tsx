@@ -8,11 +8,12 @@ import { Input, Label } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isError } from "@/utils/error";
 import { ContactsResponse } from "@/app/api/google/contacts/route";
-import { Combobox } from "@/components/Combobox";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { postRequest } from "@/utils/api";
 import { env } from "@/env.mjs";
 import { Editor as NovelEditor } from "novel";
+import { Combobox } from "@headlessui/react";
+import Image from "next/image";
 
 export const ComposeEmailForm = () => {
   const {
@@ -51,29 +52,122 @@ export const ComposeEmailForm = () => {
     },
   );
 
+  const selectedEmailAddressses = watch("to", "").split(",").filter(Boolean);
+
+  const handleBadgeClose = (emailAddress: string) => {
+    const filteredEmailAddresses = selectedEmailAddressses.filter(
+      (e) => e !== emailAddress,
+    );
+    setValue("to", filteredEmailAddresses.join(","));
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
         <div className="space-y-2">
           <Label name="to" label="Recipient" />
           <Combobox
-            options={
-              data?.result.map((contact) => ({
-                value: contact.person?.emailAddresses?.[0].value!,
-                label: `${contact.person?.names?.[0].displayName || ""} <${
-                  contact.person?.emailAddresses?.[0].value || ""
-                }>`,
-              })) || []
-            }
-            placeholder="Select contact..."
-            emptyText="No contacts found."
-            value={watch("to")}
-            onChangeValue={(value) => {
-              setValue("to", value);
+            value={selectedEmailAddressses}
+            onChange={(value) => {
+              setValue("to", value.join(","));
+              setSearchQuery("");
             }}
-            search={searchQuery}
-            onSearch={setSearchQuery}
-          />
+            multiple
+            nullable={true}
+          >
+            <div className="border-1 flex border">
+              {selectedEmailAddressses.map((emailAddress) => (
+                <span
+                  key={emailAddress}
+                  className="m-2 inline-flex items-center rounded-md bg-gray-50 p-4 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10"
+                >
+                  {emailAddress}
+                  <button
+                    type="button"
+                    onClick={() => handleBadgeClose(emailAddress)}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="mx-1 h-4 w-4"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M5.29289 5.29289C5.68342 4.90237 6.31658 4.90237 6.70711 5.29289L12 10.5858L17.2929 5.29289C17.6834 4.90237 18.3166 4.90237 18.7071 5.29289C19.0976 5.68342 19.0976 6.31658 18.7071 6.70711L13.4142 12L18.7071 17.2929C19.0976 17.6834 19.0976 18.3166 18.7071 18.7071C18.3166 19.0976 17.6834 19.0976 17.2929 18.7071L12 13.4142L6.70711 18.7071C6.31658 19.0976 5.68342 19.0976 5.29289 18.7071C4.90237 18.3166 4.90237 17.6834 5.29289 17.2929L10.5858 12L5.29289 6.70711C4.90237 6.31658 4.90237 5.68342 5.29289 5.29289Z"
+                        fill="#0F1729"
+                      />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+
+              <Combobox.Input
+                value={searchQuery}
+                className="w-full border-none"
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </div>
+            <Combobox.Options className="mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
+              {data?.result.map((contact) => {
+                const person = {
+                  emailAddress: contact.person?.emailAddresses?.[0].value,
+                  name: contact.person?.names?.[0].displayName,
+                  profilePictureUrl: contact.person?.photos?.[0].url,
+                };
+
+                return (
+                  <Combobox.Option
+                    className={({ active }) =>
+                      `cursor-default select-none px-4 py-1 text-gray-900 ${
+                        active && "bg-gray-200"
+                      }`
+                    }
+                    key={person.emailAddress}
+                    value={person.emailAddress}
+                  >
+                    {({ selected }) => (
+                      <div className="my-2 flex">
+                        {!selected ? (
+                          <Image
+                            src={person.profilePictureUrl!}
+                            alt="profile-picture"
+                            className="h-12 rounded-full"
+                            width={48}
+                            height={48}
+                          />
+                        ) : (
+                          <svg
+                            className="h-12 rounded-full"
+                            version="1.1"
+                            id="Capa_1"
+                            xmlns="http://www.w3.org/2000/svg"
+                            xmlnsXlink="http://www.w3.org/1999/xlink"
+                            viewBox="0 0 17.837 17.837"
+                            xmlSpace="preserve"
+                          >
+                            <g>
+                              <path
+                                className="fill-gray-500"
+                                d="M16.145,2.571c-0.272-0.273-0.718-0.273-0.99,0L6.92,10.804l-4.241-4.27
+                         c-0.272-0.274-0.715-0.274-0.989,0L0.204,8.019c-0.272,0.271-0.272,0.717,0,0.99l6.217,6.258c0.272,0.271,0.715,0.271,0.99,0
+                         L17.63,5.047c0.276-0.273,0.276-0.72,0-0.994L16.145,2.571z"
+                              />
+                            </g>
+                          </svg>
+                        )}
+                        <div className="mx-2 flex flex-col">
+                          <div>{person.name}</div>
+                          <div>{person.emailAddress}</div>
+                        </div>
+                      </div>
+                    )}
+                  </Combobox.Option>
+                );
+              })}
+            </Combobox.Options>
+          </Combobox>
         </div>
       ) : (
         <Input
