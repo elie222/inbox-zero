@@ -17,6 +17,7 @@ async function getMessages() {
   const messages = await gmail.users.messages.list({
     userId: "me",
     maxResults: 10,
+    q: "-from:me",
   });
 
   const fullMessages = await Promise.all(

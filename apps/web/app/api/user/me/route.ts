@@ -17,6 +17,8 @@ async function getUser(userId: string) {
       aiModel: true,
       openAIApiKey: true,
       statsEmailFrequency: true,
+      coldEmailBlocker: true,
+      coldEmailPrompt: true,
     },
   });
 }
