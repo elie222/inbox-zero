@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import he from "he";
 import sortBy from "lodash/sortBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
