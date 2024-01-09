@@ -25,7 +25,8 @@ export function encrypt(text: string): string {
   return encrypted.toString("hex");
 }
 
-export function decrypt(encryptedText: string): string {
+export function decrypt(encryptedText: string | null): string {
+  if (encryptedText === null) return "";
   if (!key) return encryptedText;
   const encrypted = Buffer.from(encryptedText, "hex");
   const decipher = createDecipheriv(ALGORITHM, key, iv);

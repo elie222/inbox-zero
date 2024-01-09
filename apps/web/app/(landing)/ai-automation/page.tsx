@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
 // import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
@@ -7,6 +8,13 @@ import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { FeaturesAutomation } from "@/app/(landing)/home/Features";
+
+export const metadata: Metadata = {
+  title: "AI Email Automation | Inbox Zero",
+  description:
+    "Inbox Zero's AI automation simplifies your email management. It smartly handles repetitive queries, automates responses, and efficiently organizes your inbox, streamlining your email workflow for maximum efficiency.",
+  alternates: { canonical: "/ai-automation" },
+};
 
 export default function AiAutomation() {
   return (

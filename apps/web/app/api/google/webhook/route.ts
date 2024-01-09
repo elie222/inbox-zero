@@ -3,11 +3,7 @@ import { gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
-import {
-  INBOX_LABEL_ID,
-  SENT_LABEL_ID,
-  getOrCreateInboxZeroLabel,
-} from "@/utils/label";
+import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
@@ -16,10 +12,9 @@ import { getThread } from "@/utils/gmail/thread";
 import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
-import { aiIsColdEmail } from "@/app/api/ai/cold-email/controller";
 import { isPremium } from "@/utils/premium";
-import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
-import { labelMessage } from "@/utils/gmail/label";
+import { ColdEmailSetting } from "@prisma/client";
+import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -264,7 +259,6 @@ async function processHistoryItem(
 
       await runColdEmailBlocker({
         hasPreviousEmail,
-        hasEmailedUser: false, // TODO
         unsubscribeLink,
         email: {
           from: parsedMessage.headers.from,
@@ -356,81 +350,5 @@ async function processHistoryItem(
     }
 
     throw error;
-  }
-}
-
-async function runColdEmailBlocker(options: {
-  hasPreviousEmail: boolean;
-  hasEmailedUser: boolean;
-  unsubscribeLink?: string;
-  email: {
-    from: string;
-    subject: string;
-    body: string;
-    messageId: string;
-  };
-  userOptions: UserAIFields & { coldEmailPrompt: string | null };
-  gmail: gmail_v1.Gmail;
-  coldEmailBlocker: ColdEmailSetting;
-  userId: string;
-  userEmail: string;
-}) {
-  if (options.hasPreviousEmail) return;
-  if (options.hasEmailedUser) return;
-  // need to check how true this is in practice
-  if (options.unsubscribeLink) return;
-
-  // otherwise run through ai to see if it's a cold email
-  const isColdEmail = await aiIsColdEmail(options.email, options.userOptions);
-
-  if (isColdEmail) {
-    console.log("Blocking cold email...");
-
-    await blockColdEmail(options);
-  }
-}
-
-// TOOD get label id
-async function blockColdEmail(options: {
-  gmail: gmail_v1.Gmail;
-  email: { from: string; messageId: string };
-  userId: string;
-  userEmail: string;
-  coldEmailBlocker: ColdEmailSetting;
-}) {
-  const { gmail, email, userId, userEmail, coldEmailBlocker } = options;
-
-  await prisma.newsletter.upsert({
-    where: { email_userId: { email: email.from, userId } },
-    update: { coldEmail: ColdEmailStatus.COLD_EMAIL },
-    create: {
-      coldEmail: ColdEmailStatus.COLD_EMAIL,
-      email: email.from,
-      userId,
-    },
-  });
-
-  if (
-    coldEmailBlocker === ColdEmailSetting.LABEL ||
-    coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
-  ) {
-    const gmailLabel = await getOrCreateInboxZeroLabel({
-      gmail,
-      labelKey: "cold_email",
-      email: userEmail,
-    });
-
-    await labelMessage({
-      gmail,
-      messageId: email.messageId,
-      addLabelIds:
-        coldEmailBlocker === ColdEmailSetting.LABEL && gmailLabel?.id
-          ? [gmailLabel.id]
-          : undefined,
-      removeLabelIds:
-        coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
-          ? [INBOX_LABEL_ID]
-          : undefined,
-    });
   }
 }

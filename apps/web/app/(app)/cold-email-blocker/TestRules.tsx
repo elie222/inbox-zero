@@ -1,13 +1,12 @@
+// this is a copy/paste of the automation/TestRules.tsx file
+// can probably extract some common components from it
+
 "use client";
 
 import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import {
-  BookOpenCheckIcon,
-  CheckCircle2Icon,
-  SparklesIcon,
-} from "lucide-react";
+import { BookOpenCheckIcon, SparklesIcon } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -16,17 +15,19 @@ import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
-import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
+import {
+  ColdEmailBlockerBody,
+  ColdEmailBlockerResponse,
+} from "@/app/api/ai/cold-email/route";
 
 export function TestRules() {
   return (
     <SlideOverSheet
-      title="Test Rules"
-      description="Test how your rules perform against real emails."
+      title="Test Cold Emails"
+      description="Test which emails are flagged as cold emails. In practice, we will also check if the sender has emailed you before."
       content={<TestRulesContent />}
     >
       <Button color="white" className="mt-4">
@@ -72,39 +73,38 @@ function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [plan, setPlan] = useState<ActResponse>();
+  const [isColdEmail, setIsColdEmail] = useState<boolean | null | undefined>(
+    null,
+  );
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<TestRulesInputs>();
+  } = useForm<TestRulesInputs>({
+    defaultValues: {
+      message:
+        "Hey, I run a development agency. I was wondering if you need extra hands on your team?",
+    },
+  });
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const res = await postRequest<ActResponse, ActBodyWithHtml>("/api/ai/act", {
+    const res = await postRequest<
+      ColdEmailBlockerResponse,
+      ColdEmailBlockerBody
+    >("/api/ai/cold-email", {
       email: {
         from: "",
-        to: "",
-        date: "",
-        replyTo: "",
-        cc: "",
         subject: "",
-        textPlain: data.message,
-        textHtml: "",
-        snippet: "",
-        threadId: "",
-        messageId: "",
-        headerMessageId: "",
-        references: "",
+        body: data.message,
       },
-      allowExecute: false,
     });
 
     if (isError(res)) {
       console.error(res);
       toastError({ description: `Error checking if cold email.` });
     } else {
-      setPlan(res);
+      setIsColdEmail(res.isColdEmail);
     }
   }, []);
 
@@ -123,12 +123,12 @@ const TestRulesForm = () => {
         />
         <Button type="submit" loading={isSubmitting}>
           <SparklesIcon className="mr-2 h-4 w-4" />
-          Plan
+          Test
         </Button>
       </form>
-      {plan && (
+      {typeof isColdEmail === "boolean" && (
         <div className="mt-4">
-          <Plan plan={plan} />
+          <Result isColdEmail={isColdEmail} />
         </div>
       )}
     </div>
@@ -140,14 +140,15 @@ function TestRulesContentRow(props: {
 }) {
   const { message } = props;
 
-  const [planning, setPlanning] = useState(false);
-  const [plan, setPlan] = useState<ActResponse>();
+  const [loading, setLoading] = useState(false);
+  const [isColdEmail, setIsColdEmail] = useState<boolean | null | undefined>();
 
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
         <div className="min-w-0 break-words">
-          <MessageText className="font-bold">
+          <MessageText>{message.parsedMessage.headers.from}</MessageText>
+          <MessageText className="mt-1 font-bold">
             {message.parsedMessage.headers.subject}
           </MessageText>
           <MessageText className="mt-1">{message.snippet?.trim()}</MessageText>
@@ -155,85 +156,75 @@ function TestRulesContentRow(props: {
         <div className="ml-4">
           <Button
             color="white"
-            loading={planning}
+            loading={loading}
             onClick={async () => {
-              setPlanning(true);
+              setLoading(true);
 
-              if (!message.parsedMessage.textPlain) {
+              const text = message.snippet || message.parsedMessage.textPlain;
+
+              if (!text) {
                 toastError({
-                  description: `Unable to plan email. No plain text found.`,
+                  description: `Unable to check if cold email. No text found in email.`,
                 });
-                setPlanning(false);
+
+                setLoading(false);
                 return;
               }
 
-              const res = await postRequest<ActResponse, ActBodyWithHtml>(
-                "/api/ai/act",
-                {
-                  email: {
-                    from: message.parsedMessage.headers.from,
-                    to: message.parsedMessage.headers.to,
-                    date: message.parsedMessage.headers.date,
-                    replyTo: message.parsedMessage.headers.replyTo,
-                    cc: message.parsedMessage.headers.cc,
-                    subject: message.parsedMessage.headers.subject,
-                    textPlain: message.parsedMessage.textPlain || null,
-                    textHtml: message.parsedMessage.textHtml || null,
-                    snippet: message.snippet || null,
-                    threadId: message.threadId || "",
-                    messageId: message.id || "",
-                    headerMessageId:
-                      message.parsedMessage.headers.messageId || "",
-                    references: message.parsedMessage.headers.references,
-                  },
-                  allowExecute: false,
+              const res = await postRequest<
+                ColdEmailBlockerResponse,
+                ColdEmailBlockerBody
+              >("/api/ai/cold-email", {
+                email: {
+                  from: message.parsedMessage.headers.from,
+                  subject: message.parsedMessage.headers.subject,
+                  body: text,
+                  textHtml: message.parsedMessage.textHtml,
                 },
-              );
+              });
 
               if (isError(res)) {
                 console.error(res);
                 toastError({
-                  description: `There was an error planning the email.`,
+                  description: `There was an error checking whether it's a cold email.`,
                 });
               } else {
-                setPlan(res);
+                setIsColdEmail(res.isColdEmail);
               }
-              setPlanning(false);
+              setLoading(false);
             }}
           >
             <SparklesIcon className="mr-2 h-4 w-4" />
-            Plan
+            Test
           </Button>
         </div>
       </div>
       <div className="pb-4">
-        <Plan plan={plan} />
+        <Result isColdEmail={isColdEmail} />
       </div>
     </div>
   );
 }
 
-function Plan(props: { plan: ActResponse }) {
-  const { plan } = props;
+function Result(props: ColdEmailBlockerResponse) {
+  const { isColdEmail } = props;
 
-  if (!plan) return null;
+  if (isColdEmail === null || isColdEmail === undefined) return null;
 
-  if (plan.rule === null) {
+  if (isColdEmail)
     return (
       <AlertBasic
-        title="No rule found!"
-        description="This email does not match any of the rules you have set."
+        variant="destructive"
+        title="Email is a cold email!"
+        description=""
       />
     );
-  }
-
-  if (plan.plannedAction.actions) {
+  else
     return (
       <AlertBasic
-        title="Rule found!"
-        description={plan.rule.instructions}
-        icon={<CheckCircle2Icon className="h-4 w-4" />}
+        variant="success"
+        title="Email is not a cold email!"
+        description=""
       />
     );
-  }
 }
