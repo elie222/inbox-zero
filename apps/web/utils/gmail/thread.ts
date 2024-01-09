@@ -23,6 +23,7 @@ export async function getThreadsFromSenders(
   gmail: gmail_v1.Gmail,
   senders: string[],
 ) {
+  if (!senders.length) return [];
   let query = senders.map((sender) => `from:${sender}`).join(" OR ");
   const response = await gmail.users.messages.list({
     userId: "me",
