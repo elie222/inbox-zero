@@ -14,6 +14,7 @@ import { env } from "@/env.mjs";
 import { Editor as NovelEditor } from "novel";
 import { Combobox } from "@headlessui/react";
 import Image from "next/image";
+import { z } from "zod";
 
 export const ComposeEmailForm = () => {
   const {
@@ -61,6 +62,17 @@ export const ComposeEmailForm = () => {
     setValue("to", filteredEmailAddresses.join(","));
   };
 
+  const handleComboboxOnChange = (values: string[]) => {
+    // this assumes last value given by combobox is user typed value
+    const lastValue = values[values.length - 1];
+
+    const { success } = z.string().email().safeParse(lastValue);
+    if (success) {
+      setValue("to", values.join(","));
+      setSearchQuery("");
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
@@ -68,10 +80,7 @@ export const ComposeEmailForm = () => {
           <Label name="to" label="Recipient" />
           <Combobox
             value={selectedEmailAddressses}
-            onChange={(value) => {
-              setValue("to", value.join(","));
-              setSearchQuery("");
-            }}
+            onChange={handleComboboxOnChange}
             multiple
             nullable={true}
           >
@@ -110,6 +119,10 @@ export const ComposeEmailForm = () => {
               />
             </div>
             <Combobox.Options className="mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
+              <Combobox.Option
+                className="h-0 w-0 overflow-hidden"
+                value={searchQuery}
+              />
               {data?.result.map((contact) => {
                 const person = {
                   emailAddress: contact.person?.emailAddresses?.[0].value,
