@@ -6,10 +6,16 @@
 import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import { BookOpenCheckIcon, SparklesIcon } from "lucide-react";
+import {
+  BookOpenCheckIcon,
+  ExternalLinkIcon,
+  SparklesIcon,
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError } from "@/components/Toast";
 import { MessageText } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
@@ -22,12 +28,13 @@ import {
   ColdEmailBlockerBody,
   ColdEmailBlockerResponse,
 } from "@/app/api/ai/cold-email/route";
+import { getGmailSearchUrl } from "@/utils/url";
 
 export function TestRules() {
   return (
     <SlideOverSheet
       title="Test Cold Emails"
-      description="Test which emails are flagged as cold emails. In practice, we will also check if the sender has emailed you before."
+      description="Test which emails are flagged as cold emails. We also check if the sender has emailed you before and if it includes unsubscribe links."
       content={<TestRulesContent />}
     >
       <Button color="white" className="mt-4">
@@ -47,6 +54,9 @@ function TestRulesContent() {
     },
   );
 
+  const session = useSession();
+  const email = session.data?.user.email;
+
   return (
     <div>
       <div className="mt-4">
@@ -61,7 +71,13 @@ function TestRulesContent() {
         {data && (
           <div>
             {data.messages.map((message) => {
-              return <TestRulesContentRow key={message.id} message={message} />;
+              return (
+                <TestRulesContentRow
+                  key={message.id}
+                  message={message}
+                  userEmail={email!}
+                />
+              );
             })}
           </div>
         )}
@@ -137,6 +153,7 @@ const TestRulesForm = () => {
 
 function TestRulesContentRow(props: {
   message: MessagesResponse["messages"][number];
+  userEmail: string;
 }) {
   const { message } = props;
 
@@ -147,7 +164,19 @@ function TestRulesContentRow(props: {
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
         <div className="min-w-0 break-words">
-          <MessageText>{message.parsedMessage.headers.from}</MessageText>
+          <MessageText className="flex items-center">
+            {message.parsedMessage.headers.from}{" "}
+            <Link
+              className="ml-2 hover:text-gray-900"
+              href={getGmailSearchUrl(
+                message.parsedMessage.headers.from,
+                props.userEmail,
+              )}
+              target="_blank"
+            >
+              <ExternalLinkIcon className="h-4 w-4" />
+            </Link>
+          </MessageText>
           <MessageText className="mt-1 font-bold">
             {message.parsedMessage.headers.subject}
           </MessageText>
