@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";

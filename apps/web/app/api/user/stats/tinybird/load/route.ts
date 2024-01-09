@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
