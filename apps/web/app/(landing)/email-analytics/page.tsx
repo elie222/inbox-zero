@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
 // import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
@@ -7,6 +8,13 @@ import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { FeaturesStats } from "@/app/(landing)/home/Features";
+
+export const metadata: Metadata = {
+  title: "Email Analytics | Inbox Zero",
+  description:
+    "Gain insights and enhance productivity: analyze your email patterns for better email inbox management.",
+  alternates: { canonical: "/email-analytics" },
+};
 
 export default function EmailAnalytics() {
   return (

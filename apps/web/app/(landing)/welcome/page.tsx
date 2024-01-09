@@ -12,6 +12,7 @@ import { LoadStats } from "@/providers/StatLoaderProvider";
 export const metadata: Metadata = {
   title: "Welcome",
   description: "Get started with Inbox Zero",
+  alternates: { canonical: "/welcome" },
 };
 
 export default async function WelcomePage({
