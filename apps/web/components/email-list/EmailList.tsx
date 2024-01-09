@@ -33,6 +33,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { trashThreadAction } from "@/utils/actions";
+import { onMarkReadAction } from "@/utils/actions-client";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const { emails, refetch } = props;
@@ -472,6 +473,7 @@ export function EmailList(props: {
                     setOpenedRowId(thread.id!);
 
                     if (!alreadyOpen) scrollToId(thread.id!);
+                    onMarkReadAction(thread.id!);
                   }}
                   onShowReply={onShowReply}
                   isPlanning={isPlanning[thread.id!]}

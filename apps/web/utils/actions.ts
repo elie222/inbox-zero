@@ -24,7 +24,7 @@ import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
-import { markReadLabel, unMarkReadLabel } from "@/utils/gmail/label";
+import { readEmail, markEmailUnread } from "@/utils/gmail/label";
 import { env } from "@/env.mjs";
 import { isPremium } from "@/utils/premium";
 import {
@@ -32,7 +32,6 @@ import {
   upgradeUserToPremium,
 } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
-import { threadId } from "worker_threads";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -66,7 +65,7 @@ export async function unMarkReadAction(threadId: string) {
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
 
-  const res = await unMarkReadLabel({
+  const res = await markEmailUnread({
     gmail: gmail,
     threadId: threadId,
   });
@@ -79,7 +78,7 @@ export async function markReadAction(threadId: string) {
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
 
-  const res = await markReadLabel({
+  const res = await readEmail({
     gmail: gmail,
     threadId: threadId,
   });

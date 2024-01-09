@@ -29,13 +29,8 @@ export function EmailPanel(props: {
   refetch: () => void;
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
-  const [isRead, setIsRead] = useState(false);
+
   const isUnread = useMemo(() => {
-    if (lastMessage?.labelIds?.includes("UNREAD")) {
-      setIsRead(false);
-    } else {
-      setIsRead(true);
-    }
     return lastMessage?.labelIds?.includes("UNREAD");
   }, [lastMessage?.labelIds]);
 

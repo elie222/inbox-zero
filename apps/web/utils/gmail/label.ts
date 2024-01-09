@@ -16,7 +16,7 @@ export async function labelThread(options: {
   });
 }
 
-export async function markReadLabel(options: {
+export async function readEmail(options: {
   gmail: gmail_v1.Gmail;
   threadId: string;
 }) {
@@ -31,7 +31,7 @@ export async function markReadLabel(options: {
   });
 }
 
-export async function unMarkReadLabel(options: {
+export async function markEmailUnread(options: {
   gmail: gmail_v1.Gmail;
   threadId: string;
 }) {

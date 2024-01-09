@@ -40,17 +40,12 @@ export async function onTrashThread(threadId: string) {
   }
 }
 
-export async function onMarkUnmarkReadAction(
-  threadId: string,
-  isRead?: boolean,
-) {
+export async function onMarkReadAction(threadId: string, isRead?: boolean) {
   try {
     if (isRead) {
       await unMarkReadAction(threadId);
-      toastSuccess({ description: "Marked Unread!" });
     } else {
       await markReadAction(threadId);
-      toastSuccess({ description: "Marked Read!" });
     }
   } catch (error: any) {
     toastError({
