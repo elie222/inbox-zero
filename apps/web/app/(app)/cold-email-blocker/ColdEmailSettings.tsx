@@ -77,7 +77,7 @@ function ColdEmailForm(props: {
         value: ColdEmailSetting.DISABLED,
       },
       {
-        label: "Only show here",
+        label: "List here",
         value: ColdEmailSetting.LIST,
       },
       {

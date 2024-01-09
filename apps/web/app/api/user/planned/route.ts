@@ -11,6 +11,7 @@ import { Thread } from "@/components/email-list/types";
 import { getCategory } from "@/utils/redis/category";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30; // TODO not great if this is taking more than 15s
@@ -47,18 +48,21 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
           }),
         ]);
 
+        const threadId = message.threadId;
+        if (!threadId) return;
+
         const rule = plan
           ? rules.find((r) => r.id === plan?.rule?.id)
           : undefined;
 
         const thread: Thread = {
-          id: message.threadId,
+          id: threadId,
           historyId: message.historyId,
-          snippet: he.decode(message.snippet || ""),
+          snippet: decodeSnippet(message.snippet),
           messages: [
             {
               id: message.id,
-              threadId: message.threadId,
+              threadId,
               labelIds: message.labelIds,
               snippet: message.snippet,
               internalDate: message.internalDate,

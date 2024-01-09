@@ -14,8 +14,7 @@ export function ColdEmailList() {
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <EmailList
-          // threads={data.result}
-          threads={[]}
+          threads={data.result || []}
           emptyMessage={
             <AlertBasic
               title="No cold emails!"
