@@ -12,6 +12,7 @@ const navigation = {
   legal: [
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
+    { name: "Sitemap", href: "/sitemap.xml" },
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
