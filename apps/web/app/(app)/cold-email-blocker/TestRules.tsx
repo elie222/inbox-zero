@@ -37,7 +37,7 @@ export function TestRules() {
       description="Test which emails are flagged as cold emails. We also check if the sender has emailed you before and if it includes unsubscribe links."
       content={<TestRulesContent />}
     >
-      <Button color="white" className="mt-4">
+      <Button color="white" type="button">
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
         Test
       </Button>
