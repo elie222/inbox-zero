@@ -370,17 +370,13 @@ export function EmailList(props: {
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const listOfSelectedThreadId = [];
-        for (const [threadId, selected] of Object.entries(selectedRows)) {
-          if (selected) {
-            listOfSelectedThreadId.push(threadId);
-            // await archive(threadId);
-          }
-        }
-        if (listOfSelectedThreadId.length)
+        const listOfSelectedThreadId = Object.entries(selectedRows)
+          .filter(([_, selected]) => (selected ? true : false))
+          .map(([threadId]) => threadId);
+        if (listOfSelectedThreadId.length) {
           await archiveEmails(listOfSelectedThreadId);
-
-        refetch();
+          refetch();
+        }
       },
       {
         loading: "Archiving emails...",
