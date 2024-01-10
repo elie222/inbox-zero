@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useState } from "react";
 import PQueue from "p-queue";
-import { archiveThreadAction } from "@/utils/actions";
+import { archiveThreadAction, trashThreadAction } from "@/utils/actions";
 
 const QueueContext = createContext<{
   archiveEmails: (emailIds: string[]) => Promise<void>;
@@ -27,7 +27,12 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const readEmails = async (emailIds: string[]) => {};
   const labelEmails = async (emailIds: string[], label: string) => {};
-  const deleteEmails = async (emailIds: string[]) => {};
+
+  const deleteEmails = useCallback(async (emailIds: string[]) => {
+    emailIds.forEach((emailId) => {
+      queue.add(async () => await trashThreadAction(emailId));
+    });
+  }, []);
 
   return (
     <QueueContext.Provider

@@ -31,7 +31,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { trashThreadAction } from "@/utils/actions";
 import { useQueue } from "@/providers/QueueProvider";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
@@ -141,7 +140,7 @@ export function EmailList(props: {
   const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
 
   const session = useSession();
-  const { archiveEmails } = useQueue();
+  const { archiveEmails, deleteEmails } = useQueue();
   // if right panel is open
   const [openedRowId, setOpenedRowId] = useState<string>();
   const closePanel = useCallback(() => setOpenedRowId(undefined), []);
@@ -370,9 +369,12 @@ export function EmailList(props: {
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const listOfSelectedThreadId = Object.entries(selectedRows)
-          .filter(([_, selected]) => (selected ? true : false))
-          .map(([threadId]) => threadId);
+        const listOfSelectedThreadId = [];
+        for (const [threadId, selected] of Object.entries(selectedRows)) {
+          if (selected) {
+            listOfSelectedThreadId.push(threadId);
+          }
+        }
         if (listOfSelectedThreadId.length) {
           await archiveEmails(listOfSelectedThreadId);
           refetch();
@@ -389,13 +391,16 @@ export function EmailList(props: {
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
+        const listOfSelectedThreadId = [];
         for (const [threadId, selected] of Object.entries(selectedRows)) {
-          if (!selected) continue;
-          const thread = threads.find((t) => t.id === threadId);
-          if (thread) await trashThreadAction(threadId);
+          if (selected) {
+            listOfSelectedThreadId.push(threadId);
+          }
         }
-
-        refetch();
+        if (listOfSelectedThreadId.length) {
+          await deleteEmails(listOfSelectedThreadId);
+          refetch();
+        }
       },
       {
         loading: "Deleting emails...",
@@ -403,7 +408,7 @@ export function EmailList(props: {
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [threads, selectedRows, refetch]);
+  }, [selectedRows, deleteEmails, refetch]);
 
   const isEmpty = threads.length === 0;
 
