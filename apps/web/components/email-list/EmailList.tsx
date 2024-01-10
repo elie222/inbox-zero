@@ -32,6 +32,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { trashThreadAction } from "@/utils/actions";
+import { useQueue } from "@/providers/QueueProvider";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const { emails, refetch } = props;
@@ -140,7 +141,7 @@ export function EmailList(props: {
   const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
 
   const session = useSession();
-
+  const { archiveEmails } = useQueue();
   // if right panel is open
   const [openedRowId, setOpenedRowId] = useState<string>();
   const closePanel = useCallback(() => setOpenedRowId(undefined), []);
@@ -305,13 +306,13 @@ export function EmailList(props: {
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      toast.promise(() => archive(thread.id!), {
+      toast.promise(() => archiveEmails([thread.id!]), {
         loading: "Archiving...",
         success: "Archived!",
         error: "There was an error archiving the email :(",
       });
     },
-    [archive],
+    [archiveEmails],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -369,11 +370,15 @@ export function EmailList(props: {
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
+        const listOfSelectedThreadId = [];
         for (const [threadId, selected] of Object.entries(selectedRows)) {
           if (selected) {
-            await archive(threadId);
+            listOfSelectedThreadId.push(threadId);
+            // await archive(threadId);
           }
         }
+        if (listOfSelectedThreadId.length)
+          await archiveEmails(listOfSelectedThreadId);
 
         refetch();
       },
@@ -383,7 +388,7 @@ export function EmailList(props: {
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [archive, selectedRows, refetch]);
+  }, [archiveEmails, refetch, selectedRows]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
