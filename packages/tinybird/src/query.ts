@@ -140,7 +140,7 @@ export const getLargestEmails = tb.buildPipe({
   data: z.object({
     gmailMessageId: z.string(),
     from: z.string().transform(decrypt),
-    subject: z.string().transform(decrypt),
+    subject: z.string().nullable().transform(decrypt),
     timestamp: z.number(),
     sizeEstimate: z.number().transform((t) => t ?? 0),
   }),
@@ -168,7 +168,7 @@ export const getNewSenders = tb.buildPipe({
     gmailMessageId: z.string(),
     from: z.string().transform(decrypt),
     fromDomain: z.string().transform(decrypt),
-    subject: z.string().transform(decrypt),
+    subject: z.string().nullable().transform(decrypt),
     timestamp: z.number(),
     unsubscribeLink: z.string().nullish(),
   }),

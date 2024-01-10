@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import {
   BlocksIcon,
   EyeIcon,
@@ -13,6 +14,13 @@ import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { FeaturesWithImage } from "@/app/(landing)/home/Features";
+
+export const metadata: Metadata = {
+  title: "New Email Senders | Inbox Zero",
+  description:
+    "Manage and block new senders in your inbox. Identify and control your new email connections with a single click.",
+  alternates: { canonical: "/new-email-senders" },
+};
 
 export default function NewEmailSenders() {
   return (

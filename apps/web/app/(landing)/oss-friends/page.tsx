@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import Link from "next/link";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,12 @@ import { Header } from "@/app/(landing)/home/Header";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { HeroSubtitle, HeroText } from "@/app/(landing)/home/Hero";
+
+export const metadata: Metadata = {
+  title: "Open Source Friends | Inbox Zero",
+  description: "Some other great Open Source projects to follow",
+  alternates: { canonical: "/oss-friends" },
+};
 
 type OSSFriend = {
   href: string;

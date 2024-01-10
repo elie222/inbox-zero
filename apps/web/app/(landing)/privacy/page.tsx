@@ -6,6 +6,7 @@ import { env } from "@/env.mjs";
 export const metadata: Metadata = {
   title: "Privacy Policy - Inbox Zero",
   description: "Privacy Policy - Inbox Zero",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function Terms() {
