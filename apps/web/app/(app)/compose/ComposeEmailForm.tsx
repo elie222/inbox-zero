@@ -15,6 +15,8 @@ import { Editor as NovelEditor } from "novel";
 import { Combobox } from "@headlessui/react";
 import Image from "next/image";
 import { z } from "zod";
+import "./novelEditorStyles.css";
+import clsx from "clsx";
 
 export const ComposeEmailForm = () => {
   const {
@@ -84,11 +86,11 @@ export const ComposeEmailForm = () => {
             multiple
             nullable={true}
           >
-            <div className="border-1 flex border">
+            <div className="border-1 flex rounded-md border">
               {selectedEmailAddressses.map((emailAddress) => (
                 <span
                   key={emailAddress}
-                  className="m-2 inline-flex items-center rounded-md bg-gray-50 p-4 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10"
+                  className="m-2 inline-flex items-center rounded-md bg-gray-50 p-4 px-2 py-1 text-sm font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10"
                 >
                   {emailAddress}
                   <button
@@ -114,11 +116,16 @@ export const ComposeEmailForm = () => {
 
               <Combobox.Input
                 value={searchQuery}
-                className="w-full border-none"
+                className="w-full rounded-md border-none py-1 text-lg outline-0 focus:border-none focus:ring-0"
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
-            <Combobox.Options className="mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
+            <Combobox.Options
+              className={clsx(
+                data?.result && data.result.length === 0 && "hidden",
+                "mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm",
+              )}
+            >
               <Combobox.Option
                 className="h-0 w-0 overflow-hidden"
                 value={searchQuery}
@@ -164,13 +171,13 @@ export const ComposeEmailForm = () => {
                               <path
                                 className="fill-gray-500"
                                 d="M16.145,2.571c-0.272-0.273-0.718-0.273-0.99,0L6.92,10.804l-4.241-4.27
-                         c-0.272-0.274-0.715-0.274-0.989,0L0.204,8.019c-0.272,0.271-0.272,0.717,0,0.99l6.217,6.258c0.272,0.271,0.715,0.271,0.99,0
-                         L17.63,5.047c0.276-0.273,0.276-0.72,0-0.994L16.145,2.571z"
+                           c-0.272-0.274-0.715-0.274-0.989,0L0.204,8.019c-0.272,0.271-0.272,0.717,0,0.99l6.217,6.258c0.272,0.271,0.715,0.271,0.99,0
+                           L17.63,5.047c0.276-0.273,0.276-0.72,0-0.994L16.145,2.571z"
                               />
                             </g>
                           </svg>
                         )}
-                        <div className="mx-2 flex flex-col">
+                        <div className="mx-2 flex flex-col items-center justify-center">
                           <div>{person.name}</div>
                           <div>{person.emailAddress}</div>
                         </div>
@@ -195,21 +202,24 @@ export const ComposeEmailForm = () => {
       <Input
         type="text"
         name="subject"
-        label="Subject"
         registerProps={register("subject", { required: true })}
         error={errors.subject}
+        placeholder="Subject"
+        className="block w-full flex-1 rounded-md border-gray-300 py-1 text-lg outline-0 focus:border-gray-300 focus:ring-0"
       />
 
-      <NovelEditor
-        defaultValue=""
-        disableLocalStorage={true}
-        completionApi="api/ai/compose-autocomplete"
-        onUpdate={(editor) => {
-          editor = editor!;
-          setValue("messageText", editor.getText());
-          setValue("messageHtml", editor.getHTML());
-        }}
-      />
+      <div className="compose-novel">
+        <NovelEditor
+          defaultValue=""
+          disableLocalStorage={true}
+          completionApi="api/ai/compose-autocomplete"
+          onUpdate={(editor) => {
+            editor = editor!;
+            setValue("messageText", editor.getText());
+            setValue("messageHtml", editor.getHTML());
+          }}
+        />
+      </div>
 
       <Button
         type="submit"
