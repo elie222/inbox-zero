@@ -1,22 +1,25 @@
 import prisma from "@/utils/prisma";
+import { PremiumTier } from "@prisma/client";
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
 export async function upgradeToPremium(options: {
   userId: string;
-  isLifetime: boolean;
-  lemonSqueezyRenewsAt?: Date;
-  lemonSqueezySubscriptionId?: number;
-  lemonSqueezySubscriptionItemId?: number;
-  lemonSqueezyCustomerId?: number;
-  lemonSqueezyProductId?: number;
-  lemonSqueezyVariantId?: number;
+  tier: PremiumTier;
+  lemonSqueezyRenewsAt: Date | null;
+  lemonSqueezySubscriptionId: number | null;
+  lemonSqueezySubscriptionItemId: number | null;
+  lemonSqueezyOrderId: number | null;
+  lemonSqueezyCustomerId: number | null;
+  lemonSqueezyProductId: number | null;
+  lemonSqueezyVariantId: number | null;
 }) {
-  const { userId, isLifetime, ...rest } = options;
+  const { userId, ...rest } = options;
 
-  const lemonSqueezyRenewsAt = options.isLifetime
-    ? new Date(Date.now() + TEN_YEARS)
-    : options.lemonSqueezyRenewsAt;
+  const lemonSqueezyRenewsAt =
+    options.tier === PremiumTier.LIFETIME
+      ? new Date(Date.now() + TEN_YEARS)
+      : options.lemonSqueezyRenewsAt;
 
   const user = await prisma.user.findFirstOrThrow({
     where: { id: options.userId },
@@ -27,7 +30,6 @@ export async function upgradeToPremium(options: {
     ...rest,
     lemonSqueezyRenewsAt,
   };
-  console.log("🚀 ~ file: server.ts:27 ~ data:", data);
 
   if (user.premiumId) {
     return await prisma.premium.update({

@@ -124,8 +124,7 @@ export function Pricing() {
 
   const affiliateCode = useAffiliateCode();
   const planType =
-    data?.premium?.premiumTier ||
-    getUserPlan(data?.premium?.lemonSqueezyRenewsAt);
+    data?.premium?.tier || getUserPlan(data?.premium?.lemonSqueezyRenewsAt);
 
   return (
     <LoadingContent loading={isLoading} error={error}>

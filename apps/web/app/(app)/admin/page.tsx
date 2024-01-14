@@ -117,6 +117,7 @@ const UpgradeToAdminForm = () => {
           onClick={() => {
             onSubmit({
               email: getValues("email"),
+              period: getValues("period"),
               upgrade: false,
             });
           }}

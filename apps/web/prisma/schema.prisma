@@ -68,7 +68,7 @@ model User {
   // lemonSqueezyCustomerId     Int?
   // lemonSqueezySubscriptionId String?
   // lemonSqueezyRenewsAt       DateTime?
-  // lemonSqueezyProductId      Int? // TODO check that subscriptions also have this field set
+  // lemonSqueezyProductId      Int?
 
   // premiumTier PremiumTier?
 
@@ -108,10 +108,11 @@ model Premium {
   lemonSqueezyCustomerId         Int?
   lemonSqueezySubscriptionId     Int?
   lemonSqueezySubscriptionItemId Int?
-  lemonSqueezyProductId          Int? // TODO check that subscriptions also have this field set
+  lemonSqueezyOrderId            Int? // lifetime purchase is an order and not a subscription
+  lemonSqueezyProductId          Int?
   lemonSqueezyVariantId          Int?
 
-  premiumTier PremiumTier?
+  tier PremiumTier?
 
   // feature access
   coldEmailBlockerAccess FeatureAccess?

@@ -37,16 +37,23 @@ export const env = createEnv({
       .transform((value) => value?.split(",")),
   },
   client: {
+    NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
+
+    // lemon plans
+    // pro
     NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
+    NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
+    // business
     NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
+    NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
+    // lifetime
     NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_LIFETIME_VARIANT_ID: z.coerce.number().default(0),
 
-    // NEXT_PUBLIC_PRO_PLAN_ID: z.coerce.number().default(0),
-    // NEXT_PUBLIC_BUSINESS_PLAN_ID: z.coerce.number().default(0),
-    NEXT_PUBLIC_LIFETIME_PLAN_ID: z.coerce.number().default(0),
-    NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
     NEXT_PUBLIC_CALL_LINK: z.string().default("https://dub.sh/inbox-zero-call"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
@@ -61,15 +68,31 @@ export const env = createEnv({
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
-    NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,
-    NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK,
-    NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
-    NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
-    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: process.env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+    NEXT_PUBLIC_LEMON_STORE_ID: process.env.NEXT_PUBLIC_LEMON_STORE_ID,
 
-    // NEXT_PUBLIC_PRO_PLAN_ID: process.env.NEXT_PUBLIC_PRO_PLAN_ID,
-    // NEXT_PUBLIC_BUSINESS_PLAN_ID: process.env.NEXT_PUBLIC_BUSINESS_PLAN_ID,
-    // NEXT_PUBLIC_LIFETIME_PLAN_ID: process.env.NEXT_PUBLIC_LIFETIME_PLAN_ID,
+    // pro
+    NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,
+    NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK,
+    NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID:
+      process.env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID,
+    NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID:
+      process.env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID,
+    // business
+    NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
+    NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
+    NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID:
+      process.env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID,
+    NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
+      process.env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID,
+    // lifetime
+    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+    NEXT_PUBLIC_LIFETIME_VARIANT_ID:
+      process.env.NEXT_PUBLIC_LIFETIME_VARIANT_ID,
 
     NEXT_PUBLIC_CALL_LINK: process.env.NEXT_PUBLIC_CALL_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,

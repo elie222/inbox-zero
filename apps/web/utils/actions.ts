@@ -212,9 +212,13 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
   if (options.upgrade) {
     await upgradeToPremium({
       userId: userToUpgrade.id,
-      isLifetime: options.period === PremiumTier.LIFETIME,
-      lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || undefined,
-      lemonSqueezySubscriptionId: undefined,
+      tier: options.period,
+      lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || null,
+      lemonSqueezySubscriptionId: null,
+      lemonSqueezySubscriptionItemId: null,
+      lemonSqueezyOrderId: null,
+      lemonSqueezyProductId: null,
+      lemonSqueezyVariantId: null,
       lemonSqueezyRenewsAt:
         options.period === PremiumTier.PRO_ANNUALLY ||
         options.period === PremiumTier.BUSINESS_ANNUALLY
@@ -222,7 +226,7 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
           : options.period === PremiumTier.PRO_MONTHLY ||
               options.period === PremiumTier.BUSINESS_MONTHLY
             ? new Date(+new Date() + ONE_MONTH)
-            : undefined,
+            : null,
     });
   } else if (userToUpgrade) {
     if (userToUpgrade.premiumId) {
@@ -319,7 +323,7 @@ export async function updateMultiAccountPremium(emails: string[]) {
       premium: {
         select: {
           id: true,
-          premiumTier: true,
+          tier: true,
           lemonSqueezySubscriptionItemId: true,
         },
       },
@@ -344,7 +348,7 @@ export async function updateMultiAccountPremium(emails: string[]) {
 
   // make sure that the users being added to this plan are not on higher tiers already
   for (const userToAdd of otherUsersToAdd) {
-    if (isOnHigherTier(userToAdd.premium?.premiumTier, premium.premiumTier)) {
+    if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
       throw new Error(
         "One of the users you are adding to your plan already has premium and cannot be added.",
       );

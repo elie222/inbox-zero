@@ -7,15 +7,13 @@ export const changePremiumStatusSchema = z.object({
     .number()
     .optional()
     .transform((v) => v || undefined),
-  period: z
-    .enum([
-      PremiumTier.PRO_MONTHLY,
-      PremiumTier.PRO_ANNUALLY,
-      PremiumTier.BUSINESS_MONTHLY,
-      PremiumTier.BUSINESS_ANNUALLY,
-      PremiumTier.LIFETIME,
-    ])
-    .optional(),
+  period: z.enum([
+    PremiumTier.PRO_MONTHLY,
+    PremiumTier.PRO_ANNUALLY,
+    PremiumTier.BUSINESS_MONTHLY,
+    PremiumTier.BUSINESS_ANNUALLY,
+    PremiumTier.LIFETIME,
+  ]),
   upgrade: z.boolean(),
 });
 export type ChangePremiumStatusOptions = z.infer<

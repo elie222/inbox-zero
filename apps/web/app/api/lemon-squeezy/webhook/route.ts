@@ -10,6 +10,7 @@ import {
   upgradeToPremium,
 } from "@/utils/premium/server";
 import { Payload } from "@/app/api/lemon-squeezy/webhook/types";
+import { PremiumTier } from "@prisma/client";
 
 export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
@@ -29,9 +30,8 @@ export const POST = withError(async (request: Request) => {
   }
 
   // lifetime plan
-  // TODO can this be this instead: `payload.data.attributes.product_id`?
-  const productId = payload.data.attributes.first_order_item?.product_id;
-  const isLifetimePlan = productId === env.NEXT_PUBLIC_LIFETIME_PLAN_ID;
+  const variant = payload.data.attributes.first_order_item?.variant_id;
+  const isLifetimePlan = variant === env.NEXT_PUBLIC_LIFETIME_VARIANT_ID;
   if (payload.meta.event_name === "order_created" && isLifetimePlan) {
     if (!userId) throw new Error("No userId provided");
     return await lifetimeOrder({ payload, userId });
@@ -106,15 +106,18 @@ async function subscriptionCreated({
 
   const lemonSqueezyRenewsAt = new Date(payload.data.attributes.renews_at);
 
-  console.log("🚀 ~ file: route.ts:127 ~ payload.data:", payload.data);
+  if (!payload.data.attributes.first_subscription_item)
+    throw new Error("No subscription item");
 
   const updatedPremium = await upgradeToPremium({
     userId,
-    isLifetime: false,
+    tier: getTier({ variantId: payload.data.attributes.variant_id }),
     lemonSqueezyRenewsAt,
-    lemonSqueezySubscriptionId: parseInt(payload.data.id),
+    lemonSqueezySubscriptionId:
+      payload.data.attributes.first_subscription_item.subscription_id,
     lemonSqueezySubscriptionItemId:
-      payload.data.attributes.first_subscription_item?.id,
+      payload.data.attributes.first_subscription_item.id,
+    lemonSqueezyOrderId: null,
     lemonSqueezyCustomerId: payload.data.attributes.customer_id,
     lemonSqueezyProductId: payload.data.attributes.product_id,
     lemonSqueezyVariantId: payload.data.attributes.variant_id,
@@ -138,12 +141,16 @@ async function lifetimeOrder({
   payload: Payload;
   userId: string;
 }) {
+  if (!payload.data.attributes.first_order_item)
+    throw new Error("No order item");
+
   const updatedPremium = await upgradeToPremium({
     userId,
-    isLifetime: true,
-    lemonSqueezySubscriptionId: parseInt(payload.data.id),
-    lemonSqueezySubscriptionItemId:
-      payload.data.attributes.first_order_item?.id,
+    tier: PremiumTier.LIFETIME,
+    lemonSqueezySubscriptionId: null,
+    lemonSqueezySubscriptionItemId: null,
+    lemonSqueezyRenewsAt: null,
+    lemonSqueezyOrderId: payload.data.attributes.first_order_item.order_id,
     lemonSqueezyCustomerId: payload.data.attributes.customer_id,
     lemonSqueezyProductId: payload.data.attributes.product_id,
     lemonSqueezyVariantId: payload.data.attributes.variant_id,
@@ -215,4 +222,19 @@ function getEmailFromPremium(premium: {
   users: Array<{ email: string | null }>;
 }) {
   return premium.users?.[0]?.email;
+}
+
+function getTier({ variantId }: { variantId: number }): PremiumTier {
+  switch (variantId) {
+    case env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID:
+      return PremiumTier.PRO_MONTHLY;
+    case env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID:
+      return PremiumTier.PRO_ANNUALLY;
+    case env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID:
+      return PremiumTier.BUSINESS_MONTHLY;
+    case env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
+      return PremiumTier.BUSINESS_ANNUALLY;
+  }
+
+  throw new Error(`Unknown variant id: ${variantId}`);
 }

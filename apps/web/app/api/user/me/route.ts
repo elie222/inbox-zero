@@ -21,7 +21,7 @@ async function getUser(userId: string) {
           lemonSqueezySubscriptionId: true,
           lemonSqueezyRenewsAt: true,
           unsubscribeCredits: true,
-          premiumTier: true,
+          tier: true,
         },
       },
     },
