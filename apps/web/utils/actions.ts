@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import uniq from "lodash/uniq";
 import { deleteContact } from "@inboxzero/loops";
 import {
   createFilterFromPrompt,
@@ -11,7 +12,7 @@ import { labelThread } from "@/app/api/google/threads/label/controller";
 import { deletePromptHistory } from "@/app/api/user/prompt-history/controller";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { NewsletterStatus, type Label } from "@prisma/client";
+import { NewsletterStatus, type Label, PremiumTier } from "@prisma/client";
 import {
   deleteInboxZeroLabels,
   deleteUserLabels,
@@ -26,11 +27,9 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
 import { env } from "@/env.mjs";
 import { isPremium } from "@/utils/premium";
-import {
-  cancelUserPremium,
-  upgradeUserToPremium,
-} from "@/utils/premium/server";
+import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
+import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -205,13 +204,13 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
 
   const userToUpgrade = await prisma.user.findUniqueOrThrow({
     where: { email: options.email },
-    select: { id: true },
+    select: { id: true, premiumId: true },
   });
 
   const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
 
   if (options.upgrade) {
-    await upgradeUserToPremium({
+    await upgradeToPremium({
       userId: userToUpgrade.id,
       isLifetime: options.period === "lifetime",
       lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || undefined,
@@ -223,11 +222,15 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
             ? new Date(+new Date() + ONE_MONTH)
             : undefined,
     });
-  } else {
-    await cancelUserPremium({
-      userId: userToUpgrade.id,
-      lemonSqueezyEndsAt: new Date(),
-    });
+  } else if (userToUpgrade) {
+    if (userToUpgrade.premiumId) {
+      await cancelPremium({
+        premiumId: userToUpgrade.premiumId,
+        lemonSqueezyEndsAt: new Date(),
+      });
+    } else {
+      throw new Error("User not premium.");
+    }
   }
 }
 
@@ -261,21 +264,32 @@ export async function decrementUnsubscribeCredit() {
   const user = await prisma.user.findUniqueOrThrow({
     where: { email: session.user.email },
     select: {
-      unsubscribeCredits: true,
-      unsubscribeMonth: true,
-      lemonSqueezyRenewsAt: true,
+      premium: {
+        select: {
+          id: true,
+          unsubscribeCredits: true,
+          unsubscribeMonth: true,
+          lemonSqueezyRenewsAt: true,
+        },
+      },
     },
   });
 
-  const premium = isPremium(user.lemonSqueezyRenewsAt);
-  if (premium) return;
+  const isUserPremium = isPremium(user.premium?.lemonSqueezyRenewsAt || null);
+  if (isUserPremium) return;
 
   const currentMonth = new Date().getMonth() + 1;
 
-  if (!user.unsubscribeMonth || user.unsubscribeMonth !== currentMonth) {
+  // create premium row for user if it doesn't already exist
+  const premium = user.premium || (await createPremiumForUser(session.user.id));
+
+  if (
+    !premium?.unsubscribeMonth ||
+    premium?.unsubscribeMonth !== currentMonth
+  ) {
     // reset the monthly credits
-    await prisma.user.update({
-      where: { email: session.user.email },
+    await prisma.premium.update({
+      where: { id: premium.id },
       data: {
         // reset and use a credit
         unsubscribeCredits: env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS - 1,
@@ -283,12 +297,108 @@ export async function decrementUnsubscribeCredit() {
       },
     });
   } else {
-    if (!user?.unsubscribeCredits || user.unsubscribeCredits <= 0) return;
+    if (!premium?.unsubscribeCredits || premium.unsubscribeCredits <= 0) return;
 
     // decrement the monthly credits
-    await prisma.user.update({
-      where: { email: session.user.email },
+    await prisma.premium.update({
+      where: { id: premium.id },
       data: { unsubscribeCredits: { decrement: 1 } },
     });
   }
+}
+
+export async function updateMultiAccountPremium(emails: string[]) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      premium: {
+        select: {
+          id: true,
+          premiumTier: true,
+          lemonSqueezySubscriptionItemId: true,
+        },
+      },
+    },
+  });
+
+  // check all users exist
+  const uniqueEmails = uniq(emails);
+  const users = await prisma.user.findMany({
+    where: { email: { in: uniqueEmails } },
+    select: { id: true, premium: true },
+  });
+  if (users.length < uniqueEmails.length) {
+    throw new Error(
+      "Not all users exist. Each account must first sign up to Inbox Zero before you can share premium with it.",
+    );
+  }
+
+  const premium = user.premium || (await createPremiumForUser(session.user.id));
+
+  const otherUsersToAdd = users.filter((u) => u.id !== session.user.id);
+
+  // make sure that the users being added to this plan are not on higher tiers already
+  for (const userToAdd of otherUsersToAdd) {
+    if (isOnHigherTier(userToAdd.premium?.premiumTier, premium.premiumTier)) {
+      throw new Error(
+        "One of the users you are adding to your plan already has premium and cannot be added.",
+      );
+    }
+  }
+
+  if (!premium.lemonSqueezySubscriptionItemId) {
+    throw new Error(
+      `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+    );
+  }
+
+  // TODO what about lifetime plans?
+  await updateSubscriptionItemQuantity({
+    id: premium.lemonSqueezySubscriptionItemId,
+    quantity: otherUsersToAdd.length + 1,
+  });
+
+  // delete premium for other users when adding them to this premium plan
+  await prisma.premium.deleteMany({
+    where: {
+      users: { some: { id: { in: otherUsersToAdd.map((u) => u.id) } } },
+    },
+  });
+
+  // add users to plan
+  await prisma.premium.update({
+    where: { id: premium.id },
+    data: {
+      users: {
+        connect: emails.map((email) => ({ email })),
+      },
+    },
+  });
+}
+
+async function createPremiumForUser(userId: string) {
+  return await prisma.premium.create({
+    data: { users: { connect: { id: userId } } },
+  });
+}
+
+function isOnHigherTier(
+  tier1?: PremiumTier | null,
+  tier2?: PremiumTier | null,
+) {
+  const tierRanking = {
+    [PremiumTier.PRO_MONTHLY]: 1,
+    [PremiumTier.PRO_ANNUALLY]: 2,
+    [PremiumTier.BUSINESS_MONTHLY]: 3,
+    [PremiumTier.BUSINESS_ANNUALLY]: 4,
+    [PremiumTier.LIFETIME]: 5,
+  };
+
+  const tier1Rank = tier1 ? tierRanking[tier1] : 0;
+  const tier2Rank = tier2 ? tierRanking[tier2] : 0;
+
+  return tier1Rank > tier2Rank;
 }

@@ -11,14 +11,16 @@ export function usePremium() {
   const swrResponse = useSWR<UserResponse>("/api/user/me");
 
   const premium = !!(
-    swrResponse.data && isPremium(swrResponse.data.lemonSqueezyRenewsAt)
+    swrResponse.data?.premium &&
+    isPremium(swrResponse.data.premium.lemonSqueezyRenewsAt)
   );
 
   return {
     ...swrResponse,
     isPremium: premium,
     hasUnsubscribeAccess:
-      premium || hasUnsubscribeAccess(swrResponse.data?.unsubscribeCredits),
+      premium ||
+      hasUnsubscribeAccess(swrResponse.data?.premium?.unsubscribeCredits),
   };
 }
 

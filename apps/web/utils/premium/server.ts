@@ -2,50 +2,80 @@ import prisma from "@/utils/prisma";
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
-export async function upgradeUserToPremium(options: {
+export async function upgradeToPremium(options: {
   userId: string;
   isLifetime: boolean;
   lemonSqueezyRenewsAt?: Date;
-  lemonSqueezySubscriptionId?: string;
+  lemonSqueezySubscriptionId?: number;
+  lemonSqueezySubscriptionItemId?: number;
   lemonSqueezyCustomerId?: number;
+  lemonSqueezyProductId?: number;
+  lemonSqueezyVariantId?: number;
 }) {
+  const { userId, isLifetime, ...rest } = options;
+
   const lemonSqueezyRenewsAt = options.isLifetime
     ? new Date(Date.now() + TEN_YEARS)
     : options.lemonSqueezyRenewsAt;
 
-  return await prisma.user.update({
+  const user = await prisma.user.findFirstOrThrow({
     where: { id: options.userId },
-    data: {
-      lemonSqueezyRenewsAt,
-      lemonSqueezySubscriptionId: options.lemonSqueezySubscriptionId,
-      lemonSqueezyCustomerId: options.lemonSqueezyCustomerId,
-    },
-    select: { email: true },
+    select: { premiumId: true },
   });
+
+  const data = {
+    ...rest,
+    lemonSqueezyRenewsAt,
+  };
+  console.log("🚀 ~ file: server.ts:27 ~ data:", data);
+
+  if (user.premiumId) {
+    return await prisma.premium.update({
+      where: { id: user.premiumId },
+      data,
+      select: { users: { select: { email: true } } },
+    });
+  } else {
+    return await prisma.premium.create({
+      data: {
+        users: { connect: { id: options.userId } },
+        ...data,
+      },
+      select: { users: { select: { email: true } } },
+    });
+  }
 }
 
-export async function extendUserPremium(options: {
-  userId: string;
+export async function extendPremium(options: {
+  premiumId: string;
   lemonSqueezyRenewsAt: Date;
 }) {
-  return await prisma.user.update({
-    where: { id: options.userId },
+  return await prisma.premium.update({
+    where: { id: options.premiumId },
     data: {
       lemonSqueezyRenewsAt: options.lemonSqueezyRenewsAt,
     },
-    select: { email: true },
+    select: {
+      users: {
+        select: { email: true },
+      },
+    },
   });
 }
 
-export async function cancelUserPremium(options: {
-  userId: string;
+export async function cancelPremium(options: {
+  premiumId: string;
   lemonSqueezyEndsAt: Date;
 }) {
-  return await prisma.user.update({
-    where: { id: options.userId },
+  return await prisma.premium.update({
+    where: { id: options.premiumId },
     data: {
       lemonSqueezyRenewsAt: options.lemonSqueezyEndsAt,
     },
-    select: { email: true },
+    select: {
+      users: {
+        select: { email: true },
+      },
+    },
   });
 }

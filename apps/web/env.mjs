@@ -20,6 +20,7 @@ export const env = createEnv({
     SENTRY_PROJECT: z.string().optional(),
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
+    LEMON_SQUEEZY_API_KEY: z.string().optional(),
     TINYBIRD_TOKEN: z.string(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
     ENCRYPT_SECRET: z.string().optional(),
@@ -36,8 +37,14 @@ export const env = createEnv({
       .transform((value) => value?.split(",")),
   },
   client: {
-    NEXT_PUBLIC_PRO_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: z.string().default(""),
+
+    // NEXT_PUBLIC_PRO_PLAN_ID: z.coerce.number().default(0),
+    // NEXT_PUBLIC_BUSINESS_PLAN_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_LIFETIME_PLAN_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
@@ -47,13 +54,23 @@ export const env = createEnv({
     NEXT_PUBLIC_BASE_URL: z.string().default("https://www.getinboxzero.com"),
     NEXT_PUBLIC_CONTACTS_ENABLED: z.coerce.boolean().optional().default(false),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
+    NEXT_PUBLIC_SUPPORT_EMAIL: z
+      .string()
+      .optional()
+      .default("elie@getinboxzero.com"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
-    NEXT_PUBLIC_PRO_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
-    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK:
-      process.env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
-    NEXT_PUBLIC_LIFETIME_PLAN_ID: process.env.NEXT_PUBLIC_LIFETIME_PLAN_ID,
+    NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,
+    NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK,
+    NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
+    NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK: process.env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
+    NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: process.env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+
+    // NEXT_PUBLIC_PRO_PLAN_ID: process.env.NEXT_PUBLIC_PRO_PLAN_ID,
+    // NEXT_PUBLIC_BUSINESS_PLAN_ID: process.env.NEXT_PUBLIC_BUSINESS_PLAN_ID,
+    // NEXT_PUBLIC_LIFETIME_PLAN_ID: process.env.NEXT_PUBLIC_LIFETIME_PLAN_ID,
+
     NEXT_PUBLIC_CALL_LINK: process.env.NEXT_PUBLIC_CALL_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
@@ -64,5 +81,6 @@ export const env = createEnv({
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
   },
 });
