@@ -212,13 +212,15 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
   if (options.upgrade) {
     await upgradeToPremium({
       userId: userToUpgrade.id,
-      isLifetime: options.period === "lifetime",
+      isLifetime: options.period === PremiumTier.LIFETIME,
       lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || undefined,
       lemonSqueezySubscriptionId: undefined,
       lemonSqueezyRenewsAt:
-        options.period === "annually"
+        options.period === PremiumTier.PRO_ANNUALLY ||
+        options.period === PremiumTier.BUSINESS_ANNUALLY
           ? new Date(+new Date() + ONE_MONTH * 12)
-          : options.period === "monthly"
+          : options.period === PremiumTier.PRO_MONTHLY ||
+              options.period === PremiumTier.BUSINESS_MONTHLY
             ? new Date(+new Date() + ONE_MONTH)
             : undefined,
     });

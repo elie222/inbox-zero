@@ -11,6 +11,7 @@ import { usePremium } from "@/components/PremiumAlert";
 import { Tag } from "@/components/Tag";
 import { Button } from "@/components/Button";
 import { getUserPlan } from "@/utils/premium";
+import { PremiumTier } from "@prisma/client";
 
 const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
@@ -122,7 +123,9 @@ export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
 
   const affiliateCode = useAffiliateCode();
-  const planType = getUserPlan(data?.premium?.lemonSqueezyRenewsAt);
+  const planType =
+    data?.premium?.premiumTier ||
+    getUserPlan(data?.premium?.lemonSqueezyRenewsAt);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -184,12 +187,16 @@ export function Pricing() {
 
         <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
           {tiers.map((tier, tierIdx) => {
-            const href = buildLemonUrl(
-              tier.checkout
-                ? attachUserId(tier.href[frequency.value], data?.id)
-                : tier.href[frequency.value],
-              affiliateCode,
-            );
+            const isCurrentPlan = tier.id === planType;
+
+            const href = isCurrentPlan
+              ? "#"
+              : buildLemonUrl(
+                  tier.checkout
+                    ? attachUserId(tier.href[frequency.value], data?.id)
+                    : tier.href[frequency.value],
+                  affiliateCode,
+                );
 
             return (
               <div
@@ -266,13 +273,7 @@ export function Pricing() {
                     "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
                   )}
                 >
-                  {/* TODO */}
-                  {tier.id === "tier-pro" &&
-                  isPremium &&
-                  ((planType === "monthly" && frequency.value === "monthly") ||
-                    (planType === "annually" && frequency.value === "annually"))
-                    ? "Current plan"
-                    : tier.cta}
+                  {isCurrentPlan ? "Current plan" : tier.cta}
                 </a>
               </div>
             );
@@ -292,7 +293,7 @@ export function Pricing() {
 function LifetimePricing(props: {
   userId?: string;
   affiliateCode: string | null;
-  planType?: "monthly" | "annually" | "lifetime" | null;
+  planType?: PremiumTier | null;
 }) {
   return (
     <div className="bg-white py-4 sm:py-8">
@@ -352,7 +353,7 @@ function LifetimePricing(props: {
                 target="_blank"
                 className="mt-10 block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
-                {props.planType === "lifetime"
+                {props.planType === PremiumTier.LIFETIME
                   ? "Current plan"
                   : "Get lifetime access"}
               </a>
