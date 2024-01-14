@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
 import { CrownIcon } from "lucide-react";
+import { capitalCase } from "capital-case";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -17,8 +18,9 @@ import {
 } from "@/app/api/user/settings/multi-account/validation";
 import { updateMultiAccountPremium } from "@/utils/actions";
 import { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
-import { AlertWithButton } from "@/components/Alert";
+import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
+import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 
 export function MultiAccountSection() {
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
@@ -26,6 +28,7 @@ export function MultiAccountSection() {
   );
   const {
     isPremium,
+    data: dataPremium,
     isLoading: isLoadingPremium,
     error: errorPremium,
   } = usePremium();
@@ -34,16 +37,32 @@ export function MultiAccountSection() {
     <FormSection>
       <FormSectionLeft
         title="Share Premium"
-        description="Share premium with other email accounts. This does not give other accounts access to read your emails. You will be billed $3 for each additional email you add."
+        description="Share premium with other email accounts. This does not give other accounts access to read your emails."
       />
 
       <LoadingContent loading={isLoadingPremium} error={errorPremium}>
         {isPremium ? (
           <LoadingContent loading={isLoading} error={error}>
             {data && (
-              <MultiAccountForm
-                emailAddresses={data.users as { email: string }[]}
-              />
+              <div>
+                {dataPremium?.premium?.tier && (
+                  <AlertBasic
+                    title="Extra email price"
+                    description={`You are on the ${capitalCase(
+                      dataPremium.premium.tier,
+                    )} plan. You will be billed ${
+                      pricingAdditonalEmail[dataPremium.premium.tier]
+                    } for each extra email you add to your account.`}
+                    icon={<CrownIcon className="h-4 w-4" />}
+                  />
+                )}
+
+                <div className="mt-4">
+                  <MultiAccountForm
+                    emailAddresses={data.users as { email: string }[]}
+                  />
+                </div>
+              </div>
             )}
           </LoadingContent>
         ) : (
@@ -107,7 +126,7 @@ function MultiAccountForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-6 sm:col-span-full">
+      <div className="space-y-2">
         {fields.map((f, i) => {
           return (
             <div key={f.id}>

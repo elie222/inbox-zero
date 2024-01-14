@@ -12,92 +12,12 @@ import { Tag } from "@/components/Tag";
 import { Button } from "@/components/Button";
 import { getUserPlan } from "@/utils/premium";
 import { PremiumTier } from "@prisma/client";
-
-const frequencies = [
-  { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
-  { value: "annually" as const, label: "Annually", priceSuffix: "/year" },
-];
-
-const tiers = [
-  {
-    name: "Free",
-    id: "tier-free",
-    href: { monthly: "/welcome", annually: "/welcome" },
-    price: { monthly: "$0", annually: "$0" },
-    description: "Try Inbox Zero for free.",
-    features: [
-      `Unsubscribe from ${env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS} emails per month`,
-      "Email analytics",
-      "Newsletter management",
-      "New senders",
-      "Inbox view",
-    ],
-    cta: "Get Started",
-  },
-  {
-    name: "Pro",
-    id: "tier-pro",
-    href: {
-      monthly: env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,
-      annually: env.NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK,
-    },
-    checkout: true,
-    price: { monthly: "$10", annually: "$99" },
-    priceAdditional: { monthly: "$2", annually: "$19" },
-    description: "Unlock full newsletter cleaner access.",
-    features: [
-      "Everything in free",
-      "Unlimited unsubscribes",
-      "Cold email blocker with personal OpenAI key",
-      "AI with personal OpenAI key",
-      "Priority support",
-    ],
-    cta: "Upgrade",
-    mostPopular: true,
-  },
-  {
-    name: "Business",
-    id: "tier-business",
-    href: {
-      monthly: env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
-      annually: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
-    },
-    checkout: true,
-    price: { monthly: "$19", annually: "$159" },
-    priceAdditional: { monthly: "$3", annually: "$29" },
-    description: "Unlock full platform access.",
-    features: [
-      "Everything in pro",
-      "Cold email blocker",
-      "AI automations",
-      "AI categorization",
-      "AI planning mode",
-    ],
-    cta: "Upgrade",
-    mostPopular: false,
-    hideFrequency: false,
-  },
-  // {
-  //   name: "Enterprise",
-  //   id: "tier-enterprise",
-  //   href: env.NEXT_PUBLIC_CALL_LINK,
-  //   price: { monthly: "Book a call", annually: "Book a call" },
-  //   description: "For help self-hosting, and dedicated support.",
-  //   features: ["Self-hosted", "Everything in pro", "Dedicated support"],
-  //   hideFrequency: true,
-  //   cta: "Book a call",
-  // },
-];
-
-const LIFETIME_PRICE = 199;
-const LIFETIME_LINK = env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK;
-
-const lifetimeFeatures = [
-  "Everything in Inbox Zero Business",
-  "Priority support",
-  "$100 of AI credits",
-  "Early access to new features",
-];
+import {
+  frequencies,
+  lifetimeFeatures,
+  pricing,
+  tiers,
+} from "@/app/(app)/premium/config";
 
 function attachUserId(url: string, userId?: string) {
   if (!userId) return url;
@@ -186,7 +106,7 @@ export function Pricing() {
 
         <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
           {tiers.map((tier, tierIdx) => {
-            const isCurrentPlan = tier.id === premiumTier;
+            const isCurrentPlan = tier.tiers?.[frequency.value] === premiumTier;
 
             const href = isCurrentPlan
               ? "#"
@@ -199,7 +119,7 @@ export function Pricing() {
 
             return (
               <div
-                key={tier.id}
+                key={tier.name}
                 className={clsx(
                   tier.mostPopular ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8",
                   tierIdx === 0 ? "lg:rounded-r-none" : "",
@@ -210,7 +130,7 @@ export function Pricing() {
                 <div>
                   <div className="flex items-center justify-between gap-x-4">
                     <h3
-                      id={tier.id}
+                      id={tier.name}
                       className={clsx(
                         tier.mostPopular ? "text-blue-600" : "text-gray-900",
                         "font-cal text-lg leading-8",
@@ -264,7 +184,7 @@ export function Pricing() {
                 <a
                   href={href}
                   target={href.startsWith("http") ? "_blank" : undefined}
-                  aria-describedby={tier.id}
+                  aria-describedby={tier.name}
                   className={clsx(
                     tier.mostPopular
                       ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
@@ -340,7 +260,7 @@ function LifetimePricing(props: {
               </p>
               <p className="mt-6 flex items-baseline justify-center gap-x-2">
                 <span className="text-5xl font-bold tracking-tight text-gray-900">
-                  ${LIFETIME_PRICE}
+                  {pricing.LIFETIME}
                 </span>
                 <span className="text-sm font-semibold leading-6 tracking-wide text-gray-600">
                   USD
@@ -351,7 +271,10 @@ function LifetimePricing(props: {
                   hasLifetime
                     ? "#"
                     : buildLemonUrl(
-                        attachUserId(LIFETIME_LINK, props.userId),
+                        attachUserId(
+                          env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+                          props.userId,
+                        ),
                         props.affiliateCode,
                       )
                 }
