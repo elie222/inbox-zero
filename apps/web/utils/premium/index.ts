@@ -4,7 +4,8 @@ export const isPremium = (lemonSqueezyRenewsAt: Date | null): boolean => {
   return !!lemonSqueezyRenewsAt && new Date(lemonSqueezyRenewsAt) > new Date();
 };
 
-// this is a bit hacky. better to store the plan type in the database
+// deprecated. we now store the plan in the database
+// but this is so that things don't break for older users
 export const getUserPlan = (
   lemonSqueezyRenewsAt?: Date | null,
 ): PremiumTier | null => {
