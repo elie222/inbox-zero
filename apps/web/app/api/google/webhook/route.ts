@@ -45,13 +45,13 @@ export const POST = withError(async (request: Request) => {
           coldEmailPrompt: true,
           aiModel: true,
           openAIApiKey: true,
-          lemonSqueezyRenewsAt: true,
+          premium: { select: { lemonSqueezyRenewsAt: true } },
         },
       },
     },
   });
   if (!account) return NextResponse.json({ ok: true });
-  if (!isPremium(account.user.lemonSqueezyRenewsAt))
+  if (!isPremium(account.user.premium?.lemonSqueezyRenewsAt || null))
     return NextResponse.json({ ok: true });
 
   const hasAutomationRules = account.user.rules.length > 0;

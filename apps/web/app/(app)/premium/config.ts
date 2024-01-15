@@ -11,7 +11,7 @@ export const pricing: Record<PremiumTier, string> = {
   [PremiumTier.PRO_ANNUALLY]: "$99",
   [PremiumTier.BUSINESS_MONTHLY]: "$19",
   [PremiumTier.BUSINESS_ANNUALLY]: "$159",
-  [PremiumTier.LIFETIME]: "$199",
+  [PremiumTier.LIFETIME]: "$249",
 };
 
 export const pricingAdditonalEmail: Record<PremiumTier, string> = {
