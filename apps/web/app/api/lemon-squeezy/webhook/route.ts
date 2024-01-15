@@ -6,6 +6,7 @@ import { env } from "@/env.mjs";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import {
   cancelPremium,
+  editEmailAccountsAccess,
   extendPremium,
   upgradeToPremium,
 } from "@/utils/premium/server";
@@ -29,19 +30,16 @@ export const POST = withError(async (request: Request) => {
     return await subscriptionCreated({ payload, userId });
   }
 
-  // lifetime plan
   const variant = payload.data.attributes.first_order_item?.variant_id;
   const isLifetimePlan = variant === env.NEXT_PUBLIC_LIFETIME_VARIANT_ID;
+
+  // lifetime plan
   if (payload.meta.event_name === "order_created" && isLifetimePlan) {
     if (!userId) throw new Error("No userId provided");
     return await lifetimeOrder({ payload, userId });
   }
 
   const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
-  // const user = await prisma.user.findFirst({
-  //   where: { lemonSqueezyCustomerId },
-  //   select: { id: true },
-  // });
 
   const premium = await prisma.premium.findFirst({
     where: { lemonSqueezyCustomerId },
@@ -53,6 +51,13 @@ export const POST = withError(async (request: Request) => {
     throw new Error(
       `No user found for lemonSqueezyCustomerId ${lemonSqueezyCustomerId}`,
     );
+  }
+
+  // extra seats for lifetime plan
+  const isLifetimeSeatPlan =
+    variant === env.NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_VARIANT_ID;
+  if (payload.meta.event_name === "order_created" && isLifetimeSeatPlan) {
+    return await lifetimeSeatOrder({ payload, premiumId });
   }
 
   // renewal
@@ -159,6 +164,32 @@ async function lifetimeOrder({
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
     await posthogCaptureEvent(email, "Upgraded to lifetime plan", {
+      ...payload.data.attributes,
+      $set: { premium: true, premiumTier: "lifetime" },
+    });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+async function lifetimeSeatOrder({
+  payload,
+  premiumId,
+}: {
+  payload: Payload;
+  premiumId: string;
+}) {
+  if (!payload.data.attributes.first_order_item)
+    throw new Error("No order item");
+
+  const updatedPremium = await editEmailAccountsAccess({
+    premiumId,
+    count: payload.data.attributes.first_order_item.quantity,
+  });
+
+  const email = updatedPremium && getEmailFromPremium(updatedPremium);
+  if (email) {
+    await posthogCaptureEvent(email, "Added seats to lifetime plan", {
       ...payload.data.attributes,
       $set: { premium: true, premiumTier: "lifetime" },
     });

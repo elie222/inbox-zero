@@ -117,7 +117,7 @@ model Premium {
   // feature access
   coldEmailBlockerAccess FeatureAccess?
   aiAutomationAccess     FeatureAccess?
-  // emailAccountsAccess    Int?
+  emailAccountsAccess    Int? // only used for lifetime
 
   // unsubscribe/ai credits
   // if `unsubscribeMonth` not set to this month, set to current month

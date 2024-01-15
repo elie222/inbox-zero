@@ -16,6 +16,7 @@ import {
   frequencies,
   lifetimeFeatures,
   pricing,
+  pricingAdditonalEmail,
   tiers,
 } from "@/app/(app)/premium/config";
 
@@ -284,7 +285,8 @@ function LifetimePricing(props: {
                 {hasLifetime ? "Current plan" : "Get lifetime access"}
               </a>
               <p className="mt-6 text-xs leading-5 text-gray-600">
-                Invoices and receipts available for easy company reimbursement
+                {pricingAdditonalEmail[PremiumTier.LIFETIME]} per additional
+                email address
               </p>
             </div>
           </div>

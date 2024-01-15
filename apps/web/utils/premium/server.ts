@@ -81,3 +81,24 @@ export async function cancelPremium(options: {
     },
   });
 }
+
+export async function editEmailAccountsAccess(options: {
+  premiumId: string;
+  count: number;
+}) {
+  const { count } = options;
+  if (!count) return;
+
+  return await prisma.premium.update({
+    where: { id: options.premiumId },
+    data: {
+      emailAccountsAccess:
+        count > 0 ? { increment: count } : { decrement: count },
+    },
+    select: {
+      users: {
+        select: { email: true },
+      },
+    },
+  });
+}

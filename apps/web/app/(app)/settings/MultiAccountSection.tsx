@@ -21,6 +21,8 @@ import { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-accoun
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
 import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
+import { PremiumTier } from "@prisma/client";
+import { env } from "@/env.mjs";
 
 export function MultiAccountSection() {
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
@@ -60,6 +62,12 @@ export function MultiAccountSection() {
                 <div className="mt-4">
                   <MultiAccountForm
                     emailAddresses={data.users as { email: string }[]}
+                    isLifetime={
+                      dataPremium?.premium?.tier === PremiumTier.LIFETIME
+                    }
+                    emailAccountsAccess={
+                      dataPremium?.premium?.emailAccountsAccess || 0
+                    }
                   />
                 </div>
               </div>
@@ -82,8 +90,12 @@ export function MultiAccountSection() {
 
 function MultiAccountForm({
   emailAddresses,
+  isLifetime,
+  emailAccountsAccess,
 }: {
   emailAddresses: { email: string }[];
+  isLifetime: boolean;
+  emailAccountsAccess: number;
 }) {
   const {
     register,
@@ -97,9 +109,19 @@ function MultiAccountForm({
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    name: "emailAddresses",
+    control,
+  });
+  const posthog = usePostHog();
+
+  const extraSeats = fields.length - emailAccountsAccess - 1;
+  const needsToPurchaseMoreSeats = isLifetime && extraSeats > 0;
+
   const onSubmit: SubmitHandler<SaveMultiAccountPremiumBody> = useCallback(
     async (data) => {
       if (!data.emailAddresses) return;
+      if (needsToPurchaseMoreSeats) return;
 
       try {
         await updateMultiAccountPremium(
@@ -115,14 +137,8 @@ function MultiAccountForm({
         });
       }
     },
-    [],
+    [needsToPurchaseMoreSeats],
   );
-
-  const { fields, append, remove } = useFieldArray({
-    name: "emailAddresses",
-    control,
-  });
-  const posthog = usePostHog();
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -153,9 +169,22 @@ function MultiAccountForm({
         })}
       </div>
 
-      <Button type="submit" loading={isSubmitting}>
-        Save
-      </Button>
+      {needsToPurchaseMoreSeats ? (
+        <Button
+          type="button"
+          loading={isSubmitting}
+          link={{
+            href: `${env.NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_PAYMENT_LINK}?quantity=${extraSeats}`,
+            target: "_blank",
+          }}
+        >
+          Purchase {extraSeats} Extra Seat{extraSeats > 1 ? "s" : ""}
+        </Button>
+      ) : (
+        <Button type="submit" loading={isSubmitting}>
+          Save
+        </Button>
+      )}
     </form>
   );
 }

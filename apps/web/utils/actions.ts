@@ -361,7 +361,6 @@ export async function updateMultiAccountPremium(emails: string[]) {
     );
   }
 
-  // TODO what about lifetime plans?
   await updateSubscriptionItemQuantity({
     id: premium.lemonSqueezySubscriptionItemId,
     quantity: otherUsersToAdd.length + 1,
