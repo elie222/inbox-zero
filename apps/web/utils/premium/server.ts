@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { PremiumTier } from "@prisma/client";
+import { FeatureAccess, PremiumTier } from "@prisma/client";
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
@@ -26,9 +26,13 @@ export async function upgradeToPremium(options: {
     select: { premiumId: true },
   });
 
+  const accessLevel = getAccessLevelFromTier(options.tier);
+
   const data = {
     ...rest,
     lemonSqueezyRenewsAt,
+    aiAutomationAccess: accessLevel,
+    coldEmailBlockerAccess: accessLevel,
   };
 
   if (user.premiumId) {
@@ -73,6 +77,8 @@ export async function cancelPremium(options: {
     where: { id: options.premiumId },
     data: {
       lemonSqueezyRenewsAt: options.lemonSqueezyEndsAt,
+      aiAutomationAccess: null,
+      coldEmailBlockerAccess: null,
     },
     select: {
       users: {
@@ -101,4 +107,18 @@ export async function editEmailAccountsAccess(options: {
       },
     },
   });
+}
+
+function getAccessLevelFromTier(tier: PremiumTier): FeatureAccess {
+  switch (tier) {
+    case PremiumTier.PRO_MONTHLY:
+    case PremiumTier.PRO_ANNUALLY:
+      return FeatureAccess.UNLOCKED_WITH_API_KEY;
+    case PremiumTier.BUSINESS_MONTHLY:
+    case PremiumTier.BUSINESS_ANNUALLY:
+    case PremiumTier.LIFETIME:
+      return FeatureAccess.UNLOCKED;
+    default:
+      throw new Error(`Unknown premium tier: ${tier}`);
+  }
 }
