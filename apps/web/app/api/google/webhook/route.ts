@@ -13,7 +13,7 @@ import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
 import { isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@prisma/client";
+import { ColdEmailSetting, FeatureAccess } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 
 export const dynamic = "force-dynamic";
@@ -45,14 +45,50 @@ export const POST = withError(async (request: Request) => {
           coldEmailPrompt: true,
           aiModel: true,
           openAIApiKey: true,
-          premium: { select: { lemonSqueezyRenewsAt: true } },
+          premium: {
+            select: {
+              lemonSqueezyRenewsAt: true,
+              coldEmailBlockerAccess: true,
+              aiAutomationAccess: true,
+            },
+          },
         },
       },
     },
   });
-  if (!account) return NextResponse.json({ ok: true });
-  if (!isPremium(account.user.premium?.lemonSqueezyRenewsAt || null))
+
+  if (!account) {
+    console.error("Google webhook: Account not found");
     return NextResponse.json({ ok: true });
+  }
+
+  const premium = isPremium(account.user.premium?.lemonSqueezyRenewsAt || null)
+    ? account.user.premium
+    : undefined;
+
+  if (!premium) {
+    console.log("Google webhook: Account not premium");
+    return NextResponse.json({ ok: true });
+  }
+
+  const coldEmailBlockerAccess = premium.coldEmailBlockerAccess;
+  const aiAutomationAccess = premium.aiAutomationAccess;
+
+  const hasColdEmailAccess = !!(
+    coldEmailBlockerAccess === FeatureAccess.UNLOCKED ||
+    (coldEmailBlockerAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
+      account.user.openAIApiKey)
+  );
+
+  const hasAiAccess = !!(
+    aiAutomationAccess === FeatureAccess.UNLOCKED ||
+    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
+      account.user.openAIApiKey)
+  );
+
+  const hasAiOrColdEmailAccess = hasColdEmailAccess || hasAiAccess;
+
+  if (!hasAiOrColdEmailAccess) return NextResponse.json({ ok: true });
 
   const hasAutomationRules = account.user.rules.length > 0;
   const shouldBlockColdEmails =
@@ -117,6 +153,8 @@ export const POST = withError(async (request: Request) => {
         hasAutomationRules,
         coldEmailPrompt: account.user.coldEmailPrompt,
         coldEmailBlocker: account.user.coldEmailBlocker,
+        hasColdEmailAccess: hasColdEmailAccess,
+        hasAiAutomationAccess: hasAiAccess,
       });
     } else {
       console.log("Webhook: No history");
@@ -188,6 +226,8 @@ type ProcessHistoryOptions = {
   hasAutomationRules: boolean;
   coldEmailBlocker: ColdEmailSetting | null;
   coldEmailPrompt: string | null;
+  hasColdEmailAccess: boolean;
+  hasAiAutomationAccess: boolean;
 } & UserAIFields;
 
 async function processHistory(options: ProcessHistoryOptions) {
@@ -245,7 +285,8 @@ async function processHistoryItem(
 
     if (
       options.coldEmailBlocker &&
-      options.coldEmailBlocker !== ColdEmailSetting.DISABLED
+      options.coldEmailBlocker !== ColdEmailSetting.DISABLED &&
+      options.hasColdEmailAccess
     ) {
       const unsubscribeLink =
         findUnsubscribeLink(parsedMessage.textHtml) ||
@@ -274,7 +315,7 @@ async function processHistoryItem(
       });
     }
 
-    if (options.hasAutomationRules) {
+    if (options.hasAutomationRules && options.hasAiAutomationAccess) {
       console.log("Plan or act on message...");
 
       if (
