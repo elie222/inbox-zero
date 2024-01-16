@@ -5,7 +5,7 @@
     <h1 align="center">Inbox Zero</h1>
   </a>
   <p align="center">
-    Open source email management tools to reach inbox zero fast.
+    Open source email app to reach inbox zero fast.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
