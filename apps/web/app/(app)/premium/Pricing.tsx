@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
 import clsx from "clsx";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { env } from "@/env.mjs";
@@ -21,10 +22,13 @@ import {
   tiers,
 } from "@/app/(app)/premium/config";
 
-function attachUserId(url: string, userId?: string) {
-  if (!userId) return url;
+function attachUserInfo(
+  url: string,
+  user?: { id: string; email?: string | null; name?: string | null },
+) {
+  if (!user) return url;
 
-  return `${url}?checkout[custom][user_id]=${userId}`;
+  return `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
 }
 
 function useAffiliateCode() {
@@ -41,6 +45,7 @@ function buildLemonUrl(url: string, affiliateCode: string | null) {
 
 export function Pricing() {
   const { isPremium, data, isLoading, error } = usePremium();
+  const session = useSession();
 
   const [frequency, setFrequency] = useState(frequencies[0]);
 
@@ -114,7 +119,16 @@ export function Pricing() {
               ? "#"
               : buildLemonUrl(
                   tier.checkout
-                    ? attachUserId(tier.href[frequency.value], data?.id)
+                    ? attachUserInfo(
+                        tier.href[frequency.value],
+                        session.data
+                          ? {
+                              id: session.data.user.id,
+                              email: session.data.user.email,
+                              name: session.data.user.name,
+                            }
+                          : undefined,
+                      )
                     : tier.href[frequency.value],
                   affiliateCode,
                 );
@@ -207,7 +221,7 @@ export function Pricing() {
         </div>
 
         <LifetimePricing
-          userId={data?.id}
+          user={session.data?.user}
           affiliateCode={affiliateCode}
           premiumTier={premiumTier}
         />
@@ -217,7 +231,7 @@ export function Pricing() {
 }
 
 function LifetimePricing(props: {
-  userId?: string;
+  user?: { id: string; email?: string | null; name?: string | null };
   affiliateCode: string | null;
   premiumTier?: PremiumTier | null;
 }) {
@@ -278,9 +292,9 @@ function LifetimePricing(props: {
                   hasLifetime
                     ? "#"
                     : buildLemonUrl(
-                        attachUserId(
+                        attachUserInfo(
                           env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
-                          props.userId,
+                          props.user,
                         ),
                         props.affiliateCode,
                       )
