@@ -5,7 +5,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
-      "contentlayer/generated": ["./.contentlayer/generated"]
+      "contentlayer/generated": ["./.contentlayer/generated"],
+      "@next/third-parties/google": ["./node_modules/@next/third-parties/dist/google"]
     }
   },
   "include": [

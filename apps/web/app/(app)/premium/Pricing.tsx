@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon } from "lucide-react";
 import clsx from "clsx";
+import { sendGTMEvent } from "@next/third-parties/google";
 import { env } from "@/env.mjs";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
@@ -192,6 +193,11 @@ export function Pricing() {
                       : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
                     "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
                   )}
+                  onClick={() => {
+                    if (tier.price.monthly !== "$0" && env.NEXT_PUBLIC_GTM_ID) {
+                      sendGTMEvent({ event: "Begin checkout", value: 1 });
+                    }
+                  }}
                 >
                   {isCurrentPlan ? "Current plan" : tier.cta}
                 </a>
@@ -279,6 +285,11 @@ function LifetimePricing(props: {
                         props.affiliateCode,
                       )
                 }
+                onClick={() => {
+                  if (env.NEXT_PUBLIC_GTM_ID) {
+                    sendGTMEvent({ event: "Begin checkout", value: 5 });
+                  }
+                }}
                 target="_blank"
                 className="mt-10 block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >

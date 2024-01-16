@@ -67,6 +67,7 @@ export const env = createEnv({
       .string()
       .optional()
       .default("elie@getinboxzero.com"),
+    NEXT_PUBLIC_GTM_ID: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -111,5 +112,6 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+    NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
   },
 });
