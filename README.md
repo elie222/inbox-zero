@@ -1,3 +1,5 @@
+[![](apps/web/app/opengraph-image.png)](https://www.getinboxzero.com)
+
 <p align="center">
   <a href="https://www.getinboxzero.com">
     <h1 align="center">Inbox Zero</h1>
@@ -17,7 +19,7 @@
 
 ## About
 
-Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. It streamlines your email management, helping you achieve 'Inbox Zero' swiftly with features like email analytics, newsletter management, and AI assistance. Enhance your email experience without replacing your client!
+Inbox Zero is an open-source email app whose goal is to help you reach inbox zero fast with AI assistance.
 
 ## Demo Video
 
@@ -25,13 +27,12 @@ Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. I
 
 ## Key Features
 
+- **Newsletter Cleaner:** Easily manage and unsubscribe from newsletters.
+- **AI Assistant:** Auto respond, archive, label, and forward emails based on plain text prompt rules.
 - **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
-- **Newsletter Management:** Easily manage and unsubscribe from newsletters.
 - **New Senders:** Identify and block new spam senders.
 - **Unreplied Emails:** Keep track of emails awaiting responses.
 - **Large Email Finder:** Free up space by locating and deleting large emails.
-- **AI Auto-Responder:** Automate responses for common queries.
-- **AI Email Assistant:** Auto-archive, label, and forward emails based on set rules.
 
 ## Built with
 
