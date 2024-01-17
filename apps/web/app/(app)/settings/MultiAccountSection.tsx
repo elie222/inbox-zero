@@ -23,6 +23,7 @@ import { usePremium } from "@/components/PremiumAlert";
 import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { env } from "@/env.mjs";
+import { getUserTier } from "@/utils/premium";
 
 export function MultiAccountSection() {
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
@@ -34,6 +35,8 @@ export function MultiAccountSection() {
     isLoading: isLoadingPremium,
     error: errorPremium,
   } = usePremium();
+
+  const premiumTier = getUserTier(dataPremium?.premium);
 
   return (
     <FormSection>
@@ -47,13 +50,13 @@ export function MultiAccountSection() {
           <LoadingContent loading={isLoading} error={error}>
             {data && (
               <div>
-                {dataPremium?.premium?.tier && (
+                {premiumTier && (
                   <AlertBasic
                     title="Extra email price"
                     description={`You are on the ${capitalCase(
-                      dataPremium.premium.tier,
+                      premiumTier,
                     )} plan. You will be billed ${
-                      pricingAdditonalEmail[dataPremium.premium.tier]
+                      pricingAdditonalEmail[premiumTier]
                     } for each extra email you add to your account.`}
                     icon={<CrownIcon className="h-4 w-4" />}
                   />

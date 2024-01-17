@@ -12,7 +12,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Tag } from "@/components/Tag";
 import { Button } from "@/components/Button";
-import { getUserPlan } from "@/utils/premium";
+import { getUserTier } from "@/utils/premium";
 import { PremiumTier } from "@prisma/client";
 import {
   frequencies,
@@ -50,8 +50,7 @@ export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
 
   const affiliateCode = useAffiliateCode();
-  const premiumTier =
-    data?.premium?.tier || getUserPlan(data?.premium?.lemonSqueezyRenewsAt);
+  const premiumTier = getUserTier(data?.premium);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
