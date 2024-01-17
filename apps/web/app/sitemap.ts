@@ -15,6 +15,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.getinboxzero.com/email-analytics",
     },
     {
+      url: "https://www.getinboxzero.com/block-cold-emails",
+    },
+    {
       url: "https://www.getinboxzero.com/new-email-senders",
     },
     {
