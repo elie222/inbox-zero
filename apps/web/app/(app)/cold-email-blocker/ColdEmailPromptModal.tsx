@@ -22,7 +22,7 @@ export function ColdEmailPromptModal(props: {
 
   return (
     <>
-      <Button onClick={() => openModal()} type="button" color="white">
+      <Button onClick={openModal} type="button" color="white">
         <PenIcon className="mr-2 h-4 w-4" />
         Edit Prompt
       </Button>

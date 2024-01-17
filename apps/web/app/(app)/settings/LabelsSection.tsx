@@ -339,7 +339,7 @@ function AddLabelModal() {
 
   return (
     <>
-      <Button onClick={() => openModal()}>Add Label</Button>
+      <Button onClick={openModal}>Add Label</Button>
       <Modal isOpen={isModalOpen} hideModal={closeModal} title="Add Label">
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
