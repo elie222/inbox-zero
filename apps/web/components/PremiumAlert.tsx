@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import useSWR from "swr";
 import { CrownIcon } from "lucide-react";
@@ -24,14 +26,21 @@ export function usePremium() {
   };
 }
 
-export function PremiumAlert() {
+export function PremiumAlert({
+  plan = "Inbox Zero Business",
+}: {
+  plan?: "Inbox Zero Business" | "Inbox Zero Pro";
+}) {
   return (
     <AlertWithButton
       title="Premium"
       description={
         <>
-          This is a premium feature. Upgrade to premium or set an OpenAI API key
-          on the{" "}
+          This is a premium feature.{" "}
+          <Link href="/premium" className="font-semibold hover:text-gray-700">
+            Upgrade
+          </Link>{" "}
+          to {plan} or set an OpenAI API key on the{" "}
           <Link href="/settings" className="font-semibold hover:text-gray-700">
             settings
           </Link>{" "}
