@@ -12,6 +12,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Tag } from "@/components/Tag";
 import { Button } from "@/components/Button";
+import { Button as ShadcnButton } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
 import { PremiumTier } from "@prisma/client";
 import {
@@ -21,6 +22,9 @@ import {
   pricingAdditonalEmail,
   tiers,
 } from "@/app/(app)/premium/config";
+import { AlertBasic, AlertWithButton } from "@/components/Alert";
+import { capitalCase } from "capital-case";
+import Link from "next/link";
 
 function attachUserInfo(
   url: string,
@@ -81,6 +85,26 @@ export function Pricing() {
               <CreditCardIcon className="mr-2 h-4 w-4" />
               Manage subscription
             </Button>
+
+            {premiumTier && (
+              <div className="mx-auto mt-4 max-w-md">
+                <AlertWithButton
+                  variant="blue"
+                  title="Add extra users to your account!"
+                  description={`You can upgrade extra emails to ${capitalCase(
+                    premiumTier,
+                  )} for ${pricingAdditonalEmail[premiumTier]} per email!`}
+                  icon={null}
+                  button={
+                    <div className="ml-4 whitespace-nowrap">
+                      <ShadcnButton asChild variant="blue">
+                        <Link href="/settings#manage-users">Add users</Link>
+                      </ShadcnButton>
+                    </div>
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
 

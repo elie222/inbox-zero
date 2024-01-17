@@ -39,7 +39,7 @@ export function MultiAccountSection() {
   const premiumTier = getUserTier(dataPremium?.premium);
 
   return (
-    <FormSection>
+    <FormSection id="manage-users">
       <FormSectionLeft
         title="Share Premium"
         description="Share premium with other email accounts. This does not give other accounts access to read your emails."
