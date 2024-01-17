@@ -39,8 +39,10 @@ ALTER TABLE "User" ADD CONSTRAINT "User_premiumId_fkey" FOREIGN KEY ("premiumId"
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Step 1: Migrate data from User to Premium
+-- Using the same id for Premium and User only for the initial migration
 INSERT INTO "Premium" (
-    "id", 
+    "id",
+    "updatedAt",
     "lemonSqueezyCustomerId",
     "lemonSqueezySubscriptionId",
     "lemonSqueezyRenewsAt",
@@ -48,7 +50,8 @@ INSERT INTO "Premium" (
     "unsubscribeCredits"
 )
 SELECT 
-    uuid_generate_v4(),
+    "User".id,
+    CURRENT_TIMESTAMP,
     "User"."lemonSqueezyCustomerId",
     CASE 
         WHEN "User"."lemonSqueezySubscriptionId" ~ '^\d+$' THEN CAST("User"."lemonSqueezySubscriptionId" AS INTEGER)
@@ -64,14 +67,7 @@ UPDATE "User"
 SET "premiumId" = (
     SELECT "Premium"."id"
     FROM "Premium"
-    WHERE "Premium"."lemonSqueezyCustomerId" = "User"."lemonSqueezyCustomerId"
-      AND "Premium"."lemonSqueezySubscriptionId" = CASE 
-          WHEN "User"."lemonSqueezySubscriptionId" ~ '^\d+$' THEN CAST("User"."lemonSqueezySubscriptionId" AS INTEGER)
-          ELSE NULL 
-      END
-      AND "Premium"."lemonSqueezyRenewsAt" = "User"."lemonSqueezyRenewsAt"
-      AND "Premium"."unsubscribeMonth" = "User"."unsubscribeMonth"
-      AND "Premium"."unsubscribeCredits" = "User"."unsubscribeCredits"
+    WHERE "Premium"."id" = "User"."id"
 );
 
 DROP EXTENSION "uuid-ossp";
