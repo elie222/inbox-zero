@@ -64,26 +64,18 @@ model User {
   coldEmailBlocker    ColdEmailSetting?
   coldEmailPrompt     String?
 
-  // // lemon squeezy
-  // lemonSqueezyCustomerId     Int?
-  // lemonSqueezySubscriptionId String?
-  // lemonSqueezyRenewsAt       DateTime?
-  // lemonSqueezyProductId      Int?
-
-  // premiumTier PremiumTier?
-
-  // // feature access
-  // coldEmailBlockerAccess FeatureAccess?
-  // aiAutomationAccess     FeatureAccess?
-  // emailAccountsAccess    Int?
-
-  // // unsubscribe/ai credits
-  // // if `unsubscribeMonth` not set to this month, set to current month
-  // // reset `unsubscribeCredits` each time month is changed
-  // unsubscribeMonth   Int? // 1-12
-  // unsubscribeCredits Int?
-  // aiMonth            Int? // 1-12
-  // aiCredits          Int? // 100_00 = $100 of credits
+  // ========DEPRECATED
+  // has moved to Premium. Will delete after users have been migrated successfully
+  // lemon squeezy
+  lemonSqueezyCustomerId     Int?
+  lemonSqueezySubscriptionId String?
+  lemonSqueezyRenewsAt       DateTime?
+  // unsubscribe credits
+  // if `unsubscribeMonth` not set to this month, set to current month
+  // reset `unsubscribeCredits` each time month is changed
+  unsubscribeMonth   Int? // 1-12
+  unsubscribeCredits Int?
+  // ========END DEPRECATED
 
   // premium can be shared among multiple users
   premiumId String?
