@@ -1,12 +1,8 @@
+import { type gmail_v1 } from "googleapis";
 import { getBatch } from "@/utils/gmail/batch";
-import { gmail_v1 } from "googleapis";
 
 export async function getThread(threadId: string, gmail: gmail_v1.Gmail) {
-  const thread = await gmail.users.threads.get({
-    userId: "me",
-    id: threadId,
-  });
-
+  const thread = await gmail.users.threads.get({ userId: "me", id: threadId });
   return thread.data;
 }
 
@@ -21,4 +17,18 @@ export async function getThreadsBatch(
   );
 
   return batch;
+}
+
+export async function getThreadsFromSenders(
+  gmail: gmail_v1.Gmail,
+  senders: string[],
+) {
+  if (!senders.length) return [];
+  let query = senders.map((sender) => `from:${sender}`).join(" OR ");
+  const response = await gmail.users.messages.list({
+    userId: "me",
+    q: query,
+  });
+
+  return response.data.messages;
 }

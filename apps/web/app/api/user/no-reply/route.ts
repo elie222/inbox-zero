@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { type gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { gmail_v1 } from "googleapis";
 import { getGmailClient } from "@/utils/gmail/client";
 import { MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";

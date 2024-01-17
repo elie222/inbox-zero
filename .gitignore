@@ -36,10 +36,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-
-# contentlayer
-.contentlayer
-
 .turbo
 dist
 .next

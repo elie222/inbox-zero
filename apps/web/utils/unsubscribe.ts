@@ -12,7 +12,8 @@ export function findUnsubscribeLink(html?: string | null) {
       text.includes("unsubscribe") ||
       text.includes("email preferences") ||
       text.includes("email settings") ||
-      text.includes("email options")
+      text.includes("email options") ||
+      text.includes("notification preferences")
     ) {
       unsubscribeLink = $(element).attr("href");
       // console.debug(

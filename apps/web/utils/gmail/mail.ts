@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import MailComposer from "nodemailer/lib/mail-composer";
 import Mail from "nodemailer/lib/mailer";
 

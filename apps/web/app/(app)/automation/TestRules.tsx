@@ -102,10 +102,9 @@ const TestRulesForm = () => {
 
     if (isError(res)) {
       console.error(res);
-      toastError({ description: `Error planning` });
+      toastError({ description: `Error checking email.` });
     } else {
       setPlan(res);
-      toastSuccess({ description: `Plan created!` });
     }
   }, []);
 
@@ -146,7 +145,7 @@ function TestRulesContentRow(props: {
 
   return (
     <div className="border-b border-gray-200">
-      <div className="flex items-center justify-between py-4">
+      <div className="flex items-center justify-between py-2">
         <div className="min-w-0 break-words">
           <MessageText className="font-bold">
             {message.parsedMessage.headers.subject}
@@ -164,6 +163,7 @@ function TestRulesContentRow(props: {
                 toastError({
                   description: `Unable to plan email. No plain text found.`,
                 });
+                setPlanning(false);
                 return;
               }
 
@@ -206,7 +206,7 @@ function TestRulesContentRow(props: {
           </Button>
         </div>
       </div>
-      <div>
+      <div className="pb-4">
         <Plan plan={plan} />
       </div>
     </div>

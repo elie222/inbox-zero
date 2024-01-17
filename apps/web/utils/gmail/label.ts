@@ -1,4 +1,4 @@
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 
 export async function labelThread(options: {
   gmail: gmail_v1.Gmail;
@@ -13,5 +13,20 @@ export async function labelThread(options: {
     requestBody: {
       addLabelIds: [labelId],
     },
+  });
+}
+
+export async function labelMessage(options: {
+  gmail: gmail_v1.Gmail;
+  messageId: string;
+  addLabelIds?: string[];
+  removeLabelIds?: string[];
+}) {
+  const { gmail, messageId, addLabelIds, removeLabelIds } = options;
+
+  return gmail.users.messages.modify({
+    userId: "me",
+    id: messageId,
+    requestBody: { addLabelIds, removeLabelIds },
   });
 }
