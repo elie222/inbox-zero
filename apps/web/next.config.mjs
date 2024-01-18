@@ -22,6 +22,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "ph-avatars.imgix.net",
       },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
   },
   async redirects() {

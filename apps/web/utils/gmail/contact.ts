@@ -1,9 +1,15 @@
 import { people_v1 } from "googleapis";
 
 export async function searchContacts(client: people_v1.People, query: string) {
+  const readMasks: (keyof people_v1.Schema$Person)[] = [
+    "names",
+    "emailAddresses",
+    "photos",
+  ];
+
   const res = await client.people.searchContacts({
     query,
-    readMask: "names,emailAddresses",
+    readMask: readMasks.join(","),
     pageSize: 10,
   });
 

@@ -21,6 +21,7 @@ export interface InputProps {
   leftText?: string;
   rightText?: string;
   condensed?: boolean;
+  className?: string;
   onClickAdd?: () => void;
   onClickRemove?: () => void;
 }
@@ -40,6 +41,7 @@ export const Input = (props: InputProps) => {
     max: props.max,
     step: props.step,
     disabled: props.disabled,
+    className: props.className,
     ...props.registerProps,
   };
 
