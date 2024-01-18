@@ -31,6 +31,7 @@ import { isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
+import { captureException } from "@/utils/error";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -82,16 +83,21 @@ export async function deleteAccountAction() {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
-  await Promise.all([
-    deleteUserLabels({ email: session.user.email }),
-    deleteInboxZeroLabels({ email: session.user.email }),
-    deletePlans({ userId: session.user.id }),
-    deleteUserStats({ email: session.user.email }),
-    deleteTinybirdEmails({ email: session.user.email }),
-    deletePosthogUser({ email: session.user.email }),
-    deleteLoopsContact(session.user.email),
-    deleteResendContact({ email: session.user.email }),
-  ]);
+  try {
+    await Promise.allSettled([
+      deleteUserLabels({ email: session.user.email }),
+      deleteInboxZeroLabels({ email: session.user.email }),
+      deletePlans({ userId: session.user.id }),
+      deleteUserStats({ email: session.user.email }),
+      deleteTinybirdEmails({ email: session.user.email }),
+      deletePosthogUser({ email: session.user.email }),
+      deleteLoopsContact(session.user.email),
+      deleteResendContact({ email: session.user.email }),
+    ]);
+  } catch (error) {
+    console.error("Error while deleting account: ", error);
+    captureException(error);
+  }
 
   await prisma.user.delete({ where: { email: session.user.email } });
 }
