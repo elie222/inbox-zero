@@ -14,5 +14,6 @@ Emails that are NOT cold emails include:
 - Promotions
 - Alerts
 - Updates
+- Calendar invites
 
 Most emails are not cold emails, even if they are annoying.`;
