@@ -1,8 +1,7 @@
 {
   "name": "@inboxzero/resend",
   "version": "0.0.0",
-  "main": "src/index.tsx",
-  "license": "MIT",
+  "main": "src/index.ts",
   "scripts": {
     "dev": "email dev --port 3010"
   },
