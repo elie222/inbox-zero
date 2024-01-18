@@ -28,8 +28,10 @@ export function usePremium() {
 
 export function PremiumAlert({
   plan = "Inbox Zero Business",
+  showSetApiKey,
 }: {
   plan?: "Inbox Zero Business" | "Inbox Zero Pro";
+  showSetApiKey: boolean;
 }) {
   return (
     <AlertWithButton
@@ -40,11 +42,22 @@ export function PremiumAlert({
           <Link href="/premium" className="font-semibold hover:text-gray-700">
             Upgrade
           </Link>{" "}
-          to {plan} or set an OpenAI API key on the{" "}
-          <Link href="/settings" className="font-semibold hover:text-gray-700">
-            settings
-          </Link>{" "}
-          page.
+          to {plan}
+          {showSetApiKey ? (
+            <>
+              {" "}
+              or set an OpenAI API key on the{" "}
+              <Link
+                href="/settings"
+                className="font-semibold hover:text-gray-700"
+              >
+                settings
+              </Link>{" "}
+              page.
+            </>
+          ) : (
+            <>.</>
+          )}
         </>
       }
       icon={<CrownIcon className="h-4 w-4" />}

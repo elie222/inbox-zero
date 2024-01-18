@@ -4,9 +4,15 @@ import { ColdEmailList } from "@/app/(app)/cold-email-blocker/ColdEmailList";
 import { ColdEmailSettings } from "@/app/(app)/cold-email-blocker/ColdEmailSettings";
 import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
 import { TopSection } from "@/components/TopSection";
+import { PremiumTier } from "@prisma/client";
 
 export default function ColdEmailBlockerPage() {
-  const { isPremium, isLoading } = usePremium();
+  const { isPremium, isLoading, data } = usePremium();
+
+  const isProPlanWithoutApiKey =
+    (data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
+      data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    !data?.openAIApiKey;
 
   return (
     <div>
@@ -14,9 +20,9 @@ export default function ColdEmailBlockerPage() {
         title="Cold Email Blocker"
         descriptionComponent={
           <>
-            {!isPremium && !isLoading && (
+            {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
               <div className="mt-4">
-                <PremiumAlert />
+                <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
               </div>
             )}
           </>

@@ -88,14 +88,21 @@ export const POST = withError(async (request: Request) => {
 
   const hasAiOrColdEmailAccess = hasColdEmailAccess || hasAiAccess;
 
-  if (!hasAiOrColdEmailAccess) return NextResponse.json({ ok: true });
+  if (!hasAiOrColdEmailAccess) {
+    console.debug("Google webhook: !hasAiOrColdEmailAccess");
+    return NextResponse.json({ ok: true });
+  }
 
   const hasAutomationRules = account.user.rules.length > 0;
   const shouldBlockColdEmails =
     account.user.coldEmailBlocker &&
     account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
-  if (!hasAutomationRules && !shouldBlockColdEmails)
+  if (!hasAutomationRules && !shouldBlockColdEmails) {
+    console.debug(
+      "Google webhook: !hasAutomationRules && !shouldBlockColdEmails",
+    );
     return NextResponse.json({ ok: true });
+  }
 
   if (!account.access_token || !account.refresh_token) {
     console.error(
@@ -120,12 +127,12 @@ export const POST = withError(async (request: Request) => {
       account.providerAccountId,
     );
 
-    console.log("Webhook: Listing history...");
-
     const startHistoryId = Math.max(
       parseInt(account.user.lastSyncedHistoryId || "0"),
       historyId - 100, // avoid going too far back
     ).toString();
+
+    console.log("Webhook: Listing history... Start:", startHistoryId);
 
     const history = await listHistory(
       {

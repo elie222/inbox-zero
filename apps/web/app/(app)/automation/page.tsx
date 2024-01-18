@@ -11,12 +11,18 @@ import { Planned } from "@/app/(app)/automation/Planned";
 import { PlanHistory } from "@/app/(app)/automation/PlanHistory";
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PremiumTier } from "@prisma/client";
 
 export default function PlannedPage() {
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "history";
 
-  const { isPremium, isLoading } = usePremium();
+  const { isPremium, isLoading, data } = usePremium();
+
+  const isProPlanWithoutApiKey =
+    (data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
+      data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    !data?.openAIApiKey;
 
   const [expandRules, setExpandRules] = useLocalStorage(
     "automationRulesExpanded",
@@ -55,9 +61,9 @@ export default function PlannedPage() {
                     actually doing anything. Alternatively, activate automated
                     mode to enable the AI to automatically process your emails.
                   </SectionDescription>
-                  {!isPremium && !isLoading && (
+                  {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
                     <div className="mt-4">
-                      <PremiumAlert />
+                      <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
                     </div>
                   )}
                 </>
