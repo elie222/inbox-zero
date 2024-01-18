@@ -6,16 +6,22 @@ import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
 import { TopSection } from "@/components/TopSection";
 
 export default function ColdEmailBlockerPage() {
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading } = usePremium();
 
   return (
     <div>
-      <TopSection title="Cold Email Blocker" />
-      {!isPremium && (
-        <div className="p-2">
-          <PremiumAlert />
-        </div>
-      )}
+      <TopSection
+        title="Cold Email Blocker"
+        descriptionComponent={
+          <>
+            {!isPremium && !isLoading && (
+              <div className="mt-4">
+                <PremiumAlert />
+              </div>
+            )}
+          </>
+        }
+      />
       <div className="border-b border-gray-200 bg-white px-4 py-6 shadow-sm sm:px-6 lg:px-8">
         <ColdEmailSettings />
       </div>

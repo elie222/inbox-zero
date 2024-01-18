@@ -16,7 +16,7 @@ export default function PlannedPage() {
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "history";
 
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading } = usePremium();
 
   const [expandRules, setExpandRules] = useLocalStorage(
     "automationRulesExpanded",
@@ -55,7 +55,7 @@ export default function PlannedPage() {
                     actually doing anything. Alternatively, activate automated
                     mode to enable the AI to automatically process your emails.
                   </SectionDescription>
-                  {!isPremium && (
+                  {!isPremium && !isLoading && (
                     <div className="mt-4">
                       <PremiumAlert />
                     </div>
