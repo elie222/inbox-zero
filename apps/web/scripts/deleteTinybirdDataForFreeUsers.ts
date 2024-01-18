@@ -12,10 +12,14 @@ async function main() {
     where: {
       OR: [
         {
-          lemonSqueezyRenewsAt: null,
+          premium: {
+            lemonSqueezyRenewsAt: null,
+          },
         },
         {
-          lemonSqueezyRenewsAt: { lt: new Date() },
+          premium: {
+            lemonSqueezyRenewsAt: { lt: new Date() },
+          },
         },
       ],
     },
