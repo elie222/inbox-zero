@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import { deleteContact } from "@inboxzero/loops";
+import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
+import { deleteContact as deleteResendContact } from "@inboxzero/resend";
 import {
   createFilterFromPrompt,
   type PromptQuery,
@@ -81,13 +82,16 @@ export async function deleteAccountAction() {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
-  await deleteUserLabels({ email: session.user.email });
-  await deleteInboxZeroLabels({ email: session.user.email });
-  await deletePlans({ userId: session.user.id });
-  await deleteUserStats({ email: session.user.email });
-  await deleteTinybirdEmails({ email: session.user.email });
-  await deletePosthogUser({ email: session.user.email });
-  await deleteContact(session.user.email);
+  await Promise.all([
+    deleteUserLabels({ email: session.user.email }),
+    deleteInboxZeroLabels({ email: session.user.email }),
+    deletePlans({ userId: session.user.id }),
+    deleteUserStats({ email: session.user.email }),
+    deleteTinybirdEmails({ email: session.user.email }),
+    deletePosthogUser({ email: session.user.email }),
+    deleteLoopsContact(session.user.email),
+    deleteResendContact({ email: session.user.email }),
+  ]);
 
   await prisma.user.delete({ where: { email: session.user.email } });
 }
