@@ -46,6 +46,7 @@
     "@tremor/react": "^3.13.2",
     "@types/mdx": "^2.0.10",
     "@upstash/redis": "^1.28.1",
+    "@vercel/analytics": "^1.1.2",
     "@vercel/speed-insights": "^1.0.5",
     "ai": "^2.2.31",
     "bull": "^4.12.2",
