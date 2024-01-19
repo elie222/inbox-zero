@@ -30,7 +30,9 @@ export function Hero(props: {
 
           <div className="mx-auto max-w-xl text-center">
             {/* <HeroText>{props.title || <HeroHeadingAB />}</HeroText> */}
-            <HeroText>Clean Up Your Inbox In Minutes</HeroText>
+            <HeroText>
+              {props.title || "Clean Up Your Inbox In Minutes"}
+            </HeroText>
             <HeroSubtitle>
               {props.subtitle || (
                 <>

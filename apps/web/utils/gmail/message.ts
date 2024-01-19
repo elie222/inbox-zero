@@ -1,4 +1,4 @@
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload } from "@/utils/types";
 import { getBatch } from "@/utils/gmail/batch";

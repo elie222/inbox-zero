@@ -16,10 +16,12 @@ export function ColdEmailList() {
         <EmailList
           threads={data.result || []}
           emptyMessage={
-            <AlertBasic
-              title="No cold emails!"
-              description={`We haven't marked any of your emails as cold emails yet!`}
-            />
+            <div className="px-2">
+              <AlertBasic
+                title="No cold emails!"
+                description={`We haven't marked any of your emails as cold emails yet!`}
+              />
+            </div>
           }
           hideActionBarWhenEmpty
           refetch={mutate}

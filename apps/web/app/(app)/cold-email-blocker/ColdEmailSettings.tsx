@@ -13,12 +13,12 @@ import { ColdEmailSetting } from "@prisma/client";
 import { Select } from "@/components/Select";
 import { isError } from "@/utils/error";
 import { Button } from "@/components/Button";
-import { Input } from "@/components/Input";
 import {
   UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
 import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";
+import { ColdEmailPromptModal } from "@/app/(app)/cold-email-blocker/ColdEmailPromptModal";
 
 export function ColdEmailSettings() {
   const { data, isLoading, error } = useSWR<UserResponse>("/api/user/me");
@@ -26,30 +26,26 @@ export function ColdEmailSettings() {
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data && (
-        <ColdEmailForm
-          coldEmailBlocker={data.coldEmailBlocker}
-          coldEmailPrompt={data.coldEmailPrompt}
-        />
+        <>
+          <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
+          <div className="mt-2 space-x-2">
+            <TestRules />
+            <ColdEmailPromptModal coldEmailPrompt={data.coldEmailPrompt} />
+          </div>
+        </>
       )}
-      <TestRules />
     </LoadingContent>
   );
 }
 
-function ColdEmailForm(props: {
-  coldEmailBlocker?: ColdEmailSetting | null;
-  coldEmailPrompt?: string | null;
-}) {
+function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<UpdateColdEmailSettingsBody>({
     resolver: zodResolver(updateColdEmailSettingsBody),
-    defaultValues: {
-      coldEmailBlocker: props.coldEmailBlocker,
-      coldEmailPrompt: props.coldEmailPrompt,
-    },
+    defaultValues: { coldEmailBlocker: props.coldEmailBlocker },
   });
 
   const onSubmit: SubmitHandler<UpdateColdEmailSettingsBody> = useCallback(
@@ -57,7 +53,9 @@ function ColdEmailForm(props: {
       const res = await postRequest<
         SaveEmailUpdateSettingsResponse,
         UpdateColdEmailSettingsBody
-      >("/api/user/settings/cold-email", data);
+      >("/api/user/settings/cold-email", {
+        coldEmailBlocker: data.coldEmailBlocker,
+      });
 
       if (isError(res)) {
         toastError({
@@ -92,24 +90,16 @@ function ColdEmailForm(props: {
     [],
   );
 
+  const onSubmitForm = handleSubmit(onSubmit);
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-sm space-y-4">
+    <form onSubmit={onSubmitForm} className="max-w-sm space-y-2">
       <Select
         name="coldEmailBlocker"
         label="How should we handle cold emails?"
         options={options}
         registerProps={register("coldEmailBlocker")}
         error={errors.coldEmailBlocker}
-      />
-
-      <Input
-        type="text"
-        as="textarea"
-        rows={2}
-        name="coldEmailPrompt"
-        label="Anything to tell the AI about your cold email preferences?"
-        registerProps={register("coldEmailPrompt")}
-        error={errors.coldEmailPrompt}
       />
 
       <Button type="submit" loading={isSubmitting}>

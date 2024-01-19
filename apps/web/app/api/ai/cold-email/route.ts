@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
+import { type gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
 import { UserAIFields } from "@/utils/openai";
 import { findUnsubscribeLink } from "@/utils/unsubscribe";
+import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
+import { getGmailClient } from "@/utils/gmail/client";
 
 const coldEmailBlockerBody = z.object({
   email: z.object({
@@ -13,6 +16,8 @@ const coldEmailBlockerBody = z.object({
     subject: z.string(),
     body: z.string(),
     textHtml: z.string().optional(),
+    date: z.string().optional(),
+    threadId: z.string().optional(),
   }),
 });
 export type ColdEmailBlockerBody = z.infer<typeof coldEmailBlockerBody>;
@@ -23,6 +28,7 @@ export type ColdEmailBlockerResponse = Awaited<
 async function checkColdEmail(
   body: ColdEmailBlockerBody,
   options: { email: string },
+  gmail: gmail_v1.Gmail,
 ) {
   const { email } = options;
 
@@ -40,11 +46,14 @@ async function checkColdEmail(
   );
   // || getHeaderUnsubscribe(parsedMessage.headers);
 
-  // const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
-  //   from: body.email.from,
-  //   date: parsedMessage.headers.date,
-  //   threadId: m.message.threadId,
-  // });
+  const hasPreviousEmail =
+    body.email.date && body.email.threadId
+      ? await hasPreviousEmailsFromSender(gmail, {
+          from: body.email.from,
+          date: body.email.date,
+          threadId: body.email.threadId,
+        })
+      : false;
 
   const yes = await isColdEmail({
     email: body.email,
@@ -53,7 +62,7 @@ async function checkColdEmail(
       openAIApiKey: user.openAIApiKey,
       coldEmailPrompt: user.coldEmailPrompt,
     },
-    hasPreviousEmail: false, // assumes false in tests
+    hasPreviousEmail,
     unsubscribeLink,
   });
 
@@ -68,7 +77,13 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = coldEmailBlockerBody.parse(json);
 
-  const result = await checkColdEmail(body, { email: session.user.email });
+  const gmail = getGmailClient(session);
+
+  const result = await checkColdEmail(
+    body,
+    { email: session.user.email },
+    gmail,
+  );
 
   return NextResponse.json(result);
 });

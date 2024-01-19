@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 import { subDays } from "date-fns";
 import { sendStatsEmail } from "@inboxzero/resend";
 import { withError } from "@/utils/middleware";
-import { loadTinybirdEmails } from "@/app/api/user/stats/tinybird/load/route";
 import { getWeeklyStats } from "@inboxzero/tinybird";
 import { env } from "@/env.mjs";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { getGmailClient } from "@/utils/gmail/client";
+import { loadTinybirdEmails } from "@/app/api/user/stats/tinybird/load/load-emails";
 
 const sendWeeklyStatsBody = z.object({ email: z.string() });
 export type SendWeeklyStatsBody = z.infer<typeof sendWeeklyStatsBody>;

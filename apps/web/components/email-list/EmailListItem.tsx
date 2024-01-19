@@ -61,6 +61,8 @@ export const EmailListItem = forwardRef(
       [onSelected, props.thread.id],
     );
 
+    if (!lastMessage) return null;
+
     return (
       <li
         ref={ref}

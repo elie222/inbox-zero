@@ -49,21 +49,30 @@ async function saveSubscriptions() {
   for (const subscription of subscriptions) {
     // console.log("subscription:", JSON.stringify(subscription, null, 2));
 
-    const user =
-      (await prisma.user.findFirst({
-        where: {
-          lemonSqueezyCustomerId: subscription.attributes.customer_id,
-        },
-        select: { email: true },
-      })) ||
-      (await prisma.user.findFirst({
+    let email: string | null = null;
+
+    const premium = await prisma.premium.findFirst({
+      where: {
+        lemonSqueezyCustomerId: subscription.attributes.customer_id,
+      },
+      select: { users: { select: { email: true } } },
+    });
+
+    if (premium?.users?.[0]?.email) {
+      email = premium?.users?.[0]?.email;
+    } else {
+      const user = await prisma.user.findFirst({
         where: {
           email: subscription.attributes.user_email,
         },
         select: { email: true },
-      }));
+      });
+      if (user?.email) {
+        email = user?.email;
+      }
+    }
 
-    if (!user?.email) {
+    if (!email) {
       console.log(
         "No user found for subscription:",
         subscription.attributes.customer_id,
@@ -72,9 +81,9 @@ async function saveSubscriptions() {
       continue;
     }
 
-    console.log("Saving subscription for user:", user.email);
+    console.log("Saving subscription for user:", email);
 
-    await posthogCaptureEvent(user.email, "Upgraded to premium", {
+    await posthogCaptureEvent(email, "Upgraded to premium", {
       ...subscription.attributes,
       $set: { premium: true, premiumTier: "subscription" },
     });
@@ -102,21 +111,30 @@ async function saveOrders() {
     // not lifetime deal
     if (order.attributes.total < 150_00) continue;
 
-    const user =
-      (await prisma.user.findFirst({
-        where: {
-          lemonSqueezyCustomerId: order.attributes.customer_id,
-        },
-        select: { email: true },
-      })) ||
-      (await prisma.user.findFirst({
+    let email: string | null = null;
+
+    const premium = await prisma.premium.findFirst({
+      where: {
+        lemonSqueezyCustomerId: order.attributes.customer_id,
+      },
+      select: { users: { select: { email: true } } },
+    });
+
+    if (premium?.users?.[0]?.email) {
+      email = premium?.users?.[0]?.email;
+    } else {
+      const user = await prisma.user.findFirst({
         where: {
           email: order.attributes.user_email,
         },
         select: { email: true },
-      }));
+      });
+      if (user?.email) {
+        email = user?.email;
+      }
+    }
 
-    if (!user?.email) {
+    if (!email) {
       console.log(
         "No user found for order:",
         order.attributes.customer_id,
@@ -125,9 +143,9 @@ async function saveOrders() {
       continue;
     }
 
-    console.log("Saving order for user:", user.email);
+    console.log("Saving order for user:", email);
 
-    await posthogCaptureEvent(user.email, "Upgraded to premium", {
+    await posthogCaptureEvent(email, "Upgraded to premium", {
       ...order.attributes,
       $set: { premium: true, premiumTier: "lifetime" },
     });

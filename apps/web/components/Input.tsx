@@ -21,6 +21,7 @@ export interface InputProps {
   leftText?: string;
   rightText?: string;
   condensed?: boolean;
+  className?: string;
   onClickAdd?: () => void;
   onClickRemove?: () => void;
 }
@@ -40,6 +41,7 @@ export const Input = (props: InputProps) => {
     max: props.max,
     step: props.step,
     disabled: props.disabled,
+    className: props.className,
     ...props.registerProps,
   };
 
@@ -111,7 +113,7 @@ export const Label = (props: LabelProps) => {
 
 export const ExplainText = (props: { children: React.ReactNode }) => {
   return (
-    <div className="mt-1 text-sm leading-snug text-gray-400">
+    <div className="mt-1 text-sm leading-snug text-gray-500">
       {props.children}
     </div>
   );

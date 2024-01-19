@@ -3,6 +3,7 @@ import Link from "next/link";
 const navigation = {
   main: [
     { name: "Newsletter Cleaner", href: "/newsletter-cleaner" },
+    { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Email AI Automation", href: "/ai-automation" },
     { name: "New Sender Management", href: "/new-email-senders" },
@@ -12,6 +13,7 @@ const navigation = {
   legal: [
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
+    { name: "Sitemap", href: "/sitemap.xml" },
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },

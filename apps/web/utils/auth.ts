@@ -3,9 +3,11 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type NextAuthConfig, type DefaultSession, Account } from "next-auth";
 import { type JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
-import { createContact } from "@inboxzero/loops";
+import { createContact as createLoopsContact } from "@inboxzero/loops";
+import { createContact as createResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
 import { env } from "@/env.mjs";
+import { captureException } from "@/utils/error";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
@@ -115,7 +117,15 @@ export const getAuthOptions: (options?: {
   events: {
     signIn: async ({ isNewUser, user }) => {
       if (isNewUser && user.email) {
-        await createContact(user.email);
+        try {
+          await Promise.allSettled([
+            createLoopsContact(user.email),
+            createResendContact({ email: user.email }),
+          ]);
+        } catch (error) {
+          console.error("Error creating contacts", error);
+          captureException(error);
+        }
       }
     },
   },
