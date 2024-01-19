@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 
 export default function Premium() {
-  return <Pricing />;
+  return (
+    <Suspense>
+      <Pricing />
+    </Suspense>
+  );
 }

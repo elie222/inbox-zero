@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
@@ -28,7 +29,9 @@ export default function BlockColdEmails() {
         {/* <LogoCloud /> */}
         <Testimonials />
         {/* <FeaturesUnsubscribe /> */}
-        <Pricing />
+        <Suspense>
+          <Pricing />
+        </Suspense>
         <FAQs />
         <CTA />
       </main>

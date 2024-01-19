@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import {
   BlocksIcon,
@@ -35,7 +36,9 @@ export default function NewEmailSenders() {
         {/* <LogoCloud /> */}
         <Testimonials />
         <FeaturesNewSenders />
-        <Pricing />
+        <Suspense>
+          <Pricing />
+        </Suspense>
         <FAQs />
         <CTA />
       </main>
