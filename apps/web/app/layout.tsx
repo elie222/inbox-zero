@@ -7,6 +7,7 @@ import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { env } from "@/env.mjs";
 import Providers from "@/app/(app)/providers";
+import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -65,6 +66,7 @@ export default function RootLayout({
             <PostHogPageview />
           </Suspense>
           <Providers>{children}</Providers>
+          <Script src="/service-worker.js" strategy="beforeInteractive" />
         </PostHogProvider>
         <SpeedInsights />
       </body>

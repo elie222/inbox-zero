@@ -11,9 +11,6 @@ export default function IDBPlayground() {
   const [labels, setLabels] = useState<gmail_v1.Schema$Label[]>([]);
 
   // fetch data from idb
-  useEffect(() => {
-    getLabels().then((labels) => setLabels(labels));
-  }, []);
 
   // example of loading data into idb
   // if you comment out this section after data is first loaded the labels will still show up
@@ -22,7 +19,7 @@ export default function IDBPlayground() {
 
   useEffect(() => {
     if (data?.labels) {
-      saveLabels(data.labels);
+      setLabels(data.labels);
     }
   }, [data]);
 
