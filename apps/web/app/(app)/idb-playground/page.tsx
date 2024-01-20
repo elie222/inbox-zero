@@ -20,12 +20,10 @@ export default function IDBPlayground() {
       data,
       type,
     }: {
-      data: { labels: Array<any> };
+      data: LabelsResponse;
       type: string;
     }) => {
-      if (type === "LABELS_UPDATED") {
-        setLabels(data.labels);
-      }
+      if (type === "LABELS_UPDATED") setLabels(data.labels ?? []);
     };
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.addEventListener("message", (event) =>
