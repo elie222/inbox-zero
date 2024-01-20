@@ -4,16 +4,10 @@ const version = 1;
 const dbVersion = 1;
 const database = "inbox-zero";
 let DB = null;
-let staticName = `staticCache-${version}`;
 let dynamicName = `dynamicCache`;
-let fontName = "fontCache";
-let imgName = "imageCache";
+let IMAGE_CACHE = "IMAGE_CACHE";
 const LABEL_STORE = "labels";
 const EMAIL_STORE = "emails";
-
-let assets = ["/", "/index.html", "/css/main.css", "/js/app.js"]; // static assests
-
-// TODO: look for images that can be cached
 
 self.addEventListener("install", (event) => {
   console.log(`Version ${version} installed`);
@@ -63,11 +57,11 @@ const openDB = (callback) => {
 async function handleFetch(request) {
   if (request.url.includes("/api/google/labels")) {
     // this should be called regardless.
-    fetchAndUpdateIDB(request);
+
+    fetchAndUpdateIDB(request.clone());
 
     // if the data is within idb
     if (DB) {
-      // TODO: handle the case when there is no data in db
       const getData = new Promise(async (resolve, reject) => {
         let tx = DB.transaction(LABEL_STORE, "readonly");
         let store = tx.objectStore(LABEL_STORE);
@@ -78,17 +72,37 @@ async function handleFetch(request) {
       });
       try {
         const result = await getData;
-        return new Response(JSON.stringify({ labels: result }), {
-          status: 200,
-        });
+        if (result.length)
+          return new Response(JSON.stringify({ labels: result }), {
+            status: 200,
+          });
       } catch (error) {
-        return new Response(`Error:  + ${error.message}`, {
-          status: 500,
-          headers: { "Content-Type": "text/plain" },
-        });
+        console.log("Error while getting data from indexeddb", error.message);
+        // return new Response(`Error:  + ${error.message}`, {
+        //   status: 500,
+        //   headers: { "Content-Type": "text/plain" },
+        // });
       }
     }
   }
+
+  if (
+    request.url.includes(".svg") ||
+    request.url.includes(".jpg") ||
+    request.url.includes(".png") ||
+    request.url.includes(".jpeg")
+  ) {
+    const cacheResponse = await caches.match(request);
+    if (cacheResponse) return cacheResponse;
+    const fetchResponse = await fetch(request);
+
+    //save in image cache
+    console.log(`save an IMAGE file ${request.url}`);
+    const cache = await caches.open(IMAGE_CACHE);
+    cache.put(request, fetchResponse.clone());
+    return fetchResponse;
+  }
+
   return fetch(request);
 }
 
@@ -98,14 +112,22 @@ async function fetchAndUpdateIDB(request) {
 
   // open the database connection
   const data = await clonedResponse.json();
-  if (!data?.label) return;
+  if (!data?.labels) return;
 
-  await saveLabels(data.label);
+  await saveLabels(data.labels);
   self.clients.matchAll().then((clients) => {
     clients.forEach((client) => {
       client.postMessage({
-        type: "dataUpdated",
-        data: networkResponse.clone(),
+        type: "LABELS_UPDATED",
+        data: {
+          labels: [
+            {
+              id: "CATEGORY_PERSONAL",
+              name: "CATEGORY_PERSONAL",
+              type: "system",
+            },
+          ],
+        },
       });
     });
   });
@@ -116,21 +138,19 @@ async function saveLabels(labels) {
   if (!DB) {
     try {
       await openDB();
+      const tx = DB.transaction(LABEL_STORE, "readwrite");
+
+      await Promise.all([
+        ...labels.map((label) => {
+          return tx.store.add(label);
+        }),
+        tx.done,
+      ]);
     } catch (err) {
+      console.log(err);
       throw err;
     }
   }
-
-  const tx = DB.transaction(LABEL_STORE, "readwrite");
-
-  await Promise.all([
-    ...labels.map((label) => {
-      return tx.store.add(label);
-    }),
-    tx.done,
-  ]);
 }
 
 // TODO: this can independently poll for the latest data from the api and withhout consuming client resources
-
-// check for cors and cache

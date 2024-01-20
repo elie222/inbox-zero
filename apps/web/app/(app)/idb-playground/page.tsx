@@ -14,6 +14,26 @@ export default function IDBPlayground() {
 
   // example of loading data into idb
   // if you comment out this section after data is first loaded the labels will still show up
+
+  useEffect(() => {
+    const onMessage = ({
+      data,
+      type,
+    }: {
+      data: { labels: Array<any> };
+      type: string;
+    }) => {
+      if (type === "LABELS_UPDATED") {
+        setLabels(data.labels);
+      }
+    };
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", (event) =>
+        onMessage(event.data),
+      );
+    }
+  }, []);
+
   const { data, isLoading, error } =
     useSWR<LabelsResponse>("/api/google/labels");
 
