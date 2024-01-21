@@ -79,7 +79,7 @@ function FeaturesNewSenders() {
   return (
     <FeaturesWithImage
       imageSide="left"
-      title="Newsletter Management"
+      title="Newsletter Cleaner"
       subtitle="Manage new senders in your inbox"
       description="View a comprehensive list of recent new senders, making it easier to spot important contacts and opportunities, while also offering the ability to block unwanted communication effortlessly."
       image="/images/newsletters.png"

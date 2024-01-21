@@ -36,7 +36,7 @@ export function Hero(props: {
             <HeroSubtitle>
               {props.subtitle || (
                 <>
-                  Newsletter management, AI automation, and email analytics.
+                  Newsletter cleaner, AI automation, and email analytics.
                   <br />
                   Inbox Zero is the open-source email app that puts you back in
                   control of your inbox.

@@ -31,7 +31,7 @@ export const tiers = [
     features: [
       `Unsubscribe from ${env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS} emails per month`,
       "Email analytics",
-      "Newsletter management",
+      "Newsletter cleaner",
       "New senders",
       "Inbox view",
     ],
