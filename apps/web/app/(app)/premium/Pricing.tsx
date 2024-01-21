@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { capitalCase } from "capital-case";
+import Link from "next/link";
 import clsx from "clsx";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { env } from "@/env.mjs";
@@ -22,9 +24,7 @@ import {
   pricingAdditonalEmail,
   tiers,
 } from "@/app/(app)/premium/config";
-import { AlertBasic, AlertWithButton } from "@/components/Alert";
-import { capitalCase } from "capital-case";
-import Link from "next/link";
+import { AlertWithButton } from "@/components/Alert";
 
 function attachUserInfo(
   url: string,
