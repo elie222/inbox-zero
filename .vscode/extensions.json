@@ -9,6 +9,7 @@
     "github.vscode-pull-request-github",
     "cardinal90.multi-cursor-case-preserve",
     "chakrounanas.turbo-console-log",
-    "Orta.vscode-jest"
+    "Orta.vscode-jest",
+    "unifiedjs.vscode-mdx"
   ]
 }

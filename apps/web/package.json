@@ -42,6 +42,7 @@
     "@sentry/nextjs": "^7.94.1",
     "@t3-oss/env-nextjs": "^0.7.3",
     "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
     "@tanstack/react-query": "^5.17.15",
     "@tremor/react": "^3.13.2",
     "@types/mdx": "^2.0.10",
