@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import orderBy from "lodash/orderBy";
 import uniqBy from "lodash/uniqBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";

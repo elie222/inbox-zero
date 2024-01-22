@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
@@ -31,7 +32,9 @@ export default function Home() {
         <FeaturesUnsubscribe />
         <FeaturesStats />
         <FeaturesAutomation />
-        <Pricing />
+        <Suspense>
+          <Pricing />
+        </Suspense>
         <FAQs />
         <CTA />
       </main>

@@ -269,7 +269,7 @@ export function FeaturesUnsubscribe() {
   return (
     <FeaturesWithImage
       imageSide="left"
-      title="Newsletter Management"
+      title="Newsletter Cleaner"
       subtitle="Clean up your subscriptions"
       description="See all newsletter and marketing subscriptions in one place. Unsubscribe in a click."
       image="/images/newsletters.png"

@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 export function LegalPage(props: {
   date: string;
   title: string;
-  content: string;
+  content: React.ReactNode;
 }) {
   const { date, title, content } = props;
 
@@ -15,10 +15,7 @@ export function LegalPage(props: {
         </time>
         <h1 className="text-3xl font-bold">{title}</h1>
       </div>
-      <div
-        className="[&>*:last-child]:mb-0 [&>*]:mb-3"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
+      <div className="[&>*:last-child]:mb-0 [&>*]:mb-3">{content}</div>
     </article>
   );
 }

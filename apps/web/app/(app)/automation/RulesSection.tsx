@@ -11,7 +11,6 @@ import {
   HelpCircleIcon,
   MailQuestionIcon,
   PenIcon,
-  SnowflakeIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import {
@@ -61,17 +60,12 @@ export function RulesSection() {
 
 const examples = [
   {
-    title: "Archive and label cold emails",
-    description: `Archive cold emails and label them "Cold Email".`,
-    icon: <SnowflakeIcon className="h-4 w-4" />,
-  },
-  {
     title: "Forward receipts",
     description: "Forward receipts to alice@accountant.com.",
     icon: <ForwardIcon className="h-4 w-4" />,
   },
   {
-    title: "Question response",
+    title: "Respond to support request",
     description: `If someone asks how much the premium plan is, respond: "Our premium plan is $10 per month."`,
     icon: <MailQuestionIcon className="h-4 w-4" />,
   },
@@ -209,7 +203,7 @@ export function RulesForm(props: {
           })}
         </div>
         <SectionDescription className="mt-4">
-          These are the actions we can take on your behalf:{" "}
+          The the actions we can take on your behalf:{" "}
           {Object.keys(ActionType)
             .map((action) => capitalCase(action))
             .join(", ")}

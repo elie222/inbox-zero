@@ -1,5 +1,5 @@
 import "server-only";
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import prisma from "@/utils/prisma";
 import {
   InboxZeroLabelKey,
@@ -17,6 +17,7 @@ export const inboxZeroLabels: Record<InboxZeroLabelKey, string> = {
   archived: "IZ Archived",
   labeled: "IZ Labeled",
   acted: "IZ Acted",
+  cold_email: "Cold Email",
   // drafted: "Response Drafted by IZ",
   // suggested_label: "Label Suggested by IZ",
 };

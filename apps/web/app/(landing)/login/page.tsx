@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -7,9 +8,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
   description: "Log in to Inbox Zero.",
-  alternates: {
-    canonical: "/login",
-  },
+  alternates: { canonical: "/login" },
 };
 
 export default async function AuthenticationPage() {
@@ -25,7 +24,9 @@ export default async function AuthenticationPage() {
           <p className="mt-4">Your AI personal assistant for email.</p>
         </div>
         <div className="mt-4">
-          <LoginForm />
+          <Suspense>
+            <LoginForm />
+          </Suspense>
         </div>
 
         <p className="px-8 pt-10 text-center text-sm text-gray-500">

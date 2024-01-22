@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
@@ -30,7 +31,9 @@ export default function AiAutomation() {
         {/* <LogoCloud /> */}
         <Testimonials />
         <FeaturesAutomation />
-        <Pricing />
+        <Suspense>
+          <Pricing />
+        </Suspense>
         <FAQs />
         <CTA />
       </main>

@@ -1,6 +1,8 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/react";
+import { GoogleTagManager } from "@next/third-parties/google";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import "../styles/globals.css";
 import { Inter } from "next/font/google";
@@ -21,9 +23,9 @@ const calFont = localFont({
   display: "swap",
 });
 
-const title = "Inbox Zero";
+const title = "Inbox Zero | Clean your inbox in minutes";
 const description =
-  "Clean your inbox in minutes. Inbox Zero is the quickest way to reach inbox zero, with our newsletter cleaner, AI automation, and email analytics.";
+  "Inbox Zero is the quickest way to reach inbox zero, with our newsletter cleaner, AI automation, cold email blocker, and email analytics.";
 
 export const metadata: Metadata = {
   title,
@@ -67,6 +69,10 @@ export default function RootLayout({
           <Providers>{children}</Providers>
         </PostHogProvider>
         <SpeedInsights />
+        <Analytics />
+        {env.NEXT_PUBLIC_GTM_ID ? (
+          <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
+        ) : null}
       </body>
     </html>
   );

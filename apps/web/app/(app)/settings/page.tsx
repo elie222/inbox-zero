@@ -4,6 +4,7 @@ import { AboutSection } from "@/app/(app)/settings/AboutSection";
 import { DeleteSection } from "@/app/(app)/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/settings/ModelSection";
 import { EmailUpdatesSection } from "@/app/(app)/settings/EmailUpdatesSection";
+import { MultiAccountSection } from "@/app/(app)/settings/MultiAccountSection";
 
 export default function Settings() {
   return (
@@ -12,6 +13,7 @@ export default function Settings() {
       {/* <LabelsSection /> */}
       <ModelSection />
       <EmailUpdatesSection />
+      <MultiAccountSection />
       <DeleteSection />
     </FormWrapper>
   );

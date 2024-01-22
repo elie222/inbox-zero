@@ -6,7 +6,7 @@ export function AlertBasic(props: {
   title: string;
   description: React.ReactNode;
   icon?: React.ReactNode | null;
-  variant?: "default" | "destructive" | "success";
+  variant?: "default" | "destructive" | "success" | "blue";
   className?: string;
 }) {
   return (
@@ -24,12 +24,14 @@ export function AlertWithButton(props: {
   title: string;
   description: React.ReactNode;
   icon?: React.ReactNode;
-  variant?: "default" | "destructive" | "success";
+  variant?: "default" | "destructive" | "success" | "blue";
   button?: React.ReactNode;
 }) {
   return (
     <Alert variant={props.variant} className="pb-3 pt-5">
-      {props.icon || <TerminalIcon className="h-4 w-4" />}
+      {props.icon === null
+        ? null
+        : props.icon || <TerminalIcon className="h-4 w-4" />}
       <div className="flex items-center justify-between">
         <div>
           <AlertTitle>{props.title}</AlertTitle>

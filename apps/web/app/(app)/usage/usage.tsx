@@ -22,10 +22,10 @@ export function Usage(props: {
         stats={[
           {
             name: "Unsubscribe Credits",
-            value: isPremium(data?.lemonSqueezyRenewsAt || null)
+            value: isPremium(data?.premium?.lemonSqueezyRenewsAt || null)
               ? "Unlimited"
               : formatStat(
-                  data?.unsubscribeCredits ??
+                  data?.premium?.unsubscribeCredits ??
                     env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
                 ),
             subvalue: "credits",
