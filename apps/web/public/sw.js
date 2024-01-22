@@ -20,9 +20,9 @@ self.addEventListener("activate", (event) => {
   console.log("activated");
 });
 
-self.addEventListener("fetch", (event /* : FetchEvent */) => {
+self.addEventListener("fetch", (event) => {
   //service worker intercepted a fetch call
-  event.respondWith(handleFetch(event.request));
+  if (!isAuth(event.request.url)) event.respondWith(handleFetch(event.request));
 });
 
 self.addEventListener("message", (event) => {
@@ -57,7 +57,6 @@ const openDB = (callback) => {
 async function handleFetch(request) {
   if (request.url.includes("/api/google/labels")) {
     // this should be called regardless.
-
     fetchAndUpdateIDB(request.clone());
 
     // if the data is within idb
@@ -119,15 +118,7 @@ async function fetchAndUpdateIDB(request) {
     clients.forEach((client) => {
       client.postMessage({
         type: "LABELS_UPDATED",
-        data: {
-          labels: [
-            {
-              id: "CATEGORY_PERSONAL",
-              name: "CATEGORY_PERSONAL",
-              type: "system",
-            },
-          ],
-        },
+        data,
       });
     });
   });
@@ -152,5 +143,12 @@ async function saveLabels(labels) {
     }
   }
 }
+
+// this is written to avoid callback failure for first time users as the redirection fails only in the tab they used to login
+// goes away with hard reload (CTRL + SHIFT + R)
+const isAuth = (url) =>
+  url.includes("welcome") ||
+  url.includes("api/auth") ||
+  url.includes("newsletters");
 
 // TODO: this can independently poll for the latest data from the api and withhout consuming client resources
