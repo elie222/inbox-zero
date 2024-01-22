@@ -28,7 +28,7 @@ import { AlertWithButton } from "@/components/Alert";
 
 function attachUserInfo(
   url: string,
-  user?: { id: string; email?: string | null; name?: string | null },
+  user: { id: string; email: string; name?: string | null },
 ) {
   if (!user) return url;
 
@@ -138,23 +138,22 @@ export function Pricing() {
           {tiers.map((tier, tierIdx) => {
             const isCurrentPlan = tier.tiers?.[frequency.value] === premiumTier;
 
-            const href = isCurrentPlan
-              ? "#"
-              : buildLemonUrl(
-                  tier.checkout
-                    ? attachUserInfo(
-                        tier.href[frequency.value],
-                        session.data
-                          ? {
-                              id: session.data.user.id,
-                              email: session.data.user.email,
-                              name: session.data.user.name,
-                            }
-                          : undefined,
-                      )
-                    : tier.href[frequency.value],
-                  affiliateCode,
-                );
+            const user = session.data?.user;
+
+            const href = user
+              ? isCurrentPlan
+                ? "#"
+                : buildLemonUrl(
+                    tier.checkout
+                      ? attachUserInfo(tier.href[frequency.value], {
+                          id: user.id,
+                          email: user.email!,
+                          name: user.name,
+                        })
+                      : tier.href[frequency.value],
+                    affiliateCode,
+                  )
+              : "/login?next=/premium";
 
             return (
               <div
@@ -258,7 +257,8 @@ function LifetimePricing(props: {
   affiliateCode: string | null;
   premiumTier?: PremiumTier | null;
 }) {
-  const hasLifetime = props.premiumTier === PremiumTier.LIFETIME;
+  const { user, premiumTier, affiliateCode } = props;
+  const hasLifetime = premiumTier === PremiumTier.LIFETIME;
 
   return (
     <div className="bg-white py-4 sm:py-8">
@@ -312,15 +312,21 @@ function LifetimePricing(props: {
               </p>
               <a
                 href={
-                  hasLifetime
-                    ? "#"
-                    : buildLemonUrl(
-                        attachUserInfo(
-                          env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
-                          props.user,
-                        ),
-                        props.affiliateCode,
-                      )
+                  user?.email
+                    ? hasLifetime
+                      ? "#"
+                      : buildLemonUrl(
+                          attachUserInfo(
+                            env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+                            {
+                              id: user.id,
+                              email: user.email,
+                              name: user.name,
+                            },
+                          ),
+                          affiliateCode,
+                        )
+                    : "/login?next=/premium"
                 }
                 onClick={() => {
                   if (env.NEXT_PUBLIC_GTM_ID) {
