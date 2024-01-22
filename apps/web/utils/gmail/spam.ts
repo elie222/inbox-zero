@@ -1,4 +1,4 @@
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 
 export async function markSpam(options: {
   gmail: gmail_v1.Gmail;

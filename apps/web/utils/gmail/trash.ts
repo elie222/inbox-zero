@@ -1,4 +1,4 @@
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 
 // trash moves the thread/message to the trash folder
 // delete immediately deletes the thread/message

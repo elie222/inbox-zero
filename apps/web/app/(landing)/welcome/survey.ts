@@ -4,7 +4,8 @@ export const survey = {
     {
       type: "single_choice",
       choices: ["Yes", "No", "Not sure yet"],
-      question: "Is newsletter management helpful to you?",
+      // editted
+      question: "Is a newsletter cleaner helpful to you?",
       image: "/images/newsletters.png",
     },
     {

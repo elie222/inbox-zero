@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import clsx from "clsx";
 import { Title, Text } from "@tremor/react";
 import {
@@ -99,6 +99,15 @@ export function ActionCell<T extends Row>(props: {
   const [approveLoading, setApproveLoading] = React.useState(false);
 
   const posthog = usePostHog();
+
+  const userGmailLabels = useMemo(
+    () =>
+      gmailLabels?.filter(
+        (l) =>
+          l.id && l.type === "user" && l.labelListVisibility === "labelShow",
+      ),
+    [gmailLabels],
+  );
 
   return (
     <>
@@ -257,38 +266,37 @@ export function ActionCell<T extends Row>(props: {
 
               <DropdownMenuLabel>Auto Archive and Label</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {gmailLabels
-                ?.filter(
-                  (l) =>
-                    l.id &&
-                    l.type === "user" &&
-                    l.labelListVisibility === "labelShow",
-                )
-                .map((label) => {
-                  return (
-                    <DropdownMenuItem
-                      key={label.id}
-                      onClick={async () => {
-                        setAutoArchiveLoading(true);
+              {userGmailLabels?.map((label) => {
+                return (
+                  <DropdownMenuItem
+                    key={label.id}
+                    onClick={async () => {
+                      setAutoArchiveLoading(true);
 
-                        onAutoArchive(item.name, label.id || undefined);
-                        await setNewsletterStatus({
-                          newsletterEmail: item.name,
-                          status: NewsletterStatus.AUTO_ARCHIVED,
-                        });
-                        await mutate();
-                        await decrementUnsubscribeCredit();
-                        await refetchPremium();
+                      onAutoArchive(item.name, label.id || undefined);
+                      await setNewsletterStatus({
+                        newsletterEmail: item.name,
+                        status: NewsletterStatus.AUTO_ARCHIVED,
+                      });
+                      await mutate();
+                      await decrementUnsubscribeCredit();
+                      await refetchPremium();
 
-                        posthog.capture("Clicked Auto Archive and Label");
+                      posthog.capture("Clicked Auto Archive and Label");
 
-                        setAutoArchiveLoading(false);
-                      }}
-                    >
-                      {label.name}
-                    </DropdownMenuItem>
-                  );
-                })}
+                      setAutoArchiveLoading(false);
+                    }}
+                  >
+                    {label.name}
+                  </DropdownMenuItem>
+                );
+              })}
+              {!userGmailLabels?.length && (
+                <DropdownMenuItem>
+                  You do not have any labels. Create one in Gmail first to auto
+                  label emails.
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -1,4 +1,4 @@
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import { executeAct } from "@/app/api/ai/act/controller";
 import { actEmailWithHtml } from "@/app/api/ai/act/validation";
@@ -22,7 +22,7 @@ export type ExecutePlanResponse = Awaited<ReturnType<typeof executePlan>>;
 
 export async function executePlan(
   body: ExecutePlanBody & { planId: string; userId: string; userEmail: string },
-  gmail: gmail_v1.Gmail
+  gmail: gmail_v1.Gmail,
 ) {
   return executeAct({
     gmail,

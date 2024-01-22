@@ -1,10 +1,10 @@
+import { type gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { extractEmailAddress } from "@/utils/email";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getFiltersList } from "@/utils/gmail/filter";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
-import { gmail_v1 } from "googleapis";
 
 export async function getAutoArchiveFilters() {
   const session = await auth();

@@ -1,6 +1,8 @@
 import { withSentryConfig } from "@sentry/nextjs";
-import { withContentlayer } from "next-contentlayer";
 import { env } from "./env.mjs";
+import nextMdx from "@next/mdx";
+
+const withMDX = nextMdx();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -9,6 +11,7 @@ const nextConfig = {
   experimental: {
     instrumentationHook: true,
   },
+  pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {
     remotePatterns: [
       {
@@ -18,6 +21,10 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "ph-avatars.imgix.net",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
       },
     ],
   },
@@ -114,13 +121,11 @@ const sentryConfig = {
   automaticVercelMonitors: true,
 };
 
-const exportConfigContentLayer = env.DISABLE_CONTENT_LAYER
-  ? nextConfig
-  : withContentlayer(nextConfig);
+const mdxConfig = withMDX(nextConfig);
 
 const exportConfig =
   env.NEXT_PUBLIC_SENTRY_DSN && env.SENTRY_ORGANIZATION && env.SENTRY_PROJECT
-    ? withSentryConfig(exportConfigContentLayer, sentryOptions, sentryConfig)
-    : exportConfigContentLayer;
+    ? withSentryConfig(mdxConfig, sentryOptions, sentryConfig)
+    : mdxConfig;
 
 export default exportConfig;

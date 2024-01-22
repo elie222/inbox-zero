@@ -14,6 +14,7 @@ import {
   type ChangePremiumStatusOptions,
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { PremiumTier } from "@prisma/client";
 
 export default function AdminPage() {
   return (
@@ -66,21 +67,29 @@ const UpgradeToAdminForm = () => {
         })}
         error={errors.lemonSqueezyCustomerId}
       />
-      <Select
+      <Select<PremiumTier>
         name="period"
         label="Period"
         options={[
           {
-            label: "Monthly",
-            value: "monthly",
+            label: PremiumTier.PRO_MONTHLY,
+            value: PremiumTier.PRO_MONTHLY,
           },
           {
-            label: "Annually",
-            value: "annually",
+            label: PremiumTier.PRO_ANNUALLY,
+            value: PremiumTier.PRO_ANNUALLY,
           },
           {
-            label: "Lifetime",
-            value: "lifetime",
+            label: PremiumTier.BUSINESS_MONTHLY,
+            value: PremiumTier.BUSINESS_MONTHLY,
+          },
+          {
+            label: PremiumTier.BUSINESS_ANNUALLY,
+            value: PremiumTier.BUSINESS_ANNUALLY,
+          },
+          {
+            label: PremiumTier.LIFETIME,
+            value: PremiumTier.LIFETIME,
           },
         ]}
         registerProps={register("period")}
@@ -108,6 +117,7 @@ const UpgradeToAdminForm = () => {
           onClick={() => {
             onSubmit({
               email: getValues("email"),
+              period: getValues("period"),
               upgrade: false,
             });
           }}

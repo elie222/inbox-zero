@@ -1,11 +1,7 @@
 import { JSXElementConstructor, ReactElement } from "react";
-import { Resend } from "resend";
 import { nanoid } from "nanoid";
 import StatsUpdateEmail, { StatsUpdateEmailProps } from "../emails/stats";
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+import { resend } from "./client";
 
 const sendEmail = async ({
   to,

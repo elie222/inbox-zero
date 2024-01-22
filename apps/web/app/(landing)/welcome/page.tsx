@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { redirect } from "next/navigation";
@@ -44,7 +45,9 @@ export default async function WelcomePage({
           <PageHeading>Welcome to Inbox Zero</PageHeading>
           <TypographyP className="mt-2">Clean your inbox, fast.</TypographyP>
           <div className="mt-4">
-            <OnboardingForm questionIndex={questionIndex} />
+            <Suspense>
+              <OnboardingForm questionIndex={questionIndex} />
+            </Suspense>
           </div>
         </div>
       </Card>

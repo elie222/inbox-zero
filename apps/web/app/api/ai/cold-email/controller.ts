@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { type gmail_v1 } from "googleapis";
 import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { parseJSON } from "@/utils/json";
 import { UserAIFields, getOpenAI } from "@/utils/openai";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
-import { gmail_v1 } from "googleapis";
 import prisma from "@/utils/prisma";
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 
 const aiResponseSchema = z.object({
   coldEmail: z.boolean().nullish(),
@@ -43,27 +44,7 @@ async function aiIsColdEmail(
 ) {
   const message = `Determine if this email is a cold email or not.
 
-${
-  userOptions.coldEmailPrompt ||
-  `Examples of cold emails:
-- Agency trying to sell something
-- Recruiter trying to hire you
-- Analyst at a VC trying to invest in your company
-
-Not cold emails include:
-- Email from a friend or colleague
-- Email from someone you met at a conference
-- Email from a customer
-- Newsletter
-- Password reset
-- Welcome emails
-- Receipts
-- Promotions
-- Alerts
-- Updates
-
-Most emails are not cold emails. Even if they are annoying.`
-}
+${userOptions.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
 
 Return a JSON object with a "coldEmail" and "expandEmail" field.
 
