@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import clsx from "clsx";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
