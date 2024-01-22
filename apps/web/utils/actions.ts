@@ -324,7 +324,9 @@ export async function decrementUnsubscribeCredit() {
   }
 }
 
-export async function updateMultiAccountPremium(emails: string[]) {
+export async function updateMultiAccountPremium(
+  emails: string[],
+): Promise<void | { error: string }> {
   return await withServerActionInstrumentation(
     "updateMultiAccountPremium",
     {
@@ -332,7 +334,7 @@ export async function updateMultiAccountPremium(emails: string[]) {
     },
     async () => {
       const session = await auth();
-      if (!session?.user.id) throw new Error("Not logged in");
+      if (!session?.user.id) return { error: "Not logged in" };
 
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: session.user.id },
@@ -354,9 +356,10 @@ export async function updateMultiAccountPremium(emails: string[]) {
         select: { id: true, premium: true },
       });
       if (users.length < uniqueEmails.length) {
-        throw new Error(
-          "Not all users exist. Each account must first sign up to Inbox Zero before you can share premium with it.",
-        );
+        return {
+          error:
+            "Not all users exist. Each account must first sign up to Inbox Zero before you can share premium with it.",
+        };
       }
 
       const premium =
@@ -367,16 +370,17 @@ export async function updateMultiAccountPremium(emails: string[]) {
       // make sure that the users being added to this plan are not on higher tiers already
       for (const userToAdd of otherUsersToAdd) {
         if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
-          throw new Error(
-            "One of the users you are adding to your plan already has premium and cannot be added.",
-          );
+          return {
+            error:
+              "One of the users you are adding to your plan already has premium and cannot be added.",
+          };
         }
       }
 
       if (!premium.lemonSqueezySubscriptionItemId) {
-        throw new Error(
-          `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
-        );
+        return {
+          error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+        };
       }
 
       await updateSubscriptionItemQuantity({

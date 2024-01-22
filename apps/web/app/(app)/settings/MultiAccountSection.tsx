@@ -24,6 +24,7 @@ import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { env } from "@/env.mjs";
 import { getUserTier } from "@/utils/premium";
+import { captureException } from "@/utils/error";
 
 export function MultiAccountSection() {
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
@@ -127,17 +128,14 @@ function MultiAccountForm({
       if (needsToPurchaseMoreSeats) return;
 
       try {
-        await updateMultiAccountPremium(
-          data.emailAddresses.map((e) => e.email),
-        );
-        toastSuccess({ description: "Users updated!" });
+        const emails = data.emailAddresses.map((e) => e.email);
+        const res = await updateMultiAccountPremium(emails);
+
+        if (res && res.error) toastError({ description: res.error });
+        else toastSuccess({ description: "Users updated!" });
       } catch (error) {
-        toastError({
-          description:
-            error instanceof Error
-              ? error.message
-              : "There was an error updating users.",
-        });
+        captureException(error);
+        toastError({ description: "There was an error updating users." });
       }
     },
     [needsToPurchaseMoreSeats],
