@@ -326,7 +326,11 @@ export async function decrementUnsubscribeCredit() {
 
 export async function updateMultiAccountPremium(
   emails: string[],
-): Promise<void | { error: string }> {
+): Promise<
+  | void
+  | { error: string; warning?: string }
+  | { error?: string; warning: string }
+> {
   return await withServerActionInstrumentation(
     "updateMultiAccountPremium",
     {
@@ -355,12 +359,6 @@ export async function updateMultiAccountPremium(
         where: { email: { in: uniqueEmails } },
         select: { id: true, premium: true },
       });
-      if (users.length < uniqueEmails.length) {
-        return {
-          error:
-            "Not all users exist. Each account must first sign up to Inbox Zero before you can share premium with it.",
-        };
-      }
 
       const premium =
         user.premium || (await createPremiumForUser(session.user.id));
@@ -399,11 +397,16 @@ export async function updateMultiAccountPremium(
       await prisma.premium.update({
         where: { id: premium.id },
         data: {
-          users: {
-            connect: emails.map((email) => ({ email })),
-          },
+          users: { connect: otherUsersToAdd.map((user) => ({ id: user.id })) },
         },
       });
+
+      if (users.length < uniqueEmails.length) {
+        return {
+          warning:
+            "Not all users exist. Each account must sign up to Inbox Zero to share premium with it.",
+        };
+      }
     },
   );
 }

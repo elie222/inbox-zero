@@ -9,7 +9,7 @@ import { CrownIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
@@ -132,6 +132,8 @@ function MultiAccountForm({
         const res = await updateMultiAccountPremium(emails);
 
         if (res && res.error) toastError({ description: res.error });
+        else if (res && res.warning)
+          toastInfo({ title: "Warning", description: res.warning });
         else toastSuccess({ description: "Users updated!" });
       } catch (error) {
         captureException(error);
