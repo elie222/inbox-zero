@@ -3,7 +3,7 @@ import {
   createAutoArchiveFilterAction,
   deleteFilterAction,
   trashThreadAction,
-  unMarkReadAction,
+  unmarkReadAction,
   markReadAction,
 } from "@/utils/actions";
 
@@ -43,7 +43,7 @@ export async function onTrashThread(threadId: string) {
 export async function onMarkReadAction(threadId: string, isRead?: boolean) {
   try {
     if (isRead) {
-      await unMarkReadAction(threadId);
+      await unmarkReadAction(threadId);
     } else {
       await markReadAction(threadId);
     }

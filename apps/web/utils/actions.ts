@@ -60,7 +60,7 @@ export async function labelThreadsAction(options: {
   );
 }
 
-export async function unMarkReadAction(threadId: string) {
+export async function unmarkReadAction(threadId: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
