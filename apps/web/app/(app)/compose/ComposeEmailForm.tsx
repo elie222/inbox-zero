@@ -3,6 +3,11 @@
 import React, { useCallback } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import { Editor as NovelEditor } from "novel";
+import { Combobox } from "@headlessui/react";
+import Image from "next/image";
+import { z } from "zod";
+import clsx from "clsx";
 import { Button } from "@/components/Button";
 import { Input, Label } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -11,12 +16,7 @@ import { ContactsResponse } from "@/app/api/google/contacts/route";
 import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { postRequest } from "@/utils/api";
 import { env } from "@/env.mjs";
-import { Editor as NovelEditor } from "novel";
-import { Combobox } from "@headlessui/react";
-import Image from "next/image";
-import { z } from "zod";
 import "./novelEditorStyles.css";
-import clsx from "clsx";
 
 export const ComposeEmailForm = () => {
   const {

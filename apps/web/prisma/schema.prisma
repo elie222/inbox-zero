@@ -64,19 +64,6 @@ model User {
   coldEmailBlocker    ColdEmailSetting?
   coldEmailPrompt     String?
 
-  // ========DEPRECATED
-  // has moved to Premium. Will delete after users have been migrated successfully
-  // lemon squeezy
-  lemonSqueezyCustomerId     Int?
-  lemonSqueezySubscriptionId String?
-  lemonSqueezyRenewsAt       DateTime?
-  // unsubscribe credits
-  // if `unsubscribeMonth` not set to this month, set to current month
-  // reset `unsubscribeCredits` each time month is changed
-  unsubscribeMonth   Int? // 1-12
-  unsubscribeCredits Int?
-  // ========END DEPRECATED
-
   // premium can be shared among multiple users
   premiumId String?
   premium   Premium? @relation(fields: [premiumId], references: [id])

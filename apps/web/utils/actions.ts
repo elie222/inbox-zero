@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import uniq from "lodash/uniq";
+import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/resend";
 import {
@@ -323,75 +324,91 @@ export async function decrementUnsubscribeCredit() {
   }
 }
 
-export async function updateMultiAccountPremium(emails: string[]) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+export async function updateMultiAccountPremium(
+  emails: string[],
+): Promise<
+  | void
+  | { error: string; warning?: string }
+  | { error?: string; warning: string }
+> {
+  return await withServerActionInstrumentation(
+    "updateMultiAccountPremium",
+    {
+      recordResponse: true,
+    },
+    async () => {
+      const session = await auth();
+      if (!session?.user.id) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: {
-      premium: {
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: session.user.id },
         select: {
-          id: true,
-          tier: true,
-          lemonSqueezySubscriptionItemId: true,
+          premium: {
+            select: {
+              id: true,
+              tier: true,
+              lemonSqueezySubscriptionItemId: true,
+            },
+          },
         },
-      },
+      });
+
+      // check all users exist
+      const uniqueEmails = uniq(emails);
+      const users = await prisma.user.findMany({
+        where: { email: { in: uniqueEmails } },
+        select: { id: true, premium: true },
+      });
+
+      const premium =
+        user.premium || (await createPremiumForUser(session.user.id));
+
+      const otherUsersToAdd = users.filter((u) => u.id !== session.user.id);
+
+      // make sure that the users being added to this plan are not on higher tiers already
+      for (const userToAdd of otherUsersToAdd) {
+        if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
+          return {
+            error:
+              "One of the users you are adding to your plan already has premium and cannot be added.",
+          };
+        }
+      }
+
+      if (!premium.lemonSqueezySubscriptionItemId) {
+        return {
+          error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+        };
+      }
+
+      await updateSubscriptionItemQuantity({
+        id: premium.lemonSqueezySubscriptionItemId,
+        quantity: otherUsersToAdd.length + 1,
+      });
+
+      // delete premium for other users when adding them to this premium plan
+      await prisma.premium.deleteMany({
+        where: {
+          users: { some: { id: { in: otherUsersToAdd.map((u) => u.id) } } },
+        },
+      });
+
+      // add users to plan
+      await prisma.premium.update({
+        where: { id: premium.id },
+        data: {
+          users: { connect: otherUsersToAdd.map((user) => ({ id: user.id })) },
+        },
+      });
+
+      if (users.length < uniqueEmails.length) {
+        return {
+          warning:
+            "Not all users exist. Each account must sign up to Inbox Zero to share premium with it.",
+        };
+      }
     },
-  });
-
-  // check all users exist
-  const uniqueEmails = uniq(emails);
-  const users = await prisma.user.findMany({
-    where: { email: { in: uniqueEmails } },
-    select: { id: true, premium: true },
-  });
-  if (users.length < uniqueEmails.length) {
-    throw new Error(
-      "Not all users exist. Each account must first sign up to Inbox Zero before you can share premium with it.",
-    );
-  }
-
-  const premium = user.premium || (await createPremiumForUser(session.user.id));
-
-  const otherUsersToAdd = users.filter((u) => u.id !== session.user.id);
-
-  // make sure that the users being added to this plan are not on higher tiers already
-  for (const userToAdd of otherUsersToAdd) {
-    if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
-      throw new Error(
-        "One of the users you are adding to your plan already has premium and cannot be added.",
-      );
-    }
-  }
-
-  if (!premium.lemonSqueezySubscriptionItemId) {
-    throw new Error(
-      `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
-    );
-  }
-
-  await updateSubscriptionItemQuantity({
-    id: premium.lemonSqueezySubscriptionItemId,
-    quantity: otherUsersToAdd.length + 1,
-  });
-
-  // delete premium for other users when adding them to this premium plan
-  await prisma.premium.deleteMany({
-    where: {
-      users: { some: { id: { in: otherUsersToAdd.map((u) => u.id) } } },
-    },
-  });
-
-  // add users to plan
-  await prisma.premium.update({
-    where: { id: premium.id },
-    data: {
-      users: {
-        connect: emails.map((email) => ({ email })),
-      },
-    },
-  });
+  );
 }
 
 async function createPremiumForUser(userId: string) {

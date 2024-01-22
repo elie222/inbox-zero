@@ -9,7 +9,7 @@ import { CrownIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
@@ -24,6 +24,7 @@ import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { env } from "@/env.mjs";
 import { getUserTier } from "@/utils/premium";
+import { captureException } from "@/utils/error";
 
 export function MultiAccountSection() {
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
@@ -127,17 +128,16 @@ function MultiAccountForm({
       if (needsToPurchaseMoreSeats) return;
 
       try {
-        await updateMultiAccountPremium(
-          data.emailAddresses.map((e) => e.email),
-        );
-        toastSuccess({ description: "Users updated!" });
+        const emails = data.emailAddresses.map((e) => e.email);
+        const res = await updateMultiAccountPremium(emails);
+
+        if (res && res.error) toastError({ description: res.error });
+        else if (res && res.warning)
+          toastInfo({ title: "Warning", description: res.warning });
+        else toastSuccess({ description: "Users updated!" });
       } catch (error) {
-        toastError({
-          description:
-            error instanceof Error
-              ? error.message
-              : "There was an error updating users.",
-        });
+        captureException(error);
+        toastError({ description: "There was an error updating users." });
       }
     },
     [needsToPurchaseMoreSeats],
