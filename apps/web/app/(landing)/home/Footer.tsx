@@ -10,21 +10,22 @@ const navigation = {
     { name: "Open Source", href: "/github", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
   ],
-  legal: [
-    { name: "Terms", href: "/terms" },
-    { name: "Privacy", href: "/privacy" },
-    { name: "Sitemap", href: "/sitemap.xml" },
-  ],
   support: [
     { name: "Pricing", href: "/#pricing" },
     { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
   ],
   company: [
+    { name: "Blog", href: "/blog" },
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
     { name: "Twitter", href: "/twitter", target: "_blank" },
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },
+  ],
+  legal: [
+    { name: "Terms", href: "/terms" },
+    { name: "Privacy", href: "/privacy" },
+    { name: "Sitemap", href: "/sitemap.xml" },
   ],
   social: [
     {

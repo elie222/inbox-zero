@@ -1,14 +1,11 @@
-import { Footer } from "@/app/(landing)/home/Footer";
-import { Header } from "@/app/(landing)/home/Header";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { PageHeading, TypographyP } from "@/components/Typography";
+import { BasicLayout } from "@/components/layouts/BasicLayout";
 
 export default function NotFound() {
   return (
-    <div className="bg-white">
-      <Header />
-
+    <BasicLayout>
       <div className="pb-40 pt-60">
         <Card className="mx-auto max-w-xl text-center">
           <PageHeading>Page Not Found</PageHeading>
@@ -22,8 +19,6 @@ export default function NotFound() {
           </Button>
         </Card>
       </div>
-
-      <Footer />
-    </div>
+    </BasicLayout>
   );
 }
