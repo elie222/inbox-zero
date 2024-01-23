@@ -138,6 +138,7 @@ export const EmailListItem = forwardRef(
                       props.onArchive(thread);
                       props.closePanel();
                     }}
+                    isRead={!isUnread}
                     refetch={props.refetch}
                   />
                 </div>

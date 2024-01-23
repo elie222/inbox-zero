@@ -27,6 +27,7 @@ import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
+import { labelMessage } from "@/utils/gmail/label";
 import { env } from "@/env.mjs";
 import { isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
@@ -59,6 +60,34 @@ export async function labelThreadsAction(options: {
       });
     }),
   );
+}
+
+export async function unmarkReadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+
+  const res = await labelMessage({
+    gmail,
+    messageId: threadId,
+    addLabelIds: ["UNREAD"],
+  });
+
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function markReadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+
+  const res = await labelMessage({
+    gmail,
+    messageId: threadId,
+    removeLabelIds: ["UNREAD"],
+  });
+
+  return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 // export async function archiveThreadAction(options: { threadId: string }) {

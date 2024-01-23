@@ -7,11 +7,14 @@ import {
   OrbitIcon,
   ReplyIcon,
   SparklesIcon,
+  MailCheckIcon,
+  MailMinusIcon,
 } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { onTrashThread } from "@/utils/actions-client";
+import { onMarkReadAction } from "@/utils/actions-client";
 
 export function ActionButtons(props: {
   threadId: string;
@@ -23,6 +26,7 @@ export function ActionButtons(props: {
   onReply: () => void;
   onArchive: () => void;
   refetch: () => void;
+  isRead?: boolean;
 }) {
   const session = useSession();
   const email = session.data?.user.email;
@@ -36,6 +40,7 @@ export function ActionButtons(props: {
     isCategorizing,
     isPlanning,
     isArchiving,
+    isRead,
     refetch,
   } = props;
 
@@ -55,6 +60,11 @@ export function ActionButtons(props: {
     refetch();
     setIsTrashing(false);
   }, [threadId, refetch]);
+
+  const onMark = useCallback(async () => {
+    await onMarkReadAction(threadId, isRead);
+    refetch();
+  }, [threadId, isRead, refetch]);
 
   const buttons = useMemo(
     () => [
@@ -114,6 +124,28 @@ export function ActionButtons(props: {
           <ArchiveIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
+
+      isRead
+        ? {
+            tooltip: "Mark as Unread",
+            onClick: onMark,
+            icon: (
+              <MailMinusIcon
+                className="h-5 w-5 text-gray-700"
+                aria-hidden="true"
+              />
+            ),
+          }
+        : {
+            tooltip: "Mark as Read",
+            onClick: onMark,
+            icon: (
+              <MailCheckIcon
+                className="h-5 w-5 text-gray-700"
+                aria-hidden="true"
+              />
+            ),
+          },
     ],
     [
       onTrash,
@@ -126,6 +158,7 @@ export function ActionButtons(props: {
       isCategorizing,
       onReply,
       openInGmail,
+      isRead,
     ],
   );
 

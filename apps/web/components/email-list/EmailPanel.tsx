@@ -30,6 +30,10 @@ export function EmailPanel(props: {
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
+  const isUnread = useMemo(() => {
+    return lastMessage?.labelIds?.includes("UNREAD");
+  }, [lastMessage?.labelIds]);
+
   const showReply = props.showReply;
   const showThread = props.row.messages?.length > 1;
 
@@ -63,6 +67,7 @@ export function EmailPanel(props: {
               props.onArchive(props.row);
               props.close();
             }}
+            isRead={!isUnread}
             refetch={props.refetch}
           />
           <div className="ml-2 flex items-center">
