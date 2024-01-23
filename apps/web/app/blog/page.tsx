@@ -6,10 +6,10 @@ import Link from "next/link";
 
 const posts = [
   {
-    title: "How my Open Source SaaS hit #1 on Product Hunt",
+    title: "How Inbox Zero hit #1 on Product Hunt",
     file: "how-my-open-source-saas-hit-first-on-product-hunt",
     description:
-      "Two weeks ago I launched my open source email app on Product Hunt. It finished in first place with over 1000 upvotes and gained thousands of new users. The app, Inbox Zero, helps you clean up your inbox fast. It lets you bulk unsubscribe from newsletters, automate emails with an AI assistant, automatically block cold emails, and provides email analytics.",
+      "Two weeks ago I launched Inbox Zero on Product Hunt. It finished in first place with over 1000 upvotes and gained thousands of new users. The app, Inbox Zero, helps you clean up your inbox fast. It lets you bulk unsubscribe from newsletters, automate emails with an AI assistant, automatically block cold emails, and provides email analytics.",
     date: "Jan 22, 2024",
     datetime: "2024-01-22",
     // category: { title: "Marketing", href: "#" },
