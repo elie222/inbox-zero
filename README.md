@@ -29,6 +29,7 @@ Inbox Zero is an open-source email app whose goal is to help you reach inbox zer
 
 - **Newsletter Cleaner:** Easily manage and unsubscribe from newsletters.
 - **AI Assistant:** Auto respond, archive, label, and forward emails based on plain text prompt rules.
+- **Cold Email Blocker:** Automatically block cold emails.
 - **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
 - **New Senders:** Identify and block new spam senders.
 - **Unreplied Emails:** Keep track of emails awaiting responses.
