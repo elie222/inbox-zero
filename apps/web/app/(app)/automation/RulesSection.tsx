@@ -264,7 +264,7 @@ export function RulesForm(props: {
                         </div>
                       ) : null}
                       <div className="ml-4 flex items-center">
-                        <Tooltip content="If enabled Inbox Zero will perform the actions automatically. If disabled you will first have to confirm the plan of actionType.">
+                        <Tooltip content="If enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first.">
                           <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
                         </Tooltip>
                         <div className="ml-2">

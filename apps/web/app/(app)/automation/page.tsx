@@ -57,9 +57,12 @@ export default function PlannedPage() {
                     automatically.
                   </SectionDescription>
                   <SectionDescription>
-                    Run in planning mode to see what the AI would do without it
-                    actually doing anything. Alternatively, activate automated
-                    mode to enable the AI to automatically process your emails.
+                    Use {`"Confirmation Mode"`} to preview the AI{"'"}s planned
+                    actions without immediate execution.
+                  </SectionDescription>
+                  <SectionDescription>
+                    For hands-free operation, switch to {`"Automated Mode"`},
+                    enabling the AI to process your emails autonomously.
                   </SectionDescription>
                   {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
                     <div className="mt-4">

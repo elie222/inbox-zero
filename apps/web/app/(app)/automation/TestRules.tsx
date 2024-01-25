@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError } from "@/components/Toast";
 import { MessageText } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
@@ -31,7 +31,7 @@ export function TestRules() {
     >
       <Button color="white" className="mt-4">
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
-        Test
+        Test Rules
       </Button>
     </SlideOverSheet>
   );
@@ -110,7 +110,7 @@ const TestRulesForm = () => {
 
   return (
     <div>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
         <Input
           type="text"
           as="textarea"
@@ -123,7 +123,7 @@ const TestRulesForm = () => {
         />
         <Button type="submit" loading={isSubmitting}>
           <SparklesIcon className="mr-2 h-4 w-4" />
-          Plan
+          Test Rules
         </Button>
       </form>
       {plan && (
@@ -202,7 +202,7 @@ function TestRulesContentRow(props: {
             }}
           >
             <SparklesIcon className="mr-2 h-4 w-4" />
-            Plan
+            Test
           </Button>
         </div>
       </div>
