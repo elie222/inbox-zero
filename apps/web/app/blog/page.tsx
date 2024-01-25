@@ -20,6 +20,21 @@ const posts = [
       imageUrl: "/images/blog/elie-profile.jpg",
     },
   },
+  {
+    title: "Why Build An Open Source SaaS",
+    file: "why-build-an-open-source-saas",
+    description:
+      "Open source SaaS products are blowing up. This is why you should consider building one.",
+    date: "Jan 25, 2024",
+    datetime: "2024-01-25",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
 ];
 
 export default async function BlogPage() {
