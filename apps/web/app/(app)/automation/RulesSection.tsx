@@ -80,10 +80,11 @@ export function RulesForm(props: {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
     control,
     watch,
     setValue,
+    reset,
   } = useForm<UpdateRulesBody>({
     resolver: zodResolver(updateRulesBody),
     defaultValues: {
@@ -162,9 +163,11 @@ export function RulesForm(props: {
         });
       }
 
-      await refetchRules();
+      refetchRules();
+
+      reset(data);
     },
-    [setValue, props.rules, refetchRules, posthog],
+    [setValue, props.rules, refetchRules, posthog, reset],
   );
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();
@@ -209,7 +212,6 @@ export function RulesForm(props: {
             .join(", ")}
           .
         </SectionDescription>
-        <TestRules />
       </div>
 
       <div className="md:col-span-3">
@@ -286,12 +288,26 @@ export function RulesForm(props: {
               })}
             </div>
           </FormSectionRight>
-          <SubmitButtonWrapper>
-            <Button type="submit" size="lg" loading={isSubmitting}>
-              Save
-            </Button>
-          </SubmitButtonWrapper>
+          <Button
+            type="submit"
+            size="lg"
+            loading={isSubmitting}
+            className="mt-4"
+          >
+            Save
+          </Button>
         </form>
+
+        <div className="mt-2 flex items-center">
+          <TestRules
+            disabled={!watch("rules").find((f) => f.instructions?.trim())}
+          />
+          {isDirty && (
+            <div className="ml-4 flex items-center justify-end text-sm text-gray-700">
+              Click save to test new rules.
+            </div>
+          )}
+        </div>
       </div>
 
       <RuleModal

@@ -22,14 +22,14 @@ import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 
-export function TestRules() {
+export function TestRules(props: { disabled?: boolean }) {
   return (
     <SlideOverSheet
       title="Test Rules"
       description="Test how your rules perform against real emails."
       content={<TestRulesContent />}
     >
-      <Button color="white" className="mt-4">
+      <Button color="white" disabled={props.disabled}>
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
         Test Rules
       </Button>
