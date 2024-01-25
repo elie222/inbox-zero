@@ -16,10 +16,11 @@ export default function Page() {
     <>
       <StructuredData
         headline="How Inbox Zero hit #1 on Product Hunt"
-        datePublished="2024-01-22T08:00:00"
-        dateModified="2024-01-22T08:00:00"
+        datePublished="2024-01-22T08:00:00+00:00"
+        dateModified="2024-01-22T08:00:00+00:00"
         authorName="Elie Steinbock"
         authorUrl="https://elie.tech"
+        image={[]}
       />
       <Content />
     </>

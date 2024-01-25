@@ -4,6 +4,7 @@ type StructuredDataProps = {
   dateModified: string;
   authorName: string;
   authorUrl: string;
+  image: string[];
 };
 
 export function StructuredData(props: StructuredDataProps) {
@@ -11,11 +12,7 @@ export function StructuredData(props: StructuredDataProps) {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: props.headline,
-    // image: [
-    //   "https://example.com/photos/1x1/photo.jpg",
-    //   "https://example.com/photos/4x3/photo.jpg",
-    //   "https://example.com/photos/16x9/photo.jpg",
-    // ],
+    image: props.image,
     datePublished: props.datePublished,
     dateModified: props.dateModified,
     author: [
