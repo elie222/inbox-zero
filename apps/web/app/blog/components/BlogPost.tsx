@@ -12,7 +12,7 @@ export function BlogPost(props: {
 
   return (
     <BasicLayout>
-      <article className="mx-auto max-w-xl py-20">
+      <article className="mx-auto max-w-xl px-6 py-20">
         {/* <div className="text-center">
           <time dateTime={date} className="mb-1 text-xs text-gray-600">
             {format(parseISO(date), "LLLL d, yyyy")}
