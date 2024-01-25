@@ -165,7 +165,7 @@ export function RulesForm(props: {
 
       refetchRules();
 
-      reset(data);
+      reset({ rules: data.rules.length ? data.rules : [{ instructions: "" }] });
     },
     [setValue, props.rules, refetchRules, posthog, reset],
   );
