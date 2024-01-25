@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { Content } from "./content";
+import { StructuredData } from "@/app/blog/post/StructuredData";
 
 export const metadata: Metadata = {
   title: "Why Build An Open Source SaaS",
@@ -11,5 +12,16 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <Content />;
+  return (
+    <>
+      <StructuredData
+        headline="Why Build An Open Source SaaS"
+        datePublished="2024-01-25T08:00:00"
+        dateModified="2024-01-25T08:00:00"
+        authorName="Elie Steinbock"
+        authorUrl="https://elie.tech"
+      />
+      <Content />
+    </>
+  );
 }
