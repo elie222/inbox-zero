@@ -56,7 +56,10 @@ export const GET = withError(async (request: Request) => {
 
       const account = user.accounts[0];
 
-      const { hasAiOrColdEmailAccess } = hasFeatureAccess(user.premium, null);
+      const { hasAiOrColdEmailAccess } = hasFeatureAccess(
+        user.premium,
+        user.openAIApiKey,
+      );
       if (!hasAiOrColdEmailAccess) {
         console.log(
           `User ${user.email} does not have access to AI or cold email`,
