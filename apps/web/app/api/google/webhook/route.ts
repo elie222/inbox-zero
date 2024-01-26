@@ -12,8 +12,8 @@ import { getThread } from "@/utils/gmail/thread";
 import { parseEmail } from "@/utils/mail";
 import { AIModel, UserAIFields } from "@/utils/openai";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
-import { isPremium } from "@/utils/premium";
-import { ColdEmailSetting, FeatureAccess } from "@prisma/client";
+import { hasFeatureAccess, isPremium } from "@/utils/premium";
+import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 
 export const dynamic = "force-dynamic";
@@ -71,25 +71,11 @@ export const POST = withError(async (request: Request) => {
     return NextResponse.json({ ok: true });
   }
 
-  const coldEmailBlockerAccess = premium.coldEmailBlockerAccess;
-  const aiAutomationAccess = premium.aiAutomationAccess;
-
-  const hasColdEmailAccess = !!(
-    coldEmailBlockerAccess === FeatureAccess.UNLOCKED ||
-    (coldEmailBlockerAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
-      account.user.openAIApiKey)
-  );
-
-  const hasAiAccess = !!(
-    aiAutomationAccess === FeatureAccess.UNLOCKED ||
-    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
-      account.user.openAIApiKey)
-  );
-
-  const hasAiOrColdEmailAccess = hasColdEmailAccess || hasAiAccess;
+  const { hasAiOrColdEmailAccess, hasColdEmailAccess, hasAiAccess } =
+    hasFeatureAccess(premium, account.user.openAIApiKey);
 
   if (!hasAiOrColdEmailAccess) {
-    console.debug("Google webhook: !hasAiOrColdEmailAccess");
+    console.debug("Google webhook: does not have hasAiOrColdEmailAccess");
     return NextResponse.json({ ok: true });
   }
 

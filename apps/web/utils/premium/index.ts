@@ -1,4 +1,4 @@
-import { Premium, PremiumTier } from "@prisma/client";
+import { FeatureAccess, Premium, PremiumTier } from "@prisma/client";
 
 export const isPremium = (lemonSqueezyRenewsAt: Date | null): boolean => {
   return !!lemonSqueezyRenewsAt && new Date(lemonSqueezyRenewsAt) > new Date();
@@ -35,4 +35,27 @@ export const hasUnsubscribeAccess = (
   unsubscribeCredits?: number | null,
 ): boolean => {
   return unsubscribeCredits !== 0;
+};
+
+export const hasFeatureAccess = (
+  premium: Pick<Premium, "coldEmailBlockerAccess" | "aiAutomationAccess">,
+  openAIApiKey: string | null,
+) => {
+  const coldEmailBlockerAccess = premium.coldEmailBlockerAccess;
+  const aiAutomationAccess = premium.aiAutomationAccess;
+
+  const hasColdEmailAccess = !!(
+    coldEmailBlockerAccess === FeatureAccess.UNLOCKED ||
+    (coldEmailBlockerAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
+      openAIApiKey)
+  );
+
+  const hasAiAccess = !!(
+    aiAutomationAccess === FeatureAccess.UNLOCKED ||
+    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && openAIApiKey)
+  );
+
+  const hasAiOrColdEmailAccess = hasColdEmailAccess || hasAiAccess;
+
+  return { hasAiOrColdEmailAccess, hasColdEmailAccess, hasAiAccess };
 };

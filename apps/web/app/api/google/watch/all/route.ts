@@ -5,6 +5,7 @@ import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
+import { hasFeatureAccess } from "@/utils/premium";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -23,6 +24,8 @@ export const GET = withError(async (request: Request) => {
     },
     select: {
       tier: true,
+      coldEmailBlockerAccess: true,
+      aiAutomationAccess: true,
       users: {
         select: {
           id: true,
@@ -41,7 +44,9 @@ export const GET = withError(async (request: Request) => {
     },
   });
 
-  const users = premiums.flatMap((premium) => premium.users);
+  const users = premiums.flatMap((premium) =>
+    premium.users.map((user) => ({ ...user, premium })),
+  );
 
   console.log(`Watching emails for ${users.length} users`);
 
@@ -50,6 +55,14 @@ export const GET = withError(async (request: Request) => {
       console.log(`Watching emails for ${user.email}`);
 
       const account = user.accounts[0];
+
+      const { hasAiOrColdEmailAccess } = hasFeatureAccess(user.premium, null);
+      if (!hasAiOrColdEmailAccess) {
+        console.log(
+          `User ${user.email} does not have access to AI or cold email`,
+        );
+        continue;
+      }
 
       const gmail = await getGmailClientWithRefresh(
         {
