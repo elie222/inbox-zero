@@ -7,6 +7,7 @@ import { getLabels, saveLabels } from "@/utils/indexeddb/labels";
 import { TopSection } from "@/components/TopSection";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 import { Button } from "@/components/Button";
+import { WithServiceWorker } from "@/components/WithServiceWorker";
 
 export default function IDBPlayground() {
   const [labels, setLabels] = useState<gmail_v1.Schema$Label[]>([]);
@@ -17,22 +18,24 @@ export default function IDBPlayground() {
   // example of loading data into idb
   // if you comment out this section after data is first loaded the labels will still show up
 
-  useEffect(() => {
-    const onMessage = ({
-      data,
-      type,
-    }: {
-      data: LabelsResponse;
-      type: string;
-    }) => {
-      if (type === "LABELS_UPDATED") setLabels(data.labels ?? []);
-    };
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", (event) =>
-        onMessage(event.data),
-      );
-    }
-  }, []);
+  const onMessage = ({
+    data,
+    type,
+  }: {
+    data: LabelsResponse;
+    type: string;
+  }) => {
+    if (type === "LABELS_UPDATED") setLabels(data.labels ?? []);
+  };
+
+  // useEffect(() => {
+
+  //   if ("serviceWorker" in navigator) {
+  //     navigator.serviceWorker.addEventListener("message", (event) =>
+  //       onMessage(event.data),
+  //     );
+  //   }
+  // }, []);
 
   useEffect(() => {
     fetch("/api/user/stats/emails/all", {
@@ -53,22 +56,24 @@ export default function IDBPlayground() {
   }, [data]);
 
   return (
-    <div>
-      <TopSection title="IndexedDB Playground" />
+    <WithServiceWorker callback={onMessage}>
+      <div>
+        <TopSection title="IndexedDB Playground" />
 
-      <div className="p-4">
-        {!labels.length && <div>No labels found.</div>}
+        <div className="p-4">
+          {!labels.length && <div>No labels found.</div>}
 
-        <div className="grid gap-2">
-          {labels.map((l) => {
-            return <div key={l.id}>{l.name}</div>;
-          })}
+          <div className="grid gap-2">
+            {labels.map((l) => {
+              return <div key={l.id}>{l.name}</div>;
+            })}
+          </div>
+
+          <Button onClick={() => setMailLoad((prev) => !prev)}>
+            Load All Data
+          </Button>
         </div>
-
-        <Button onClick={() => setMailLoad((prev) => !prev)}>
-          Load All Data
-        </Button>
       </div>
-    </div>
+    </WithServiceWorker>
   );
 }
