@@ -9,9 +9,7 @@ let IMAGE_CACHE = "IMAGE_CACHE";
 const LABEL_STORE = {
   name: "labels",
   key: "id",
-  indexes: [
-    /* { name: "", property: "", params: {} } */
-  ],
+  indexes: [],
 };
 const EMAIL_STORE = {
   name: "emails",
