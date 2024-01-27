@@ -30,6 +30,7 @@ const tinybirdEmail = z.object({
   sizeEstimate: z.number().nullish(), // Estimated size in bytes
 });
 export type TinybirdEmail = z.infer<typeof tinybirdEmail>;
+export type IndexedDBEmail = z.infer<typeof tinybirdEmail>;
 
 export const publishEmail = tb.buildIngestEndpoint({
   datasource: "email",

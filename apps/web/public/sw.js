@@ -1,13 +1,24 @@
 /* Service Worker */
 
 const version = 1;
-const dbVersion = 1;
+const dbVersion = 2;
 const database = "inbox-zero";
 let DB = null;
 let dynamicName = `dynamicCache`;
 let IMAGE_CACHE = "IMAGE_CACHE";
-const LABEL_STORE = "labels";
-const EMAIL_STORE = "emails";
+const LABEL_STORE = {
+  name: "labels",
+  key: "id",
+  indexes: [
+    /* { name: "", property: "", params: {} } */
+  ],
+};
+const EMAIL_STORE = {
+  name: "emails",
+  key: "gmailMessageId",
+  indexes: [{ name: "timestampIDX", property: "timestamp", params: {} }],
+};
+const ALL_STORES = [LABEL_STORE, EMAIL_STORE];
 
 self.addEventListener("install", (event) => {
   console.log(`Version ${version} installed`);
@@ -22,7 +33,15 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   //service worker intercepted a fetch call
-  if (!isAuth(event.request.url)) event.respondWith(handleFetch(event.request));
+  if (!isAuth(event.request.url)) console.log(event.request.url);
+  event.respondWith(
+    handleFetch(event.request).then((response) => {
+      if (event.request.url.includes("tinybird")) {
+        console.log(response);
+      }
+      return response;
+    }),
+  );
 });
 
 self.addEventListener("message", (event) => {
@@ -38,10 +57,18 @@ const openDB = (callback) => {
   };
   req.onupgradeneeded = (ev) => {
     let db = ev.target.result;
-    if (!db.objectStoreNames.contains(LABEL_STORE)) {
-      db.createObjectStore(LABEL_STORE, {
-        keyPath: "id",
-      });
+    for (const store of ALL_STORES) {
+      const { name, key, indexes } = store;
+      if (!db.objectStoreNames.contains(name)) {
+        const objectStore = db.createObjectStore(name, {
+          keyPath: key,
+        });
+
+        for (const index of indexes) {
+          const { name, property, params } = index;
+          objectStore.createIndex(name, property, params);
+        }
+      }
     }
   };
   req.onsuccess = (ev) => {
@@ -55,15 +82,16 @@ const openDB = (callback) => {
 };
 
 async function handleFetch(request) {
-  if (request.url.includes("/api/google/labels")) {
+  const { url } = request;
+  if (url.includes("/api/google/labels")) {
     // this should be called regardless.
     fetchAndUpdateIDB(request.clone());
 
     // if the data is within idb
     if (DB) {
       const getData = new Promise(async (resolve, reject) => {
-        let tx = DB.transaction(LABEL_STORE, "readonly");
-        let store = tx.objectStore(LABEL_STORE);
+        let tx = DB.transaction(LABEL_STORE.name, "readonly");
+        let store = tx.objectStore(LABEL_STORE.name);
         let req = store.getAll();
 
         req.onsuccess = () => resolve(req.result);
@@ -86,22 +114,47 @@ async function handleFetch(request) {
   }
 
   if (
-    request.url.includes(".svg") ||
-    request.url.includes(".jpg") ||
-    request.url.includes(".png") ||
-    request.url.includes(".jpeg")
+    url.includes(".svg") ||
+    url.includes(".jpg") ||
+    url.includes(".png") ||
+    url.includes(".jpeg")
   ) {
     const cacheResponse = await caches.match(request);
     if (cacheResponse) return cacheResponse;
     const fetchResponse = await fetch(request);
 
     //save in image cache
-    console.log(`save an IMAGE file ${request.url}`);
+    console.log(`save an IMAGE file ${url}`);
     const cache = await caches.open(IMAGE_CACHE);
     cache.put(request, fetchResponse.clone());
     return fetchResponse;
   }
 
+  if (url.includes("/api/user/stats/emails/all")) {
+    // 1.check if the data is in indexeddb
+    // 2. if no data make the request to the backend for ALL the data
+    // 3. if data -> return data immediately, fetch remaining data in background
+    // 4. when remaining data is available, cache it -> send a message to the client about the newly recieved data  []
+    const localData = await loadLocalMail();
+    if (localData) {
+      return new Response(
+        JSON.stringify({
+          mailList: localData,
+          page: Math.floor(localData.length / 100),
+        }),
+      );
+    }
+    const fetchResponse = await fetch(request);
+    const mails = await fetchResponse.json();
+
+    saveMails(mails);
+    // console.log("✅/api/user/stats/emails/all", data);
+
+    // TODO:The FetchEvent for "http://localhost:3000/api/user/stats/emails/all" resulted in a network error response: a Response whose "body" is locked cannot be used to respond to a request.
+
+    //
+    return new Response(JSON.stringify(mails), { status: 200 });
+  }
   return fetch(request);
 }
 
@@ -129,7 +182,7 @@ async function saveLabels(labels) {
   if (!DB) {
     try {
       await openDB();
-      const tx = DB.transaction(LABEL_STORE, "readwrite");
+      const tx = DB.transaction(LABEL_STORE.name, "readwrite");
 
       await Promise.all([
         ...labels.map((label) => {
@@ -151,4 +204,36 @@ const isAuth = (url) =>
   url.includes("api/auth") ||
   url.includes("newsletters");
 
-// TODO: this can independently poll for the latest data from the api and withhout consuming client resources
+const loadLocalMail = async () => {
+  if (!DB) await openDB();
+
+  const data = await getLocalMail();
+  if (data.length > 0) return data;
+  return null;
+};
+
+const getLocalMail = () => {
+  return new Promise((resolve, reject) => {
+    const tx = DB.transaction(EMAIL_STORE.name, "readonly");
+    const store = tx.objectStore(EMAIL_STORE.name);
+    const index = store.index("timestampIDX");
+    const req = index.getAll();
+    req.onsuccess = () => resolve(req.result);
+  });
+  // make a utility function for creating transaction.
+};
+
+const saveMails = async (mails) => {
+  if (!DB) {
+    await openDB();
+  }
+  const tx = DB.transaction(EMAIL_STORE.name, "readwrite");
+  const store = tx.objectStore(EMAIL_STORE.name);
+
+  for (const mail of mails.mailList) {
+    const req = store.add(mail);
+    req.onsuccess = console.log("added mail");
+    req.onerror = (e) =>
+      console.log("error occurred while adding mails to index", e);
+  }
+};

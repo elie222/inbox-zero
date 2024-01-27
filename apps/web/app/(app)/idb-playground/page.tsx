@@ -6,9 +6,11 @@ import { type gmail_v1 } from "googleapis";
 import { getLabels, saveLabels } from "@/utils/indexeddb/labels";
 import { TopSection } from "@/components/TopSection";
 import { LabelsResponse } from "@/app/api/google/labels/route";
+import { Button } from "@/components/Button";
 
 export default function IDBPlayground() {
   const [labels, setLabels] = useState<gmail_v1.Schema$Label[]>([]);
+  const [mailLoad, setMailLoad] = useState(false);
 
   // fetch data from idb
 
@@ -32,6 +34,15 @@ export default function IDBPlayground() {
     }
   }, []);
 
+  useEffect(() => {
+    fetch("/api/user/stats/emails/all", {
+      method: "POST",
+      body: JSON.stringify({ loadBefore: false }),
+    })
+      .then((resp) => resp.json())
+      .then(console.log);
+  }, [mailLoad]);
+
   const { data, isLoading, error } =
     useSWR<LabelsResponse>("/api/google/labels");
 
@@ -53,6 +64,10 @@ export default function IDBPlayground() {
             return <div key={l.id}>{l.name}</div>;
           })}
         </div>
+
+        <Button onClick={() => setMailLoad((prev) => !prev)}>
+          Load All Data
+        </Button>
       </div>
     </div>
   );

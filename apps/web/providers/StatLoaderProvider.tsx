@@ -1,7 +1,10 @@
 "use client";
 
 import { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
-import { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
+import {
+  LoadIDBEmailsBody,
+  LoadTinybirdEmailsBody,
+} from "@/app/api/user/stats/tinybird/load/validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { isError } from "lodash";
@@ -27,6 +30,7 @@ const StatLoaderContext = createContext<Context>({
   onLoad: async () => {},
 });
 
+// niceee -> didn't know this was possible
 export const useStatLoader = () => useContext(StatLoaderContext);
 
 export function StatLoaderProvider(props: { children: React.ReactNode }) {
@@ -46,9 +50,10 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
 
       setIsLoading(true);
 
+      // this is being awaited to show toast.
       const res = await postRequest<
         LoadTinybirdEmailsResponse,
-        LoadTinybirdEmailsBody
+        LoadIDBEmailsBody
       >("/api/user/stats/tinybird/load", {
         loadBefore: options.loadBefore,
       });
