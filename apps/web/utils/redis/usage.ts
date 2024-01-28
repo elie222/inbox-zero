@@ -54,7 +54,7 @@ const costs: Record<
     output: number;
   }
 > = {
-  "gpt-3.5-turbo": {
+  "gpt-3.5-turbo-1106": {
     input: 0.001 / 1000,
     output: 0.002 / 1000,
   },
