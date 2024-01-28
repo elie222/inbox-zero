@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
-import { DEFAULT_AI_MODEL } from "@/utils/config";
+import {
+  DEFAULT_AI_MODEL,
+  UserAIFields,
+  getOpenAI,
+  getAiModel,
+} from "@/utils/openai";
 import { withError } from "@/utils/middleware";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
@@ -12,7 +16,7 @@ export type RespondResponse = Awaited<ReturnType<typeof respond>>;
 
 async function respond(body: RespondBody, userAIFields: UserAIFields) {
   const response = await getOpenAI(
-    userAIFields.openAIApiKey
+    userAIFields.openAIApiKey,
   ).chat.completions.create({
     model: userAIFields.aiModel || DEFAULT_AI_MODEL,
     messages: [
@@ -48,7 +52,7 @@ export const POST = withError(async (request: Request) => {
   });
 
   const res = await respond(body, {
-    aiModel: user.aiModel as AIModel,
+    aiModel: getAiModel(user.aiModel),
     openAIApiKey: user.openAIApiKey,
   });
 

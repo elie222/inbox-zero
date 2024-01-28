@@ -3,8 +3,12 @@ import { NextResponse } from "next/server";
 import { parseJSON } from "@/utils/json";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
-import { DEFAULT_AI_MODEL } from "@/utils/config";
+import {
+  DEFAULT_AI_MODEL,
+  UserAIFields,
+  getAiModel,
+  getOpenAI,
+} from "@/utils/openai";
 import { Action, ActionType, Rule } from "@prisma/client";
 import { actionInputs } from "@/utils/actionType";
 import { withError } from "@/utils/middleware";
@@ -173,7 +177,7 @@ export const POST = withError(async (request: Request) => {
   });
 
   const result = await categorizeRule(body, session.user.id, {
-    aiModel: user.aiModel as AIModel,
+    aiModel: getAiModel(user.aiModel),
     openAIApiKey: user.openAIApiKey,
   });
 

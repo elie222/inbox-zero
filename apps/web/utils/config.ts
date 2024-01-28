@@ -8,6 +8,3 @@ Rules to follow:
 * Add the newsletter label to emails that are newsletters.
 * Draft responses to snoozed emails that I haven't received a response to yet.
 `;
-
-// beware of rate limits for different models
-export const DEFAULT_AI_MODEL = "gpt-3.5-turbo-1106";

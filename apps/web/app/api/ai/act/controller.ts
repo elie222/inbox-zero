@@ -1,7 +1,12 @@
 import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import { UserAIFields, functionsToTools, getOpenAI } from "@/utils/openai";
+import {
+  DEFAULT_AI_MODEL,
+  UserAIFields,
+  functionsToTools,
+  getOpenAI,
+} from "@/utils/openai";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
@@ -16,7 +21,6 @@ import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { saveUsage } from "@/utils/redis/usage";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
-import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 

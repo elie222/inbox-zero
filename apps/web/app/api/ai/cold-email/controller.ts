@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { type gmail_v1 } from "googleapis";
-import { DEFAULT_AI_MODEL } from "@/utils/config";
 import { parseJSON } from "@/utils/json";
-import { UserAIFields, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL, UserAIFields, getOpenAI } from "@/utils/openai";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";

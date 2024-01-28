@@ -10,7 +10,7 @@ import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { parseEmail } from "@/utils/mail";
-import { AIModel, UserAIFields } from "@/utils/openai";
+import { UserAIFields, getAiModel } from "@/utils/openai";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
@@ -141,7 +141,7 @@ export const POST = withError(async (request: Request) => {
         gmail,
         rules: account.user.rules,
         about: account.user.about || "",
-        aiModel: account.user.aiModel as AIModel,
+        aiModel: getAiModel(account.user.aiModel),
         openAIApiKey: account.user.openAIApiKey,
         hasAutomationRules,
         coldEmailPrompt: account.user.coldEmailPrompt,

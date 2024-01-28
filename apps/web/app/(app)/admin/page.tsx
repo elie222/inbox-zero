@@ -35,6 +35,9 @@ const UpgradeToAdminForm = () => {
     getValues,
   } = useForm<ChangePremiumStatusOptions>({
     resolver: zodResolver(changePremiumStatusSchema),
+    defaultValues: {
+      period: PremiumTier.BUSINESS_ANNUALLY,
+    },
   });
 
   const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
@@ -76,20 +79,20 @@ const UpgradeToAdminForm = () => {
         label="Period"
         options={[
           {
-            label: PremiumTier.PRO_MONTHLY,
-            value: PremiumTier.PRO_MONTHLY,
-          },
-          {
-            label: PremiumTier.PRO_ANNUALLY,
-            value: PremiumTier.PRO_ANNUALLY,
+            label: PremiumTier.BUSINESS_ANNUALLY,
+            value: PremiumTier.BUSINESS_ANNUALLY,
           },
           {
             label: PremiumTier.BUSINESS_MONTHLY,
             value: PremiumTier.BUSINESS_MONTHLY,
           },
           {
-            label: PremiumTier.BUSINESS_ANNUALLY,
-            value: PremiumTier.BUSINESS_ANNUALLY,
+            label: PremiumTier.PRO_ANNUALLY,
+            value: PremiumTier.PRO_ANNUALLY,
+          },
+          {
+            label: PremiumTier.PRO_MONTHLY,
+            value: PremiumTier.PRO_MONTHLY,
           },
           {
             label: PremiumTier.LIFETIME,

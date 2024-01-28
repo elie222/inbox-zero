@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { actBodyWithHtml } from "@/app/api/ai/act/validation";
 import { withError } from "@/utils/middleware";
 import { parseEmail } from "@/utils/mail";
-import { AIModel } from "@/utils/openai";
+import { getAiModel } from "@/utils/openai";
 
 export const maxDuration = 60;
 
@@ -41,7 +41,7 @@ export const POST = withError(async (request: Request) => {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
-    aiModel: user.aiModel as AIModel,
+    aiModel: getAiModel(user.aiModel),
     openAIApiKey: user.openAIApiKey,
   });
 
