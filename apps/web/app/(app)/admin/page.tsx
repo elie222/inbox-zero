@@ -39,12 +39,16 @@ const UpgradeToAdminForm = () => {
 
   const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
     async (data) => {
-      const res = await changePremiumStatus(data);
-      if (isErrorMessage(res)) toastError({ description: res.data });
-      else
-        toastSuccess({
-          description: data.upgrade ? `Upgraded!` : `Downgraded!`,
-        });
+      try {
+        const res = await changePremiumStatus(data);
+        if (isErrorMessage(res)) toastError({ description: res.data });
+        else
+          toastSuccess({
+            description: data.upgrade ? `Upgraded!` : `Downgraded!`,
+          });
+      } catch (error: any) {
+        toastError({ description: error?.message || "Error" });
+      }
     },
     [],
   );
