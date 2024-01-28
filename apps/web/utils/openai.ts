@@ -23,7 +23,7 @@ export const zodAIModel = z.enum(["gpt-3.5-turbo-1106", "gpt-4-turbo-preview"]);
 export type AIModel = z.infer<typeof zodAIModel>;
 
 // beware of rate limits for different models
-export const DEFAULT_AI_MODEL = "gpt-3.5-turbo-1106";
+export const DEFAULT_AI_MODEL = "gpt-4-turbo-preview";
 
 export function getAiModel(model: string | null): AIModel {
   if (model?.startsWith("gpt-4")) return "gpt-4-turbo-preview";
