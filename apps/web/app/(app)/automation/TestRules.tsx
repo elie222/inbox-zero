@@ -242,6 +242,7 @@ function Plan(props: { plan: ActResponse }) {
     return (
       <AlertBasic
         title="Rule found!"
+        variant="blue"
         description={plan.rule.instructions}
         icon={<CheckCircle2Icon className="h-4 w-4" />}
       />
