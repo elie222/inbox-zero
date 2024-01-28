@@ -18,6 +18,11 @@ const EMAIL_STORE = {
 };
 const ALL_STORES = [LABEL_STORE, EMAIL_STORE];
 
+const LABELS_UPDATED = "LABELS_UPDATED";
+const MAILS_UPDATED = "MAILS_UPDATED";
+
+const MESSAGES = { LABELS_UPDATED, MAILS_UPDATED };
+
 self.addEventListener("install", (event) => {
   console.log(`Version ${version} installed`);
   self.skipWaiting();
@@ -133,11 +138,21 @@ async function handleFetch(request) {
     // 2. if no data make the request to the backend for ALL the data
     // 3. if data -> return data immediately, fetch remaining data in background
     // 4. when remaining data is available, cache it -> send a message to the client about the newly recieved data  []
-    const localData = await loadLocalMail();
-    if (localData) {
+
+    const requestData = await request.json();
+    const localData = await loadLocalMail(!requestData.loadBefore);
+    if (localData?.length > 0) {
+      const newRequest = new Request(request, {
+        body: JSON.stringify({
+          ...requestData,
+          timestamp: localData[0].timestamp,
+        }),
+      });
+      // get Rest of the data
+      fetchAndUpdateMails(newRequest);
       return new Response(
         JSON.stringify({
-          mailList: localData,
+          emails: localData,
           page: Math.floor(localData.length / 100),
         }),
       );
@@ -165,10 +180,14 @@ async function fetchAndUpdateIDB(request) {
   if (!data?.labels) return;
 
   await saveLabels(data.labels);
+  messageClients(MESSAGES.LABELS_UPDATED, data);
+}
+
+function messageClients(type, data) {
   self.clients.matchAll().then((clients) => {
     clients.forEach((client) => {
       client.postMessage({
-        type: "LABELS_UPDATED",
+        type,
         data,
       });
     });
@@ -202,21 +221,22 @@ const isAuth = (url) =>
   url.includes("api/auth") ||
   url.includes("newsletters");
 
-const loadLocalMail = async () => {
+const loadLocalMail = async (decreasing = false) => {
   if (!DB) await openDB();
 
-  const data = await getLocalMail();
+  const data = await getLocalMail(decreasing);
   if (data.length > 0) return data;
   return null;
 };
 
-const getLocalMail = () => {
+const getLocalMail = (decreasing) => {
   return new Promise((resolve, reject) => {
     const tx = DB.transaction(EMAIL_STORE.name, "readonly");
     const store = tx.objectStore(EMAIL_STORE.name);
     const index = store.index("timestampIDX");
-    const req = index.getAll();
-    req.onsuccess = () => resolve(req.result);
+    const req = index.getAll(); // this request will get a range query with desencing order
+    req.onsuccess = () =>
+      resolve(decreasing ? req.result : req.result.reverse());
   });
   // make a utility function for creating transaction.
 };
@@ -228,10 +248,18 @@ const saveMails = async (mails) => {
   const tx = DB.transaction(EMAIL_STORE.name, "readwrite");
   const store = tx.objectStore(EMAIL_STORE.name);
 
-  for (const mail of mails.mailList) {
-    const req = store.add(mail);
+  for (const mail of mails.emails) {
+    const req = store.put(mail);
     req.onsuccess = console.log("added mail");
     req.onerror = (e) =>
       console.log("error occurred while adding mails to index", e);
   }
 };
+
+async function fetchAndUpdateMails(request) {
+  const resp = await fetch(request);
+  const restMails = await resp.json();
+  await saveMails(restMails);
+  const allMails = await loadLocalMail(/* decreasing or increasing */);
+  messageClients(MESSAGES.MAILS_UPDATED, allMails);
+}

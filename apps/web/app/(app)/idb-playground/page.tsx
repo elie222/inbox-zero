@@ -28,15 +28,6 @@ export default function IDBPlayground() {
     if (type === "LABELS_UPDATED") setLabels(data.labels ?? []);
   };
 
-  // useEffect(() => {
-
-  //   if ("serviceWorker" in navigator) {
-  //     navigator.serviceWorker.addEventListener("message", (event) =>
-  //       onMessage(event.data),
-  //     );
-  //   }
-  // }, []);
-
   useEffect(() => {
     fetch("/api/user/stats/emails/all", {
       method: "POST",
