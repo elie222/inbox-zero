@@ -54,8 +54,6 @@ export const GET = withError(async (request: Request) => {
     try {
       console.log(`Watching emails for ${user.email}`);
 
-      const account = user.accounts[0];
-
       const { hasAiOrColdEmailAccess } = hasFeatureAccess(
         user.premium,
         user.openAIApiKey,
@@ -67,6 +65,7 @@ export const GET = withError(async (request: Request) => {
         continue;
       }
 
+      const account = user.accounts[0];
       const gmail = await getGmailClientWithRefresh(
         {
           accessToken: account.access_token!,

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import {
   BookOpenCheckIcon,
   CheckCircle2Icon,
@@ -11,7 +12,6 @@ import {
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
-import { MessageText } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -21,6 +21,7 @@ import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
+import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -46,6 +47,9 @@ function TestRulesContent() {
     },
   );
 
+  const session = useSession();
+  const email = session.data?.user.email;
+
   return (
     <div>
       <div className="mt-4">
@@ -60,7 +64,13 @@ function TestRulesContent() {
         {data && (
           <div>
             {data.messages.map((message) => {
-              return <TestRulesContentRow key={message.id} message={message} />;
+              return (
+                <TestRulesContentRow
+                  key={message.id}
+                  message={message}
+                  userEmail={email!}
+                />
+              );
             })}
           </div>
         )}
@@ -137,6 +147,7 @@ const TestRulesForm = () => {
 
 function TestRulesContentRow(props: {
   message: MessagesResponse["messages"][number];
+  userEmail: string;
 }) {
   const { message } = props;
 
@@ -146,12 +157,12 @@ function TestRulesContentRow(props: {
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
-        <div className="min-w-0 break-words">
-          <MessageText className="font-bold">
-            {message.parsedMessage.headers.subject}
-          </MessageText>
-          <MessageText className="mt-1">{message.snippet?.trim()}</MessageText>
-        </div>
+        <TestRulesMessage
+          from={message.parsedMessage.headers.from}
+          subject={message.parsedMessage.headers.subject}
+          snippet={message.snippet?.trim() || ""}
+          userEmail={props.userEmail}
+        />
         <div className="ml-4">
           <Button
             color="white"
