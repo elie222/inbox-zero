@@ -1,5 +1,4 @@
 import { getAiResponse, planAct } from "@/app/api/ai/act/controller";
-import { getAiResponseOld } from "@/app/api/ai/act/old-planner";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 // NOTE: these tests cost money to run as they call the OpenAI API.
@@ -101,29 +100,6 @@ const functions: ChatCompletionCreateParams.Function[] = [
 
 const noRule = functions.length;
 
-describe("AI Plan", () => {
-  it(
-    "AI responds with unknown rule",
-    async () => {
-      const response = await getAiResponseOld({
-        email: {
-          from: "elie@test.com",
-          subject: "Catching up",
-          content: "Hey, how are you doing?",
-        },
-        functions,
-        userAbout: "",
-        userEmail: "",
-        aiModel: MODEL,
-        openAIApiKey: null,
-      });
-
-      expect(response).toBeUndefined();
-    },
-    TIMEOUT,
-  );
-});
-
 describe("AI Plan 1", () => {
   const options = {
     model: MODEL,
@@ -131,6 +107,7 @@ describe("AI Plan 1", () => {
       from: "billing@stripe.com",
       subject: "Your receipt from IZ",
       content: "Receipt from IZ. Amount: $10. Thanks for your business!",
+      snippet: "Receipt from IZ. Amount: $10. Thanks for your business!",
     },
     functions,
     userAbout: "",
@@ -138,15 +115,6 @@ describe("AI Plan 1", () => {
     aiModel: MODEL,
     openAIApiKey: null,
   };
-
-  it(
-    "AI follows rule",
-    async () => {
-      const response = await getAiResponseOld(options);
-      expect(response).toEqual({ name: "forward_receipts", arguments: "{}" });
-    },
-    TIMEOUT,
-  );
 
   it(
     "AI follows rule (without function calling)",
@@ -171,6 +139,8 @@ describe("AI Plan 2", () => {
 —
 Reply to this email directly, view it on GitHub, or unsubscribe.
 You are receiving this because you commented.Message ID: <upstash/sdk-qstash-ts/issues/32/1708038228@github.com`,
+      snippet:
+        "With v2 we've laid the foundation to make this possible, but we got other things in the pipeline first, so not likely to be in the next 1-2 months",
     },
     functions,
     userAbout: "",
@@ -207,6 +177,7 @@ describe("Plan act", () => {
       from: "billing@stripe.com",
       subject: "Your receipt from IZ",
       content: "Receipt from IZ. Amount: $10. Thanks for your business!",
+      snippet: "Receipt from IZ. Amount: $10. Thanks for your business!",
       threadId: "thread1",
       messageId: "message1",
       headerMessageId: "headerMessage1",
