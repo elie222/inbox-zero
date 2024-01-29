@@ -222,11 +222,14 @@ export function EmailList(props: {
             refetch();
           }
           setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
-          return res?.rule;
+          return res;
         },
         {
           loading: "Planning...",
-          success: (rule) => `Planned as ${rule?.name || "No Plan"}`,
+          success: (res) =>
+            res?.rule
+              ? `Planned as ${res?.rule?.name}`
+              : `No plan determined. ${res?.reason || ""}`,
           error: "There was an error planning the email :(",
         },
       );

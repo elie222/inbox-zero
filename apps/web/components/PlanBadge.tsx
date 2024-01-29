@@ -14,6 +14,7 @@ type Plan = {
     }[];
   } | null;
   databaseRule?: { instructions: string };
+  reason?: string;
 };
 
 // export function PlanBadge(props: { plan?: Thread["plan"] }) {
@@ -22,7 +23,24 @@ export function PlanBadge(props: { plan?: Plan }) {
 
   if (!plan) return <Badge color="gray">Not planned</Badge>;
 
-  if (!plan.rule) return <Badge color="yellow">No plan</Badge>;
+  if (!plan.rule) {
+    const component = <Badge color="yellow">No plan</Badge>;
+
+    if (plan.reason) {
+      return (
+        <HoverCard
+          content={
+            <div className="max-w-full whitespace-pre-wrap text-sm">
+              {plan.reason}
+            </div>
+          }
+        >
+          {component}
+        </HoverCard>
+      );
+    }
+    return component;
+  }
 
   return (
     <HoverCard

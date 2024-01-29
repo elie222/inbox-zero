@@ -24,7 +24,7 @@ import { labelThread } from "@/utils/gmail/label";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 
-export type ActResponse = Awaited<ReturnType<typeof planAct>>;
+export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
 type PlannedAction = {
   actions: Pick<Action, "type">[];
@@ -133,9 +133,10 @@ ${email.snippet}`,
   if (!aiResponse.choices[0].message.content) return;
 
   try {
-    return responseSchema.parse(
+    const result = responseSchema.parse(
       parseJSON(aiResponse.choices[0].message.content),
     );
+    return result;
   } catch (error) {
     console.warn(
       "Error parsing data.\nResponse:",
@@ -287,7 +288,10 @@ export async function planAct(
     userAbout: string;
     userEmail: string;
   } & UserAIFields,
-): Promise<{ rule: Rule; plannedAction: PlannedAction } | undefined> {
+): Promise<
+  | { rule: Rule; plannedAction: PlannedAction; reason?: string }
+  | { rule?: undefined; plannedAction?: undefined; reason?: string }
+> {
   const { email, rules } = options;
 
   const { functions, rulesWithProperties } = getFunctionsFromRules({ rules });
@@ -304,13 +308,14 @@ export async function planAct(
   const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
   if (typeof ruleNumber !== "number") {
     console.warn("No rule selected");
-    return;
+    return { reason: aiResponse?.reason };
   }
 
   const selectedRule = rulesWithProperties[ruleNumber];
   console.log("selectedRule", selectedRule);
 
-  if (selectedRule.name === REQUIRES_MORE_INFO) return;
+  if (selectedRule.name === REQUIRES_MORE_INFO)
+    return { reason: aiResponse?.reason };
 
   // TODO may want to pass full email content to this function so it has maximum context to act on
   const aiArgsResponse = await getArgsAiResponse({
@@ -339,6 +344,7 @@ export async function planAct(
       args,
     },
     rule: selectedRule.rule,
+    reason: aiResponse?.reason,
   };
 }
 
@@ -414,7 +420,7 @@ export async function planOrExecuteAct(
 
   console.log("Planned act:", plannedAct);
 
-  if (!plannedAct) {
+  if (!plannedAct.rule) {
     await savePlan({
       userId: options.userId,
       threadId: options.email.threadId,
@@ -423,14 +429,15 @@ export async function planOrExecuteAct(
         messageId: options.email.messageId,
         threadId: options.email.threadId,
         rule: null,
+        reason: plannedAct.reason,
       },
     });
 
-    return;
+    return plannedAct;
   }
 
   const shouldExecute =
-    options.allowExecute && (plannedAct.rule?.automate || options.forceExecute);
+    options.allowExecute && (plannedAct.rule.automate || options.forceExecute);
 
   console.log("shouldExecute:", shouldExecute);
 
@@ -451,6 +458,7 @@ export async function planOrExecuteAct(
         threadId: options.email.threadId,
         rule: { ...plannedAct.rule, actions: plannedAct.plannedAction.actions },
         functionArgs: plannedAct.plannedAction.args,
+        reason: plannedAct.reason,
       },
     });
   }
