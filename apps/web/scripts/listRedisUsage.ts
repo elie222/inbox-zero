@@ -31,7 +31,8 @@ async function scanUsageKeys() {
   costs
     .sort((a, b) => a.cost - b.cost)
     .forEach(({ email, cost, data }) => {
-      if (cost > 10) console.log(email, cost, data);
+      // if (cost > 10)
+      console.log(email, cost, data);
     });
 
   console.log("totalCost:", totalCost);
