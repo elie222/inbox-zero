@@ -12,6 +12,7 @@ import { WithServiceWorker } from "@/components/WithServiceWorker";
 export default function IDBPlayground() {
   const [labels, setLabels] = useState<gmail_v1.Schema$Label[]>([]);
   const [mailLoad, setMailLoad] = useState(false);
+  const [statLoad, setStatLoad] = useState(false);
 
   // fetch data from idb
 
@@ -36,6 +37,16 @@ export default function IDBPlayground() {
       .then((resp) => resp.json())
       .then(console.log);
   }, [mailLoad]);
+  useEffect(() => {
+    fetch(
+      "/api/user/stats/emails/sw?period=week&fromDate=1703745824000&toDate=1706423263000",
+      {
+        method: "GET",
+      },
+    )
+      .then((resp) => resp.json())
+      .then(console.log);
+  }, [statLoad]);
 
   const { data, isLoading, error } =
     useSWR<LabelsResponse>("/api/google/labels");
@@ -62,6 +73,9 @@ export default function IDBPlayground() {
 
           <Button onClick={() => setMailLoad((prev) => !prev)}>
             Load All Data
+          </Button>
+          <Button onClick={() => setStatLoad((prev) => !prev)}>
+            Load All Stats
           </Button>
         </div>
       </div>

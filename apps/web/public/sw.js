@@ -23,6 +23,15 @@ const MAILS_UPDATED = "MAILS_UPDATED";
 
 const MESSAGES = { LABELS_UPDATED, MAILS_UPDATED };
 
+const TIME_CONSTANT = {
+  // in ms
+  hour: 3600_000,
+  day: 86400_000,
+  week: 604800_000,
+  month: 2629743_000,
+  year: 31556926_000,
+};
+
 self.addEventListener("install", (event) => {
   console.log(`Version ${version} installed`);
   self.skipWaiting();
@@ -168,6 +177,20 @@ async function handleFetch(request) {
     //
     return new Response(JSON.stringify(mails), { status: 200 });
   }
+
+  if (url.includes("/api/user/stats/emails/sw")) {
+    const { searchParams } = new URL(url);
+    const params = {
+      period: searchParams.get("period") || "week", // "day", "week", "month", "year"
+      fromDate: searchParams.get("fromDate"), // null or undefined
+      toDate: searchParams.get("toDate"), // null or undefined
+    };
+    // 1. Get Data stats based on the timestamp
+    const stats = await getStatsByPeriod(params);
+    return new Response(JSON.stringify(stats), {
+      status: 200,
+    });
+  }
   return fetch(request);
 }
 
@@ -229,12 +252,12 @@ const loadLocalMail = async (decreasing = false) => {
   return null;
 };
 
-const getLocalMail = (decreasing) => {
+const getLocalMail = (decreasing, keyRange) => {
   return new Promise((resolve, reject) => {
     const tx = DB.transaction(EMAIL_STORE.name, "readonly");
     const store = tx.objectStore(EMAIL_STORE.name);
     const index = store.index("timestampIDX");
-    const req = index.getAll(); // this request will get a range query with desencing order
+    const req = index.getAll(keyRange); // this request will get a range query with desencing order
     req.onsuccess = () =>
       resolve(decreasing ? req.result : req.result.reverse());
   });
@@ -263,3 +286,104 @@ async function fetchAndUpdateMails(request) {
   const allMails = await loadLocalMail(/* decreasing or increasing */);
   messageClients(MESSAGES.MAILS_UPDATED, allMails);
 }
+
+/* Analytics/ Stats Part */
+
+function getStatsByPeriod(options) {
+  return new Promise(async (resolve, reject) => {
+    const { period, fromDate, toDate } = options;
+    // there will be 3 parts
+    // 1. Make key ranges
+    // 2. Get Data from indexes based on the keyrange
+    // 3. Analyize data -> Copying existing logic as it is, is going make this very long
+    // 3. Return data as it is and analyize on the frontend using lodash.
+
+    // TODO: Figure out a way to use import statment in service worker without causing error, so you can use lodash in service worker ->Uncaught SyntaxError: Cannot use import statement outside a module (at service-worker.js:1:1)
+
+    // get all data and run filter on it or make 4 indexes ?
+    // run filter
+
+    //TODO: convert data into period
+
+    const keyRange = IDBKeyRange.bound(+fromDate, +toDate, true, true);
+
+    const localData = await getLocalMail(false, keyRange);
+
+    resolve(getAllMailsClusterdbyPeriod(+fromDate, +toDate, period, localData));
+  });
+}
+
+// all inclusive
+const numberOfClusters = (start, end, size) => {
+  const window = (end - start + 1) / size;
+  return Math.floor(window) + (window - Math.floor(window) > 0 ? 1 : 0);
+};
+
+const getClusteredArray = (start, end, size) => {
+  const nClusters = numberOfClusters(start, end, size);
+  const clusters = [];
+  for (let i = 0; i < nClusters; i++) {
+    clusters.push({
+      startOfPeriod: new Date(
+        i < nClusters - 1 ? start + i * size : end,
+      ).toLocaleDateString("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+      }),
+      All: 0,
+      Sent: 0,
+      Read: 0,
+      Unread: 0,
+      Archived: 0,
+      Unarchived: 0,
+    });
+  }
+  return clusters;
+};
+
+function getAllMailsClusterdbyPeriod(fromDate, toDate, period, data) {
+  if (!data || !data.length) return;
+
+  const clusters = getClusteredArray(
+    fromDate,
+    toDate ?? fromDate,
+    TIME_CONSTANT[period],
+  );
+  // const
+  for (item of data) {
+    const clusterIndex = Math.floor(
+      (item.timestamp - fromDate) / TIME_CONSTANT[period],
+    );
+    const cluster = clusters[clusterIndex];
+    // All ++
+    cluster.All++;
+
+    // Read/Unread
+    item.read ? cluster.Read++ : cluster.Unread++;
+
+    // Sent
+    item.sent || cluster.Sent++;
+
+    // Inbox/Archived
+    item.inbox ? cluster.Unarchived++ : cluster.Archived++;
+  }
+
+  //cleaning (if we want zeros, we can remove cleaning)
+  clusters.forEach((ele) => {
+    const keys = Object.keys(ele);
+    for (key of keys) if (ele[key] === 0) delete ele[key];
+  });
+
+  return {
+    result: clusters,
+    allCount: clusters.reduce((sum, ele) => sum + (ele.All ?? 0), 0),
+    inboxCount: clusters.reduce((sum, ele) => sum + (ele.Unarchived ?? 0), 0),
+    readCount: clusters.reduce((sum, ele) => sum + (ele.Read ?? 0), 0),
+    sentCount: clusters.reduce((sum, ele) => sum + (ele.Sent ?? 0), 0),
+  };
+}
+
+//1706080945000 from
+
+//1706423263000 to
