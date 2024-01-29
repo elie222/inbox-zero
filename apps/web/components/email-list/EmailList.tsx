@@ -350,36 +350,35 @@ export function EmailList(props: {
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
     useExecutePlan(refetch);
 
+  const onApplyAction = useCallback(
+    async (action: (thread: Thread) => void) => {
+      for (const [threadId, selected] of Object.entries(selectedRows)) {
+        if (!selected) continue;
+        const thread = threads.find((t) => t.id === threadId);
+        if (thread) action(thread);
+      }
+      refetch();
+    },
+    [threads, selectedRows, refetch],
+  );
+
   const onPlanAiBulk = useCallback(async () => {
-    for (const [threadId, selected] of Object.entries(selectedRows)) {
-      if (!selected) continue;
-      const thread = threads.find((t) => t.id === threadId);
-      if (thread) onPlanAiAction(thread);
-    }
-
-    refetch();
-  }, [onPlanAiAction, threads, selectedRows, refetch]);
-
+    onApplyAction(onPlanAiAction);
+  }, [onApplyAction, onPlanAiAction]);
   const onCategorizeAiBulk = useCallback(async () => {
-    for (const [threadId, selected] of Object.entries(selectedRows)) {
-      if (!selected) continue;
-      const thread = threads.find((t) => t.id === threadId);
-      if (thread) onAiCategorize(thread);
-    }
-
-    refetch();
-  }, [onAiCategorize, threads, selectedRows, refetch]);
+    onApplyAction(onAiCategorize);
+  }, [onApplyAction, onAiCategorize]);
+  const onAiApproveBulk = useCallback(async () => {
+    onApplyAction(executePlan);
+  }, [onApplyAction, executePlan]);
+  const onAiRejectBulk = useCallback(async () => {
+    onApplyAction(rejectPlan);
+  }, [onApplyAction, rejectPlan]);
 
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        for (const [threadId, selected] of Object.entries(selectedRows)) {
-          if (!selected) continue;
-          const thread = threads.find((t) => t.id === threadId);
-          if (thread) await archive(thread);
-        }
-
-        refetch();
+        onApplyAction(archive);
       },
       {
         loading: "Archiving emails...",
@@ -387,18 +386,12 @@ export function EmailList(props: {
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [archive, threads, selectedRows, refetch]);
+  }, [onApplyAction, archive]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        for (const [threadId, selected] of Object.entries(selectedRows)) {
-          if (!selected) continue;
-          const thread = threads.find((t) => t.id === threadId);
-          if (thread) await trashThreadAction(threadId);
-        }
-
-        refetch();
+        onApplyAction((thread) => trashThreadAction(thread.id));
       },
       {
         loading: "Deleting emails...",
@@ -406,7 +399,7 @@ export function EmailList(props: {
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [threads, selectedRows, refetch]);
+  }, [onApplyAction]);
 
   const isEmpty = threads.length === 0;
 
@@ -423,10 +416,14 @@ export function EmailList(props: {
               isCategorizing={false}
               isArchiving={false}
               isDeleting={false}
+              isApproving={false}
+              isRejecting={false}
               onAiCategorize={onCategorizeAiBulk}
               onPlanAiAction={onPlanAiBulk}
               onArchive={onArchiveBulk}
               onDelete={onTrashBulk}
+              onApprove={onAiApproveBulk}
+              onReject={onAiRejectBulk}
             />
           </div>
         </div>
