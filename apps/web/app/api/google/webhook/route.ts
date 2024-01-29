@@ -58,7 +58,10 @@ export const POST = withError(async (request: Request) => {
   });
 
   if (!account) {
-    console.error("Google webhook: Account not found");
+    console.error(
+      "Google webhook: Account not found",
+      decodedData.emailAddress,
+    );
     return NextResponse.json({ ok: true });
   }
 
@@ -67,7 +70,10 @@ export const POST = withError(async (request: Request) => {
     : undefined;
 
   if (!premium) {
-    console.log("Google webhook: Account not premium");
+    console.log(
+      "Google webhook: Account not premium",
+      decodedData.emailAddress,
+    );
     return NextResponse.json({ ok: true });
   }
 
@@ -75,7 +81,10 @@ export const POST = withError(async (request: Request) => {
     hasFeatureAccess(premium, account.user.openAIApiKey);
 
   if (!hasAiOrColdEmailAccess) {
-    console.debug("Google webhook: does not have hasAiOrColdEmailAccess");
+    console.debug(
+      "Google webhook: does not have hasAiOrColdEmailAccess",
+      decodedData.emailAddress,
+    );
     return NextResponse.json({ ok: true });
   }
 
@@ -86,6 +95,7 @@ export const POST = withError(async (request: Request) => {
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     console.debug(
       "Google webhook: !hasAutomationRules && !shouldBlockColdEmails",
+      decodedData.emailAddress,
     );
     return NextResponse.json({ ok: true });
   }
@@ -93,13 +103,14 @@ export const POST = withError(async (request: Request) => {
   if (!account.access_token || !account.refresh_token) {
     console.error(
       "Missing access or refresh token. User needs to re-authenticate.",
+      decodedData.emailAddress,
     );
     return NextResponse.json({ ok: true });
   }
 
   if (!account.user.email) {
     // shouldn't ever happen
-    console.error("Missing user email.");
+    console.error("Missing user email.", decodedData.emailAddress);
     return NextResponse.json({ ok: true });
   }
 
@@ -114,11 +125,15 @@ export const POST = withError(async (request: Request) => {
     );
 
     const startHistoryId = Math.max(
-      parseInt(account.user.lastSyncedHistoryId || "0"),
+      // parseInt(account.user.lastSyncedHistoryId || "0"),
       historyId - 100, // avoid going too far back
     ).toString();
 
-    console.log("Webhook: Listing history... Start:", startHistoryId);
+    console.log(
+      "Webhook: Listing history... Start:",
+      startHistoryId,
+      decodedData.emailAddress,
+    );
 
     const history = await listHistory(
       {
@@ -131,7 +146,7 @@ export const POST = withError(async (request: Request) => {
     );
 
     if (history?.length) {
-      console.log("Webhook: Processing...");
+      console.log("Webhook: Processing...", decodedData.emailAddress);
 
       await processHistory({
         history,
@@ -150,7 +165,7 @@ export const POST = withError(async (request: Request) => {
         hasAiAutomationAccess: hasAiAccess,
       });
     } else {
-      console.log("Webhook: No history");
+      console.log("Webhook: No history", decodedData.emailAddress);
 
       // important to save this or we can get into a loop with never receiving history
       await prisma.user.update({
