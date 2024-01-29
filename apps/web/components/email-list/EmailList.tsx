@@ -452,44 +452,50 @@ export function EmailList(props: {
               className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
               ref={listRef}
             >
-              {threads.map((thread) => (
-                <EmailListItem
-                  ref={(node) => {
-                    const map = getMap();
-                    if (node) {
-                      map.set(thread.id!, node);
-                    } else {
-                      map.delete(thread.id!);
-                    }
-                  }}
-                  key={thread.id}
-                  userEmailAddress={session.data?.user.email || ""}
-                  thread={thread}
-                  opened={openedRowId === thread.id}
-                  closePanel={closePanel}
-                  selected={selectedRows[thread.id!]}
-                  onSelected={onSetSelectedRow}
-                  splitView={!!openedRowId}
-                  onClick={() => {
-                    const alreadyOpen = !!openedRowId;
-                    setOpenedRowId(thread.id!);
+              {threads.map((thread) => {
+                const onOpen = () => {
+                  const alreadyOpen = !!openedRowId;
+                  setOpenedRowId(thread.id!);
 
-                    if (!alreadyOpen) scrollToId(thread.id!);
-                  }}
-                  onShowReply={onShowReply}
-                  isPlanning={isPlanning[thread.id!]}
-                  isCategorizing={isCategorizing[thread.id!]}
-                  isArchiving={isArchiving[thread.id!]}
-                  onPlanAiAction={onPlanAiAction}
-                  onAiCategorize={onAiCategorize}
-                  onArchive={onArchive}
-                  executePlan={executePlan}
-                  rejectPlan={rejectPlan}
-                  executingPlan={executingPlan[thread.id!]}
-                  rejectingPlan={rejectingPlan[thread.id!]}
-                  refetch={refetch}
-                />
-              ))}
+                  if (!alreadyOpen) scrollToId(thread.id!);
+                };
+                return (
+                  <EmailListItem
+                    ref={(node) => {
+                      const map = getMap();
+                      if (node) {
+                        map.set(thread.id!, node);
+                      } else {
+                        map.delete(thread.id!);
+                      }
+                    }}
+                    key={thread.id}
+                    userEmailAddress={session.data?.user.email || ""}
+                    thread={thread}
+                    opened={openedRowId === thread.id}
+                    closePanel={closePanel}
+                    selected={selectedRows[thread.id!]}
+                    onSelected={onSetSelectedRow}
+                    splitView={!!openedRowId}
+                    onClick={onOpen}
+                    onShowReply={() => {
+                      onOpen();
+                      onShowReply();
+                    }}
+                    isPlanning={isPlanning[thread.id!]}
+                    isCategorizing={isCategorizing[thread.id!]}
+                    isArchiving={isArchiving[thread.id!]}
+                    onPlanAiAction={onPlanAiAction}
+                    onAiCategorize={onAiCategorize}
+                    onArchive={onArchive}
+                    executePlan={executePlan}
+                    rejectPlan={rejectPlan}
+                    executingPlan={executingPlan[thread.id!]}
+                    rejectingPlan={rejectingPlan[thread.id!]}
+                    refetch={refetch}
+                  />
+                );
+              })}
             </ul>
           </ResizablePanel>
 
