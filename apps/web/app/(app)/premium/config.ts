@@ -62,7 +62,7 @@ export const tiers = [
       "Priority support",
     ],
     cta: "Upgrade",
-    mostPopular: true,
+    mostPopular: false,
   },
   {
     name: "Business",
@@ -92,7 +92,7 @@ export const tiers = [
       "AI planning mode",
     ],
     cta: "Upgrade",
-    mostPopular: false,
+    mostPopular: true,
     hideFrequency: false,
   },
   // {
