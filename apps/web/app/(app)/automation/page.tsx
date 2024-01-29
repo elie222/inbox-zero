@@ -2,6 +2,7 @@
 
 import { useIsClient, useLocalStorage } from "usehooks-ts";
 import { useSearchParams } from "next/navigation";
+import useSWR from "swr";
 import { Tabs } from "@/components/Tabs";
 import { RulesSection } from "@/app/(app)/automation/RulesSection";
 import { SectionDescription } from "@/components/Typography";
@@ -12,10 +13,12 @@ import { PlanHistory } from "@/app/(app)/automation/PlanHistory";
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PremiumTier } from "@prisma/client";
+import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
+import { PlannedResponse } from "@/app/api/user/planned/route";
 
 export default function PlannedPage() {
   const params = useSearchParams();
-  const selectedTab = params.get("tab") || "history";
+  const selectedTab = params.get("tab") || "planned";
 
   const { isPremium, isLoading, data } = usePremium();
 
@@ -29,6 +32,18 @@ export default function PlannedPage() {
     true,
   );
   const toggleExpandRules = () => setExpandRules((prev) => !prev);
+
+  // could pass this data into tabs too
+  const { data: historyData } = useSWR<PlanHistoryResponse>(
+    "/api/user/planned/history",
+    {
+      keepPreviousData: true,
+    },
+  );
+  const { data: plannedData } = useSWR<PlannedResponse>("/api/user/planned", {
+    keepPreviousData: true,
+    dedupingInterval: 1_000,
+  });
 
   // prevent hydration error from localStorage
   const isClient = useIsClient();
@@ -95,22 +110,30 @@ export default function PlannedPage() {
             selected={selectedTab}
             tabs={[
               {
-                label: "History",
-                value: "history",
-                href: "/automation?tab=history",
-              },
-              {
-                label: "Planned",
+                label:
+                  "Planned" +
+                  (plannedData?.messages.length
+                    ? ` (${plannedData?.messages.length})`
+                    : ""),
                 value: "planned",
                 href: "/automation?tab=planned",
+              },
+              {
+                label:
+                  "History" +
+                  (historyData?.history.length
+                    ? ` (${historyData?.history.length})`
+                    : ""),
+                value: "history",
+                href: "/automation?tab=history",
               },
             ]}
             breakpoint="xs"
           />
         </div>
 
-        {selectedTab === "history" && <PlanHistory />}
         {selectedTab === "planned" && <Planned />}
+        {selectedTab === "history" && <PlanHistory />}
       </div>
     </div>
   );
