@@ -238,7 +238,7 @@ function Plan(props: { plan: ActResponse }) {
     );
   }
 
-  if (plan.plannedAction.actions) {
+  if (plan.plannedAction?.actions) {
     return (
       <AlertBasic
         title="Rule found!"
