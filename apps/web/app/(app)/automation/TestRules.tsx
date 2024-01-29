@@ -170,14 +170,6 @@ function TestRulesContentRow(props: {
             onClick={async () => {
               setPlanning(true);
 
-              if (!message.parsedMessage.textPlain) {
-                toastError({
-                  description: `Unable to plan email. No plain text found.`,
-                });
-                setPlanning(false);
-                return;
-              }
-
               const res = await postRequest<ActResponse, ActBodyWithHtml>(
                 "/api/ai/act",
                 {
@@ -229,11 +221,17 @@ function Plan(props: { plan: ActResponse }) {
 
   if (!plan) return null;
 
-  if (plan.rule === null) {
+  if (!plan.rule) {
     return (
       <AlertBasic
+        variant="destructive"
         title="No rule found!"
-        description="This email does not match any of the rules you have set."
+        description={
+          <div className="space-y-2">
+            <div>This email does not match any of the rules you have set.</div>
+            <div>{plan.reason}</div>
+          </div>
+        }
       />
     );
   }
