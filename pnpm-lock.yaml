@@ -65,6 +65,9 @@ importers:
       '@inboxzero/tinybird':
         specifier: workspace:*
         version: link:../../packages/tinybird
+      '@inboxzero/tinybird-ai-analytics':
+        specifier: workspace:*
+        version: link:../../packages/tinybird-ai-analytics
       '@lemonsqueezy/lemonsqueezy.js':
         specifier: ^1.2.5
         version: 1.2.5
@@ -278,6 +281,9 @@ importers:
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@3.4.1)
+      tiktoken:
+        specifier: ^1.0.13
+        version: 1.0.13
       typescript:
         specifier: 5.3.3
         version: 5.3.3
@@ -590,6 +596,25 @@ importers:
         version: 1.0.2
 
   packages/tinybird:
+    dependencies:
+      '@chronark/zod-bird':
+        specifier: 0.3.3
+        version: 0.3.3
+      zod:
+        specifier: 3.22.4
+        version: 3.22.4
+    devDependencies:
+      '@types/node':
+        specifier: 20.11.5
+        version: 20.11.5
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  packages/tinybird-ai-analytics:
     dependencies:
       '@chronark/zod-bird':
         specifier: 0.3.3
@@ -15967,6 +15992,10 @@ packages:
   /through@2.3.8:
     resolution: {integrity: sha512-w89qg7PI8wAdvX60bMDP+bFoD5Dvhm9oLheFp5O4a2QF0cSBGsBX4qZmadPMvVqlLJBBci+WqGGOAPvcDeNSVg==}
     dev: true
+
+  /tiktoken@1.0.13:
+    resolution: {integrity: sha512-JaL9ZnvTbGFMDIBeGdVkLt4qWTeCPw+n7Ock+wceAGRenuHA6nOOvMJFliNDyXsjg2osGKJWsXtO2xc74VxyDw==}
+    dev: false
 
   /tiny-glob@0.2.9:
     resolution: {integrity: sha512-g/55ssRPUjShh+xkfx9UPDXqhckHEsHr4Vd9zX55oSdGZc/MD0m3sferOkwWtp98bv+kcVfEHtRJgBVJzelrzg==}

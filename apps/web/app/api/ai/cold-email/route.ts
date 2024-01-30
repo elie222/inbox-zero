@@ -27,13 +27,11 @@ export type ColdEmailBlockerResponse = Awaited<
 
 async function checkColdEmail(
   body: ColdEmailBlockerBody,
-  options: { email: string },
   gmail: gmail_v1.Gmail,
+  userEmail: string,
 ) {
-  const { email } = options;
-
   const user = await prisma.user.findUniqueOrThrow({
-    where: { email },
+    where: { email: userEmail },
     select: {
       coldEmailPrompt: true,
       aiModel: true,
@@ -64,6 +62,7 @@ async function checkColdEmail(
     },
     hasPreviousEmail,
     unsubscribeLink,
+    userEmail,
   });
 
   return { isColdEmail: yes };
@@ -79,11 +78,7 @@ export const POST = withError(async (request: Request) => {
 
   const gmail = getGmailClient(session);
 
-  const result = await checkColdEmail(
-    body,
-    { email: session.user.email },
-    gmail,
-  );
+  const result = await checkColdEmail(body, gmail, session.user.email);
 
   return NextResponse.json(result);
 });

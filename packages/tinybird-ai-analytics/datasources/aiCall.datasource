@@ -1,0 +1,15 @@
+SCHEMA >
+    `userId` String `json:$.userId`,
+    `timestamp` Int64 `json:$.timestamp`,
+    `totalTokens` UInt64 `json:$.totalTokens`,
+    `completionTokens` UInt64 `json:$.completionTokens`,
+    `promptTokens` UInt64 `json:$.promptTokens`,
+    `cost` Float32 `json:$.cost`,
+    `model` String `json:$.model`,
+    `provider` String `json:$.provider`,
+    `label` Nullable(String) `json:$.label`,
+    `data` Nullable(String) `json:$.data`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY userId, timestamp
+ENGINE_PARTITION_KEY "toYYYYMM(fromUnixTimestamp64Milli(timestamp))"

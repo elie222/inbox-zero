@@ -18,11 +18,11 @@ import prisma from "@/utils/prisma";
 import { deletePlan, savePlan } from "@/utils/redis/plan";
 import { Action, Rule } from "@prisma/client";
 import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
-import { saveUsage } from "@/utils/redis/usage";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
+import { saveAiUsage } from "@/utils/usage";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
@@ -122,8 +122,14 @@ ${email.snippet}`,
     // ],
   });
 
-  if (aiResponse.usage)
-    await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: aiResponse.usage,
+      model,
+      label: "Choose rule",
+    });
+  }
 
   const responseSchema = z.object({
     rule: z.number(),
@@ -204,8 +210,14 @@ ${email.content}`,
     temperature: 0,
   });
 
-  if (aiResponse.usage)
-    await saveUsage({ email: userEmail, usage: aiResponse.usage, model });
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: aiResponse.usage,
+      model,
+      label: "Args for rule",
+    });
+  }
 
   const functionCall =
     aiResponse?.choices?.[0]?.message.tool_calls?.[0]?.function;

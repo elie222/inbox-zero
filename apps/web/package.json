@@ -20,6 +20,7 @@
     "@inboxzero/loops": "workspace:*",
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
+    "@inboxzero/tinybird-ai-analytics": "workspace:*",
     "@lemonsqueezy/lemonsqueezy.js": "^1.2.5",
     "@mdx-js/loader": "^3.0.0",
     "@mdx-js/react": "^3.0.0",
@@ -91,6 +92,7 @@
     "swr": "^2.2.4",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
+    "tiktoken": "^1.0.13",
     "typescript": "5.3.3",
     "usehooks-ts": "^2.9.5",
     "zod": "^3.22.4"

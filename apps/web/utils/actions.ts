@@ -23,6 +23,7 @@ import {
 import { deletePlans } from "@/utils/redis/plan";
 import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
+import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -92,6 +93,7 @@ export async function deleteAccountAction() {
       deletePlans({ userId: session.user.id }),
       deleteUserStats({ email: session.user.email }),
       deleteTinybirdEmails({ email: session.user.email }),
+      deleteTinybirdAiCalls({ userId: session.user.email }),
       deletePosthogUser({ email: session.user.email }),
       deleteLoopsContact(session.user.email),
       deleteResendContact({ email: session.user.email }),
