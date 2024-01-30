@@ -105,7 +105,7 @@ ${rule.instructions}`,
       email: userEmail,
       usage: aiResponse.usage,
       model,
-      label: "Choose rule",
+      label: "Categorize rule",
     });
   }
 
