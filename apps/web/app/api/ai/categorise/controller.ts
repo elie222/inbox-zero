@@ -4,6 +4,7 @@ import { DEFAULT_AI_MODEL, UserAIFields, getOpenAI } from "@/utils/openai";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { truncate } from "@/utils/mail";
+import { saveAiUsage } from "@/utils/usage";
 
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
@@ -32,6 +33,7 @@ const aiResponseSchema = z.object({
 async function aiCategorise(
   body: CategoriseBody & { content: string } & UserAIFields,
   expanded: boolean,
+  userEmail: string,
 ) {
   const message = `Categorize this email.
 Return a JSON object with a "category" and "requiresMoreInformation" field.
@@ -75,8 +77,9 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
 ###
 `;
 
+  const model = body.aiModel || DEFAULT_AI_MODEL;
   const response = await getOpenAI(body.openAIApiKey).chat.completions.create({
-    model: body.aiModel || DEFAULT_AI_MODEL,
+    model,
     response_format: { type: "json_object" },
     messages: [
       {
@@ -89,6 +92,15 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
       },
     ],
   });
+
+  if (response.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: response.usage,
+      model,
+      label: "Categorize",
+    });
+  }
 
   const content = response.choices[0].message.content;
 
@@ -114,10 +126,10 @@ export async function categorise(
   });
   if (existingCategory) return existingCategory;
   // 2. ai categorise
-  let category = await aiCategorise(body, false);
+  let category = await aiCategorise(body, false, options.email);
   if (category?.requiresMoreInformation) {
     console.log("Not enough information, expanding email and trying again");
-    category = await aiCategorise(body, true);
+    category = await aiCategorise(body, true, options.email);
   }
 
   if (!category?.category) return;
