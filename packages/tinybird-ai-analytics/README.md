@@ -39,23 +39,4 @@ Now you can run `tb` commands.
 
 ```sh
 tb push datasources
-# or:
-tb push datasources/email.datasource
-```
-
-## Pipe
-
-```sh
-tb push pipes
-# or:
-tb push pipes/get_emails_by_period.pipe
-# or to force changes:
-tb push pipes --force --no-check
-```
-
-## Switch workspace
-
-```sh
-tb workspace ls # list workspaces
-tb workspace use <workspace_name>
 ```
