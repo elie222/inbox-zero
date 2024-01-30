@@ -102,16 +102,17 @@ async function handleFetch(request) {
 
     // if the data is within idb
     if (DB) {
-      const getData = new Promise(async (resolve, reject) => {
-        let tx = DB.transaction(LABEL_STORE.name, "readonly");
-        let store = tx.objectStore(LABEL_STORE.name);
-        let req = store.getAll();
+      const getData = () =>
+        new Promise(async (resolve, reject) => {
+          let tx = DB.transaction(LABEL_STORE.name, "readonly");
+          let store = tx.objectStore(LABEL_STORE.name);
+          let req = store.getAll();
 
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
       try {
-        const result = await getData;
+        const result = await getData();
         if (result.length)
           return new Response(JSON.stringify({ labels: result }), {
             status: 200,
@@ -159,7 +160,7 @@ async function handleFetch(request) {
         }),
       });
       // get Rest of the data
-      fetchAndUpdateMails(newRequest);
+      fetchAndUpdateMails(newRequest, !requestData.loadBefore);
       return new Response(
         JSON.stringify({
           emails: localData,
@@ -171,11 +172,7 @@ async function handleFetch(request) {
     const mails = await fetchResponse.json();
 
     saveMails(mails);
-    // console.log("✅/api/user/stats/emails/all", data);
 
-    // TODO:The FetchEvent for "http://localhost:3000/api/user/stats/emails/all" resulted in a network error response: a Response whose "body" is locked cannot be used to respond to a request.
-
-    //
     return new Response(JSON.stringify(mails), { status: 200 });
   }
 
@@ -258,11 +255,16 @@ const getLocalMail = (decreasing, keyRange) => {
     const tx = DB.transaction(EMAIL_STORE.name, "readonly");
     const store = tx.objectStore(EMAIL_STORE.name);
     const index = store.index("timestampIDX");
-    const req = index.getAll(keyRange); // this request will get a range query with desencing order
+
+    // this request will get a range query with increasing order of timestamp (i.e. oldest to latest)
+    // if keyRange is undefined, it will get all the data.
+    const req = index.getAll(keyRange);
+
+    req.onerror = () => resolve(req.error);
     req.onsuccess = () =>
       resolve(decreasing ? req.result : req.result.reverse());
   });
-  // make a utility function for creating transaction.
+  // TODO: make a utility function for creating transaction.
 };
 
 const saveMails = async (mails) => {
@@ -280,11 +282,11 @@ const saveMails = async (mails) => {
   }
 };
 
-async function fetchAndUpdateMails(request) {
+async function fetchAndUpdateMails(request, decreasing) {
   const resp = await fetch(request);
   const restMails = await resp.json();
   await saveMails(restMails);
-  const allMails = await loadLocalMail(/* decreasing or increasing */);
+  const allMails = await loadLocalMail(decreasing);
   messageClients(MESSAGES.MAILS_UPDATED, allMails);
 }
 
@@ -293,18 +295,7 @@ async function fetchAndUpdateMails(request) {
 function getStatsByPeriod(options) {
   return new Promise(async (resolve, reject) => {
     const { period, fromDate, toDate } = options;
-    // there will be 3 parts
-    // 1. Make key ranges
-    // 2. Get Data from indexes based on the keyrange
-    // 3. Analyize data -> Copying existing logic as it is, is going make this very long
-    // 3. Return data as it is and analyize on the frontend using lodash.
-
     // TODO: Figure out a way to use import statment in service worker without causing error, so you can use lodash in service worker ->Uncaught SyntaxError: Cannot use import statement outside a module (at service-worker.js:1:1)
-
-    // get all data and run filter on it or make 4 indexes ?
-    // run filter
-
-    //TODO: convert data into period
 
     const keyRange = IDBKeyRange.bound(+fromDate, +toDate, true, true);
 

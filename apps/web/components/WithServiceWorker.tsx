@@ -5,6 +5,11 @@ import React, {
   useState,
 } from "react";
 
+interface Message {
+  type: string;
+  data: any;
+}
+
 export const WithServiceWorker = ({
   callback,
   actions,
@@ -13,7 +18,7 @@ export const WithServiceWorker = ({
   callback: Function;
   actions?: Array<string>;
 }>) => {
-  const [message, setMessage] = useState<{ type: string; data: any }>();
+  const [message, setMessage] = useState<Message>();
 
   const cb = useCallback(callback, [callback]);
 
@@ -21,7 +26,7 @@ export const WithServiceWorker = ({
     () =>
       navigator.serviceWorker.addEventListener(
         "message",
-        (event: MessageEvent<any>) => setMessage(event.data),
+        (event: MessageEvent<Message>) => setMessage(event.data),
       ),
     [],
   );
