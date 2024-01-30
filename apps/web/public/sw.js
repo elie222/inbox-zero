@@ -45,15 +45,16 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   //service worker intercepted a fetch call
-  if (!isAuth(event.request.url)) console.log(event.request.url);
-  event.respondWith(
-    handleFetch(event.request).then((response) => {
-      if (event.request.url.includes("tinybird")) {
-        console.log(response);
-      }
-      return response;
-    }),
-  );
+  console.log(event.request.url);
+  if (!isAuth(event.request.url))
+    event.respondWith(
+      handleFetch(event.request).then((response) => {
+        if (event.request.url.includes("tinybird")) {
+          console.log(response);
+        }
+        return response;
+      }),
+    );
 });
 
 self.addEventListener("message", (event) => {
@@ -383,7 +384,3 @@ function getAllMailsClusterdbyPeriod(fromDate, toDate, period, data) {
     sentCount: clusters.reduce((sum, ele) => sum + (ele.Sent ?? 0), 0),
   };
 }
-
-//1706080945000 from
-
-//1706423263000 to
