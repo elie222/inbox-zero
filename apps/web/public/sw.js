@@ -186,9 +186,17 @@ async function handleFetch(request) {
     };
     // 1. Get Data stats based on the timestamp
     const stats = await getStatsByPeriod(params);
-    return new Response(JSON.stringify(stats), {
-      status: 200,
-    });
+    if (stats)
+      return new Response(JSON.stringify(stats), {
+        status: 200,
+      });
+
+    return new Response(
+      JSON.stringify({
+        message: "No stored data found in indexedDB for analytics",
+      }),
+      { status: 204 },
+    );
   }
   return fetch(request);
 }
