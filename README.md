@@ -120,6 +120,8 @@ To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localho
 
 Follow the instructions [here](./packages/tinybird/README.md) to setup the `pipes` and `datasources`.
 
+Optional: If you want to store AI usage stats in Tinybird too, then do the same in `/packages/tinybird-ai-analytics`.
+
 ### Set up push notifications via Google PubSub to handle emails in real time
 
 Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
