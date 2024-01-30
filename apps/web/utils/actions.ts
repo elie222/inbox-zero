@@ -33,6 +33,7 @@ import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 import { captureException } from "@/utils/error";
+import { isAdmin } from "@/utils/admin";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -210,8 +211,7 @@ export async function trashThreadAction(threadId: string) {
 export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
-
-  if (!env.ADMINS?.includes(session.user.email)) throw new Error("Not admin");
+  if (!isAdmin(session.user.email)) throw new Error("Not admin");
 
   const userToUpgrade = await prisma.user.findUniqueOrThrow({
     where: { email: options.email },
