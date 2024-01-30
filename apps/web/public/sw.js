@@ -218,21 +218,19 @@ function messageClients(type, data) {
 
 async function saveLabels(labels) {
   if (!labels.length) return;
-  if (!DB) {
-    try {
-      await openDB();
-      const tx = DB.transaction(LABEL_STORE.name, "readwrite");
+  try {
+    if (!DB) await openDB();
+    const tx = DB.transaction(LABEL_STORE.name, "readwrite");
 
-      await Promise.all([
-        ...labels.map((label) => {
-          return tx.store.add(label);
-        }),
-        tx.done,
-      ]);
-    } catch (err) {
-      console.log(err);
-      throw err;
-    }
+    await Promise.all([
+      ...labels.map((label) => {
+        return tx.store.add(label);
+      }),
+      tx.done,
+    ]);
+  } catch (err) {
+    console.log(err);
+    throw err;
   }
 }
 
