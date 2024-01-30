@@ -9,7 +9,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
-import { PlusIcon } from "lucide-react";
+import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
@@ -30,6 +30,7 @@ import { Select } from "@/components/Select";
 import { AlertBasic } from "@/components/Alert";
 import { Toggle } from "@/components/Toggle";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
+import { Tooltip } from "@/components/Tooltip";
 
 export function RuleModal(props: {
   rule?: UpdateRuleBody;
@@ -179,19 +180,32 @@ function UpdateRuleForm(props: {
                         <div key={field.label}>
                           <div className="flex items-center justify-between">
                             <Label name={field.name} label={field.label} />
-                            <Toggle
-                              name={`actions.${i}.${field.name}`}
-                              label="AI Generated"
-                              enabled={isAiGenerated}
-                              onChange={(enabled) => {
-                                setValue(
-                                  `actions.${i}.${field.name}`,
-                                  enabled ? AI_GENERATED_FIELD_VALUE : "",
-                                );
-                              }}
-                            />
+                            <div className="flex items-center space-x-2">
+                              <Tooltip content="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation.">
+                                <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
+                              </Tooltip>
+                              <Toggle
+                                name={`actions.${i}.${field.name}`}
+                                label="AI Generated"
+                                enabled={isAiGenerated}
+                                onChange={(enabled) => {
+                                  setValue(
+                                    `actions.${i}.${field.name}`,
+                                    enabled ? AI_GENERATED_FIELD_VALUE : "",
+                                  );
+                                }}
+                              />
+                            </div>
                           </div>
-                          {!isAiGenerated && (
+                          {isAiGenerated ? (
+                            <input
+                              className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
+                              type="text"
+                              disabled
+                              value=""
+                              placeholder="AI Generated"
+                            />
+                          ) : (
                             <>
                               {field.textArea ? (
                                 <textarea
