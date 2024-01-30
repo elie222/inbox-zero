@@ -23,6 +23,7 @@ import { labelThread } from "@/utils/gmail/label";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
+import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
@@ -231,18 +232,25 @@ ${email.content}`,
 function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
   const rulesWithProperties = options.rules.map((rule, i) => {
     const prefilledValues: PartialRecord<ActionProperty, string | null> = {};
+    // const toAiGenerateValues: PartialRecord<ActionProperty, true> = {};
+    const toAiGenerateValues: ActionProperty[] = [];
 
     rule.actions.forEach((action) => {
       ACTION_PROPERTIES.forEach((property) => {
-        if (action[property]) {
+        if (action[property] === AI_GENERATED_FIELD_VALUE) {
+          toAiGenerateValues.push(property);
+        } else if (action[property]) {
           prefilledValues[property] = action[property];
         }
       });
     });
 
+    const shouldAiGenerateArgs = toAiGenerateValues.length > 0;
+
     return {
       rule,
       prefilledValues,
+      shouldAiGenerateArgs,
       name: `rule_${i + 1}`,
       description: rule.instructions,
       parameters: {
@@ -280,6 +288,7 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
       required: [],
     },
     prefilledValues: {},
+    shouldAiGenerateArgs: false,
     rule: {} as any,
   });
 
@@ -329,16 +338,23 @@ export async function planAct(
   if (selectedRule.name === REQUIRES_MORE_INFO)
     return { reason: aiResponse?.reason };
 
+  console.debug(
+    "🚀 ~ selectedRule.shouldAiGenerateArgs:",
+    selectedRule.shouldAiGenerateArgs,
+  );
+
   // TODO may want to pass full email content to this function so it has maximum context to act on
-  const aiArgsResponse = await getArgsAiResponse({
-    email,
-    userAbout: options.userAbout,
-    userEmail: options.userEmail,
-    functions,
-    selectedFunction: selectedRule,
-    aiModel: options.aiModel,
-    openAIApiKey: options.openAIApiKey,
-  });
+  const aiArgsResponse = selectedRule.shouldAiGenerateArgs
+    ? await getArgsAiResponse({
+        email,
+        userAbout: options.userAbout,
+        userEmail: options.userEmail,
+        functions,
+        selectedFunction: selectedRule,
+        aiModel: options.aiModel,
+        openAIApiKey: options.openAIApiKey,
+      })
+    : { arguments: undefined };
 
   const aiGeneratedArgs = aiArgsResponse?.arguments
     ? parseJSONWithMultilines(aiArgsResponse.arguments)
