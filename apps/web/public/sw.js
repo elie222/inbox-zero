@@ -49,6 +49,7 @@ self.addEventListener("fetch", (event) => {
   if (!isAuth(event.request.url))
     event.respondWith(
       handleFetch(event.request).then((response) => {
+        // TODO: Remove this
         if (event.request.url.includes("tinybird")) {
           console.log(response);
         }
@@ -150,7 +151,7 @@ async function handleFetch(request) {
     // 3. if data -> return data immediately, fetch remaining data in background
     // 4. when remaining data is available, cache it -> send a message to the client about the newly recieved data  []
 
-    const requestData = await request.json();
+    const requestData = await request.clone().json();
     const localData = await loadLocalMail(!requestData.loadBefore);
     if (localData?.length > 0) {
       const newRequest = new Request(request, {
