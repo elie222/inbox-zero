@@ -338,11 +338,6 @@ export async function planAct(
   if (selectedRule.name === REQUIRES_MORE_INFO)
     return { reason: aiResponse?.reason };
 
-  console.debug(
-    "🚀 ~ selectedRule.shouldAiGenerateArgs:",
-    selectedRule.shouldAiGenerateArgs,
-  );
-
   // TODO may want to pass full email content to this function so it has maximum context to act on
   const aiArgsResponse = selectedRule.shouldAiGenerateArgs
     ? await getArgsAiResponse({
