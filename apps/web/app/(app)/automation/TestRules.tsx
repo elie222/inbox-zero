@@ -101,7 +101,7 @@ const TestRulesForm = () => {
         subject: "",
         textPlain: data.message,
         textHtml: "",
-        snippet: "",
+        snippet: data.message,
         threadId: "",
         messageId: "",
         headerMessageId: "",
@@ -229,7 +229,9 @@ function Plan(props: { plan: ActResponse }) {
         description={
           <div className="space-y-2">
             <div>This email does not match any of the rules you have set.</div>
-            <div>{plan.reason}</div>
+            <div>
+              <strong>AI reason:</strong> {plan.reason}
+            </div>
           </div>
         }
       />
