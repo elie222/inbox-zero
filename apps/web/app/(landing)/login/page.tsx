@@ -1,21 +1,26 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import AutoLogOut from "@/app/(landing)/login/error/AutoLogOut";
+import { AlertBasic } from "@/components/Alert";
+import { env } from "@/env.mjs";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
   description: "Log in to Inbox Zero.",
-  alternates: {
-    canonical: "/login",
-  },
+  alternates: { canonical: "/login" },
 };
 
-export default async function AuthenticationPage() {
+export default async function AuthenticationPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string>;
+}) {
   const session = await auth();
-
-  if (session?.user.id) redirect("/welcome");
+  if (session?.user.email && !searchParams?.error) redirect("/welcome");
 
   return (
     <div className="flex h-screen flex-col justify-center text-gray-900">
@@ -25,8 +30,23 @@ export default async function AuthenticationPage() {
           <p className="mt-4">Your AI personal assistant for email.</p>
         </div>
         <div className="mt-4">
-          <LoginForm />
+          <Suspense>
+            <LoginForm />
+          </Suspense>
         </div>
+
+        {searchParams?.error && (
+          <>
+            <AlertBasic
+              variant="destructive"
+              title="Error logging in"
+              description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+            />
+            <Suspense>
+              <AutoLogOut loggedIn={!!session?.user.email} />
+            </Suspense>
+          </>
+        )}
 
         <p className="px-8 pt-10 text-center text-sm text-gray-500">
           By clicking continue, you agree to our{" "}

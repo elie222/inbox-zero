@@ -61,6 +61,8 @@ export const EmailListItem = forwardRef(
       [onSelected, props.thread.id],
     );
 
+    if (!lastMessage) return null;
+
     return (
       <li
         ref={ref}
@@ -145,7 +147,9 @@ export const EmailListItem = forwardRef(
               </div>
 
               <div className="ml-3 flex items-center whitespace-nowrap">
-                <CategoryBadge category={thread.category?.category} />
+                {thread.category?.category ? (
+                  <CategoryBadge category={thread.category.category} />
+                ) : null}
                 <div className="ml-3">
                   <PlanBadge plan={thread.plan} />
                 </div>

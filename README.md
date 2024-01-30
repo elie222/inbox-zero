@@ -1,9 +1,11 @@
+[![](apps/web/app/opengraph-image.png)](https://www.getinboxzero.com)
+
 <p align="center">
   <a href="https://www.getinboxzero.com">
     <h1 align="center">Inbox Zero</h1>
   </a>
   <p align="center">
-    Open source email management tools to reach inbox zero fast.
+    Open source email app to reach inbox zero fast.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -17,7 +19,7 @@
 
 ## About
 
-Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. It streamlines your email management, helping you achieve 'Inbox Zero' swiftly with features like email analytics, newsletter management, and AI assistance. Enhance your email experience without replacing your client!
+Inbox Zero is an open-source email app whose goal is to help you reach inbox zero fast with AI assistance.
 
 ## Demo Video
 
@@ -25,13 +27,13 @@ Inbox Zero is a powerful open-source tool designed for Gmail and Gsuite users. I
 
 ## Key Features
 
+- **Newsletter Cleaner:** Easily manage and unsubscribe from newsletters.
+- **AI Assistant:** Auto respond, archive, label, and forward emails based on plain text prompt rules.
+- **Cold Email Blocker:** Automatically block cold emails.
 - **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
-- **Newsletter Management:** Easily manage and unsubscribe from newsletters.
 - **New Senders:** Identify and block new spam senders.
 - **Unreplied Emails:** Keep track of emails awaiting responses.
 - **Large Email Finder:** Free up space by locating and deleting large emails.
-- **AI Auto-Responder:** Automate responses for common queries.
-- **AI Email Assistant:** Auto-archive, label, and forward emails based on set rules.
 
 ## Built with
 
@@ -117,6 +119,8 @@ To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localho
 ### Setting up Tinybird
 
 Follow the instructions [here](./packages/tinybird/README.md) to setup the `pipes` and `datasources`.
+
+Optional: If you want to store AI usage stats in Tinybird too, then do the same in `/packages/tinybird-ai-analytics`.
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 

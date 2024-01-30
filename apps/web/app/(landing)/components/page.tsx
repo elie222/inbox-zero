@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertBasic } from "@/components/Alert";
 
 export default function Components() {
   return (
@@ -77,6 +78,32 @@ export default function Components() {
               <TabsContent value="account">Account content</TabsContent>
               <TabsContent value="password">Password content</TabsContent>
             </Tabs>
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Alerts</div>
+          <div className="mt-4 space-y-2">
+            <AlertBasic
+              title="Alert title default"
+              description="Alert description"
+              variant="default"
+            />
+            <AlertBasic
+              title="Alert title success"
+              description="Alert description"
+              variant="success"
+            />
+            <AlertBasic
+              title="Alert title destructive"
+              description="Alert description"
+              variant="destructive"
+            />
+            <AlertBasic
+              title="Alert title blue"
+              description="Alert description"
+              variant="blue"
+            />
           </div>
         </div>
       </div>

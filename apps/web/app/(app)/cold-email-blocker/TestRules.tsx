@@ -7,10 +7,10 @@ import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { BookOpenCheckIcon, SparklesIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { toastError, toastSuccess } from "@/components/Toast";
-import { MessageText } from "@/components/Typography";
+import { toastError } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -22,15 +22,16 @@ import {
   ColdEmailBlockerBody,
   ColdEmailBlockerResponse,
 } from "@/app/api/ai/cold-email/route";
+import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 
 export function TestRules() {
   return (
     <SlideOverSheet
       title="Test Cold Emails"
-      description="Test which emails are flagged as cold emails. In practice, we will also check if the sender has emailed you before."
+      description="Test which emails are flagged as cold emails. We also check if the sender has emailed you before and if it includes unsubscribe links."
       content={<TestRulesContent />}
     >
-      <Button color="white" className="mt-4">
+      <Button color="white" type="button">
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
         Test
       </Button>
@@ -47,6 +48,9 @@ function TestRulesContent() {
     },
   );
 
+  const session = useSession();
+  const email = session.data?.user.email;
+
   return (
     <div>
       <div className="mt-4">
@@ -61,7 +65,13 @@ function TestRulesContent() {
         {data && (
           <div>
             {data.messages.map((message) => {
-              return <TestRulesContentRow key={message.id} message={message} />;
+              return (
+                <TestRulesContentRow
+                  key={message.id}
+                  message={message}
+                  userEmail={email!}
+                />
+              );
             })}
           </div>
         )}
@@ -137,6 +147,7 @@ const TestRulesForm = () => {
 
 function TestRulesContentRow(props: {
   message: MessagesResponse["messages"][number];
+  userEmail: string;
 }) {
   const { message } = props;
 
@@ -146,13 +157,12 @@ function TestRulesContentRow(props: {
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
-        <div className="min-w-0 break-words">
-          <MessageText>{message.parsedMessage.headers.from}</MessageText>
-          <MessageText className="mt-1 font-bold">
-            {message.parsedMessage.headers.subject}
-          </MessageText>
-          <MessageText className="mt-1">{message.snippet?.trim()}</MessageText>
-        </div>
+        <TestRulesMessage
+          from={message.parsedMessage.headers.from}
+          subject={message.parsedMessage.headers.subject}
+          snippet={message.snippet?.trim() || ""}
+          userEmail={props.userEmail}
+        />
         <div className="ml-4">
           <Button
             color="white"

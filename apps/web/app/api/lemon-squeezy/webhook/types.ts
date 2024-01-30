@@ -50,13 +50,13 @@ export interface Attributes {
   cancelled: boolean;
   trial_ends_at: any;
   billing_anchor: number;
-  first_subscription_item: FirstSubscriptionItem;
   urls: Urls;
   renews_at?: string;
   ends_at?: string;
   created_at: string;
   updated_at: string;
   test_mode: boolean;
+  first_subscription_item?: FirstSubscriptionItem;
   first_order_item?: FirstOrderItem;
 }
 

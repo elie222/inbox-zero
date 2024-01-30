@@ -64,22 +64,47 @@ model User {
   coldEmailBlocker    ColdEmailSetting?
   coldEmailPrompt     String?
 
-  // lemon squeezy
-  lemonSqueezyCustomerId     Int?
-  lemonSqueezySubscriptionId String?
-  lemonSqueezyRenewsAt       DateTime?
-
-  // unsubscribe credits
-  // if `unsubscribeMonth` not set to this month, set to current month
-  // reset `unsubscribeCredits` each time month is changed
-  unsubscribeMonth   Int? // 1-12
-  unsubscribeCredits Int?
+  // premium can be shared among multiple users
+  premiumId String?
+  premium   Premium? @relation(fields: [premiumId], references: [id])
 
   promptHistory PromptHistory[]
   labels        Label[]
   rules         Rule[]
   executedRules ExecutedRule[]
   newsletters   Newsletter[]
+}
+
+model Premium {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  // lemon squeezy
+  lemonSqueezyRenewsAt           DateTime?
+  lemonSqueezyCustomerId         Int?
+  lemonSqueezySubscriptionId     Int?
+  lemonSqueezySubscriptionItemId Int?
+  lemonSqueezyOrderId            Int? // lifetime purchase is an order and not a subscription
+  lemonSqueezyProductId          Int?
+  lemonSqueezyVariantId          Int?
+
+  tier PremiumTier?
+
+  // feature access
+  coldEmailBlockerAccess FeatureAccess?
+  aiAutomationAccess     FeatureAccess?
+  emailAccountsAccess    Int? // only used for lifetime
+
+  // unsubscribe/ai credits
+  // if `unsubscribeMonth` not set to this month, set to current month
+  // reset `unsubscribeCredits` each time month is changed
+  unsubscribeMonth   Int? // 1-12
+  unsubscribeCredits Int?
+  aiMonth            Int? // 1-12
+  aiCredits          Int? // 100_00 = $100 of credits
 }
 
 // not in use as it's only used for passwordless login
@@ -203,7 +228,7 @@ enum Frequency {
   // DAILY
   WEEKLY
   // MONTHLY
-  // YEARLY
+  // ANNUALLY
 }
 
 enum NewsletterStatus {
@@ -221,4 +246,18 @@ enum ColdEmailSetting {
   LIST
   LABEL
   ARCHIVE_AND_LABEL
+}
+
+enum PremiumTier {
+  PRO_MONTHLY
+  PRO_ANNUALLY
+  BUSINESS_MONTHLY
+  BUSINESS_ANNUALLY
+  LIFETIME
+}
+
+enum FeatureAccess {
+  UNLOCKED
+  UNLOCKED_WITH_API_KEY
+  LOCKED
 }

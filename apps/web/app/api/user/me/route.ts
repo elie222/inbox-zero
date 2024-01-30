@@ -10,15 +10,21 @@ async function getUser(userId: string) {
     where: { id: userId },
     select: {
       id: true,
-      lemonSqueezyCustomerId: true,
-      lemonSqueezySubscriptionId: true,
-      lemonSqueezyRenewsAt: true,
-      unsubscribeCredits: true,
       aiModel: true,
       openAIApiKey: true,
       statsEmailFrequency: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
+      premium: {
+        select: {
+          lemonSqueezyCustomerId: true,
+          lemonSqueezySubscriptionId: true,
+          lemonSqueezyRenewsAt: true,
+          unsubscribeCredits: true,
+          tier: true,
+          emailAccountsAccess: true,
+        },
+      },
     },
   });
 }

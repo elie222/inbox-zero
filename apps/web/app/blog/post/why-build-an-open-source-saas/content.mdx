@@ -1,0 +1,146 @@
+export const metadata = {
+  title: "Why Build An Open Source SaaS",
+  description: "Open source SaaS products are blowing up. This is why you should consider building one.",
+  date: "2024-01-25",
+  author: "Elie"
+}
+
+# Why Build An Open Source SaaS
+
+Two weeks ago I launched Inbox Zero on Product Hunt. It finished in first place with over 1,000 upvotes and gained thousands of new users.
+
+This post is about the growing trend of commercial open source (COSS) and why you should consider making your next project open source.
+
+[Inbox Zero](https://getinboxzero.com) helps you clean up your inbox fast. It lets you bulk unsubscribe from newsletters, automate emails with an AI assistant, automatically block cold emails, and provides email analytics.
+
+I also run a YouTube channel for devs called [Learn from Open Source](https://youtube.com/elie2222).
+
+## Commercial Open Source (COSS)
+
+Commercial open source projects have been getting a lot of attention lately. Some of the recent first place finishes on Product Hunt include Cal, Posthog, Papermark, OpenStatus, Novu, Documenso, and many more.
+
+Just this week we’ve seen Maybe Finance go from a dead closed source project to a viral open source project with 12,000 stars. 
+
+Maybe is a personal finance app that was founded in 2021. They raised money and put $1m into developing the product, but they weren’t able to make it work. So they shut it down.
+
+A year later the founder decided to open source it. His tweet about open sourcing it went viral with 500k impressions, which led to the 12,000 GitHub stars, and 23 contributors adding code to the project.
+
+Because of success stories like these, we will see a huge wave of new startups building open source products.
+
+Some larger open source success stories include GitLab ($400m funding, now public), Sentry ($200m funding), Metabase ($51m funding), Cal ($32m funding), and PostHog ($27m funding).
+
+## Why open source?
+
+There are many reasons to open source. For one, users love open source products.
+
+It brings **transparency and credibility**. I don’t know what TikTok does with my data. But if I want to know what PostHog is I can look at the code. This builds trust in the product.
+
+People can **self-host** the product. Or at least have the optionality to self-host in the future. This prevents future **lock-in** and extortionate pricing.
+
+People love **openness**. Just a take a look at the **build in public** crowd. Open source is a form of build in public.
+
+People can **improve the product**, fix bugs, and add their own integrations.
+
+Open source products have **longevity.** The product will live on even if the founders stop working on it one day. Many startups close. But an open source product can always be self-hosted, so will never fully disappear.
+
+As a founder there are even more benefits to open source. It provides a strong marketing boost. Distribution is a key problem for many founders. But open source projects have a strong base of support. A lot of the members in the COSS Discord were influential in helping Inbox Zero achieve first on Product Hunt. Any time a COSS founder launches, we all chip in to support.
+
+Being a COSS product is almost a cheat code for reaching first place on Product Hunt. OpenStatus, Papermark, Documenso, and Formbricks have no or little funding. But all finished in first place garnering a lot of attention.
+
+Being open source also means anyone can contribute to the project to improve it or fix bugs. Inbox Zero already has developers from all over the world contributing to making it better. Top open source projects have hundreds of contributers.
+
+Some developers contribute to improve their CV. Others do it because they want to improve the product as users themselves. Or they just want to help build something cool.
+
+Open source projects also have strong communities built around them. More so than closed source products. As developers can meaningfully contribute to the project and impact its direction. And its important for contributors to have a place to collaborate.
+
+### New ways to market
+
+Being open source opens up new ways to market too. Trending on GitHub is a real way to get attention. This is especially helpful for dev focused products. But it’s helpful for any product. Cal is an open source Calendly alternative. It has 26,000 stars. It’s likely that some of the developers in your company have heard about it because they’ve seen it trending on GitHub. And they can encourage their team to use it.
+
+The same applies to Posthog, an open source product analytics alternative to Amplitude or MixPanel. Devs will be involved in the decision as to which analytics product to use. And that it trends on GitHub may be why they know about it.
+
+When something trends on GitHub it doesn’t just happen once. It can trend weekly. Cal and Posthog are both VC funded companies. But smaller companies like Dub created by Steven Tey can and do trend too. Dub has 14,000 GitHub stars.
+
+### Privacy focused clients
+
+Open source projects can be self-hosted. And this opens up a new category of buyers that may not have bought otherwise. You can sell to governments and institutions that are extra careful with their data.
+
+Cal can sell their booking system to hospitals because they can self host it. A client that might not buy from Calendly for privacy concerns.
+
+And Cal can make good money when selling to the hospital. The hospital will need support. There’s a high chance they don’t have the in-house team to self-host it. So the Cal team will help them deploy it on-premise.
+
+Organizations with large budgets, low technical resources, and high privacy demands can be excellent clients for open source companies.
+
+Anyone that cares deeply about privacy is a potentially amazing client for an open source product.
+
+## Won’t someone just steal my product if the code is public?
+
+The most common question I hear about building an open source product is whether someone could steal it.
+
+Well I have some news for you. There are many open source products you can already “steal”.
+
+Sentry and GitLab are two large COSS companies. But doing a quick Perplexity and ChatGPT search, neither seems to have competitors that cloned them. They do have competitors of course. But those competitors wrote all their own code.
+
+The same is true of all the other companies I mentioned.
+
+Cal is doing $2m ARR. It’s a working business you could take. But I haven’t seen anyone take their code and customers. And the same goes for all the other apps I mentioned.
+
+Cal even has a license that would allow someone to clone it legally. Most of the codebase is AGPL v3. So as long as you keep the codebase open source too you can create a Cal competitor. But in practice it rarely happens.
+
+So why don’t we see more clones?
+
+- It’s hard to build a **brand** and **user base**. Code alone doesn’t bring users. And if your brand is that of a clone, you’re unlikely to get far.
+- **Lack of differentiation**. Why would someone choose the clone over the original?
+- People need **support and reliability**. You’re unlikely to get that from a clone.
+- Cal has built a strong **community and ecosystem**. Not something that’s easy to clone. Especially when you’re a clone.
+- Cal has deep **in-house technical expertise** on its product. The clone doesn’t. When Cal makes a breaking change the clone could be in a lot of trouble. Not to mention any license changes they might make.
+
+Code is largely a commodity today. With a few hundred thousand dollars you can clone most apps. Whether they're open or closed source.
+
+The hard part is building the business. Which includes distribution. It would be hard to build significant traction as a 1:1 copycat.
+
+Rocket Internet was famous for copying businesses and had some success doing it. But for the most part, running a copycat company doesn’t work.
+
+Now despite everything I’ve just said there are legitimate concerns to letting your code be public.
+
+It can be dangerous to open source if you have some secret sauce you don’t want competitors getting their hands on. The hundreds of hours you spent perfecting your AI prompt - now anyone can easily steal it.
+
+And there are cases of businesses being copied.
+
+There are good reasons to open source despite these risks. But it's up to you to decide whether the pros outweigh the cons.
+
+The same can be said of "build in public". There are both pros and cons to sharing financials publicly. The upside is the marketing. The downside is that there are people that will copy you when you succeed.
+
+And the same is true when pitching your business idea to a VC. It's something every company goes through. But it would be naive to think VCs never exploit the information you share with them.
+
+Open source is a form of sharing information about your company. You're sharing the code.
+
+## Won’t someone just run it for free and not pay me?
+
+Another common concern people have is whether the company will lose revenue to self-hosters. Instead of paying $10 per month to use Inbox Zero, you could clone the project for free and self-host. Which would hurt Inbox Zero's revenue.
+
+It’s especially bad if you have an expensive product. To save the $10-19 per month fee that Inbox Zero charges for the pro version, it might not be worth the effort to self-host. The time it will take you to set it up, and then run the servers yourself, you’re better off paying the monthly subscription. Not to mention 99% of people can’t self-host. You’d need a developer to do it.
+
+But if a company is being asked to pay a $50,000 monthtly subscription for a SaaS product, the company may decide it's cheaper to self-host and not pay that fee.
+
+And this really happens. Why would you spend $50,000 per month if you can self-host for $5,000 per month including engineering hours?
+
+So open source sucks, right?
+
+Not so fast. This disadvantage is also an advantage.
+
+That you can’t be tied into an unreasonable contract that you’re forced to accept is a massive plus for the company deciding between different tools. When choosing between HubSpot or an open source alternative, you may well decide to use the open source alternative because of this future flexibility.
+
+The company may decide to go with the cloud version of PostHog knowing that it can migrate in the future. And it’s happy to pay a monthly subscription fee to PostHog till then.
+
+## Summary
+
+In summary, Open source is great.
+
+Open source has changed the world and will continue to do so. Open source can be monetized and be sustainable.
+
+If you enjoyed this article, be sure to try [Inbox Zero](https://getinboxzero.com) to automate your email and clean up your inbox.
+
+You can follow me on Twitter at: [elie2222](https://twitter.com/elie2222).
+
+And subscribe to my YouTube channel, [Learn from Open Source](https://youtube.com/elie2222).

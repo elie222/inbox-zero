@@ -20,11 +20,12 @@ export const planSchema = z.object({
           to: z.string().nullish(),
           cc: z.string().nullish(),
           bcc: z.string().nullish(),
-        })
+        }),
       ),
     })
     .or(z.null()),
   createdAt: z.date(),
+  reason: z.string().optional(),
   // category: z.string().nullish(),
   // response: z.string().nullish(),
   // label: z.string().nullish(),

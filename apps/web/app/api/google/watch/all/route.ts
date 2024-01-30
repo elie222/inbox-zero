@@ -5,6 +5,7 @@ import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
+import { hasFeatureAccess } from "@/utils/premium";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -17,41 +18,54 @@ export const GET = withError(async (request: Request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const accounts = await prisma.account.findMany({
+  const premiums = await prisma.premium.findMany({
     where: {
-      user: {
-        OR: [
-          {
-            lemonSqueezyRenewsAt: {
-              gt: new Date(),
-            },
-          },
-          {
-            openAIApiKey: { not: null },
-          },
-        ],
-      },
+      lemonSqueezyRenewsAt: { gt: new Date() },
     },
     select: {
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
-      providerAccountId: true,
-      userId: true,
-      user: {
+      tier: true,
+      coldEmailBlockerAccess: true,
+      aiAutomationAccess: true,
+      users: {
         select: {
+          id: true,
           email: true,
+          openAIApiKey: true,
+          accounts: {
+            select: {
+              access_token: true,
+              refresh_token: true,
+              expires_at: true,
+              providerAccountId: true,
+            },
+          },
         },
       },
     },
   });
 
-  console.log(`Watching emails for ${accounts.length} accounts`);
+  const users = premiums.flatMap((premium) =>
+    premium.users.map((user) => ({ ...user, premium })),
+  );
 
-  for (const account of accounts) {
+  console.log(`Watching emails for ${users.length} users`);
+
+  for (const user of users) {
     try {
-      console.log(`Watching emails for ${account.user.email}`);
+      console.log(`Watching emails for ${user.email}`);
 
+      const { hasAiOrColdEmailAccess } = hasFeatureAccess(
+        user.premium,
+        user.openAIApiKey,
+      );
+      if (!hasAiOrColdEmailAccess) {
+        console.log(
+          `User ${user.email} does not have access to AI or cold email`,
+        );
+        continue;
+      }
+
+      const account = user.accounts[0];
       const gmail = await getGmailClientWithRefresh(
         {
           accessToken: account.access_token!,
@@ -61,9 +75,9 @@ export const GET = withError(async (request: Request) => {
         account.providerAccountId,
       );
 
-      await watchEmails(account.userId, gmail);
+      await watchEmails(user.id, gmail);
     } catch (error) {
-      console.error(`Error for user ${account.userId}`);
+      console.error(`Error for user ${user.id}`);
       console.error(error);
     }
   }

@@ -2,10 +2,19 @@ import Image from "next/image";
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { VideoDemo } from "@/app/(landing)/home/VideoDemo";
+import { cn } from "@/utils";
 
-export function HeroText(props: { children: React.ReactNode }) {
+export function HeroText(props: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { className, ...rest } = props;
+
   return (
-    <h1 className="font-cal text-4xl text-gray-900 sm:text-6xl" {...props} />
+    <h1
+      className={cn("font-cal text-4xl text-gray-900 sm:text-6xl", className)}
+      {...rest}
+    />
   );
 }
 
@@ -30,14 +39,15 @@ export function Hero(props: {
 
           <div className="mx-auto max-w-xl text-center">
             {/* <HeroText>{props.title || <HeroHeadingAB />}</HeroText> */}
-            <HeroText>Clean Up Your Inbox In Minutes</HeroText>
+            <HeroText>
+              {props.title || "Clean Up Your Inbox In Minutes"}
+            </HeroText>
             <HeroSubtitle>
               {props.subtitle || (
                 <>
-                  Newsletter management, AI automation, and email analytics.
-                  <br />
-                  Inbox Zero is the open-source email app that puts you back in
-                  control of your inbox.
+                  Newsletter cleaner, AI automation, cold email blocker, and
+                  analytics. Inbox Zero is the open-source email app that puts
+                  you back in control of your inbox.
                 </>
               )}
             </HeroSubtitle>

@@ -2,6 +2,7 @@
 
 import { useIsClient, useLocalStorage } from "usehooks-ts";
 import { useSearchParams } from "next/navigation";
+import useSWR from "swr";
 import { Tabs } from "@/components/Tabs";
 import { RulesSection } from "@/app/(app)/automation/RulesSection";
 import { SectionDescription } from "@/components/Typography";
@@ -11,18 +12,38 @@ import { Planned } from "@/app/(app)/automation/Planned";
 import { PlanHistory } from "@/app/(app)/automation/PlanHistory";
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PremiumTier } from "@prisma/client";
+import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
+import { PlannedResponse } from "@/app/api/user/planned/route";
 
 export default function PlannedPage() {
   const params = useSearchParams();
-  const selectedTab = params.get("tab") || "history";
+  const selectedTab = params.get("tab") || "planned";
 
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading, data } = usePremium();
+
+  const isProPlanWithoutApiKey =
+    (data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
+      data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    !data?.openAIApiKey;
 
   const [expandRules, setExpandRules] = useLocalStorage(
     "automationRulesExpanded",
     true,
   );
   const toggleExpandRules = () => setExpandRules((prev) => !prev);
+
+  // could pass this data into tabs too
+  const { data: historyData } = useSWR<PlanHistoryResponse>(
+    "/api/user/planned/history",
+    {
+      keepPreviousData: true,
+    },
+  );
+  const { data: plannedData } = useSWR<PlannedResponse>("/api/user/planned", {
+    keepPreviousData: true,
+    dedupingInterval: 1_000,
+  });
 
   // prevent hydration error from localStorage
   const isClient = useIsClient();
@@ -51,13 +72,16 @@ export default function PlannedPage() {
                     automatically.
                   </SectionDescription>
                   <SectionDescription>
-                    Run in planning mode to see what the AI would do without it
-                    actually doing anything. Alternatively, activate automated
-                    mode to enable the AI to automatically process your emails.
+                    Use {`"Confirmation Mode"`} to preview the AI{"'"}s planned
+                    actions without immediate execution.
                   </SectionDescription>
-                  {!isPremium && (
+                  <SectionDescription>
+                    For hands-free operation, switch to {`"Automated Mode"`},
+                    enabling the AI to process your emails autonomously.
+                  </SectionDescription>
+                  {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
                     <div className="mt-4">
-                      <PremiumAlert />
+                      <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
                     </div>
                   )}
                 </>
@@ -86,22 +110,30 @@ export default function PlannedPage() {
             selected={selectedTab}
             tabs={[
               {
-                label: "History",
-                value: "history",
-                href: "/automation?tab=history",
-              },
-              {
-                label: "Planned",
+                label:
+                  "Planned" +
+                  (plannedData?.messages.length
+                    ? ` (${plannedData?.messages.length})`
+                    : ""),
                 value: "planned",
                 href: "/automation?tab=planned",
+              },
+              {
+                label:
+                  "History" +
+                  (historyData?.history.length
+                    ? ` (${historyData?.history.length})`
+                    : ""),
+                value: "history",
+                href: "/automation?tab=history",
               },
             ]}
             breakpoint="xs"
           />
         </div>
 
-        {selectedTab === "history" && <PlanHistory />}
         {selectedTab === "planned" && <Planned />}
+        {selectedTab === "history" && <PlanHistory />}
       </div>
     </div>
   );

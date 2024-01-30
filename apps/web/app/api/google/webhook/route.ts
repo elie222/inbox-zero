@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
@@ -10,9 +10,9 @@ import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { parseEmail } from "@/utils/mail";
-import { AIModel, UserAIFields } from "@/utils/openai";
+import { UserAIFields, getAiModel } from "@/utils/openai";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
-import { isPremium } from "@/utils/premium";
+import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 
@@ -45,32 +45,72 @@ export const POST = withError(async (request: Request) => {
           coldEmailPrompt: true,
           aiModel: true,
           openAIApiKey: true,
-          lemonSqueezyRenewsAt: true,
+          premium: {
+            select: {
+              lemonSqueezyRenewsAt: true,
+              coldEmailBlockerAccess: true,
+              aiAutomationAccess: true,
+            },
+          },
         },
       },
     },
   });
-  if (!account) return NextResponse.json({ ok: true });
-  if (!isPremium(account.user.lemonSqueezyRenewsAt))
+
+  if (!account) {
+    console.error(
+      "Google webhook: Account not found",
+      decodedData.emailAddress,
+    );
     return NextResponse.json({ ok: true });
+  }
+
+  const premium = isPremium(account.user.premium?.lemonSqueezyRenewsAt || null)
+    ? account.user.premium
+    : undefined;
+
+  if (!premium) {
+    console.log(
+      "Google webhook: Account not premium",
+      decodedData.emailAddress,
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  const { hasAiOrColdEmailAccess, hasColdEmailAccess, hasAiAccess } =
+    hasFeatureAccess(premium, account.user.openAIApiKey);
+
+  if (!hasAiOrColdEmailAccess) {
+    console.debug(
+      "Google webhook: does not have hasAiOrColdEmailAccess",
+      decodedData.emailAddress,
+    );
+    return NextResponse.json({ ok: true });
+  }
 
   const hasAutomationRules = account.user.rules.length > 0;
   const shouldBlockColdEmails =
     account.user.coldEmailBlocker &&
     account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
-  if (!hasAutomationRules && !shouldBlockColdEmails)
+  if (!hasAutomationRules && !shouldBlockColdEmails) {
+    console.debug(
+      "Google webhook: !hasAutomationRules && !shouldBlockColdEmails",
+      decodedData.emailAddress,
+    );
     return NextResponse.json({ ok: true });
+  }
 
   if (!account.access_token || !account.refresh_token) {
     console.error(
       "Missing access or refresh token. User needs to re-authenticate.",
+      decodedData.emailAddress,
     );
     return NextResponse.json({ ok: true });
   }
 
   if (!account.user.email) {
     // shouldn't ever happen
-    console.error("Missing user email.");
+    console.error("Missing user email.", decodedData.emailAddress);
     return NextResponse.json({ ok: true });
   }
 
@@ -84,12 +124,16 @@ export const POST = withError(async (request: Request) => {
       account.providerAccountId,
     );
 
-    console.log("Webhook: Listing history...");
-
     const startHistoryId = Math.max(
-      parseInt(account.user.lastSyncedHistoryId || "0"),
+      // parseInt(account.user.lastSyncedHistoryId || "0"),
       historyId - 100, // avoid going too far back
     ).toString();
+
+    console.log(
+      "Webhook: Listing history... Start:",
+      startHistoryId,
+      decodedData.emailAddress,
+    );
 
     const history = await listHistory(
       {
@@ -102,7 +146,7 @@ export const POST = withError(async (request: Request) => {
     );
 
     if (history?.length) {
-      console.log("Webhook: Processing...");
+      console.log("Webhook: Processing...", decodedData.emailAddress);
 
       await processHistory({
         history,
@@ -112,14 +156,16 @@ export const POST = withError(async (request: Request) => {
         gmail,
         rules: account.user.rules,
         about: account.user.about || "",
-        aiModel: account.user.aiModel as AIModel,
+        aiModel: getAiModel(account.user.aiModel),
         openAIApiKey: account.user.openAIApiKey,
         hasAutomationRules,
         coldEmailPrompt: account.user.coldEmailPrompt,
         coldEmailBlocker: account.user.coldEmailBlocker,
+        hasColdEmailAccess: hasColdEmailAccess,
+        hasAiAutomationAccess: hasAiAccess,
       });
     } else {
-      console.log("Webhook: No history");
+      console.log("Webhook: No history", decodedData.emailAddress);
 
       // important to save this or we can get into a loop with never receiving history
       await prisma.user.update({
@@ -188,6 +234,8 @@ type ProcessHistoryOptions = {
   hasAutomationRules: boolean;
   coldEmailBlocker: ColdEmailSetting | null;
   coldEmailPrompt: string | null;
+  hasColdEmailAccess: boolean;
+  hasAiAutomationAccess: boolean;
 } & UserAIFields;
 
 async function processHistory(options: ProcessHistoryOptions) {
@@ -245,7 +293,8 @@ async function processHistoryItem(
 
     if (
       options.coldEmailBlocker &&
-      options.coldEmailBlocker !== ColdEmailSetting.DISABLED
+      options.coldEmailBlocker !== ColdEmailSetting.DISABLED &&
+      options.hasColdEmailAccess
     ) {
       const unsubscribeLink =
         findUnsubscribeLink(parsedMessage.textHtml) ||
@@ -274,7 +323,7 @@ async function processHistoryItem(
       });
     }
 
-    if (options.hasAutomationRules) {
+    if (options.hasAutomationRules && options.hasAiAutomationAccess) {
       console.log("Plan or act on message...");
 
       if (

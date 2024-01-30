@@ -33,6 +33,11 @@ export const navigation = [
     icon: Users2Icon,
   },
   {
+    name: "AI Automation",
+    href: "/automation",
+    icon: SparklesIcon,
+  },
+  {
     name: "Cold Email Blocker",
     href: "/cold-email-blocker",
     icon: ShieldCheckIcon,
@@ -42,12 +47,7 @@ export const navigation = [
     href: "/stats",
     icon: BarChartBigIcon,
   },
-  {
-    name: "AI Automation",
-    href: "/automation",
-    icon: SparklesIcon,
-  },
-  { name: "Mail", href: "/mail", icon: InboxIcon },
+  { name: "Mail (Beta)", href: "/mail", icon: InboxIcon },
   // {
   //   name: "Send Email",
   //   href: "/compose",

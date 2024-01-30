@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import {
   BookOpenCheckIcon,
   CheckCircle2Icon,
@@ -10,8 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { toastError, toastSuccess } from "@/components/Toast";
-import { MessageText } from "@/components/Typography";
+import { toastError } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -21,17 +21,18 @@ import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
+import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 
-export function TestRules() {
+export function TestRules(props: { disabled?: boolean }) {
   return (
     <SlideOverSheet
       title="Test Rules"
       description="Test how your rules perform against real emails."
       content={<TestRulesContent />}
     >
-      <Button color="white" className="mt-4">
+      <Button color="white" disabled={props.disabled}>
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
-        Test
+        Test Rules
       </Button>
     </SlideOverSheet>
   );
@@ -45,6 +46,9 @@ function TestRulesContent() {
       dedupingInterval: 1_000,
     },
   );
+
+  const session = useSession();
+  const email = session.data?.user.email;
 
   return (
     <div>
@@ -60,7 +64,13 @@ function TestRulesContent() {
         {data && (
           <div>
             {data.messages.map((message) => {
-              return <TestRulesContentRow key={message.id} message={message} />;
+              return (
+                <TestRulesContentRow
+                  key={message.id}
+                  message={message}
+                  userEmail={email!}
+                />
+              );
             })}
           </div>
         )}
@@ -91,7 +101,7 @@ const TestRulesForm = () => {
         subject: "",
         textPlain: data.message,
         textHtml: "",
-        snippet: "",
+        snippet: data.message,
         threadId: "",
         messageId: "",
         headerMessageId: "",
@@ -102,7 +112,7 @@ const TestRulesForm = () => {
 
     if (isError(res)) {
       console.error(res);
-      toastError({ description: `Error checking if cold email.` });
+      toastError({ description: `Error checking email.` });
     } else {
       setPlan(res);
     }
@@ -110,7 +120,7 @@ const TestRulesForm = () => {
 
   return (
     <div>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
         <Input
           type="text"
           as="textarea"
@@ -123,7 +133,7 @@ const TestRulesForm = () => {
         />
         <Button type="submit" loading={isSubmitting}>
           <SparklesIcon className="mr-2 h-4 w-4" />
-          Plan
+          Test Rules
         </Button>
       </form>
       {plan && (
@@ -137,6 +147,7 @@ const TestRulesForm = () => {
 
 function TestRulesContentRow(props: {
   message: MessagesResponse["messages"][number];
+  userEmail: string;
 }) {
   const { message } = props;
 
@@ -146,26 +157,18 @@ function TestRulesContentRow(props: {
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
-        <div className="min-w-0 break-words">
-          <MessageText className="font-bold">
-            {message.parsedMessage.headers.subject}
-          </MessageText>
-          <MessageText className="mt-1">{message.snippet?.trim()}</MessageText>
-        </div>
+        <TestRulesMessage
+          from={message.parsedMessage.headers.from}
+          subject={message.parsedMessage.headers.subject}
+          snippet={message.snippet?.trim() || ""}
+          userEmail={props.userEmail}
+        />
         <div className="ml-4">
           <Button
             color="white"
             loading={planning}
             onClick={async () => {
               setPlanning(true);
-
-              if (!message.parsedMessage.textPlain) {
-                toastError({
-                  description: `Unable to plan email. No plain text found.`,
-                });
-                setPlanning(false);
-                return;
-              }
 
               const res = await postRequest<ActResponse, ActBodyWithHtml>(
                 "/api/ai/act",
@@ -202,7 +205,7 @@ function TestRulesContentRow(props: {
             }}
           >
             <SparklesIcon className="mr-2 h-4 w-4" />
-            Plan
+            Test
           </Button>
         </div>
       </div>
@@ -218,19 +221,28 @@ function Plan(props: { plan: ActResponse }) {
 
   if (!plan) return null;
 
-  if (plan.rule === null) {
+  if (!plan.rule) {
     return (
       <AlertBasic
+        variant="destructive"
         title="No rule found!"
-        description="This email does not match any of the rules you have set."
+        description={
+          <div className="space-y-2">
+            <div>This email does not match any of the rules you have set.</div>
+            <div>
+              <strong>AI reason:</strong> {plan.reason}
+            </div>
+          </div>
+        }
       />
     );
   }
 
-  if (plan.plannedAction.actions) {
+  if (plan.plannedAction?.actions) {
     return (
       <AlertBasic
         title="Rule found!"
+        variant="blue"
         description={plan.rule.instructions}
         icon={<CheckCircle2Icon className="h-4 w-4" />}
       />

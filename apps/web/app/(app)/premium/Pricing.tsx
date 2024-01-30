@@ -4,79 +4,35 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { capitalCase } from "capital-case";
+import Link from "next/link";
 import clsx from "clsx";
+import { sendGTMEvent } from "@next/third-parties/google";
 import { env } from "@/env.mjs";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Tag } from "@/components/Tag";
 import { Button } from "@/components/Button";
-import { getUserPlan } from "@/utils/premium";
+import { Button as ShadcnButton } from "@/components/ui/button";
+import { getUserTier } from "@/utils/premium";
+import { PremiumTier } from "@prisma/client";
+import {
+  frequencies,
+  lifetimeFeatures,
+  pricing,
+  pricingAdditonalEmail,
+  tiers,
+} from "@/app/(app)/premium/config";
+import { AlertWithButton } from "@/components/Alert";
 
-const frequencies = [
-  { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
-  { value: "annually" as const, label: "Annually", priceSuffix: "/year" },
-];
+function attachUserInfo(
+  url: string,
+  user: { id: string; email: string; name?: string | null },
+) {
+  if (!user) return url;
 
-const tiers = [
-  {
-    name: "Free",
-    id: "tier-free",
-    href: "/welcome",
-    price: { monthly: "$0", annually: "$0" },
-    description: "Try Inbox Zero for free.",
-    features: [
-      `Unsubscribe from ${env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS} emails per month`,
-      "Email analytics",
-      "Newsletter management",
-      "New senders",
-      "Inbox view",
-    ],
-    cta: "Get Started",
-  },
-  {
-    name: "Pro",
-    id: "tier-pro",
-    href: env.NEXT_PUBLIC_PRO_PAYMENT_LINK,
-    checkout: true,
-    price: { monthly: "$10", annually: "$99" },
-    description: "Unlock full platform access.",
-    features: [
-      "Everything in free",
-      "Unlimited unsubscribes",
-      "AI automations",
-      "AI categorization",
-      "AI planning mode",
-      "Priority support",
-    ],
-    cta: "Upgrade",
-    mostPopular: true,
-  },
-  {
-    name: "Enterprise",
-    id: "tier-enterprise",
-    href: env.NEXT_PUBLIC_CALL_LINK,
-    price: { monthly: "Book a call", annually: "Book a call" },
-    description: "For help self-hosting, and dedicated support.",
-    features: ["Self-hosted", "Everything in pro", "Dedicated support"],
-    hideFrequency: true,
-    cta: "Book a call",
-  },
-];
-
-const LIFETIME_PRICE = 199;
-const LIFETIME_LINK = env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK;
-
-const lifetimeFeatures = [
-  "Everything in Inbox Zero Pro",
-  "Priority support",
-  "$100 of AI credits",
-  "Early access to new features",
-];
-
-function attachUserId(url: string, userId?: string) {
-  if (!userId) return url;
-
-  return `${url}?checkout[custom][user_id]=${userId}`;
+  return `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
 }
 
 function useAffiliateCode() {
@@ -93,11 +49,12 @@ function buildLemonUrl(url: string, affiliateCode: string | null) {
 
 export function Pricing() {
   const { isPremium, data, isLoading, error } = usePremium();
+  const session = useSession();
 
   const [frequency, setFrequency] = useState(frequencies[0]);
 
   const affiliateCode = useAffiliateCode();
-  const planType = getUserPlan(data?.lemonSqueezyRenewsAt);
+  const premiumTier = getUserTier(data?.premium);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -128,6 +85,26 @@ export function Pricing() {
               <CreditCardIcon className="mr-2 h-4 w-4" />
               Manage subscription
             </Button>
+
+            {premiumTier && (
+              <div className="mx-auto mt-4 max-w-md">
+                <AlertWithButton
+                  variant="blue"
+                  title="Add extra users to your account!"
+                  description={`You can upgrade extra emails to ${capitalCase(
+                    premiumTier,
+                  )} for ${pricingAdditonalEmail[premiumTier]} per email!`}
+                  icon={null}
+                  button={
+                    <div className="ml-4 whitespace-nowrap">
+                      <ShadcnButton asChild variant="blue">
+                        <Link href="/settings#manage-users">Add users</Link>
+                      </ShadcnButton>
+                    </div>
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -158,91 +135,117 @@ export function Pricing() {
         </div>
 
         <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
-          {tiers.map((tier, tierIdx) => (
-            <div
-              key={tier.id}
-              className={clsx(
-                tier.mostPopular ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8",
-                tierIdx === 0 ? "lg:rounded-r-none" : "",
-                tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
-                "flex flex-col justify-between rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
-              )}
-            >
-              <div>
-                <div className="flex items-center justify-between gap-x-4">
-                  <h3
-                    id={tier.id}
-                    className={clsx(
-                      tier.mostPopular ? "text-blue-600" : "text-gray-900",
-                      "font-cal text-lg leading-8",
-                    )}
-                  >
-                    {tier.name}
-                  </h3>
-                  {tier.mostPopular ? (
-                    <p className="rounded-full bg-blue-600/10 px-2.5 py-1 font-cal text-xs leading-5 text-blue-600">
-                      Most popular
-                    </p>
-                  ) : null}
-                </div>
-                <p className="mt-4 text-sm leading-6 text-gray-600">
-                  {tier.description}
-                </p>
-                <p className="mt-6 flex items-baseline gap-x-1">
-                  <span className="text-4xl font-bold tracking-tight text-gray-900">
-                    {tier.price[frequency.value]}
-                  </span>
-                  {!tier.hideFrequency && (
-                    <span className="text-sm font-semibold leading-6 text-gray-600">
-                      {frequency.priceSuffix}
-                    </span>
-                  )}
-                </p>
-                <ul
-                  role="list"
-                  className="mt-8 space-y-3 text-sm leading-6 text-gray-600"
-                >
-                  {tier.features.map((feature) => (
-                    <li key={feature} className="flex gap-x-3">
-                      <CheckIcon
-                        className="h-6 w-5 flex-none text-blue-600"
-                        aria-hidden="true"
-                      />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          {tiers.map((tier, tierIdx) => {
+            const isCurrentPlan = tier.tiers?.[frequency.value] === premiumTier;
 
-              <a
-                href={buildLemonUrl(
-                  tier.checkout ? attachUserId(tier.href, data?.id) : tier.href,
-                  affiliateCode,
-                )}
-                target={tier.href.startsWith("http") ? "_blank" : undefined}
-                aria-describedby={tier.id}
+            const user = session.data?.user;
+
+            const href = user
+              ? isCurrentPlan
+                ? "#"
+                : buildLemonUrl(
+                    tier.checkout
+                      ? attachUserInfo(tier.href[frequency.value], {
+                          id: user.id,
+                          email: user.email!,
+                          name: user.name,
+                        })
+                      : tier.href[frequency.value],
+                    affiliateCode,
+                  )
+              : "/login?next=/premium";
+
+            return (
+              <div
+                key={tier.name}
                 className={clsx(
-                  tier.mostPopular
-                    ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
-                    : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
-                  "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
+                  tierIdx === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
+                  tierIdx === 0 ? "lg:rounded-r-none" : "",
+                  tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
+                  "flex flex-col justify-between rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
                 )}
               >
-                {tier.id === "tier-pro" &&
-                isPremium &&
-                ((planType === "monthly" && frequency.value === "monthly") ||
-                  (planType === "yearly" && frequency.value === "annually"))
-                  ? "Current plan"
-                  : tier.cta}
-              </a>
-            </div>
-          ))}
+                <div>
+                  <div className="flex items-center justify-between gap-x-4">
+                    <h3
+                      id={tier.name}
+                      className={clsx(
+                        tier.mostPopular ? "text-blue-600" : "text-gray-900",
+                        "font-cal text-lg leading-8",
+                      )}
+                    >
+                      {tier.name}
+                    </h3>
+                    {tier.mostPopular ? (
+                      <p className="rounded-full bg-blue-600/10 px-2.5 py-1 font-cal text-xs leading-5 text-blue-600">
+                        Most popular
+                      </p>
+                    ) : null}
+                  </div>
+                  <p className="mt-4 text-sm leading-6 text-gray-600">
+                    {tier.description}
+                  </p>
+                  <p className="mt-6 flex items-baseline gap-x-1">
+                    <span className="text-4xl font-bold tracking-tight text-gray-900">
+                      {tier.price[frequency.value]}
+                    </span>
+                    {!tier.hideFrequency && (
+                      <span className="text-sm font-semibold leading-6 text-gray-600">
+                        {frequency.priceSuffix}
+                      </span>
+                    )}
+                  </p>
+                  {tier.priceAdditional ? (
+                    <p className="mt-3 text-sm leading-6 text-gray-500">
+                      +{tier.priceAdditional[frequency.value]} for each
+                      additional email
+                    </p>
+                  ) : (
+                    <div className="mt-16" />
+                  )}
+                  <ul
+                    role="list"
+                    className="mt-8 space-y-3 text-sm leading-6 text-gray-600"
+                  >
+                    {tier.features.map((feature) => (
+                      <li key={feature} className="flex gap-x-3">
+                        <CheckIcon
+                          className="h-6 w-5 flex-none text-blue-600"
+                          aria-hidden="true"
+                        />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <a
+                  href={href}
+                  target={href.startsWith("http") ? "_blank" : undefined}
+                  aria-describedby={tier.name}
+                  className={clsx(
+                    tier.mostPopular
+                      ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
+                      : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
+                    "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
+                  )}
+                  onClick={() => {
+                    if (tier.price.monthly !== "$0" && env.NEXT_PUBLIC_GTM_ID) {
+                      sendGTMEvent({ event: "Begin checkout", value: 1 });
+                    }
+                  }}
+                >
+                  {isCurrentPlan ? "Current plan" : tier.cta}
+                </a>
+              </div>
+            );
+          })}
         </div>
 
         <LifetimePricing
-          userId={data?.id}
+          user={session.data?.user}
           affiliateCode={affiliateCode}
-          planType={planType}
+          premiumTier={premiumTier}
         />
       </div>
     </LoadingContent>
@@ -250,10 +253,13 @@ export function Pricing() {
 }
 
 function LifetimePricing(props: {
-  userId?: string;
+  user?: { id: string; email?: string | null; name?: string | null };
   affiliateCode: string | null;
-  planType?: "monthly" | "yearly" | "lifetime" | null;
+  premiumTier?: PremiumTier | null;
 }) {
+  const { user, premiumTier, affiliateCode } = props;
+  const hasLifetime = premiumTier === PremiumTier.LIFETIME;
+
   return (
     <div className="bg-white py-4 sm:py-8">
       <div className="mx-auto max-w-2xl rounded-3xl ring-1 ring-gray-200 lg:mx-0 lg:flex lg:max-w-none">
@@ -265,8 +271,9 @@ function LifetimePricing(props: {
             </div>
           </h3>
           <p className="mt-6 text-base leading-7 text-gray-600">
-            Get lifetime access to Inbox Zero Pro for a one-time payment. This
-            includes $100 in AI credits.
+            Get lifetime access to Inbox Zero Pro for a one-time payment.
+            <br />
+            Includes $100 in AI credits.
           </p>
           <div className="mt-10 flex items-center gap-x-4">
             <h4 className="flex-none font-cal text-sm leading-6 text-blue-600">
@@ -297,26 +304,43 @@ function LifetimePricing(props: {
               </p>
               <p className="mt-6 flex items-baseline justify-center gap-x-2">
                 <span className="text-5xl font-bold tracking-tight text-gray-900">
-                  ${LIFETIME_PRICE}
+                  {pricing.LIFETIME}
                 </span>
                 <span className="text-sm font-semibold leading-6 tracking-wide text-gray-600">
                   USD
                 </span>
               </p>
               <a
-                href={buildLemonUrl(
-                  attachUserId(LIFETIME_LINK, props.userId),
-                  props.affiliateCode,
-                )}
+                href={
+                  user?.email
+                    ? hasLifetime
+                      ? "#"
+                      : buildLemonUrl(
+                          attachUserInfo(
+                            env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,
+                            {
+                              id: user.id,
+                              email: user.email,
+                              name: user.name,
+                            },
+                          ),
+                          affiliateCode,
+                        )
+                    : "/login?next=/premium"
+                }
+                onClick={() => {
+                  if (env.NEXT_PUBLIC_GTM_ID) {
+                    sendGTMEvent({ event: "Begin checkout", value: 5 });
+                  }
+                }}
                 target="_blank"
                 className="mt-10 block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
-                {props.planType === "lifetime"
-                  ? "Current plan"
-                  : "Get lifetime access"}
+                {hasLifetime ? "Current plan" : "Get lifetime access"}
               </a>
               <p className="mt-6 text-xs leading-5 text-gray-600">
-                Invoices and receipts available for easy company reimbursement
+                {pricingAdditonalEmail[PremiumTier.LIFETIME]} per additional
+                email address
               </p>
             </div>
           </div>

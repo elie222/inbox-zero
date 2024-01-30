@@ -32,6 +32,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useQueue } from "@/providers/QueueProvider";
+import { trashThreadAction } from "@/utils/actions";
 
 export function List(props: { emails: Thread[]; refetch: () => void }) {
   const { emails, refetch } = props;
@@ -221,11 +222,14 @@ export function EmailList(props: {
             refetch();
           }
           setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
-          return res?.rule;
+          return res;
         },
         {
           loading: "Planning...",
-          success: (rule) => `Planned as ${rule?.name || "No Plan"}`,
+          success: (res) =>
+            res?.rule
+              ? `Planned as ${res?.rule?.name}`
+              : `No plan determined. ${res?.reason || ""}`,
           error: "There was an error planning the email :(",
         },
       );
@@ -346,39 +350,35 @@ export function EmailList(props: {
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
     useExecutePlan(refetch);
 
+  const onApplyAction = useCallback(
+    async (action: (thread: Thread) => void) => {
+      for (const [threadId, selected] of Object.entries(selectedRows)) {
+        if (!selected) continue;
+        const thread = threads.find((t) => t.id === threadId);
+        if (thread) action(thread);
+      }
+      refetch();
+    },
+    [threads, selectedRows, refetch],
+  );
+
   const onPlanAiBulk = useCallback(async () => {
-    for (const [threadId, selected] of Object.entries(selectedRows)) {
-      if (!selected) continue;
-      const thread = threads.find((t) => t.id === threadId);
-      if (thread) onPlanAiAction(thread);
-    }
-
-    refetch();
-  }, [onPlanAiAction, threads, selectedRows, refetch]);
-
+    onApplyAction(onPlanAiAction);
+  }, [onApplyAction, onPlanAiAction]);
   const onCategorizeAiBulk = useCallback(async () => {
-    for (const [threadId, selected] of Object.entries(selectedRows)) {
-      if (!selected) continue;
-      const thread = threads.find((t) => t.id === threadId);
-      if (thread) onAiCategorize(thread);
-    }
-
-    refetch();
-  }, [onAiCategorize, threads, selectedRows, refetch]);
+    onApplyAction(onAiCategorize);
+  }, [onApplyAction, onAiCategorize]);
+  const onAiApproveBulk = useCallback(async () => {
+    onApplyAction(executePlan);
+  }, [onApplyAction, executePlan]);
+  const onAiRejectBulk = useCallback(async () => {
+    onApplyAction(rejectPlan);
+  }, [onApplyAction, rejectPlan]);
 
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const listOfSelectedThreadId = [];
-        for (const [threadId, selected] of Object.entries(selectedRows)) {
-          if (selected) {
-            listOfSelectedThreadId.push(threadId);
-          }
-        }
-        if (listOfSelectedThreadId.length) {
-          await archiveEmails(listOfSelectedThreadId);
-          refetch();
-        }
+        onApplyAction((thread) => archive(thread.id));
       },
       {
         loading: "Archiving emails...",
@@ -386,21 +386,12 @@ export function EmailList(props: {
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [archiveEmails, refetch, selectedRows]);
+  }, [onApplyAction, archive]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const listOfSelectedThreadId = [];
-        for (const [threadId, selected] of Object.entries(selectedRows)) {
-          if (selected) {
-            listOfSelectedThreadId.push(threadId);
-          }
-        }
-        if (listOfSelectedThreadId.length) {
-          await deleteEmails(listOfSelectedThreadId);
-          refetch();
-        }
+        onApplyAction((thread) => trashThreadAction(thread.id));
       },
       {
         loading: "Deleting emails...",
@@ -408,7 +399,7 @@ export function EmailList(props: {
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [selectedRows, deleteEmails, refetch]);
+  }, [onApplyAction]);
 
   const isEmpty = threads.length === 0;
 
@@ -425,10 +416,14 @@ export function EmailList(props: {
               isCategorizing={false}
               isArchiving={false}
               isDeleting={false}
+              isApproving={false}
+              isRejecting={false}
               onAiCategorize={onCategorizeAiBulk}
               onPlanAiAction={onPlanAiBulk}
               onArchive={onArchiveBulk}
               onDelete={onTrashBulk}
+              onApprove={onAiApproveBulk}
+              onReject={onAiRejectBulk}
             />
           </div>
         </div>
@@ -454,44 +449,50 @@ export function EmailList(props: {
               className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
               ref={listRef}
             >
-              {threads.map((thread) => (
-                <EmailListItem
-                  ref={(node) => {
-                    const map = getMap();
-                    if (node) {
-                      map.set(thread.id!, node);
-                    } else {
-                      map.delete(thread.id!);
-                    }
-                  }}
-                  key={thread.id}
-                  userEmailAddress={session.data?.user.email || ""}
-                  thread={thread}
-                  opened={openedRowId === thread.id}
-                  closePanel={closePanel}
-                  selected={selectedRows[thread.id!]}
-                  onSelected={onSetSelectedRow}
-                  splitView={!!openedRowId}
-                  onClick={() => {
-                    const alreadyOpen = !!openedRowId;
-                    setOpenedRowId(thread.id!);
+              {threads.map((thread) => {
+                const onOpen = () => {
+                  const alreadyOpen = !!openedRowId;
+                  setOpenedRowId(thread.id!);
 
-                    if (!alreadyOpen) scrollToId(thread.id!);
-                  }}
-                  onShowReply={onShowReply}
-                  isPlanning={isPlanning[thread.id!]}
-                  isCategorizing={isCategorizing[thread.id!]}
-                  isArchiving={isArchiving[thread.id!]}
-                  onPlanAiAction={onPlanAiAction}
-                  onAiCategorize={onAiCategorize}
-                  onArchive={onArchive}
-                  executePlan={executePlan}
-                  rejectPlan={rejectPlan}
-                  executingPlan={executingPlan[thread.id!]}
-                  rejectingPlan={rejectingPlan[thread.id!]}
-                  refetch={refetch}
-                />
-              ))}
+                  if (!alreadyOpen) scrollToId(thread.id!);
+                };
+                return (
+                  <EmailListItem
+                    ref={(node) => {
+                      const map = getMap();
+                      if (node) {
+                        map.set(thread.id!, node);
+                      } else {
+                        map.delete(thread.id!);
+                      }
+                    }}
+                    key={thread.id}
+                    userEmailAddress={session.data?.user.email || ""}
+                    thread={thread}
+                    opened={openedRowId === thread.id}
+                    closePanel={closePanel}
+                    selected={selectedRows[thread.id!]}
+                    onSelected={onSetSelectedRow}
+                    splitView={!!openedRowId}
+                    onClick={onOpen}
+                    onShowReply={() => {
+                      onOpen();
+                      onShowReply();
+                    }}
+                    isPlanning={isPlanning[thread.id!]}
+                    isCategorizing={isCategorizing[thread.id!]}
+                    isArchiving={isArchiving[thread.id!]}
+                    onPlanAiAction={onPlanAiAction}
+                    onAiCategorize={onAiCategorize}
+                    onArchive={onArchive}
+                    executePlan={executePlan}
+                    rejectPlan={rejectPlan}
+                    executingPlan={executingPlan[thread.id!]}
+                    rejectingPlan={rejectingPlan[thread.id!]}
+                    refetch={refetch}
+                  />
+                );
+              })}
             </ul>
           </ResizablePanel>
 

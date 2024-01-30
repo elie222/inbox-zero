@@ -1,5 +1,5 @@
 import "server-only";
-import { gmail_v1 } from "googleapis";
+import { type gmail_v1 } from "googleapis";
 import prisma from "@/utils/prisma";
 import {
   InboxZeroLabelKey,

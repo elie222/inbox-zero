@@ -15,6 +15,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.getinboxzero.com/email-analytics",
     },
     {
+      url: "https://www.getinboxzero.com/block-cold-emails",
+    },
+    {
       url: "https://www.getinboxzero.com/new-email-senders",
     },
     {
@@ -22,6 +25,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: "https://www.getinboxzero.com/terms",
+    },
+    {
+      url: "https://www.getinboxzero.com/blog",
+    },
+    {
+      url: "https://www.getinboxzero.com/blog/post/how-my-open-source-saas-hit-first-on-product-hunt",
     },
   ];
 }
