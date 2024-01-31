@@ -125,7 +125,7 @@ export const POST = withError(async (request: Request) => {
     );
 
     const startHistoryId = Math.max(
-      // parseInt(account.user.lastSyncedHistoryId || "0"),
+      parseInt(account.user.lastSyncedHistoryId || "0"),
       historyId - 100, // avoid going too far back
     ).toString();
 
