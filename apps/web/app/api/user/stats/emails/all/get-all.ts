@@ -4,8 +4,8 @@ import { getMessagesBatch } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail } from "@/utils/email";
 import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
-import { IndexedDBEmail, TinybirdEmail } from "@inboxzero/tinybird";
-import { LoadIDBEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
+import { IndexedDBEmail } from "@/app/api/user/stats/emails/all/validation";
+import { LoadIDBEmailsBody } from "@/app/api/user/stats/emails/all/validation";
 
 enum Operation {
   LOAD_AFTER_LATEST = "LOAD_AFTER_LATEST",

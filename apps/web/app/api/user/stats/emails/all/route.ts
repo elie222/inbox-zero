@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
-import { loadIndexedDBMails } from "./getAll";
+import { loadIndexedDBMails } from "./get-all";
 // import { loadTinybirdEmails } from "@/app/api/user/stats/tinybird/load/load-emails";
 // import { loadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
 
