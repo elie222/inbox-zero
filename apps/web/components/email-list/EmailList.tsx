@@ -31,10 +31,14 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useQueue } from "@/providers/QueueProvider";
-import { trashThreadAction } from "@/utils/actions";
+import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
+import { KeyedMutator } from "swr";
+import { ThreadsResponse } from "@/app/api/google/threads/route";
 
-export function List(props: { emails: Thread[]; refetch: () => void }) {
+export function List(props: {
+  emails: Thread[];
+  refetch: KeyedMutator<ThreadsResponse>;
+}) {
   const { emails, refetch } = props;
 
   const params = useSearchParams();
@@ -136,12 +140,11 @@ export function EmailList(props: {
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch: () => void;
+  refetch: KeyedMutator<ThreadsResponse>;
 }) {
   const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
 
   const session = useSession();
-  const { archiveEmails, deleteEmails } = useQueue();
   // if right panel is open
   const [openedRowId, setOpenedRowId] = useState<string>();
   const closePanel = useCallback(() => setOpenedRowId(undefined), []);
@@ -309,13 +312,13 @@ export function EmailList(props: {
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      toast.promise(() => archiveEmails([thread.id!]), {
+      toast.promise(() => archiveEmails([thread.id!], refetch), {
         loading: "Archiving...",
         success: "Archived!",
         error: "There was an error archiving the email :(",
       });
     },
-    [archiveEmails],
+    [refetch],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -378,20 +381,30 @@ export function EmailList(props: {
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        onApplyAction((thread) => archive(thread.id));
+        archiveEmails(
+          Object.entries(selectedRows)
+            .filter(([, selected]) => selected)
+            .map(([id]) => id),
+          refetch,
+        );
       },
       {
         loading: "Archiving emails...",
-        success: "Emails archived!",
+        success: "Emails archived",
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [onApplyAction, archive]);
+  }, [selectedRows, refetch]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        onApplyAction((thread) => trashThreadAction(thread.id));
+        deleteEmails(
+          Object.entries(selectedRows)
+            .filter(([, selected]) => selected)
+            .map(([id]) => id),
+          refetch,
+        );
       },
       {
         loading: "Deleting emails...",
@@ -399,7 +412,7 @@ export function EmailList(props: {
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [onApplyAction]);
+  }, [selectedRows, refetch]);
 
   const isEmpty = threads.length === 0;
 

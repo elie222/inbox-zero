@@ -64,18 +64,7 @@ export async function labelThreadsAction(options: {
   );
 }
 
-export async function archiveThreadAction(threadId: string) {
-  const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
-
-  const gmail = getGmailClient(session);
-
-  return await archiveThread({ gmail, threadId });
-}
-
-const saveAboutBody = z.object({
-  about: z.string(),
-});
+const saveAboutBody = z.object({ about: z.string() });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export async function saveAboutAction(options: SaveAboutBody) {
@@ -186,33 +175,32 @@ export async function createAutoArchiveFilterAction(
 ) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 export async function deleteFilterAction(id: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await deleteFilter({ gmail, id });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
 
+export async function archiveThreadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await archiveThread({ gmail, threadId });
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 export async function trashThreadAction(threadId: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await trashThread({ gmail, threadId });
-
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
