@@ -308,13 +308,17 @@ export function EmailList(props: {
     [refetch],
   );
 
-  const onArchive = useCallback((thread: Thread) => {
-    toast.promise(() => archiveEmails([thread.id!]), {
-      loading: "Archiving...",
-      success: "Archived!",
-      error: "There was an error archiving the email :(",
-    });
-  }, []);
+  const onArchive = useCallback(
+    (thread: Thread) => {
+      const threadIds = [thread.id!];
+      toast.promise(() => archiveEmails(threadIds, () => refetch(threadIds)), {
+        loading: "Archiving...",
+        success: "Archived!",
+        error: "There was an error archiving the email :(",
+      });
+    },
+    [refetch],
+  );
 
   const listRef = useRef<HTMLUListElement>(null);
   const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);
@@ -380,8 +384,7 @@ export function EmailList(props: {
           .filter(([, selected]) => selected)
           .map(([id]) => id);
 
-        archiveEmails(threadIds);
-        refetch();
+        archiveEmails(threadIds, () => refetch(threadIds));
       },
       {
         loading: "Archiving emails...",
@@ -398,8 +401,7 @@ export function EmailList(props: {
           .filter(([, selected]) => selected)
           .map(([id]) => id);
 
-        deleteEmails(threadIds);
-        refetch();
+        deleteEmails(threadIds, () => refetch(threadIds));
       },
       {
         loading: "Deleting emails...",

@@ -5,17 +5,25 @@ import { archiveThreadAction, trashThreadAction } from "@/utils/actions";
 
 const queue = new PQueue({ concurrency: 3 });
 
-export const archiveEmails = async (threadIds: string[]) => {
+export const archiveEmails = async (
+  threadIds: string[],
+  refetch: () => void,
+) => {
   queue.addAll(
     threadIds.map((threadId) => async () => {
       archiveThreadAction(threadId);
+      refetch();
     }),
   );
 };
-export const deleteEmails = async (threadIds: string[]) => {
+export const deleteEmails = async (
+  threadIds: string[],
+  refetch: () => void,
+) => {
   queue.addAll(
     threadIds.map((threadId) => async () => {
       trashThreadAction(threadId);
+      refetch();
     }),
   );
 };

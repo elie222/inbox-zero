@@ -22,16 +22,18 @@ export default function Mail() {
       mutate(undefined, {
         rollbackOnError: true,
         optimisticData: (currentData) => {
+          if (!removedThreadIds) return { threads: currentData?.threads || [] };
           const threads =
             currentData?.threads.filter(
-              (t) => !removedThreadIds?.includes(t.id),
+              (t) => !removedThreadIds.includes(t.id),
             ) || [];
           return { threads };
         },
         populateCache: (_, currentData) => {
+          if (!removedThreadIds) return { threads: currentData?.threads || [] };
           const threads =
             currentData?.threads.filter(
-              (t) => !removedThreadIds?.includes(t.id),
+              (t) => !removedThreadIds.includes(t.id),
             ) || [];
           return { threads };
         },
