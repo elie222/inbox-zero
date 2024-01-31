@@ -207,12 +207,12 @@ async function fetchAndUpdateIDB(request) {
   messageClients(MESSAGES.LABELS_UPDATED, data);
 }
 
-function messageClients(type, data) {
+function messageClients(type, payload) {
   self.clients.matchAll().then((clients) => {
     clients.forEach((client) => {
       client.postMessage({
         type,
-        data,
+        payload,
       });
     });
   });
