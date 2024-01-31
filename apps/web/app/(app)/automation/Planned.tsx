@@ -29,7 +29,7 @@ export function Planned() {
             </div>
           }
           hideActionBarWhenEmpty
-          refetch={mutate}
+          refetch={() => mutate()}
         />
       )}
     </LoadingContent>

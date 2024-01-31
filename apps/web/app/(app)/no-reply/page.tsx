@@ -23,7 +23,7 @@ export default function NoReplyPage() {
             <EmailList
               threads={data as any}
               hideActionBarWhenEmpty
-              refetch={mutate}
+              refetch={() => mutate()}
             />
           </div>
         )}

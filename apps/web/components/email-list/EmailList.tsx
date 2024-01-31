@@ -32,12 +32,10 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
-import { KeyedMutator } from "swr";
-import { ThreadsResponse } from "@/app/api/google/threads/route";
 
 export function List(props: {
   emails: Thread[];
-  refetch: KeyedMutator<ThreadsResponse>;
+  refetch: (removedThreadIds?: string[]) => void;
 }) {
   const { emails, refetch } = props;
 
@@ -140,7 +138,7 @@ export function EmailList(props: {
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch: KeyedMutator<ThreadsResponse>;
+  refetch: (removedThreadIds?: string[]) => void;
 }) {
   const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
 
@@ -310,16 +308,13 @@ export function EmailList(props: {
     [refetch],
   );
 
-  const onArchive = useCallback(
-    (thread: Thread) => {
-      toast.promise(() => archiveEmails([thread.id!], refetch), {
-        loading: "Archiving...",
-        success: "Archived!",
-        error: "There was an error archiving the email :(",
-      });
-    },
-    [refetch],
-  );
+  const onArchive = useCallback((thread: Thread) => {
+    toast.promise(() => archiveEmails([thread.id!]), {
+      loading: "Archiving...",
+      success: "Archived!",
+      error: "There was an error archiving the email :(",
+    });
+  }, []);
 
   const listRef = useRef<HTMLUListElement>(null);
   const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);
@@ -381,12 +376,12 @@ export function EmailList(props: {
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        archiveEmails(
-          Object.entries(selectedRows)
-            .filter(([, selected]) => selected)
-            .map(([id]) => id),
-          refetch,
-        );
+        const threadIds = Object.entries(selectedRows)
+          .filter(([, selected]) => selected)
+          .map(([id]) => id);
+
+        archiveEmails(threadIds);
+        refetch();
       },
       {
         loading: "Archiving emails...",
@@ -399,12 +394,12 @@ export function EmailList(props: {
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        deleteEmails(
-          Object.entries(selectedRows)
-            .filter(([, selected]) => selected)
-            .map(([id]) => id),
-          refetch,
-        );
+        const threadIds = Object.entries(selectedRows)
+          .filter(([, selected]) => selected)
+          .map(([id]) => id);
+
+        deleteEmails(threadIds);
+        refetch();
       },
       {
         loading: "Deleting emails...",

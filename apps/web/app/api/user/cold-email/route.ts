@@ -56,7 +56,7 @@ async function getColdEmails(
     }) || [],
   );
 
-  return { result: threadsWithMessages };
+  return { threads: threadsWithMessages };
 }
 
 export const GET = withError(async () => {

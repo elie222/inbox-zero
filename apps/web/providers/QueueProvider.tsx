@@ -1,57 +1,21 @@
 "use client";
 
 import PQueue from "p-queue";
-import { KeyedMutator } from "swr";
 import { archiveThreadAction, trashThreadAction } from "@/utils/actions";
-import { ThreadsResponse } from "@/app/api/google/threads/route";
 
 const queue = new PQueue({ concurrency: 3 });
 
-export const archiveEmails = async (
-  threadIds: string[],
-  refetch: KeyedMutator<ThreadsResponse>,
-) => {
+export const archiveEmails = async (threadIds: string[]) => {
   queue.addAll(
     threadIds.map((threadId) => async () => {
       archiveThreadAction(threadId);
-
-      refetch(undefined, {
-        rollbackOnError: true,
-        optimisticData: (currentData) => {
-          const threads =
-            currentData?.threads.filter((t) => !threadIds.includes(t.id)) || [];
-          return { threads };
-        },
-        populateCache: (_, currentData) => {
-          const threads =
-            currentData?.threads.filter((t) => !threadIds.includes(t.id)) || [];
-          return { threads };
-        },
-      });
     }),
   );
 };
-export const deleteEmails = async (
-  threadIds: string[],
-  refetch: KeyedMutator<ThreadsResponse>,
-) => {
+export const deleteEmails = async (threadIds: string[]) => {
   queue.addAll(
     threadIds.map((threadId) => async () => {
-      await trashThreadAction(threadId);
-
-      refetch(undefined, {
-        rollbackOnError: true,
-        optimisticData: (currentData) => {
-          const threads =
-            currentData?.threads.filter((t) => !threadIds.includes(t.id)) || [];
-          return { threads };
-        },
-        populateCache: (_, currentData) => {
-          const threads =
-            currentData?.threads.filter((t) => !threadIds.includes(t.id)) || [];
-          return { threads };
-        },
-      });
+      trashThreadAction(threadId);
     }),
   );
 };
