@@ -1,10 +1,7 @@
 "use client";
 
 import { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
-import {
-  LoadIDBEmailsBody,
-  LoadTinybirdEmailsBody,
-} from "@/app/api/user/stats/tinybird/load/validation";
+import { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { isError } from "lodash";
@@ -53,7 +50,7 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
       // this is being awaited to show toast.
       const res = await postRequest<
         LoadTinybirdEmailsResponse,
-        LoadIDBEmailsBody
+        LoadTinybirdEmailsBody
       >("/api/user/stats/tinybird/load", {
         loadBefore: options.loadBefore,
       });
