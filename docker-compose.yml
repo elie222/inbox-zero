@@ -24,9 +24,11 @@ services:
     ports:
       - "8079:80"
     image: hiett/serverless-redis-http:latest
+    env_file:
+      - ./apps/web/.env
     environment:
       SRH_MODE: env
-      SRH_TOKEN: "27191372ba5c50fd95f59baa43d0e3d2"
+      SRH_TOKEN: ${REDIS_TOKEN}
       SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
 
 volumes:
