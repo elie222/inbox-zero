@@ -37,6 +37,7 @@ export default function Mail() {
         {data && (
           <List
             emails={data?.threads || []}
+            refetch={mutate}
             // prompt={prompt}
             // filter={
             //   filterFunction
@@ -46,7 +47,6 @@ export default function Mail() {
             // filterArgs={
             //   filterFunction ? { label: filterFunction.args.label } : undefined
             // }
-            refetch={mutate}
           />
         )}
       </LoadingContent>

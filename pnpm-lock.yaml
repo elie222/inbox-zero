@@ -236,12 +236,21 @@ importers:
       openai:
         specifier: ^4.24.7
         version: 4.24.7(encoding@0.1.13)
+      p-queue:
+        specifier: ^8.0.1
+        version: 8.0.1
       posthog-js:
         specifier: ^1.100.0
         version: 1.100.0
       posthog-node:
         specifier: ^3.5.0
         version: 3.5.0
+      prettier:
+        specifier: 3.1.1
+        version: 3.1.1
+      prettier-plugin-tailwindcss:
+        specifier: ^0.5.11
+        version: 0.5.11(prettier@3.1.1)
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -345,12 +354,6 @@ importers:
       postcss:
         specifier: 8.4.33
         version: 8.4.33
-      prettier:
-        specifier: 3.2.4
-        version: 3.2.4
-      prettier-plugin-tailwindcss:
-        specifier: ^0.5.11
-        version: 0.5.11(prettier@3.2.4)
       prisma:
         specifier: ^5.8.1
         version: 5.8.1
@@ -9824,7 +9827,6 @@ packages:
 
   /eventemitter3@5.0.1:
     resolution: {integrity: sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==}
-    dev: true
 
   /events@3.3.0:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
@@ -13667,6 +13669,19 @@ packages:
       aggregate-error: 3.1.0
     dev: true
 
+  /p-queue@8.0.1:
+    resolution: {integrity: sha512-NXzu9aQJTAzbBqOt2hwsR63ea7yvxJc0PwN/zobNAudYfb1B7R08SzB4TsLeSbUCuG467NhnoT0oO6w1qRO+BA==}
+    engines: {node: '>=18'}
+    dependencies:
+      eventemitter3: 5.0.1
+      p-timeout: 6.1.2
+    dev: false
+
+  /p-timeout@6.1.2:
+    resolution: {integrity: sha512-UbD77BuZ9Bc9aABo74gfXhNvzC9Tx7SxtHSh1fxvx3jTLLYvmVhiQZZrJzqqU0jKbN32kb5VOKiLEQI/3bIjgQ==}
+    engines: {node: '>=14.16'}
+    dev: false
+
   /p-try@2.2.0:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
@@ -14014,7 +14029,7 @@ packages:
       synckit: 0.9.0
     dev: true
 
-  /prettier-plugin-tailwindcss@0.5.11(prettier@3.2.4):
+  /prettier-plugin-tailwindcss@0.5.11(prettier@3.1.1):
     resolution: {integrity: sha512-AvI/DNyMctyyxGOjyePgi/gqj5hJYClZ1avtQvLlqMT3uDZkRbi4HhGUpok3DRzv9z7Lti85Kdj3s3/1CeNI0w==}
     engines: {node: '>=14.21.3'}
     peerDependencies:
@@ -14063,20 +14078,13 @@ packages:
       prettier-plugin-twig-melody:
         optional: true
     dependencies:
-      prettier: 3.2.4
-    dev: true
+      prettier: 3.1.1
+    dev: false
 
   /prettier@3.1.1:
     resolution: {integrity: sha512-22UbSzg8luF4UuZtzgiUOfcGM8s4tjBv6dJRT7j275NXsy2jb4aJa4NNveul5x4eqlF1wuhuR2RElK71RvmVaw==}
     engines: {node: '>=14'}
     hasBin: true
-    dev: true
-
-  /prettier@3.2.4:
-    resolution: {integrity: sha512-FWu1oLHKCrtpO1ypU6J0SbK2d9Ckwysq6bHj/uaCP26DxrPpppCLQRGVuqAxSTvhF00AcvDRyYrLNW7ocBhFFQ==}
-    engines: {node: '>=14'}
-    hasBin: true
-    dev: true
 
   /pretty-format@27.5.1:
     resolution: {integrity: sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ==}

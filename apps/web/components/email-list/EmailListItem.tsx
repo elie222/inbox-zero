@@ -89,7 +89,7 @@ export const EmailListItem = forwardRef(
                 className="flex items-center pl-1"
                 onClick={preventPropagation}
               >
-                <Checkbox checked={props.selected} onChange={onRowSelected} />
+                <Checkbox checked={!!props.selected} onChange={onRowSelected} />
               </div>
 
               <div className="ml-4 w-40 min-w-0 overflow-hidden truncate text-gray-900">

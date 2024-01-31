@@ -32,6 +32,7 @@ import { env } from "@/env.mjs";
 import { isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
+import { archiveThread } from "@/utils/gmail/label";
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 import { captureException } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
@@ -63,13 +64,7 @@ export async function labelThreadsAction(options: {
   );
 }
 
-// export async function archiveThreadAction(options: { threadId: string }) {
-//   return await archiveEmail({ id: options.threadId })
-// }
-
-const saveAboutBody = z.object({
-  about: z.string(),
-});
+const saveAboutBody = z.object({ about: z.string() });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export async function saveAboutAction(options: SaveAboutBody) {
@@ -180,33 +175,32 @@ export async function createAutoArchiveFilterAction(
 ) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 export async function deleteFilterAction(id: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await deleteFilter({ gmail, id });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
 
+export async function archiveThreadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await archiveThread({ gmail, threadId });
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 export async function trashThreadAction(threadId: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await trashThread({ gmail, threadId });
-
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
