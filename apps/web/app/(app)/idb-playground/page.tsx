@@ -14,11 +14,6 @@ export default function IDBPlayground() {
   const [mailLoad, setMailLoad] = useState(false);
   const [statLoad, setStatLoad] = useState(false);
 
-  // fetch data from idb
-
-  // example of loading data into idb
-  // if you comment out this section after data is first loaded the labels will still show up
-
   const onMessage = ({
     data,
     type,

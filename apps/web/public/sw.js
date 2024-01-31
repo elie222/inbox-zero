@@ -146,11 +146,6 @@ async function handleFetch(request) {
   }
 
   if (url.includes("/api/user/stats/emails/all")) {
-    // 1.check if the data is in indexeddb
-    // 2. if no data make the request to the backend for ALL the data
-    // 3. if data -> return data immediately, fetch remaining data in background
-    // 4. when remaining data is available, cache it -> send a message to the client about the newly recieved data  []
-
     const requestData = await request.clone().json();
     const localData = await loadLocalMail(!requestData.loadBefore);
     if (localData?.length > 0) {

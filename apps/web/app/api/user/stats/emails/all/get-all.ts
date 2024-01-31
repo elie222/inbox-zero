@@ -165,8 +165,6 @@ async function saveBatch(
           findUnsubscribeLink(parsedEmail.textHtml) ||
           getHeaderUnsubscribe(parsedEmail.headers);
 
-        // this needs to go in indexdb ; check if you want to send message or make a pseudo request to the sw
-        // make a fn that returns the object
         const indexedDBEmail: IndexedDBEmail = {
           ownerEmail,
           threadId: m.threadId,
