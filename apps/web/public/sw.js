@@ -195,7 +195,6 @@ async function handleFetch(request) {
       JSON.stringify({
         message: "No stored data found in indexedDB for analytics",
       }),
-      { status: 204 },
     );
   }
   return fetch(request);
@@ -229,12 +228,23 @@ async function saveLabels(labels) {
   try {
     if (!DB) await openDB();
     const tx = DB.transaction(LABEL_STORE.name, "readwrite");
+    tx.onsuccess = () => {
+      console.log("Added all labels successfully in indexed db");
+    };
+    tx.onerror = (error) => {
+      console.warn(error);
+    };
+    const store = tx.objectStore(LABEL_STORE.name);
 
     await Promise.all([
-      ...labels.map((label) => {
-        return tx.store.add(label);
-      }),
-      tx.done,
+      ...labels.map(
+        (label) =>
+          new Promise((resolve, reject) => {
+            const req = store.put(label);
+            req.onsuccess = () => resolve();
+            req.onerror = (error) => reject(error);
+          }),
+      ),
     ]);
   } catch (err) {
     console.log(err);
