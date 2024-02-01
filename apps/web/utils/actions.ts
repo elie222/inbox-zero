@@ -166,6 +166,20 @@ export async function completedOnboarding() {
   });
 }
 
+export async function saveOnboardingAnswers(onboardingAnswers: {
+  surveyId?: string;
+  questions: any;
+  answers: Record<string, string>;
+}) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { onboardingAnswers },
+  });
+}
+
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 

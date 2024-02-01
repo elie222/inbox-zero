@@ -7,7 +7,7 @@ import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { env } from "@/env.mjs";
 import prisma from "@/utils/prisma";
-import { PageHeading, TypographyP } from "@/components/Typography";
+import { PageHeading } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export const metadata: Metadata = {
@@ -37,13 +37,13 @@ export default async function WelcomePage({
     : 0;
 
   return (
-    <div className="flex h-screen flex-col justify-center p-6 text-gray-900">
+    <div className="flex flex-col justify-center px-6 py-20 text-gray-900">
       <SquaresPattern />
 
       <Card className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         <div className="flex flex-col text-center">
           <PageHeading>Welcome to Inbox Zero</PageHeading>
-          <TypographyP className="mt-2">Clean your inbox, fast.</TypographyP>
+          {/* <TypographyP className="mt-2">Clean your inbox, fast.</TypographyP> */}
           <div className="mt-4">
             <Suspense>
               <OnboardingForm questionIndex={questionIndex} />
