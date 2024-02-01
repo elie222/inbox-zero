@@ -132,24 +132,26 @@ export const POST = withError(async (request: Request) => {
     console.log(
       "Webhook: Listing history... Start:",
       startHistoryId,
+      "gmail historyId",
+      historyId,
       decodedData.emailAddress,
     );
 
-    const history = await listHistory(
-      {
-        email: decodedData.emailAddress,
-        // NOTE this can cause problems if we're way behind
-        // NOTE this doesn't include startHistoryId in the results
-        startHistoryId,
-      },
-      gmail,
-    );
+    const history = await gmail.users.history.list({
+      userId: "me",
+      // NOTE this can cause problems if we're way behind
+      // NOTE this doesn't include startHistoryId in the results
+      startHistoryId,
+      labelId: INBOX_LABEL_ID,
+      historyTypes: ["messageAdded"],
+      maxResults: 10,
+    });
 
-    if (history?.length) {
+    if (history.data.history) {
       console.log("Webhook: Processing...", decodedData.emailAddress);
 
       await processHistory({
-        history,
+        history: history.data.history,
         userId: account.userId,
         userEmail: account.user.email,
         email: decodedData.emailAddress,
@@ -206,23 +208,6 @@ function decodeHistoryId(body: any) {
   return { emailAddress: decodedData.emailAddress, historyId };
 }
 
-async function listHistory(
-  options: { email: string; startHistoryId: string },
-  gmail: gmail_v1.Gmail,
-): Promise<gmail_v1.Schema$History[] | undefined> {
-  const { startHistoryId } = options;
-
-  const history = await gmail.users.history.list({
-    userId: "me",
-    startHistoryId,
-    labelId: INBOX_LABEL_ID,
-    historyTypes: ["messageAdded"],
-    maxResults: 10,
-  });
-
-  return history.data.history;
-}
-
 type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];
   userId: string;
@@ -247,7 +232,11 @@ async function processHistory(options: ProcessHistoryOptions) {
     if (!h.messagesAdded?.length) continue;
 
     for (const m of h.messagesAdded) {
-      await processHistoryItem(m, options);
+      try {
+        await processHistoryItem(m, options);
+      } catch (error) {
+        console.error("Error processing history item", error);
+      }
     }
   }
 
