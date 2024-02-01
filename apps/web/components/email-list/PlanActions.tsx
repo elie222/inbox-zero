@@ -118,6 +118,7 @@ export function PlanActions(props: {
   }, [rejectPlan, thread]);
 
   if (!thread.plan?.rule) return null;
+  if (thread.plan?.executed) return null;
 
   return (
     <div className={cn("flex items-center space-x-1", props.className)}>
