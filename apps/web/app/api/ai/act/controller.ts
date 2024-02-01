@@ -15,7 +15,7 @@ import {
   runActionFunction,
 } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
-import { deletePlan, savePlan } from "@/utils/redis/plan";
+import { markPlanExecuted, savePlan } from "@/utils/redis/plan";
 import { Action, Rule } from "@prisma/client";
 import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
@@ -419,8 +419,7 @@ export async function executeAct(options: {
       },
     }),
     labelActed(),
-    // TODO mark plan as acted upon
-    deletePlan({ userId, threadId: email.threadId }),
+    markPlanExecuted({ userId, threadId: email.threadId }),
   ]);
 }
 
@@ -464,25 +463,25 @@ export async function planOrExecuteAct(
 
   console.log("shouldExecute:", shouldExecute);
 
+  await savePlan({
+    userId: options.userId,
+    threadId: options.email.threadId,
+    plan: {
+      createdAt: new Date(),
+      messageId: options.email.messageId,
+      threadId: options.email.threadId,
+      rule: { ...plannedAct.rule, actions: plannedAct.plannedAction.actions },
+      functionArgs: plannedAct.plannedAction.args,
+      reason: plannedAct.reason,
+    },
+  });
+
   if (shouldExecute) {
     await executeAct({
       ...options,
       act: plannedAct.plannedAction,
       email: options.email,
       ruleId: plannedAct.rule.id,
-    });
-  } else {
-    await savePlan({
-      userId: options.userId,
-      threadId: options.email.threadId,
-      plan: {
-        createdAt: new Date(),
-        messageId: options.email.messageId,
-        threadId: options.email.threadId,
-        rule: { ...plannedAct.rule, actions: plannedAct.plannedAction.actions },
-        functionArgs: plannedAct.plannedAction.args,
-        reason: plannedAct.reason,
-      },
     });
   }
 

@@ -1,3 +1,4 @@
+import { CheckCircleIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import { Badge, Color } from "@/components/Badge";
 import { HoverCard } from "@/components/HoverCard";
@@ -15,9 +16,9 @@ type Plan = {
   } | null;
   databaseRule?: { instructions: string };
   reason?: string;
+  executed?: boolean;
 };
 
-// export function PlanBadge(props: { plan?: Thread["plan"] }) {
 export function PlanBadge(props: { plan?: Plan }) {
   const { plan } = props;
 
@@ -65,7 +66,10 @@ export function PlanBadge(props: { plan?: Plan }) {
         </div>
       }
     >
-      <Badge color={getPlanColor(plan)}>{plan.rule.name}</Badge>
+      <Badge color={getPlanColor(plan, !!plan.executed)}>
+        {plan.executed && <CheckCircleIcon className="mr-2 h-3 w-3" />}
+        {plan.rule.name}
+      </Badge>
     </HoverCard>
   );
 }
@@ -105,18 +109,20 @@ function getActionColor(actionType: ActionType): Color {
   }
 }
 
-function getPlanColor(plan: Plan | null): Color {
+function getPlanColor(plan: Plan | null, executed: boolean): Color {
+  if (executed) return "green";
+
   switch (plan?.rule?.actions?.[0]?.type) {
     case ActionType.REPLY:
     case ActionType.FORWARD:
     case ActionType.SEND_EMAIL:
     case ActionType.DRAFT_EMAIL:
-      return "green";
+      return "blue";
     case ActionType.ARCHIVE:
       return "yellow";
     case ActionType.LABEL:
-      return "blue";
-    default:
       return "purple";
+    default:
+      return "indigo";
   }
 }

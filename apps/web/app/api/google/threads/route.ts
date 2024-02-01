@@ -68,6 +68,7 @@ async function getThreads(query: ThreadsQuery) {
         snippet: decodeSnippet(thread.snippet),
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
         category: await getCategory({ email, threadId: id }),
+        executed: plan?.executed,
       };
     }) || [],
   );

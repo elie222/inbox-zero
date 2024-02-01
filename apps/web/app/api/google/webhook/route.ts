@@ -94,7 +94,7 @@ export const POST = withError(async (request: Request) => {
     account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     console.debug(
-      "Google webhook: !hasAutomationRules && !shouldBlockColdEmails",
+      "Google webhook: has no rules set and cold email blocker disabled",
       decodedData.emailAddress,
     );
     return NextResponse.json({ ok: true });
