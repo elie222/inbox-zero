@@ -5,8 +5,8 @@ export const survey = {
       type: "single_choice",
       question: "Which feature interests you most?",
       choices: [
-        "Newsletter Cleaner",
         "AI Automation",
+        "Newsletter Cleaner",
         "Cold Email Blocker",
         "Email Analytics",
         "Other",
