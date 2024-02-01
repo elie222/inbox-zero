@@ -55,6 +55,7 @@ model User {
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
   completedOnboarding       Boolean   @default(false)
+  onboardingAnswers         Json?
 
   // settings
   aiModel             String?
