@@ -14,7 +14,6 @@ export const useServiceWorker = (actions?: string | Array<string>) => {
         if (actions) {
           if (typeof actions === "string")
             return actions === event.data.type && setMessage(event.data);
-
           return actions.includes(event.data.type) && setMessage(event.data);
         }
         return setMessage(event.data);

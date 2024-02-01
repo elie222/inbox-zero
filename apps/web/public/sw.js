@@ -63,36 +63,39 @@ self.addEventListener("message", (event) => {
 });
 
 const openDB = (callback) => {
-  let req = indexedDB.open(database, dbVersion);
-  req.onerror = (err) => {
-    //could not open db
-    console.warn(err);
-    DB = null;
-  };
-  req.onupgradeneeded = (ev) => {
-    let db = ev.target.result;
-    for (const store of ALL_STORES) {
-      const { name, key, indexes } = store;
-      if (!db.objectStoreNames.contains(name)) {
-        const objectStore = db.createObjectStore(name, {
-          keyPath: key,
-        });
+  return new Promise((resolve, reject) => {
+    let req = indexedDB.open(database, dbVersion);
+    req.onerror = (err) => {
+      //could not open db
+      console.warn(err);
+      DB = null;
+      reject(err);
+    };
+    req.onupgradeneeded = (ev) => {
+      let db = ev.target.result;
+      for (const store of ALL_STORES) {
+        const { name, key, indexes } = store;
+        if (!db.objectStoreNames.contains(name)) {
+          const objectStore = db.createObjectStore(name, {
+            keyPath: key,
+          });
 
-        for (const index of indexes) {
-          const { name, property, params } = index;
-          objectStore.createIndex(name, property, params);
+          for (const index of indexes) {
+            const { name, property, params } = index;
+            objectStore.createIndex(name, property, params);
+          }
         }
       }
-    }
-  };
-  req.onsuccess = (ev) => {
-    DB = ev.target.result;
-    console.log("db opened and upgraded as needed");
-    if (callback) {
-      callback();
-    }
-  };
-  return req;
+    };
+    req.onsuccess = (ev) => {
+      DB = ev.target.result;
+      console.log("db opened and upgraded as needed");
+      if (callback) {
+        callback();
+      }
+      resolve();
+    };
+  });
 };
 
 async function handleFetch(request) {
@@ -249,10 +252,14 @@ async function saveLabels(labels) {
 
 // this is written to avoid callback failure for first time users as the redirection fails only in the tab they used to login
 // goes away with hard reload (CTRL + SHIFT + R)
-const isAuth = (url) =>
-  url.includes("welcome") ||
-  url.includes("api/auth") ||
-  url.includes("newsletters");
+const isAuth = (url) => {
+  if (url.includes("/api/auth/signout")) clearAllData();
+  return (
+    url.includes("welcome") ||
+    url.includes("api/auth") ||
+    url.includes("newsletters")
+  );
+};
 
 const loadLocalMail = async (decreasing = false) => {
   if (!DB) await openDB();
@@ -386,4 +393,19 @@ function getAllMailsClusterdbyPeriod(fromDate, toDate, period, data) {
     readCount: clusters.reduce((sum, ele) => sum + (ele.Read ?? 0), 0),
     sentCount: clusters.reduce((sum, ele) => sum + (ele.Sent ?? 0), 0),
   };
+}
+
+async function clearAllData() {
+  if (!DB) await openDB();
+
+  for (STORE of ALL_STORES) {
+    const tx = DB.transaction(STORE.name, "readwrite");
+    const store = tx.objectStore(STORE.name);
+    const req = store.clear();
+    req.onsuccess = () =>
+      console.log(`All data cleared from store : ${STORE.name}`);
+    req.onerror = (error) => {
+      console.log(`Store data deletion failed with reason :`, error);
+    };
+  }
 }

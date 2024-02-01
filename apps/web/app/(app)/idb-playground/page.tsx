@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { type gmail_v1 } from "googleapis";
-import { getLabels, saveLabels } from "@/utils/indexeddb/labels";
 import { TopSection } from "@/components/TopSection";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 import { Button } from "@/components/Button";
