@@ -132,6 +132,8 @@ export const POST = withError(async (request: Request) => {
     console.log(
       "Webhook: Listing history... Start:",
       startHistoryId,
+      "lastSyncedHistoryId",
+      account.user.lastSyncedHistoryId,
       "gmail historyId",
       historyId,
       decodedData.emailAddress,
