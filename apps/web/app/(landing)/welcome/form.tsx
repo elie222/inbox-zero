@@ -24,6 +24,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   const {
     register,
     handleSubmit,
+    watch,
+    getValues,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<Inputs>();
@@ -76,11 +78,26 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             {question.choices?.map((answer) => (
               <Button
                 key={answer}
-                variant="outline"
+                variant={
+                  watch(name)?.includes(answer) ? "secondary" : "outline"
+                }
                 type="button"
+                // quick and dirty radio button implementation
                 onClick={(e) => {
-                  setValue(name, answer);
-                  handleSubmit(onSubmit)(e);
+                  if (question.type === "multiple_choice") {
+                    const values = new Set(getValues(name)?.split(","));
+                    if (values.has(answer)) {
+                      values.delete(answer);
+                    } else {
+                      values.add(answer);
+                    }
+
+                    const newValue = Array.from(values).join(",");
+                    setValue(name, newValue);
+                  } else {
+                    setValue(name, answer);
+                    handleSubmit(onSubmit)(e);
+                  }
                 }}
               >
                 {answer}
@@ -105,20 +122,29 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             </Button>
           </div>
         )}
-        <Button
-          variant="ghost"
-          className="mt-8"
-          type="button"
-          onClick={async () => {
-            const responses = getResponses(searchParams);
-            submitPosthog(responses);
-            posthog.capture("survey dismissed", { $survey_id: surveyId });
-            await completedOnboarding();
-            router.push("/newsletters");
-          }}
-        >
-          Skip Onboarding
-        </Button>
+
+        {question.type === "multiple_choice" && (
+          <Button className="mt-4 w-full" type="submit">
+            Next
+          </Button>
+        )}
+
+        <div className="">
+          <Button
+            variant="ghost"
+            className="mt-8"
+            type="button"
+            onClick={async () => {
+              const responses = getResponses(searchParams);
+              submitPosthog(responses);
+              posthog.capture("survey dismissed", { $survey_id: surveyId });
+              await completedOnboarding();
+              router.push("/newsletters");
+            }}
+          >
+            Skip Onboarding
+          </Button>
+        </div>
       </div>
     </form>
   );

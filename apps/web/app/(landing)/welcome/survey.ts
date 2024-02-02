@@ -2,8 +2,8 @@
 export const survey = {
   questions: [
     {
-      type: "single_choice",
-      question: "Which feature interests you most?",
+      type: "multiple_choice",
+      question: "Which features are you most interested in?",
       choices: [
         "AI Automation",
         "Newsletter Cleaner",
