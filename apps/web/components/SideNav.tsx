@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Dialog, Transition, Disclosure } from "@headlessui/react";
+import { cloneDeep } from "lodash";
 import clsx from "clsx";
 import {
   BarChartBigIcon,
@@ -200,61 +201,32 @@ function Sidebar(props: { isMobile: boolean }) {
 
   const [open, setOpen] = useState<boolean>();
 
-  const LabelSection = (
-    <>
+  function tagItem(list: LabelsResponse["labels"]) {
+    return list?.map((label) => (
       <a
         href="#"
         className={clsx(
-          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
+          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
         )}
+        key={label.id}
       >
-        <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
-        Labels
+        <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        {label.name}
       </a>
+    ));
+  }
 
-      {data?.labels
-        ?.filter((label) => label?.type === "user")
-        .map((label) => (
-          <a
-            href="#"
-            className={clsx(
-              "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
-            )}
-            key={label.id}
-          >
-            <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {label.name}
-          </a>
-        ))}
-    </>
+  const LabelSection = (
+    <>{tagItem(data?.labels?.filter((label) => label?.type === "user"))}</>
   );
 
   const LabelSectionExpandable = (
     <>
-      <a
-        href="#"
-        className={clsx(
-          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
-        )}
-      >
-        <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
-        Labels
-      </a>
-      {data?.labels
-        ?.filter((label) => label?.type === "user")
-        .slice(0, 3)
-        .map((label) => (
-          <a
-            href="#"
-            className={clsx(
-              "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
-            )}
-            key={label.id}
-          >
-            <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {label.name}
-          </a>
-        ))}
+      {tagItem(
+        cloneDeep(
+          data?.labels?.filter((label) => label?.type === "user") || [],
+        ).slice(0, 3),
+      )}
       <Disclosure>
         <Disclosure.Button
           onClick={() => setOpen(!open)}
@@ -270,21 +242,11 @@ function Sidebar(props: { isMobile: boolean }) {
           More
         </Disclosure.Button>
         <Disclosure.Panel className="text-gray-500">
-          {data?.labels
-            ?.filter((label) => label?.type === "user")
-            .slice(3)
-            .map((label) => (
-              <a
-                href="#"
-                className={clsx(
-                  "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
-                )}
-                key={label.id}
-              >
-                <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {label.name}
-              </a>
-            ))}
+          {tagItem(
+            cloneDeep(
+              data?.labels?.filter((label) => label?.type === "user") || [],
+            ).slice(3),
+          )}
         </Disclosure.Panel>
       </Disclosure>
     </>
@@ -332,6 +294,18 @@ function Sidebar(props: { isMobile: boolean }) {
               <li>
                 <ul role="list" className="-mx-2 space-y-1">
                   <li>
+                    <a
+                      href="#"
+                      className={clsx(
+                        "group flex cursor-default gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
+                      )}
+                    >
+                      <TagsIcon
+                        className="h-6 w-6 shrink-0"
+                        aria-hidden="true"
+                      />
+                      Labels
+                    </a>
                     {data?.labels && data.labels?.length > 4
                       ? LabelSectionExpandable
                       : LabelSection}
