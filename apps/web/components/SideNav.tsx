@@ -201,108 +201,93 @@ function Sidebar(props: { isMobile: boolean }) {
   const [open, setOpen] = useState<boolean>();
 
   const LabelSection = (
-    <ul role="list" className="mt-10 flex flex-1 flex-col gap-y-7">
-      <li>
-        <ul role="list" className="-mx-2 space-y-1">
-          <li>
-            <a
-              href="#"
-              className={clsx(
-                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
-              )}
-            >
-              <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
-              Labels
-            </a>
+    <>
+      <a
+        href="#"
+        className={clsx(
+          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
+        )}
+      >
+        <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
+        Labels
+      </a>
 
-            {data?.labels
-              ?.filter((label) => label?.type === "user")
-              .map((label) => (
-                <a
-                  href="#"
-                  className={clsx(
-                    "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
-                  )}
-                  key={label.id}
-                >
-                  <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {label.name}
-                </a>
-              ))}
-          </li>
-        </ul>
-      </li>
-    </ul>
+      {data?.labels
+        ?.filter((label) => label?.type === "user")
+        .map((label) => (
+          <a
+            href="#"
+            className={clsx(
+              "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
+            )}
+            key={label.id}
+          >
+            <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {label.name}
+          </a>
+        ))}
+    </>
   );
 
-  const LabelSection2 = (
-    <ul role="list" className="mt-10 flex flex-1 flex-col gap-y-7">
-      <li>
-        <ul role="list" className="-mx-2 space-y-1">
-          <li>
-            <a
-              href="#"
-              className={clsx(
-                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
-              )}
-            >
-              <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
-              Labels
-            </a>
-            {data?.labels
-              ?.filter((label) => label?.type === "user")
-              .slice(0, 3)
-              .map((label) => (
-                <a
-                  href="#"
-                  className={clsx(
-                    "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
-                  )}
-                  key={label.id}
-                >
-                  <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {label.name}
-                </a>
-              ))}
-            <Disclosure>
-              <Disclosure.Button
-                onClick={() => setOpen(!open)}
-                className="group flex w-full gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white"
-              >
-                <ChevronUp
-                  className={clsx(
-                    open ? "rotate-180 transform" : "",
-                    `
+  const LabelSectionExpandable = (
+    <>
+      <a
+        href="#"
+        className={clsx(
+          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
+        )}
+      >
+        <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
+        Labels
+      </a>
+      {data?.labels
+        ?.filter((label) => label?.type === "user")
+        .slice(0, 3)
+        .map((label) => (
+          <a
+            href="#"
+            className={clsx(
+              "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
+            )}
+            key={label.id}
+          >
+            <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {label.name}
+          </a>
+        ))}
+      <Disclosure>
+        <Disclosure.Button
+          onClick={() => setOpen(!open)}
+          className="group flex w-full gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white"
+        >
+          <ChevronUp
+            className={clsx(
+              open ? "rotate-180 transform" : "",
+              `
           h-5 w-5 `,
-                  )}
-                />
-                More
-              </Disclosure.Button>
-              <Disclosure.Panel className="text-gray-500">
-                {data?.labels
-                  ?.filter((label) => label?.type === "user")
-                  .slice(3)
-                  .map((label) => (
-                    <a
-                      href="#"
-                      className={clsx(
-                        "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
-                      )}
-                      key={label.id}
-                    >
-                      <TagIcon
-                        className="h-4 w-4 shrink-0"
-                        aria-hidden="true"
-                      />
-                      {label.name}
-                    </a>
-                  ))}
-              </Disclosure.Panel>
-            </Disclosure>
-          </li>
-        </ul>
-      </li>
-    </ul>
+            )}
+          />
+          More
+        </Disclosure.Button>
+        <Disclosure.Panel className="text-gray-500">
+          {data?.labels
+            ?.filter((label) => label?.type === "user")
+            .slice(3)
+            .map((label) => (
+              <a
+                href="#"
+                className={clsx(
+                  "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
+                )}
+                key={label.id}
+              >
+                <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {label.name}
+              </a>
+            ))}
+        </Disclosure.Panel>
+      </Disclosure>
+    </>
   );
 
   return (
@@ -343,9 +328,17 @@ function Sidebar(props: { isMobile: boolean }) {
                 </li>
               ))}
             </ul>
-            {data?.labels && data.labels?.length > 4
-              ? LabelSection2
-              : LabelSection}
+            <ul role="list" className="mt-10 flex flex-1 flex-col gap-y-7">
+              <li>
+                <ul role="list" className="-mx-2 space-y-1">
+                  <li>
+                    {data?.labels && data.labels?.length > 4
+                      ? LabelSectionExpandable
+                      : LabelSection}
+                  </li>
+                </ul>
+              </li>
+            </ul>
           </li>
 
           {/* <PromptHistory /> */}
