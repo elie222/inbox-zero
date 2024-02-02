@@ -3,7 +3,7 @@ import addDays from "date-fns/addDays";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
-import { hasCronSecret } from "@/utils/cron";
+import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
 import { hasFeatureAccess } from "@/utils/premium";
@@ -11,14 +11,7 @@ import { hasFeatureAccess } from "@/utils/premium";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export const GET = withError(async (request: Request) => {
-  if (!hasCronSecret(request)) {
-    captureException(
-      new Error("Unauthorized cron request: api/google/watch/all"),
-    );
-    return new Response("Unauthorized", { status: 401 });
-  }
-
+async function watchAllEmails() {
   const premiums = await prisma.premium.findMany({
     where: {
       lemonSqueezyRenewsAt: { gt: new Date() },
@@ -105,4 +98,26 @@ export const GET = withError(async (request: Request) => {
   }
 
   return NextResponse.json({ success: true });
+}
+
+export const GET = withError(async (request: Request) => {
+  if (!hasCronSecret(request)) {
+    captureException(
+      new Error("Unauthorized cron request: api/google/watch/all"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return watchAllEmails();
+});
+
+export const POST = withError(async (request: Request) => {
+  if (!(await hasPostCronSecret(request))) {
+    captureException(
+      new Error("Unauthorized cron request: api/google/watch/all"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return watchAllEmails();
 });
