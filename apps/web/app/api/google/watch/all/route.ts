@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import addDays from "date-fns/addDays";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
@@ -31,6 +32,7 @@ export const GET = withError(async (request: Request) => {
           id: true,
           email: true,
           openAIApiKey: true,
+          watchEmailsExpirationDate: true,
           accounts: {
             select: {
               access_token: true,
@@ -61,6 +63,20 @@ export const GET = withError(async (request: Request) => {
       if (!hasAiOrColdEmailAccess) {
         console.log(
           `User ${user.email} does not have access to AI or cold email`,
+        );
+        prisma.user.update({
+          where: { id: user.id },
+          data: { watchEmailsExpirationDate: null },
+        });
+        continue;
+      }
+
+      if (
+        user.watchEmailsExpirationDate &&
+        new Date(user.watchEmailsExpirationDate) > addDays(new Date(), 2)
+      ) {
+        console.log(
+          `User ${user.email} already has a watchEmailsExpirationDate set to: ${user.watchEmailsExpirationDate}`,
         );
         continue;
       }
