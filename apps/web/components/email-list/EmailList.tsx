@@ -199,7 +199,7 @@ export function EmailList(props: {
                 from: message.parsedMessage.headers.from,
                 to: message.parsedMessage.headers.to,
                 date: message.parsedMessage.headers.date,
-                replyTo: message.parsedMessage.headers.replyTo,
+                replyTo: message.parsedMessage.headers["reply-to"],
                 cc: message.parsedMessage.headers.cc,
                 subject: message.parsedMessage.headers.subject,
                 textPlain: message.parsedMessage.textPlain || null,
@@ -207,7 +207,8 @@ export function EmailList(props: {
                 snippet: thread.snippet,
                 threadId: message.threadId || "",
                 messageId: message.id || "",
-                headerMessageId: message.parsedMessage.headers.messageId || "",
+                headerMessageId:
+                  message.parsedMessage.headers["message-id"] || "",
                 references: message.parsedMessage.headers.references,
               },
               allowExecute: false,

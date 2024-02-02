@@ -11,7 +11,7 @@ import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { parseEmail } from "@/utils/mail";
 import { UserAIFields, getAiModel } from "@/utils/openai";
-import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
+import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
@@ -287,7 +287,7 @@ async function processHistoryItem(
     ) {
       const unsubscribeLink =
         findUnsubscribeLink(parsedMessage.textHtml) ||
-        getHeaderUnsubscribe(parsedMessage.headers);
+        parsedMessage.headers["list-unsubscribe"];
 
       const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
         from: parsedMessage.headers.from,
@@ -334,7 +334,7 @@ async function processHistoryItem(
         allowExecute: true,
         email: {
           from: parsedMessage.headers.from,
-          replyTo: parsedMessage.headers.replyTo,
+          replyTo: parsedMessage.headers["reply-to"],
           cc: parsedMessage.headers.cc,
           subject: parsedMessage.headers.subject,
           textHtml: parsedMessage.textHtml || null,
@@ -343,7 +343,7 @@ async function processHistoryItem(
           content,
           threadId: m.message.threadId,
           messageId: m.message.id,
-          headerMessageId: parsedMessage.headers.messageId || "",
+          headerMessageId: parsedMessage.headers["message-id"] || "",
           // unsubscribeLink,
           // hasPreviousEmail,
         },

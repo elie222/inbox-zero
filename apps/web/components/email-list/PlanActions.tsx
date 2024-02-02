@@ -39,7 +39,8 @@ export function useExecutePlan(refetch: () => void) {
               replyTo: lastMessage.parsedMessage.headers["reply-to"],
               references: lastMessage.parsedMessage.headers["references"],
               date: lastMessage.parsedMessage.headers.date,
-              headerMessageId: lastMessage.parsedMessage.headers["message-id"],
+              headerMessageId:
+                lastMessage.parsedMessage.headers["message-id"] || "",
               textPlain: lastMessage.parsedMessage.textPlain || null,
               textHtml: lastMessage.parsedMessage.textHtml || null,
               snippet: lastMessage.snippet || null,
