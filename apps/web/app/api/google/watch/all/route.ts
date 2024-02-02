@@ -64,10 +64,16 @@ export const GET = withError(async (request: Request) => {
         console.log(
           `User ${user.email} does not have access to AI or cold email`,
         );
-        prisma.user.update({
-          where: { id: user.id },
-          data: { watchEmailsExpirationDate: null },
-        });
+        if (
+          user.watchEmailsExpirationDate &&
+          new Date(user.watchEmailsExpirationDate) < new Date()
+        ) {
+          prisma.user.update({
+            where: { id: user.id },
+            data: { watchEmailsExpirationDate: null },
+          });
+        }
+
         continue;
       }
 
