@@ -169,7 +169,7 @@ export const POST = withError(async (request: Request) => {
         hasAiAutomationAccess: hasAiAccess,
       });
     } else {
-      console.log("Webhook: No history", decodedData.emailAddress);
+      console.log("Webhook: No history", decodedData);
 
       // important to save this or we can get into a loop with never receiving history
       await prisma.user.update({
