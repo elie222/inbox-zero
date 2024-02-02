@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Dialog, Transition } from "@headlessui/react";
+import { Dialog, Transition, Disclosure } from "@headlessui/react";
 import clsx from "clsx";
 import {
   BarChartBigIcon,
@@ -18,8 +18,13 @@ import {
   StarIcon,
   Users2Icon,
   XIcon,
+  TagsIcon,
+  TagIcon,
+  ChevronUp,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import useSWR from "swr";
+import { LabelsResponse } from "@/app/api/google/labels/route";
 
 export const navigation = [
   {
@@ -190,6 +195,115 @@ export function SideNav(props: {
 
 function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
+  const { data, isLoading, error } =
+    useSWR<LabelsResponse>("/api/google/labels");
+
+  const [open, setOpen] = useState<boolean>();
+
+  const LabelSection = (
+    <ul role="list" className="mt-10 flex flex-1 flex-col gap-y-7">
+      <li>
+        <ul role="list" className="-mx-2 space-y-1">
+          <li>
+            <a
+              href="#"
+              className={clsx(
+                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
+              )}
+            >
+              <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
+              Labels
+            </a>
+
+            {data?.labels
+              ?.filter((label) => label?.type === "user")
+              .map((label) => (
+                <a
+                  href="#"
+                  className={clsx(
+                    "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
+                  )}
+                  key={label.id}
+                >
+                  <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {label.name}
+                </a>
+              ))}
+          </li>
+        </ul>
+      </li>
+    </ul>
+  );
+
+  const LabelSection2 = (
+    <ul role="list" className="mt-10 flex flex-1 flex-col gap-y-7">
+      <li>
+        <ul role="list" className="-mx-2 space-y-1">
+          <li>
+            <a
+              href="#"
+              className={clsx(
+                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-white",
+              )}
+            >
+              <TagsIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
+              Labels
+            </a>
+            {data?.labels
+              ?.filter((label) => label?.type === "user")
+              .slice(0, 3)
+              .map((label) => (
+                <a
+                  href="#"
+                  className={clsx(
+                    "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
+                  )}
+                  key={label.id}
+                >
+                  <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {label.name}
+                </a>
+              ))}
+            <Disclosure>
+              <Disclosure.Button
+                onClick={() => setOpen(!open)}
+                className="group flex w-full gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white"
+              >
+                <ChevronUp
+                  className={clsx(
+                    open ? "rotate-180 transform" : "",
+                    `
+          h-5 w-5 `,
+                  )}
+                />
+                More
+              </Disclosure.Button>
+              <Disclosure.Panel className="text-gray-500">
+                {data?.labels
+                  ?.filter((label) => label?.type === "user")
+                  .slice(3)
+                  .map((label) => (
+                    <a
+                      href="#"
+                      className={clsx(
+                        "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
+                      )}
+                      key={label.id}
+                    >
+                      <TagIcon
+                        className="h-4 w-4 shrink-0"
+                        aria-hidden="true"
+                      />
+                      {label.name}
+                    </a>
+                  ))}
+              </Disclosure.Panel>
+            </Disclosure>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  );
 
   return (
     <div
@@ -229,6 +343,9 @@ function Sidebar(props: { isMobile: boolean }) {
                 </li>
               ))}
             </ul>
+            {data?.labels && data.labels?.length > 4
+              ? LabelSection2
+              : LabelSection}
           </li>
 
           {/* <PromptHistory /> */}
