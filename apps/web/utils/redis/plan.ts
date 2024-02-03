@@ -20,14 +20,16 @@ export const planSchema = z.object({
           to: z.string().nullish(),
           cc: z.string().nullish(),
           bcc: z.string().nullish(),
-        })
+        }),
       ),
     })
     .or(z.null()),
   createdAt: z.date(),
+  reason: z.string().optional(),
   // category: z.string().nullish(),
   // response: z.string().nullish(),
   // label: z.string().nullish(),
+  executed: z.boolean().optional(),
 });
 export type Plan = z.infer<typeof planSchema>;
 
@@ -69,6 +71,15 @@ export async function savePlan(options: {
   const key = getKey(options.userId);
   const planKey = getPlanKey(options.threadId);
   return redis.hset(key, { [planKey]: options.plan });
+}
+
+export async function markPlanExecuted(options: {
+  userId: string;
+  threadId: string;
+}) {
+  const plan = await getPlan(options);
+  if (!plan) return;
+  return savePlan({ ...options, plan: { ...plan, executed: true } });
 }
 
 export async function deletePlan(options: {

@@ -127,6 +127,7 @@ export function PlanHistory() {
                       databaseRule: {
                         instructions: h.rule?.instructions || "",
                       },
+                      executed: false,
                     }}
                   />
                 </TableCell>

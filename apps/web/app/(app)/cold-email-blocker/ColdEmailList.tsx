@@ -14,7 +14,7 @@ export function ColdEmailList() {
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <EmailList
-          threads={data.result || []}
+          threads={data.threads || []}
           emptyMessage={
             <div className="px-2">
               <AlertBasic
@@ -24,7 +24,7 @@ export function ColdEmailList() {
             </div>
           }
           hideActionBarWhenEmpty
-          refetch={mutate}
+          refetch={() => mutate()}
         />
       )}
     </LoadingContent>

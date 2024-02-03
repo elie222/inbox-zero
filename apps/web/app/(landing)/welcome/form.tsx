@@ -8,7 +8,7 @@ import { survey } from "@/app/(landing)/welcome/survey";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { env } from "@/env.mjs";
-import { completedOnboarding } from "@/utils/actions";
+import { completedOnboarding, saveOnboardingAnswers } from "@/utils/actions";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -24,6 +24,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   const {
     register,
     handleSubmit,
+    watch,
+    getValues,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<Inputs>();
@@ -34,19 +36,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       : (`$survey_response_${questionIndex}` as const);
 
   const submitPosthog = useCallback(
-    (seachParams: URLSearchParams) => {
-      const responses = survey.questions.reduce((acc, _q, i) => {
-        const name =
-          i === 0 ? `$survey_response` : (`$survey_response_${i}` as const);
-        return { ...acc, [name]: seachParams.get(name) };
-      }, {});
-
-      const posthogData = {
-        ...responses,
-        $survey_id: surveyId,
-      };
-
-      posthog.capture("survey sent", posthogData);
+    (responses: {}) => {
+      posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
     },
     [posthog],
   );
@@ -57,9 +48,16 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       newSeachParams.set("question", (questionIndex + 1).toString());
       newSeachParams.set(name, data[name]);
 
+      const responses = getResponses(newSeachParams);
+      saveOnboardingAnswers({
+        surveyId,
+        questions: survey.questions,
+        answers: responses,
+      });
+
       // submit on last question
       if (questionIndex === survey.questions.length - 1) {
-        submitPosthog(newSeachParams);
+        submitPosthog(responses);
         await completedOnboarding();
         router.push("/newsletters");
       } else {
@@ -74,17 +72,32 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex justify-center">
       <div>
-        <div className="my-4 text-lg font-semibold">{question.question}</div>
+        <div className="my-4 text-lg">{question.question}</div>
         {question.choices && (
           <div className="grid gap-2">
             {question.choices?.map((answer) => (
               <Button
                 key={answer}
-                variant="outline"
+                variant={
+                  watch(name)?.includes(answer) ? "secondary" : "outline"
+                }
                 type="button"
+                // quick and dirty radio button implementation
                 onClick={(e) => {
-                  setValue(name, answer);
-                  handleSubmit(onSubmit)(e);
+                  if (question.type === "multiple_choice") {
+                    const values = new Set(getValues(name)?.split(","));
+                    if (values.has(answer)) {
+                      values.delete(answer);
+                    } else {
+                      values.add(answer);
+                    }
+
+                    const newValue = Array.from(values).join(",");
+                    setValue(name, newValue);
+                  } else {
+                    setValue(name, answer);
+                    handleSubmit(onSubmit)(e);
+                  }
                 }}
               >
                 {answer}
@@ -109,20 +122,40 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             </Button>
           </div>
         )}
-        <Button
-          variant="ghost"
-          className="mt-8"
-          type="button"
-          onClick={async () => {
-            submitPosthog(searchParams);
-            posthog.capture("survey dismissed", { $survey_id: surveyId });
-            await completedOnboarding();
-            router.push("/newsletters");
-          }}
-        >
-          Skip Onboarding
-        </Button>
+
+        {question.type === "multiple_choice" && (
+          <Button className="mt-4 w-full" type="submit">
+            Next
+          </Button>
+        )}
+
+        <div className="">
+          <Button
+            variant="ghost"
+            className="mt-8"
+            type="button"
+            onClick={async () => {
+              const responses = getResponses(searchParams);
+              submitPosthog(responses);
+              posthog.capture("survey dismissed", { $survey_id: surveyId });
+              await completedOnboarding();
+              router.push("/newsletters");
+            }}
+          >
+            Skip Onboarding
+          </Button>
+        </div>
       </div>
     </form>
   );
 };
+
+function getResponses(seachParams: URLSearchParams): Record<string, string> {
+  const responses = survey.questions.reduce((acc, _q, i) => {
+    const name =
+      i === 0 ? `$survey_response` : (`$survey_response_${i}` as const);
+    return { ...acc, [name]: seachParams.get(name) };
+  }, {});
+
+  return responses;
+}

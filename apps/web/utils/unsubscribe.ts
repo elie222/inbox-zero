@@ -57,7 +57,3 @@ export function findUnsubscribeLink(html?: string | null) {
 
   return unsubscribeLink;
 }
-
-export function getHeaderUnsubscribe(headers: { "List-Unsubscribe"?: string }) {
-  return headers["List-Unsubscribe"] || undefined;
-}

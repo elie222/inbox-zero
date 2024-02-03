@@ -37,13 +37,13 @@ export default async function WelcomePage({
     : 0;
 
   return (
-    <div className="flex h-screen flex-col justify-center p-6 text-gray-900">
+    <div className="flex flex-col justify-center px-6 py-20 text-gray-900">
       <SquaresPattern />
 
       <Card className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         <div className="flex flex-col text-center">
           <PageHeading>Welcome to Inbox Zero</PageHeading>
-          <TypographyP className="mt-2">Clean your inbox, fast.</TypographyP>
+          <TypographyP className="mt-2">Let{"'"}s get you set up!</TypographyP>
           <div className="mt-4">
             <Suspense>
               <OnboardingForm questionIndex={questionIndex} />

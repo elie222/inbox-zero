@@ -29,6 +29,7 @@ Inbox Zero is an open-source email app whose goal is to help you reach inbox zer
 
 - **Newsletter Cleaner:** Easily manage and unsubscribe from newsletters.
 - **AI Assistant:** Auto respond, archive, label, and forward emails based on plain text prompt rules.
+- **Cold Email Blocker:** Automatically block cold emails.
 - **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
 - **New Senders:** Identify and block new spam senders.
 - **Unreplied Emails:** Keep track of emails awaiting responses.
@@ -118,6 +119,8 @@ To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localho
 ### Setting up Tinybird
 
 Follow the instructions [here](./packages/tinybird/README.md) to setup the `pipes` and `datasources`.
+
+Optional: If you want to store AI usage stats in Tinybird too, then do the same in `/packages/tinybird-ai-analytics`.
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 

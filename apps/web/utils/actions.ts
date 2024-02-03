@@ -23,6 +23,7 @@ import {
 import { deletePlans } from "@/utils/redis/plan";
 import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
+import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -34,6 +35,7 @@ import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 import { archiveThread } from "@/utils/gmail/label";
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 import { captureException } from "@/utils/error";
+import { isAdmin } from "@/utils/admin";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -62,13 +64,7 @@ export async function labelThreadsAction(options: {
   );
 }
 
-// export async function archiveThreadAction(options: { threadId: string }) {
-//   return await archiveEmail({ id: options.threadId })
-// }
-
-const saveAboutBody = z.object({
-  about: z.string(),
-});
+const saveAboutBody = z.object({ about: z.string() });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export async function saveAboutAction(options: SaveAboutBody) {
@@ -92,6 +88,7 @@ export async function deleteAccountAction() {
       deletePlans({ userId: session.user.id }),
       deleteUserStats({ email: session.user.email }),
       deleteTinybirdEmails({ email: session.user.email }),
+      deleteTinybirdAiCalls({ userId: session.user.email }),
       deletePosthogUser({ email: session.user.email }),
       deleteLoopsContact(session.user.email),
       deleteResendContact({ email: session.user.email }),
@@ -169,6 +166,20 @@ export async function completedOnboarding() {
   });
 }
 
+export async function saveOnboardingAnswers(onboardingAnswers: {
+  surveyId?: string;
+  questions: any;
+  answers: Record<string, string>;
+}) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { onboardingAnswers },
+  });
+}
+
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -178,41 +189,39 @@ export async function createAutoArchiveFilterAction(
 ) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 export async function deleteFilterAction(id: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await deleteFilter({ gmail, id });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
 
+export async function archiveThreadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await archiveThread({ gmail, threadId });
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 export async function trashThreadAction(threadId: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
-
   const gmail = getGmailClient(session);
-
   const res = await trashThread({ gmail, threadId });
-
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
 export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
-
-  if (!env.ADMINS?.includes(session.user.email)) throw new Error("Not admin");
+  if (!isAdmin(session.user.email)) throw new Error("Not admin");
 
   const userToUpgrade = await prisma.user.findUniqueOrThrow({
     where: { email: options.email },

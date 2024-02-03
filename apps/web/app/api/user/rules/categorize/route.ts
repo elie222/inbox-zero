@@ -3,11 +3,16 @@ import { NextResponse } from "next/server";
 import { parseJSON } from "@/utils/json";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { AIModel, UserAIFields, getOpenAI } from "@/utils/openai";
-import { DEFAULT_AI_MODEL } from "@/utils/config";
+import {
+  DEFAULT_AI_MODEL,
+  UserAIFields,
+  getAiModel,
+  getOpenAI,
+} from "@/utils/openai";
 import { Action, ActionType, Rule } from "@prisma/client";
 import { actionInputs } from "@/utils/actionType";
 import { withError } from "@/utils/middleware";
+import { saveAiUsage } from "@/utils/usage";
 
 const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
@@ -49,6 +54,7 @@ const categorizeRuleResponse = z.object({
 async function aiCategorizeRule(
   rule: Rule,
   user: UserAIFields,
+  userEmail: string,
 ): Promise<{
   name: string;
   actions: Pick<
@@ -56,9 +62,10 @@ async function aiCategorizeRule(
     "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content"
   >[];
 } | void> {
+  const model = user.aiModel || DEFAULT_AI_MODEL;
   const aiResponse = await getOpenAI(user.openAIApiKey).chat.completions.create(
     {
-      model: user.aiModel || DEFAULT_AI_MODEL,
+      model,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -93,6 +100,15 @@ ${rule.instructions}`,
     },
   );
 
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: aiResponse.usage,
+      model,
+      label: "Categorize rule",
+    });
+  }
+
   const contentString = aiResponse.choices?.[0]?.message.content;
 
   if (!contentString) return;
@@ -113,6 +129,7 @@ ${rule.instructions}`,
 async function categorizeRule(
   body: CategorizeRuleBody,
   userId: string,
+  userEmail: string,
   userAiFields: UserAIFields,
 ) {
   const rule = await prisma.rule.findUniqueOrThrow({
@@ -122,7 +139,7 @@ async function categorizeRule(
   if (rule.userId !== userId) throw new Error("Unauthorized");
 
   // ask ai to categorize the rule
-  const categorizedRule = await aiCategorizeRule(rule, userAiFields);
+  const categorizedRule = await aiCategorizeRule(rule, userAiFields, userEmail);
 
   if (!categorizedRule?.actions?.length) return;
 
@@ -172,10 +189,15 @@ export const POST = withError(async (request: Request) => {
     },
   });
 
-  const result = await categorizeRule(body, session.user.id, {
-    aiModel: user.aiModel as AIModel,
-    openAIApiKey: user.openAIApiKey,
-  });
+  const result = await categorizeRule(
+    body,
+    session.user.id,
+    session.user.email,
+    {
+      aiModel: getAiModel(user.aiModel),
+      openAIApiKey: user.openAIApiKey,
+    },
+  );
 
   return NextResponse.json(result);
 });

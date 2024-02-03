@@ -26,5 +26,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: "https://www.getinboxzero.com/terms",
     },
+    {
+      url: "https://www.getinboxzero.com/blog",
+    },
+    {
+      url: "https://www.getinboxzero.com/blog/post/how-my-open-source-saas-hit-first-on-product-hunt",
+    },
   ];
 }

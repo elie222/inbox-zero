@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/openai";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { filterFunctions } from "@/utils/ai/filters";
 import prisma from "@/utils/prisma";
-import { DEFAULT_AI_MODEL } from "@/utils/config";
 
 export const promptQuery = z.object({
   message: z.string(),
@@ -22,7 +21,7 @@ export async function createFilterFromPrompt(body: PromptQuery) {
       {
         role: "system",
         content: `You are an AI assistant that helps people manage their emails. Valid labels are: ${body.labels.join(
-          ", "
+          ", ",
         )}`,
       },
       {

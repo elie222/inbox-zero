@@ -89,10 +89,10 @@ export const EmailListItem = forwardRef(
                 className="flex items-center pl-1"
                 onClick={preventPropagation}
               >
-                <Checkbox checked={props.selected} onChange={onRowSelected} />
+                <Checkbox checked={!!props.selected} onChange={onRowSelected} />
               </div>
 
-              <div className="ml-4 w-40 min-w-0 overflow-hidden truncate text-gray-900">
+              <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-gray-900">
                 {extractNameFromEmail(
                   participant(
                     lastMessage.parsedMessage,
@@ -147,7 +147,9 @@ export const EmailListItem = forwardRef(
               </div>
 
               <div className="ml-3 flex items-center whitespace-nowrap">
-                <CategoryBadge category={thread.category?.category} />
+                {thread.category?.category ? (
+                  <CategoryBadge category={thread.category.category} />
+                ) : null}
                 <div className="ml-3">
                   <PlanBadge plan={thread.plan} />
                 </div>

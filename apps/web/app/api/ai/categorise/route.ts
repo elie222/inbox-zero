@@ -5,7 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { categoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { parseEmail, truncate } from "@/utils/mail";
 import prisma from "@/utils/prisma";
-import { AIModel } from "@/utils/openai";
+import { getAiModel } from "@/utils/openai";
 import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -40,7 +40,7 @@ export const POST = withError(async (request: Request) => {
       content,
       snippet: body.snippet || truncate(content, 300),
       openAIApiKey: user.openAIApiKey,
-      aiModel: user.aiModel as AIModel,
+      aiModel: getAiModel(user.aiModel),
       unsubscribeLink,
       hasPreviousEmail,
     },

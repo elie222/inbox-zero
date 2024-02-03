@@ -13,8 +13,8 @@ import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
-import { Footer } from "@/app/(landing)/home/Footer";
 import { FeaturesWithImage } from "@/app/(landing)/home/Features";
+import { BasicLayout } from "@/components/layouts/BasicLayout";
 
 export const metadata: Metadata = {
   title: "New Email Senders | Inbox Zero",
@@ -25,26 +25,20 @@ export const metadata: Metadata = {
 
 export default function NewEmailSenders() {
   return (
-    <div className="bg-white">
-      <Header />
-
-      <main className="isolate">
-        <Hero
-          title="Manage and Block New Senders in Your Inbox"
-          subtitle="Identify and control your new email connections with a single click."
-        />
-        {/* <LogoCloud /> */}
-        <Testimonials />
-        <FeaturesNewSenders />
-        <Suspense>
-          <Pricing />
-        </Suspense>
-        <FAQs />
-        <CTA />
-      </main>
-
-      <Footer />
-    </div>
+    <BasicLayout>
+      <Hero
+        title="Manage and Block New Senders in Your Inbox"
+        subtitle="Identify and control your new email connections with a single click."
+      />
+      {/* <LogoCloud /> */}
+      <Testimonials />
+      <FeaturesNewSenders />
+      <Suspense>
+        <Pricing />
+      </Suspense>
+      <FAQs />
+      <CTA />
+    </BasicLayout>
   );
 }
 

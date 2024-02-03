@@ -62,20 +62,22 @@ function ProfileDropdown() {
       <Menu as="div" className="relative">
         <Menu.Button className="-m-1.5 flex items-center p-1.5">
           <span className="sr-only">Open user menu</span>
-          {!!session.user.image && (
+          {session.user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               className="h-8 w-8 rounded-full bg-gray-50"
               src={session.user.image}
-              alt=""
+              alt="Profile"
             />
+          ) : (
+            <div className="h-8 w-8 rounded-full bg-blue-500" />
           )}
           <span className="hidden lg:flex lg:items-center">
             <span
               className="ml-4 text-sm font-semibold leading-6 text-gray-900"
               aria-hidden="true"
             >
-              {session.user.name}
+              {session.user.name || "Account"}
             </span>
             <ChevronDownIcon
               className="ml-2 h-5 w-5 text-gray-400"

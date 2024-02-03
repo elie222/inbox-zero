@@ -53,7 +53,7 @@ export interface ParsedMessage {
   internalDate: number;
   attachments: Attachment[];
   inline: Inline[];
-  headers: Headers3;
+  headers: ParsedMessageHeaders;
   textPlain?: string;
   textHtml?: string;
 }
@@ -88,13 +88,14 @@ interface Headers2 {
   "content-id": string;
 }
 
-interface Headers3 {
+export interface ParsedMessageHeaders {
   subject: string;
   from: string;
   to: string;
   cc?: string;
   date: string;
-  ["message-id"]: string;
-  ["List-Unsubscribe"]?: string;
-  [key: string]: string | undefined;
+  ["message-id"]?: string;
+  ["reply-to"]?: string;
+  references?: string;
+  ["list-unsubscribe"]?: string;
 }
