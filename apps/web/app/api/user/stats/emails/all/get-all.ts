@@ -1,11 +1,13 @@
-import { type gmail_v1 } from "googleapis";
-import { sleep } from "@/utils/sleep";
-import { getMessagesBatch } from "@/utils/gmail/message";
-import { isDefined } from "@/utils/types";
+import {
+  IndexedDBEmail,
+  LoadIDBEmailsBody,
+} from "@/app/api/user/stats/emails/all/validation";
 import { extractDomainFromEmail } from "@/utils/email";
-import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
-import { IndexedDBEmail } from "@/app/api/user/stats/emails/all/validation";
-import { LoadIDBEmailsBody } from "@/app/api/user/stats/emails/all/validation";
+import { getMessagesBatch } from "@/utils/gmail/message";
+import { sleep } from "@/utils/sleep";
+import { isDefined } from "@/utils/types";
+import { findUnsubscribeLink } from "@/utils/unsubscribe";
+import { type gmail_v1 } from "googleapis";
 
 enum Operation {
   LOAD_AFTER_LATEST = "LOAD_AFTER_LATEST",
@@ -163,7 +165,7 @@ async function saveBatch(
 
         const unsubscribeLink =
           findUnsubscribeLink(parsedEmail.textHtml) ||
-          getHeaderUnsubscribe(parsedEmail.headers);
+          parsedEmail.headers["list-unsubscribe"];
 
         const indexedDBEmail: IndexedDBEmail = {
           ownerEmail,
