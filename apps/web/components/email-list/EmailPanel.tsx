@@ -18,6 +18,7 @@ export function EmailPanel(props: {
   row: Thread;
   replyingToEmail?: ReplyingToEmail;
   onReply: () => void;
+  onCloseReply: () => void;
   isPlanning: boolean;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
@@ -99,7 +100,11 @@ export function EmailPanel(props: {
         )}
         {props.replyingToEmail && (
           <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
-            <ComposeEmailForm replyingToEmail={props.replyingToEmail} />
+            <ComposeEmailForm
+              replyingToEmail={props.replyingToEmail}
+              refetch={props.refetch}
+              onSuccess={props.onCloseReply}
+            />
           </div>
         )}
       </div>

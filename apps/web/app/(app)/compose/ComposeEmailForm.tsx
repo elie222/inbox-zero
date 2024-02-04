@@ -29,7 +29,11 @@ export type ReplyingToEmail = {
 
 export const ComposeEmailForm = (props: {
   replyingToEmail?: ReplyingToEmail;
+  refetch: () => void;
+  onSuccess: () => void;
 }) => {
+  const { refetch, onSuccess } = props;
+
   const {
     register,
     handleSubmit,
@@ -45,20 +49,29 @@ export const ComposeEmailForm = (props: {
     },
   });
 
-  const onSubmit: SubmitHandler<SendEmailBody> = useCallback(async (data) => {
-    try {
-      const res = await postRequest<SendEmailResponse, SendEmailBody>(
-        "/api/google/messages/send",
-        data,
-      );
-      if (isError(res))
+  const onSubmit: SubmitHandler<SendEmailBody> = useCallback(
+    async (data) => {
+      try {
+        const res = await postRequest<SendEmailResponse, SendEmailBody>(
+          "/api/google/messages/send",
+          data,
+        );
+        if (isError(res))
+          toastError({
+            description: `There was an error sending the email :(`,
+          });
+        else toastSuccess({ description: `Email sent!` });
+
+        onSuccess();
+      } catch (error) {
+        console.error(error);
         toastError({ description: `There was an error sending the email :(` });
-      else toastSuccess({ description: `Email sent!` });
-    } catch (error) {
-      console.error(error);
-      toastError({ description: `There was an error sending the email :(` });
-    }
-  }, []);
+      }
+
+      refetch();
+    },
+    [refetch, onSuccess],
+  );
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const { data, isLoading, error } = useSWR<

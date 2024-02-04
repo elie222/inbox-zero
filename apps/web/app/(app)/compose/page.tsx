@@ -8,7 +8,7 @@ export default function ComposePage() {
       <PageHeading>Send Email</PageHeading>
 
       <div className="mt-6">
-        <ComposeEmailForm />
+        <ComposeEmailForm refetch={() => {}} onSuccess={() => {}} />
       </div>
     </div>
   );

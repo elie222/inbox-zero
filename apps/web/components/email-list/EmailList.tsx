@@ -512,6 +512,7 @@ export function EmailList(props: {
                       references: lastMessage.parsedMessage.headers.references,
                     });
                   }}
+                  onCloseReply={() => setReplyingToEmail(undefined)}
                   isPlanning={isPlanning[openedRowId]}
                   isCategorizing={isCategorizing[openedRowId]}
                   onPlanAiAction={onPlanAiAction}
