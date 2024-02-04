@@ -1,4 +1,3 @@
-import React from "react";
 import { PageHeading } from "@/components/Typography";
 import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
 

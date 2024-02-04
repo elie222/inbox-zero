@@ -36,6 +36,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/feedback',
+        destination: 'https://inboxzero.canny.io/feature-requests',
+        permanent: true,
+      },
+      {
         source: "/twitter",
         destination: "https://twitter.com/inboxzero_ai",
         permanent: true,
