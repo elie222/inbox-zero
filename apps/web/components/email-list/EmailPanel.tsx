@@ -1,5 +1,6 @@
 import { type SyntheticEvent, useCallback, useMemo } from "react";
 import { capitalCase } from "capital-case";
+import { XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -8,7 +9,7 @@ import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
-import { XIcon } from "lucide-react";
+import { PlanBadge, getActionColor } from "@/components/PlanBadge";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -212,10 +213,10 @@ function PlanExplanation(props: {
   if (!plan?.rule) return null;
 
   return (
-    <div className="border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
+    <div className="max-h-48 overflow-auto border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
       <div className="flex">
         <div className="flex-shrink-0">
-          <Badge color="green">{plan.rule.name}</Badge>
+          <PlanBadge plan={plan} />
         </div>
         <div className="ml-2">{plan.databaseRule?.instructions}</div>
       </div>
@@ -223,7 +224,9 @@ function PlanExplanation(props: {
         {plan.rule.actions?.map((action, i) => {
           return (
             <div key={i}>
-              <Badge color="green">{capitalCase(action.type)}</Badge>
+              <Badge color={getActionColor(action.type)}>
+                {capitalCase(action.type)}
+              </Badge>
             </div>
           );
         })}
