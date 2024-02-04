@@ -29,8 +29,8 @@ export type ReplyingToEmail = {
 
 export const ComposeEmailForm = (props: {
   replyingToEmail?: ReplyingToEmail;
-  refetch: () => void;
-  onSuccess: () => void;
+  refetch?: () => void;
+  onSuccess?: () => void;
 }) => {
   const { refetch, onSuccess } = props;
 
@@ -62,13 +62,13 @@ export const ComposeEmailForm = (props: {
           });
         else toastSuccess({ description: `Email sent!` });
 
-        onSuccess();
+        onSuccess?.();
       } catch (error) {
         console.error(error);
         toastError({ description: `There was an error sending the email :(` });
       }
 
-      refetch();
+      refetch?.();
     },
     [refetch, onSuccess],
   );

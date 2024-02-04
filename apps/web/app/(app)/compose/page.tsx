@@ -1,4 +1,3 @@
-import React from "react";
 import { PageHeading } from "@/components/Typography";
 import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
 
@@ -8,7 +7,7 @@ export default function ComposePage() {
       <PageHeading>Send Email</PageHeading>
 
       <div className="mt-6">
-        <ComposeEmailForm refetch={() => {}} onSuccess={() => {}} />
+        <ComposeEmailForm />
       </div>
     </div>
   );
