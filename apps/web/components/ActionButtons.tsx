@@ -17,7 +17,6 @@ export function ActionButtons(props: {
   threadId: string;
   isPlanning: boolean;
   isCategorizing: boolean;
-  isArchiving: boolean;
   onPlanAiAction: () => void;
   onAiCategorize: () => void;
   onReply: () => void;
@@ -35,7 +34,6 @@ export function ActionButtons(props: {
     onReply,
     isCategorizing,
     isPlanning,
-    isArchiving,
     refetch,
   } = props;
 
@@ -108,9 +106,7 @@ export function ActionButtons(props: {
       {
         tooltip: "Archive",
         onClick: onArchive,
-        icon: isArchiving ? (
-          <LoadingMiniSpinner />
-        ) : (
+        icon: (
           <ArchiveIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
@@ -119,7 +115,6 @@ export function ActionButtons(props: {
       onTrash,
       isTrashing,
       onArchive,
-      isArchiving,
       onPlanAiAction,
       isPlanning,
       onAiCategorize,
