@@ -244,14 +244,14 @@ export const ComposeEmailForm = (props: {
 
       <div className="compose-novel">
         <NovelEditor
-          defaultValue=""
-          disableLocalStorage={true}
+          disableLocalStorage
           completionApi="api/ai/compose-autocomplete"
           onUpdate={(editor) => {
-            editor = editor!; // TODO how this help anything?
-            // TODO do we really need to set both each time?
-            setValue("messageText", editor.getText());
-            setValue("messageHtml", editor.getHTML());
+            if (editor) {
+              // TODO do we really need to set both each time?
+              setValue("messageText", editor.getText());
+              setValue("messageHtml", editor.getHTML());
+            }
           }}
           className="h-40 overflow-auto"
         />
