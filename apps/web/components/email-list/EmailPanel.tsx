@@ -102,6 +102,8 @@ export function EmailPanel(props: {
           <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
             <ComposeEmailForm
               replyingToEmail={props.replyingToEmail}
+              novelEditorClassName="h-40 overflow-auto"
+              submitButtonClassName="mx-8"
               refetch={props.refetch}
               onSuccess={props.onCloseReply}
             />
