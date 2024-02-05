@@ -86,6 +86,7 @@ export const ComposeEmailForm = (props: {
     },
   );
 
+  // TODO not in love with how this was implemented
   const selectedEmailAddressses = watch("to", "").split(",").filter(Boolean);
 
   const onRemoveSelectedEmail = (emailAddress: string) => {
@@ -145,6 +146,16 @@ export const ComposeEmailForm = (props: {
                       // styles copied and pasted from Input.tsx
                       className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
                       onChange={(event) => setSearchQuery(event.target.value)}
+                      onKeyUp={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          setValue(
+                            "to",
+                            [...selectedEmailAddressses, searchQuery].join(","),
+                          );
+                          setSearchQuery("");
+                        }
+                      }}
                     />
 
                     {!!data?.result?.length && (
