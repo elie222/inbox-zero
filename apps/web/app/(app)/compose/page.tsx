@@ -1,14 +1,14 @@
-import { PageHeading } from "@/components/Typography";
 import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
+import { TopSection } from "@/components/TopSection";
 
 export default function ComposePage() {
   return (
-    <div className="container mx-auto mt-10 px-4 sm:px-6 lg:px-8">
-      <PageHeading>Send Email</PageHeading>
+    <>
+      <TopSection title="New Message" />
 
-      <div className="mt-6">
+      <div className="max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
         <ComposeEmailForm />
       </div>
-    </div>
+    </>
   );
 }

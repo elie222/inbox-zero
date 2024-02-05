@@ -5,9 +5,8 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Editor as NovelEditor } from "novel";
 import { Combobox } from "@headlessui/react";
-import Image from "next/image";
 import { z } from "zod";
-import clsx from "clsx";
+import { CheckCircleIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Input, Label } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -17,6 +16,8 @@ import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import { postRequest } from "@/utils/api";
 import { env } from "@/env.mjs";
 import "./novelEditorStyles.css";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -29,6 +30,8 @@ export type ReplyingToEmail = {
 
 export const ComposeEmailForm = (props: {
   replyingToEmail?: ReplyingToEmail;
+  novelEditorClassName?: string;
+  submitButtonClassName?: string;
   refetch?: () => void;
   onSuccess?: () => void;
 }) => {
@@ -74,10 +77,7 @@ export const ComposeEmailForm = (props: {
   );
 
   const [searchQuery, setSearchQuery] = React.useState("");
-  const { data, isLoading, error } = useSWR<
-    ContactsResponse,
-    { error: string }
-  >(
+  const { data } = useSWR<ContactsResponse, { error: string }>(
     env.NEXT_PUBLIC_CONTACTS_ENABLED
       ? `/api/google/contacts?query=${searchQuery}`
       : null,
@@ -86,11 +86,12 @@ export const ComposeEmailForm = (props: {
     },
   );
 
+  // TODO not in love with how this was implemented
   const selectedEmailAddressses = watch("to", "").split(",").filter(Boolean);
 
-  const handleBadgeClose = (emailAddress: string) => {
+  const onRemoveSelectedEmail = (emailAddress: string) => {
     const filteredEmailAddresses = selectedEmailAddressses.filter(
-      (e) => e !== emailAddress,
+      (email) => email !== emailAddress,
     );
     setValue("to", filteredEmailAddresses.join(","));
   };
@@ -111,115 +112,115 @@ export const ComposeEmailForm = (props: {
       {!props.replyingToEmail && (
         <>
           {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-            <div className="space-y-2">
-              <Label name="to" label="Recipient" />
+            <div className="flex space-x-2">
+              <div className="mt-2">
+                <Label name="to" label="To" />
+              </div>
               <Combobox
                 value={selectedEmailAddressses}
                 onChange={handleComboboxOnChange}
                 multiple
                 nullable={true}
               >
-                <div className="border-1 flex rounded-md border">
+                <div className="flex w-full flex-wrap items-center">
                   {selectedEmailAddressses.map((emailAddress) => (
-                    <span
+                    <Badge
                       key={emailAddress}
-                      className="m-2 inline-flex items-center rounded-md bg-gray-50 p-4 px-2 py-1 text-sm font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10"
+                      variant="outline"
+                      className="mr-1.5"
                     >
                       {emailAddress}
+
                       <button
                         type="button"
-                        onClick={() => handleBadgeClose(emailAddress)}
+                        onClick={() => onRemoveSelectedEmail(emailAddress)}
                       >
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="mx-1 h-4 w-4"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M5.29289 5.29289C5.68342 4.90237 6.31658 4.90237 6.70711 5.29289L12 10.5858L17.2929 5.29289C17.6834 4.90237 18.3166 4.90237 18.7071 5.29289C19.0976 5.68342 19.0976 6.31658 18.7071 6.70711L13.4142 12L18.7071 17.2929C19.0976 17.6834 19.0976 18.3166 18.7071 18.7071C18.3166 19.0976 17.6834 19.0976 17.2929 18.7071L12 13.4142L6.70711 18.7071C6.31658 19.0976 5.68342 19.0976 5.29289 18.7071C4.90237 18.3166 4.90237 17.6834 5.29289 17.2929L10.5858 12L5.29289 6.70711C4.90237 6.31658 4.90237 5.68342 5.29289 5.29289Z"
-                            fill="#0F1729"
-                          />
-                        </svg>
+                        <XIcon className="ml-1.5 h-3 w-3" />
                       </button>
-                    </span>
+                    </Badge>
                   ))}
 
-                  <Combobox.Input
-                    value={searchQuery}
-                    className="w-full rounded-md border-none py-1 text-lg outline-0 focus:border-none focus:ring-0"
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                  />
-                </div>
-                <Combobox.Options
-                  className={clsx(
-                    data?.result && data.result.length === 0 && "hidden",
-                    "mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm",
-                  )}
-                >
-                  <Combobox.Option
-                    className="h-0 w-0 overflow-hidden"
-                    value={searchQuery}
-                  />
-                  {data?.result.map((contact) => {
-                    const person = {
-                      emailAddress: contact.person?.emailAddresses?.[0].value,
-                      name: contact.person?.names?.[0].displayName,
-                      profilePictureUrl: contact.person?.photos?.[0].url,
-                    };
-
-                    return (
-                      <Combobox.Option
-                        className={({ active }) =>
-                          `cursor-default select-none px-4 py-1 text-gray-900 ${
-                            active && "bg-gray-200"
-                          }`
+                  <div className="relative flex-1">
+                    <Combobox.Input
+                      value={searchQuery}
+                      // styles copied and pasted from Input.tsx
+                      className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onKeyUp={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          setValue(
+                            "to",
+                            [...selectedEmailAddressses, searchQuery].join(","),
+                          );
+                          setSearchQuery("");
                         }
-                        key={person.emailAddress}
-                        value={person.emailAddress}
+                      }}
+                    />
+
+                    {!!data?.result?.length && (
+                      <Combobox.Options
+                        className={
+                          "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+                        }
                       >
-                        {({ selected }) => (
-                          <div className="my-2 flex">
-                            {!selected ? (
-                              <Image
-                                src={person.profilePictureUrl!}
-                                alt="profile-picture"
-                                className="h-12 rounded-full"
-                                width={48}
-                                height={48}
-                              />
-                            ) : (
-                              <svg
-                                className="h-12 rounded-full"
-                                version="1.1"
-                                id="Capa_1"
-                                xmlns="http://www.w3.org/2000/svg"
-                                xmlnsXlink="http://www.w3.org/1999/xlink"
-                                viewBox="0 0 17.837 17.837"
-                                xmlSpace="preserve"
-                              >
-                                <g>
-                                  <path
-                                    className="fill-gray-500"
-                                    d="M16.145,2.571c-0.272-0.273-0.718-0.273-0.99,0L6.92,10.804l-4.241-4.27
-                           c-0.272-0.274-0.715-0.274-0.989,0L0.204,8.019c-0.272,0.271-0.272,0.717,0,0.99l6.217,6.258c0.272,0.271,0.715,0.271,0.99,0
-                           L17.63,5.047c0.276-0.273,0.276-0.72,0-0.994L16.145,2.571z"
-                                  />
-                                </g>
-                              </svg>
-                            )}
-                            <div className="mx-2 flex flex-col items-center justify-center">
-                              <div>{person.name}</div>
-                              <div>{person.emailAddress}</div>
-                            </div>
-                          </div>
-                        )}
-                      </Combobox.Option>
-                    );
-                  })}
-                </Combobox.Options>
+                        <Combobox.Option
+                          className="h-0 w-0 overflow-hidden"
+                          value={searchQuery}
+                        />
+                        {data?.result.map((contact) => {
+                          const person = {
+                            emailAddress:
+                              contact.person?.emailAddresses?.[0].value,
+                            name: contact.person?.names?.[0].displayName,
+                            profilePictureUrl: contact.person?.photos?.[0].url,
+                          };
+
+                          return (
+                            <Combobox.Option
+                              className={({ active }) =>
+                                `cursor-default select-none px-4 py-1 text-gray-900 ${
+                                  active && "bg-gray-50"
+                                }`
+                              }
+                              key={person.emailAddress}
+                              value={person.emailAddress}
+                            >
+                              {({ selected }) => (
+                                <div className="my-2 flex items-center">
+                                  {selected ? (
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-full">
+                                      <CheckCircleIcon className="h-6 w-6" />
+                                    </div>
+                                  ) : (
+                                    <Avatar>
+                                      <AvatarImage
+                                        src={person.profilePictureUrl!}
+                                        alt={
+                                          person.emailAddress ||
+                                          "Profile picture"
+                                        }
+                                      />
+                                      <AvatarFallback>
+                                        {person.emailAddress?.[0] || "A"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  )}
+                                  <div className="ml-4 flex flex-col justify-center">
+                                    <div>{person.name}</div>
+                                    <div className="text-sm font-semibold">
+                                      {person.emailAddress}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Combobox.Option>
+                          );
+                        })}
+                      </Combobox.Options>
+                    )}
+                  </div>
+                </div>
               </Combobox>
             </div>
           ) : (
@@ -244,6 +245,7 @@ export const ComposeEmailForm = (props: {
 
       <div className="compose-novel">
         <NovelEditor
+          defaultValue=""
           disableLocalStorage
           completionApi="api/ai/compose-autocomplete"
           onUpdate={(editor) => {
@@ -253,7 +255,7 @@ export const ComposeEmailForm = (props: {
               setValue("messageHtml", editor.getHTML());
             }
           }}
-          className="h-40 overflow-auto"
+          className={props.novelEditorClassName}
         />
       </div>
 
@@ -262,7 +264,7 @@ export const ComposeEmailForm = (props: {
         loading={isSubmitting}
         // issue: https://github.com/steven-tey/novel/pull/232
         style={{ backgroundColor: "rgb(17, 24, 39)" }}
-        className="mx-8"
+        className={props.submitButtonClassName}
       >
         Send
       </Button>
