@@ -27,7 +27,11 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
+import {
+  archiveEmails,
+  deleteEmails,
+  markReadThreads,
+} from "@/providers/QueueProvider";
 import { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 
 export function List(props: {
@@ -437,6 +441,8 @@ export function EmailList(props: {
                   setOpenedRowId(thread.id!);
 
                   if (!alreadyOpen) scrollToId(thread.id!);
+
+                  markReadThreads([thread.id!], true, refetch);
                 };
 
                 const onReply = () => {
