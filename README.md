@@ -59,7 +59,11 @@ We have a public Kanban available [here](https://github.com/users/elie222/projec
 
 - [Node.js](https://nodejs.org/en/) >= 18.0.0
 - [pnpm](https://pnpm.io/) >= 8.6.12
-- [Docker desktop](https://www.docker.com/products/docker-desktop/)
+- [Docker desktop](https://www.docker.com/products/docker-desktop/) (optional)
+
+### Setup
+
+[Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
 The external services that are required are:
 
