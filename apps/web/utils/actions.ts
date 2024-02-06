@@ -29,10 +29,10 @@ import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 import { getGmailClient } from "@/utils/gmail/client";
 import { trashThread } from "@/utils/gmail/trash";
 import { env } from "@/env.mjs";
-import { isPremium } from "@/utils/premium";
+import { isOnHigherTier, isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
-import { archiveThread } from "@/utils/gmail/label";
+import { archiveThread, markReadThread } from "@/utils/gmail/label";
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 import { captureException } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
@@ -215,6 +215,14 @@ export async function trashThreadAction(threadId: string) {
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
   const res = await trashThread({ gmail, threadId });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function markReadThreadAction(threadId: string, read: boolean) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await markReadThread({ gmail, threadId, read });
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
@@ -425,22 +433,4 @@ async function createPremiumForUser(userId: string) {
   return await prisma.premium.create({
     data: { users: { connect: { id: userId } } },
   });
-}
-
-function isOnHigherTier(
-  tier1?: PremiumTier | null,
-  tier2?: PremiumTier | null,
-) {
-  const tierRanking = {
-    [PremiumTier.PRO_MONTHLY]: 1,
-    [PremiumTier.PRO_ANNUALLY]: 2,
-    [PremiumTier.BUSINESS_MONTHLY]: 3,
-    [PremiumTier.BUSINESS_ANNUALLY]: 4,
-    [PremiumTier.LIFETIME]: 5,
-  };
-
-  const tier1Rank = tier1 ? tierRanking[tier1] : 0;
-  const tier2Rank = tier2 ? tierRanking[tier2] : 0;
-
-  return tier1Rank > tier2Rank;
 }
