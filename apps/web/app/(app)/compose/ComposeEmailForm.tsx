@@ -3,7 +3,7 @@
 import React, { useCallback } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import { Editor as NovelEditor } from "novel";
+import dynamic from "next/dynamic";
 import { Combobox } from "@headlessui/react";
 import { z } from "zod";
 import { CheckCircleIcon, XIcon } from "lucide-react";
@@ -244,7 +244,7 @@ export const ComposeEmailForm = (props: {
       )}
 
       <div className="compose-novel">
-        <NovelEditor
+        <NovelComponent
           defaultValue=""
           disableLocalStorage
           completionApi="api/ai/compose-autocomplete"
@@ -271,3 +271,6 @@ export const ComposeEmailForm = (props: {
     </form>
   );
 };
+
+// import dynamically to stop Novel's Tailwind styling from overriding our own styling
+const NovelComponent = dynamic(() => import("novel").then((mod) => mod.Editor));
