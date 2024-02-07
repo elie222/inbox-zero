@@ -1,0 +1,64 @@
+---
+title: 'Developer Guide'
+description: 'Learn how to set up Inbox Zero locally'
+---
+
+This page is for developers who want to set up Inbox Zero locally. Full details are available in the GitHub [README](https://www.getinboxzero.com/github). We also have a video available [here](https://www.youtube.com/watch?v=hVQENQ4WT2Y):
+
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/hVQENQ4WT2Y"
+  title="Set up Inbox Zero locally"
+  frameBorder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+  style={{ width: '100%', borderRadius: '0.5rem' }}
+></iframe>
+
+<Info>
+  **Prerequisite** You should have installed Node.js (version 18.10.0 or
+  higher).
+</Info>
+
+To run Inbox Zero locally, you'll need to set up your environment variables and install the dependencies:
+
+<CodeGroup>
+
+```bash pnpm
+pnpm i
+cd apps/web
+pnpm dev
+```
+
+</CodeGroup>
+
+The app is now available at `http://localhost:3000`.
+
+## Deployment
+
+We use Vercel to deploy Inbox Zero. Make sure to set all the environment variables.
+
+## Troubleshooting
+
+Here's how to solve some common problems.
+
+<AccordionGroup>
+  <Accordion title="Tinybird isn't working">
+    Make sure you have the correct region set. You can adjust the region in the `.env` file.
+  </Accordion>
+  <Accordion title="I'm getting rate limited by Gmail">
+    This can happen if your Gmail account is connected to another service that's making requests.
+
+    To fix this you can check what other services are connected to your Gmail account and remove any that you don't need.
+  </Accordion>
+  <Accordion title="I'm getting rate limited by OpenAI">
+    To solve this you can:
+    
+    * Use a different AI model with higher rate limits.
+    * Move to a higher tier on OpenAPI that has increased rate limits.
+    * Slow down the rate at which you are making requests.
+  </Accordion>
+</AccordionGroup>
+
+Curious about what changed in a CLI version? [Check out the CLI changelog.](/changelog/command-line)

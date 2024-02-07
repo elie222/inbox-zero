@@ -56,6 +56,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/linkedin",
+        destination: "https://www.linkedin.com/company/inbox-zero-ai/",
+        permanent: true,
+      },
+      {
         source: "/waitlist",
         destination: "https://airtable.com/shr7HNx6FXaIxR5q6",
         permanent: true,
