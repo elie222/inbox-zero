@@ -213,39 +213,42 @@ export function SideNav(props: {
 
 function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
+  console.log("🚀 ~ Sidebar ~ path:", path);
 
-  const [isShowing, setIsShowing] = useState(false);
+  const showMailNav = path === "/mail";
 
-  return (
-    <div
-      className={clsx(
-        // "flex grow flex-col gap-y-5 overflow-y-auto bg-black px-6 pb-4",
-        "flex grow flex-col gap-y-5 overflow-y-auto bg-white",
-        {
-          // "ring-1 ring-white/10": props.isMobile,
-          "ring-1 ring-black/10": props.isMobile,
-        },
-      )}
-    >
-      <Link href="/stats">
-        <div className="flex h-16 shrink-0 items-center text-black">
-          <Logo className="h-4" />
-        </div>
-      </Link>
-      <Button onClick={() => setIsShowing(!isShowing)}>Toggle</Button>
-      <Transition
-        show={isShowing}
-        enter="transition-opacity duration-300"
-        enterFrom="opacity-0"
-        enterTo="opacity-100"
-        leave="transition-opacity duration-300"
-        leaveFrom="opacity-100"
-        leaveTo="opacity-0"
-      >
-        <NavMail />
-      </Transition>
-    </div>
-  );
+  // if (showMailNav) {
+  //   return (
+  //     <div
+  //       className={clsx(
+  //         // "flex grow flex-col gap-y-5 overflow-y-auto bg-black px-6 pb-4",
+  //         "flex grow flex-col gap-y-5 overflow-y-auto bg-white",
+  //         {
+  //           // "ring-1 ring-white/10": props.isMobile,
+  //           "ring-1 ring-black/10": props.isMobile,
+  //         },
+  //       )}
+  //     >
+  //       <Link href="/stats">
+  //         <div className="flex h-16 shrink-0 items-center text-black">
+  //           <Logo className="h-4" />
+  //         </div>
+  //       </Link>
+  //       {/* <Button onClick={() => setIsShowing(!isShowing)}>Toggle</Button> */}
+  //       <Transition
+  //         show={showMailNav}
+  //         enter="transition-opacity duration-300"
+  //         enterFrom="opacity-0"
+  //         enterTo="opacity-100"
+  //         leave="transition-opacity duration-300"
+  //         leaveFrom="opacity-100"
+  //         leaveTo="opacity-0"
+  //       >
+  //         <NavMail />
+  //       </Transition>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div
@@ -263,146 +266,50 @@ function Sidebar(props: { isMobile: boolean }) {
       </Link>
       <nav className="flex flex-1 flex-col">
         <ul role="list" className="flex flex-1 flex-col gap-y-7">
-          <li>
-            <ul role="list" className="-mx-2 space-y-1">
-              {navigation.map((item) => (
-                <li key={item.name}>
-                  <a
-                    href={item.href}
-                    className={clsx(
-                      item.href === path
-                        ? "bg-gray-800 text-white"
-                        : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                      "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
-                    )}
-                  >
-                    <item.icon
-                      className="h-6 w-6 shrink-0"
-                      aria-hidden="true"
-                    />
-                    {item.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </li>
+          {/* {showMailNav ? <NavMail /> : <TopLinks path={path} />} */}
 
-          {/* <PromptHistory /> */}
+          <Transition
+            show={showMailNav}
+            enter="transition-opacity duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="transition-opacity duration-300"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <NavMail />
+          </Transition>
+          <Transition
+            show={!showMailNav}
+            enter="transition-opacity duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="transition-opacity duration-300"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <TopLinks path={path} />
+          </Transition>
 
-          <li className="mt-auto">
-            <ul role="list" className="-mx-2 space-y-1">
-              {bottomLinks.map((link) => {
-                return (
-                  <li key={link.name}>
-                    <Link
-                      href={link.href}
-                      className={clsx(
-                        "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
-                        link.href === path
-                          ? "bg-gray-800 text-white"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                      )}
-                      target={link.target}
-                      prefetch={link.target !== "_blank"}
-                    >
-                      <link.icon
-                        className="h-6 w-6 shrink-0"
-                        aria-hidden="true"
-                      />
-                      {link.name}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </li>
+          <BottomLinks path={path} />
         </ul>
       </nav>
     </div>
   );
 }
 
-// interface NavProps {
-//   isCollapsed: boolean;
-//   links: {
-//     title: string;
-//     label?: string;
-//     icon: LucideIcon;
-//     variant: "default" | "ghost";
-//   }[];
-// }
-
-// function MailLabels({ links, isCollapsed }: NavProps) {
-//   return (
-//     <div
-//       data-collapsed={isCollapsed}
-//       className="group flex flex-col gap-4 py-2 data-[collapsed=true]:py-2"
-//     >
-//       <nav className="grid gap-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
-//         {links.map((link, index) =>
-//           isCollapsed ? (
-//             <Tooltip key={index} delayDuration={0}>
-//               <TooltipTrigger asChild>
-//                 <Link
-//                   href="#"
-//                   className={cn(
-//                     buttonVariants({ variant: link.variant, size: "icon" }),
-//                     "h-9 w-9",
-//                     link.variant === "default" &&
-//                       "bg-muted text-muted-foreground hover:bg-muted hover:text-white",
-//                   )}
-//                 >
-//                   <link.icon className="h-4 w-4" />
-//                   <span className="sr-only">{link.title}</span>
-//                 </Link>
-//               </TooltipTrigger>
-//               <TooltipContent side="right" className="flex items-center gap-4">
-//                 {link.title}
-//                 {link.label && (
-//                   <span className="ml-auto text-muted-foreground">
-//                     {link.label}
-//                   </span>
-//                 )}
-//               </TooltipContent>
-//             </Tooltip>
-//           ) : (
-//             <Link
-//               key={index}
-//               href="#"
-//               className={cn(
-//                 buttonVariants({ variant: link.variant, size: "sm" }),
-//                 link.variant === "default" &&
-//                   "text-white hover:bg-muted hover:text-white",
-//                 link.variant === "ghost" &&
-//                   "text-white hover:bg-slate-800 hover:text-slate-50",
-//                 "justify-start",
-//               )}
-//             >
-//               <link.icon className="mr-2 h-4 w-4" />
-//               {link.title}
-//               {link.label && (
-//                 <span
-//                   className={cn(
-//                     "ml-auto",
-//                     link.variant === "default" && "text-white",
-//                   )}
-//                 >
-//                   {link.label}
-//                 </span>
-//               )}
-//             </Link>
-//           ),
-//         )}
-//       </nav>
-//     </div>
-//   );
-// }
-
 function NavMail() {
   const defaultCollapsed = false;
   const defaultLayout = [265, 440, 655];
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const navCollapsedSize = 0;
+
+  const onCollapse = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    document.cookie = `react-resizable-panels:collapsed=${JSON.stringify(
+      collapsed,
+    )}`;
+  };
 
   return (
     <ResizablePanelGroup
@@ -420,24 +327,17 @@ function NavMail() {
         collapsible={true}
         minSize={15}
         maxSize={20}
-        // onCollapse={(collapsed) => {
-        //   setIsCollapsed(collapsed);
-        //   document.cookie = `react-resizable-panels:collapsed=${JSON.stringify(
-        //     collapsed,
-        //   )}`;
-        // }}
+        onCollapse={() => onCollapse(true)}
+        onExpand={() => onCollapse(false)}
         className={cn(
           isCollapsed && "min-w-[50px] transition-all duration-300 ease-in-out",
         )}
       >
-        {/* <div
-        className={cn(
-          "flex h-[52px] items-center justify-center",
-          isCollapsed ? "h-[52px]" : "px-2",
-        )}
-      >
-        <AccountSwitcher isCollapsed={isCollapsed} accounts={accounts} />
-      </div> */}
+        <div className="px-2 py-2">
+          <Button asChild className="w-full" variant="outline">
+            <Link href="/compose">Compose</Link>
+          </Button>
+        </div>
         <Separator />
         <SideNavMail
           isCollapsed={isCollapsed}
@@ -518,5 +418,59 @@ function NavMail() {
         />
       </ResizablePanel>
     </ResizablePanelGroup>
+  );
+}
+
+function TopLinks(props: { path: string }) {
+  return (
+    <li>
+      <ul role="list" className="-mx-2 space-y-1">
+        {navigation.map((item) => (
+          <li key={item.name}>
+            <a
+              href={item.href}
+              className={clsx(
+                item.href === props.path
+                  ? "bg-gray-800 text-white"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white",
+                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
+              )}
+            >
+              <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+              {item.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+}
+
+function BottomLinks(props: { path: string }) {
+  return (
+    <li className="mt-auto">
+      <ul role="list" className="-mx-2 space-y-1">
+        {bottomLinks.map((link) => {
+          return (
+            <li key={link.name}>
+              <Link
+                href={link.href}
+                className={clsx(
+                  "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
+                  link.href === props.path
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white",
+                )}
+                target={link.target}
+                prefetch={link.target !== "_blank"}
+              >
+                <link.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+                {link.name}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </li>
   );
 }
