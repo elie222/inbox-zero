@@ -180,7 +180,7 @@ function UpdateRuleForm(props: {
                               </Tooltip>
                               <Toggle
                                 name={`actions.${i}.${field.name}`}
-                                label="AI Generated"
+                                label="AI generated"
                                 enabled={isAiGenerated}
                                 onChange={(enabled) => {
                                   setValue(
@@ -249,6 +249,22 @@ function UpdateRuleForm(props: {
           Add Action
         </Button>
       </div>
+
+      <div className="mt-4 flex items-center justify-end space-x-2">
+        <Tooltip content="Enable to run this rule on all emails, including threads. When disabled the rule only runs on individual emails.">
+          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
+        </Tooltip>
+
+        <Toggle
+          name="runOnThreads"
+          label="Run on threads"
+          enabled={watch("runOnThreads") || false}
+          onChange={(enabled) => {
+            setValue("runOnThreads", enabled);
+          }}
+        />
+      </div>
+
       <div className="flex justify-end">
         <SubmitButtonWrapper>
           <Button type="submit" loading={isSubmitting}>

@@ -28,6 +28,7 @@ export const updateRuleBody = z.object({
   name: z.string(),
   instructions: z.string().nullish(),
   automate: z.boolean().nullish(),
+  runOnThreads: z.boolean().nullish(),
   actions: z.array(zodAction).nullish(),
 });
 
