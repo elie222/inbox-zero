@@ -269,23 +269,15 @@ async function processHistoryItem(
     return;
   }
 
-  const { userId, userEmail, gmail, rules, about } = options;
+  const { userId, userEmail, gmail, about } = options;
 
   console.log("Getting message...", options.userEmail, m.message.id);
 
   try {
     const gmailMessage = await getMessage(m.message.id, gmail, "full");
 
-    // skip messages in threads
     const gmailThread = await getThread(m.message.threadId!, gmail);
-    if ((gmailThread.messages?.length || 0) > 1) {
-      console.log(
-        `Skipping thread with ${gmailThread.messages?.length} messages`,
-        options.userEmail,
-        m.message.id,
-      );
-      return;
-    }
+    const isThread = gmailThread.messages && gmailThread.messages.length > 1;
 
     console.log("Fetched message", options.userEmail, m.message.id);
 
@@ -294,7 +286,9 @@ async function processHistoryItem(
     if (
       options.coldEmailBlocker &&
       options.coldEmailBlocker !== ColdEmailSetting.DISABLED &&
-      options.hasColdEmailAccess
+      options.hasColdEmailAccess &&
+      // skip messages in threads
+      !isThread
     ) {
       const unsubscribeLink =
         findUnsubscribeLink(parsedMessage.textHtml) ||
@@ -339,6 +333,19 @@ async function processHistoryItem(
         return;
       }
 
+      const applicableRules = isThread
+        ? options.rules.filter((r) => r.runOnThreads)
+        : options.rules;
+
+      if (applicableRules.length === 0) {
+        console.log(
+          `Skipping thread with ${gmailThread.messages?.length} messages`,
+          options.userEmail,
+          m.message.id,
+        );
+        return;
+      }
+
       const content =
         (parsedMessage.textHtml &&
           parseEmail(parsedMessage.textHtml, false, null)) ||
@@ -362,7 +369,7 @@ async function processHistoryItem(
           // unsubscribeLink,
           // hasPreviousEmail,
         },
-        rules,
+        rules: applicableRules,
         gmail,
         userId,
         userEmail,
