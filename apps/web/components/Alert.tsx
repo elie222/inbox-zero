@@ -48,9 +48,7 @@ export function AlertError(props: { title: string; description: string }) {
     <Alert variant="destructive">
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>{props.title}</AlertTitle>
-      <AlertDescription className="whitespace-pre-wrap">
-        {props.description}
-      </AlertDescription>
+      <AlertDescription>{props.description}</AlertDescription>
     </Alert>
   );
 }
