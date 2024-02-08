@@ -19,10 +19,6 @@ import { GroupHeading } from "@/components/GroupHeading";
 import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
 import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { Checkbox } from "@/components/Checkbox";
-import {
-  ArchiveBody,
-  ArchiveResponse,
-} from "@/app/api/google/threads/archive/controller";
 import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
 import { EmailListItem } from "@/components/email-list/EmailListItem";
@@ -31,7 +27,12 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
+import {
+  archiveEmails,
+  deleteEmails,
+  markReadThreads,
+} from "@/providers/QueueProvider";
+import { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 
 export function List(props: {
   emails: Thread[];
@@ -172,15 +173,12 @@ export function EmailList(props: {
     });
   }, [threads, isAllSelected]);
 
-  // could make this row specific in the future
-  const [showReply, setShowReply] = useState(false);
-  const onShowReply = useCallback(() => setShowReply(true), []);
+  const [replyingToEmail, setReplyingToEmail] = useState<ReplyingToEmail>();
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
     {},
   );
-  const [isArchiving, setIsArchiving] = useState<Record<string, boolean>>({});
 
   const onPlanAiAction = useCallback(
     (thread: Thread) => {
@@ -282,29 +280,6 @@ export function EmailList(props: {
           error: "There was an error categorizing the email :(",
         },
       );
-    },
-    [refetch],
-  );
-
-  const archive = useCallback(
-    async (threadId: string) => {
-      setIsArchiving((s) => ({ ...s, [threadId]: true }));
-
-      const res = await postRequest<ArchiveResponse, ArchiveBody>(
-        "/api/google/threads/archive",
-        {
-          id: threadId,
-        },
-      );
-
-      if (isError(res)) {
-        console.error(res);
-        setIsArchiving((s) => ({ ...s, [threadId]: false }));
-        throw new Error(`There was an error archiving the email.`);
-      } else {
-        refetch();
-      }
-      setIsArchiving((s) => ({ ...s, [threadId]: false }));
     },
     [refetch],
   );
@@ -466,7 +441,26 @@ export function EmailList(props: {
                   setOpenedRowId(thread.id!);
 
                   if (!alreadyOpen) scrollToId(thread.id!);
+
+                  markReadThreads([thread.id!], true, refetch);
                 };
+
+                const onReply = () => {
+                  onOpen();
+                  const lastMessage =
+                    thread.messages[thread.messages?.length - 1];
+
+                  setReplyingToEmail({
+                    threadId: thread.id!,
+                    subject: lastMessage.parsedMessage.headers.subject,
+                    to: lastMessage.parsedMessage.headers.from,
+                    cc: lastMessage.parsedMessage.headers.cc,
+                    headerMessageId:
+                      lastMessage.parsedMessage.headers["message-id"] || "",
+                    references: lastMessage.parsedMessage.headers.references,
+                  });
+                };
+
                 return (
                   <EmailListItem
                     ref={(node) => {
@@ -486,13 +480,9 @@ export function EmailList(props: {
                     onSelected={onSetSelectedRow}
                     splitView={!!openedRowId}
                     onClick={onOpen}
-                    onShowReply={() => {
-                      onOpen();
-                      onShowReply();
-                    }}
+                    onReply={onReply}
                     isPlanning={isPlanning[thread.id!]}
                     isCategorizing={isCategorizing[thread.id!]}
-                    isArchiving={isArchiving[thread.id!]}
                     onPlanAiAction={onPlanAiAction}
                     onAiCategorize={onAiCategorize}
                     onArchive={onArchive}
@@ -513,11 +503,24 @@ export function EmailList(props: {
               <ResizablePanel defaultSize={50} minSize={30}>
                 <EmailPanel
                   row={openedRow}
-                  showReply={showReply}
-                  onShowReply={onShowReply}
+                  replyingToEmail={replyingToEmail}
+                  onReply={() => {
+                    const lastMessage =
+                      openedRow.messages[openedRow.messages?.length - 1];
+
+                    setReplyingToEmail({
+                      threadId: openedRow.id!,
+                      subject: lastMessage.parsedMessage.headers.subject,
+                      to: lastMessage.parsedMessage.headers.from,
+                      cc: lastMessage.parsedMessage.headers.cc,
+                      headerMessageId:
+                        lastMessage.parsedMessage.headers["message-id"] || "",
+                      references: lastMessage.parsedMessage.headers.references,
+                    });
+                  }}
+                  onCloseReply={() => setReplyingToEmail(undefined)}
                   isPlanning={isPlanning[openedRowId]}
                   isCategorizing={isCategorizing[openedRowId]}
-                  isArchiving={isArchiving[openedRowId]}
                   onPlanAiAction={onPlanAiAction}
                   onAiCategorize={onAiCategorize}
                   onArchive={onArchive}

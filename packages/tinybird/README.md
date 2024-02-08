@@ -33,7 +33,7 @@ Then within Docker:
 cd mnt/data
 ```
 
-Now you can run `tb` commands.
+Now you can run `tb` commands. First you'll want to run `tb auth` to sign in.
 
 ## Datasource
 

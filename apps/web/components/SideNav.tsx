@@ -28,11 +28,6 @@ export const navigation = [
     icon: MailsIcon,
   },
   {
-    name: "New Senders",
-    href: "/new-senders",
-    icon: Users2Icon,
-  },
-  {
     name: "AI Automation",
     href: "/automation",
     icon: SparklesIcon,
@@ -46,6 +41,11 @@ export const navigation = [
     name: "Analytics",
     href: "/stats",
     icon: BarChartBigIcon,
+  },
+  {
+    name: "New Senders",
+    href: "/new-senders",
+    icon: Users2Icon,
   },
   { name: "Mail (Beta)", href: "/mail", icon: InboxIcon },
   // {

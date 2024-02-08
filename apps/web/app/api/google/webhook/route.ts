@@ -15,6 +15,7 @@ import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
+import { captureException } from "@/utils/error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -182,7 +183,8 @@ export const POST = withError(async (request: Request) => {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    captureException(error, { extra: { decodedData } });
+    console.error("Error processing webhook", error, decodedData);
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
     // return NextResponse.error();
@@ -237,7 +239,8 @@ async function processHistory(options: ProcessHistoryOptions) {
       try {
         await processHistoryItem(m, options);
       } catch (error) {
-        console.error("Error processing history item", error);
+        captureException(error, { extra: { email, messageId: m.message?.id } });
+        console.error("Error processing history item", options.email, error);
       }
     }
   }
@@ -258,13 +261,17 @@ async function processHistoryItem(
   if (!m.message?.threadId) return;
   // skip emails the user sent
   if (m.message.labelIds?.includes(SENT_LABEL_ID)) {
-    console.log(`Skipping email with SENT label`);
+    console.log(
+      `Skipping email with SENT label`,
+      options.userEmail,
+      m.message.id,
+    );
     return;
   }
 
   const { userId, userEmail, gmail, rules, about } = options;
 
-  console.log("Getting message...", m.message.id);
+  console.log("Getting message...", options.userEmail, m.message.id);
 
   try {
     const gmailMessage = await getMessage(m.message.id, gmail, "full");
@@ -274,11 +281,13 @@ async function processHistoryItem(
     if ((gmailThread.messages?.length || 0) > 1) {
       console.log(
         `Skipping thread with ${gmailThread.messages?.length} messages`,
+        options.userEmail,
+        m.message.id,
       );
       return;
     }
 
-    console.log("Fetched message");
+    console.log("Fetched message", options.userEmail, m.message.id);
 
     const parsedMessage = parseMessage(gmailMessage);
 
@@ -315,14 +324,18 @@ async function processHistoryItem(
     }
 
     if (options.hasAutomationRules && options.hasAiAutomationAccess) {
-      console.log("Plan or act on message...");
+      console.log("Plan or act on message...", options.userEmail, m.message.id);
 
       if (
         !parsedMessage.textHtml &&
         !parsedMessage.textPlain &&
         !parsedMessage.snippet
       ) {
-        console.log("Skipping. No plain text found.");
+        console.log(
+          "Skipping. No plain text found.",
+          options.userEmail,
+          m.message.id,
+        );
         return;
       }
 
@@ -359,7 +372,7 @@ async function processHistoryItem(
         userAbout: about,
       });
 
-      console.log("Result:", res);
+      console.log("Result:", options.userEmail, m.message.id, res);
     }
 
     // if (shouldCategorise) {
@@ -385,7 +398,7 @@ async function processHistoryItem(
   } catch (error: any) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
-      console.log("Message not found.");
+      console.log("Message not found.", options.userEmail, m.message.id);
       return;
     }
 

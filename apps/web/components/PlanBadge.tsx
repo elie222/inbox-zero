@@ -93,7 +93,7 @@ function getActionMessage(actionType: ActionType, plan: Plan): string {
   }
 }
 
-function getActionColor(actionType: ActionType): Color {
+export function getActionColor(actionType: ActionType): Color {
   switch (actionType) {
     case ActionType.REPLY:
     case ActionType.FORWARD:

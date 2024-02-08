@@ -59,3 +59,21 @@ export const hasFeatureAccess = (
 
   return { hasAiOrColdEmailAccess, hasColdEmailAccess, hasAiAccess };
 };
+
+export function isOnHigherTier(
+  tier1?: PremiumTier | null,
+  tier2?: PremiumTier | null,
+) {
+  const tierRanking = {
+    [PremiumTier.PRO_MONTHLY]: 1,
+    [PremiumTier.PRO_ANNUALLY]: 2,
+    [PremiumTier.BUSINESS_MONTHLY]: 3,
+    [PremiumTier.BUSINESS_ANNUALLY]: 4,
+    [PremiumTier.LIFETIME]: 5,
+  };
+
+  const tier1Rank = tier1 ? tierRanking[tier1] : 0;
+  const tier2Rank = tier2 ? tierRanking[tier2] : 0;
+
+  return tier1Rank > tier2Rank;
+}
