@@ -15,7 +15,7 @@ import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, SectionHeader } from "@/components/Typography";
+import { SectionHeader, TypographyH3 } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { ActionType } from "@prisma/client";
@@ -119,18 +119,12 @@ function UpdateRuleForm(props: {
             label="Rule name"
             registerProps={register("name")}
             error={errors.name}
-            explainText="Used to identify the rule in your inbox."
           />
         </div>
-
-        <div className="mt-8">
-          <SectionDescription>
-            This is how the AI will handle your emails. If a field is left blank
-            the AI will generate the content based on the rule in real time
-            while processing an email.
-          </SectionDescription>
-        </div>
       </div>
+
+      <TypographyH3 className="mt-6">Actions</TypographyH3>
+
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
           return (
