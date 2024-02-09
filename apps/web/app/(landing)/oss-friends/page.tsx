@@ -10,7 +10,7 @@ import { CTA } from "@/app/(landing)/home/CTA";
 import { HeroSubtitle, HeroText } from "@/app/(landing)/home/Hero";
 
 export const metadata: Metadata = {
-  title: "Open Source Friends | Inbox Zero",
+  title: "Open Source Friends | Syncade",
   description: "Some other great Open Source projects to follow",
   alternates: { canonical: "/oss-friends" },
 };

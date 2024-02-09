@@ -27,7 +27,7 @@ export const tiers = [
     name: "Free",
     href: { monthly: "/welcome", annually: "/welcome" },
     price: { monthly: "$0", annually: "$0" },
-    description: "Try Inbox Zero for free.",
+    description: "Try Syncade for free.",
     features: [
       `Unsubscribe from ${env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS} emails per month`,
       "Email analytics",
@@ -108,7 +108,7 @@ export const tiers = [
 ];
 
 export const lifetimeFeatures = [
-  "Everything in Inbox Zero Business",
+  "Everything in Syncade Business",
   "Priority support",
   "$100 of AI credits",
   "Early access to new features",

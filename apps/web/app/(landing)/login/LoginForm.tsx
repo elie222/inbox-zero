@@ -35,14 +35,14 @@ export function LoginForm() {
         <Modal title="Sign in" isOpen={isModalOpen} hideModal={closeModal}>
           <div className="mt-2">
             <SectionDescription>
-              By continuing you agree to allow Inbox Zero to send your emails to
+              By continuing you agree to allow Syncade to send your emails to
               OpenAI for processing. OpenAI does not use the submitted data to
               train or improve their AI models.
             </SectionDescription>
 
             <div className="mt-8">
               <SectionDescription>
-                Inbox Zero{"'"}s use and transfer of information received from
+                Syncade{"'"}s use and transfer of information received from
                 Google APIs to any other app will adhere to{" "}
                 <a
                   href="https://developers.google.com/terms/api-services-user-data-policy"

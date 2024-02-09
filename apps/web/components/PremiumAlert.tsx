@@ -27,10 +27,10 @@ export function usePremium() {
 }
 
 export function PremiumAlert({
-  plan = "Inbox Zero Business",
+  plan = "Syncade Business",
   showSetApiKey,
 }: {
-  plan?: "Inbox Zero Business" | "Inbox Zero Pro";
+  plan?: "Syncade Business" | "Syncade Pro";
   showSetApiKey: boolean;
 }) {
   return (

@@ -10,7 +10,7 @@ import { FeaturesStats } from "@/app/(landing)/home/Features";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 
 export const metadata: Metadata = {
-  title: "Email Analytics | Inbox Zero",
+  title: "Email Analytics | Syncade",
   description:
     "Gain insights and enhance productivity: analyze your email patterns for better email inbox management.",
   alternates: { canonical: "/email-analytics" },

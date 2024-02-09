@@ -2,8 +2,8 @@ import { Metadata } from "next";
 import { TermsContent } from "@/app/(landing)/terms/content";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - Inbox Zero",
-  description: "Terms of Service - Inbox Zero",
+  title: "Terms of Service - Syncade",
+  description: "Terms of Service - Syncade",
   alternates: { canonical: "/terms" },
 };
 

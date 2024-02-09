@@ -46,8 +46,8 @@ export function Hero(props: {
               {props.subtitle || (
                 <>
                   Newsletter cleaner, AI automation, cold email blocker, and
-                  analytics. Inbox Zero is the open-source email app that puts
-                  you back in control of your inbox.
+                  analytics. Syncade is the open-source email app that puts you
+                  back in control of your inbox.
                 </>
               )}
             </HeroSubtitle>

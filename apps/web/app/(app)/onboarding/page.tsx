@@ -47,7 +47,7 @@ export default function Onboarding() {
           <PageHeading>Onboarding</PageHeading>
           <div className="mt-2 max-w-prose">
             <SectionDescription>
-              Inbox Zero categorizes emails to plan the right action. You can
+              Syncade categorizes emails to plan the right action. You can
               customize categories in the settings to improve results.
             </SectionDescription>
           </div>

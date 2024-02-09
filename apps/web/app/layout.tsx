@@ -23,9 +23,9 @@ const calFont = localFont({
   display: "swap",
 });
 
-const title = "Inbox Zero | Clean your inbox in minutes";
+const title = "Syncade | Clean your inbox in minutes";
 const description =
-  "Inbox Zero is the quickest way to reach inbox zero, with our newsletter cleaner, AI automation, cold email blocker, and email analytics.";
+  "Syncade is the quickest way to reach inbox zero, with our newsletter cleaner, AI automation, cold email blocker, and email analytics.";
 
 export const metadata: Metadata = {
   title,
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    siteName: "Inbox Zero",
+    siteName: "Syncade",
     type: "website",
   },
   twitter: {

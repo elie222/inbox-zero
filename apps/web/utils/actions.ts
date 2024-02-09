@@ -422,7 +422,7 @@ export async function updateMultiAccountPremium(
       if (users.length < uniqueEmails.length) {
         return {
           warning:
-            "Not all users exist. Each account must sign up to Inbox Zero to share premium with it.",
+            "Not all users exist. Each account must sign up to Syncade to share premium with it.",
         };
       }
     },

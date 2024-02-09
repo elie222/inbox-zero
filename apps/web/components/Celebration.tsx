@@ -13,7 +13,7 @@ export function Celebration(props: {}) {
   return (
     <>
       <div className="mt-20 flex items-center justify-center text-lg font-semibold text-gray-900">
-        Congrats! You made it to Inbox Zero!
+        Congrats! You made it to Syncade!
       </div>
       <div className="flex items-center justify-center">
         <Confetti
