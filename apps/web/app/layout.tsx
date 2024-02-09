@@ -34,6 +34,8 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
+    siteName: "Inbox Zero",
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",

@@ -23,8 +23,8 @@ export function HeroSubtitle(props: { children: React.ReactNode }) {
 }
 
 export function Hero(props: {
-  title?: string;
-  subtitle?: string;
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
   image?: string;
 }) {
   return (

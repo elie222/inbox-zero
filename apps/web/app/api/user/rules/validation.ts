@@ -9,8 +9,9 @@ export const updateRulesBody = z.object({
         name: z.string().optional(),
         instructions: z.string().optional(),
         automate: z.boolean().optional(),
+        runOnThreads: z.boolean().optional(),
         actions: z.array(zodAction).optional(),
-      })
+      }),
     )
     .transform((rules) => rules.filter((rule) => rule.instructions?.trim())),
 });

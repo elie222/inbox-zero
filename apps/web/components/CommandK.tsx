@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { PenLineIcon } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -47,6 +48,19 @@ export function CommandK() {
         <CommandInput placeholder="Type a command..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading="Actions">
+            <CommandItem
+              onSelect={() => {
+                console.log("xxx");
+                router.push("/compose");
+                setOpen(false);
+              }}
+            >
+              <PenLineIcon className="mr-2 h-4 w-4" />
+              <span>Compose</span>
+              {/* <CommandShortcut>C</CommandShortcut> */}
+            </CommandItem>
+          </CommandGroup>
           <CommandGroup heading="Navigation">
             {navigation.map((option) => (
               <CommandItem

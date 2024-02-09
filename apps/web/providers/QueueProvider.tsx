@@ -1,7 +1,11 @@
 "use client";
 
 import PQueue from "p-queue";
-import { archiveThreadAction, trashThreadAction } from "@/utils/actions";
+import {
+  archiveThreadAction,
+  markReadThreadAction,
+  trashThreadAction,
+} from "@/utils/actions";
 
 const queue = new PQueue({ concurrency: 3 });
 
@@ -16,6 +20,7 @@ export const archiveEmails = async (
     }),
   );
 };
+
 export const deleteEmails = async (
   threadIds: string[],
   refetch: () => void,
@@ -23,6 +28,19 @@ export const deleteEmails = async (
   queue.addAll(
     threadIds.map((threadId) => async () => {
       trashThreadAction(threadId);
+      refetch();
+    }),
+  );
+};
+
+export const markReadThreads = async (
+  threadIds: string[],
+  read: boolean,
+  refetch: () => void,
+) => {
+  queue.addAll(
+    threadIds.map((threadId) => async () => {
+      await markReadThreadAction(threadId, read);
       refetch();
     }),
   );

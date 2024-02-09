@@ -36,6 +36,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/feedback',
+        destination: 'https://inboxzero.canny.io/feature-requests',
+        permanent: true,
+      },
+      {
         source: "/twitter",
         destination: "https://twitter.com/inboxzero_ai",
         permanent: true,
@@ -48,6 +53,11 @@ const nextConfig = {
       {
         source: "/discord",
         destination: "https://discord.gg/UnBwsydrug",
+        permanent: true,
+      },
+      {
+        source: "/linkedin",
+        destination: "https://www.linkedin.com/company/inbox-zero-ai/",
         permanent: true,
       },
       {
