@@ -111,7 +111,9 @@ function getLabelIds(type?: string | null) {
     case "all":
       return undefined;
     default:
-      return [INBOX_LABEL_ID];
+      if (!type || type === "undefined" || type === "null")
+        return [INBOX_LABEL_ID];
+      return [type];
   }
 }
 

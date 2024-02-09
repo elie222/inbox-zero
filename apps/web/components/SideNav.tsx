@@ -8,7 +8,6 @@ import clsx from "clsx";
 import {
   AlertCircleIcon,
   ArchiveIcon,
-  ArchiveXIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
   BookIcon,
@@ -21,13 +20,12 @@ import {
   MailsIcon,
   MessagesSquareIcon,
   PenIcon,
+  RatioIcon,
   RibbonIcon,
   SendIcon,
   ShieldCheckIcon,
-  ShoppingCartIcon,
   SparklesIcon,
   StarIcon,
-  Trash2Icon,
   Users2Icon,
   XIcon,
 } from "lucide-react";
@@ -161,31 +159,32 @@ const topMailLinks: NavItem[] = [
 
 const bottomMailLinks: NavItem[] = [
   {
+    name: "Personal",
+    icon: Users2Icon,
+    href: "?type=CATEGORY_PERSONAL",
+    // count: 972,
+  },
+  {
     name: "Social",
     icon: Users2Icon,
-    href: "#",
-    count: 972,
+    href: "?type=CATEGORY_SOCIAL",
+    // count: 972,
   },
   {
     name: "Updates",
     icon: AlertCircleIcon,
-    href: "#",
-    count: 342,
+    href: "?type=CATEGORY_UPDATES",
+    // count: 342,
   },
   {
     name: "Forums",
     icon: MessagesSquareIcon,
-    href: "#",
-  },
-  {
-    name: "Shopping",
-    icon: ShoppingCartIcon,
-    href: "#",
+    href: "?type=CATEGORY_FORUMS",
   },
   {
     name: "Promotions",
-    icon: ArchiveIcon,
-    href: "#",
+    icon: RatioIcon,
+    href: "?type=CATEGORY_PROMOTIONS",
   },
 ];
 
