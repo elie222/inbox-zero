@@ -9,6 +9,7 @@ import {
   AlertCircleIcon,
   ArchiveIcon,
   ArchiveXIcon,
+  ArrowLeftIcon,
   BarChartBigIcon,
   BookIcon,
   CogIcon,
@@ -304,39 +305,6 @@ function Sidebar(props: { isMobile: boolean }) {
 
   const showMailNav = path === "/mail" || path === "/compose";
 
-  // if (showMailNav) {
-  //   return (
-  //     <div
-  //       className={clsx(
-  //         // "flex grow flex-col gap-y-5 overflow-y-auto bg-black px-6 pb-4",
-  //         "flex grow flex-col gap-y-5 overflow-y-auto bg-white",
-  //         {
-  //           // "ring-1 ring-white/10": props.isMobile,
-  //           "ring-1 ring-black/10": props.isMobile,
-  //         },
-  //       )}
-  //     >
-  //       <Link href="/stats">
-  //         <div className="flex h-16 shrink-0 items-center text-black">
-  //           <Logo className="h-4" />
-  //         </div>
-  //       </Link>
-  //       {/* <Button onClick={() => setIsShowing(!isShowing)}>Toggle</Button> */}
-  //       <Transition
-  //         show={showMailNav}
-  //         enter="transition-opacity duration-300"
-  //         enterFrom="opacity-0"
-  //         enterTo="opacity-100"
-  //         leave="transition-opacity duration-300"
-  //         leaveFrom="opacity-100"
-  //         leaveTo="opacity-0"
-  //       >
-  //         <NavMail />
-  //       </Transition>
-  //     </div>
-  //   );
-  // }
-
   return (
     <div
       className={clsx(
@@ -352,7 +320,7 @@ function Sidebar(props: { isMobile: boolean }) {
         </div>
       </Link>
       <nav className="flex flex-1 flex-col">
-        <ul role="list" className="flex flex-1 flex-col gap-y-7">
+        <ul role="list" className="flex flex-1 flex-col">
           <Transition
             show={showMailNav}
             enter="transition-opacity duration-300"
@@ -362,6 +330,15 @@ function Sidebar(props: { isMobile: boolean }) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
+            <NavLink
+              path={path}
+              link={{
+                name: "Back",
+                href: "/automation",
+                icon: ArrowLeftIcon,
+              }}
+            />
+
             <div className="py-2">
               <Button asChild className="w-full" variant="outline">
                 <Link href="/compose">
@@ -388,7 +365,7 @@ function Sidebar(props: { isMobile: boolean }) {
             <Links path={path} links={navigation} />
           </Transition>
 
-          <div className="mt-auto">
+          <div className="mt-auto pt-7">
             <Links path={path} links={bottomLinks} />
           </div>
         </ul>
