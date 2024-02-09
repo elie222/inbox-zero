@@ -12,7 +12,7 @@ services:
     volumes:
       - database-data:/var/lib/postgresql/data/
     ports:
-      - 8009:5432
+      - 5432:5432
 
   redis:
     image: redis
