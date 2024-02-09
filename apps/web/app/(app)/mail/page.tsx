@@ -67,7 +67,13 @@ export default function Mail({
         />
       )}
       <LoadingContent loading={isLoading} error={error}>
-        {data && <List emails={data?.threads || []} refetch={refetch} />}
+        {data && (
+          <List
+            emails={data.threads}
+            refetch={refetch}
+            type={searchParams.type}
+          />
+        )}
       </LoadingContent>
     </>
   );

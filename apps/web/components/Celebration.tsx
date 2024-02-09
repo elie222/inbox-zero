@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import Confetti from "react-dom-confetti";
 import Image from "next/image";
 import { getCelebrationImage } from "@/utils/celebration";
+import { Button } from "@/components/Button";
 
-export function Celebration(props: {}) {
+export function Celebration(props: { message: string }) {
   const [active, setActive] = useState(false);
 
   useEffect(() => {
@@ -12,8 +13,8 @@ export function Celebration(props: {}) {
 
   return (
     <>
-      <div className="mt-20 flex items-center justify-center text-lg font-semibold text-gray-900">
-        Congrats! You made it to Inbox Zero!
+      <div className="mt-20 flex items-center justify-center font-cal text-2xl text-gray-900">
+        Congrats! {props.message}
       </div>
       <div className="flex items-center justify-center">
         <Confetti
@@ -25,6 +26,26 @@ export function Celebration(props: {}) {
           }}
         />
       </div>
+
+      <div className="mt-8 flex justify-center">
+        <Button
+          size="2xl"
+          onClick={() => {
+            const tweet = encodeURIComponent(
+              "I made it to Inbox Zero thanks to @inboxzero_ai!",
+            );
+            const twitterIntentURL = `https://x.com/intent/tweet?text=${tweet}`;
+            window.open(
+              twitterIntentURL,
+              "_blank",
+              "noopener,noreferrer,width=550,height=420",
+            );
+          }}
+        >
+          Share on Twitter
+        </Button>
+      </div>
+
       <div className="mt-8 flex items-center justify-center">
         <Image
           src={getCelebrationImage()}
