@@ -15,7 +15,7 @@ const navigation = {
     { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
     {
       name: "Documentation",
-      href: "https://docs.getinboxzero.com",
+      href: "https://docs.syncade.io",
       target: "_blank",
     },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },

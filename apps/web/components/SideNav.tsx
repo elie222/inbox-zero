@@ -79,7 +79,7 @@ export const navigation = [
 const bottomLinks = [
   {
     name: "User Guide",
-    href: "https://docs.getinboxzero.com",
+    href: "https://inboxzero.com",
     target: "_blank",
     icon: BookIcon,
   },

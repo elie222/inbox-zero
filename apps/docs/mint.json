@@ -18,23 +18,23 @@
   "topbarLinks": [
     {
       "name": "Support",
-      "url": "mailto:elie@getinboxzero.com"
+      "url": "mailto:james@syncade.io"
     }
   ],
   "topbarCtaButton": {
     "name": "Dashboard",
-    "url": "https://www.getinboxzero.com/newsletters"
+    "url": "https://www.syncade.io/newsletters"
   },
   "anchors": [
     {
       "name": "Community",
       "icon": "discord",
-      "url": "https://getinboxzero.com/discord"
+      "url": "https://syncade.io/discord"
     },
     {
       "name": "Blog",
       "icon": "newspaper",
-      "url": "https://www.getinboxzero.com/blog"
+      "url": "https://www.syncade.io/blog"
     }
   ],
   "navigation": [
@@ -58,8 +58,8 @@
     }
   ],
   "footerSocials": {
-    "twitter": "https://www.getinboxzero.com/twitter",
-    "github": "https://www.getinboxzero.com/github",
-    "linkedin": "https://www.getinboxzero.com/linkedin"
+    "twitter": "https://www.syncade.io/twitter",
+    "github": "https://www.syncade.io/github",
+    "linkedin": "https://www.syncade.io/linkedin"
   }
 }
