@@ -16,7 +16,9 @@ export default function Mail({
 }: {
   searchParams: { type?: string };
 }) {
-  const query: ThreadsQuery = { type: searchParams.type };
+  const query: ThreadsQuery = searchParams.type
+    ? { type: searchParams.type }
+    : {};
 
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
     `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
