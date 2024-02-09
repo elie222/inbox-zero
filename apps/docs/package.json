@@ -2,6 +2,7 @@
   "name": "docs",
   "version": "0.0.1",
   "scripts": {
-    "dev": "mintlify dev --port 3334"
+    "dev": "mintlify dev --port 3334",
+    "build": "cd ../.. && turbo run build --filter=apps/docs..."
   }
 }
