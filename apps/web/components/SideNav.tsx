@@ -139,31 +139,23 @@ const bottomLinks: NavItem[] = [
 const topMailLinks: NavItem[] = [
   {
     name: "Inbox",
-    // label: "128",
     icon: InboxIcon,
-    // variant: "default",
-    href: "#",
+    href: "?type=inbox",
   },
   {
     name: "Drafts",
-    // label: "9",
     icon: FileIcon,
-    // variant: "ghost",
-    href: "#",
+    href: "?type=draft",
   },
   {
     name: "Sent",
-    // label: "",
     icon: SendIcon,
-    // variant: "ghost",
-    href: "#",
+    href: "?type=sent",
   },
   {
-    name: "Archive",
-    // label: "",
+    name: "Archived",
     icon: ArchiveIcon,
-    // variant: "ghost",
-    href: "#",
+    href: "?type=archive",
   },
 ];
 
@@ -171,36 +163,28 @@ const bottomMailLinks: NavItem[] = [
   {
     name: "Social",
     icon: Users2Icon,
-    // variant: "ghost",
     href: "#",
     count: 972,
   },
   {
     name: "Updates",
     icon: AlertCircleIcon,
-    // variant: "ghost",
     href: "#",
     count: 342,
   },
   {
     name: "Forums",
-    // label: "128",
     icon: MessagesSquareIcon,
-    // variant: "ghost",
     href: "#",
   },
   {
     name: "Shopping",
-    // label: "8",
     icon: ShoppingCartIcon,
-    // variant: "ghost",
     href: "#",
   },
   {
     name: "Promotions",
-    // label: "21",
     icon: ArchiveIcon,
-    // variant: "ghost",
     href: "#",
   },
 ];
