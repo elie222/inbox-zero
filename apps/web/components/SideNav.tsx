@@ -47,6 +47,7 @@ type NavItem = {
   href: string;
   icon: LucideIcon | ((props: any) => React.ReactNode);
   target?: "_blank";
+  count?: number;
 };
 
 export const navigation: NavItem[] = [
@@ -191,17 +192,17 @@ const topMailLinks: NavItem[] = [
 const bottomMailLinks: NavItem[] = [
   {
     name: "Social",
-    // label: "972",
     icon: Users2Icon,
     // variant: "ghost",
     href: "#",
+    count: 972,
   },
   {
     name: "Updates",
-    // label: "342",
     icon: AlertCircleIcon,
     // variant: "ghost",
     href: "#",
+    count: 342,
   },
   {
     name: "Forums",
@@ -522,6 +523,14 @@ function NavLink(props: { path: string; link: NavItem }) {
       >
         <link.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
         {link.name}
+        {link.count ? (
+          <span
+            className="ml-auto w-9 min-w-max whitespace-nowrap rounded-full bg-gray-900 px-2.5 py-0.5 text-center text-xs font-medium leading-5 text-white ring-1 ring-inset ring-gray-700"
+            aria-hidden="true"
+          >
+            {link.count}
+          </span>
+        ) : null}
       </Link>
     </li>
   );
