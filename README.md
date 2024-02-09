@@ -1,8 +1,8 @@
 [![](apps/web/app/opengraph-image.png)](https://www.getinboxzero.com)
 
 <p align="center">
-  <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero</h1>
+  <a href="https://www.syncade.io">
+    <h1 align="center">Syncade</h1>
   </a>
   <p align="center">
     Open source email app to reach inbox zero fast.

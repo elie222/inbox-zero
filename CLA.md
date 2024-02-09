@@ -1,16 +1,16 @@
-# Inbox Zero Contributors License Agreement
+# Syncade Contributors License Agreement
 
-This Contributors License Agreement ("CLA") is entered into between the Contributor, and Inbox Zero, collectively referred to as the "Parties."
+This Contributors License Agreement ("CLA") is entered into between the Contributor, and Syncade, collectively referred to as the "Parties."
 
 ## Background:
 
-Inbox Zero is an open-source project aimed at providing an open-source app to help manage email better. This CLA governs the rights and contributions made by the Contributor to the Inbox Zero project.
+Syncade is an open-source project aimed at providing an open-source app to help manage email better. This CLA governs the rights and contributions made by the Contributor to the Syncade project.
 
 ## Agreement:
 
 **Contributor Grant of License:**
 
-By submitting code, documentation, or any other materials (collectively, "Contributions") to the Inbox Zero project, the Contributor grants Inbox Zero a perpetual, worldwide, non-exclusive, royalty-free, sublicensable license to use, modify, distribute, and otherwise exploit the Contributions, including any intellectual property rights therein, for the purposes of the Inbox Zero project.
+By submitting code, documentation, or any other materials (collectively, "Contributions") to the Syncade project, the Contributor grants Syncade a perpetual, worldwide, non-exclusive, royalty-free, sublicensable license to use, modify, distribute, and otherwise exploit the Contributions, including any intellectual property rights therein, for the purposes of the Syncade project.
 
 **Representation of Ownership and Right to Contribute:**
 
@@ -18,11 +18,11 @@ The Contributor represents that they have the legal right to grant the license s
 
 **Patent Grant:**
 
-If the Contributions include any method, process, or apparatus that is covered by a patent, the Contributor agrees to grant Inbox Zero a non-exclusive, worldwide, royalty-free license under any patent claims necessary to use, modify, distribute, and otherwise exploit the Contributions for the purposes of the Inbox Zero project.
+If the Contributions include any method, process, or apparatus that is covered by a patent, the Contributor agrees to grant Syncade a non-exclusive, worldwide, royalty-free license under any patent claims necessary to use, modify, distribute, and otherwise exploit the Contributions for the purposes of the Syncade project.
 
 **No Implied Warranties or Support:**
 
-The Contributor acknowledges that the Contributions are provided "as is," without any warranties or support of any kind. Inbox Zero shall have no obligation to provide maintenance, updates, bug fixes, or support for the Contributions.
+The Contributor acknowledges that the Contributions are provided "as is," without any warranties or support of any kind. Syncade shall have no obligation to provide maintenance, updates, bug fixes, or support for the Contributions.
 
 **Retention of Contributor Rights:**
 
@@ -38,8 +38,8 @@ This CLA constitutes the entire agreement between the Parties with respect to th
 
 **Acceptance:**
 
-By submitting Contributions to the Inbox Zero project, the Contributor acknowledges and agrees to the terms and conditions of this CLA. If the Contributor is agreeing to this CLA on behalf of an entity, they represent that they have the necessary authority to bind that entity to these terms.
+By submitting Contributions to the Syncade project, the Contributor acknowledges and agrees to the terms and conditions of this CLA. If the Contributor is agreeing to this CLA on behalf of an entity, they represent that they have the necessary authority to bind that entity to these terms.
 
 **Effective Date:**
 
-This CLA is effective as of the date of the first Contribution made by the Contributor to the Inbox Zero project.
+This CLA is effective as of the date of the first Contribution made by the Contributor to the Syncade project.
