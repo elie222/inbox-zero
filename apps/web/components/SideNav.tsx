@@ -19,6 +19,7 @@ import {
   LucideIcon,
   MailsIcon,
   MessagesSquareIcon,
+  PenIcon,
   RibbonIcon,
   SendIcon,
   ShieldCheckIcon,
@@ -41,7 +42,14 @@ import { SideNavMail } from "@/components/SideNavMail";
 import { Separator } from "@/components/ui/separator";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
-export const navigation = [
+type NavItem = {
+  name: string;
+  href: string;
+  icon: LucideIcon | ((props: any) => React.ReactNode);
+  target?: "_blank";
+};
+
+export const navigation: NavItem[] = [
   {
     name: "Newsletters",
     href: "/newsletters",
@@ -99,7 +107,7 @@ export const navigation = [
   // },
 ];
 
-const bottomLinks = [
+const bottomLinks: NavItem[] = [
   {
     name: "User Guide",
     href: "https://docs.getinboxzero.com",
@@ -135,6 +143,89 @@ const bottomLinks = [
   { name: "Settings", href: "/settings", icon: CogIcon },
 ];
 
+const topMailLinks: NavItem[] = [
+  {
+    name: "Inbox",
+    // label: "128",
+    icon: InboxIcon,
+    // variant: "default",
+    href: "#",
+  },
+  {
+    name: "Drafts",
+    // label: "9",
+    icon: FileIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Sent",
+    // label: "",
+    icon: SendIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Junk",
+    // label: "23",
+    icon: ArchiveXIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Trash",
+    // label: "",
+    icon: Trash2Icon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Archive",
+    // label: "",
+    icon: ArchiveIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+];
+
+const bottomMailLinks: NavItem[] = [
+  {
+    name: "Social",
+    // label: "972",
+    icon: Users2Icon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Updates",
+    // label: "342",
+    icon: AlertCircleIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Forums",
+    // label: "128",
+    icon: MessagesSquareIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Shopping",
+    // label: "8",
+    icon: ShoppingCartIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+  {
+    name: "Promotions",
+    // label: "21",
+    icon: ArchiveIcon,
+    // variant: "ghost",
+    href: "#",
+  },
+];
+
 export function SideNav(props: {
   children: React.ReactNode;
   topBar?: React.ReactNode;
@@ -142,79 +233,77 @@ export function SideNav(props: {
   setSidebarOpen: (open: boolean) => void;
 }) {
   return (
-    <>
-      <div className="h-full">
-        <Transition.Root show={props.sidebarOpen} as={Fragment}>
-          <Dialog
-            as="div"
-            className="relative z-50 lg:hidden"
-            onClose={props.setSidebarOpen}
+    <div className="h-full">
+      <Transition.Root show={props.sidebarOpen} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50 lg:hidden"
+          onClose={props.setSidebarOpen}
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="transition-opacity ease-linear duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="transition-opacity ease-linear duration-300"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
+            <div className="fixed inset-0 bg-black/80" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex">
             <Transition.Child
               as={Fragment}
-              enter="transition-opacity ease-linear duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="transition-opacity ease-linear duration-300"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
+              enter="transition ease-in-out duration-300 transform"
+              enterFrom="-translate-x-full"
+              enterTo="translate-x-0"
+              leave="transition ease-in-out duration-300 transform"
+              leaveFrom="translate-x-0"
+              leaveTo="-translate-x-full"
             >
-              <div className="fixed inset-0 bg-black/80" />
+              <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-in-out duration-300"
+                  enterFrom="opacity-0"
+                  enterTo="opacity-100"
+                  leave="ease-in-out duration-300"
+                  leaveFrom="opacity-100"
+                  leaveTo="opacity-0"
+                >
+                  <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
+                    <button
+                      type="button"
+                      className="-m-2.5 p-2.5"
+                      onClick={() => props.setSidebarOpen(false)}
+                    >
+                      <span className="sr-only">Close sidebar</span>
+                      <XIcon
+                        className="h-6 w-6 text-white"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </div>
+                </Transition.Child>
+
+                <Sidebar isMobile />
+              </Dialog.Panel>
             </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition.Root>
 
-            <div className="fixed inset-0 flex">
-              <Transition.Child
-                as={Fragment}
-                enter="transition ease-in-out duration-300 transform"
-                enterFrom="-translate-x-full"
-                enterTo="translate-x-0"
-                leave="transition ease-in-out duration-300 transform"
-                leaveFrom="translate-x-0"
-                leaveTo="-translate-x-full"
-              >
-                <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
-                  <Transition.Child
-                    as={Fragment}
-                    enter="ease-in-out duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="ease-in-out duration-300"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                  >
-                    <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
-                      <button
-                        type="button"
-                        className="-m-2.5 p-2.5"
-                        onClick={() => props.setSidebarOpen(false)}
-                      >
-                        <span className="sr-only">Close sidebar</span>
-                        <XIcon
-                          className="h-6 w-6 text-white"
-                          aria-hidden="true"
-                        />
-                      </button>
-                    </div>
-                  </Transition.Child>
-
-                  <Sidebar isMobile />
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </Dialog>
-        </Transition.Root>
-
-        <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col 2xl:w-72">
-          <Sidebar isMobile={false} />
-        </div>
-
-        <main className="flex h-full flex-col lg:pl-60 2xl:pl-72">
-          {props.topBar}
-
-          {props.children}
-        </main>
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col 2xl:w-72">
+        <Sidebar isMobile={false} />
       </div>
-    </>
+
+      <main className="flex h-full flex-col lg:pl-60 2xl:pl-72">
+        {props.topBar}
+
+        {props.children}
+      </main>
+    </div>
   );
 }
 
@@ -284,7 +373,20 @@ function Sidebar(props: { isMobile: boolean }) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <NavMail />
+            <div className="py-2">
+              <Button asChild className="w-full" variant="outline">
+                <Link href="/compose">
+                  <PenIcon className="mr-2 h-4 w-4" />
+                  Compose
+                </Link>
+              </Button>
+            </div>
+
+            <Links path={path} links={topMailLinks} />
+            <Separator theme="dark" />
+            <div className="mt-2">
+              <Links path={path} links={bottomMailLinks} />
+            </div>
           </Transition>
           <Transition
             show={!showMailNav}
@@ -295,17 +397,19 @@ function Sidebar(props: { isMobile: boolean }) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <TopLinks path={path} />
+            <Links path={path} links={navigation} />
           </Transition>
 
-          <BottomLinks path={path} />
+          <div className="mt-auto">
+            <Links path={path} links={bottomLinks} />
+          </div>
         </ul>
       </nav>
     </div>
   );
 }
 
-function NavMail() {
+function NavMailX() {
   const defaultCollapsed = false;
   const defaultLayout = [265, 440, 655];
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
@@ -346,47 +450,7 @@ function NavMail() {
           </Button>
         </div>
         <Separator />
-        <SideNavMail
-          isCollapsed={isCollapsed}
-          links={[
-            {
-              title: "Inbox",
-              label: "128",
-              icon: InboxIcon,
-              variant: "default",
-            },
-            {
-              title: "Drafts",
-              label: "9",
-              icon: FileIcon,
-              variant: "ghost",
-            },
-            {
-              title: "Sent",
-              label: "",
-              icon: SendIcon,
-              variant: "ghost",
-            },
-            {
-              title: "Junk",
-              label: "23",
-              icon: ArchiveXIcon,
-              variant: "ghost",
-            },
-            {
-              title: "Trash",
-              label: "",
-              icon: Trash2Icon,
-              variant: "ghost",
-            },
-            {
-              title: "Archive",
-              label: "",
-              icon: ArchiveIcon,
-              variant: "ghost",
-            },
-          ]}
-        />
+        {/* <SideNavMail isCollapsed={isCollapsed} links={topMailLinks} /> */}
         <Separator />
         <SideNavMail
           isCollapsed={isCollapsed}
@@ -428,56 +492,37 @@ function NavMail() {
   );
 }
 
-function TopLinks(props: { path: string }) {
+function Links(props: { path: string; links: NavItem[] }) {
   return (
     <li>
       <ul role="list" className="-mx-2 space-y-1">
-        {navigation.map((item) => (
-          <li key={item.name}>
-            <a
-              href={item.href}
-              className={clsx(
-                item.href === props.path
-                  ? "bg-gray-800 text-white"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
-              )}
-            >
-              <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
-              {item.name}
-            </a>
-          </li>
+        {props.links.map((item) => (
+          <NavLink key={item.name} path={props.path} link={item} />
         ))}
       </ul>
     </li>
   );
 }
 
-function BottomLinks(props: { path: string }) {
+function NavLink(props: { path: string; link: NavItem }) {
+  const { link } = props;
+
   return (
-    <li className="mt-auto">
-      <ul role="list" className="-mx-2 space-y-1">
-        {bottomLinks.map((link) => {
-          return (
-            <li key={link.name}>
-              <Link
-                href={link.href}
-                className={clsx(
-                  "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
-                  link.href === props.path
-                    ? "bg-gray-800 text-white"
-                    : "text-gray-400 hover:bg-gray-800 hover:text-white",
-                )}
-                target={link.target}
-                prefetch={link.target !== "_blank"}
-              >
-                <link.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
-                {link.name}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+    <li key={link.name}>
+      <Link
+        href={link.href}
+        className={clsx(
+          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
+          link.href === props.path
+            ? "bg-gray-800 text-white"
+            : "text-gray-400 hover:bg-gray-800 hover:text-white",
+        )}
+        target={link.target}
+        prefetch={link.target !== "_blank"}
+      >
+        <link.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+        {link.name}
+      </Link>
     </li>
   );
 }
