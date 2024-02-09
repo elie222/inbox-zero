@@ -10,7 +10,7 @@ const copy: {
   };
 } = {
   automate: {
-    title: "Automate Your Email",
+    title: "Automate Your Email Inbox",
     subtitle:
       "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Fully open-source.",
   },
