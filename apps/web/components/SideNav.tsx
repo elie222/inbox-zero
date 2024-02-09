@@ -295,9 +295,9 @@ function Sidebar(props: { isMobile: boolean }) {
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
-            leave="transition-opacity duration-300"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
+            // leave="transition-opacity duration-300"
+            // leaveFrom="opacity-100"
+            // leaveTo="opacity-0"
           >
             <NavLink
               path={path}
@@ -330,9 +330,9 @@ function Sidebar(props: { isMobile: boolean }) {
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
-            leave="transition-opacity duration-300"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
+            // leave="transition-opacity duration-300"
+            // leaveFrom="opacity-100"
+            // leaveTo="opacity-0"
           >
             <Links path={path} links={navigation} />
           </Transition>
