@@ -27,8 +27,6 @@ import { onTrashMessage } from "@/utils/actions-client";
 import { useState } from "react";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
-  const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({});
-
   const { data, isLoading, error, mutate } = useSWRImmutable<
     LargestEmailsResponse,
     { error: string }
@@ -62,6 +60,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
               {data.largestEmails
                 .slice(0, expanded ? undefined : 5)
                 .map((item) => {
+                  const [isDeleting, setIsDeleting] = useState(false);
                   return (
                     <TableRow key={item.id}>
                       <TableCell>{item.parsedMessage.headers.from}</TableCell>
@@ -96,21 +95,18 @@ export function LargestEmails(props: { refreshInterval: number }) {
                       <TableCell>
                         <Button
                           key={item.id}
-                          disabled={isDeleting[item.id!]}
+                          disabled={isDeleting}
                           variant="secondary"
                           size="sm"
                           onClick={() => {
                             if (item.id) {
-                              setIsDeleting((prevMap: any) => ({
-                                ...prevMap,
-                                [item.id!]: true,
-                              }));
+                              setIsDeleting(true);
                               onTrashMessage(item.id!);
                               mutate();
                             }
                           }}
                         >
-                          {isDeleting[item.id!] ? (
+                          {isDeleting ? (
                             <>
                               <ButtonLoader />
                               Deleting...
