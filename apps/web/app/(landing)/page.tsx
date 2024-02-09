@@ -4,9 +4,10 @@ import { Hero } from "@/app/(landing)/home/Hero";
 // import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import {
   Features,
-  FeaturesAutomation,
-  FeaturesStats,
   FeaturesUnsubscribe,
+  FeaturesAutomation,
+  FeaturesColdEmailBlocker,
+  FeaturesStats,
 } from "@/app/(landing)/home/Features";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
@@ -43,8 +44,9 @@ export default function Home() {
       <Testimonials />
       <Features />
       <FeaturesUnsubscribe />
-      <FeaturesStats />
       <FeaturesAutomation />
+      <FeaturesColdEmailBlocker />
+      <FeaturesStats />
       <Suspense>
         <Pricing />
       </Suspense>

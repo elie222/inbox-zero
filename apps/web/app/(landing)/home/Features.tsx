@@ -6,7 +6,10 @@ import {
   LucideIcon,
   MousePointer2Icon,
   Orbit,
+  ShieldHalfIcon,
   Sparkles,
+  SparklesIcon,
+  TagIcon,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -200,12 +203,46 @@ const featuresAutomations = [
 export function FeaturesAutomation() {
   return (
     <FeaturesWithImage
-      imageSide="left"
+      imageSide="right"
       title="Automate your inbox"
       subtitle="Your AI assistant for email"
       description="Keep getting emails that require the same response? Let Inbox Zero handle it."
-      image="/images/rules.png"
+      image="/images/ai-automation.png"
       features={featuresAutomations}
+    />
+  );
+}
+
+const featuresColdEmailBlocker = [
+  {
+    name: "Block out the noise",
+    description:
+      "Automatically archive or label cold emails. Keep your inbox clean and focused on what matters.",
+    icon: ShieldHalfIcon,
+  },
+  {
+    name: "Adjust cold email prompt",
+    description:
+      "Tell Inbox Zero what constitutes a cold email for you. It will block them based on your instructions.",
+    icon: SparklesIcon,
+  },
+  {
+    name: "Label cold emails",
+    description:
+      "Automatically label cold emails so you can review them later. Keep your inbox clean and focused on what matters.",
+    icon: TagIcon,
+  },
+];
+
+export function FeaturesColdEmailBlocker() {
+  return (
+    <FeaturesWithImage
+      imageSide="left"
+      title="Cold Email Blocker"
+      subtitle="Automatically block cold emails"
+      description="Stop the spam. Automatically archive or label cold emails."
+      image="/images/cold-email-blocker.png"
+      features={featuresColdEmailBlocker}
     />
   );
 }
@@ -238,7 +275,7 @@ export function FeaturesStats() {
       title="Inbox Analytics"
       subtitle="Understand your inbox"
       description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
-      image="/images/stats.png"
+      image="/images/analytics.png"
       features={featuresStats}
     />
   );
