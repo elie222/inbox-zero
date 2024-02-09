@@ -1,22 +1,7 @@
 {
-  "builds": [
-    {
-      "source": "apps/docs/**",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "out"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "apps/docs/$1"
-    }
-  ],
-  "buildCommand": "cd apps/docs && npm run build",
-  "installCommand": "cd apps/docs && pnpm install",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/docs",
+  "buildCommand": "cd ../.. && turbo run build --filter={apps/web}...",
+  "installCommand": "pnpm install",
+  "ignoreCommand": "",
   "crons": [
     {
       "path": "/api/google/watch/all",
