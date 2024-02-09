@@ -10,6 +10,7 @@ import {
   ArchiveIcon,
   ArchiveXIcon,
   BarChartBigIcon,
+  BookIcon,
   CogIcon,
   CrownIcon,
   FileIcon,
@@ -100,10 +101,10 @@ export const navigation = [
 
 const bottomLinks = [
   {
-    name: "Feature Requests",
-    href: "/feature-requests",
+    name: "User Guide",
+    href: "https://docs.getinboxzero.com",
     target: "_blank",
-    icon: LightbulbIcon,
+    icon: BookIcon,
   },
   {
     name: "Join Discord",
@@ -117,6 +118,12 @@ const bottomLinks = [
         ></path>
       </svg>
     ),
+  },
+  {
+    name: "Feature Requests",
+    href: "/feature-requests",
+    target: "_blank",
+    icon: LightbulbIcon,
   },
   {
     name: "Star on GitHub",

@@ -15,7 +15,7 @@ import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, SectionHeader } from "@/components/Typography";
+import { SectionHeader, TypographyH3 } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { ActionType } from "@prisma/client";
@@ -119,18 +119,12 @@ function UpdateRuleForm(props: {
             label="Rule name"
             registerProps={register("name")}
             error={errors.name}
-            explainText="Used to identify the rule in your inbox."
           />
         </div>
-
-        <div className="mt-8">
-          <SectionDescription>
-            This is how the AI will handle your emails. If a field is left blank
-            the AI will generate the content based on the rule in real time
-            while processing an email.
-          </SectionDescription>
-        </div>
       </div>
+
+      <TypographyH3 className="mt-6">Actions</TypographyH3>
+
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
           return (
@@ -186,7 +180,7 @@ function UpdateRuleForm(props: {
                               </Tooltip>
                               <Toggle
                                 name={`actions.${i}.${field.name}`}
-                                label="AI Generated"
+                                label="AI generated"
                                 enabled={isAiGenerated}
                                 onChange={(enabled) => {
                                   setValue(
@@ -255,6 +249,22 @@ function UpdateRuleForm(props: {
           Add Action
         </Button>
       </div>
+
+      <div className="mt-4 flex items-center justify-end space-x-2">
+        <Tooltip content="Enable to run this rule on all emails, including threads. When disabled the rule only runs on individual emails.">
+          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
+        </Tooltip>
+
+        <Toggle
+          name="runOnThreads"
+          label="Run on threads"
+          enabled={watch("runOnThreads") || false}
+          onChange={(enabled) => {
+            setValue("runOnThreads", enabled);
+          }}
+        />
+      </div>
+
       <div className="flex justify-end">
         <SubmitButtonWrapper>
           <Button type="submit" loading={isSubmitting}>

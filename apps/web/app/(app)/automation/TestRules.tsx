@@ -225,7 +225,7 @@ function Plan(props: { plan: ActResponse }) {
     return (
       <AlertBasic
         variant="destructive"
-        title="No rule found!"
+        title="No rule found"
         description={
           <div className="space-y-2">
             <div>This email does not match any of the rules you have set.</div>
@@ -241,7 +241,7 @@ function Plan(props: { plan: ActResponse }) {
   if (plan.plannedAction?.actions) {
     return (
       <AlertBasic
-        title="Rule found!"
+        title={`Rule found: "${plan.rule.name}"`}
         variant="blue"
         description={plan.rule.instructions}
         icon={<CheckCircle2Icon className="h-4 w-4" />}

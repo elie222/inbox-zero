@@ -31,6 +31,7 @@ export async function updateRule(options: {
       data: {
         instructions: options.body.instructions || undefined,
         automate: options.body.automate ?? undefined,
+        runOnThreads: options.body.runOnThreads ?? undefined,
         name: options.body.name || undefined,
         actions: options.body.actions
           ? {

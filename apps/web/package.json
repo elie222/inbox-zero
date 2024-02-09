@@ -97,7 +97,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tiktoken": "^1.0.13",
     "typescript": "5.3.3",
-    "usehooks-ts": "^2.10.0",
+    "usehooks-ts": "^2.13.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
