@@ -42,10 +42,18 @@ const createRawMailMessage = async (body: SendEmailBody) => {
     cc: body.cc,
     bcc: body.bcc,
     subject: body.subject,
-    text: body.messageText,
-    html: body.messageHtml,
+    alternatives: [
+      {
+        contentType: "text/plain; charset=UTF-8",
+        content: body.messageText,
+      },
+      {
+        contentType: "text/html; charset=UTF-8",
+        content:
+          body.messageHtml || convertTextToHtmlParagraphs(body.messageText),
+      },
+    ],
     // attachments: fileAttachments,
-    textEncoding: "base64",
     // https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
     references: body.replyToEmail
       ? `${body.replyToEmail.references || ""} ${
@@ -90,3 +98,17 @@ export async function draftEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
 
   return result;
 }
+
+const convertTextToHtmlParagraphs = (text: string): string => {
+  // Split the text into paragraphs based on newline characters
+  const paragraphs = text
+    .split("\n")
+    .filter((paragraph) => paragraph.trim() !== "");
+
+  // Wrap each paragraph with <p> tags and join them back together
+  const htmlContent = paragraphs
+    .map((paragraph) => `<p>${paragraph.trim()}</p>`)
+    .join("");
+
+  return `<html><body>${htmlContent}</body></html>`;
+};

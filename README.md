@@ -59,7 +59,11 @@ We have a public Kanban available [here](https://github.com/users/elie222/projec
 
 - [Node.js](https://nodejs.org/en/) >= 18.0.0
 - [pnpm](https://pnpm.io/) >= 8.6.12
-- [Docker desktop](https://www.docker.com/products/docker-desktop/)
+- [Docker desktop](https://www.docker.com/products/docker-desktop/) (optional)
+
+### Setup
+
+[Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
 The external services that are required are:
 
@@ -93,7 +97,9 @@ The required environment variables:
 - `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
 - `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region).
-- `OPENAI_API_KEY` -- Standard OpenAI API key.
+- `OPENAI_API_KEY` -- OpenAI API key.
+- `UPSTASH_REDIS_URL` -- Redis URL from Upstash.
+- `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash.
 
 To run the migrations:
 
@@ -101,7 +107,7 @@ To run the migrations:
 pnpm prisma migrate dev
 ```
 
-Now run:
+To run the app locally:
 
 ```bash
 pnpm run dev
@@ -115,6 +121,18 @@ turbo dev
 
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localhost:3000/admin).
+
+### Setting up Google OAuth and Gmail API
+
+You need to enable these scopes in the Google Cloud Console:
+
+```plaintext
+https://www.googleapis.com/auth/userinfo.profile
+https://www.googleapis.com/auth/userinfo.email
+https://www.googleapis.com/auth/gmail.modify
+https://www.googleapis.com/auth/gmail.settings.basic
+https://www.googleapis.com/auth/contacts
+```
 
 ### Setting up Tinybird
 

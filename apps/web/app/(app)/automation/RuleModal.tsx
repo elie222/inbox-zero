@@ -9,13 +9,13 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
-import { PlusIcon } from "lucide-react";
+import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
-import { Input } from "@/components/Input";
+import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, SectionHeader } from "@/components/Typography";
+import { SectionHeader, TypographyH3 } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { ActionType } from "@prisma/client";
@@ -28,6 +28,9 @@ import {
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { AlertBasic } from "@/components/Alert";
+import { Toggle } from "@/components/Toggle";
+import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
+import { Tooltip } from "@/components/Tooltip";
 
 export function RuleModal(props: {
   rule?: UpdateRuleBody;
@@ -69,6 +72,7 @@ function UpdateRuleForm(props: {
     register,
     handleSubmit,
     watch,
+    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<UpdateRuleBody>({
@@ -115,18 +119,12 @@ function UpdateRuleForm(props: {
             label="Rule name"
             registerProps={register("name")}
             error={errors.name}
-            explainText="Used to identify the rule in your inbox."
           />
         </div>
-
-        <div className="mt-8">
-          <SectionDescription>
-            This is how the AI will handle your emails. If a field is left blank
-            the AI will generate the content based on the rule in real time
-            while processing an email.
-          </SectionDescription>
-        </div>
       </div>
+
+      <TypographyH3 className="mt-6">Actions</TypographyH3>
+
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
           return (
@@ -168,18 +166,64 @@ function UpdateRuleForm(props: {
                 <div className="col-span-3 space-y-4">
                   {actionInputs[watch(`actions.${i}.type`)].fields.map(
                     (field) => {
+                      const isAiGenerated =
+                        watch(`actions.${i}.${field.name}`) ===
+                        AI_GENERATED_FIELD_VALUE;
+
                       return (
-                        <Input
-                          key={field.label}
-                          type="text"
-                          as={field.textArea ? "textarea" : undefined}
-                          rows={field.textArea ? 3 : undefined}
-                          name={`actions.${i}.${field.name}`}
-                          label={field.label}
-                          placeholder="AI Generated"
-                          registerProps={register(`actions.${i}.${field.name}`)}
-                          error={errors["actions"]?.[i]?.[field.name]}
-                        />
+                        <div key={field.label}>
+                          <div className="flex items-center justify-between">
+                            <Label name={field.name} label={field.label} />
+                            <div className="flex items-center space-x-2">
+                              <Tooltip content="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation.">
+                                <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
+                              </Tooltip>
+                              <Toggle
+                                name={`actions.${i}.${field.name}`}
+                                label="AI generated"
+                                enabled={isAiGenerated}
+                                onChange={(enabled) => {
+                                  setValue(
+                                    `actions.${i}.${field.name}`,
+                                    enabled ? AI_GENERATED_FIELD_VALUE : "",
+                                  );
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {isAiGenerated ? (
+                            <input
+                              className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
+                              type="text"
+                              disabled
+                              value=""
+                              placeholder="AI Generated"
+                            />
+                          ) : (
+                            <>
+                              {field.textArea ? (
+                                <textarea
+                                  className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                                  rows={3}
+                                  {...register(`actions.${i}.${field.name}`)}
+                                />
+                              ) : (
+                                <input
+                                  className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                                  type="text"
+                                  {...register(`actions.${i}.${field.name}`)}
+                                />
+                              )}
+                            </>
+                          )}
+                          {errors["actions"]?.[i]?.[field.name]?.message ? (
+                            <ErrorMessage
+                              message={
+                                errors["actions"]?.[i]?.[field.name]?.message!
+                              }
+                            />
+                          ) : null}
+                        </div>
                       );
                     },
                   )}
@@ -205,6 +249,22 @@ function UpdateRuleForm(props: {
           Add Action
         </Button>
       </div>
+
+      <div className="mt-4 flex items-center justify-end space-x-2">
+        <Tooltip content="Enable to run this rule on all emails, including threads. When disabled the rule only runs on individual emails.">
+          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
+        </Tooltip>
+
+        <Toggle
+          name="runOnThreads"
+          label="Run on threads"
+          enabled={watch("runOnThreads") || false}
+          onChange={(enabled) => {
+            setValue("runOnThreads", enabled);
+          }}
+        />
+      </div>
+
       <div className="flex justify-end">
         <SubmitButtonWrapper>
           <Button type="submit" loading={isSubmitting}>

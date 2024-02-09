@@ -1,3 +1,5 @@
+export const AI_GENERATED_FIELD_VALUE = "___AI_GENERATE___";
+
 // This will be a user setting in the future
 export const generalPrompt = `
 I am the CEO of OpenAI. OpenAI is a research laboratory whose mission to ensure that artificial general intelligence benefits all of humanity.

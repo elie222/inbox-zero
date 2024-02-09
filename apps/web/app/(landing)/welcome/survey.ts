@@ -2,30 +2,61 @@
 export const survey = {
   questions: [
     {
-      type: "single_choice",
-      choices: ["Yes", "No", "Not sure yet"],
-      // editted
-      question: "Is a newsletter cleaner helpful to you?",
-      image: "/images/newsletters.png",
+      type: "multiple_choice",
+      question: "Which features are you most interested in?",
+      choices: [
+        "AI Automation",
+        "Newsletter Cleaner",
+        "Cold Email Blocker",
+        "Email Analytics",
+        "Other",
+      ],
     },
     {
       type: "single_choice",
-      choices: ["Yes", "No", "Not sure yet"],
-      question: "Are email analytics important to you?",
-      image: "/images/stats.png",
+      question: "Which role best describes you?",
+      choices: [
+        "Founder",
+        "Executive",
+        "Investor",
+        "Sales",
+        "Marketing",
+        "Customer Support",
+        "Software Engineer",
+        "Other",
+      ],
     },
     {
       type: "single_choice",
-      choices: ["Yes", "No", "Not sure yet"],
-      question: "Are you interested in using AI auto responder?",
-      image: "/images/rules.png",
+      question: "What is the size of your company?",
+      choices: [
+        "Only me",
+        "2-10 people",
+        "11-100 people",
+        "101-1000 people",
+        "1000+ people",
+      ],
+    },
+    {
+      type: "single_choice",
+      question: "How did you hear about Inbox Zero?",
+      choices: [
+        "Search",
+        "Friend",
+        "Twitter",
+        "YouTube",
+        "Newsletter",
+        "Product Hunt",
+        "HackerNews",
+        "TikTok",
+        "Other Social Media",
+        "Other",
+      ],
     },
     {
       type: "open",
       question:
         "If you had a magical AI assistant that helps you handle your email, what tasks would be most helpful for it to perform?",
-      image: "/images/creative-work.svg",
-      zoomImage: false,
     },
   ],
 };

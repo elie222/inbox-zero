@@ -101,7 +101,7 @@ const TestRulesForm = () => {
         subject: "",
         textPlain: data.message,
         textHtml: "",
-        snippet: "",
+        snippet: data.message,
         threadId: "",
         messageId: "",
         headerMessageId: "",
@@ -177,7 +177,7 @@ function TestRulesContentRow(props: {
                     from: message.parsedMessage.headers.from,
                     to: message.parsedMessage.headers.to,
                     date: message.parsedMessage.headers.date,
-                    replyTo: message.parsedMessage.headers.replyTo,
+                    replyTo: message.parsedMessage.headers["reply-to"],
                     cc: message.parsedMessage.headers.cc,
                     subject: message.parsedMessage.headers.subject,
                     textPlain: message.parsedMessage.textPlain || null,
@@ -186,7 +186,7 @@ function TestRulesContentRow(props: {
                     threadId: message.threadId || "",
                     messageId: message.id || "",
                     headerMessageId:
-                      message.parsedMessage.headers.messageId || "",
+                      message.parsedMessage.headers["message-id"] || "",
                     references: message.parsedMessage.headers.references,
                   },
                   allowExecute: false,
@@ -225,11 +225,13 @@ function Plan(props: { plan: ActResponse }) {
     return (
       <AlertBasic
         variant="destructive"
-        title="No rule found!"
+        title="No rule found"
         description={
           <div className="space-y-2">
             <div>This email does not match any of the rules you have set.</div>
-            <div>{plan.reason}</div>
+            <div>
+              <strong>AI reason:</strong> {plan.reason}
+            </div>
           </div>
         }
       />
@@ -239,7 +241,7 @@ function Plan(props: { plan: ActResponse }) {
   if (plan.plannedAction?.actions) {
     return (
       <AlertBasic
-        title="Rule found!"
+        title={`Rule found: "${plan.rule.name}"`}
         variant="blue"
         description={plan.rule.instructions}
         icon={<CheckCircle2Icon className="h-4 w-4" />}

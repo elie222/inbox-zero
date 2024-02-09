@@ -15,7 +15,9 @@ const SCOPES = [
 
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.settings.basic",
-  // "https://www.googleapis.com/auth/contacts",
+  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED
+    ? ["https://www.googleapis.com/auth/contacts"]
+    : []),
 ];
 
 export const getAuthOptions: (options?: {

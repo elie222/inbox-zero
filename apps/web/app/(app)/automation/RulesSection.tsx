@@ -127,11 +127,11 @@ export function RulesForm(props: {
           if (updatedRule) setValue(`rules.${i}.id`, updatedRule.id);
         }
 
-        // AI categorize rules
+        // use ai to create actions for new rules
         await Promise.all(
-          res.map(async (r, i) => {
-            // if the rule hasn't changed, don't recategorize
-            if (r.instructions === props.rules?.[i]?.instructions) return;
+          res.map(async (r) => {
+            // skip if the rule already has actions
+            if (r.actions.length) return;
 
             const categorizedRule = await postRequest<
               CategorizeRuleResponse,
@@ -167,7 +167,7 @@ export function RulesForm(props: {
 
       reset({ rules: data.rules.length ? data.rules : [{ instructions: "" }] });
     },
-    [setValue, props.rules, refetchRules, posthog, reset],
+    [setValue, refetchRules, posthog, reset],
   );
 
   const [edittingRule, setEdittingRule] = useState<UpdateRuleBody>();

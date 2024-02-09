@@ -11,10 +11,11 @@ import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { parseEmail } from "@/utils/mail";
 import { UserAIFields, getAiModel } from "@/utils/openai";
-import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
+import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
+import { captureException } from "@/utils/error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -94,7 +95,7 @@ export const POST = withError(async (request: Request) => {
     account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     console.debug(
-      "Google webhook: !hasAutomationRules && !shouldBlockColdEmails",
+      "Google webhook: has no rules set and cold email blocker disabled",
       decodedData.emailAddress,
     );
     return NextResponse.json({ ok: true });
@@ -125,31 +126,35 @@ export const POST = withError(async (request: Request) => {
     );
 
     const startHistoryId = Math.max(
-      // parseInt(account.user.lastSyncedHistoryId || "0"),
-      historyId - 100, // avoid going too far back
+      parseInt(account.user.lastSyncedHistoryId || "0"),
+      historyId - 500, // avoid going too far back
     ).toString();
 
     console.log(
       "Webhook: Listing history... Start:",
       startHistoryId,
+      "lastSyncedHistoryId",
+      account.user.lastSyncedHistoryId,
+      "gmail historyId",
+      historyId,
       decodedData.emailAddress,
     );
 
-    const history = await listHistory(
-      {
-        email: decodedData.emailAddress,
-        // NOTE this can cause problems if we're way behind
-        // NOTE this doesn't include startHistoryId in the results
-        startHistoryId,
-      },
-      gmail,
-    );
+    const history = await gmail.users.history.list({
+      userId: "me",
+      // NOTE this can cause problems if we're way behind
+      // NOTE this doesn't include startHistoryId in the results
+      startHistoryId,
+      labelId: INBOX_LABEL_ID,
+      historyTypes: ["messageAdded"],
+      maxResults: 10,
+    });
 
-    if (history?.length) {
+    if (history.data.history) {
       console.log("Webhook: Processing...", decodedData.emailAddress);
 
       await processHistory({
-        history,
+        history: history.data.history,
         userId: account.userId,
         userEmail: account.user.email,
         email: decodedData.emailAddress,
@@ -165,7 +170,7 @@ export const POST = withError(async (request: Request) => {
         hasAiAutomationAccess: hasAiAccess,
       });
     } else {
-      console.log("Webhook: No history", decodedData.emailAddress);
+      console.log("Webhook: No history", decodedData);
 
       // important to save this or we can get into a loop with never receiving history
       await prisma.user.update({
@@ -178,7 +183,8 @@ export const POST = withError(async (request: Request) => {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    captureException(error, { extra: { decodedData } });
+    console.error("Error processing webhook", error, decodedData);
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
     // return NextResponse.error();
@@ -206,23 +212,6 @@ function decodeHistoryId(body: any) {
   return { emailAddress: decodedData.emailAddress, historyId };
 }
 
-async function listHistory(
-  options: { email: string; startHistoryId: string },
-  gmail: gmail_v1.Gmail,
-): Promise<gmail_v1.Schema$History[] | undefined> {
-  const { startHistoryId } = options;
-
-  const history = await gmail.users.history.list({
-    userId: "me",
-    startHistoryId,
-    labelId: INBOX_LABEL_ID,
-    historyTypes: ["messageAdded"],
-    maxResults: 10,
-  });
-
-  return history.data.history;
-}
-
 type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];
   userId: string;
@@ -247,7 +236,12 @@ async function processHistory(options: ProcessHistoryOptions) {
     if (!h.messagesAdded?.length) continue;
 
     for (const m of h.messagesAdded) {
-      await processHistoryItem(m, options);
+      try {
+        await processHistoryItem(m, options);
+      } catch (error) {
+        captureException(error, { extra: { email, messageId: m.message?.id } });
+        console.error("Error processing history item", options.email, error);
+      }
     }
   }
 
@@ -267,38 +261,38 @@ async function processHistoryItem(
   if (!m.message?.threadId) return;
   // skip emails the user sent
   if (m.message.labelIds?.includes(SENT_LABEL_ID)) {
-    console.log(`Skipping email with SENT label`);
+    console.log(
+      `Skipping email with SENT label`,
+      options.userEmail,
+      m.message.id,
+    );
     return;
   }
 
-  const { userId, userEmail, gmail, rules, about } = options;
+  const { userId, userEmail, gmail, about } = options;
 
-  console.log("Getting message...", m.message.id);
+  console.log("Getting message...", options.userEmail, m.message.id);
 
   try {
     const gmailMessage = await getMessage(m.message.id, gmail, "full");
 
-    // skip messages in threads
     const gmailThread = await getThread(m.message.threadId!, gmail);
-    if ((gmailThread.messages?.length || 0) > 1) {
-      console.log(
-        `Skipping thread with ${gmailThread.messages?.length} messages`,
-      );
-      return;
-    }
+    const isThread = gmailThread.messages && gmailThread.messages.length > 1;
 
-    console.log("Fetched message");
+    console.log("Fetched message", options.userEmail, m.message.id);
 
     const parsedMessage = parseMessage(gmailMessage);
 
     if (
       options.coldEmailBlocker &&
       options.coldEmailBlocker !== ColdEmailSetting.DISABLED &&
-      options.hasColdEmailAccess
+      options.hasColdEmailAccess &&
+      // skip messages in threads
+      !isThread
     ) {
       const unsubscribeLink =
         findUnsubscribeLink(parsedMessage.textHtml) ||
-        getHeaderUnsubscribe(parsedMessage.headers);
+        parsedMessage.headers["list-unsubscribe"];
 
       const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
         from: parsedMessage.headers.from,
@@ -324,14 +318,31 @@ async function processHistoryItem(
     }
 
     if (options.hasAutomationRules && options.hasAiAutomationAccess) {
-      console.log("Plan or act on message...");
+      console.log("Plan or act on message...", options.userEmail, m.message.id);
 
       if (
         !parsedMessage.textHtml &&
         !parsedMessage.textPlain &&
         !parsedMessage.snippet
       ) {
-        console.log("Skipping. No plain text found.");
+        console.log(
+          "Skipping. No plain text found.",
+          options.userEmail,
+          m.message.id,
+        );
+        return;
+      }
+
+      const applicableRules = isThread
+        ? options.rules.filter((r) => r.runOnThreads)
+        : options.rules;
+
+      if (applicableRules.length === 0) {
+        console.log(
+          `Skipping thread with ${gmailThread.messages?.length} messages`,
+          options.userEmail,
+          m.message.id,
+        );
         return;
       }
 
@@ -345,7 +356,7 @@ async function processHistoryItem(
         allowExecute: true,
         email: {
           from: parsedMessage.headers.from,
-          replyTo: parsedMessage.headers.replyTo,
+          replyTo: parsedMessage.headers["reply-to"],
           cc: parsedMessage.headers.cc,
           subject: parsedMessage.headers.subject,
           textHtml: parsedMessage.textHtml || null,
@@ -354,11 +365,11 @@ async function processHistoryItem(
           content,
           threadId: m.message.threadId,
           messageId: m.message.id,
-          headerMessageId: parsedMessage.headers.messageId || "",
+          headerMessageId: parsedMessage.headers["message-id"] || "",
           // unsubscribeLink,
           // hasPreviousEmail,
         },
-        rules,
+        rules: applicableRules,
         gmail,
         userId,
         userEmail,
@@ -368,7 +379,7 @@ async function processHistoryItem(
         userAbout: about,
       });
 
-      console.log("Result:", res);
+      console.log("Result:", options.userEmail, m.message.id, res);
     }
 
     // if (shouldCategorise) {
@@ -394,7 +405,7 @@ async function processHistoryItem(
   } catch (error: any) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
-      console.log("Message not found.");
+      console.log("Message not found.", options.userEmail, m.message.id);
       return;
     }
 

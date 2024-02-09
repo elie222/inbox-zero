@@ -39,6 +39,7 @@ import {
   HeaderButton,
 } from "@/app/(app)/newsletters/common";
 import NewsletterSummary from "@/app/(app)/newsletters/NewsletterSummary";
+import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -88,6 +89,8 @@ export function NewsletterStats(props: {
     hasUnsubscribeAccess,
     mutate,
   });
+
+  const { isLoading: isStatsLoading } = useStatLoader();
 
   return (
     <>
@@ -148,36 +151,46 @@ export function NewsletterStats(props: {
           </div>
         </div>
 
-        <LoadingContent
-          loading={!data && isLoading}
-          error={error}
-          loadingComponent={<Skeleton className="m-4 h-screen rounded" />}
-        >
-          {data && (
-            <NewsletterTable
-              sortColumn={sortColumn}
-              setSortColumn={setSortColumn}
-              tableRows={data.newsletters
-                .slice(0, expanded ? undefined : 50)
-                .map((item) => (
-                  <NewsletterRow
-                    key={item.name}
-                    item={item}
-                    setOpenedNewsletter={setOpenedNewsletter}
-                    gmailLabels={gmailLabels?.labels || []}
-                    mutate={mutate}
-                    selected={selectedRow?.name === item.name}
-                    onSelectRow={() => {
-                      setSelectedRow(item);
-                    }}
-                    hasUnsubscribeAccess={hasUnsubscribeAccess}
-                    refetchPremium={refetchPremium}
-                  />
-                ))}
-            />
-          )}
-          <div className="mt-2 px-6 pb-6">{extra}</div>
-        </LoadingContent>
+        {isStatsLoading && !isLoading && !data?.newsletters.length ? (
+          <div className="p-4">
+            <Skeleton className="h-screen rounded" />
+          </div>
+        ) : (
+          <LoadingContent
+            loading={!data && isLoading}
+            error={error}
+            loadingComponent={
+              <div className="p-4">
+                <Skeleton className="h-screen rounded" />
+              </div>
+            }
+          >
+            {data && (
+              <NewsletterTable
+                sortColumn={sortColumn}
+                setSortColumn={setSortColumn}
+                tableRows={data.newsletters
+                  .slice(0, expanded ? undefined : 50)
+                  .map((item) => (
+                    <NewsletterRow
+                      key={item.name}
+                      item={item}
+                      setOpenedNewsletter={setOpenedNewsletter}
+                      gmailLabels={gmailLabels?.labels || []}
+                      mutate={mutate}
+                      selected={selectedRow?.name === item.name}
+                      onSelectRow={() => {
+                        setSelectedRow(item);
+                      }}
+                      hasUnsubscribeAccess={hasUnsubscribeAccess}
+                      refetchPremium={refetchPremium}
+                    />
+                  ))}
+              />
+            )}
+            <div className="mt-2 px-6 pb-6">{extra}</div>
+          </LoadingContent>
+        )}
       </Card>
       <NewsletterModal
         newsletter={openedNewsletter}

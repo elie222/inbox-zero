@@ -1,22 +1,26 @@
 import { type SyntheticEvent, useCallback, useMemo } from "react";
 import { capitalCase } from "capital-case";
+import { XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
-import { SendEmailForm } from "@/components/email-list/SendEmailForm";
 import { type Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
-import { XIcon } from "lucide-react";
+import { PlanBadge, getActionColor } from "@/components/PlanBadge";
+import {
+  ComposeEmailForm,
+  ReplyingToEmail,
+} from "@/app/(app)/compose/ComposeEmailForm";
 
 export function EmailPanel(props: {
   row: Thread;
-  showReply: boolean;
-  onShowReply: () => void;
+  replyingToEmail?: ReplyingToEmail;
+  onReply: () => void;
+  onCloseReply: () => void;
   isPlanning: boolean;
   isCategorizing: boolean;
-  isArchiving: boolean;
   onPlanAiAction: (thread: Thread) => void;
   onAiCategorize: (thread: Thread) => void;
   onArchive: (thread: Thread) => void;
@@ -30,7 +34,6 @@ export function EmailPanel(props: {
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
-  const showReply = props.showReply;
   const showThread = props.row.messages?.length > 1;
 
   const plan = props.row.plan;
@@ -53,10 +56,9 @@ export function EmailPanel(props: {
         <div className="mt-3 flex items-center md:ml-2 md:mt-0">
           <ActionButtons
             threadId={props.row.id!}
-            onReply={props.onShowReply}
+            onReply={props.onReply}
             isPlanning={props.isPlanning}
             isCategorizing={props.isCategorizing}
-            isArchiving={props.isArchiving}
             onPlanAiAction={() => props.onPlanAiAction(props.row)}
             onAiCategorize={() => props.onAiCategorize(props.row)}
             onArchive={() => {
@@ -96,15 +98,14 @@ export function EmailPanel(props: {
         ) : (
           <EmailThread messages={props.row.messages} />
         )}
-        {showReply && (
-          <div className="h-64 shrink-0 border-t border-t-gray-100">
-            <SendEmailForm
-              threadId={props.row.id!}
-              // defaultMessage={props.row.plan?.response || ""}
-              defaultMessage={""}
-              subject={lastMessage.parsedMessage.headers.subject}
-              to={lastMessage.parsedMessage.headers.from}
-              cc={lastMessage.parsedMessage.headers.cc}
+        {props.replyingToEmail && (
+          <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
+            <ComposeEmailForm
+              replyingToEmail={props.replyingToEmail}
+              novelEditorClassName="h-40 overflow-auto"
+              submitButtonClassName="mx-8"
+              refetch={props.refetch}
+              onSuccess={props.onCloseReply}
             />
           </div>
         )}
@@ -212,10 +213,10 @@ function PlanExplanation(props: {
   if (!plan?.rule) return null;
 
   return (
-    <div className="border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
+    <div className="max-h-48 overflow-auto border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
       <div className="flex">
         <div className="flex-shrink-0">
-          <Badge color="green">{plan.rule.name}</Badge>
+          <PlanBadge plan={plan} />
         </div>
         <div className="ml-2">{plan.databaseRule?.instructions}</div>
       </div>
@@ -223,7 +224,9 @@ function PlanExplanation(props: {
         {plan.rule.actions?.map((action, i) => {
           return (
             <div key={i}>
-              <Badge color="green">{capitalCase(action.type)}</Badge>
+              <Badge color={getActionColor(action.type)}>
+                {capitalCase(action.type)}
+              </Badge>
             </div>
           );
         })}

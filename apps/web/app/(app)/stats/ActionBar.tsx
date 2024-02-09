@@ -25,7 +25,7 @@ export function ActionBar(props: {
   } = props;
 
   return (
-    <div className="sm:flex sm:space-x-1">
+    <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
       {period && setPeriod && (
         <DetailedStatsFilter
           label={`By ${period}`}

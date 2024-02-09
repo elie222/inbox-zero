@@ -173,7 +173,7 @@ function Emails(props: { fromEmail: string; refreshInterval?: number }) {
                 />
               }
               hideActionBarWhenEmpty
-              refetch={mutate}
+              refetch={() => mutate()}
             />
           )}
         </LoadingContent>

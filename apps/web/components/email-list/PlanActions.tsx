@@ -39,7 +39,8 @@ export function useExecutePlan(refetch: () => void) {
               replyTo: lastMessage.parsedMessage.headers["reply-to"],
               references: lastMessage.parsedMessage.headers["references"],
               date: lastMessage.parsedMessage.headers.date,
-              headerMessageId: lastMessage.parsedMessage.headers["message-id"],
+              headerMessageId:
+                lastMessage.parsedMessage.headers["message-id"] || "",
               textPlain: lastMessage.parsedMessage.textPlain || null,
               textHtml: lastMessage.parsedMessage.textHtml || null,
               snippet: lastMessage.snippet || null,
@@ -118,6 +119,7 @@ export function PlanActions(props: {
   }, [rejectPlan, thread]);
 
   if (!thread.plan?.rule) return null;
+  if (thread.plan?.executed) return null;
 
   return (
     <div className={cn("flex items-center space-x-1", props.className)}>

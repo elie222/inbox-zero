@@ -5,7 +5,7 @@ import { sleep } from "@/utils/sleep";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail } from "@/utils/email";
-import { findUnsubscribeLink, getHeaderUnsubscribe } from "@/utils/unsubscribe";
+import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 
 const PAGE_SIZE = 100;
@@ -152,7 +152,7 @@ async function saveBatch(
 
         const unsubscribeLink =
           findUnsubscribeLink(parsedEmail.textHtml) ||
-          getHeaderUnsubscribe(parsedEmail.headers);
+          parsedEmail.headers["list-unsubscribe"];
 
         const tinybirdEmail: TinybirdEmail = {
           ownerEmail,

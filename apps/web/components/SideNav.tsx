@@ -7,6 +7,7 @@ import { Dialog, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import {
   BarChartBigIcon,
+  BookIcon,
   CogIcon,
   CrownIcon,
   InboxIcon,
@@ -28,11 +29,6 @@ export const navigation = [
     icon: MailsIcon,
   },
   {
-    name: "New Senders",
-    href: "/new-senders",
-    icon: Users2Icon,
-  },
-  {
     name: "AI Automation",
     href: "/automation",
     icon: SparklesIcon,
@@ -46,6 +42,11 @@ export const navigation = [
     name: "Analytics",
     href: "/stats",
     icon: BarChartBigIcon,
+  },
+  {
+    name: "New Senders",
+    href: "/new-senders",
+    icon: Users2Icon,
   },
   { name: "Mail (Beta)", href: "/mail", icon: InboxIcon },
   // {
@@ -77,10 +78,10 @@ export const navigation = [
 
 const bottomLinks = [
   {
-    name: "Feature Requests",
-    href: "/feature-requests",
+    name: "User Guide",
+    href: "https://docs.getinboxzero.com",
     target: "_blank",
-    icon: LightbulbIcon,
+    icon: BookIcon,
   },
   {
     name: "Join Discord",
@@ -94,6 +95,12 @@ const bottomLinks = [
         ></path>
       </svg>
     ),
+  },
+  {
+    name: "Feature Requests",
+    href: "/feature-requests",
+    target: "_blank",
+    icon: LightbulbIcon,
   },
   {
     name: "Star on GitHub",

@@ -21,7 +21,7 @@ export const env = createEnv({
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
     LEMON_SQUEEZY_API_KEY: z.string().optional(),
-    TINYBIRD_TOKEN: z.string(),
+    TINYBIRD_TOKEN: z.string().min(1),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
     ENCRYPT_SECRET: z.string().optional(),
     ENCRYPT_SALT: z.string().optional(),

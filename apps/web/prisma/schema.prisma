@@ -55,6 +55,7 @@ model User {
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
   completedOnboarding       Boolean   @default(false)
+  onboardingAnswers         Json?
 
   // settings
   aiModel             String?
@@ -148,6 +149,7 @@ model Rule {
   instructions  String
   actions       Action[]
   automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
+  runOnThreads  Boolean        @default(false) // if disabled only runs on individual emails
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules ExecutedRule[]

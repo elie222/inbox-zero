@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import clsx from "clsx";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
@@ -20,10 +19,6 @@ import { GroupHeading } from "@/components/GroupHeading";
 import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
 import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { Checkbox } from "@/components/Checkbox";
-import {
-  ArchiveBody,
-  ArchiveResponse,
-} from "@/app/api/google/threads/archive/controller";
 import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
 import { EmailListItem } from "@/components/email-list/EmailListItem";
@@ -32,9 +27,17 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { trashThreadAction } from "@/utils/actions";
+import {
+  archiveEmails,
+  deleteEmails,
+  markReadThreads,
+} from "@/providers/QueueProvider";
+import { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 
-export function List(props: { emails: Thread[]; refetch: () => void }) {
+export function List(props: {
+  emails: Thread[];
+  refetch: (removedThreadIds?: string[]) => void;
+}) {
   const { emails, refetch } = props;
 
   const params = useSearchParams();
@@ -136,12 +139,11 @@ export function EmailList(props: {
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch: () => void;
+  refetch: (removedThreadIds?: string[]) => void;
 }) {
   const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
 
   const session = useSession();
-
   // if right panel is open
   const [openedRowId, setOpenedRowId] = useState<string>();
   const closePanel = useCallback(() => setOpenedRowId(undefined), []);
@@ -171,15 +173,12 @@ export function EmailList(props: {
     });
   }, [threads, isAllSelected]);
 
-  // could make this row specific in the future
-  const [showReply, setShowReply] = useState(false);
-  const onShowReply = useCallback(() => setShowReply(true), []);
+  const [replyingToEmail, setReplyingToEmail] = useState<ReplyingToEmail>();
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
     {},
   );
-  const [isArchiving, setIsArchiving] = useState<Record<string, boolean>>({});
 
   const onPlanAiAction = useCallback(
     (thread: Thread) => {
@@ -198,7 +197,7 @@ export function EmailList(props: {
                 from: message.parsedMessage.headers.from,
                 to: message.parsedMessage.headers.to,
                 date: message.parsedMessage.headers.date,
-                replyTo: message.parsedMessage.headers.replyTo,
+                replyTo: message.parsedMessage.headers["reply-to"],
                 cc: message.parsedMessage.headers.cc,
                 subject: message.parsedMessage.headers.subject,
                 textPlain: message.parsedMessage.textPlain || null,
@@ -206,7 +205,8 @@ export function EmailList(props: {
                 snippet: thread.snippet,
                 threadId: message.threadId || "",
                 messageId: message.id || "",
-                headerMessageId: message.parsedMessage.headers.messageId || "",
+                headerMessageId:
+                  message.parsedMessage.headers["message-id"] || "",
                 references: message.parsedMessage.headers.references,
               },
               allowExecute: false,
@@ -284,38 +284,16 @@ export function EmailList(props: {
     [refetch],
   );
 
-  const archive = useCallback(
-    async (thread: Thread) => {
-      setIsArchiving((s) => ({ ...s, [thread.id!]: true }));
-
-      const res = await postRequest<ArchiveResponse, ArchiveBody>(
-        "/api/google/threads/archive",
-        {
-          id: thread.id!,
-        },
-      );
-
-      if (isError(res)) {
-        console.error(res);
-        setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
-        throw new Error(`There was an error archiving the email.`);
-      } else {
-        refetch();
-      }
-      setIsArchiving((s) => ({ ...s, [thread.id!]: false }));
-    },
-    [refetch],
-  );
-
   const onArchive = useCallback(
     (thread: Thread) => {
-      toast.promise(() => archive(thread), {
+      const threadIds = [thread.id!];
+      toast.promise(() => archiveEmails(threadIds, () => refetch(threadIds)), {
         loading: "Archiving...",
         success: "Archived!",
         error: "There was an error archiving the email :(",
       });
     },
-    [archive],
+    [refetch],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -378,20 +356,28 @@ export function EmailList(props: {
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        onApplyAction(archive);
+        const threadIds = Object.entries(selectedRows)
+          .filter(([, selected]) => selected)
+          .map(([id]) => id);
+
+        archiveEmails(threadIds, () => refetch(threadIds));
       },
       {
         loading: "Archiving emails...",
-        success: "Emails archived!",
+        success: "Emails archived",
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [onApplyAction, archive]);
+  }, [selectedRows, refetch]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        onApplyAction((thread) => trashThreadAction(thread.id));
+        const threadIds = Object.entries(selectedRows)
+          .filter(([, selected]) => selected)
+          .map(([id]) => id);
+
+        deleteEmails(threadIds, () => refetch(threadIds));
       },
       {
         loading: "Deleting emails...",
@@ -399,7 +385,7 @@ export function EmailList(props: {
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [onApplyAction]);
+  }, [selectedRows, refetch]);
 
   const isEmpty = threads.length === 0;
 
@@ -455,7 +441,26 @@ export function EmailList(props: {
                   setOpenedRowId(thread.id!);
 
                   if (!alreadyOpen) scrollToId(thread.id!);
+
+                  markReadThreads([thread.id!], true, refetch);
                 };
+
+                const onReply = () => {
+                  onOpen();
+                  const lastMessage =
+                    thread.messages[thread.messages?.length - 1];
+
+                  setReplyingToEmail({
+                    threadId: thread.id!,
+                    subject: lastMessage.parsedMessage.headers.subject,
+                    to: lastMessage.parsedMessage.headers.from,
+                    cc: lastMessage.parsedMessage.headers.cc,
+                    headerMessageId:
+                      lastMessage.parsedMessage.headers["message-id"] || "",
+                    references: lastMessage.parsedMessage.headers.references,
+                  });
+                };
+
                 return (
                   <EmailListItem
                     ref={(node) => {
@@ -475,13 +480,9 @@ export function EmailList(props: {
                     onSelected={onSetSelectedRow}
                     splitView={!!openedRowId}
                     onClick={onOpen}
-                    onShowReply={() => {
-                      onOpen();
-                      onShowReply();
-                    }}
+                    onReply={onReply}
                     isPlanning={isPlanning[thread.id!]}
                     isCategorizing={isCategorizing[thread.id!]}
-                    isArchiving={isArchiving[thread.id!]}
                     onPlanAiAction={onPlanAiAction}
                     onAiCategorize={onAiCategorize}
                     onArchive={onArchive}
@@ -502,11 +503,24 @@ export function EmailList(props: {
               <ResizablePanel defaultSize={50} minSize={30}>
                 <EmailPanel
                   row={openedRow}
-                  showReply={showReply}
-                  onShowReply={onShowReply}
+                  replyingToEmail={replyingToEmail}
+                  onReply={() => {
+                    const lastMessage =
+                      openedRow.messages[openedRow.messages?.length - 1];
+
+                    setReplyingToEmail({
+                      threadId: openedRow.id!,
+                      subject: lastMessage.parsedMessage.headers.subject,
+                      to: lastMessage.parsedMessage.headers.from,
+                      cc: lastMessage.parsedMessage.headers.cc,
+                      headerMessageId:
+                        lastMessage.parsedMessage.headers["message-id"] || "",
+                      references: lastMessage.parsedMessage.headers.references,
+                    });
+                  }}
+                  onCloseReply={() => setReplyingToEmail(undefined)}
                   isPlanning={isPlanning[openedRowId]}
                   isCategorizing={isCategorizing[openedRowId]}
-                  isArchiving={isArchiving[openedRowId]}
                   onPlanAiAction={onPlanAiAction}
                   onAiCategorize={onAiCategorize}
                   onArchive={onArchive}

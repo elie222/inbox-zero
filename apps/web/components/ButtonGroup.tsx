@@ -13,7 +13,7 @@ export function ButtonGroup(props: {
   const lastIndex = props.buttons.length - 1;
 
   return (
-    <span className="isolate inline-flex rounded-md shadow-sm">
+    <span className="isolate inline-flex rounded-md bg-white shadow-sm">
       {props.buttons.map((button, index) => (
         <Tooltip key={button.text || button.tooltip} content={button.tooltip}>
           <Button
@@ -42,7 +42,7 @@ interface ButtonProps
 
 const Button = forwardRef(function Button(
   props: ButtonProps,
-  ref?: React.Ref<HTMLButtonElement>
+  ref?: React.Ref<HTMLButtonElement>,
 ) {
   return (
     <button
@@ -52,7 +52,7 @@ const Button = forwardRef(function Button(
         "relative inline-flex items-center bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-10",
         props.position === "left" && "rounded-l-md",
         props.position === "right" && "rounded-r-md",
-        (props.position === "center" || props.position === "right") && "-ml-px"
+        (props.position === "center" || props.position === "right") && "-ml-px",
       )}
       ref={ref}
     >
