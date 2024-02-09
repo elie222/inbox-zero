@@ -159,20 +159,6 @@ const topMailLinks: NavItem[] = [
     href: "#",
   },
   {
-    name: "Junk",
-    // label: "23",
-    icon: ArchiveXIcon,
-    // variant: "ghost",
-    href: "#",
-  },
-  {
-    name: "Trash",
-    // label: "",
-    icon: Trash2Icon,
-    // variant: "ghost",
-    href: "#",
-  },
-  {
     name: "Archive",
     // label: "",
     icon: ArchiveIcon,
@@ -350,7 +336,10 @@ function Sidebar(props: { isMobile: boolean }) {
 
             <Links path={path} links={topMailLinks} />
             <div className="mt-7">
-              <Links path={path} links={bottomMailLinks} />
+              <NavSectionHeader title="Labels" />
+              <div className="mt-2">
+                <Links path={path} links={bottomMailLinks} />
+              </div>
             </div>
           </Transition>
           <Transition
@@ -414,5 +403,13 @@ function NavLink(props: { path: string; link: NavItem }) {
         ) : null}
       </Link>
     </li>
+  );
+}
+
+function NavSectionHeader(props: { title: string }) {
+  return (
+    <div className="text-xs font-semibold leading-6 text-gray-400">
+      {props.title}
+    </div>
   );
 }
