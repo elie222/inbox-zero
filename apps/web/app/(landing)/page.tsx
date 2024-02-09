@@ -13,6 +13,8 @@ import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { HeroHeadingAB, HeroSubtitleAB } from "@/app/(landing)/home/HeroAB";
+import { env } from "@/env.mjs";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -21,7 +23,22 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <BasicLayout>
-      <Hero />
+      <Hero
+        title={
+          env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
+            <Suspense>
+              <HeroHeadingAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
+            </Suspense>
+          ) : undefined
+        }
+        subtitle={
+          env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
+            <Suspense>
+              <HeroSubtitleAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
+            </Suspense>
+          ) : undefined
+        }
+      />
       {/* <LogoCloud /> */}
       <Testimonials />
       <Features />
