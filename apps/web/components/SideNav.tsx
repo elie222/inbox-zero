@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Dialog, Transition } from "@headlessui/react";
@@ -31,16 +31,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/utils";
-import { SideNavMail } from "@/components/SideNavMail";
-import { Separator } from "@/components/ui/separator";
-import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { Button } from "@/components/ui/button";
 
 type NavItem = {
   name: string;
@@ -310,9 +301,8 @@ export function SideNav(props: {
 
 function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
-  console.log("🚀 ~ Sidebar ~ path:", path);
 
-  const showMailNav = path === "/mail";
+  const showMailNav = path === "/mail" || path === "/compose";
 
   // if (showMailNav) {
   //   return (
@@ -363,8 +353,6 @@ function Sidebar(props: { isMobile: boolean }) {
       </Link>
       <nav className="flex flex-1 flex-col">
         <ul role="list" className="flex flex-1 flex-col gap-y-7">
-          {/* {showMailNav ? <NavMail /> : <TopLinks path={path} />} */}
-
           <Transition
             show={showMailNav}
             enter="transition-opacity duration-300"
@@ -384,8 +372,7 @@ function Sidebar(props: { isMobile: boolean }) {
             </div>
 
             <Links path={path} links={topMailLinks} />
-            <Separator theme="dark" />
-            <div className="mt-2">
+            <div className="mt-7">
               <Links path={path} links={bottomMailLinks} />
             </div>
           </Transition>
@@ -407,89 +394,6 @@ function Sidebar(props: { isMobile: boolean }) {
         </ul>
       </nav>
     </div>
-  );
-}
-
-function NavMailX() {
-  const defaultCollapsed = false;
-  const defaultLayout = [265, 440, 655];
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
-  const navCollapsedSize = 0;
-
-  const onCollapse = (collapsed: boolean) => {
-    setIsCollapsed(collapsed);
-    document.cookie = `react-resizable-panels:collapsed=${JSON.stringify(
-      collapsed,
-    )}`;
-  };
-
-  return (
-    <ResizablePanelGroup
-      direction="horizontal"
-      onLayout={(sizes: number[]) => {
-        document.cookie = `react-resizable-panels:layout=${JSON.stringify(
-          sizes,
-        )}`;
-      }}
-      className="h-full max-h-[800px] items-stretch"
-    >
-      <ResizablePanel
-        defaultSize={defaultLayout[0]}
-        collapsedSize={navCollapsedSize}
-        collapsible={true}
-        minSize={15}
-        maxSize={20}
-        onCollapse={() => onCollapse(true)}
-        onExpand={() => onCollapse(false)}
-        className={cn(
-          isCollapsed && "min-w-[50px] transition-all duration-300 ease-in-out",
-        )}
-      >
-        <div className="px-2 py-2">
-          <Button asChild className="w-full" variant="outline">
-            <Link href="/compose">Compose</Link>
-          </Button>
-        </div>
-        <Separator />
-        {/* <SideNavMail isCollapsed={isCollapsed} links={topMailLinks} /> */}
-        <Separator />
-        <SideNavMail
-          isCollapsed={isCollapsed}
-          links={[
-            {
-              title: "Social",
-              label: "972",
-              icon: Users2Icon,
-              variant: "ghost",
-            },
-            {
-              title: "Updates",
-              label: "342",
-              icon: AlertCircleIcon,
-              variant: "ghost",
-            },
-            {
-              title: "Forums",
-              label: "128",
-              icon: MessagesSquareIcon,
-              variant: "ghost",
-            },
-            {
-              title: "Shopping",
-              label: "8",
-              icon: ShoppingCartIcon,
-              variant: "ghost",
-            },
-            {
-              title: "Promotions",
-              label: "21",
-              icon: ArchiveIcon,
-              variant: "ghost",
-            },
-          ]}
-        />
-      </ResizablePanel>
-    </ResizablePanelGroup>
   );
 }
 
