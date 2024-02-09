@@ -14,24 +14,24 @@ import {
 } from "@tremor/react";
 import truncate from "lodash/truncate";
 import { useSession } from "next-auth/react";
-import { ExternalLinkIcon, Trash2 } from "lucide-react";
+import { ExternalLinkIcon, Trash2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { getGmailUrl } from "@/utils/url";
-import { useCallback } from "react";
 import { onTrashMessage } from "@/utils/actions-client";
-import { useStatLoader } from "@/providers/StatLoaderProvider";
-
+import { useState } from "react";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
-  const { isLoading: buttonLoader, onLoad } = useStatLoader();
+  const [deletingStatus, setDeletingStatus] = useState<Record<string, boolean>>(
+    {},
+  );
 
-  const { data, isLoading, error } = useSWRImmutable<
+  const { data, isLoading, error, mutate } = useSWRImmutable<
     LargestEmailsResponse,
     { error: string }
   >(`/api/user/stats/largest-emails`, {
@@ -40,9 +40,11 @@ export function LargestEmails(props: { refreshInterval: number }) {
 
   const { expanded, extra } = useExpanded();
 
-  const onTrash = useCallback(async (messageId: string | "") => {
-    await onTrashMessage(messageId);
-  }, []);
+  const onTrash = (messageId: string) => {
+    setDeletingStatus((prevMap: any) => ({ ...prevMap, [messageId]: true }));
+    onTrashMessage(messageId);
+    mutate();
+  };
 
   return (
     <LoadingContent
@@ -101,20 +103,20 @@ export function LargestEmails(props: { refreshInterval: number }) {
                       </TableCell>
                       <TableCell>
                         <Button
+                          key={item.id}
+                          disabled={item.id ? deletingStatus[item.id] : true}
                           variant="secondary"
                           size="sm"
                           onClick={() => {
-                            onTrash(item.id ? item.id : "");
-                            // onLoad({ loadBefore: true, showToast: true });
+                            if (item.id) onTrash(item.id);
                           }}
-                          // disabled={buttonLoader}
                         >
-                          {/* {isLoading ? (
-                            <ButtonLoader />
-                          ) : ( */}
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {/* )} */}
-                          Delete
+                          <Trash2Icon className="mr-2 h-4 w-4" />
+                          {item.id
+                            ? deletingStatus[item.id]
+                              ? "Deleting..."
+                              : "Delete"
+                            : null}
                         </Button>
                       </TableCell>
                     </TableRow>
