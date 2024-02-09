@@ -21,15 +21,13 @@ import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { getGmailUrl } from "@/utils/url";
 import { onTrashMessage } from "@/utils/actions-client";
 import { useState } from "react";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
-  const [deletingStatus, setDeletingStatus] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({});
 
   const { data, isLoading, error, mutate } = useSWRImmutable<
     LargestEmailsResponse,
@@ -39,12 +37,6 @@ export function LargestEmails(props: { refreshInterval: number }) {
   });
 
   const { expanded, extra } = useExpanded();
-
-  const onTrash = (messageId: string) => {
-    setDeletingStatus((prevMap: any) => ({ ...prevMap, [messageId]: true }));
-    onTrashMessage(messageId);
-    mutate();
-  };
 
   return (
     <LoadingContent
@@ -104,19 +96,31 @@ export function LargestEmails(props: { refreshInterval: number }) {
                       <TableCell>
                         <Button
                           key={item.id}
-                          disabled={item.id ? deletingStatus[item.id] : true}
+                          disabled={isDeleting[item.id!]}
                           variant="secondary"
                           size="sm"
                           onClick={() => {
-                            if (item.id) onTrash(item.id);
+                            if (item.id) {
+                              setIsDeleting((prevMap: any) => ({
+                                ...prevMap,
+                                [item.id!]: true,
+                              }));
+                              onTrashMessage(item.id!);
+                              mutate();
+                            }
                           }}
                         >
-                          <Trash2Icon className="mr-2 h-4 w-4" />
-                          {item.id
-                            ? deletingStatus[item.id]
-                              ? "Deleting..."
-                              : "Delete"
-                            : null}
+                          {isDeleting[item.id!] ? (
+                            <>
+                              <ButtonLoader />
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2Icon className="mr-2 h-4 w-4" />
+                              Delete
+                            </>
+                          )}
                         </Button>
                       </TableCell>
                     </TableRow>
