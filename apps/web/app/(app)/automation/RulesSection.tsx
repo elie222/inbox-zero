@@ -11,13 +11,10 @@ import {
   HelpCircleIcon,
   MailQuestionIcon,
   PenIcon,
+  ShieldAlertIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
-import {
-  FormSection,
-  FormSectionRight,
-  SubmitButtonWrapper,
-} from "@/components/Form";
+import { FormSection, FormSectionRight } from "@/components/Form";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
@@ -65,7 +62,15 @@ const examples = [
     icon: <ForwardIcon className="h-4 w-4" />,
   },
   {
-    title: "Respond to support request",
+    title: "Label high priority emails",
+    description: `Mark high priority emails as "High Priority". Examples include:
+* Customer wants to cancel their plan
+* Customer wants to purchase
+* Customer complaint`,
+    icon: <ShieldAlertIcon className="h-4 w-4" />,
+  },
+  {
+    title: "Respond to question",
     description: `If someone asks how much the premium plan is, respond: "Our premium plan is $10 per month."`,
     icon: <MailQuestionIcon className="h-4 w-4" />,
   },

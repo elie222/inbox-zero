@@ -69,18 +69,11 @@ export default function PlannedPage() {
                 <>
                   <SectionDescription>
                     Set rules for our AI to handle incoming emails
-                    automatically.
-                  </SectionDescription>
-                  <SectionDescription>
-                    Use {`"Confirmation Mode"`} to preview the AI{"'"}s planned
-                    actions without immediate execution.
-                  </SectionDescription>
-                  <SectionDescription>
-                    For hands-free operation, switch to {`"Automated Mode"`},
-                    enabling the AI to process your emails autonomously.
+                    automatically. Run in {`"Confirmation Mode"`} or{" "}
+                    {`"Automated Mode"`}.
                   </SectionDescription>
                   {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
-                    <div className="mt-4">
+                    <div className="mt-4 max-w-prose">
                       <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
                     </div>
                   )}

@@ -21,7 +21,7 @@ export default function ColdEmailBlockerPage() {
         descriptionComponent={
           <>
             {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
-              <div className="mt-4">
+              <div className="mt-4 max-w-prose">
                 <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
               </div>
             )}
