@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
-import Link from "next/link";
-import { Dialog, Transition, Disclosure } from "@headlessui/react";
-import { cloneDeep } from "lodash";
+import { LabelsResponse } from "@/app/api/google/labels/route";
+import { LoadingMiniSpinner } from "@/components/Loading";
+import { Logo } from "@/components/Logo";
+import { Button } from "@/components/ui/button";
+import { Dialog, Transition } from "@headlessui/react";
 import clsx from "clsx";
 import {
   AlertCircleIcon,
@@ -27,17 +27,14 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   StarIcon,
+  TagIcon,
   Users2Icon,
   XIcon,
-  TagsIcon,
-  TagIcon,
-  ChevronUp,
 } from "lucide-react";
-import { Logo } from "@/components/Logo";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Fragment, useState } from "react";
 import useSWR from "swr";
-import { LabelsResponse } from "@/app/api/google/labels/route";
-import { Button } from "@/components/ui/button";
-import { LoadingMiniSpinner } from "@/components/Loading";
 
 type NavItem = {
   name: string;
@@ -281,59 +278,6 @@ function Sidebar(props: { isMobile: boolean }) {
   const { data, isLoading, error } =
     useSWR<LabelsResponse>("/api/google/labels");
 
-  const [open, setOpen] = useState<boolean>();
-
-  function tagItem(list: LabelsResponse["labels"]) {
-    return list?.map((label) => (
-      <a
-        href="#"
-        className={clsx(
-          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white",
-        )}
-        key={label.id}
-      >
-        <TagIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        {label.name}
-      </a>
-    ));
-  }
-
-  const LabelSection = (
-    <>{tagItem(data?.labels?.filter((label) => label?.type === "user"))}</>
-  );
-
-  const LabelSectionExpandable = (
-    <>
-      {tagItem(
-        cloneDeep(
-          data?.labels?.filter((label) => label?.type === "user") || [],
-        ).slice(0, 3),
-      )}
-      <Disclosure>
-        <Disclosure.Button
-          onClick={() => setOpen(!open)}
-          className="group flex w-full gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white"
-        >
-          <ChevronUp
-            className={clsx(
-              open ? "rotate-180 transform" : "",
-              `
-          h-5 w-5 `,
-            )}
-          />
-          More
-        </Disclosure.Button>
-        <Disclosure.Panel className="text-gray-500">
-          {tagItem(
-            cloneDeep(
-              data?.labels?.filter((label) => label?.type === "user") || [],
-            ).slice(3),
-          )}
-        </Disclosure.Panel>
-      </Disclosure>
-    </>
-  );
-
   const showMailNav = path === "/mail" || path === "/compose";
 
   return (
@@ -384,7 +328,25 @@ function Sidebar(props: { isMobile: boolean }) {
               <NavSectionHeader title="Labels" />
               <div className="mt-2">
                 <Links path={path} links={bottomMailLinks} />
-                {true && <LoadingMiniSpinner />}
+                {isLoading && (
+                  <div className="flex justify-center">
+                    <LoadingMiniSpinner />
+                  </div>
+                )}
+                {data && (
+                  <Links
+                    path={path}
+                    links={
+                      data?.labels
+                        ?.filter(({ type }) => type === "user")
+                        .map(({ name, id }) => ({
+                          name: name!,
+                          icon: TagIcon,
+                          href: `?type=${id}`,
+                        })) ?? []
+                    }
+                  />
+                )}
               </div>
             </div>
           </Transition>
