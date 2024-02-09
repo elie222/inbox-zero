@@ -57,7 +57,9 @@ export const env = createEnv({
     NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_VARIANT_ID: z.coerce.number().default(0),
 
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
-    NEXT_PUBLIC_CALL_LINK: z.string().default("https://cal.com/team/inbox-zero/feedback"),
+    NEXT_PUBLIC_CALL_LINK: z
+      .string()
+      .default("https://cal.com/team/inbox-zero/feedback"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
