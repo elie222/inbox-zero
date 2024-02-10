@@ -29,7 +29,7 @@ export interface StatsUpdateEmailProps {
 
 export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
   const {
-    baseUrl = "https://www.getinboxzero.com",
+    baseUrl = "https://www.syncade.io",
     // userEmail = "hello@example.com",
     received = 112,
     receivedPercentageDifference = 12,

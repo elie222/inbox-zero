@@ -1,15 +1,15 @@
-[![](apps/web/app/opengraph-image.png)](https://www.getinboxzero.com)
+[![](apps/web/app/opengraph-image.png)](https://www.syncade.io)
 
 <p align="center">
-  <a href="https://www.getinboxzero.com">
+  <a href="https://www.syncade.io">
     <h1 align="center">Inbox Zero</h1>
   </a>
   <p align="center">
     Open source email app to reach inbox zero fast.
     <br />
-    <a href="https://www.getinboxzero.com">Website</a>
+    <a href="https://www.syncade.io">Website</a>
     ·
-    <a href="https://www.getinboxzero.com/discord">Discord</a>
+    <a href="https://www.syncade.io/discord">Discord</a>
     ·
     <a href="https://github.com/elie222/inbox-zero">Issues</a>
     ·
@@ -47,13 +47,13 @@ Inbox Zero is an open-source email app whose goal is to help you reach inbox zer
 
 ## Feature Requests
 
-To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues). If you don't have a GitHub account you can request features [here](https://www.getinboxzero.com/feature-requests). Or join our [Discord](https://www.getinboxzero.com/discord).
+To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues). If you don't have a GitHub account you can request features [here](https://www.syncade.io/feature-requests). Or join our [Discord](https://www.syncade.io/discord).
 
 ## Getting Started for Developers
 
 ### Contributing to the project
 
-We have a public Kanban available [here](https://github.com/users/elie222/projects/1/views/1). Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
+We have a public Kanban available [here](https://github.com/users/elie222/projects/1/views/1). Join our [Discord](https://www.syncade.io/discord) to discuss tasks and check what's being worked on.
 
 ### Requirements
 
@@ -149,7 +149,7 @@ Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
 3. [Grant publish rights on your topic](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic)
 
 Set env var `GOOGLE_PUBSUB_TOPIC_NAME`.
-When creating the subscription select Push and the url should look something like: `https://www.getinboxzero.com/api/google/webhook` or `https://abc.ngrok-free.app/api/google/webhook` where the domain is your domain.
+When creating the subscription select Push and the url should look something like: `https://www.syncade.io/api/google/webhook` or `https://abc.ngrok-free.app/api/google/webhook` where the domain is your domain.
 
 To run in development ngrok can be helpful:
 

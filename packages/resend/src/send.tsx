@@ -26,7 +26,7 @@ const sendEmail = async ({
     return Promise.resolve();
   }
   return resend.emails.send({
-    from: "Syncade <elie@getinboxzero.com>",
+    from: "Syncade <james@devblock.pro>",
     to: test ? "delivered@resend.dev" : to,
     subject,
     react,

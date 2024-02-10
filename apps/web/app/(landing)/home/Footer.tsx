@@ -12,7 +12,7 @@ const navigation = {
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
-    { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
+    { name: "Contact", href: "mailto:james@devblock.pro", target: "_blank" },
     {
       name: "Documentation",
       href: "https://docs.syncade.io",
