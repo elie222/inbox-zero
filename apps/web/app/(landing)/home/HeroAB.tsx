@@ -15,12 +15,12 @@ const copy: {
       "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Fully open-source.",
   },
   autopilot: {
-    title: "Put Your Email on Autopilot",
+    title: "Autopilot For Your Email",
     subtitle:
       "Automate your email with our AI assistant by telling it in plain English how to handle your emails. Fully open-source.",
   },
   assistant: {
-    title: "Your AI assistant for email",
+    title: "Stop Letting Emails Control You",
     subtitle:
       "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Fully open-source.",
   },

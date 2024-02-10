@@ -62,6 +62,7 @@ export function PremiumAlert({
       }
       icon={<CrownIcon className="h-4 w-4" />}
       button={<Button link={{ href: "/premium" }}>Upgrade</Button>}
+      variant="blue"
     />
   );
 }

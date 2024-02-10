@@ -36,6 +36,7 @@ import { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 
 export function List(props: {
   emails: Thread[];
+  type?: string;
   refetch: (removedThreadIds?: string[]) => void;
 }) {
   const { emails, refetch } = props;
@@ -129,7 +130,13 @@ export function List(props: {
           refetch={refetch}
         />
       ) : (
-        <Celebration />
+        <Celebration
+          message={
+            props.type === "inbox"
+              ? "You made it to Inbox Zero!"
+              : "All emails handled!"
+          }
+        />
       )}
     </>
   );
