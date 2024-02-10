@@ -2,37 +2,14 @@ const faqs = [
   {
     question: "Do you store my emails?",
     answer:
-      "We store a hashed version of your emails for our analytics feature. As our code is open-source you can check our code to see this for yourself. For full data privacy you can self-host your own instance of Syncade.",
+      "We store a hashed version of your emails for our analytics feature. As our code is open-source you can check our code to see this for yourself. All email traffic is securely encrypted with TLS, safeguarding your data against unauthorized access.",
   },
-  {
-    question: "Is the code open-source?",
-    answer: (
-      <>
-        Yes! You can see the source code in our{" "}
-        <a
-          href="/github"
-          target="_blank"
-          className="font-semibold hover:underline"
-        >
-          GitHub repo
-        </a>
-        .
-      </>
-    ),
-  },
+
   {
     question: "Do you take feature requests?",
     answer: (
       <>
-        Yes! Post an issue on{" "}
-        <a
-          href="/github"
-          target="_blank"
-          className="font-semibold hover:underline"
-        >
-          GitHub
-        </a>{" "}
-        or{" "}
+        Yes! Reach out and{" "}
         <a
           href="mailto:james@devblock.pro"
           target="_blank"

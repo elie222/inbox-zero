@@ -10,10 +10,6 @@
     <a href="https://www.syncade.io">Website</a>
     ·
     <a href="https://www.syncade.io/discord">Discord</a>
-    ·
-    <a href="https://github.com/kodaneflash/inbox-zero">Issues</a>
-    ·
-    <a href="https://github.com/users/elie222/projects/1">Kanban</a>
   </p>
 </p>
 

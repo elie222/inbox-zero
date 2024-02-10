@@ -10,7 +10,11 @@ import { Logo } from "@/components/Logo";
 const navigation = [
   { name: "Features", href: "/#features" },
   { name: "FAQ", href: "/#faq" },
-  { name: "Open Source", href: "/github", target: "_blank" as const },
+  {
+    name: "Blog",
+    href: "https://www.syncade.io/blog",
+    target: "_blank" as const,
+  },
   { name: "Affiliates", href: "/affiliates", target: "_blank" as const },
   { name: "Pricing", href: "/#pricing" },
 ];

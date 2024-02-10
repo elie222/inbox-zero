@@ -14,7 +14,7 @@ const posts = [
     datetime: "2024-01-22",
     // category: { title: "Marketing", href: "#" },
     author: {
-      name: "Elie Steinbock",
+      name: "James Hernandez",
       role: "Founder",
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
@@ -29,7 +29,7 @@ const posts = [
     datetime: "2024-01-25",
     // category: { title: "Marketing", href: "#" },
     author: {
-      name: "Elie Steinbock",
+      name: "James Hernandez",
       role: "Founder",
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
