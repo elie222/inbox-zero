@@ -32,12 +32,12 @@ const nextConfig = {
     return [
       {
         source: "/feature-requests",
-        destination: "https://inboxzero.canny.io/feature-requests",
+        destination: "https://syncade.canny.io/feature-requests",
         permanent: true,
       },
       {
         source: '/feedback',
-        destination: 'https://inboxzero.canny.io/feature-requests',
+        destination: 'https://syncade.canny.io/feature-requests',
         permanent: true,
       },
       {
@@ -47,7 +47,7 @@ const nextConfig = {
       },
       {
         source: "/github",
-        destination: "https://github.com/elie222/inbox-zero",
+        destination: "https://github.com/kodaneflash/inbox-zero",
         permanent: true,
       },
       {
