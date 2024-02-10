@@ -68,7 +68,7 @@ export async function saveInboxZeroLabel(options: {
   labelKey: string;
   label: RedisLabel;
 }) {
-  const key = getInboxZeroLabelsKey(options.email);
+  const key = LabelsKey(options.email);
   return redis.hset(key, { [options.labelKey]: options.label });
 }
 
