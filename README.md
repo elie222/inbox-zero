@@ -70,7 +70,6 @@ The external services that are required are:
 - [OpenAI](https://platform.openai.com/api-keys)
 - [Google OAuth](https://console.cloud.google.com/apis/credentials)
 - [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list) - see set up instructions below
-- [Upstash Redis](https://upstash.com/)
 - [Tinybird](https://www.tinybird.co/)
 
 We use Postgres for the database.
@@ -98,8 +97,6 @@ The required environment variables:
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
 - `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region).
 - `OPENAI_API_KEY` -- OpenAI API key.
-- `UPSTASH_REDIS_URL` -- Redis URL from Upstash.
-- `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash.
 
 To run the migrations:
 
