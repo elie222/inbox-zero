@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
 // import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
-// import { FeaturesUnsubscribe } from "@/app/(landing)/home/Features";
+import { FeaturesColdEmailBlocker } from "@/app/(landing)/home/Features";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
@@ -24,7 +24,7 @@ export default function BlockColdEmails() {
       />
       {/* <LogoCloud /> */}
       <Testimonials />
-      {/* <FeaturesUnsubscribe /> */}
+      <FeaturesColdEmailBlocker />
       <Suspense>
         <Pricing />
       </Suspense>
