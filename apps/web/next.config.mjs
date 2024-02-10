@@ -67,7 +67,7 @@ const nextConfig = {
       },
       {
         source: "/affiliates",
-        destination: "https://inboxzero.lemonsqueezy.com/affiliates",
+        destination: "https://inboxzero.syncade.io/affiliates",
         permanent: true,
       },
     ];
