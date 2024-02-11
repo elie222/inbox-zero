@@ -12,11 +12,13 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { navigation } from "@/components/SideNav";
+import { useComposeModal } from "@/providers/ComposeModalProvider";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
 
   const router = useRouter();
+  const { onOpen } = useComposeModal();
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -51,9 +53,8 @@ export function CommandK() {
           <CommandGroup heading="Actions">
             <CommandItem
               onSelect={() => {
-                console.log("xxx");
-                router.push("/compose");
                 setOpen(false);
+                onOpen();
               }}
             >
               <PenLineIcon className="mr-2 h-4 w-4" />

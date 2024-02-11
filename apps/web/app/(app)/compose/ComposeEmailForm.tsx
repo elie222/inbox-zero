@@ -18,6 +18,7 @@ import { env } from "@/env.mjs";
 import "./novelEditorStyles.css";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Loading } from "@/components/Loading";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -273,4 +274,9 @@ export const ComposeEmailForm = (props: {
 };
 
 // import dynamically to stop Novel's Tailwind styling from overriding our own styling
-const NovelComponent = dynamic(() => import("novel").then((mod) => mod.Editor));
+const NovelComponent = dynamic(
+  () => import("novel").then((mod) => mod.Editor),
+  {
+    loading: () => <Loading />,
+  },
+);
