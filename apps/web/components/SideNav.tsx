@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
+import { useComposeModal } from "@/providers/ComposeModalProvider";
 
 type NavItem = {
   name: string;
@@ -271,8 +272,9 @@ export function SideNav(props: {
 
 function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
-
   const showMailNav = path === "/mail" || path === "/compose";
+
+  const { onOpen } = useComposeModal();
 
   return (
     <div
@@ -309,11 +311,9 @@ function Sidebar(props: { isMobile: boolean }) {
             />
 
             <div className="py-2">
-              <Button asChild className="w-full" variant="outline">
-                <Link href="/compose">
-                  <PenIcon className="mr-2 h-4 w-4" />
-                  Compose
-                </Link>
+              <Button className="w-full" variant="outline" onClick={onOpen}>
+                <PenIcon className="mr-2 h-4 w-4" />
+                Compose
               </Button>
             </div>
 
