@@ -21,10 +21,9 @@ import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { getGmailUrl } from "@/utils/url";
-import { onTrashMessage } from "@/utils/actions-client";
-import { useState } from "react";
+import { DeleteLargestEmail } from "./DeleteLargestEmail";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
   const { data, isLoading, error, mutate } = useSWRImmutable<
@@ -60,7 +59,6 @@ export function LargestEmails(props: { refreshInterval: number }) {
               {data.largestEmails
                 .slice(0, expanded ? undefined : 5)
                 .map((item) => {
-                  const [isDeleting, setIsDeleting] = useState(false);
                   return (
                     <TableRow key={item.id}>
                       <TableCell>{item.parsedMessage.headers.from}</TableCell>
@@ -93,31 +91,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
                         </Button>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          key={item.id}
-                          disabled={isDeleting}
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            if (item.id) {
-                              setIsDeleting(true);
-                              onTrashMessage(item.id!);
-                              mutate();
-                            }
-                          }}
-                        >
-                          {isDeleting ? (
-                            <>
-                              <ButtonLoader />
-                              Deleting...
-                            </>
-                          ) : (
-                            <>
-                              <Trash2Icon className="mr-2 h-4 w-4" />
-                              Delete
-                            </>
-                          )}
-                        </Button>
+                        <DeleteLargestEmail itemId={item.id!} mutate={mutate} />
                       </TableCell>
                     </TableRow>
                   );
