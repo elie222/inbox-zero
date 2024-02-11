@@ -35,6 +35,21 @@ const posts = [
       imageUrl: "/images/blog/elie-profile.jpg",
     },
   },
+  {
+    title: "Alternatives to Skiff Mail",
+    file: "alternatives-to-skiff-mail",
+    description:
+      "Notion recently aqcuired Skiff Mail and is sunsetting it in six months. Here are some good alternatives to consider for your email needs.",
+    date: "Feb 22, 2024",
+    datetime: "2024-02-22",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
 ];
 
 export default async function BlogPage() {
