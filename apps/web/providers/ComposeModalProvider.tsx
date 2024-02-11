@@ -20,7 +20,13 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   return (
     <ComposeModalContext.Provider value={{ onOpen: openModal }}>
       {props.children}
-      <Modal isOpen={isModalOpen} hideModal={closeModal} title="New Message">
+      <Modal
+        isOpen={isModalOpen}
+        hideModal={closeModal}
+        title="New Message"
+        size="4xl"
+        padding="sm"
+      >
         <div className="mt-4">
           <ComposeEmailForm />
         </div>
