@@ -3,11 +3,11 @@ import { Content } from "./content";
 import { StructuredData } from "@/app/blog/post/StructuredData";
 
 export const metadata: Metadata = {
-  title: "Why Build An Open Source SaaS",
+  title: "Alternatives to Skiff Mail",
   description:
-    "Open source SaaS products are blowing up. This is why you should consider building one.",
+    "Notion recently aqcuired Skiff Mail and is sunsetting it in six months. Here are some good alternatives to consider for your email needs.",
   alternates: {
-    canonical: "/blog/post/why-build-an-open-source-saas",
+    canonical: "/blog/post/alternatives-to-skiff-mail",
   },
 };
 
@@ -15,9 +15,9 @@ export default function Page() {
   return (
     <>
       <StructuredData
-        headline="Why Build An Open Source SaaS"
-        datePublished="2024-01-25T08:00:00+00:00"
-        dateModified="2024-01-25T08:00:00+00:00"
+        headline="Alternatives to Skiff Mail"
+        datePublished="2024-02-11T08:00:00+00:00"
+        dateModified="2024-02-11T08:00:00+00:00"
         authorName="Elie Steinbock"
         authorUrl="https://elie.tech"
         image={[]}

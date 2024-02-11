@@ -36,6 +36,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.getinboxzero.com/blog/post/why-build-an-open-source-saas",
     },
     {
+      url: "https://www.getinboxzero.com/blog/post/alternatives-to-skiff-mail",
+    },
+    {
       url: "https://docs.getinboxzero.com/",
     },
     {
