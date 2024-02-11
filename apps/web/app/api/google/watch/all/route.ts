@@ -70,15 +70,15 @@ async function watchAllEmails() {
         continue;
       }
 
-      if (
-        user.watchEmailsExpirationDate &&
-        new Date(user.watchEmailsExpirationDate) > addDays(new Date(), 2)
-      ) {
-        console.log(
-          `User ${user.email} already has a watchEmailsExpirationDate set to: ${user.watchEmailsExpirationDate}`,
-        );
-        continue;
-      }
+      // if (
+      //   user.watchEmailsExpirationDate &&
+      //   new Date(user.watchEmailsExpirationDate) > addDays(new Date(), 2)
+      // ) {
+      //   console.log(
+      //     `User ${user.email} already has a watchEmailsExpirationDate set to: ${user.watchEmailsExpirationDate}`,
+      //   );
+      //   continue;
+      // }
 
       const account = user.accounts[0];
       const gmail = await getGmailClientWithRefresh(
