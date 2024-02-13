@@ -19,11 +19,6 @@ const copy: {
     subtitle:
       "Automate your email with our AI assistant by telling it in plain English how to handle your emails. Fully open-source.",
   },
-  assistant: {
-    title: "Stop Letting Emails Control You",
-    subtitle:
-      "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Fully open-source.",
-  },
   clean: {
     title: "Clean Up Your Inbox In Minutes",
     subtitle:
