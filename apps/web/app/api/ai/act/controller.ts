@@ -1,12 +1,7 @@
 import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import {
-  DEFAULT_AI_MODEL,
-  UserAIFields,
-  functionsToTools,
-  getOpenAI,
-} from "@/utils/openai";
+import { DEFAULT_AI_MODEL, UserAIFields, getOpenAI } from "@/utils/openai";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
@@ -57,8 +52,6 @@ export async function getAiResponse(
     {
       role: "system" as const,
       content: `You are an AI assistant that helps people manage their emails.
-Never put placeholders in your email responses.
-Do not mention you are an AI assistant when responding to people.
 It's better not to act if you don't know how.
 
 These are the rules you can select from:
@@ -122,6 +115,7 @@ ${email.snippet}`,
     //   },
     // ],
   });
+  console.log("🚀 ~ messages:", messages);
 
   if (aiResponse.usage) {
     await saveAiUsage({
@@ -162,11 +156,10 @@ async function getArgsAiResponse(
     };
     userAbout: string;
     userEmail: string;
-    functions: ChatCompletionCreateParams.Function[];
     selectedFunction: ChatCompletionCreateParams.Function;
   } & UserAIFields,
 ) {
-  const { email, userAbout, userEmail, functions, selectedFunction } = options;
+  const { email, userAbout, userEmail, selectedFunction } = options;
 
   const messages = [
     {
@@ -207,7 +200,16 @@ ${email.content}`,
   ).chat.completions.create({
     model,
     messages,
-    tools: functionsToTools(functions),
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: selectedFunction.name,
+          description: "Act on the email using the selected rule.",
+          parameters: selectedFunction.parameters,
+        },
+      },
+    ],
     temperature: 0,
   });
 
@@ -344,7 +346,6 @@ export async function planAct(
         email,
         userAbout: options.userAbout,
         userEmail: options.userEmail,
-        functions,
         selectedFunction: selectedRule,
         aiModel: options.aiModel,
         openAIApiKey: options.openAIApiKey,
