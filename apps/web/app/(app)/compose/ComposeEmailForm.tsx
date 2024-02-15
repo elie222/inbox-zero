@@ -228,7 +228,7 @@ export const ComposeEmailForm = (props: {
             <Input
               type="text"
               name="to"
-              label="Recipient"
+              label="To"
               registerProps={register("to", { required: true })}
               error={errors.to}
             />
