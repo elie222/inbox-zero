@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
-// import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
+import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { FeaturesUnsubscribe } from "@/app/(landing)/home/Features";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
@@ -23,7 +23,7 @@ export default function NewsletterCleaner() {
         title="Clean up your newsletter subscriptions"
         subtitle="Effortlessly manage the newsletters in your inbox: one click unsubscribe, auto archive, or approve."
       />
-      {/* <LogoCloud /> */}
+      <LogoCloud />
       <Testimonials />
       <FeaturesUnsubscribe />
       <Suspense>

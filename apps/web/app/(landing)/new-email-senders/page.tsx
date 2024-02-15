@@ -6,9 +6,8 @@ import {
   ListStartIcon,
   ShieldHalfIcon,
 } from "lucide-react";
-import { Header } from "@/app/(landing)/home/Header";
 import { Hero } from "@/app/(landing)/home/Hero";
-// import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
+import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
@@ -30,7 +29,7 @@ export default function NewEmailSenders() {
         title="Manage and Block New Senders in Your Inbox"
         subtitle="Identify and control your new email connections with a single click."
       />
-      {/* <LogoCloud /> */}
+      <LogoCloud />
       <Testimonials />
       <FeaturesNewSenders />
       <Suspense>

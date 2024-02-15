@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
-// import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
+import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
@@ -24,7 +24,7 @@ export default function AiAutomation() {
         subtitle="Inbox Zero's AI automation simplifies your email management. It smartly handles repetitive queries, automates responses, and efficiently organizes your inbox, streamlining your email workflow for maximum efficiency."
         image="/images/ai-automation.png"
       />
-      {/* <LogoCloud /> */}
+      <LogoCloud />
       <Testimonials />
       <FeaturesAutomation />
       <Suspense>
