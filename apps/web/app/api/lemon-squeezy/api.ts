@@ -1,17 +1,20 @@
 "use server";
 
 import { env } from "@/env.mjs";
-import { LemonSqueezy } from "@lemonsqueezy/lemonsqueezy.js";
+import {
+  lemonSqueezySetup,
+  updateSubscriptionItem,
+} from "@lemonsqueezy/lemonsqueezy.js";
 
-function getLemon() {
+function setUpLemon() {
   if (!env.LEMON_SQUEEZY_API_KEY) return;
-  return new LemonSqueezy(env.LEMON_SQUEEZY_API_KEY);
+  lemonSqueezySetup({ apiKey: env.LEMON_SQUEEZY_API_KEY });
 }
 
 export async function updateSubscriptionItemQuantity(options: {
   id: number;
   quantity: number;
 }) {
-  const ls = getLemon();
-  return ls?.updateSubscriptionItem(options);
+  setUpLemon();
+  return updateSubscriptionItem(options.id, options.quantity);
 }
