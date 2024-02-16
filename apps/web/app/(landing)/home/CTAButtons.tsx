@@ -15,6 +15,7 @@ export function CTAButtons() {
         onClick={() => {
           posthog.capture("Clicked Get Started");
         }}
+        color="blue"
       >
         Get Started for Free
       </Button>

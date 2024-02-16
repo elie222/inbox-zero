@@ -8,7 +8,7 @@ const featuredTestimonial = {
     handle: "jonnilundy",
     imageUrl:
       "https://pbs.twimg.com/profile_images/1651273413053542400/6ul40RRM_400x400.jpg",
-    logoUrl: "/images/testimonials/resend-wordmark-black.svg",
+    logoUrl: "/images/logos/resend.svg",
   },
 };
 const testimonials: {

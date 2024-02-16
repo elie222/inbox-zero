@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
-import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import {
   Features,
   FeaturesUnsubscribe,
@@ -40,7 +39,6 @@ export default function Home() {
           ) : undefined
         }
       />
-      <LogoCloud />
       <Testimonials />
       <Features />
       <FeaturesUnsubscribe />

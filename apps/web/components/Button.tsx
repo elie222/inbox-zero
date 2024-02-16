@@ -17,7 +17,7 @@ interface ButtonProps
   loading?: boolean;
 }
 
-type Color = "primary" | "white" | "red" | "transparent";
+type Color = "primary" | "white" | "red" | "blue" | "transparent";
 type Size = "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "circle";
 
 export const Button = (props: ButtonProps) => {
@@ -67,8 +67,10 @@ export const Button = (props: ButtonProps) => {
             color === "red",
           "border border-gray-100 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-200":
             color === "white",
+          "bg-blue-600 text-white hover:bg-blue-500 focus:ring-blue-600":
+            color === "blue",
         },
-        className
+        className,
       )}
       {...rest}
       disabled={loading || props.disabled}

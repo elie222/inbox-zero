@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
-import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { FeaturesColdEmailBlocker } from "@/app/(landing)/home/Features";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
@@ -22,7 +21,6 @@ export default function BlockColdEmails() {
         title="Automatically block cold emails using AI"
         subtitle="Auto archive or label cold emails from your inbox."
       />
-      <LogoCloud />
       <Testimonials />
       <FeaturesColdEmailBlocker />
       <Suspense>

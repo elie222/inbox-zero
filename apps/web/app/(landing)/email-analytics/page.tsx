@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
-import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
@@ -24,7 +23,6 @@ export default function EmailAnalytics() {
         subtitle="Gain insights and enhance productivity: analyze your email patterns for better email inbox management."
         image="/images/analytics.png"
       />
-      <LogoCloud />
       <Testimonials />
       <FeaturesStats />
       <Suspense>
