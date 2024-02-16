@@ -1,6 +1,6 @@
 import { type SyntheticEvent, useCallback, useMemo } from "react";
 import { capitalCase } from "capital-case";
-import { XIcon } from "lucide-react";
+import { MoreVertical, ReplyAllIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -13,6 +13,13 @@ import {
   ComposeEmailForm,
   ReplyingToEmail,
 } from "@/app/(app)/compose/ComposeEmailForm";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -130,13 +137,45 @@ function EmailThread(props: { messages: Thread["messages"] }) {
                 </span>{" "}
                 <span className="text-gray-600">wrote</span>
               </h3>
-              <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
-                <time dateTime={message.parsedMessage.headers.date}>
-                  {formatShortDate(
-                    new Date(message.parsedMessage.headers.date),
-                  )}
-                </time>
-              </p>
+
+              <div className="flex items-center space-x-2">
+                <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
+                  <time dateTime={message.parsedMessage.headers.date}>
+                    {formatShortDate(
+                      new Date(message.parsedMessage.headers.date),
+                    )}
+                  </time>
+                </p>
+                <div className="flex items-center">
+                  <Tooltip content="Reply">
+                    <Button variant="ghost" size="icon">
+                      <ReplyIcon className="h-4 w-4" />
+                      <span className="sr-only">Reply</span>
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content="Reply all">
+                    <Button variant="ghost" size="icon">
+                      <ReplyAllIcon className="h-4 w-4" />
+                      <span className="sr-only">Reply all</span>
+                    </Button>
+                  </Tooltip>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">More</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>Forward</DropdownMenuItem>
+                      <DropdownMenuItem>Delete this message</DropdownMenuItem>
+                      <DropdownMenuItem>Report spam</DropdownMenuItem>
+                      <DropdownMenuItem>Mark as unread</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             </div>
             <div className="mt-4">
               {message.parsedMessage.textHtml ? (
