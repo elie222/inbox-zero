@@ -61,11 +61,6 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: "/instagram",
-        destination: "https://www.instagram.com/inboxzero_ai/",
-        permanent: true,
-      },
-      {
         source: "/waitlist",
         destination: "https://airtable.com/shr7HNx6FXaIxR5q6",
         permanent: true,
