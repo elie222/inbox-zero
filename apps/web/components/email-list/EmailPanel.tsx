@@ -1,4 +1,4 @@
-import { type SyntheticEvent, useCallback, useMemo } from "react";
+import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
 import { capitalCase } from "capital-case";
 import { MoreVertical, ReplyAllIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -122,6 +123,8 @@ export function EmailPanel(props: {
 }
 
 function EmailThread(props: { messages: Thread["messages"] }) {
+  const [showReply, setShowReply] = useState(false);
+
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul role="list" className="space-y-2 sm:space-y-4">
@@ -148,14 +151,21 @@ function EmailThread(props: { messages: Thread["messages"] }) {
                 </p>
                 <div className="flex items-center">
                   <Tooltip content="Reply">
-                    <Button variant="ghost" size="icon">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowReply(true)}
+                    >
                       <ReplyIcon className="h-4 w-4" />
                       <span className="sr-only">Reply</span>
                     </Button>
                   </Tooltip>
                   <Tooltip content="Reply all">
                     <Button variant="ghost" size="icon">
-                      <ReplyAllIcon className="h-4 w-4" />
+                      <ReplyAllIcon
+                        className="h-4 w-4"
+                        onClick={() => setShowReply(true)}
+                      />
                       <span className="sr-only">Reply all</span>
                     </Button>
                   </Tooltip>
@@ -168,7 +178,9 @@ function EmailThread(props: { messages: Thread["messages"] }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Forward</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowReply(true)}>
+                        Forward
+                      </DropdownMenuItem>
                       <DropdownMenuItem>Delete this message</DropdownMenuItem>
                       <DropdownMenuItem>Report spam</DropdownMenuItem>
                       <DropdownMenuItem>Mark as unread</DropdownMenuItem>
@@ -184,6 +196,16 @@ function EmailThread(props: { messages: Thread["messages"] }) {
                 <PlainEmail text={message.parsedMessage.textPlain || ""} />
               )}
             </div>
+
+            {showReply && (
+              <>
+                <Separator />
+
+                <div className="mt-4">
+                  <ComposeEmailForm onDiscard={() => setShowReply(false)} />
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ul>

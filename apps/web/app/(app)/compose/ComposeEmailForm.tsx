@@ -6,8 +6,8 @@ import useSWR from "swr";
 import dynamic from "next/dynamic";
 import { Combobox } from "@headlessui/react";
 import { z } from "zod";
-import { CheckCircleIcon, XIcon } from "lucide-react";
-import { Button } from "@/components/Button";
+import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input, Label } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isError } from "@/utils/error";
@@ -19,6 +19,7 @@ import "./novelEditorStyles.css";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loading } from "@/components/Loading";
+import { cn } from "@/utils";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -35,6 +36,7 @@ export const ComposeEmailForm = (props: {
   submitButtonClassName?: string;
   refetch?: () => void;
   onSuccess?: () => void;
+  onDiscard?: () => void;
 }) => {
   const { refetch, onSuccess } = props;
 
@@ -260,15 +262,31 @@ export const ComposeEmailForm = (props: {
         />
       </div>
 
-      <Button
-        type="submit"
-        loading={isSubmitting}
-        // issue: https://github.com/steven-tey/novel/pull/232
-        style={{ backgroundColor: "rgb(17, 24, 39)" }}
-        className={props.submitButtonClassName}
+      <div
+        className={cn(
+          "flex items-center justify-between",
+          props.submitButtonClassName,
+        )}
       >
-        Send
-      </Button>
+        <Button type="submit" variant="outline" disabled={isSubmitting}>
+          {isSubmitting && <ButtonLoader />}
+          Send
+        </Button>
+
+        {props.onDiscard && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className={props.submitButtonClassName}
+            disabled={isSubmitting}
+            onClick={props.onDiscard}
+          >
+            <TrashIcon className="h-4 w-4" />
+            <span className="sr-only">Discard</span>
+          </Button>
+        )}
+      </div>
     </form>
   );
 };
