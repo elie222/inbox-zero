@@ -39,6 +39,7 @@ type NavItem = {
   icon: LucideIcon | ((props: any) => React.ReactNode);
   target?: "_blank";
   count?: number;
+  hideInMail?: boolean;
 };
 
 export const navigation: NavItem[] = [
@@ -118,18 +119,21 @@ const bottomLinks: NavItem[] = [
         ></path>
       </svg>
     ),
+    hideInMail: true,
   },
   {
     name: "Feature Requests",
     href: "/feature-requests",
     target: "_blank",
     icon: LightbulbIcon,
+    hideInMail: true,
   },
   {
     name: "Star on GitHub",
     href: "/github",
     target: "_blank",
     icon: StarIcon,
+    hideInMail: true,
   },
   { name: "Premium", href: "/premium", icon: CrownIcon },
   { name: "Settings", href: "/settings", icon: CogIcon },
@@ -285,7 +289,7 @@ function Sidebar(props: { isMobile: boolean }) {
         },
       )}
     >
-      <Link href="/stats">
+      <Link href="/newsletters">
         <div className="flex h-16 shrink-0 items-center text-white">
           <Logo className="h-4" />
         </div>
@@ -338,7 +342,14 @@ function Sidebar(props: { isMobile: boolean }) {
           </Transition>
 
           <div className="mt-auto pt-7">
-            <Links path={path} links={bottomLinks} />
+            <Links
+              path={path}
+              links={
+                showMailNav
+                  ? bottomLinks.filter((l) => !l.hideInMail)
+                  : bottomLinks
+              }
+            />
           </div>
         </ul>
       </nav>
