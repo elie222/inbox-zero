@@ -14,20 +14,20 @@ import {
 } from "@tremor/react";
 import truncate from "lodash/truncate";
 import { useSession } from "next-auth/react";
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, Trash2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
-import { Button } from "@/components/ui/button";
 import { getGmailUrl } from "@/utils/url";
-
+import { Button, ButtonLoader } from "@/components/ui/button";
+import { onTrashMessage } from "@/utils/actions-client";
+import { useState } from "react";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
-
-  const { data, isLoading, error } = useSWRImmutable<
+  const { data, isLoading, error, mutate } = useSWRImmutable<
     LargestEmailsResponse,
     { error: string }
   >(`/api/user/stats/largest-emails`, {
@@ -53,6 +53,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
                 <TableHeaderCell>Date</TableHeaderCell>
                 <TableHeaderCell>Size</TableHeaderCell>
                 <TableHeaderCell>View</TableHeaderCell>
+                <TableHeaderCell>Delete</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -90,6 +91,9 @@ export function LargestEmails(props: { refreshInterval: number }) {
                           </Link>
                         </Button>
                       </TableCell>
+                      <TableCell>
+                        <DeleteLargestEmail itemId={item.id!} mutate={mutate} />
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -99,5 +103,42 @@ export function LargestEmails(props: { refreshInterval: number }) {
         </Card>
       )}
     </LoadingContent>
+  );
+}
+
+export function DeleteLargestEmail(props: {
+  itemId: string;
+  mutate: () => Promise<any>;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { itemId } = props;
+  return (
+    <>
+      <Button
+        key={itemId}
+        disabled={isDeleting}
+        variant="secondary"
+        size="sm"
+        onClick={async () => {
+          if (itemId) {
+            setIsDeleting(true);
+            await onTrashMessage(itemId!);
+            await props.mutate();
+          }
+        }}
+      >
+        {isDeleting ? (
+          <>
+            <ButtonLoader />
+            Deleting...
+          </>
+        ) : (
+          <>
+            <Trash2Icon className="mr-2 h-4 w-4" />
+            Delete
+          </>
+        )}
+      </Button>
+    </>
   );
 }
