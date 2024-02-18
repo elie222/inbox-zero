@@ -20,6 +20,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loading } from "@/components/Loading";
 import { cn } from "@/utils";
+import { extractNameFromEmail } from "@/utils/email";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -112,7 +113,14 @@ export const ComposeEmailForm = (props: {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {!props.replyingToEmail && (
+      {props.replyingToEmail ? (
+        <div>
+          <div>
+            <span className="text-green-500">Draft</span> to{" "}
+            {extractNameFromEmail(props.replyingToEmail.to)}
+          </div>
+        </div>
+      ) : (
         <>
           {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
             <div className="flex space-x-2">
