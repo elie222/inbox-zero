@@ -214,9 +214,9 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
 
       {showReply && (
         <>
-          <Separator />
+          <Separator className="my-4" />
 
-          <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
+          <div className="">
             <ComposeEmailForm
               replyingToEmail={{
                 to: message.parsedMessage.headers.from,
