@@ -35,6 +35,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useState } from "react";
 import useSWR from "swr";
+import { useComposeModal } from "@/providers/ComposeModalProvider";
 
 type NavItem = {
   name: string;
@@ -280,6 +281,8 @@ function Sidebar(props: { isMobile: boolean }) {
 
   const showMailNav = path === "/mail" || path === "/compose";
 
+  const { onOpen } = useComposeModal();
+
   return (
     <div
       className={clsx(
@@ -315,11 +318,9 @@ function Sidebar(props: { isMobile: boolean }) {
             />
 
             <div className="py-2">
-              <Button asChild className="w-full" variant="outline">
-                <Link href="/compose">
-                  <PenIcon className="mr-2 h-4 w-4" />
-                  Compose
-                </Link>
+              <Button className="w-full" variant="outline" onClick={onOpen}>
+                <PenIcon className="mr-2 h-4 w-4" />
+                Compose
               </Button>
             </div>
 

@@ -2,6 +2,7 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import {
   createAutoArchiveFilterAction,
   deleteFilterAction,
+  trashMessageAction,
   trashThreadAction,
 } from "@/utils/actions";
 
@@ -34,6 +35,16 @@ export async function onTrashThread(threadId: string) {
   } catch (error: any) {
     toastError({
       description: `There was an error deleting the thread: ${error.message}`,
+    });
+  }
+}
+export async function onTrashMessage(messageId: string) {
+  try {
+    await trashMessageAction(messageId);
+    toastSuccess({ description: "Message deleted!" });
+  } catch (error: any) {
+    toastError({
+      description: `There was an error deleting the message: ${error.message}`,
     });
   }
 }

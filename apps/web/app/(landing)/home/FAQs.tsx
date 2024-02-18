@@ -52,7 +52,7 @@ const faqs = [
   {
     question: "Which email providers does Inbox Zero support?",
     answer:
-      "We only support Gmail and Gsuite email accounts today. We may add support for other email providers such as Outlook in the future.",
+      "We only support Gmail and Google Workspace email accounts today. We may add support for other email providers such as Outlook in the future.",
   },
   {
     question: "Do you offer refunds?",

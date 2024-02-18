@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
+import { capitalCase } from "capital-case";
 import {
   BookOpenCheckIcon,
   CheckCircle2Icon,
@@ -239,11 +240,44 @@ function Plan(props: { plan: ActResponse }) {
   }
 
   if (plan.plannedAction?.actions) {
+    const MAX_LENGTH = 280;
+
+    const aiGeneratedContent = Object.entries(plan.plannedAction.args).map(
+      ([key, value]) => {
+        return (
+          <div key={key}>
+            <strong>{capitalCase(key)}: </strong>
+            {value}
+          </div>
+        );
+      },
+    );
+
     return (
       <AlertBasic
         title={`Rule found: "${plan.rule.name}"`}
         variant="blue"
-        description={plan.rule.instructions}
+        description={
+          <div className="mt-4 space-y-4">
+            {!!aiGeneratedContent.length && (
+              <div>
+                <strong>AI generated content: </strong>
+                {aiGeneratedContent}
+              </div>
+            )}
+            {!!plan.reason && (
+              <div>
+                <strong>AI reason: </strong>
+                {plan.reason}
+              </div>
+            )}
+            <div>
+              <strong>Instructions: </strong>
+              {plan.rule.instructions.substring(0, MAX_LENGTH) +
+                (plan.rule.instructions.length < MAX_LENGTH ? "" : "...")}
+            </div>
+          </div>
+        }
         icon={<CheckCircle2Icon className="h-4 w-4" />}
       />
     );
