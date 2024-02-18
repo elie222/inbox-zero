@@ -32,7 +32,6 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/providers/QueueProvider";
-import { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 
 export function List(props: {
   emails: Thread[];
@@ -179,8 +178,6 @@ export function EmailList(props: {
       setSelectedRows((s) => ({ ...s, [thread.id!]: !isAllSelected }));
     });
   }, [threads, isAllSelected]);
-
-  const [replyingToEmail, setReplyingToEmail] = useState<ReplyingToEmail>();
 
   const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
@@ -452,22 +449,6 @@ export function EmailList(props: {
                   markReadThreads([thread.id!], true, refetch);
                 };
 
-                const onReply = () => {
-                  onOpen();
-                  const lastMessage =
-                    thread.messages[thread.messages?.length - 1];
-
-                  setReplyingToEmail({
-                    threadId: thread.id!,
-                    subject: lastMessage.parsedMessage.headers.subject,
-                    to: lastMessage.parsedMessage.headers.from,
-                    cc: lastMessage.parsedMessage.headers.cc,
-                    headerMessageId:
-                      lastMessage.parsedMessage.headers["message-id"] || "",
-                    references: lastMessage.parsedMessage.headers.references,
-                  });
-                };
-
                 return (
                   <EmailListItem
                     ref={(node) => {
@@ -487,7 +468,6 @@ export function EmailList(props: {
                     onSelected={onSetSelectedRow}
                     splitView={!!openedRowId}
                     onClick={onOpen}
-                    onReply={onReply}
                     isPlanning={isPlanning[thread.id!]}
                     isCategorizing={isCategorizing[thread.id!]}
                     onPlanAiAction={onPlanAiAction}
@@ -510,22 +490,6 @@ export function EmailList(props: {
               <ResizablePanel defaultSize={50} minSize={30}>
                 <EmailPanel
                   row={openedRow}
-                  replyingToEmail={replyingToEmail}
-                  onReply={() => {
-                    const lastMessage =
-                      openedRow.messages[openedRow.messages?.length - 1];
-
-                    setReplyingToEmail({
-                      threadId: openedRow.id!,
-                      subject: lastMessage.parsedMessage.headers.subject,
-                      to: lastMessage.parsedMessage.headers.from,
-                      cc: lastMessage.parsedMessage.headers.cc,
-                      headerMessageId:
-                        lastMessage.parsedMessage.headers["message-id"] || "",
-                      references: lastMessage.parsedMessage.headers.references,
-                    });
-                  }}
-                  onCloseReply={() => setReplyingToEmail(undefined)}
                   isPlanning={isPlanning[openedRowId]}
                   isCategorizing={isCategorizing[openedRowId]}
                   onPlanAiAction={onPlanAiAction}

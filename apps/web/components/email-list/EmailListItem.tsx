@@ -26,7 +26,6 @@ export const EmailListItem = forwardRef(
       onClick: MouseEventHandler<HTMLLIElement>;
       closePanel: () => void;
       onSelected: (id: string) => void;
-      onReply: () => void;
       isPlanning: boolean;
       isCategorizing: boolean;
       onPlanAiAction: (thread: Thread) => void;
@@ -127,7 +126,6 @@ export const EmailListItem = forwardRef(
                 >
                   <ActionButtons
                     threadId={thread.id!}
-                    onReply={props.onReply}
                     isPlanning={props.isPlanning}
                     isCategorizing={props.isCategorizing}
                     onPlanAiAction={() => props.onPlanAiAction(thread)}

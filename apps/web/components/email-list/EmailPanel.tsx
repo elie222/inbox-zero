@@ -15,10 +15,7 @@ import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { PlanBadge, getActionColor } from "@/components/PlanBadge";
-import {
-  ComposeEmailForm,
-  ReplyingToEmail,
-} from "@/app/(app)/compose/ComposeEmailForm";
+import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,9 +27,6 @@ import { Separator } from "@/components/ui/separator";
 
 export function EmailPanel(props: {
   row: Thread;
-  replyingToEmail?: ReplyingToEmail;
-  onReply: () => void;
-  onCloseReply: () => void;
   isPlanning: boolean;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
@@ -47,8 +41,6 @@ export function EmailPanel(props: {
   refetch: () => void;
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
-
-  const showThread = props.row.messages?.length > 1;
 
   const plan = props.row.plan;
 
@@ -70,7 +62,6 @@ export function EmailPanel(props: {
         <div className="mt-3 flex items-center md:ml-2 md:mt-0">
           <ActionButtons
             threadId={props.row.id!}
-            onReply={props.onReply}
             isPlanning={props.isPlanning}
             isCategorizing={props.isCategorizing}
             onPlanAiAction={() => props.onPlanAiAction(props.row)}
@@ -105,24 +96,7 @@ export function EmailPanel(props: {
             rejectingPlan={props.rejectingPlan}
           />
         )}
-        {showThread ? (
-          <EmailThread messages={props.row.messages} />
-        ) : lastMessage.parsedMessage.textHtml ? (
-          <HtmlEmail html={lastMessage.parsedMessage.textHtml} />
-        ) : (
-          <EmailThread messages={props.row.messages} />
-        )}
-        {/* {props.replyingToEmail && (
-          <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
-            <ComposeEmailForm
-              replyingToEmail={props.replyingToEmail}
-              novelEditorClassName="h-40 overflow-auto"
-              submitButtonClassName="mx-8"
-              refetch={props.refetch}
-              onSuccess={props.onCloseReply}
-            />
-          </div>
-        )} */}
+        <EmailThread messages={props.row.messages} />
       </div>
     </div>
   );
@@ -149,7 +123,7 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
   const onCloseReply = useCallback(() => setShowReply(false), []);
 
   return (
-    <li className="bg-white px-4 py-6 shadow sm:rounded-lg sm:px-6">
+    <li className="bg-white p-4 shadow sm:rounded-lg">
       <div className="sm:flex sm:items-baseline sm:justify-between">
         <h3 className="text-base font-medium">
           <span className="text-gray-900">
@@ -244,9 +218,14 @@ function HtmlEmail(props: { html: string }) {
   const onLoad = useCallback(
     (event: SyntheticEvent<HTMLIFrameElement, Event>) => {
       if (event.currentTarget.contentWindow) {
+        // sometimes we see minimal scrollbar, so add a buffer
+        const BUFFER = 5;
+
         event.currentTarget.style.height =
           event.currentTarget.contentWindow.document.documentElement
-            .scrollHeight + "px";
+            .scrollHeight +
+          BUFFER +
+          "px";
       }
     },
     [],
