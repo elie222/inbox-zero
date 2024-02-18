@@ -1,6 +1,12 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
 import { capitalCase } from "capital-case";
-import { MoreVertical, ReplyAllIcon, ReplyIcon, XIcon } from "lucide-react";
+import {
+  ForwardIcon,
+  MoreVertical,
+  ReplyAllIcon,
+  ReplyIcon,
+  XIcon,
+} from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -106,7 +112,7 @@ export function EmailPanel(props: {
         ) : (
           <EmailThread messages={props.row.messages} />
         )}
-        {props.replyingToEmail && (
+        {/* {props.replyingToEmail && (
           <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
             <ComposeEmailForm
               replyingToEmail={props.replyingToEmail}
@@ -116,100 +122,119 @@ export function EmailPanel(props: {
               onSuccess={props.onCloseReply}
             />
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
 }
 
 function EmailThread(props: { messages: Thread["messages"] }) {
-  const [showReply, setShowReply] = useState(false);
-
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul role="list" className="space-y-2 sm:space-y-4">
         {props.messages?.map((message) => (
-          <li
-            key={message.id}
-            className="bg-white px-4 py-6 shadow sm:rounded-lg sm:px-6"
-          >
-            <div className="sm:flex sm:items-baseline sm:justify-between">
-              <h3 className="text-base font-medium">
-                <span className="text-gray-900">
-                  {extractNameFromEmail(message.parsedMessage.headers.from)}
-                </span>{" "}
-                <span className="text-gray-600">wrote</span>
-              </h3>
-
-              <div className="flex items-center space-x-2">
-                <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
-                  <time dateTime={message.parsedMessage.headers.date}>
-                    {formatShortDate(
-                      new Date(message.parsedMessage.headers.date),
-                    )}
-                  </time>
-                </p>
-                <div className="flex items-center">
-                  <Tooltip content="Reply">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setShowReply(true)}
-                    >
-                      <ReplyIcon className="h-4 w-4" />
-                      <span className="sr-only">Reply</span>
-                    </Button>
-                  </Tooltip>
-                  <Tooltip content="Reply all">
-                    <Button variant="ghost" size="icon">
-                      <ReplyAllIcon
-                        className="h-4 w-4"
-                        onClick={() => setShowReply(true)}
-                      />
-                      <span className="sr-only">Reply all</span>
-                    </Button>
-                  </Tooltip>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                        <span className="sr-only">More</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setShowReply(true)}>
-                        Forward
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>Delete this message</DropdownMenuItem>
-                      <DropdownMenuItem>Report spam</DropdownMenuItem>
-                      <DropdownMenuItem>Mark as unread</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4">
-              {message.parsedMessage.textHtml ? (
-                <HtmlEmail html={message.parsedMessage.textHtml} />
-              ) : (
-                <PlainEmail text={message.parsedMessage.textPlain || ""} />
-              )}
-            </div>
-
-            {showReply && (
-              <>
-                <Separator />
-
-                <div className="mt-4">
-                  <ComposeEmailForm onDiscard={() => setShowReply(false)} />
-                </div>
-              </>
-            )}
-          </li>
+          <EmailMessage key={message.id} message={message} />
         ))}
       </ul>
     </div>
+  );
+}
+
+function EmailMessage(props: { message: Thread["messages"][0] }) {
+  const { message } = props;
+
+  const [showReply, setShowReply] = useState(false);
+
+  const onReply = useCallback(() => setShowReply(true), []);
+  const onCloseReply = useCallback(() => setShowReply(false), []);
+
+  return (
+    <li className="bg-white px-4 py-6 shadow sm:rounded-lg sm:px-6">
+      <div className="sm:flex sm:items-baseline sm:justify-between">
+        <h3 className="text-base font-medium">
+          <span className="text-gray-900">
+            {extractNameFromEmail(message.parsedMessage.headers.from)}
+          </span>{" "}
+          <span className="text-gray-600">wrote</span>
+        </h3>
+
+        <div className="flex items-center space-x-2">
+          <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
+            <time dateTime={message.parsedMessage.headers.date}>
+              {formatShortDate(new Date(message.parsedMessage.headers.date))}
+            </time>
+          </p>
+          <div className="flex items-center">
+            <Tooltip content="Reply">
+              <Button variant="ghost" size="icon" onClick={onReply}>
+                <ReplyIcon className="h-4 w-4" />
+                <span className="sr-only">Reply</span>
+              </Button>
+            </Tooltip>
+            <Tooltip content="Reply all">
+              <Button variant="ghost" size="icon">
+                <ReplyAllIcon className="h-4 w-4" onClick={onReply} />
+                <span className="sr-only">Reply all</span>
+              </Button>
+            </Tooltip>
+            <Tooltip content="Forward">
+              <Button variant="ghost" size="icon">
+                <ForwardIcon className="h-4 w-4" onClick={onReply} />
+                <span className="sr-only">Forward</span>
+              </Button>
+            </Tooltip>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">More</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {/* <DropdownMenuItem onClick={onReply}>
+                Forward
+              </DropdownMenuItem> */}
+                <DropdownMenuItem>Delete this message</DropdownMenuItem>
+                <DropdownMenuItem>Report spam</DropdownMenuItem>
+                <DropdownMenuItem>Mark as unread</DropdownMenuItem>
+                <DropdownMenuItem>Open in Gmail</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4">
+        {message.parsedMessage.textHtml ? (
+          <HtmlEmail html={message.parsedMessage.textHtml} />
+        ) : (
+          <PlainEmail text={message.parsedMessage.textPlain || ""} />
+        )}
+      </div>
+
+      {showReply && (
+        <>
+          <Separator />
+
+          <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
+            <ComposeEmailForm
+              replyingToEmail={{
+                to: message.parsedMessage.headers.from,
+                subject: `Re: ${message.parsedMessage.headers.subject}`,
+                headerMessageId: message.parsedMessage.headers["message-id"]!,
+                threadId: message.threadId!,
+                cc: message.parsedMessage.headers.cc,
+                references: message.parsedMessage.headers.references,
+              }}
+              novelEditorClassName="h-40 overflow-auto"
+              // refetch={props.refetch} // TODO
+              onSuccess={onCloseReply}
+              onDiscard={onCloseReply}
+            />
+          </div>
+        </>
+      )}
+    </li>
   );
 }
 
