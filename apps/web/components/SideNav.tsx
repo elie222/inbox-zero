@@ -230,7 +230,7 @@ export function SideNav(props: {
               leaveFrom="translate-x-0"
               leaveTo="-translate-x-full"
             >
-              <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
+              <Dialog.Panel className="relative mr-16 flex w-full max-w-64 flex-1">
                 <Transition.Child
                   as={Fragment}
                   enter="ease-in-out duration-300"
@@ -262,11 +262,11 @@ export function SideNav(props: {
         </Dialog>
       </Transition.Root>
 
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col 2xl:w-72">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col 2xl:w-64">
         <Sidebar isMobile={false} />
       </div>
 
-      <main className="flex h-full flex-col lg:pl-60 2xl:pl-72">
+      <main className="flex h-full flex-col lg:pl-60 2xl:pl-64">
         {props.topBar}
 
         {props.children}
