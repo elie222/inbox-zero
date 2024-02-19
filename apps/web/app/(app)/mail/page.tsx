@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import useSWR from "swr";
 import { useLocalStorage } from "usehooks-ts";
+import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Banner } from "@/components/Banner";
@@ -10,6 +11,7 @@ import {
   type ThreadsQuery,
   type ThreadsResponse,
 } from "@/app/api/google/threads/route";
+import { refetchEmailListAtom } from "@/store/email";
 
 export default function Mail({
   searchParams,
@@ -52,6 +54,13 @@ export default function Mail({
     },
     [mutate],
   );
+
+  // store `refetch` in the atom so we can refresh the list upon archive via command k
+  // TODO is this the best way to do this?
+  const setRefetchEmailList = useSetAtom(refetchEmailListAtom);
+  useEffect(() => {
+    setRefetchEmailList({ refetch });
+  }, [refetch, setRefetchEmailList]);
 
   const [bannerVisible, setBannerVisible] = useLocalStorage<
     boolean | undefined

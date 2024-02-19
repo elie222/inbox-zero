@@ -66,6 +66,7 @@
     "googleapis": "133",
     "he": "^1.2.0",
     "html-to-text": "^9.0.5",
+    "jotai": "^2.6.4",
     "json5": "^2.2.3",
     "linkify-react": "^4.1.3",
     "linkifyjs": "^4.1.3",

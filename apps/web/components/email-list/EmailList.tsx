@@ -4,6 +4,7 @@ import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useAtom } from "jotai";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { postRequest } from "@/utils/api";
@@ -32,6 +33,7 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/providers/QueueProvider";
+import { selectedEmailAtom } from "@/store/email";
 
 export function List(props: {
   emails: Thread[];
@@ -151,8 +153,11 @@ export function EmailList(props: {
 
   const session = useSession();
   // if right panel is open
-  const [openedRowId, setOpenedRowId] = useState<string>();
-  const closePanel = useCallback(() => setOpenedRowId(undefined), []);
+  const [openedRowId, setOpenedRowId] = useAtom(selectedEmailAtom);
+  const closePanel = useCallback(
+    () => setOpenedRowId(undefined),
+    [setOpenedRowId],
+  );
 
   const openedRow = useMemo(
     () => threads.find((thread) => thread.id === openedRowId),

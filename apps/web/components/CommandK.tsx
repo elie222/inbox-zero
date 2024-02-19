@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PenLineIcon } from "lucide-react";
+import { ArchiveIcon, PenLineIcon } from "lucide-react";
+import { useAtom, useAtomValue } from "jotai";
 import {
   CommandDialog,
   CommandEmpty,
@@ -13,12 +14,14 @@ import {
 } from "@/components/ui/command";
 import { navigation } from "@/components/SideNav";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
+import { refetchEmailListAtom, selectedEmailAtom } from "@/store/email";
+import { archiveEmails } from "@/providers/QueueProvider";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
 
   const router = useRouter();
-  const { onOpen } = useComposeModal();
+  const { onOpen: onOpenComposeModal } = useComposeModal();
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -31,6 +34,9 @@ export function CommandK() {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, []);
+
+  const [selectedEmail, setSelectedEmail] = useAtom(selectedEmailAtom);
+  const refreshEmailList = useAtomValue(refetchEmailListAtom);
 
   return (
     <>
@@ -51,10 +57,26 @@ export function CommandK() {
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Actions">
+            {selectedEmail && (
+              <CommandItem
+                onSelect={() => {
+                  const threadIds = [selectedEmail];
+                  archiveEmails(threadIds, () => {
+                    return refreshEmailList?.refetch(threadIds);
+                  });
+                  setSelectedEmail(undefined);
+                  setOpen(false);
+                }}
+              >
+                <ArchiveIcon className="mr-2 h-4 w-4" />
+                <span>Archive</span>
+                {/* <CommandShortcut>E</CommandShortcut> */}
+              </CommandItem>
+            )}
             <CommandItem
               onSelect={() => {
                 setOpen(false);
-                onOpen();
+                onOpenComposeModal();
               }}
             >
               <PenLineIcon className="mr-2 h-4 w-4" />
