@@ -118,9 +118,14 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
   const { message } = props;
 
   const [showReply, setShowReply] = useState(false);
-
   const onReply = useCallback(() => setShowReply(true), []);
-  const onCloseReply = useCallback(() => setShowReply(false), []);
+  const [showForward, setShowForward] = useState(false);
+  const onForward = useCallback(() => setShowForward(true), []);
+
+  const onCloseCompose = useCallback(() => {
+    setShowReply(false);
+    setShowForward(false);
+  }, []);
 
   return (
     <li className="bg-white p-4 shadow sm:rounded-lg">
@@ -145,15 +150,9 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
                 <span className="sr-only">Reply</span>
               </Button>
             </Tooltip>
-            <Tooltip content="Reply all">
-              <Button variant="ghost" size="icon">
-                <ReplyAllIcon className="h-4 w-4" onClick={onReply} />
-                <span className="sr-only">Reply all</span>
-              </Button>
-            </Tooltip>
             <Tooltip content="Forward">
               <Button variant="ghost" size="icon">
-                <ForwardIcon className="h-4 w-4" onClick={onReply} />
+                <ForwardIcon className="h-4 w-4" onClick={onForward} />
                 <span className="sr-only">Forward</span>
               </Button>
             </Tooltip>
@@ -186,24 +185,36 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
         )}
       </div>
 
-      {showReply && (
+      {(showReply || showForward) && (
         <>
           <Separator className="my-4" />
 
           <div className="">
             <ComposeEmailForm
-              replyingToEmail={{
-                to: message.parsedMessage.headers.from,
-                subject: `Re: ${message.parsedMessage.headers.subject}`,
-                headerMessageId: message.parsedMessage.headers["message-id"]!,
-                threadId: message.threadId!,
-                cc: message.parsedMessage.headers.cc,
-                references: message.parsedMessage.headers.references,
-              }}
+              replyingToEmail={
+                showReply
+                  ? {
+                      to: message.parsedMessage.headers.from,
+                      subject: `Re: ${message.parsedMessage.headers.subject}`,
+                      headerMessageId:
+                        message.parsedMessage.headers["message-id"]!,
+                      threadId: message.threadId!,
+                      cc: message.parsedMessage.headers.cc,
+                      references: message.parsedMessage.headers.references,
+                    }
+                  : {
+                      to: "",
+                      subject: `Fwd: ${message.parsedMessage.headers.subject}`,
+                      headerMessageId: "",
+                      threadId: "",
+                      cc: "",
+                      references: "",
+                    }
+              }
               novelEditorClassName="h-40 overflow-auto"
               // refetch={props.refetch} // TODO
-              onSuccess={onCloseReply}
-              onDiscard={onCloseReply}
+              onSuccess={onCloseCompose}
+              onDiscard={onCloseCompose}
             />
           </div>
         </>
