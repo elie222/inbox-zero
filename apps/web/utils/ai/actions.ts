@@ -353,6 +353,11 @@ const forward: ActionFunction = async (
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
+    replyToEmail: {
+      threadId: email.threadId,
+      references: "",
+      headerMessageId: "",
+    },
     subject: `Fwd: ${email.subject}`,
     messageText: `${args.content ?? ""}
 

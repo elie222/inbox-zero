@@ -201,7 +201,7 @@ function EmailMessage(props: {
                       to: "",
                       subject: `Fwd: ${message.parsedMessage.headers.subject}`,
                       headerMessageId: "",
-                      threadId: "",
+                      threadId: message.threadId!,
                       cc: "",
                       references: "",
                     }
