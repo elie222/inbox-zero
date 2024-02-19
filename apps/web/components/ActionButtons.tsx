@@ -16,6 +16,7 @@ export function ActionButtons(props: {
   threadId: string;
   isPlanning: boolean;
   isCategorizing: boolean;
+  shadow?: boolean;
   onPlanAiAction: () => void;
   onAiCategorize: () => void;
   onArchive: () => void;
@@ -113,5 +114,5 @@ export function ActionButtons(props: {
     ],
   );
 
-  return <ButtonGroup buttons={buttons} />;
+  return <ButtonGroup buttons={buttons} shadow={props.shadow} />;
 }

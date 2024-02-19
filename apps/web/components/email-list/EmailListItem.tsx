@@ -126,6 +126,7 @@ export const EmailListItem = forwardRef(
                 >
                   <ActionButtons
                     threadId={thread.id!}
+                    shadow
                     isPlanning={props.isPlanning}
                     isCategorizing={props.isCategorizing}
                     onPlanAiAction={() => props.onPlanAiAction(thread)}
