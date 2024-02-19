@@ -115,7 +115,6 @@ ${email.snippet}`,
     //   },
     // ],
   });
-  console.log("🚀 ~ messages:", messages);
 
   if (aiResponse.usage) {
     await saveAiUsage({

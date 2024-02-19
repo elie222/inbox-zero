@@ -6,6 +6,7 @@ import { TokenCheck } from "@/components/TokenCheck";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
+import { AppProviders } from "@/providers/AppProviders";
 
 export default async function AppLayout({
   children,
@@ -17,11 +18,11 @@ export default async function AppLayout({
   if (!session?.user.email) redirect("/login");
 
   return (
-    <>
+    <AppProviders>
       <PostHogIdentify />
       <TokenCheck />
       <CommandK />
       <SideNavWithTopNav>{children}</SideNavWithTopNav>
-    </>
+    </AppProviders>
   );
 }

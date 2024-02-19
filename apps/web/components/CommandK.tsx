@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PenLineIcon } from "lucide-react";
+import { ArchiveIcon, PenLineIcon } from "lucide-react";
+import { useAtom, useAtomValue } from "jotai";
 import {
   CommandDialog,
   CommandEmpty,
@@ -10,27 +11,56 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandShortcut,
 } from "@/components/ui/command";
 import { navigation } from "@/components/SideNav";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
+import { refetchEmailListAtom, selectedEmailAtom } from "@/store/email";
+import { archiveEmails } from "@/providers/QueueProvider";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
 
   const router = useRouter();
-  const { onOpen } = useComposeModal();
+
+  const [selectedEmail, setSelectedEmail] = useAtom(selectedEmailAtom);
+  const refreshEmailList = useAtomValue(refetchEmailListAtom);
+
+  const { onOpen: onOpenComposeModal } = useComposeModal();
+
+  const onArchive = React.useCallback(() => {
+    if (selectedEmail) {
+      const threadIds = [selectedEmail];
+      archiveEmails(threadIds, () => {
+        return refreshEmailList?.refetch(threadIds);
+      });
+      setSelectedEmail(undefined);
+    }
+  }, [refreshEmailList, selectedEmail, setSelectedEmail]);
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setOpen((open) => !open);
+      } else if (e.key === "e" || e.key === "E") {
+        // only archive if the focus is on the body, to prevent when typing in an input
+        if (document?.activeElement?.tagName === "BODY") {
+          e.preventDefault();
+          onArchive();
+        }
+      } else if (e.key === "c" || e.key === "C") {
+        // only open compose if the focus is on the body, to prevent when typing in an input
+        if (document?.activeElement?.tagName === "BODY") {
+          e.preventDefault();
+          onOpenComposeModal();
+        }
       }
     };
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, []);
+  }, [onArchive, onOpenComposeModal]);
 
   return (
     <>
@@ -51,15 +81,27 @@ export function CommandK() {
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Actions">
+            {selectedEmail && (
+              <CommandItem
+                onSelect={() => {
+                  onArchive();
+                  setOpen(false);
+                }}
+              >
+                <ArchiveIcon className="mr-2 h-4 w-4" />
+                <span>Archive</span>
+                <CommandShortcut>E</CommandShortcut>
+              </CommandItem>
+            )}
             <CommandItem
               onSelect={() => {
                 setOpen(false);
-                onOpen();
+                onOpenComposeModal();
               }}
             >
               <PenLineIcon className="mr-2 h-4 w-4" />
               <span>Compose</span>
-              {/* <CommandShortcut>C</CommandShortcut> */}
+              <CommandShortcut>C</CommandShortcut>
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Navigation">
@@ -73,7 +115,6 @@ export function CommandK() {
               >
                 <option.icon className="mr-2 h-4 w-4" />
                 <span>{option.name}</span>
-                {/* <CommandShortcut>⌘P</CommandShortcut> */}
               </CommandItem>
             ))}
           </CommandGroup>
