@@ -9,6 +9,7 @@ import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { env } from "@/env.mjs";
 import Providers from "@/app/(app)/providers";
+import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -72,6 +73,7 @@ export default function RootLayout({
         </PostHogProvider>
         <SpeedInsights />
         <Analytics />
+        <Script src="/service-worker.js" strategy="beforeInteractive" />
         {env.NEXT_PUBLIC_GTM_ID ? (
           <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
         ) : null}
