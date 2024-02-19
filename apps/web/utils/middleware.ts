@@ -38,8 +38,9 @@ export function withError(handler: NextHandler): NextHandler {
       if ((error as any)?.errors?.[0]?.reason === "rateLimitExceeded") {
         return NextResponse.json(
           {
-            error:
-              "Gmail rate limit exceeded. Please try refresh the page shortly.",
+            error: `You have exceeded the Gmail rate limit. Please try again later. Error from Gmail: "${(
+              error as any
+            )?.errors?.[0]?.message}"`,
           },
           { status: 403 },
         );
