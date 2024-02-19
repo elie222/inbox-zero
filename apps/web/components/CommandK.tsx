@@ -43,13 +43,19 @@ export function CommandK() {
       if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setOpen((open) => !open);
-      } else if (e.key === "e" || e.key === "E") {
+      } else if (
+        (e.key === "e" || e.key === "E") &&
+        !(e.metaKey || e.ctrlKey)
+      ) {
         // only archive if the focus is on the body, to prevent when typing in an input
         if (document?.activeElement?.tagName === "BODY") {
           e.preventDefault();
           onArchive();
         }
-      } else if (e.key === "c" || e.key === "C") {
+      } else if (
+        (e.key === "c" || e.key === "C") &&
+        !(e.metaKey || e.ctrlKey)
+      ) {
         // only open compose if the focus is on the body, to prevent when typing in an input
         if (document?.activeElement?.tagName === "BODY") {
           e.preventDefault();
