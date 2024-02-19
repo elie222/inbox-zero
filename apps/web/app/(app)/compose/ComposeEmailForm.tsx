@@ -114,12 +114,10 @@ export const ComposeEmailForm = (props: {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {props.replyingToEmail ? (
-        <div>
-          <div>
-            <span className="text-green-500">Draft</span> to{" "}
-            {extractNameFromEmail(props.replyingToEmail.to)}
-          </div>
-        </div>
+        <strong>
+          <span className="text-green-500">Draft</span> to{" "}
+          {extractNameFromEmail(props.replyingToEmail.to)}
+        </strong>
       ) : (
         <>
           {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (

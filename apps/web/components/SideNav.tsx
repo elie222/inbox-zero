@@ -20,6 +20,7 @@ import {
   MailsIcon,
   MessagesSquareIcon,
   PenIcon,
+  PersonStandingIcon,
   RatioIcon,
   RibbonIcon,
   SendIcon,
@@ -165,7 +166,7 @@ const topMailLinks: NavItem[] = [
 const bottomMailLinks: NavItem[] = [
   {
     name: "Personal",
-    icon: Users2Icon,
+    icon: PersonStandingIcon,
     href: "?type=CATEGORY_PERSONAL",
     // count: 972,
   },
@@ -305,23 +306,13 @@ function Sidebar(props: { isMobile: boolean }) {
             // leaveFrom="opacity-100"
             // leaveTo="opacity-0"
           >
-            <NavLink
-              path={path}
-              link={{
-                name: "Back",
-                href: "/automation",
-                icon: ArrowLeftIcon,
-              }}
-            />
+            <Button className="w-full" variant="outline" onClick={onOpen}>
+              <PenIcon className="mr-2 h-4 w-4" /> Compose
+            </Button>
 
-            <div className="py-2">
-              <Button className="w-full" variant="outline" onClick={onOpen}>
-                <PenIcon className="mr-2 h-4 w-4" />
-                Compose
-              </Button>
+            <div className="mt-2">
+              <Links path={path} links={topMailLinks} />
             </div>
-
-            <Links path={path} links={topMailLinks} />
             <div className="mt-7">
               <NavSectionHeader title="Labels" />
               <div className="mt-2">
@@ -346,7 +337,14 @@ function Sidebar(props: { isMobile: boolean }) {
               path={path}
               links={
                 showMailNav
-                  ? bottomLinks.filter((l) => !l.hideInMail)
+                  ? [
+                      {
+                        name: "Back",
+                        href: "/automation",
+                        icon: ArrowLeftIcon,
+                      },
+                      ...bottomLinks.filter((l) => !l.hideInMail),
+                    ]
                   : bottomLinks
               }
             />
@@ -377,15 +375,13 @@ function NavLink(props: { path: string; link: NavItem }) {
       <Link
         href={link.href}
         className={clsx(
-          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6",
-          link.href === props.path
-            ? "bg-gray-800 text-white"
-            : "text-gray-400 hover:bg-gray-800 hover:text-white",
+          "group flex h-9 items-center gap-x-3 rounded-md px-3 text-sm font-semibold leading-5 text-white",
+          link.href === props.path ? "bg-gray-800" : "hover:bg-gray-800",
         )}
         target={link.target}
         prefetch={link.target !== "_blank"}
       >
-        <link.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+        <link.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
         {link.name}
         {link.count ? (
           <span
