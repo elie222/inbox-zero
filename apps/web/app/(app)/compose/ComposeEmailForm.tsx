@@ -116,10 +116,10 @@ export const ComposeEmailForm = (props: {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {props.replyingToEmail && !editReply ? (
-        <div onClick={() => setEditReply(true)}>
+        <button onClick={() => setEditReply(true)}>
           <span className="text-green-500">Draft</span> to{" "}
           {extractNameFromEmail(props.replyingToEmail.to)}
-        </div>
+        </button>
       ) : (
         <>
           {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
