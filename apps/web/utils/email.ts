@@ -4,7 +4,12 @@ import { ParsedMessage } from "@/utils/types";
 // Converts "<john.doe@gmail>" to "john.doe@gmail"
 // Converts "john.doe@gmail" to "john.doe@gmail"
 export function extractNameFromEmail(email: string) {
-  return email?.split("<")[0] || email?.split("<")?.[1] || email;
+  if (!email) return "";
+  const firstPart = email.split("<")[0]?.trim();
+  if (firstPart) return firstPart;
+  const secondPart = email.split("<")?.[1]?.trim();
+  if (secondPart) return secondPart.split(">")[0];
+  return email;
 }
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"

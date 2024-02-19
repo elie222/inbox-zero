@@ -84,25 +84,35 @@ export function EmailPanel(props: {
             rejectingPlan={props.rejectingPlan}
           />
         )}
-        <EmailThread messages={props.row.messages} />
+        <EmailThread messages={props.row.messages} refetch={props.refetch} />
       </div>
     </div>
   );
 }
 
-function EmailThread(props: { messages: Thread["messages"] }) {
+function EmailThread(props: {
+  messages: Thread["messages"];
+  refetch: () => void;
+}) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul role="list" className="space-y-2 sm:space-y-4">
         {props.messages?.map((message) => (
-          <EmailMessage key={message.id} message={message} />
+          <EmailMessage
+            key={message.id}
+            message={message}
+            refetch={props.refetch}
+          />
         ))}
       </ul>
     </div>
   );
 }
 
-function EmailMessage(props: { message: Thread["messages"][0] }) {
+function EmailMessage(props: {
+  message: Thread["messages"][0];
+  refetch: () => void;
+}) {
   const { message } = props;
 
   const [showReply, setShowReply] = useState(false);
@@ -197,7 +207,7 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
                     }
               }
               novelEditorClassName="h-40 overflow-auto"
-              // refetch={props.refetch} // TODO
+              refetch={props.refetch}
               onSuccess={onCloseCompose}
               onDiscard={onCloseCompose}
             />
