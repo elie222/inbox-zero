@@ -4,8 +4,7 @@ const version = 1;
 const dbVersion = 2;
 const database = "inbox-zero";
 let DB = null;
-let dynamicName = `dynamicCache`;
-let IMAGE_CACHE = "IMAGE_CACHE";
+const IMAGE_CACHE = "IMAGE_CACHE";
 const LABEL_STORE = {
   name: "labels",
   key: "id",
@@ -14,7 +13,7 @@ const LABEL_STORE = {
 const EMAIL_STORE = {
   name: "emails",
   key: "gmailMessageId",
-  indexes: [{ name: "timestampIDX", property: "timestamp", params: {} }],
+  indexes: [{ name: "timestamp", property: "timestamp", params: {} }],
 };
 const ALL_STORES = [LABEL_STORE, EMAIL_STORE];
 
@@ -32,13 +31,12 @@ const TIME_CONSTANT = {
   year: 31556926_000,
 };
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", (_event) => {
   console.log(`Version ${version} installed`);
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  //service worker is activated
   event.waitUntil(Promise.resolve().then(openDB));
   console.log("activated");
 });
@@ -47,20 +45,9 @@ self.addEventListener("fetch", (event) => {
   //service worker intercepted a fetch call
   console.log(event.request.url);
   if (!isAuth(event.request.url))
-    event.respondWith(
-      handleFetch(event.request).then((response) => {
-        // TODO: Remove this
-        if (event.request.url.includes("tinybird")) {
-          console.log(response);
-        }
-        return response;
-      }),
-    );
+    event.respondWith(handleFetch(event.request));
 });
 
-self.addEventListener("message", (event) => {
-  //message from webpage
-});
 
 const openDB = (callback) => {
   return new Promise((resolve, reject) => {
@@ -101,8 +88,7 @@ const openDB = (callback) => {
 async function handleFetch(request) {
   const { url } = request;
   if (url.includes("/api/google/labels")) {
-    // this should be called regardless.
-    fetchAndUpdateIDB(request.clone());
+    fetchLablesAndUpdateIDB(request.clone());
 
     // if the data is within idb
     if (DB) {
@@ -198,7 +184,7 @@ async function handleFetch(request) {
   return fetch(request);
 }
 
-async function fetchAndUpdateIDB(request) {
+async function fetchLablesAndUpdateIDB(request) {
   const networkResponse = await fetch(request);
   const clonedResponse = networkResponse.clone();
 
@@ -273,7 +259,7 @@ const getLocalMail = (decreasing, keyRange) => {
   return new Promise((resolve, reject) => {
     const tx = DB.transaction(EMAIL_STORE.name, "readonly");
     const store = tx.objectStore(EMAIL_STORE.name);
-    const index = store.index("timestampIDX");
+    const index = store.index("timestamp");
 
     // this request will get a range query with increasing order of timestamp (i.e. oldest to latest)
     // if keyRange is undefined, it will get all the data.
