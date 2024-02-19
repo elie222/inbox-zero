@@ -1,12 +1,6 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
 import { capitalCase } from "capital-case";
-import {
-  ForwardIcon,
-  MoreVertical,
-  ReplyAllIcon,
-  ReplyIcon,
-  XIcon,
-} from "lucide-react";
+import { ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -17,12 +11,6 @@ import { formatShortDate } from "@/utils/date";
 import { PlanBadge, getActionColor } from "@/components/PlanBadge";
 import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 
 export function EmailPanel(props: {
@@ -157,7 +145,7 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
               </Button>
             </Tooltip>
 
-            <DropdownMenu>
+            {/* <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
                   <MoreVertical className="h-4 w-4" />
@@ -165,15 +153,12 @@ function EmailMessage(props: { message: Thread["messages"][0] }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {/* <DropdownMenuItem onClick={onReply}>
-                Forward
-              </DropdownMenuItem> */}
                 <DropdownMenuItem>Delete this message</DropdownMenuItem>
                 <DropdownMenuItem>Report spam</DropdownMenuItem>
                 <DropdownMenuItem>Mark as unread</DropdownMenuItem>
                 <DropdownMenuItem>Open in Gmail</DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
           </div>
         </div>
       </div>
