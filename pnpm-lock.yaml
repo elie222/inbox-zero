@@ -203,6 +203,9 @@ importers:
       html-to-text:
         specifier: ^9.0.5
         version: 9.0.5
+      jotai:
+        specifier: ^2.6.4
+        version: 2.6.4(@types/react@18.2.55)(react@18.2.0)
       json5:
         specifier: ^2.2.3
         version: 2.2.3
@@ -11221,6 +11224,22 @@ packages:
 
   /jose@5.2.0:
     resolution: {integrity: sha512-oW3PCnvyrcm1HMvGTzqjxxfnEs9EoFOFWi2HsEGhlFVOXxTE3K9GKWVMFoFw06yPUqwpvEWic1BmtUZBI/tIjw==}
+    dev: false
+
+  /jotai@2.6.4(@types/react@18.2.55)(react@18.2.0):
+    resolution: {integrity: sha512-RniwQPX4893YlNR1muOtyUGHYaTD1fhEN4qnOuZJSrDHj6xdEMrqlRSN/hCm2fshwk78ruecB/P2l+NCVWe6TQ==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=17.0.0'
+      react: '>=17.0.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+    dependencies:
+      '@types/react': 18.2.55
+      react: 18.2.0
     dev: false
 
   /joycon@3.1.1:
