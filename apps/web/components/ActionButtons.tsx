@@ -5,7 +5,6 @@ import {
   Trash2Icon,
   ExternalLinkIcon,
   OrbitIcon,
-  ReplyIcon,
   SparklesIcon,
 } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
@@ -19,7 +18,6 @@ export function ActionButtons(props: {
   isCategorizing: boolean;
   onPlanAiAction: () => void;
   onAiCategorize: () => void;
-  onReply: () => void;
   onArchive: () => void;
   refetch: () => void;
 }) {
@@ -31,7 +29,6 @@ export function ActionButtons(props: {
     onArchive,
     onPlanAiAction,
     onAiCategorize,
-    onReply,
     isCategorizing,
     isPlanning,
     refetch,
@@ -61,16 +58,9 @@ export function ActionButtons(props: {
         onClick: openInGmail,
         icon: (
           <ExternalLinkIcon
-            className="h-5 w-5 text-gray-700"
+            className="h-4 w-4 text-gray-700"
             aria-hidden="true"
           />
-        ),
-      },
-      {
-        tooltip: "Reply",
-        onClick: onReply,
-        icon: (
-          <ReplyIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         ),
       },
       {
@@ -79,7 +69,7 @@ export function ActionButtons(props: {
         icon: isCategorizing ? (
           <LoadingMiniSpinner />
         ) : (
-          <OrbitIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+          <OrbitIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
         ),
       },
       {
@@ -88,7 +78,7 @@ export function ActionButtons(props: {
         icon: isPlanning ? (
           <LoadingMiniSpinner />
         ) : (
-          <SparklesIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+          <SparklesIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
         ),
       },
 
@@ -99,7 +89,7 @@ export function ActionButtons(props: {
         icon: isTrashing ? (
           <LoadingMiniSpinner />
         ) : (
-          <Trash2Icon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+          <Trash2Icon className="h-4 w-4 text-gray-700" aria-hidden="true" />
         ),
       },
 
@@ -107,7 +97,7 @@ export function ActionButtons(props: {
         tooltip: "Archive",
         onClick: onArchive,
         icon: (
-          <ArchiveIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+          <ArchiveIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
         ),
       },
     ],
@@ -119,7 +109,6 @@ export function ActionButtons(props: {
       isPlanning,
       onAiCategorize,
       isCategorizing,
-      onReply,
       openInGmail,
     ],
   );

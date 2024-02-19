@@ -1,6 +1,6 @@
-import { type SyntheticEvent, useCallback, useMemo } from "react";
+import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
 import { capitalCase } from "capital-case";
-import { XIcon } from "lucide-react";
+import { ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -9,16 +9,12 @@ import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { PlanBadge, getActionColor } from "@/components/PlanBadge";
-import {
-  ComposeEmailForm,
-  ReplyingToEmail,
-} from "@/app/(app)/compose/ComposeEmailForm";
+import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 export function EmailPanel(props: {
   row: Thread;
-  replyingToEmail?: ReplyingToEmail;
-  onReply: () => void;
-  onCloseReply: () => void;
   isPlanning: boolean;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
@@ -33,8 +29,6 @@ export function EmailPanel(props: {
   refetch: () => void;
 }) {
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
-
-  const showThread = props.row.messages?.length > 1;
 
   const plan = props.row.plan;
 
@@ -56,7 +50,6 @@ export function EmailPanel(props: {
         <div className="mt-3 flex items-center md:ml-2 md:mt-0">
           <ActionButtons
             threadId={props.row.id!}
-            onReply={props.onReply}
             isPlanning={props.isPlanning}
             isCategorizing={props.isCategorizing}
             onPlanAiAction={() => props.onPlanAiAction(props.row)}
@@ -91,64 +84,137 @@ export function EmailPanel(props: {
             rejectingPlan={props.rejectingPlan}
           />
         )}
-        {showThread ? (
-          <EmailThread messages={props.row.messages} />
-        ) : lastMessage.parsedMessage.textHtml ? (
-          <HtmlEmail html={lastMessage.parsedMessage.textHtml} />
-        ) : (
-          <EmailThread messages={props.row.messages} />
-        )}
-        {props.replyingToEmail && (
-          <div className="h-64 shrink-0 border-t border-t-gray-100 py-4">
-            <ComposeEmailForm
-              replyingToEmail={props.replyingToEmail}
-              novelEditorClassName="h-40 overflow-auto"
-              submitButtonClassName="mx-8"
-              refetch={props.refetch}
-              onSuccess={props.onCloseReply}
-            />
-          </div>
-        )}
+        <EmailThread messages={props.row.messages} refetch={props.refetch} />
       </div>
     </div>
   );
 }
 
-function EmailThread(props: { messages: Thread["messages"] }) {
+function EmailThread(props: {
+  messages: Thread["messages"];
+  refetch: () => void;
+}) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul role="list" className="space-y-2 sm:space-y-4">
         {props.messages?.map((message) => (
-          <li
+          <EmailMessage
             key={message.id}
-            className="bg-white px-4 py-6 shadow sm:rounded-lg sm:px-6"
-          >
-            <div className="sm:flex sm:items-baseline sm:justify-between">
-              <h3 className="text-base font-medium">
-                <span className="text-gray-900">
-                  {extractNameFromEmail(message.parsedMessage.headers.from)}
-                </span>{" "}
-                <span className="text-gray-600">wrote</span>
-              </h3>
-              <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
-                <time dateTime={message.parsedMessage.headers.date}>
-                  {formatShortDate(
-                    new Date(message.parsedMessage.headers.date),
-                  )}
-                </time>
-              </p>
-            </div>
-            <div className="mt-4">
-              {message.parsedMessage.textHtml ? (
-                <HtmlEmail html={message.parsedMessage.textHtml} />
-              ) : (
-                <PlainEmail text={message.parsedMessage.textPlain || ""} />
-              )}
-            </div>
-          </li>
+            message={message}
+            refetch={props.refetch}
+          />
         ))}
       </ul>
     </div>
+  );
+}
+
+function EmailMessage(props: {
+  message: Thread["messages"][0];
+  refetch: () => void;
+}) {
+  const { message } = props;
+
+  const [showReply, setShowReply] = useState(false);
+  const onReply = useCallback(() => setShowReply(true), []);
+  const [showForward, setShowForward] = useState(false);
+  const onForward = useCallback(() => setShowForward(true), []);
+
+  const onCloseCompose = useCallback(() => {
+    setShowReply(false);
+    setShowForward(false);
+  }, []);
+
+  return (
+    <li className="bg-white p-4 shadow sm:rounded-lg">
+      <div className="sm:flex sm:items-baseline sm:justify-between">
+        <h3 className="text-base font-medium">
+          <span className="text-gray-900">
+            {extractNameFromEmail(message.parsedMessage.headers.from)}
+          </span>{" "}
+          <span className="text-gray-600">wrote</span>
+        </h3>
+
+        <div className="flex items-center space-x-2">
+          <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
+            <time dateTime={message.parsedMessage.headers.date}>
+              {formatShortDate(new Date(message.parsedMessage.headers.date))}
+            </time>
+          </p>
+          <div className="flex items-center">
+            <Tooltip content="Reply">
+              <Button variant="ghost" size="icon" onClick={onReply}>
+                <ReplyIcon className="h-4 w-4" />
+                <span className="sr-only">Reply</span>
+              </Button>
+            </Tooltip>
+            <Tooltip content="Forward">
+              <Button variant="ghost" size="icon">
+                <ForwardIcon className="h-4 w-4" onClick={onForward} />
+                <span className="sr-only">Forward</span>
+              </Button>
+            </Tooltip>
+
+            {/* <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">More</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Delete this message</DropdownMenuItem>
+                <DropdownMenuItem>Report spam</DropdownMenuItem>
+                <DropdownMenuItem>Mark as unread</DropdownMenuItem>
+                <DropdownMenuItem>Open in Gmail</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu> */}
+          </div>
+        </div>
+      </div>
+      <div className="mt-4">
+        {message.parsedMessage.textHtml ? (
+          <HtmlEmail html={message.parsedMessage.textHtml} />
+        ) : (
+          <PlainEmail text={message.parsedMessage.textPlain || ""} />
+        )}
+      </div>
+
+      {(showReply || showForward) && (
+        <>
+          <Separator className="my-4" />
+
+          <div className="">
+            <ComposeEmailForm
+              replyingToEmail={
+                showReply
+                  ? {
+                      to: message.parsedMessage.headers.from,
+                      subject: `Re: ${message.parsedMessage.headers.subject}`,
+                      headerMessageId:
+                        message.parsedMessage.headers["message-id"]!,
+                      threadId: message.threadId!,
+                      cc: message.parsedMessage.headers.cc,
+                      references: message.parsedMessage.headers.references,
+                    }
+                  : {
+                      to: "",
+                      subject: `Fwd: ${message.parsedMessage.headers.subject}`,
+                      headerMessageId: "",
+                      threadId: message.threadId!,
+                      cc: "",
+                      references: "",
+                    }
+              }
+              novelEditorClassName="h-40 overflow-auto"
+              refetch={props.refetch}
+              onSuccess={onCloseCompose}
+              onDiscard={onCloseCompose}
+            />
+          </div>
+        </>
+      )}
+    </li>
   );
 }
 
@@ -158,9 +224,14 @@ function HtmlEmail(props: { html: string }) {
   const onLoad = useCallback(
     (event: SyntheticEvent<HTMLIFrameElement, Event>) => {
       if (event.currentTarget.contentWindow) {
+        // sometimes we see minimal scrollbar, so add a buffer
+        const BUFFER = 5;
+
         event.currentTarget.style.height =
           event.currentTarget.contentWindow.document.documentElement
-            .scrollHeight + "px";
+            .scrollHeight +
+          BUFFER +
+          "px";
       }
     },
     [],
