@@ -396,11 +396,11 @@ export function EmailList(props: {
   return (
     <>
       {!(isEmpty && hideActionBarWhenEmpty) && (
-        <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-2">
+        <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-1">
           <div className="pl-1">
             <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
           </div>
-          <div className="ml-4">
+          <div className="ml-2">
             <ActionButtonsBulk
               isPlanning={false}
               isCategorizing={false}
