@@ -8,7 +8,7 @@ import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { env } from "@/env.mjs";
-import Providers from "@/app/(app)/providers";
+import { GlobalProviders } from "@/providers/GlobalProviders";
 import Script from "next/script";
 
 const inter = Inter({
@@ -69,7 +69,7 @@ export default function RootLayout({
           <Suspense>
             <PostHogPageview />
           </Suspense>
-          <Providers>{children}</Providers>
+          <GlobalProviders>{children}</GlobalProviders>
         </PostHogProvider>
         <SpeedInsights />
         <Analytics />
