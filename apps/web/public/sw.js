@@ -49,7 +49,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 
-const openDB = (callback) => {
+const openDB = () => {
   return new Promise((resolve, reject) => {
     let req = indexedDB.open(database, dbVersion);
     req.onerror = (err) => {
@@ -77,9 +77,6 @@ const openDB = (callback) => {
     req.onsuccess = (ev) => {
       DB = ev.target.result;
       console.log("db opened and upgraded as needed");
-      if (callback) {
-        callback();
-      }
       resolve();
     };
   });
