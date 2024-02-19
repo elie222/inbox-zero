@@ -6,7 +6,7 @@ import { TokenCheck } from "@/components/TokenCheck";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
-import { AppProviders } from "@/app/(app)/providers";
+import { AppProviders } from "@/providers/AppProviders";
 
 export default async function AppLayout({
   children,
