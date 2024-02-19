@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma migrate deploy && next build",
+    "build": "NODE_OPTIONS=--max_old_space_size=2048 prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest --watch --detectOpenHandles",
