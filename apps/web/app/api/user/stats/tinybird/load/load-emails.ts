@@ -141,53 +141,49 @@ async function saveBatch(
     accessToken,
   );
 
-  const emailsToPublish: TinybirdEmail[] = (
-    await Promise.all(
-      messages.map(async (m) => {
-        if (!m.id || !m.threadId) return;
+  const emailsToPublish: TinybirdEmail[] = messages
+    .map((m) => {
+      if (!m.id || !m.threadId) return;
 
-        // console.debug("Fetching message", m.id);
+      const parsedEmail = m.parsedMessage;
 
-        const parsedEmail = m.parsedMessage;
+      const unsubscribeLink =
+        findUnsubscribeLink(parsedEmail.textHtml) ||
+        parsedEmail.headers["list-unsubscribe"];
 
-        const unsubscribeLink =
-          findUnsubscribeLink(parsedEmail.textHtml) ||
-          parsedEmail.headers["list-unsubscribe"];
+      const tinybirdEmail: TinybirdEmail = {
+        ownerEmail,
+        threadId: m.threadId,
+        gmailMessageId: m.id,
+        from: parsedEmail.headers.from,
+        fromDomain: extractDomainFromEmail(parsedEmail.headers.from),
+        to: parsedEmail.headers.to || "Missing",
+        toDomain: parsedEmail.headers.to
+          ? extractDomainFromEmail(parsedEmail.headers.to)
+          : "Missing",
+        subject: parsedEmail.headers.subject,
+        timestamp: +new Date(parsedEmail.headers.date),
+        unsubscribeLink,
+        read: !parsedEmail.labelIds?.includes("UNREAD"),
+        sent: !!parsedEmail.labelIds?.includes("SENT"),
+        draft: !!parsedEmail.labelIds?.includes("DRAFT"),
+        inbox: !!parsedEmail.labelIds?.includes("INBOX"),
+        sizeEstimate: m.sizeEstimate,
+      };
 
-        const tinybirdEmail: TinybirdEmail = {
-          ownerEmail,
-          threadId: m.threadId,
-          gmailMessageId: m.id,
-          from: parsedEmail.headers.from,
-          fromDomain: extractDomainFromEmail(parsedEmail.headers.from),
-          to: parsedEmail.headers.to || "Missing",
-          toDomain: parsedEmail.headers.to
-            ? extractDomainFromEmail(parsedEmail.headers.to)
-            : "Missing",
-          subject: parsedEmail.headers.subject,
-          timestamp: +new Date(parsedEmail.headers.date),
-          unsubscribeLink,
-          read: !parsedEmail.labelIds?.includes("UNREAD"),
-          sent: !!parsedEmail.labelIds?.includes("SENT"),
-          draft: !!parsedEmail.labelIds?.includes("DRAFT"),
-          inbox: !!parsedEmail.labelIds?.includes("INBOX"),
-          sizeEstimate: m.sizeEstimate,
-        };
+      if (!tinybirdEmail.timestamp) {
+        console.error(
+          "No timestamp for email",
+          tinybirdEmail.ownerEmail,
+          tinybirdEmail.gmailMessageId,
+          parsedEmail.headers.date,
+        );
+        return;
+      }
 
-        if (!tinybirdEmail.timestamp) {
-          console.error(
-            "No timestamp for email",
-            tinybirdEmail.ownerEmail,
-            tinybirdEmail.gmailMessageId,
-            parsedEmail.headers.date,
-          );
-          return;
-        }
-
-        return tinybirdEmail;
-      }) || [],
-    )
-  ).filter(isDefined);
+      return tinybirdEmail;
+    })
+    .filter(isDefined);
 
   console.log("Publishing", emailsToPublish.length, "emails");
 
