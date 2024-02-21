@@ -131,13 +131,15 @@ export function List(props: {
           refetch={refetch}
         />
       ) : (
-        <Celebration
-          message={
-            props.type === "inbox"
-              ? "You made it to Inbox Zero!"
-              : "All emails handled!"
-          }
-        />
+        <div className="mt-20">
+          <Celebration
+            message={
+              props.type === "inbox"
+                ? "You made it to Inbox Zero!"
+                : "All emails handled!"
+            }
+          />
+        </div>
       )}
     </>
   );

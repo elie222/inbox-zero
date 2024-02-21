@@ -1,6 +1,8 @@
 // import { BookmarkPlusIcon } from "lucide-react";
+import { NextButton } from "@/app/(app)/simple/NextButton";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { Button } from "@/components/Button";
+import { Celebration } from "@/components/Celebration";
+// import { Button } from "@/components/Button";
 import { PageHeading } from "@/components/Typography";
 import { extractNameFromEmail } from "@/utils/email";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
@@ -23,7 +25,7 @@ export default async function SimplePage() {
     userId: "me",
     labelIds: ["CATEGORY_PROMOTIONS"],
     maxResults: 5,
-    q: `newer_than:1d`,
+    q: `newer_than:1d in:inbox`,
   });
 
   const messages = await Promise.all(
@@ -63,10 +65,11 @@ export default async function SimplePage() {
             </div>
           );
         })}
+        {messages.length === 0 && <Celebration message="All emails handled!" />}
       </div>
 
       <div className="mt-8 flex justify-center">
-        <Button size="2xl">Next</Button>
+        <NextButton messages={messages} />
       </div>
     </div>
   );
