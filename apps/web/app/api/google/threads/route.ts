@@ -19,6 +19,7 @@ import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
 import { getThreadsBatch } from "@/utils/gmail/thread";
 import { withError } from "@/utils/middleware";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,7 @@ async function getThreads(query: ThreadsQuery) {
         id,
         historyId: thread.historyId,
         messages,
+        snippet: decodeSnippet(thread.snippet),
         plan: plan ? { ...plan, databaseRule: rule } : undefined,
         category: await getCategory({ email, threadId: id }),
       };
