@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookmarkPlusIcon, ExternalLinkIcon } from "lucide-react";
+import {
+  BookmarkMinusIcon,
+  BookmarkPlusIcon,
+  ExternalLinkIcon,
+} from "lucide-react";
 import { Celebration } from "@/components/Celebration";
 import { Button } from "@/components/ui/button";
 import { Button as HoverButton } from "@/components/Button";
@@ -47,7 +51,7 @@ export function SimpleList(props: {
                 readLaterMessages[message.id] ? "bg-gray-100" : "bg-white",
               )}
             >
-              <div className="flex gap-4">
+              <div className="flex items-center gap-4">
                 <div>
                   <div className="flex whitespace-nowrap">
                     <span className="font-bold">
@@ -59,7 +63,7 @@ export function SimpleList(props: {
                     {decodeSnippet(message.snippet).replace(/\u200C/g, "")}
                   </div> */}
 
-                  {text ? (
+                  {text && !readLaterMessages[message.id] ? (
                     <div className="mt-2 text-sm text-gray-700">
                       {/* <strong>Summary:</strong> */}
                       <Summary text={text} />
@@ -83,7 +87,11 @@ export function SimpleList(props: {
                         });
                       }}
                     >
-                      <BookmarkPlusIcon className="h-4 w-4" />
+                      {readLaterMessages[message.id] ? (
+                        <BookmarkMinusIcon className="h-4 w-4" />
+                      ) : (
+                        <BookmarkPlusIcon className="h-4 w-4" />
+                      )}
                       <span className="sr-only">Read Later</span>
                     </Button>
                   </Tooltip>
