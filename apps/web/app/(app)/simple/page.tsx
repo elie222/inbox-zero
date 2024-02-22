@@ -24,7 +24,7 @@ export default async function SimplePage({
 
   const response = await gmail.users.messages.list({
     userId: "me",
-    labelIds: ["CATEGORY_PROMOTIONS"],
+    // labelIds: ["CATEGORY_PROMOTIONS"],
     maxResults: 5,
     q: `newer_than:1d in:inbox`,
     pageToken,

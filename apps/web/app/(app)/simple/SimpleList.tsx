@@ -7,11 +7,12 @@ import { Celebration } from "@/components/Celebration";
 import { Button } from "@/components/ui/button";
 import { Button as HoverButton } from "@/components/Button";
 import { extractNameFromEmail } from "@/utils/email";
-import { decodeSnippet } from "@/utils/gmail/decode";
+// import { decodeSnippet } from "@/utils/gmail/decode";
 import { Tooltip } from "@/components/Tooltip";
 import { ParsedMessage } from "@/utils/types";
 import { archiveEmails } from "@/providers/QueueProvider";
 import { cn } from "@/utils";
+import { Summary } from "@/app/(app)/simple/Summary";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -27,6 +28,8 @@ export function SimpleList(props: {
     <>
       <div className="mt-8 grid gap-4">
         {props.messages.map((message) => {
+          const text = message.textPlain || message.textHtml;
+
           return (
             <div
               key={message.id}
@@ -41,14 +44,27 @@ export function SimpleList(props: {
                     <div className="whitespace-nowrap font-bold">
                       {extractNameFromEmail(message.headers.from)}
                     </div>
-                    <div className="ml-4 mr-4">{message.headers.subject}</div>
+                    <div className="ml-4 mr-4 whitespace-nowrap">
+                      {message.headers.subject}
+                    </div>
                   </div>
-                  <div className="mt-2 text-sm text-gray-700">
+                  {/* <div className="mt-2 text-sm text-gray-700">
                     {decodeSnippet(message.snippet).replace(/\u200C/g, "")}
-                  </div>
+                  </div> */}
+
+                  {text ? (
+                    <div className="mt-2 text-sm text-gray-700">
+                      {/* <strong>Summary:</strong> */}
+                      <Summary text={text} />
+                    </div>
+                  ) : null}
+
+                  {/* <div className="mt-2 text-sm text-gray-500">
+                    {new Date(message.headers.date).toLocaleString()}
+                  </div> */}
                 </div>
 
-                <div className="">
+                <div className="ml-auto">
                   <Tooltip content="Read Later">
                     <Button
                       className=""
