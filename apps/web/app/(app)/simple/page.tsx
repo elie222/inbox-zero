@@ -6,7 +6,7 @@ import {
 } from "@/app/(app)/simple/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PageHeading } from "@/components/Typography";
-import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
+import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload } from "@/utils/types";
 
@@ -22,10 +22,6 @@ export default async function SimplePage({
   if (!email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
-  const token = await getGmailAccessToken(session);
-  const accessToken = token?.token;
-
-  if (!accessToken) throw new Error("Missing access token");
 
   const categoryTitle = simpleEmailCategories.get(type);
 
