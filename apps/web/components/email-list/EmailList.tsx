@@ -77,6 +77,9 @@ export function List(props: {
     [categories, planned],
   );
 
+  // only show tabs if there are planned emails or categorized emails
+  const showTabs = !!(planned.length || emails.find((email) => email.category));
+
   const filteredEmails = useMemo(() => {
     if (selectedTab === "planned") return planned;
 
@@ -90,15 +93,17 @@ export function List(props: {
 
   return (
     <>
-      <div className="border-b border-gray-200">
-        <GroupHeading
-          leftContent={
-            <div className="overflow-x-auto py-2 md:max-w-lg lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl">
-              <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
-            </div>
-          }
-        />
-      </div>
+      {showTabs && (
+        <div className="border-b border-gray-200">
+          <GroupHeading
+            leftContent={
+              <div className="overflow-x-auto py-2 md:max-w-lg lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl">
+                <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
+              </div>
+            }
+          />
+        </div>
+      )}
       {emails.length ? (
         <EmailList
           threads={filteredEmails}
