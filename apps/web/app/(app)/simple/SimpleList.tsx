@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { BookmarkPlusIcon } from "lucide-react";
 import { Celebration } from "@/components/Celebration";
 import { Button } from "@/components/ui/button";
@@ -12,10 +13,15 @@ import { ParsedMessage } from "@/utils/types";
 import { archiveEmails } from "@/providers/QueueProvider";
 import { cn } from "@/utils";
 
-export function SimpleList(props: { messages: ParsedMessage[] }) {
+export function SimpleList(props: {
+  messages: ParsedMessage[];
+  nextPageToken?: string | null;
+}) {
   const [readLaterMessages, setReadLaterMessages] = useState<
     Record<string, boolean>
   >({});
+
+  const router = useRouter();
 
   return (
     <>
@@ -79,6 +85,12 @@ export function SimpleList(props: { messages: ParsedMessage[] }) {
                 .map((m) => m.threadId),
               () => {},
             );
+
+            if (props.nextPageToken) {
+              router.push(`/simple?pageToken=${props.nextPageToken}`);
+            } else {
+              router.push(`/simple/completed`);
+            }
           }}
         >
           Next

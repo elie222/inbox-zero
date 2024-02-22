@@ -22,7 +22,7 @@ export function Celebration(props: { message: string }) {
         <Confetti
           active={active}
           config={{
-            duration: 5_000,
+            duration: 3_000,
             elementCount: 500,
             spread: 200,
           }}

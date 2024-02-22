@@ -7,7 +7,11 @@ import { MessageWithPayload } from "@/utils/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function SimplePage() {
+export default async function SimplePage({
+  searchParams: { pageToken },
+}: {
+  searchParams: { pageToken?: string };
+}) {
   const session = await auth();
   const email = session?.user.email;
   if (!email) throw new Error("Not authenticated");
@@ -23,6 +27,7 @@ export default async function SimplePage() {
     labelIds: ["CATEGORY_PROMOTIONS"],
     maxResults: 5,
     q: `newer_than:1d in:inbox`,
+    pageToken,
   });
 
   const messages = await Promise.all(
@@ -41,7 +46,10 @@ export default async function SimplePage() {
   return (
     <div className="mx-auto max-w-2xl py-10">
       <PageHeading className="text-center">Today{`'`}s newsletters</PageHeading>
-      <SimpleList messages={messages} />
+      <SimpleList
+        messages={messages}
+        nextPageToken={response.data.nextPageToken}
+      />
     </div>
   );
 }
