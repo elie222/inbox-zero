@@ -29,7 +29,7 @@ export default async function SimplePage({
     userId: "me",
     labelIds: [type],
     maxResults: 5,
-    q: `newer_than:1d in:inbox`,
+    q: "newer_than:1d in:inbox",
     pageToken,
   });
 

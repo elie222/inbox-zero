@@ -29,11 +29,12 @@ const threadsQuery = z.object({
   fromEmail: z.string().nullish(),
   limit: z.coerce.number().max(100).nullish(),
   type: z.string().nullish(),
+  q: z.string().nullish(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
-async function getThreads(query: ThreadsQuery) {
+export async function getThreads(query: ThreadsQuery) {
   const session = await auth();
   const email = session?.user.email;
   if (!email) throw new Error("Not authenticated");
@@ -49,11 +50,13 @@ async function getThreads(query: ThreadsQuery) {
       userId: "me",
       labelIds: getLabelIds(query.type),
       maxResults: query.limit || 50,
-      q: query.fromEmail
-        ? `from:${query.fromEmail}`
-        : query.type === "archive"
-          ? `-label:${INBOX_LABEL_ID}`
-          : undefined,
+      q:
+        query.q ||
+        (query.fromEmail
+          ? `from:${query.fromEmail}`
+          : query.type === "archive"
+            ? `-label:${INBOX_LABEL_ID}`
+            : undefined),
     }),
     prisma.rule.findMany({ where: { userId: session.user.id } }),
   ]);

@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import countBy from "lodash/countBy";
@@ -34,6 +36,9 @@ import {
   markReadThreads,
 } from "@/providers/QueueProvider";
 import { selectedEmailAtom } from "@/store/email";
+// import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+// import { Button } from "@/components/ui/button";
+// import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 export function List(props: {
   emails: Thread[];
@@ -154,9 +159,14 @@ export function EmailList(props: {
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch: (removedThreadIds?: string[]) => void;
+  refetch?: (removedThreadIds?: string[]) => void;
 }) {
-  const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
+  const {
+    threads = [],
+    emptyMessage,
+    hideActionBarWhenEmpty,
+    refetch = () => {},
+  } = props;
 
   const session = useSession();
   // if right panel is open
@@ -428,6 +438,27 @@ export function EmailList(props: {
               onReject={onAiRejectBulk}
             />
           </div>
+          {/* <div className="ml-auto gap-1 flex items-center">
+            <Button variant="ghost" size='icon'>
+              <ChevronLeftIcon className='h-4 w-4' />
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost">Today</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>All</DropdownMenuItem>
+                <DropdownMenuItem>Today</DropdownMenuItem>
+                <DropdownMenuItem>Yesterday</DropdownMenuItem>
+                <DropdownMenuItem>Last week</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="ghost" size='icon'>
+              <ChevronRightIcon className='h-4 w-4' />
+            </Button>
+          </div> */}
         </div>
       )}
 
