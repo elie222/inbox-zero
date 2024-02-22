@@ -1,4 +1,9 @@
+import { redirect } from "next/navigation";
 import { SimpleList } from "@/app/(app)/simple/SimpleList";
+import {
+  getNextCategory,
+  simpleEmailCategories,
+} from "@/app/(app)/simple/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PageHeading } from "@/components/Typography";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
@@ -8,9 +13,9 @@ import { MessageWithPayload } from "@/utils/types";
 export const dynamic = "force-dynamic";
 
 export default async function SimplePage({
-  searchParams: { pageToken },
+  searchParams: { pageToken, type = "IMPORTANT" },
 }: {
-  searchParams: { pageToken?: string };
+  searchParams: { pageToken?: string; type?: string };
 }) {
   const session = await auth();
   const email = session?.user.email;
@@ -22,9 +27,11 @@ export default async function SimplePage({
 
   if (!accessToken) throw new Error("Missing access token");
 
+  const categoryTitle = simpleEmailCategories.get(type);
+
   const response = await gmail.users.messages.list({
     userId: "me",
-    // labelIds: ["CATEGORY_PROMOTIONS"],
+    labelIds: [type],
     maxResults: 5,
     q: `newer_than:1d in:inbox`,
     pageToken,
@@ -43,14 +50,28 @@ export default async function SimplePage({
     }) || [],
   );
 
+  if (!messages.length) {
+    const next = getNextCategory(type);
+    if (next) {
+      return redirect(`/simple?type=${next}`);
+    } else {
+      return redirect(`/simple/completed`);
+    }
+  }
+
+  const title = `Today's ${categoryTitle} emails`;
+
   return (
-    <div className="mx-auto max-w-3xl py-10">
-      <PageHeading className="text-center">Today{`'`}s newsletters</PageHeading>
-      <SimpleList
-        messages={messages}
-        nextPageToken={response.data.nextPageToken}
-        userEmail={email}
-      />
+    <div className="flex justify-center py-10">
+      <div className="w-full max-w-3xl">
+        <PageHeading className="text-center">{title}</PageHeading>
+        <SimpleList
+          messages={messages}
+          nextPageToken={response.data.nextPageToken}
+          userEmail={email}
+          type={type}
+        />
+      </div>
     </div>
   );
 }

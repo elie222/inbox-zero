@@ -14,11 +14,16 @@ import { archiveEmails } from "@/providers/QueueProvider";
 import { cn } from "@/utils";
 import { Summary } from "@/app/(app)/simple/Summary";
 import { getGmailUrl } from "@/utils/url";
+import {
+  getNextCategory,
+  simpleEmailCategoriesArray,
+} from "@/app/(app)/simple/categories";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
   nextPageToken?: string | null;
   userEmail: string;
+  type: string;
 }) {
   const [readLaterMessages, setReadLaterMessages] = useState<
     Record<string, boolean>
@@ -118,9 +123,21 @@ export function SimpleList(props: {
             );
 
             if (props.nextPageToken) {
-              router.push(`/simple?pageToken=${props.nextPageToken}`);
+              router.push(
+                `/simple?type=${props.type}&pageToken=${props.nextPageToken}`,
+              );
             } else {
-              router.push(`/simple/completed`);
+              const lastCategory =
+                simpleEmailCategoriesArray[
+                  simpleEmailCategoriesArray.length - 1
+                ][0];
+
+              if (props.type === lastCategory) {
+                router.push(`/simple/completed`);
+              } else {
+                const next = getNextCategory(props.type);
+                router.push(`/simple?type=${next}`);
+              }
             }
           }}
         >
