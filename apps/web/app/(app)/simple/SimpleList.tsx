@@ -35,7 +35,9 @@ export function SimpleList(props: {
     <>
       <div className="mt-8 grid gap-4">
         {props.messages.map((message) => {
-          const text = message.textPlain || message.textHtml;
+          // handle html emails differently
+          // const text = message.textPlain || message.textHtml;
+          const text = message.textPlain;
 
           return (
             <div

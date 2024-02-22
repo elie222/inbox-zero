@@ -15,7 +15,9 @@ export const POST = withError(async (request: Request) => {
     return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
-  const { prompt } = summariseBody.parse(json);
+  const body = summariseBody.parse(json);
+
+  const prompt = body.prompt.substring(0, 2048);
 
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);
