@@ -14,6 +14,7 @@ import { extractNameFromEmail, participant } from "@/utils/email";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
 import { EmailDate } from "@/components/email-list/EmailDate";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 export const EmailListItem = forwardRef(
   (
@@ -110,7 +111,7 @@ export const EmailListItem = forwardRef(
                     {lastMessage.parsedMessage.headers.subject}
                   </div>
                   <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                    {thread.snippet || lastMessage.snippet}
+                    {decodeSnippet(thread.snippet || lastMessage.snippet)}
                   </div>
                 </>
               )}
@@ -169,7 +170,7 @@ export const EmailListItem = forwardRef(
                 {lastMessage.parsedMessage.headers.subject}
               </div>
               <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-gray-500">
-                {thread.snippet}
+                {decodeSnippet(thread.snippet)}
               </div>
             </div>
           )}
