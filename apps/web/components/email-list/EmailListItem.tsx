@@ -97,8 +97,7 @@ export const EmailListItem = forwardRef(
                     lastMessage.parsedMessage,
                     props.userEmailAddress,
                   ),
-                )}
-
+                )}{" "}
                 {thread.messages.length > 1 ? (
                   <span className="font-normal">
                     ({thread.messages.length})
