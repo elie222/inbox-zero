@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookmarkPlusIcon } from "lucide-react";
+import { BookmarkPlusIcon, ExternalLinkIcon } from "lucide-react";
 import { Celebration } from "@/components/Celebration";
 import { Button } from "@/components/ui/button";
 import { Button as HoverButton } from "@/components/Button";
@@ -13,10 +13,12 @@ import { ParsedMessage } from "@/utils/types";
 import { archiveEmails } from "@/providers/QueueProvider";
 import { cn } from "@/utils";
 import { Summary } from "@/app/(app)/simple/Summary";
+import { getGmailUrl } from "@/utils/url";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
   nextPageToken?: string | null;
+  userEmail: string;
 }) {
   const [readLaterMessages, setReadLaterMessages] = useState<
     Record<string, boolean>
@@ -40,13 +42,11 @@ export function SimpleList(props: {
             >
               <div className="flex gap-4">
                 <div>
-                  <div className="flex">
-                    <div className="whitespace-nowrap font-bold">
+                  <div className="flex whitespace-nowrap">
+                    <span className="font-bold">
                       {extractNameFromEmail(message.headers.from)}
-                    </div>
-                    <div className="ml-4 mr-4 whitespace-nowrap">
-                      {message.headers.subject}
-                    </div>
+                    </span>
+                    <span className="ml-2 mr-4">{message.headers.subject}</span>
                   </div>
                   {/* <div className="mt-2 text-sm text-gray-700">
                     {decodeSnippet(message.snippet).replace(/\u200C/g, "")}
@@ -64,10 +64,9 @@ export function SimpleList(props: {
                   </div> */}
                 </div>
 
-                <div className="ml-auto">
+                <div className="ml-auto flex gap-2">
                   <Tooltip content="Read Later">
                     <Button
-                      className=""
                       variant="outline"
                       size="icon"
                       onClick={() => {
@@ -79,6 +78,22 @@ export function SimpleList(props: {
                     >
                       <BookmarkPlusIcon className="h-4 w-4" />
                       <span className="sr-only">Read Later</span>
+                    </Button>
+                  </Tooltip>
+
+                  <Tooltip content="Open in Gmail">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        window.open(
+                          getGmailUrl(message.id, props.userEmail),
+                          "_blank",
+                        );
+                      }}
+                    >
+                      <ExternalLinkIcon className="h-4 w-4" />
+                      <span className="sr-only">Open in Gmail</span>
                     </Button>
                   </Tooltip>
                 </div>
@@ -109,7 +124,7 @@ export function SimpleList(props: {
             }
           }}
         >
-          Next
+          Archive All
         </HoverButton>
       </div>
     </>

@@ -44,11 +44,12 @@ export default async function SimplePage({
   );
 
   return (
-    <div className="mx-auto max-w-2xl py-10">
+    <div className="mx-auto max-w-3xl py-10">
       <PageHeading className="text-center">Today{`'`}s newsletters</PageHeading>
       <SimpleList
         messages={messages}
         nextPageToken={response.data.nextPageToken}
+        userEmail={email}
       />
     </div>
   );
