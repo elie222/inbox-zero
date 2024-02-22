@@ -28,7 +28,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
         padding="sm"
       >
         <div className="mt-4">
-          <ComposeEmailForm />
+          <ComposeEmailForm onSuccess={closeModal} />
         </div>
       </Modal>
     </ComposeModalContext.Provider>
