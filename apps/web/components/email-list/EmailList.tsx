@@ -440,12 +440,8 @@ export function EmailList(props: {
           )}
         </div>
       ) : (
-        <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel
-            style={{ overflow: "auto" }}
-            defaultSize={openedRowId ? 50 : 100}
-            minSize={30}
-          >
+        <ResizeGroup
+          left={
             <ul
               role="list"
               className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
@@ -494,31 +490,50 @@ export function EmailList(props: {
                 );
               })}
             </ul>
-          </ResizablePanel>
-
-          {!!(openedRowId && openedRow) && (
-            <>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={50} minSize={30}>
-                <EmailPanel
-                  row={openedRow}
-                  isPlanning={isPlanning[openedRowId]}
-                  isCategorizing={isCategorizing[openedRowId]}
-                  onPlanAiAction={onPlanAiAction}
-                  onAiCategorize={onAiCategorize}
-                  onArchive={onArchive}
-                  close={closePanel}
-                  executePlan={executePlan}
-                  rejectPlan={rejectPlan}
-                  executingPlan={executingPlan[openedRowId]}
-                  rejectingPlan={rejectingPlan[openedRowId]}
-                  refetch={refetch}
-                />
-              </ResizablePanel>
-            </>
-          )}
-        </ResizablePanelGroup>
+          }
+          right={
+            !!(openedRowId && openedRow) && (
+              <EmailPanel
+                row={openedRow}
+                isPlanning={isPlanning[openedRowId]}
+                isCategorizing={isCategorizing[openedRowId]}
+                onPlanAiAction={onPlanAiAction}
+                onAiCategorize={onAiCategorize}
+                onArchive={onArchive}
+                close={closePanel}
+                executePlan={executePlan}
+                rejectPlan={rejectPlan}
+                executingPlan={executingPlan[openedRowId]}
+                rejectingPlan={rejectingPlan[openedRowId]}
+                refetch={refetch}
+              />
+            )
+          }
+        />
       )}
     </>
+  );
+}
+
+function ResizeGroup(props: {
+  left: React.ReactNode;
+  right?: React.ReactNode;
+}) {
+  if (!props.right) return <>{props.left}</>;
+
+  return (
+    <ResizablePanelGroup direction="horizontal">
+      <ResizablePanel
+        style={{ overflow: "auto" }}
+        defaultSize={50}
+        minSize={30}
+      >
+        {props.left}
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={50} minSize={30}>
+        {props.right}
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }
