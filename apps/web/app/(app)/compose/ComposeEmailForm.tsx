@@ -1,41 +1,45 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
-import useSWR from "swr";
 import { Combobox } from "@headlessui/react";
-import { z } from "zod";
+import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
 import {
-  defaultEditorProps,
   EditorBubble,
   EditorCommand,
   EditorCommandEmpty,
   EditorCommandItem,
   EditorContent,
   EditorRoot,
+  defaultEditorProps,
 } from "novel";
-import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
-import { Button, ButtonLoader } from "@/components/ui/button";
-import { Input, Label } from "@/components/Input";
-import { toastSuccess, toastError } from "@/components/Toast";
-import { isError } from "@/utils/error";
-import { ContactsResponse } from "@/app/api/google/contacts/route";
-import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
-import { postRequest } from "@/utils/api";
-import { env } from "@/env.mjs";
-import "./novelEditorStyles.css";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/utils";
-import { extractNameFromEmail } from "@/utils/email";
+import React, { useCallback, useState } from "react";
+import { SubmitHandler, useForm } from "react-hook-form";
+import useSWR from "swr";
+import { z } from "zod";
+
 import { defaultExtensions } from "@/app/(app)/compose/extensions";
-import { NodeSelector } from "@/app/(app)/compose/selectors/node-selector";
 import { ColorSelector } from "@/app/(app)/compose/selectors/color-selector";
-import { TextButtons } from "@/app/(app)/compose/selectors/text-buttons";
 import { LinkSelector } from "@/app/(app)/compose/selectors/link-selector";
-import { AISelector } from "@/app/(app)/compose/selectors/ai-selector";
+import { NodeSelector } from "@/app/(app)/compose/selectors/node-selector";
+// import { AISelector } from "@/app/(app)/compose/selectors/ai-selector";
+import { TextButtons } from "@/app/(app)/compose/selectors/text-buttons";
+import { ContactsResponse } from "@/app/api/google/contacts/route";
+import { Input, Label } from "@/components/Input";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button, ButtonLoader } from "@/components/ui/button";
+import { env } from "@/env.mjs";
+import { cn } from "@/utils";
+import { postRequest } from "@/utils/api";
+import { extractNameFromEmail } from "@/utils/email";
+import { isError } from "@/utils/error";
+import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
+import {
+  slashCommand,
+  suggestionItems,
+} from "@/app/(app)/compose/SlashCommand";
 import { Separator } from "@/components/ui/separator";
-import { suggestionItems } from "@/app/(app)/compose/SlashCommand";
+import "./novelEditorStyles.css";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -278,7 +282,7 @@ export const ComposeEmailForm = (props: {
         <EditorRoot>
           {/* TODO onUpdate runs on every change. In most cases, you will want to debounce the updates to prevent too many state changes. */}
           <EditorContent
-            extensions={defaultExtensions}
+            extensions={[...defaultExtensions, slashCommand]}
             onUpdate={({ editor }) => {
               setValue("messageText", editor.getText());
               setValue("messageHtml", editor.getHTML());
@@ -330,8 +334,8 @@ export const ComposeEmailForm = (props: {
               <TextButtons />
               <Separator orientation="vertical" />
               <ColorSelector open={openColor} onOpenChange={setOpenColor} />
-              <Separator orientation="vertical" />
-              <AISelector open={openAi} onOpenChange={setOpenAi} />
+              {/* <Separator orientation="vertical" />
+              <AISelector open={openAi} onOpenChange={setOpenAi} /> */}
             </EditorBubble>
           </EditorContent>
         </EditorRoot>
