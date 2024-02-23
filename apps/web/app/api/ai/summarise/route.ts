@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { OpenAIStream, StreamingTextResponse } from "ai";
+import { StreamingTextResponse } from "ai";
 import { summarise } from "@/app/api/ai/summarise/controller";
 import { withError } from "@/utils/middleware";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -24,10 +24,9 @@ export const POST = withError(async (request: Request) => {
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);
 
-  const response = await summarise(prompt);
-
-  const stream = OpenAIStream(response, {
-    async onFinal(completion) {
+  const stream = await summarise(prompt, {
+    userEmail: session.user.email,
+    onFinal: async (completion) => {
       await saveSummary(prompt, completion);
       await expire(prompt, 60 * 60 * 24);
     },

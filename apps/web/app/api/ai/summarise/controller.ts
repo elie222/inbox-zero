@@ -1,26 +1,49 @@
 import { getOpenAI } from "@/utils/openai";
+import { saveAiUsageStream } from "@/utils/usage";
 
-export async function summarise(text: string) {
+export async function summarise(
+  text: string,
+  {
+    userEmail,
+    onFinal,
+  }: {
+    userEmail: string;
+    onFinal?: (completion: string) => Promise<void>;
+  },
+) {
   const ai = getOpenAI(null);
 
-  return ai.chat.completions.create({
-    model: "gpt-3.5-turbo-0125",
-    // model: 'gpt-4-turbo-preview',
+  const model = "gpt-3.5-turbo-1106" as const;
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are an email assistant. You summarise emails.
+  Summarise each email in a short sentence ~5 word sentence.
+  If you need to summarise a longer email, you can bullet points. Each bullet should be ~5 words.`,
+    },
+    {
+      role: "user" as const,
+      content: `Summarise this:
+  ${text}`,
+    },
+  ];
+
+  const response = await ai.chat.completions.create({
+    model,
     stream: true,
-    messages: [
-      {
-        role: "system",
-        content: `You are an email assistant. You summarise emails.
-    Summarise each email in a short sentence ~5 word sentence.
-    If you need to summarise a longer email, you can bullet points. Each bullet should be ~5 words.`,
-      },
-      {
-        role: "user",
-        content: `Summarise this:
-    ${text}`,
-      },
-    ],
+    messages,
   });
+
+  const stream = await saveAiUsageStream({
+    response,
+    model,
+    userEmail,
+    messages,
+    label: "Summarise",
+    onFinal,
+  });
+
+  return stream;
 }
 
 // alternative prompt:
