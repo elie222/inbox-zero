@@ -204,7 +204,7 @@ describe("Plan act", () => {
   it.only(
     "Should plan act",
     async () => {
-      const response = await planAct(options as any); // TODO
+      const response = await planAct(options as any); // TODO fix
       expect(response).toEqual({
         rule: noRule,
       });
