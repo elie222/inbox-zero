@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 import { Modal, useModal } from "@/components/Modal";
-import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
+import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 
 type Context = {
   onOpen: () => void;
@@ -28,7 +28,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
         padding="sm"
       >
         <div className="mt-4">
-          <ComposeEmailForm onSuccess={closeModal} />
+          <ComposeEmailFormLazy onSuccess={closeModal} />
         </div>
       </Modal>
     </ComposeModalContext.Provider>
