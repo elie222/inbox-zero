@@ -258,7 +258,7 @@ export const ComposeEmailForm = (props: {
         <NovelComponent
           defaultValue=""
           disableLocalStorage
-          completionApi="api/ai/compose-autocomplete"
+          completionApi="/api/ai/compose-autocomplete"
           onUpdate={(editor) => {
             if (editor) {
               // TODO do we really need to set both each time?
