@@ -31,12 +31,6 @@ Then within Docker:
 
 ```sh
 cd mnt/data
-```
-
-Now you can run `tb` commands.
-
-## Datasource
-
-```sh
 tb push datasources
+tb push pipes
 ```

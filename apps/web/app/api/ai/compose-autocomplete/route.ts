@@ -1,12 +1,11 @@
-import { OpenAIStream, StreamingTextResponse } from "ai";
+import { StreamingTextResponse } from "ai";
 import { NextResponse } from "next/server";
-import { encoding_for_model } from "tiktoken";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { AIModel, DEFAULT_AI_MODEL, getOpenAI } from "@/utils/openai";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
-import { saveAiUsage } from "@/utils/usage";
+import { saveAiUsageStream } from "@/utils/usage";
 
 export const POST = withError(async (request: Request): Promise<Response> => {
   const session = await auth();
@@ -53,35 +52,12 @@ export const POST = withError(async (request: Request): Promise<Response> => {
     n: 1,
   });
 
-  const enc = encoding_for_model(model);
-  let completionTokens = 0;
-
-  // to count token usage:
-  // https://www.linkedin.com/pulse/token-usage-openai-streams-peter-marton-7bgpc/
-  const stream = OpenAIStream(response, {
-    onToken: (content) => {
-      // We call encode for every message as some experienced
-      // regression when tiktoken called with the full completion
-      const tokenList = enc.encode(content);
-      completionTokens += tokenList.length;
-    },
-    async onFinal() {
-      const promptTokens = messages.reduce(
-        (total, msg) => total + enc.encode(msg.content ?? "").length,
-        0,
-      );
-
-      await saveAiUsage({
-        email: userEmail,
-        usage: {
-          prompt_tokens: promptTokens,
-          completion_tokens: completionTokens,
-          total_tokens: promptTokens + completionTokens,
-        },
-        model,
-        label: "Compose auto complete",
-      });
-    },
+  const stream = await saveAiUsageStream({
+    response,
+    model,
+    userEmail,
+    messages,
+    label: "Compose auto complete",
   });
 
   return new StreamingTextResponse(stream);
