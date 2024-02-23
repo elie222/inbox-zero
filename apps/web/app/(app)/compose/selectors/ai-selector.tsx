@@ -61,6 +61,8 @@ export function AISelector({ open, onOpenChange }: AISelectorProps) {
     },
   });
 
+  if (!editor) return null;
+
   return (
     <div
       className="w-full"
