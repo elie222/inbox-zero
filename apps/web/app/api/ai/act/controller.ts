@@ -18,7 +18,7 @@ import { labelThread } from "@/utils/gmail/label";
 import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
-import { ChatCompletionCreateParams } from "openai/resources/index.mjs";
+import { ChatCompletionCreateParams } from "openai/resources/index";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 

@@ -1,5 +1,5 @@
 import { getAiResponse, planAct } from "@/app/api/ai/act/controller";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
+import { ChatCompletionCreateParams } from "openai/resources/index";
 
 // NOTE: these tests cost money to run as they call the OpenAI API.
 // Be careful when running them in watch mode as they'll run on every file change.
@@ -204,7 +204,7 @@ describe("Plan act", () => {
   it.only(
     "Should plan act",
     async () => {
-      const response = await planAct(options);
+      const response = await planAct(options as any); // TODO
       expect(response).toEqual({
         rule: noRule,
       });
