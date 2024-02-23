@@ -33,6 +33,7 @@ import { NodeSelector } from "@/app/(app)/compose/selectors/node-selector";
 import { ColorSelector } from "@/app/(app)/compose/selectors/color-selector";
 import { TextButtons } from "@/app/(app)/compose/selectors/text-buttons";
 import { LinkSelector } from "@/app/(app)/compose/selectors/link-selector";
+import { AISelector } from "@/app/(app)/compose/selectors/ai-selector";
 import { Separator } from "@/components/ui/separator";
 import { suggestionItems } from "@/app/(app)/compose/SlashCommand";
 
@@ -58,6 +59,7 @@ export const ComposeEmailForm = (props: {
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const [openLink, setOpenLink] = useState(false);
+  const [openAi, setOpenAi] = useState(false);
 
   const {
     register,
@@ -328,6 +330,8 @@ export const ComposeEmailForm = (props: {
               <TextButtons />
               <Separator orientation="vertical" />
               <ColorSelector open={openColor} onOpenChange={setOpenColor} />
+              <Separator orientation="vertical" />
+              <AISelector open={openAi} onOpenChange={setOpenAi} />
             </EditorBubble>
           </EditorContent>
         </EditorRoot>
