@@ -21,6 +21,9 @@ export const POST = withError(async (request: Request) => {
 
   const prompt = body.textHtml ? parseEmail(body.textHtml) : body.textPlain;
 
+  if (!prompt)
+    return NextResponse.json({ error: "No text provided" }, { status: 400 });
+
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);
 
