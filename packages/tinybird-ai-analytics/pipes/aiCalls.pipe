@@ -1,0 +1,70 @@
+NODE total_cost
+SQL >
+
+    SELECT sum(cost) FROM aiCall
+
+
+
+NODE cost_per_label
+SQL >
+
+    SELECT label, sum(cost) as cost FROM aiCall GROUP BY label ORDER BY cost DESC
+
+
+
+NODE cost_per_model
+SQL >
+
+    SELECT model, sum(cost) as cost FROM aiCall GROUP BY model ORDER BY cost DESC
+
+
+
+NODE count_per_model
+SQL >
+
+    SELECT model, count(*) as count FROM aiCall GROUP BY model ORDER BY count DESC
+
+
+
+NODE count_per_user
+SQL >
+
+    SELECT 
+      userId, 
+      COUNT(*) AS count,
+      toDateTime(fromUnixTimestamp64Milli(MAX(timestamp))) AS lastTimestamp
+    FROM 
+      aiCall 
+    GROUP BY 
+      userId 
+    ORDER BY 
+      count DESC
+
+
+
+NODE cost_per_user
+SQL >
+
+    SELECT userId, sum(cost) as cost FROM aiCall GROUP BY userId ORDER BY cost DESC
+
+
+
+NODE count_per_day
+SQL >
+
+    SELECT toStartOfDay(fromUnixTimestamp64Milli(timestamp)) AS "day", count(*) AS count
+    FROM aiCall
+    GROUP BY day
+    ORDER BY day
+
+
+
+NODE count_per_hour
+SQL >
+
+    SELECT toStartOfHour(fromUnixTimestamp64Milli(timestamp)) AS "hour", count(*) AS count
+    FROM aiCall
+    GROUP BY hour
+    ORDER BY hour
+
+
