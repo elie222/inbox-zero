@@ -1,6 +1,6 @@
 import { OpenAIStream } from "ai";
 import { encoding_for_model } from "tiktoken";
-import { ChatCompletionChunk } from "openai/resources";
+import { ChatCompletionChunk } from "openai/resources/index";
 import { Stream } from "openai/streaming";
 import { AIModel } from "@/utils/openai";
 import { saveUsage } from "@/utils/redis/usage";
