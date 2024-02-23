@@ -5,14 +5,7 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Combobox } from "@headlessui/react";
 import { z } from "zod";
-import {
-  EditorBubble,
-  EditorCommand,
-  EditorCommandEmpty,
-  EditorCommandItem,
-  EditorContent,
-  EditorRoot,
-} from "novel";
+import { EditorContent, EditorRoot } from "novel";
 import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input, Label } from "@/components/Input";
@@ -27,7 +20,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import { extractNameFromEmail } from "@/utils/email";
-import { suggestionItems } from "@/app/(app)/compose/SlashCommand";
+import { defaultExtensions } from "@/app/(app)/compose/extensions";
+// import { suggestionItems } from "@/app/(app)/compose/SlashCommand";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -265,68 +259,16 @@ export const ComposeEmailForm = (props: {
         <EditorRoot>
           {/* TODO onUpdate runs on every change. In most cases, you will want to debounce the updates to prevent too many state changes. */}
           <EditorContent
+            extensions={defaultExtensions}
             onUpdate={({ editor }) => {
-              // TODO do we really need to set both each time?
               setValue("messageText", editor.getText());
               setValue("messageHtml", editor.getHTML());
             }}
+            className={props.novelEditorClassName}
           >
-            <EditorCommand>
-              <EditorCommand className="z-50 h-auto max-h-[330px]  w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
-                <EditorCommandEmpty className="px-2 text-muted-foreground">
-                  No results
-                </EditorCommandEmpty>
-                {suggestionItems.map((item) => (
-                  <EditorCommandItem
-                    value={item.title}
-                    onCommand={(val) => item.command?.(val)}
-                    className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent `}
-                    key={item.title}
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
-                      {item.icon}
-                    </div>
-                    <div>
-                      <p className="font-medium">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.description}
-                      </p>
-                    </div>
-                  </EditorCommandItem>
-                ))}
-              </EditorCommand>
-
-              <EditorBubble
-                tippyOptions={{ placement: "top" }}
-                className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl"
-              >
-                <div>XX</div>
-                {/* <Separator orientation="vertical" />
-                <NodeSelector open={openNode} onOpenChange={setOpenNode} />
-                <Separator orientation="vertical" />
-
-                <LinkSelector open={openLink} onOpenChange={setOpenLink} />
-                <Separator orientation="vertical" />
-                <TextButtons />
-                <Separator orientation="vertical" />
-                <ColorSelector open={openColor} onOpenChange={setOpenColor} /> */}
-              </EditorBubble>
-            </EditorCommand>
+            <div />
           </EditorContent>
         </EditorRoot>
-        {/* <NovelComponent
-          defaultValue=""
-          disableLocalStorage
-          completionApi="/api/ai/compose-autocomplete"
-          onUpdate={(editor) => {
-            if (editor) {
-              // TODO do we really need to set both each time?
-              setValue("messageText", editor.getText());
-              setValue("messageHtml", editor.getHTML());
-            }
-          }}
-          className={props.novelEditorClassName}
-        /> */}
       </div>
 
       <div
@@ -357,11 +299,3 @@ export const ComposeEmailForm = (props: {
     </form>
   );
 };
-
-// // import dynamically to stop Novel's Tailwind styling from overriding our own styling
-// const NovelComponent = dynamic(
-//   () => import("novel").then((mod) => mod.Editor),
-//   {
-//     loading: () => <Loading />,
-//   },
-// );
