@@ -6,8 +6,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
 import { getSummary, saveSummary } from "@/utils/redis/summary";
 import { expire } from "@/utils/redis";
+import { parseEmail } from "@/utils/mail";
 
-export const runtime = "edge";
+// doesn't work with parsing email packages we use
+// export const runtime = "edge";
 
 export const POST = withError(async (request: Request) => {
   const session = await auth();
@@ -17,7 +19,7 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = summariseBody.parse(json);
 
-  const prompt = body.prompt.substring(0, 2048);
+  const prompt = body.textHtml ? parseEmail(body.textHtml) : body.textPlain;
 
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);

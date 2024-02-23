@@ -39,10 +39,6 @@ export function SimpleList(props: {
     <>
       <div className="mt-8 grid gap-4">
         {props.messages.map((message) => {
-          // handle html emails differently
-          // const text = message.textPlain || message.textHtml;
-          const text = message.textPlain;
-
           return (
             <div
               key={message.id}
@@ -63,10 +59,14 @@ export function SimpleList(props: {
                     {decodeSnippet(message.snippet).replace(/\u200C/g, "")}
                   </div> */}
 
-                  {text && !readLaterMessages[message.id] ? (
+                  {(message.textPlain || message.textHtml) &&
+                  !readLaterMessages[message.id] ? (
                     <div className="mt-2 text-sm text-gray-700">
                       {/* <strong>Summary:</strong> */}
-                      <Summary text={text} />
+                      <Summary
+                        textHtml={message.textHtml}
+                        textPlain={message.textPlain}
+                      />
                     </div>
                   ) : null}
 
