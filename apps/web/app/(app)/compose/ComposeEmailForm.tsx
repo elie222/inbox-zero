@@ -39,7 +39,7 @@ import {
   suggestionItems,
 } from "@/app/(app)/compose/SlashCommand";
 import { Separator } from "@/components/ui/separator";
-import "./novelEditorStyles.css";
+import "@/styles/prosemirror.css";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -63,7 +63,7 @@ export const ComposeEmailForm = (props: {
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const [openLink, setOpenLink] = useState(false);
-  const [openAi, setOpenAi] = useState(false);
+  // const [openAi, setOpenAi] = useState(false);
 
   const {
     register,
@@ -278,68 +278,66 @@ export const ComposeEmailForm = (props: {
         </>
       )}
 
-      <div className="compose-novel">
-        <EditorRoot>
-          {/* TODO onUpdate runs on every change. In most cases, you will want to debounce the updates to prevent too many state changes. */}
-          <EditorContent
-            extensions={[...defaultExtensions, slashCommand]}
-            onUpdate={({ editor }) => {
-              setValue("messageText", editor.getText());
-              setValue("messageHtml", editor.getHTML());
-            }}
-            className={cn(
-              "relative min-h-32 w-full max-w-screen-lg border-muted bg-background sm:rounded-lg sm:border sm:shadow-lg",
-              props.novelEditorClassName,
-            )}
-            editorProps={{
-              ...defaultEditorProps,
-              attributes: {
-                class: `prose-lg prose-stone dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full`,
-              },
-            }}
-          >
-            <EditorCommand className="z-50 h-auto max-h-[330px]  w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
-              <EditorCommandEmpty className="px-2 text-muted-foreground">
-                No results
-              </EditorCommandEmpty>
-              {suggestionItems.map((item) => (
-                <EditorCommandItem
-                  value={item.title}
-                  onCommand={(val) => item.command?.(val)}
-                  className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent `}
-                  key={item.title}
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
-                    {item.icon}
-                  </div>
-                  <div>
-                    <p className="font-medium">{item.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.description}
-                    </p>
-                  </div>
-                </EditorCommandItem>
-              ))}
-            </EditorCommand>
+      <EditorRoot>
+        {/* TODO onUpdate runs on every change. In most cases, you will want to debounce the updates to prevent too many state changes. */}
+        <EditorContent
+          extensions={[...defaultExtensions, slashCommand]}
+          onUpdate={({ editor }) => {
+            setValue("messageText", editor.getText());
+            setValue("messageHtml", editor.getHTML());
+          }}
+          className={cn(
+            "relative min-h-32 w-full max-w-screen-lg bg-background sm:rounded-lg",
+            props.novelEditorClassName,
+          )}
+          editorProps={{
+            ...defaultEditorProps,
+            attributes: {
+              class: `prose-lg prose-stone dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full`,
+            },
+          }}
+        >
+          <EditorCommand className="z-50 h-auto max-h-[330px]  w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
+            <EditorCommandEmpty className="px-2 text-muted-foreground">
+              No results
+            </EditorCommandEmpty>
+            {suggestionItems.map((item) => (
+              <EditorCommandItem
+                value={item.title}
+                onCommand={(val) => item.command?.(val)}
+                className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent `}
+                key={item.title}
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
+                  {item.icon}
+                </div>
+                <div>
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.description}
+                  </p>
+                </div>
+              </EditorCommandItem>
+            ))}
+          </EditorCommand>
 
-            <EditorBubble
-              tippyOptions={{ placement: "top" }}
-              className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl"
-            >
-              <Separator orientation="vertical" />
-              <NodeSelector open={openNode} onOpenChange={setOpenNode} />
-              <Separator orientation="vertical" />
-              <LinkSelector open={openLink} onOpenChange={setOpenLink} />
-              <Separator orientation="vertical" />
-              <TextButtons />
-              <Separator orientation="vertical" />
-              <ColorSelector open={openColor} onOpenChange={setOpenColor} />
-              {/* <Separator orientation="vertical" />
-              <AISelector open={openAi} onOpenChange={setOpenAi} /> */}
-            </EditorBubble>
-          </EditorContent>
-        </EditorRoot>
-      </div>
+          <EditorBubble
+            tippyOptions={{ placement: "top" }}
+            className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl"
+          >
+            <Separator orientation="vertical" />
+            <NodeSelector open={openNode} onOpenChange={setOpenNode} />
+            <Separator orientation="vertical" />
+            <LinkSelector open={openLink} onOpenChange={setOpenLink} />
+            <Separator orientation="vertical" />
+            <TextButtons />
+            <Separator orientation="vertical" />
+            <ColorSelector open={openColor} onOpenChange={setOpenColor} />
+            {/* <Separator orientation="vertical" />
+            <AISelector open={openAi} onOpenChange={setOpenAi} /> */}
+          </EditorBubble>
+        </EditorContent>
+      </EditorRoot>
 
       <div
         className={cn(
