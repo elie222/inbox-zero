@@ -1,6 +1,6 @@
 import { OpenAIStream } from "ai";
-import { encoding_for_model } from "tiktoken";
-import { ChatCompletionChunk } from "openai/resources";
+import { encodingForModel } from "js-tiktoken";
+import { ChatCompletionChunk } from "openai/resources/index";
 import { Stream } from "openai/streaming";
 import { AIModel } from "@/utils/openai";
 import { saveUsage } from "@/utils/redis/usage";
@@ -54,7 +54,7 @@ export async function saveAiUsageStream({
   label: string;
   onFinal?: (completion: string) => Promise<void>;
 }) {
-  const enc = encoding_for_model(model);
+  const enc = encodingForModel(model);
   let completionTokens = 0;
 
   // to count token usage:

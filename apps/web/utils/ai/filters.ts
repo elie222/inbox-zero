@@ -1,11 +1,11 @@
 import { Plan } from "@/utils/redis/plan";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
+import { ChatCompletionCreateParams } from "openai/resources/index";
 
 type PlanWithThread = Plan & { threadId: string };
 
 export type FilterFunction = (
   plan?: PlanWithThread,
-  args?: FilterArgs
+  args?: FilterArgs,
 ) => boolean;
 export type FilterArgs = any;
 export type Filters = "label" | "to_respond" | "by_id";
@@ -58,7 +58,7 @@ export const filterFunctions: ChatCompletionCreateParams.Function[] = [
 
 export const label: FilterFunction = (
   plan?: PlanWithThread,
-  args?: { label: string }
+  args?: { label: string },
 ) => {
   return false;
   // return plan?.label?.toLowerCase() === args?.label.toLowerCase();
@@ -71,7 +71,7 @@ export const to_respond: FilterFunction = (plan?: PlanWithThread) => {
 
 export const by_id: FilterFunction = (
   plan?: PlanWithThread,
-  args?: { ids: string }
+  args?: { ids: string },
 ) => {
   return !!(plan?.threadId && args?.ids.includes(plan?.threadId));
 };
