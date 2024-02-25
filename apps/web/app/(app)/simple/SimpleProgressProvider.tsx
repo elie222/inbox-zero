@@ -5,15 +5,20 @@ import React, { createContext, useCallback, useContext, useMemo } from "react";
 type Context = {
   handled: Record<string, boolean>;
   toHandleLater: Record<string, boolean>;
+  startTime: Date;
+  endTime?: Date;
   onSetHandled: (ids: string[]) => void;
   onSetToHandleLater: (ids: string[]) => void;
+  onCompleted: () => void;
 };
 
-const initialState = {
+const initialState: Context = {
   handled: {},
   toHandleLater: {},
+  startTime: new Date(),
   onSetHandled: () => {},
   onSetToHandleLater: () => {},
+  onCompleted: () => {},
 };
 
 const SimpleProgressContext = createContext<Context>(initialState);
@@ -24,9 +29,12 @@ export function SimpleEmailStateProvider(props: { children: React.ReactNode }) {
   const [state, setState] = React.useState<{
     handled: Record<string, boolean>;
     toHandleLater: Record<string, boolean>;
+    startTime: Date;
+    endTime?: Date;
   }>({
     handled: {},
     toHandleLater: {},
+    startTime: new Date(),
   });
 
   const onSetHandled = useCallback((ids: string[]) => {
@@ -49,12 +57,16 @@ export function SimpleEmailStateProvider(props: { children: React.ReactNode }) {
     });
   }, []);
 
+  const onCompleted = useCallback(() => {
+    setState((prev) => ({ ...prev, endTime: new Date() }));
+  }, []);
+
   const value = useMemo(() => {
     return {
-      handled: state.handled,
-      toHandleLater: state.toHandleLater,
+      ...state,
       onSetHandled,
       onSetToHandleLater,
+      onCompleted,
     };
   }, [state, onSetHandled, onSetToHandleLater]);
 

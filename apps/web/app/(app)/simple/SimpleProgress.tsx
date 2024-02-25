@@ -5,20 +5,27 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSimpleProgress } from "@/app/(app)/simple/SimpleProgressProvider";
 
+function calculateTimePassed(endTime: Date, startTime: Date) {
+  return Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+}
+
 export function SimpleProgress() {
-  const { handled, toHandleLater } = useSimpleProgress();
+  const { handled, toHandleLater, startTime } = useSimpleProgress();
 
   const emailsHandled = Object.keys(handled).length;
   const emailsToHandleLater = Object.keys(toHandleLater).length;
 
-  const [timePassed, setTimePassed] = useState(0);
+  // to force a re-render every second
+  const [_index, setIndex] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimePassed((prev) => prev + 1);
+      setIndex((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
+
+  const timePassed = calculateTimePassed(new Date(), startTime);
 
   return (
     <div className="bottom-8 right-8 m-4 lg:fixed lg:m-0">
@@ -41,7 +48,12 @@ export function SimpleProgress() {
 }
 
 export function SimpleProgressCompleted() {
-  const { handled, toHandleLater } = useSimpleProgress();
+  const { handled, toHandleLater, startTime, endTime, onCompleted } =
+    useSimpleProgress();
+
+  useEffect(() => {
+    onCompleted();
+  }, []);
 
   const emailsHandled = Object.keys(handled).length;
   const emailsToHandleLater = Object.keys(toHandleLater).length;
@@ -49,7 +61,17 @@ export function SimpleProgressCompleted() {
   return (
     <p>
       You handled {emailsHandled} emails and set aside {emailsToHandleLater}{" "}
-      emails!
+      emails!{" "}
+      {endTime && (
+        <>
+          It took you {formatTime(calculateTimePassed(endTime, startTime))}{" "}
+          minutes.
+        </>
+      )}
     </p>
   );
+}
+
+function formatTime(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
