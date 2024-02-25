@@ -9,7 +9,7 @@ import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { PlanBadge, getActionColor } from "@/components/PlanBadge";
-import { ComposeEmailForm } from "@/app/(app)/compose/ComposeEmailForm";
+import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
@@ -185,7 +185,7 @@ function EmailMessage(props: {
           <Separator className="my-4" />
 
           <div className="">
-            <ComposeEmailForm
+            <ComposeEmailFormLazy
               replyingToEmail={
                 showReply
                   ? {
