@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { OpenMultipleGmailButton } from "@/app/(app)/simple/completed/OpenMultipleGmailButton";
 
 export default async function SimpleCompletedPage() {
   const session = await auth();
@@ -25,7 +26,7 @@ export default async function SimpleCompletedPage() {
         <p>🥳 Great job!</p>
         <p>Here are the emails you set aside.</p>
 
-        <div className="mt-4">
+        <div className="mt-4 space-x-2">
           <Button asChild variant="outline">
             <Link
               href={getGmailBasicSearchUrl(email, "newer_than:1d in:inbox")}
@@ -35,6 +36,11 @@ export default async function SimpleCompletedPage() {
               <ExternalLinkIcon className="ml-2 h-4 w-4" />
             </Link>
           </Button>
+
+          <OpenMultipleGmailButton
+            threadIds={threads.map((t) => t.id)}
+            userEmail={email}
+          />
         </div>
 
         {/* <Badge variant="outline">{emailsHandled} handled</Badge>
