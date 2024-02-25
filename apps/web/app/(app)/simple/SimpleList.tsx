@@ -5,7 +5,6 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
   BookmarkMinusIcon,
   BookmarkPlusIcon,
-  ExternalLinkIcon,
   MoreVerticalIcon,
 } from "lucide-react";
 import { Celebration } from "@/components/Celebration";
@@ -58,110 +57,13 @@ export function SimpleList(props: {
           .filter((m) => !toHandleLater[m.id])
           .map((message) => {
             return (
-              <div
+              <SimpleListRow
                 key={message.id}
-                className="bg-white p-4 shadow sm:rounded-lg"
-              >
-                <div className="flex items-center gap-4">
-                  <div>
-                    <div className="flex whitespace-nowrap">
-                      <span className="font-bold">
-                        {extractNameFromEmail(message.headers.from)}
-                      </span>
-                      <span className="ml-2 mr-4">
-                        {message.headers.subject}
-                      </span>
-                    </div>
-                    {/* <div className="mt-2 text-sm text-gray-700">
-                    {decodeSnippet(message.snippet).replace(/\u200C/g, "")}
-                  </div> */}
-
-                    {message.textPlain || message.textHtml ? (
-                      <div className="mt-2 text-sm text-gray-700">
-                        {/* <strong>Summary:</strong> */}
-                        <Summary
-                          textHtml={message.textHtml}
-                          textPlain={message.textPlain}
-                        />
-                      </div>
-                    ) : null}
-
-                    {/* <div className="mt-2 text-sm text-gray-500">
-                    {new Date(message.headers.date).toLocaleString()}
-                  </div> */}
-                  </div>
-
-                  <div className="ml-auto flex gap-2">
-                    <Tooltip content="Handle Later">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          onSetToHandleLater([message.id]);
-                        }}
-                      >
-                        {toHandleLater[message.id] ? (
-                          <BookmarkMinusIcon className="h-4 w-4" />
-                        ) : (
-                          <BookmarkPlusIcon className="h-4 w-4" />
-                        )}
-                        <span className="sr-only">Handle Later</span>
-                      </Button>
-                    </Tooltip>
-
-                    <Tooltip content="Open in Gmail">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          window.open(
-                            getGmailUrl(message.id, props.userEmail),
-                            "_blank",
-                          );
-                        }}
-                      >
-                        <ExternalLinkIcon className="h-4 w-4" />
-                        <span className="sr-only">Open in Gmail</span>
-                      </Button>
-                    </Tooltip>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
-                          <MoreVerticalIcon className="h-4 w-4" />
-                          <span className="sr-only">More Options</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        {/* TODO only show one of these two buttons */}
-                        <DropdownMenuItem
-                          onClick={() => {
-                            markImportantMessageAction(message.id, true);
-                          }}
-                        >
-                          Mark Important
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            markImportantMessageAction(message.id, false);
-                          }}
-                        >
-                          Mark Unimportant
-                        </DropdownMenuItem>
-                        {/* TODO only show if it has unsubscribe link */}
-                        {/* <DropdownMenuItem>Unsubscribe</DropdownMenuItem> */}
-                        <DropdownMenuItem
-                          onClick={() => {
-                            markSpamThreadAction(message.threadId);
-                          }}
-                        >
-                          Mark Spam
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </div>
+                message={message}
+                userEmail={props.userEmail}
+                toHandleLater={toHandleLater}
+                onSetToHandleLater={onSetToHandleLater}
+              />
             );
           })}
         {props.messages.length === 0 && (
@@ -205,5 +107,106 @@ export function SimpleList(props: {
         emailsToHandleLater={Object.keys(toHandleLater).length}
       />
     </>
+  );
+}
+
+function SimpleListRow({
+  message,
+  userEmail,
+  toHandleLater,
+  onSetToHandleLater,
+}: {
+  message: ParsedMessage;
+  userEmail: string;
+  toHandleLater: Record<string, boolean>;
+  onSetToHandleLater: (ids: string[]) => void;
+}) {
+  return (
+    <div className="bg-white p-4 shadow sm:rounded-lg">
+      <div className="flex items-center gap-4">
+        <div>
+          <div className="">
+            <span className="font-bold">
+              {extractNameFromEmail(message.headers.from)}
+            </span>
+            <span className="ml-2 mr-4">{message.headers.subject}</span>
+          </div>
+
+          {message.textPlain || message.textHtml ? (
+            <div className="mt-2 text-sm text-gray-700">
+              <Summary
+                textHtml={message.textHtml}
+                textPlain={message.textPlain}
+              />
+            </div>
+          ) : null}
+
+          {/* <div className="mt-2 text-sm text-gray-500">
+          {new Date(message.headers.date).toLocaleString()}
+        </div> */}
+        </div>
+
+        <div className="ml-auto flex gap-2">
+          <Tooltip content="Handle Later">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                onSetToHandleLater([message.id]);
+              }}
+            >
+              {toHandleLater[message.id] ? (
+                <BookmarkMinusIcon className="h-4 w-4" />
+              ) : (
+                <BookmarkPlusIcon className="h-4 w-4" />
+              )}
+              <span className="sr-only">Handle Later</span>
+            </Button>
+          </Tooltip>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVerticalIcon className="h-4 w-4" />
+                <span className="sr-only">More Options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                onClick={() => {
+                  window.open(getGmailUrl(message.id, userEmail), "_blank");
+                }}
+              >
+                Open in Gmail
+              </DropdownMenuItem>
+              {/* TODO only show one of these two buttons */}
+              <DropdownMenuItem
+                onClick={() => {
+                  markImportantMessageAction(message.id, true);
+                }}
+              >
+                Mark Important
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  markImportantMessageAction(message.id, false);
+                }}
+              >
+                Mark Unimportant
+              </DropdownMenuItem>
+              {/* TODO only show if it has unsubscribe link */}
+              {/* <DropdownMenuItem>Unsubscribe</DropdownMenuItem> */}
+              <DropdownMenuItem
+                onClick={() => {
+                  markSpamThreadAction(message.threadId);
+                }}
+              >
+                Mark Spam
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -63,7 +63,7 @@ export default async function SimplePage({
   return (
     <SimpleEmailStateProvider>
       <div className="flex justify-center py-10">
-        <div className="w-full max-w-3xl">
+        <div className="w-full max-w-2xl">
           <PageHeading className="text-center">{title}</PageHeading>
           <SimpleList
             messages={messages}

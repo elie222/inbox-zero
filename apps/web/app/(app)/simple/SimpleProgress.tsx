@@ -18,19 +18,20 @@ export function SimpleProgress(props: {
   }, []);
 
   return (
-    <div className="absolute bottom-20 right-20">
+    <div className="bottom-8 right-8 m-4 lg:fixed lg:m-0">
       <Card>
         <CardHeader>
           <CardTitle>Progress</CardTitle>
         </CardHeader>
+
         <CardContent className="grid gap-2">
-          <Badge variant="outline">{props.emailsHandled} handled</Badge>
-          <Badge variant="outline">
-            {props.emailsToHandleLater} to handle later
-          </Badge>
           <Badge variant="outline">
             {Math.floor(timePassed / 60)}:
             {String(timePassed % 60).padStart(2, "0")}
+          </Badge>
+          <Badge variant="outline">{props.emailsHandled} handled</Badge>
+          <Badge variant="outline">
+            {props.emailsToHandleLater} to handle later
           </Badge>
         </CardContent>
       </Card>
