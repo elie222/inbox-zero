@@ -39,3 +39,17 @@ export function SimpleProgress() {
     </div>
   );
 }
+
+export function SimpleProgressCompleted() {
+  const { handled, toHandleLater } = useSimpleProgress();
+
+  const emailsHandled = Object.keys(handled).length;
+  const emailsToHandleLater = Object.keys(toHandleLater).length;
+
+  return (
+    <p>
+      You handled {emailsHandled} emails and set aside {emailsToHandleLater}{" "}
+      emails!
+    </p>
+  );
+}

@@ -1,14 +1,13 @@
 import { Suspense } from "react";
 import { ExternalLinkIcon } from "lucide-react";
+import Link from "next/link";
 import { EmailList } from "@/components/email-list/EmailList";
 import { getThreads } from "@/app/api/google/threads/route";
 import { Button } from "@/components/ui/button";
-// import { SimpleProgress } from "@/app/(app)/simple/SimpleProgress";
-// import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { OpenMultipleGmailButton } from "@/app/(app)/simple/completed/OpenMultipleGmailButton";
+import { SimpleProgressCompleted } from "@/app/(app)/simple/SimpleProgress";
 
 export default async function SimpleCompletedPage() {
   const session = await auth();
@@ -17,16 +16,18 @@ export default async function SimpleCompletedPage() {
 
   const { threads } = await getThreads({ q: "newer_than:1d in:inbox" });
 
-  // const emailsHandled = Object.keys(handled).length
-  // const emailsToHandleLater = Object.keys(toHandleLater).length
-
   return (
-    <div className="">
-      <div className="py-8 text-center font-cal text-2xl leading-10 text-gray-900">
-        <p>🥳 Great job!</p>
-        <p>Here are the emails you set aside.</p>
+    <div>
+      <div className="mb-2 mt-8 px-8">
+        <div className="text-center font-cal text-2xl leading-10 text-gray-900">
+          <p>🥳 Great job! Here are the emails you set aside!</p>
+        </div>
 
-        <div className="mt-4 space-x-2">
+        <div className="mt-2 text-center">
+          <SimpleProgressCompleted />
+        </div>
+
+        <div className="mt-4 space-x-2 text-center">
           <Button asChild variant="outline">
             <Link
               href={getGmailBasicSearchUrl(email, "newer_than:1d in:inbox")}
@@ -42,11 +43,6 @@ export default async function SimpleCompletedPage() {
             userEmail={email}
           />
         </div>
-
-        {/* <Badge variant="outline">{emailsHandled} handled</Badge>
-        <Badge variant="outline">
-          {emailsToHandleLater} to handle later
-        </Badge> */}
       </div>
 
       <Suspense>
