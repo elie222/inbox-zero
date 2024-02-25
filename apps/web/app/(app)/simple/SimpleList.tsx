@@ -12,7 +12,6 @@ import { Celebration } from "@/components/Celebration";
 import { Button } from "@/components/ui/button";
 import { Button as HoverButton } from "@/components/Button";
 import { extractNameFromEmail } from "@/utils/email";
-// import { decodeSnippet } from "@/utils/gmail/decode";
 import { Tooltip } from "@/components/Tooltip";
 import { ParsedMessage } from "@/utils/types";
 import { archiveEmails } from "@/providers/QueueProvider";
@@ -29,7 +28,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { markImportantMessageAction } from "@/utils/actions";
+import {
+  markImportantMessageAction,
+  markSpamThreadAction,
+} from "@/utils/actions";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -144,8 +146,14 @@ export function SimpleList(props: {
                         Mark Unimportant
                       </DropdownMenuItem>
                       {/* TODO only show if it has unsubscribe link */}
-                      <DropdownMenuItem>Unsubscribe</DropdownMenuItem>
-                      <DropdownMenuItem>Mark Spam</DropdownMenuItem>
+                      {/* <DropdownMenuItem>Unsubscribe</DropdownMenuItem> */}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          markSpamThreadAction(message.threadId);
+                        }}
+                      >
+                        Mark Spam
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

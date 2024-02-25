@@ -40,6 +40,7 @@ import {
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 import { captureException } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
+import { markSpam } from "@/utils/gmail/spam";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -245,6 +246,14 @@ export async function markImportantMessageAction(
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
   const res = await markImportantMessage({ gmail, messageId, important });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function markSpamThreadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await markSpam({ gmail, threadId });
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 
