@@ -78,7 +78,7 @@ export async function markImportantMessage(options: {
 }) {
   const { gmail, messageId, important } = options;
 
-  return gmail.users.threads.modify({
+  return gmail.users.messages.modify({
     userId: "me",
     id: messageId,
     requestBody: important
