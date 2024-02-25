@@ -6,6 +6,7 @@ import {
   BookmarkMinusIcon,
   BookmarkPlusIcon,
   ExternalLinkIcon,
+  MoreVerticalIcon,
 } from "lucide-react";
 import { Celebration } from "@/components/Celebration";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,13 @@ import {
   getNextCategory,
   simpleEmailCategoriesArray,
 } from "@/app/(app)/simple/categories";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { markImportantMessageAction } from "@/utils/actions";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -29,7 +37,7 @@ export function SimpleList(props: {
   userEmail: string;
   type: string;
 }) {
-  const [readLaterMessages, setReadLaterMessages] = useState<
+  const [handleLaterMessages, setHandleLaterMessages] = useState<
     Record<string, boolean>
   >({});
 
@@ -44,7 +52,7 @@ export function SimpleList(props: {
               key={message.id}
               className={cn(
                 "p-4 shadow sm:rounded-lg",
-                readLaterMessages[message.id] ? "bg-gray-100" : "bg-white",
+                handleLaterMessages[message.id] ? "bg-gray-100" : "bg-white",
               )}
             >
               <div className="flex items-center gap-4">
@@ -60,7 +68,7 @@ export function SimpleList(props: {
                   </div> */}
 
                   {(message.textPlain || message.textHtml) &&
-                  !readLaterMessages[message.id] ? (
+                  !handleLaterMessages[message.id] ? (
                     <div className="mt-2 text-sm text-gray-700">
                       {/* <strong>Summary:</strong> */}
                       <Summary
@@ -76,23 +84,23 @@ export function SimpleList(props: {
                 </div>
 
                 <div className="ml-auto flex gap-2">
-                  <Tooltip content="Read Later">
+                  <Tooltip content="Handle Later">
                     <Button
                       variant="outline"
                       size="icon"
                       onClick={() => {
-                        setReadLaterMessages({
-                          ...readLaterMessages,
-                          [message.id]: !readLaterMessages[message.id],
+                        setHandleLaterMessages({
+                          ...handleLaterMessages,
+                          [message.id]: !handleLaterMessages[message.id],
                         });
                       }}
                     >
-                      {readLaterMessages[message.id] ? (
+                      {handleLaterMessages[message.id] ? (
                         <BookmarkMinusIcon className="h-4 w-4" />
                       ) : (
                         <BookmarkPlusIcon className="h-4 w-4" />
                       )}
-                      <span className="sr-only">Read Later</span>
+                      <span className="sr-only">Handle Later</span>
                     </Button>
                   </Tooltip>
 
@@ -111,6 +119,35 @@ export function SimpleList(props: {
                       <span className="sr-only">Open in Gmail</span>
                     </Button>
                   </Tooltip>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <MoreVerticalIcon className="h-4 w-4" />
+                        <span className="sr-only">More Options</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {/* TODO only show one of these two buttons */}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          markImportantMessageAction(message.id, true);
+                        }}
+                      >
+                        Mark Important
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          markImportantMessageAction(message.id, false);
+                        }}
+                      >
+                        Mark Unimportant
+                      </DropdownMenuItem>
+                      {/* TODO only show if it has unsubscribe link */}
+                      <DropdownMenuItem>Unsubscribe</DropdownMenuItem>
+                      <DropdownMenuItem>Mark Spam</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -127,7 +164,7 @@ export function SimpleList(props: {
           onClick={() => {
             archiveEmails(
               props.messages
-                .filter((m) => !readLaterMessages[m.id])
+                .filter((m) => !handleLaterMessages[m.id])
                 .map((m) => m.threadId),
               () => {},
             );
