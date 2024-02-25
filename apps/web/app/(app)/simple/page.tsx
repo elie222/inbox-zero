@@ -9,6 +9,7 @@ import { PageHeading } from "@/components/Typography";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload } from "@/utils/types";
+import { SimpleEmailStateProvider } from "@/app/(app)/simple/SimpleProgressProvider";
 
 export const dynamic = "force-dynamic";
 
@@ -60,16 +61,18 @@ export default async function SimplePage({
   const title = `Today's ${categoryTitle} emails`;
 
   return (
-    <div className="flex justify-center py-10">
-      <div className="w-full max-w-3xl">
-        <PageHeading className="text-center">{title}</PageHeading>
-        <SimpleList
-          messages={messages}
-          nextPageToken={response.data.nextPageToken}
-          userEmail={email}
-          type={type}
-        />
+    <SimpleEmailStateProvider>
+      <div className="flex justify-center py-10">
+        <div className="w-full max-w-3xl">
+          <PageHeading className="text-center">{title}</PageHeading>
+          <SimpleList
+            messages={messages}
+            nextPageToken={response.data.nextPageToken}
+            userEmail={email}
+            type={type}
+          />
+        </div>
       </div>
-    </div>
+    </SimpleEmailStateProvider>
   );
 }

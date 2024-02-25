@@ -15,6 +15,7 @@
     "@auth/core": "^0.24.0",
     "@auth/prisma-adapter": "^1.1.0",
     "@baselime/node-opentelemetry": "^0.3.8",
+    "@formkit/auto-animate": "^0.8.1",
     "@headlessui/react": "^1.7.18",
     "@hookform/resolvers": "^3.3.4",
     "@inboxzero/loops": "workspace:*",

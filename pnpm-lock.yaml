@@ -41,6 +41,9 @@ importers:
       '@baselime/node-opentelemetry':
         specifier: ^0.3.8
         version: 0.3.8(@trpc/server@10.45.1)
+      '@formkit/auto-animate':
+        specifier: ^0.8.1
+        version: 0.8.1
       '@headlessui/react':
         specifier: ^1.7.18
         version: 1.7.18(react-dom@18.2.0)(react@18.2.0)
@@ -1818,6 +1821,10 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       tabbable: 6.2.0
+    dev: false
+
+  /@formkit/auto-animate@0.8.1:
+    resolution: {integrity: sha512-0/Z2cuNXWVVIG/l0SpcHAWFhGdvLJ8DRvEfRWvmojtmRWfEy+LWNwgDazbZqY0qQYtkHcoEK3jBLkhiZaB/4Ig==}
     dev: false
 
   /@grpc/grpc-js@1.8.18:
