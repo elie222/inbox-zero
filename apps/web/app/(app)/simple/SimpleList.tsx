@@ -102,10 +102,7 @@ export function SimpleList(props: {
         </HoverButton>
       </div>
 
-      <SimpleProgress
-        emailsHandled={Object.keys(handled).length}
-        emailsToHandleLater={Object.keys(toHandleLater).length}
-      />
+      <SimpleProgress />
     </>
   );
 }

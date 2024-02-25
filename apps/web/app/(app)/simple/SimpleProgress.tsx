@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSimpleProgress } from "@/app/(app)/simple/SimpleProgressProvider";
 
-export function SimpleProgress(props: {
-  emailsHandled: number;
-  emailsToHandleLater: number;
-}) {
+export function SimpleProgress() {
+  const { handled, toHandleLater } = useSimpleProgress();
+
+  const emailsHandled = Object.keys(handled).length;
+  const emailsToHandleLater = Object.keys(toHandleLater).length;
+
   const [timePassed, setTimePassed] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,10 +32,8 @@ export function SimpleProgress(props: {
             {Math.floor(timePassed / 60)}:
             {String(timePassed % 60).padStart(2, "0")}
           </Badge>
-          <Badge variant="outline">{props.emailsHandled} handled</Badge>
-          <Badge variant="outline">
-            {props.emailsToHandleLater} to handle later
-          </Badge>
+          <Badge variant="outline">{emailsHandled} handled</Badge>
+          <Badge variant="outline">{emailsToHandleLater} to handle later</Badge>
         </CardContent>
       </Card>
     </div>

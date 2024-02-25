@@ -18,6 +18,12 @@ export function getGmailSearchUrl(
   )}/#advanced-search/from=${encodeURIComponent(search)}`;
 }
 
+export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
+  return `${getGmailBaseUrl(emailAddress)}/#search/${encodeURIComponent(
+    query,
+  )}`;
+}
+
 // export function getGmailCreateFilterUrl(
 //   search: string,
 //   emailAddress?: string | null,
