@@ -14,8 +14,7 @@ export function findUnsubscribeLink(html?: string | null): string | undefined {
   links.forEach((element) => {
     const text = element.textContent?.toLowerCase() ?? "";
     if (containsUnsubscribeKeyword(text)) {
-      unsubscribeLink =
-        element.getAttribute("href")?.toLowerCase() ?? undefined;
+      unsubscribeLink = element.getAttribute("href") ?? undefined;
       return;
     }
   });
@@ -57,7 +56,7 @@ export function findCtaLink(
     if (!element.textContent) return;
     if (containsCtaKeyword(element.textContent.toLowerCase())) {
       ctaText = element.textContent;
-      ctaLink = element.getAttribute("href")?.toLowerCase() ?? undefined;
+      ctaLink = element.getAttribute("href") ?? undefined;
       return;
     }
   });

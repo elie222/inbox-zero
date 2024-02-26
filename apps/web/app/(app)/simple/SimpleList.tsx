@@ -159,7 +159,7 @@ function SimpleListRow({
 
           {cta && (
             <Button asChild variant="secondary" size="sm" className="mt-2">
-              <Link href={cta.ctaLink}>
+              <Link href={cta.ctaLink} target="_blank">
                 {cta.ctaText}
                 <ExternalLinkIcon className="ml-2 h-4 w-4" />
               </Link>
