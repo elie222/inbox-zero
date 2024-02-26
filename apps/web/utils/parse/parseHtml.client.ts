@@ -2,6 +2,7 @@ import { containsUnsubscribeKeyword } from "@/utils/parse/unsubscribe";
 
 // very similar to apps/web/utils/parse/parseHtml.server.ts
 export function findUnsubscribeLink(html?: string | null): string | undefined {
+  if (typeof DOMParser === "undefined") return;
   if (!html) return;
 
   const parser = new DOMParser();
