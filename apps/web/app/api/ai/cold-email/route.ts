@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
 import { UserAIFields } from "@/utils/openai";
-import { findUnsubscribeLink } from "@/utils/unsubscribe";
+import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
 
