@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
   BookmarkMinusIcon,
   BookmarkPlusIcon,
+  MailMinusIcon,
   MoreVerticalIcon,
 } from "lucide-react";
 import { Celebration } from "@/components/Celebration";
@@ -32,6 +34,7 @@ import {
 } from "@/utils/actions";
 import { SimpleProgress } from "@/app/(app)/simple/SimpleProgress";
 import { useSimpleProgress } from "@/app/(app)/simple/SimpleProgressProvider";
+import { findUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -118,6 +121,8 @@ function SimpleListRow({
   toHandleLater: Record<string, boolean>;
   onSetToHandleLater: (ids: string[]) => void;
 }) {
+  const unsubscribeLink = findUnsubscribeLink(message.textHtml);
+
   return (
     <div className="bg-white p-4 shadow sm:rounded-lg">
       <div className="flex items-center gap-4">
@@ -144,6 +149,17 @@ function SimpleListRow({
         </div>
 
         <div className="ml-auto flex gap-2">
+          {!!unsubscribeLink && (
+            <Tooltip content="Unsubscribe">
+              <Button variant="outline" size="icon" asChild>
+                <Link href={unsubscribeLink}>
+                  <MailMinusIcon className="h-4 w-4" />
+                  <span className="sr-only">Unsubscribe</span>
+                </Link>
+              </Button>
+            </Tooltip>
+          )}
+
           <Tooltip content="Handle Later">
             <Button
               variant="outline"

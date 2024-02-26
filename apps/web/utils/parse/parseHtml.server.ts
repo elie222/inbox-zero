@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { containsUnsubscribeKeyword } from "@/utils/parse/unsubscribe";
 
 export function findUnsubscribeLink(html?: string | null) {
   if (!html) return;
@@ -8,13 +9,7 @@ export function findUnsubscribeLink(html?: string | null) {
 
   $("a").each((_index, element) => {
     const text = $(element).text().toLowerCase();
-    if (
-      text.includes("unsubscribe") ||
-      text.includes("email preferences") ||
-      text.includes("email settings") ||
-      text.includes("email options") ||
-      text.includes("notification preferences")
-    ) {
+    if (containsUnsubscribeKeyword(text)) {
       unsubscribeLink = $(element).attr("href");
       // console.debug(
       //   `Found link with text '${text}' and a link: ${unsubscribeLink}`,
@@ -23,7 +18,7 @@ export function findUnsubscribeLink(html?: string | null) {
     }
 
     const href = $(element).attr("href")?.toLowerCase() || "";
-    if (href.includes("unsubcribe")) {
+    if (href.includes("unsubscribe")) {
       unsubscribeLink = $(element).attr("href");
       // console.debug(
       //   `Found link with href '${href}' and a link: ${unsubscribeLink}`,

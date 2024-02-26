@@ -5,8 +5,8 @@ import { sleep } from "@/utils/sleep";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail } from "@/utils/email";
-import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
+import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 
 const PAGE_SIZE = 100;
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
