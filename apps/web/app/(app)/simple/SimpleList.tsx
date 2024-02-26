@@ -134,14 +134,20 @@ function SimpleListRow({
             <span className="ml-2 mr-4">{message.headers.subject}</span>
           </div>
 
-          {message.textPlain || message.textHtml ? (
-            <div className="mt-2 text-sm text-gray-700">
+          <div className="mt-2 text-sm text-gray-700">
+            {/* summarise newsletters with ai (this assumes an email with an unsubscribe link is a newsletter) */}
+            {unsubscribeLink ? (
               <Summary
                 textHtml={message.textHtml}
                 textPlain={message.textPlain}
               />
-            </div>
-          ) : null}
+            ) : (
+              emailContent({
+                textPlain: message.textPlain,
+                textHtml: message.textHtml,
+              })
+            )}
+          </div>
 
           {/* <div className="mt-2 text-sm text-gray-500">
           {new Date(message.headers.date).toLocaleString()}
@@ -222,4 +228,30 @@ function SimpleListRow({
       </div>
     </div>
   );
+}
+
+function emailContent({
+  textPlain,
+  textHtml,
+}: {
+  textPlain?: string;
+  textHtml?: string;
+}) {
+  const text = textPlain || htmlToText(textHtml || "No content");
+
+  const shortened = text
+    .replace(/\s+/g, " ") // Collapse multiple spaces into one
+    .replace(/\n\s*\n/g, "\n") // Remove empty lines
+    .substring(0, 200);
+
+  if (shortened.length === 200) return shortened + "...";
+
+  return shortened;
+}
+
+function htmlToText(html: string): string {
+  if (typeof DOMParser === "undefined") return "";
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  return doc.body.textContent || "";
 }
