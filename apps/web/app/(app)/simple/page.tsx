@@ -35,8 +35,11 @@ export default async function SimplePage({
     pageToken,
   });
 
+  // only take the latest email in each thread
+  const filteredMessages = filterDuplicateThreads(response.data.messages || []);
+
   const messages = await Promise.all(
-    response.data.messages?.map(async (message) => {
+    filteredMessages?.map(async (message) => {
       const fullMessage = await gmail.users.messages.get({
         userId: "me",
         id: message.id!,
@@ -72,4 +75,21 @@ export default async function SimplePage({
       </div>
     </div>
   );
+}
+
+function filterDuplicateThreads<T extends { threadId?: string | null }>(
+  messages: T[],
+): T[] {
+  const threadIds = new Set();
+  const filteredMessages: T[] = [];
+
+  messages.forEach((message) => {
+    if (!message.threadId) return;
+    if (threadIds.has(message.threadId)) return;
+
+    threadIds.add(message.threadId);
+    filteredMessages.push(message);
+  });
+
+  return filteredMessages;
 }
