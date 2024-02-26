@@ -61,6 +61,8 @@ export function findCtaLink(
     }
   });
 
+  if (ctaLink && !ctaLink.startsWith("http")) ctaLink = `https://${ctaLink}`;
+
   return ctaText && ctaLink ? { ctaText, ctaLink } : undefined;
 }
 
@@ -72,8 +74,22 @@ export function htmlToText(html: string): string {
 }
 
 // Remove replies from `textPlain` email content.
-// `Content. On Wed, Feb 21, 2024 at 10:10 AM A <a@gmail.com> wrote: XYZ.`
+// `Content. On Wed, Feb 21, 2024 at 10:10 AM ABC <abc@gmail.com> wrote: XYZ.`
 // This function returns "Content."
 export function removeReplyFromTextPlain(text: string) {
   return text.split(/(On.*?wrote:)/s)[0];
+}
+
+export function isMarketingEmail(html: string) {
+  if (typeof DOMParser === "undefined") return "";
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  // contains centered table
+  const tables = Array.from(doc.querySelectorAll("table"));
+  for (const table of tables) {
+    if (table.getAttribute("align") === "center") {
+      return true;
+    }
+  }
 }

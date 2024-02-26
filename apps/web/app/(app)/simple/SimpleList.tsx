@@ -40,6 +40,7 @@ import {
   findCtaLink,
   findUnsubscribeLink,
   htmlToText,
+  isMarketingEmail,
   removeReplyFromTextPlain,
 } from "@/utils/parse/parseHtml.client";
 
@@ -131,6 +132,9 @@ function SimpleListRow({
   const unsubscribeLink = findUnsubscribeLink(message.textHtml);
   const cta = findCtaLink(message.textHtml);
 
+  const marketingEmail =
+    !!message.textHtml && isMarketingEmail(message.textHtml);
+
   return (
     <div className="bg-white p-4 shadow sm:rounded-lg">
       <div className="flex items-center gap-4">
@@ -143,11 +147,11 @@ function SimpleListRow({
           </div>
 
           <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
-            {/* summarise newsletters with ai (this assumes an email with an unsubscribe link is a newsletter) */}
-            {unsubscribeLink ? (
+            {/* ai summarise html emails and emails with unsubscribe links */}
+            {unsubscribeLink || marketingEmail ? (
               <Summary
-                textHtml={message.textHtml}
                 textPlain={message.textPlain}
+                textHtml={message.textHtml}
               />
             ) : (
               <EmailContent
@@ -260,12 +264,10 @@ function EmailContent({
     ? removeReplyFromTextPlain(textPlain).trim()
     : htmlToText(textHtml || "No content").trim();
 
-  const shortened = expanded
-    ? text
-    : text
-        .replace(/\s+/g, " ") // Collapse multiple spaces into one
-        .replace(/\n\s*\n/g, "\n") // Remove empty lines
-        .substring(0, 200);
+  const shortened = expanded ? text : text.substring(0, 200);
+
+  // .replace(/\s+/g, " ") // Collapse multiple spaces into one
+  // .replace(/\n\s*\n/g, "\n") // Remove empty lines
 
   return (
     <>
