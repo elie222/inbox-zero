@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
@@ -34,7 +35,11 @@ import {
 } from "@/utils/actions";
 import { SimpleProgress } from "@/app/(app)/simple/SimpleProgress";
 import { useSimpleProgress } from "@/app/(app)/simple/SimpleProgressProvider";
-import { findUnsubscribeLink } from "@/utils/parse/parseHtml.client";
+import {
+  findUnsubscribeLink,
+  htmlToText,
+  removeReplyFromTextPlain,
+} from "@/utils/parse/parseHtml.client";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -134,7 +139,7 @@ function SimpleListRow({
             <span className="ml-2 mr-4">{message.headers.subject}</span>
           </div>
 
-          <div className="mt-2 text-sm text-gray-700">
+          <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
             {/* summarise newsletters with ai (this assumes an email with an unsubscribe link is a newsletter) */}
             {unsubscribeLink ? (
               <Summary
@@ -142,10 +147,10 @@ function SimpleListRow({
                 textPlain={message.textPlain}
               />
             ) : (
-              emailContent({
-                textPlain: message.textPlain,
-                textHtml: message.textHtml,
-              })
+              <EmailContent
+                textPlain={message.textPlain}
+                textHtml={message.textHtml}
+              />
             )}
           </div>
 
@@ -230,28 +235,37 @@ function SimpleListRow({
   );
 }
 
-function emailContent({
+function EmailContent({
   textPlain,
   textHtml,
 }: {
   textPlain?: string;
   textHtml?: string;
 }) {
-  const text = textPlain || htmlToText(textHtml || "No content");
+  const [expanded, setExpanded] = useState(false);
 
-  const shortened = text
-    .replace(/\s+/g, " ") // Collapse multiple spaces into one
-    .replace(/\n\s*\n/g, "\n") // Remove empty lines
-    .substring(0, 200);
+  const text = textPlain
+    ? removeReplyFromTextPlain(textPlain).trim()
+    : htmlToText(textHtml || "No content").trim();
 
-  if (shortened.length === 200) return shortened + "...";
+  const shortened = expanded
+    ? text
+    : text
+        .replace(/\s+/g, " ") // Collapse multiple spaces into one
+        .replace(/\n\s*\n/g, "\n") // Remove empty lines
+        .substring(0, 200);
 
-  return shortened;
-}
-
-function htmlToText(html: string): string {
-  if (typeof DOMParser === "undefined") return "";
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  return doc.body.textContent || "";
+  return (
+    <>
+      {shortened}
+      {shortened.length === 200 && !expanded && (
+        <>
+          ...
+          <button className="font-semibold" onClick={() => setExpanded(true)}>
+            View more
+          </button>
+        </>
+      )}
+    </>
+  );
 }

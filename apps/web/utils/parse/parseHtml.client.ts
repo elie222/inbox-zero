@@ -39,3 +39,17 @@ export function findUnsubscribeLink(html?: string | null): string | undefined {
 
   return unsubscribeLink;
 }
+
+export function htmlToText(html: string): string {
+  if (typeof DOMParser === "undefined") return "";
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  return doc.body.textContent || "";
+}
+
+// Remove replies from `textPlain` email content.
+// `Content. On Wed, Feb 21, 2024 at 10:10 AM A <a@gmail.com> wrote: XYZ.`
+// This function returns "Content."
+export function removeReplyFromTextPlain(text: string) {
+  return text.split(/(On.*?wrote:)/s)[0];
+}
