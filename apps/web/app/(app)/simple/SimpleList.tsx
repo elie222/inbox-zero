@@ -7,6 +7,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
   BookmarkMinusIcon,
   BookmarkPlusIcon,
+  ExternalLinkIcon,
   MailMinusIcon,
   MoreVerticalIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ import {
 import { SimpleProgress } from "@/app/(app)/simple/SimpleProgress";
 import { useSimpleProgress } from "@/app/(app)/simple/SimpleProgressProvider";
 import {
+  findCtaLink,
   findUnsubscribeLink,
   htmlToText,
   removeReplyFromTextPlain,
@@ -127,6 +129,7 @@ function SimpleListRow({
   onSetToHandleLater: (ids: string[]) => void;
 }) {
   const unsubscribeLink = findUnsubscribeLink(message.textHtml);
+  const cta = findCtaLink(message.textHtml);
 
   return (
     <div className="bg-white p-4 shadow sm:rounded-lg">
@@ -153,6 +156,15 @@ function SimpleListRow({
               />
             )}
           </div>
+
+          {cta && (
+            <Button asChild variant="secondary" size="sm" className="mt-2">
+              <Link href={cta.ctaLink}>
+                {cta.ctaText}
+                <ExternalLinkIcon className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          )}
 
           {/* <div className="mt-2 text-sm text-gray-500">
           {new Date(message.headers.date).toLocaleString()}

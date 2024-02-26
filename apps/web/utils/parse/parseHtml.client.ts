@@ -1,3 +1,4 @@
+import { containsCtaKeyword } from "@/utils/parse/cta";
 import { containsUnsubscribeKeyword } from "@/utils/parse/unsubscribe";
 
 // very similar to apps/web/utils/parse/parseHtml.server.ts
@@ -38,6 +39,30 @@ export function findUnsubscribeLink(html?: string | null): string | undefined {
   }
 
   return unsubscribeLink;
+}
+
+export function findCtaLink(
+  html?: string | null,
+): { ctaText: string; ctaLink: string } | undefined {
+  if (typeof DOMParser === "undefined") return;
+  if (!html) return;
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  let ctaText: string | undefined;
+  let ctaLink: string | undefined;
+
+  const links = doc.querySelectorAll("a");
+  links.forEach((element) => {
+    if (!element.textContent) return;
+    if (containsCtaKeyword(element.textContent.toLowerCase())) {
+      ctaText = element.textContent;
+      ctaLink = element.getAttribute("href")?.toLowerCase() ?? undefined;
+      return;
+    }
+  });
+
+  return ctaText && ctaLink ? { ctaText, ctaLink } : undefined;
 }
 
 export function htmlToText(html: string): string {

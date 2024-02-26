@@ -1,4 +1,4 @@
-export const unsubscribeKeywords = [
+const unsubscribeKeywords = [
   "unsubscribe",
   "email preferences",
   "email settings",
