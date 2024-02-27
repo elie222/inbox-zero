@@ -147,8 +147,8 @@ function SimpleListRow({
           </div>
 
           <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
-            {/* ai summarise html emails and emails with unsubscribe links */}
-            {unsubscribeLink || marketingEmail ? (
+            {/* ai summarise marketing emails */}
+            {marketingEmail ? (
               <Summary
                 textPlain={message.textPlain}
                 textHtml={message.textHtml}
