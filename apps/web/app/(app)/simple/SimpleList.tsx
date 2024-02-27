@@ -264,15 +264,17 @@ function EmailContent({
     ? removeReplyFromTextPlain(textPlain).trim()
     : htmlToText(textHtml || "No content").trim();
 
-  const shortened = expanded ? text : text.substring(0, 200);
-
+  const cleanedText = text.replace(/[\u00A0\u200C]/g, ""); // remove invisible characters
+  // .replace(/\n+/g, '\n') // Collapse multiple new lines into one
   // .replace(/\s+/g, " ") // Collapse multiple spaces into one
   // .replace(/\n\s*\n/g, "\n") // Remove empty lines
 
+  const finalText = expanded ? cleanedText : cleanedText.substring(0, 200);
+
   return (
     <>
-      {shortened}
-      {shortened.length === 200 && !expanded && (
+      {finalText}
+      {finalText.length === 200 && !expanded && (
         <>
           ...
           <button className="font-semibold" onClick={() => setExpanded(true)}>
