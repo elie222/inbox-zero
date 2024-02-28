@@ -35,8 +35,11 @@ export default async function SimplePage({
     pageToken,
   });
 
+  // TODO need a better way to handle this. Don't want to miss messages,
+  // but don't want to show the same thread twice
   // only take the latest email in each thread
-  const filteredMessages = filterDuplicateThreads(response.data.messages || []);
+  // const filteredMessages = filterDuplicateThreads(response.data.messages || []);
+  const filteredMessages = response.data.messages;
 
   const messages = await Promise.all(
     filteredMessages?.map(async (message) => {
