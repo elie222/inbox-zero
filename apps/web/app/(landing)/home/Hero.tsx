@@ -46,9 +46,9 @@ export function Hero(props: {
             <HeroSubtitle>
               {props.subtitle || (
                 <>
-                  Newsletter cleaner, AI automation, cold email blocker, and
-                  analytics. Inbox Zero is the open-source email app that puts
-                  you back in control of your inbox.
+                  Bulk unsubscribe from newsletters, automate your emails with
+                  AI, block cold emails, and view your analytics. Fully
+                  open-source.
                 </>
               )}
             </HeroSubtitle>
