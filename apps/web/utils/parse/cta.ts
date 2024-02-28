@@ -3,6 +3,7 @@ const ctaKeywords = [
   "view it", // eg. "View it on GitHub"
   "view reply",
   "view comment",
+  "view question",
   "view in", // eg. "View in Airtable"
   "confirm", // eg. "Confirm subscription"
   "join the conversation", // eg. LinkedIn
