@@ -21,7 +21,7 @@ import { ZodPeriod } from "@inboxzero/tinybird";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
-import { ThreadsResponse } from "@/app/api/google/threads/route";
+import { type ThreadsResponse } from "@/app/api/google/threads/controller";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
