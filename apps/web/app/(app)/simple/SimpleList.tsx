@@ -44,6 +44,7 @@ import {
   removeReplyFromTextPlain,
 } from "@/utils/parse/parseHtml.client";
 import { HtmlEmail } from "@/components/email-list/EmailPanel";
+import { ViewMoreButton } from "@/app/(app)/simple/ViewMoreButton";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -225,19 +226,25 @@ function SimpleListRow({
           </div>
 
           <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
-            {/* ai summarise marketing emails */}
-            {marketingEmail ? (
-              <Summary
-                textPlain={message.textPlain}
-                textHtml={message.textHtml}
-              />
+            {expanded && !!message.textHtml ? (
+              <HtmlEmail html={message.textHtml} />
             ) : (
-              <EmailContent
-                textPlain={message.textPlain}
-                textHtml={message.textHtml}
-                expanded={expanded}
-                setExpanded={setExpanded}
-              />
+              <>
+                {marketingEmail ? (
+                  <Summary
+                    textPlain={message.textPlain}
+                    textHtml={message.textHtml}
+                    onViewMore={() => setExpanded(true)}
+                  />
+                ) : (
+                  <EmailContent
+                    textPlain={message.textPlain}
+                    textHtml={message.textHtml}
+                    expanded={expanded}
+                    setExpanded={setExpanded}
+                  />
+                )}
+              </>
             )}
           </div>
 
@@ -283,17 +290,13 @@ function EmailContent({
 
   const finalText = expanded ? cleanedText : cleanedText.substring(0, 200);
 
-  return expanded && !!textHtml ? (
-    <HtmlEmail html={textHtml} />
-  ) : (
+  return (
     <>
       {finalText}
       {finalText.length === 200 && !expanded && (
         <>
           ...
-          <button className="font-semibold" onClick={() => setExpanded(true)}>
-            View more
-          </button>
+          <ViewMoreButton onClick={() => setExpanded(true)} />
         </>
       )}
     </>

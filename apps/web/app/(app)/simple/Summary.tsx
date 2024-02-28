@@ -3,13 +3,16 @@
 import { useCompletion } from "ai/react";
 import { useEffect } from "react";
 import { ButtonLoader } from "@/components/ui/button";
+import { ViewMoreButton } from "@/app/(app)/simple/ViewMoreButton";
 
 export function Summary({
   textHtml,
   textPlain,
+  onViewMore,
 }: {
   textHtml?: string;
   textPlain?: string;
+  onViewMore?: () => void;
 }) {
   const { completion, isLoading, complete } = useCompletion({
     api: "/api/ai/summarise",
@@ -25,6 +28,12 @@ export function Summary({
     <div className="whitespace-pre-wrap">
       {isLoading && <ButtonLoader />}
       {completion}
+
+      {!!onViewMore && (
+        <div className="mt-2">
+          <ViewMoreButton onClick={onViewMore} />
+        </div>
+      )}
     </div>
   );
 }
