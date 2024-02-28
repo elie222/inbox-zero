@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { EmailList } from "@/components/email-list/EmailList";
-import { getThreads } from "@/app/api/google/threads/route";
+import { getThreads } from "@/app/api/google/threads/controller";
 import { Button } from "@/components/ui/button";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";

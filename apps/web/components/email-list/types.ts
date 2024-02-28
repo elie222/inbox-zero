@@ -1,4 +1,4 @@
-import { ThreadsResponse } from "@/app/api/google/threads/route";
+import { ThreadsResponse } from "@/app/api/google/threads/controller";
 
 export type Thread = ThreadsResponse["threads"][number];
 
