@@ -218,7 +218,7 @@ export function EmailList(props: {
                   message.parsedMessage.headers["message-id"] || "",
                 references: message.parsedMessage.headers.references,
               },
-              allowExecute: false,
+              allowExecute: true,
             },
           );
 
