@@ -74,7 +74,7 @@ export function ActionButtons(props: {
         ),
       },
       {
-        tooltip: "Plan AI action",
+        tooltip: "Run AI Rules",
         onClick: onPlanAiAction,
         icon: isPlanning ? (
           <LoadingMiniSpinner />

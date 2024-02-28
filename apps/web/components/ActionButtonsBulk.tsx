@@ -42,7 +42,7 @@ export function ActionButtonsBulk(props: {
   const buttons = useMemo(
     () => [
       {
-        tooltip: "Plan AI action",
+        tooltip: "Run AI Rules",
         onClick: onPlanAiAction,
         icon: isPlanning ? (
           <LoadingMiniSpinner />
