@@ -4,17 +4,44 @@ import Image from "next/image";
 import { getCelebrationImage } from "@/utils/celebration";
 import { Button } from "@/components/Button";
 
-export function Celebration(props: { message: string }) {
+export function Celebration(props: { type: string }) {
   const [active, setActive] = useState(false);
 
   useEffect(() => {
     setActive(true);
   }, []);
 
+  if (props.type == "draft") {
+    return (
+      <>
+        <div className="mt-20 flex items-center justify-center font-cal text-2xl text-gray-900">
+          You don't have any saved drafts.
+        </div>
+      </>
+    );
+  }
+  if (props.type == "sent") {
+    return (
+      <>
+        <div className="mt-20 flex items-center justify-center font-cal text-2xl text-gray-900">
+          You haven't sent any emails yet.
+        </div>
+      </>
+    );
+  }
+  if (props.type == "archive") {
+    return (
+      <>
+        <div className="mt-20 flex items-center justify-center font-cal text-2xl text-gray-900">
+          No emails have been archived.
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <div className="mt-20 flex items-center justify-center font-cal text-2xl text-gray-900">
-        Congrats! {props.message}
+        Congrats! You made it to Inbox Zero!
       </div>
       <div className="flex items-center justify-center">
         <Confetti
