@@ -43,6 +43,7 @@ import {
   isMarketingEmail,
   removeReplyFromTextPlain,
 } from "@/utils/parse/parseHtml.client";
+import { HtmlEmail } from "@/components/email-list/EmailPanel";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -50,7 +51,7 @@ export function SimpleList(props: {
   userEmail: string;
   type: string;
 }) {
-  const { handled, toHandleLater, onSetHandled, onSetToHandleLater } =
+  const { toHandleLater, onSetHandled, onSetToHandleLater } =
     useSimpleProgress();
 
   const router = useRouter();
@@ -135,15 +136,92 @@ function SimpleListRow({
   const marketingEmail =
     !!message.textHtml && isMarketingEmail(message.textHtml);
 
+  const [expanded, setExpanded] = useState(false);
+
+  const actionButtons = (
+    <div className="ml-auto flex gap-2">
+      {!!unsubscribeLink && (
+        <Tooltip content="Unsubscribe">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={unsubscribeLink}>
+              <MailMinusIcon className="h-4 w-4" />
+              <span className="sr-only">Unsubscribe</span>
+            </Link>
+          </Button>
+        </Tooltip>
+      )}
+
+      <Tooltip content="Handle Later">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            onSetToHandleLater([message.id]);
+          }}
+        >
+          {toHandleLater[message.id] ? (
+            <BookmarkMinusIcon className="h-4 w-4" />
+          ) : (
+            <BookmarkPlusIcon className="h-4 w-4" />
+          )}
+          <span className="sr-only">Handle Later</span>
+        </Button>
+      </Tooltip>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon">
+            <MoreVerticalIcon className="h-4 w-4" />
+            <span className="sr-only">More Options</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem
+            onClick={() => {
+              window.open(getGmailUrl(message.id, userEmail), "_blank");
+            }}
+          >
+            Open in Gmail
+          </DropdownMenuItem>
+          {/* TODO only show one of these two buttons */}
+          <DropdownMenuItem
+            onClick={() => {
+              markImportantMessageAction(message.id, true);
+            }}
+          >
+            Mark Important
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              markImportantMessageAction(message.id, false);
+            }}
+          >
+            Mark Unimportant
+          </DropdownMenuItem>
+          {/* TODO only show if it has unsubscribe link */}
+          {/* <DropdownMenuItem>Unsubscribe</DropdownMenuItem> */}
+          <DropdownMenuItem
+            onClick={() => {
+              markSpamThreadAction(message.threadId);
+            }}
+          >
+            Mark Spam
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
   return (
     <div className="bg-white p-4 shadow sm:rounded-lg">
       <div className="flex items-center gap-4">
-        <div>
-          <div className="">
+        <div className="w-full">
+          <div className="flex">
             <span className="font-bold">
               {extractNameFromEmail(message.headers.from)}
             </span>
             <span className="ml-2 mr-4">{message.headers.subject}</span>
+            <span className="ml-auto">{expanded && actionButtons}</span>
           </div>
 
           <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
@@ -157,6 +235,8 @@ function SimpleListRow({
               <EmailContent
                 textPlain={message.textPlain}
                 textHtml={message.textHtml}
+                expanded={expanded}
+                setExpanded={setExpanded}
               />
             )}
           </div>
@@ -175,77 +255,7 @@ function SimpleListRow({
         </div> */}
         </div>
 
-        <div className="ml-auto flex gap-2">
-          {!!unsubscribeLink && (
-            <Tooltip content="Unsubscribe">
-              <Button variant="outline" size="icon" asChild>
-                <Link href={unsubscribeLink}>
-                  <MailMinusIcon className="h-4 w-4" />
-                  <span className="sr-only">Unsubscribe</span>
-                </Link>
-              </Button>
-            </Tooltip>
-          )}
-
-          <Tooltip content="Handle Later">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                onSetToHandleLater([message.id]);
-              }}
-            >
-              {toHandleLater[message.id] ? (
-                <BookmarkMinusIcon className="h-4 w-4" />
-              ) : (
-                <BookmarkPlusIcon className="h-4 w-4" />
-              )}
-              <span className="sr-only">Handle Later</span>
-            </Button>
-          </Tooltip>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreVerticalIcon className="h-4 w-4" />
-                <span className="sr-only">More Options</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem
-                onClick={() => {
-                  window.open(getGmailUrl(message.id, userEmail), "_blank");
-                }}
-              >
-                Open in Gmail
-              </DropdownMenuItem>
-              {/* TODO only show one of these two buttons */}
-              <DropdownMenuItem
-                onClick={() => {
-                  markImportantMessageAction(message.id, true);
-                }}
-              >
-                Mark Important
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  markImportantMessageAction(message.id, false);
-                }}
-              >
-                Mark Unimportant
-              </DropdownMenuItem>
-              {/* TODO only show if it has unsubscribe link */}
-              {/* <DropdownMenuItem>Unsubscribe</DropdownMenuItem> */}
-              <DropdownMenuItem
-                onClick={() => {
-                  markSpamThreadAction(message.threadId);
-                }}
-              >
-                Mark Spam
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {!expanded && actionButtons}
       </div>
     </div>
   );
@@ -254,12 +264,14 @@ function SimpleListRow({
 function EmailContent({
   textPlain,
   textHtml,
+  expanded,
+  setExpanded,
 }: {
   textPlain?: string;
   textHtml?: string;
+  expanded: boolean;
+  setExpanded: (expanded: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   const text = textPlain
     ? removeReplyFromTextPlain(textPlain).trim()
     : htmlToText(textHtml || "No content").trim();
@@ -271,7 +283,9 @@ function EmailContent({
 
   const finalText = expanded ? cleanedText : cleanedText.substring(0, 200);
 
-  return (
+  return expanded && !!textHtml ? (
+    <HtmlEmail html={textHtml} />
+  ) : (
     <>
       {finalText}
       {finalText.length === 200 && !expanded && (
