@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
@@ -59,6 +59,8 @@ export function SimpleList(props: {
 
   const [parent] = useAutoAnimate();
 
+  const [isPending, startTransition] = useTransition();
+
   const toArchive = props.messages
     .filter((m) => !toHandleLater[m.id])
     .map((m) => m.threadId);
@@ -87,28 +89,31 @@ export function SimpleList(props: {
       <div className="mt-8 flex justify-center">
         <HoverButton
           size="2xl"
+          loading={isPending}
           onClick={() => {
-            onSetHandled(toArchive);
+            startTransition(() => {
+              onSetHandled(toArchive);
 
-            archiveEmails(toArchive, () => {});
+              archiveEmails(toArchive, () => {});
 
-            if (props.nextPageToken) {
-              router.push(
-                `/simple?type=${props.type}&pageToken=${props.nextPageToken}`,
-              );
-            } else {
-              const lastCategory =
-                simpleEmailCategoriesArray[
-                  simpleEmailCategoriesArray.length - 1
-                ][0];
-
-              if (props.type === lastCategory) {
-                router.push(`/simple/completed`);
+              if (props.nextPageToken) {
+                router.push(
+                  `/simple?type=${props.type}&pageToken=${props.nextPageToken}`,
+                );
               } else {
-                const next = getNextCategory(props.type);
-                router.push(`/simple?type=${next}`);
+                const lastCategory =
+                  simpleEmailCategoriesArray[
+                    simpleEmailCategoriesArray.length - 1
+                  ][0];
+
+                if (props.type === lastCategory) {
+                  router.push(`/simple/completed`);
+                } else {
+                  const next = getNextCategory(props.type);
+                  router.push(`/simple?type=${next}`);
+                }
               }
-            }
+            });
           }}
         >
           {toArchive.length ? "Archive and Continue" : "Continue"}
