@@ -8,6 +8,7 @@ export const simpleEmailCategoriesArray: ReadonlyArray<
   ["CATEGORY_PROMOTIONS", "promotions"],
   ["CATEGORY_UPDATES", "updates"],
   ["CATEGORY_FORUMS", "forums"],
+  ["OTHER", "other"],
 ];
 
 export const simpleEmailCategories = new Map(simpleEmailCategoriesArray);

@@ -3,6 +3,7 @@ import { SimpleList } from "@/app/(app)/simple/SimpleList";
 import {
   getNextCategory,
   simpleEmailCategories,
+  simpleEmailCategoriesArray,
 } from "@/app/(app)/simple/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PageHeading } from "@/components/Typography";
@@ -29,9 +30,7 @@ export default async function SimplePage({
     userId: "me",
     labelIds: [type],
     maxResults: 5,
-    q:
-      "newer_than:1d in:inbox" +
-      (type === "IMPORTANT" ? "" : " -label:IMPORTANT"),
+    q: getQuery(type),
     pageToken,
   });
 
@@ -80,19 +79,32 @@ export default async function SimplePage({
   );
 }
 
-function filterDuplicateThreads<T extends { threadId?: string | null }>(
-  messages: T[],
-): T[] {
-  const threadIds = new Set();
-  const filteredMessages: T[] = [];
+function getQuery(type: string): string {
+  const base = "newer_than:1d in:inbox";
 
-  messages.forEach((message) => {
-    if (!message.threadId) return;
-    if (threadIds.has(message.threadId)) return;
+  if (type === "IMPORTANT") return `${base} -label:IMPORTANT`;
 
-    threadIds.add(message.threadId);
-    filteredMessages.push(message);
-  });
+  if (type === "OTHER")
+    return `${base} ${simpleEmailCategoriesArray
+      .map(([id]) => (id === "OTHER" ? "" : `-label:${id}`))
+      .join(" ")}`;
 
-  return filteredMessages;
+  return base;
 }
+
+// function filterDuplicateThreads<T extends { threadId?: string | null }>(
+//   messages: T[],
+// ): T[] {
+//   const threadIds = new Set();
+//   const filteredMessages: T[] = [];
+
+//   messages.forEach((message) => {
+//     if (!message.threadId) return;
+//     if (threadIds.has(message.threadId)) return;
+
+//     threadIds.add(message.threadId);
+//     filteredMessages.push(message);
+//   });
+
+//   return filteredMessages;
+// }
