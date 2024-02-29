@@ -28,7 +28,7 @@ export default async function SimplePage({
 
   const response = await gmail.users.messages.list({
     userId: "me",
-    labelIds: [type],
+    labelIds: type === "OTHER" ? undefined : [type],
     maxResults: 5,
     q: getQuery(type),
     pageToken,
