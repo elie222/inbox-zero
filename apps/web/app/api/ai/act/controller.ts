@@ -1,7 +1,12 @@
 import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import { DEFAULT_AI_MODEL, UserAIFields, getOpenAI } from "@/utils/openai";
+import {
+  DEFAULT_AI_MODEL,
+  UserAIFields,
+  getOpenAI,
+  jsonResponseFormat,
+} from "@/utils/openai";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
@@ -90,7 +95,7 @@ ${email.snippet}`,
     temperature: 0,
     frequency_penalty: 0,
     presence_penalty: 0,
-    response_format: { type: "json_object" },
+    ...jsonResponseFormat(model),
     // tools: [
     //   {
     //     type: "function",

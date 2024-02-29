@@ -8,6 +8,7 @@ import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { saveAiUsage } from "@/utils/usage";
+import { jsonResponseFormat } from "@/utils/openai";
 
 const aiResponseSchema = z.object({
   coldEmail: z.boolean().nullish(),
@@ -71,12 +72,12 @@ Subject: ${email.subject}
 Body: ${email.body}
 `;
 
+  const openai = getOpenAI(userOptions.openAIApiKey);
+
   const model = userOptions.aiModel || DEFAULT_AI_MODEL;
-  const response = await getOpenAI(
-    userOptions.openAIApiKey,
-  ).chat.completions.create({
+  const response = await openai.chat.completions.create({
     model,
-    response_format: { type: "json_object" },
+    ...jsonResponseFormat(model),
     messages: [
       {
         role: "system",

@@ -1,7 +1,7 @@
 import { StreamingTextResponse } from "ai";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { AIModel, DEFAULT_AI_MODEL, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/openai";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
@@ -25,7 +25,7 @@ export const POST = withError(async (request: Request): Promise<Response> => {
 
   const openAiClient = getOpenAI(user.openAIApiKey);
 
-  const model = (user.aiModel as AIModel | undefined) || DEFAULT_AI_MODEL;
+  const model = user.aiModel || DEFAULT_AI_MODEL;
 
   const messages = [
     {

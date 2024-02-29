@@ -1,8 +1,7 @@
 import { OpenAIStream } from "ai";
-import { encodingForModel } from "js-tiktoken";
+import { TiktokenModel, encodingForModel } from "js-tiktoken";
 import { ChatCompletionChunk } from "openai/resources/index";
 import { Stream } from "openai/streaming";
-import { AIModel } from "@/utils/openai";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 
@@ -13,7 +12,7 @@ export async function saveAiUsage({
   label,
 }: {
   email: string;
-  model: AIModel;
+  model: string;
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -48,13 +47,13 @@ export async function saveAiUsageStream({
   onFinal,
 }: {
   response: Stream<ChatCompletionChunk>;
-  model: AIModel;
+  model: string;
   userEmail: string;
   messages: { role: "system" | "user"; content: string }[];
   label: string;
   onFinal?: (completion: string) => Promise<void>;
 }) {
-  const enc = encodingForModel(model);
+  const enc = encodingForModel(model as TiktokenModel);
   let completionTokens = 0;
 
   // to count token usage:
@@ -93,7 +92,7 @@ export async function saveAiUsageStream({
 
 // https://openai.com/pricing
 const costs: Record<
-  AIModel,
+  string,
   {
     input: number;
     output: number;
@@ -111,12 +110,14 @@ const costs: Record<
 
 // returns cost in cents
 function calcuateCost(
-  model: AIModel,
+  model: string,
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
   },
 ): number {
+  if (!costs[model]) return 0;
+
   const { input, output } = costs[model];
 
   return usage.prompt_tokens * input + usage.completion_tokens * output;
