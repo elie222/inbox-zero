@@ -17,24 +17,30 @@ import {
   SaveSettingsBody,
 } from "@/app/api/user/settings/validation";
 import { SaveSettingsResponse } from "@/app/api/user/settings/route";
-import { AIModel } from "@/utils/openai";
 import { Select } from "@/components/Select";
+import { OpenAiModelsResponse } from "@/app/api/ai/models/route";
+import { AlertError } from "@/components/Alert";
 
 export function ModelSection() {
-  const { data, isLoading, error } = useSWR<UserResponse>("/api/user/me");
+  const { data, isLoading, error, mutate } =
+    useSWR<UserResponse>("/api/user/me");
+  const { data: dataModels, isLoading: isLoadingModels } =
+    useSWR<OpenAiModelsResponse>(data?.openAIApiKey ? "/api/ai/models" : null);
 
   return (
     <FormSection>
       <FormSectionLeft
         title="AI Model"
-        description="Use your own API key and choose your AI model."
+        description="Choose your AI model and use your own API key."
       />
 
-      <LoadingContent loading={isLoading} error={error}>
+      <LoadingContent loading={isLoading || isLoadingModels} error={error}>
         {data && (
           <ModelSectionForm
-            aiModel={data.aiModel as AIModel | null}
+            aiModel={data.aiModel}
             openAIApiKey={data.openAIApiKey}
+            models={dataModels}
+            refetchUser={mutate}
           />
         )}
       </LoadingContent>
@@ -43,8 +49,10 @@ export function ModelSection() {
 }
 
 function ModelSectionForm(props: {
-  aiModel: AIModel | null;
+  aiModel: string | null;
   openAIApiKey: string | null;
+  models?: OpenAiModelsResponse;
+  refetchUser: () => void;
 }) {
   const {
     register,
@@ -60,6 +68,8 @@ function ModelSectionForm(props: {
 
   const onSubmit: SubmitHandler<SaveSettingsBody> = useCallback(
     async (data) => {
+      if (!data.openAIApiKey) data.aiModel = "gpt-3.5-turbo-1106";
+
       const res = await postRequest<SaveSettingsResponse, SaveSettingsBody>(
         "/api/user/settings",
         data,
@@ -72,23 +82,33 @@ function ModelSectionForm(props: {
       } else {
         toastSuccess({ description: "Settings updated!" });
       }
+
+      props.refetchUser();
     },
     [],
   );
 
-  const options: { label: string; value: AIModel }[] = useMemo(
-    () => [
-      {
-        label: "GPT 3.5 Turbo",
-        value: "gpt-3.5-turbo-1106",
-      },
-      {
-        label: "GPT-4 Turbo",
-        value: "gpt-4-turbo-preview",
-      },
-    ],
+  const options: { label: string; value: string }[] = useMemo(
+    () =>
+      props.models?.length
+        ? props.models?.map((m) => ({
+            label: m.id,
+            value: m.id,
+          }))
+        : [
+            {
+              label: "GPT 3.5 Turbo",
+              value: "gpt-3.5-turbo-1106",
+            },
+            {
+              label: "GPT-4 Turbo",
+              value: "gpt-4-turbo-preview",
+            },
+          ],
     [],
   );
+
+  const globalError = (errors as any)[""];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -107,6 +127,11 @@ function ModelSectionForm(props: {
         registerProps={register("openAIApiKey")}
         error={errors.openAIApiKey}
       />
+
+      {globalError && (
+        <AlertError title="Error saving" description={globalError.message} />
+      )}
+
       <Button type="submit" loading={isSubmitting}>
         Save
       </Button>

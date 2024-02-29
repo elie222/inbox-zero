@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { parseJSON } from "@/utils/json";
-import { DEFAULT_AI_MODEL, UserAIFields, getOpenAI } from "@/utils/openai";
+import {
+  DEFAULT_AI_MODEL,
+  UserAIFields,
+  getOpenAI,
+  jsonResponseFormat,
+} from "@/utils/openai";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { truncate } from "@/utils/mail";
@@ -80,7 +85,7 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
   const model = body.aiModel || DEFAULT_AI_MODEL;
   const response = await getOpenAI(body.openAIApiKey).chat.completions.create({
     model,
-    response_format: { type: "json_object" },
+    ...jsonResponseFormat(model),
     messages: [
       {
         role: "system",

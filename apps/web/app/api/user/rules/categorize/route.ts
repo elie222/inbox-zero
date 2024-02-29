@@ -8,6 +8,7 @@ import {
   UserAIFields,
   getAiModel,
   getOpenAI,
+  jsonResponseFormat,
 } from "@/utils/openai";
 import { Action, ActionType, Rule } from "@prisma/client";
 import { actionInputs } from "@/utils/actionType";
@@ -66,7 +67,7 @@ async function aiCategorizeRule(
   const aiResponse = await getOpenAI(user.openAIApiKey).chat.completions.create(
     {
       model,
-      response_format: { type: "json_object" },
+      ...jsonResponseFormat(model),
       messages: [
         {
           role: "system",
