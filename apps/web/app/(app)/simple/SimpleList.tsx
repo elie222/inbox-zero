@@ -144,7 +144,7 @@ function SimpleListRow({
       {!!unsubscribeLink && (
         <Tooltip content="Unsubscribe">
           <Button variant="outline" size="icon" asChild>
-            <Link href={unsubscribeLink}>
+            <Link href={unsubscribeLink} target="_blank">
               <MailMinusIcon className="h-4 w-4" />
               <span className="sr-only">Unsubscribe</span>
             </Link>
