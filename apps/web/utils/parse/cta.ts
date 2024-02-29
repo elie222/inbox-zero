@@ -9,6 +9,8 @@ const ctaKeywords = [
   "confirm", // eg. "Confirm subscription"
   "join the conversation", // eg. LinkedIn
   "go to console",
+  "open messenger", // Facebook
+  "open in", // eg. Slack
 ];
 
 export function containsCtaKeyword(text: string) {
