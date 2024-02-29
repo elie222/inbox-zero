@@ -27,22 +27,24 @@ export default async function SimpleCompletedPage() {
           <SimpleProgressCompleted />
         </div>
 
-        <div className="mt-4 space-x-2 text-center">
-          <Button asChild variant="outline">
-            <Link
-              href={getGmailBasicSearchUrl(email, "newer_than:1d in:inbox")}
-              target="_blank"
-            >
-              View in Gmail
-              <ExternalLinkIcon className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+        {!!threads.length && (
+          <div className="mt-4 space-y-2 text-center sm:space-x-2 sm:space-y-0">
+            <Button asChild variant="outline">
+              <Link
+                href={getGmailBasicSearchUrl(email, "newer_than:1d in:inbox")}
+                target="_blank"
+              >
+                View in Gmail
+                <ExternalLinkIcon className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
 
-          <OpenMultipleGmailButton
-            threadIds={threads.map((t) => t.id)}
-            userEmail={email}
-          />
-        </div>
+            <OpenMultipleGmailButton
+              threadIds={threads.map((t) => t.id)}
+              userEmail={email}
+            />
+          </div>
+        )}
       </div>
 
       <Suspense>
