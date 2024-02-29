@@ -6,9 +6,9 @@ import { categoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { parseEmail, truncate } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { getAiModel } from "@/utils/openai";
-import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
+import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 
 export const POST = withError(async (request: Request) => {
   const session = await auth();

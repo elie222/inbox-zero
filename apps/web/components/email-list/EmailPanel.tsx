@@ -218,7 +218,7 @@ function EmailMessage(props: {
   );
 }
 
-function HtmlEmail(props: { html: string }) {
+export function HtmlEmail(props: { html: string }) {
   const srcDoc = useMemo(() => getIframeHtml(props.html), [props.html]);
 
   const onLoad = useCallback(

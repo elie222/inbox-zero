@@ -1,4 +1,8 @@
-import { INBOX_LABEL_ID, UNREAD_LABEL_ID } from "@/utils/label";
+import {
+  IMPORTANT_LABEL_ID,
+  INBOX_LABEL_ID,
+  UNREAD_LABEL_ID,
+} from "@/utils/label";
 import { type gmail_v1 } from "googleapis";
 
 export async function labelThread(options: {
@@ -63,6 +67,26 @@ export async function markReadThread(options: {
         }
       : {
           addLabelIds: [UNREAD_LABEL_ID],
+        },
+  });
+}
+
+export async function markImportantMessage(options: {
+  gmail: gmail_v1.Gmail;
+  messageId: string;
+  important: boolean;
+}) {
+  const { gmail, messageId, important } = options;
+
+  return gmail.users.messages.modify({
+    userId: "me",
+    id: messageId,
+    requestBody: important
+      ? {
+          addLabelIds: [IMPORTANT_LABEL_ID],
+        }
+      : {
+          removeLabelIds: [IMPORTANT_LABEL_ID],
         },
   });
 }

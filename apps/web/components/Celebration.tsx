@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import Confetti from "react-dom-confetti";
 import Image from "next/image";
@@ -13,14 +15,14 @@ export function Celebration(props: { message: string }) {
 
   return (
     <>
-      <div className="mt-20 flex items-center justify-center font-cal text-2xl text-gray-900">
+      <div className="flex items-center justify-center font-cal text-2xl text-gray-900">
         Congrats! {props.message}
       </div>
       <div className="flex items-center justify-center">
         <Confetti
           active={active}
           config={{
-            duration: 5_000,
+            duration: 3_000,
             elementCount: 500,
             spread: 200,
           }}

@@ -32,10 +32,15 @@ import { env } from "@/env.mjs";
 import { isOnHigherTier, isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
-import { archiveThread, markReadThread } from "@/utils/gmail/label";
+import {
+  archiveThread,
+  markImportantMessage,
+  markReadThread,
+} from "@/utils/gmail/label";
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 import { captureException } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
+import { markSpam } from "@/utils/gmail/spam";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -230,6 +235,25 @@ export async function markReadThreadAction(threadId: string, read: boolean) {
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
   const res = await markReadThread({ gmail, threadId, read });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function markImportantMessageAction(
+  messageId: string,
+  important: boolean,
+) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await markImportantMessage({ gmail, messageId, important });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function markSpamThreadAction(threadId: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await markSpam({ gmail, threadId });
   return isStatusOk(res.status) ? { ok: true } : res;
 }
 

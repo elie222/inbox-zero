@@ -22,7 +22,8 @@ type Plan = {
 export function PlanBadge(props: { plan?: Plan }) {
   const { plan } = props;
 
-  if (!plan) return <Badge color="gray">Not planned</Badge>;
+  // if (!plan) return <Badge color="gray">Not planned</Badge>;
+  if (!plan) return null;
 
   if (!plan.rule) {
     const component = <Badge color="yellow">No plan</Badge>;

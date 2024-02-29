@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import countBy from "lodash/countBy";
@@ -34,6 +36,9 @@ import {
   markReadThreads,
 } from "@/providers/QueueProvider";
 import { selectedEmailAtom } from "@/store/email";
+// import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+// import { Button } from "@/components/ui/button";
+// import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 export function List(props: {
   emails: Thread[];
@@ -77,6 +82,9 @@ export function List(props: {
     [categories, planned],
   );
 
+  // only show tabs if there are planned emails or categorized emails
+  const showTabs = !!(planned.length || emails.find((email) => email.category));
+
   const filteredEmails = useMemo(() => {
     if (selectedTab === "planned") return planned;
 
@@ -90,15 +98,17 @@ export function List(props: {
 
   return (
     <>
-      <div className="border-b border-gray-200">
-        <GroupHeading
-          leftContent={
-            <div className="overflow-x-auto py-2 md:max-w-lg lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl">
-              <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
-            </div>
-          }
-        />
-      </div>
+      {showTabs && (
+        <div className="border-b border-gray-200">
+          <GroupHeading
+            leftContent={
+              <div className="overflow-x-auto py-2 md:max-w-lg lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl">
+                <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
+              </div>
+            }
+          />
+        </div>
+      )}
       {emails.length ? (
         <EmailList
           threads={filteredEmails}
@@ -131,13 +141,15 @@ export function List(props: {
           refetch={refetch}
         />
       ) : (
-        <Celebration
-          message={
-            props.type === "inbox"
-              ? "You made it to Inbox Zero!"
-              : "All emails handled!"
-          }
-        />
+        <div className="mt-20">
+          <Celebration
+            message={
+              props.type === "inbox"
+                ? "You made it to Inbox Zero!"
+                : "All emails handled!"
+            }
+          />
+        </div>
       )}
     </>
   );
@@ -147,9 +159,14 @@ export function EmailList(props: {
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch: (removedThreadIds?: string[]) => void;
+  refetch?: (removedThreadIds?: string[]) => void;
 }) {
-  const { threads = [], emptyMessage, hideActionBarWhenEmpty, refetch } = props;
+  const {
+    threads = [],
+    emptyMessage,
+    hideActionBarWhenEmpty,
+    refetch = () => {},
+  } = props;
 
   const session = useSession();
   // if right panel is open
@@ -421,6 +438,27 @@ export function EmailList(props: {
               onReject={onAiRejectBulk}
             />
           </div>
+          {/* <div className="ml-auto gap-1 flex items-center">
+            <Button variant="ghost" size='icon'>
+              <ChevronLeftIcon className='h-4 w-4' />
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost">Today</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>All</DropdownMenuItem>
+                <DropdownMenuItem>Today</DropdownMenuItem>
+                <DropdownMenuItem>Yesterday</DropdownMenuItem>
+                <DropdownMenuItem>Last week</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="ghost" size='icon'>
+              <ChevronRightIcon className='h-4 w-4' />
+            </Button>
+          </div> */}
         </div>
       )}
 

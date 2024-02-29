@@ -7,10 +7,8 @@ import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Banner } from "@/components/Banner";
-import {
-  type ThreadsQuery,
-  type ThreadsResponse,
-} from "@/app/api/google/threads/route";
+import { type ThreadsQuery } from "@/app/api/google/threads/validation";
+import { type ThreadsResponse } from "@/app/api/google/threads/controller";
 import { refetchEmailListAtom } from "@/store/email";
 
 export default function Mail({

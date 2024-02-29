@@ -11,11 +11,11 @@ import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { parseEmail } from "@/utils/mail";
 import { UserAIFields, getAiModel } from "@/utils/openai";
-import { findUnsubscribeLink } from "@/utils/unsubscribe";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
+import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

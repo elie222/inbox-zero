@@ -45,12 +45,14 @@ export async function saveAiUsageStream({
   userEmail,
   messages,
   label,
+  onFinal,
 }: {
   response: Stream<ChatCompletionChunk>;
   model: AIModel;
   userEmail: string;
   messages: { role: "system" | "user"; content: string }[];
   label: string;
+  onFinal?: (completion: string) => Promise<void>;
 }) {
   const enc = encodingForModel(model);
   let completionTokens = 0;
@@ -64,22 +66,25 @@ export async function saveAiUsageStream({
       const tokenList = enc.encode(content);
       completionTokens += tokenList.length;
     },
-    async onFinal() {
+    async onFinal(completion) {
       const promptTokens = messages.reduce(
         (total, msg) => total + enc.encode(msg.content ?? "").length,
         0,
       );
 
-      await saveAiUsage({
-        email: userEmail,
-        usage: {
-          prompt_tokens: promptTokens,
-          completion_tokens: completionTokens,
-          total_tokens: promptTokens + completionTokens,
-        },
-        model,
-        label,
-      });
+      await Promise.all([
+        onFinal?.(completion),
+        saveAiUsage({
+          email: userEmail,
+          usage: {
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: promptTokens + completionTokens,
+          },
+          model,
+          label,
+        }),
+      ]);
     },
   });
 
