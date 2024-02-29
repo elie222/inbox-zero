@@ -222,7 +222,7 @@ function SimpleListRow({
     <div className="bg-white p-4 shadow sm:rounded-lg">
       <div className="sm:flex sm:items-center sm:gap-4">
         <div className="w-full">
-          <div className="flex">
+          <div className="flex whitespace-nowrap">
             <span className="font-bold">
               {extractNameFromEmail(message.headers.from)}
             </span>
