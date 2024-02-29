@@ -79,11 +79,11 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
         value: ColdEmailSetting.LIST,
       },
       {
-        label: "Auto label",
+        label: 'Auto label as "Cold Email"',
         value: ColdEmailSetting.LABEL,
       },
       {
-        label: "Auto archive and label",
+        label: 'Auto archive and label as "Cold Email"',
         value: ColdEmailSetting.ARCHIVE_AND_LABEL,
       },
     ],
