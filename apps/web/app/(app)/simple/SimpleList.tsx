@@ -145,7 +145,7 @@ function SimpleListRow({
   const [expanded, setExpanded] = useState(false);
 
   const actionButtons = (
-    <div className="ml-auto flex gap-2">
+    <div className="flex gap-2">
       {!!unsubscribeLink && (
         <Tooltip content="Unsubscribe">
           <Button variant="outline" size="icon" asChild>
@@ -220,14 +220,14 @@ function SimpleListRow({
 
   return (
     <div className="bg-white p-4 shadow sm:rounded-lg">
-      <div className="flex items-center gap-4">
+      <div className="sm:flex sm:items-center sm:gap-4">
         <div className="w-full">
           <div className="flex">
             <span className="font-bold">
               {extractNameFromEmail(message.headers.from)}
             </span>
             <span className="ml-2 mr-4">{message.headers.subject}</span>
-            <span className="ml-auto">{expanded && actionButtons}</span>
+            {expanded && <span className="ml-auto">{actionButtons}</span>}
           </div>
 
           <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
@@ -267,7 +267,7 @@ function SimpleListRow({
         </div> */}
         </div>
 
-        {!expanded && actionButtons}
+        {!expanded && <div className="mt-2 sm:mt-0">{actionButtons}</div>}
       </div>
     </div>
   );
