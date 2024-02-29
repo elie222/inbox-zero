@@ -16,5 +16,8 @@ export async function updateSubscriptionItemQuantity(options: {
   quantity: number;
 }) {
   setUpLemon();
-  return updateSubscriptionItem(options.id, options.quantity);
+  return updateSubscriptionItem(options.id, {
+    quantity: options.quantity,
+    invoiceImmediately: true,
+  });
 }
