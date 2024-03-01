@@ -40,7 +40,10 @@ export function PostHogIdentify(): JSX.Element {
   const session = useSession();
 
   useEffect(() => {
-    if (session?.data?.user.email) posthog.identify(session?.data?.user.email);
+    if (session?.data?.user.email)
+      posthog.identify(session.data.user.email, {
+        email: session.data.user.email,
+      });
   }, [session?.data?.user.email]);
 
   return <></>;
