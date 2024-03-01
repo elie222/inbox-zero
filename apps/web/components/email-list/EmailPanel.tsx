@@ -60,18 +60,12 @@ export function EmailPanel(props: {
             }}
             refetch={props.refetch}
           />
-          <div className="ml-2 flex items-center">
-            <Tooltip content="Close">
-              <button
-                type="button"
-                className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                onClick={props.close}
-              >
-                <span className="sr-only">Close</span>
-                <XIcon className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </Tooltip>
-          </div>
+          <Tooltip content="Close">
+            <Button onClick={props.close} size="icon" variant="ghost">
+              <span className="sr-only">Close</span>
+              <XIcon className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto">
