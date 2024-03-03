@@ -54,6 +54,8 @@ function ModelSectionForm(props: {
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
 }) {
+  const { refetchUser } = props;
+
   const {
     register,
     handleSubmit,
@@ -83,9 +85,9 @@ function ModelSectionForm(props: {
         toastSuccess({ description: "Settings updated!" });
       }
 
-      props.refetchUser();
+      refetchUser();
     },
-    [],
+    [refetchUser],
   );
 
   const options: { label: string; value: string }[] = useMemo(
@@ -105,7 +107,7 @@ function ModelSectionForm(props: {
               value: "gpt-4-turbo-preview",
             },
           ],
-    [],
+    [props.models],
   );
 
   const globalError = (errors as any)[""];
