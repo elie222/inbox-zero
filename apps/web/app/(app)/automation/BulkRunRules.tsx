@@ -1,0 +1,127 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { useAtomValue } from "jotai";
+import { ListTodoIcon } from "lucide-react";
+import { Button } from "@/components/Button";
+import { useModal, Modal } from "@/components/Modal";
+import { SectionDescription } from "@/components/Typography";
+import { ThreadsResponse } from "@/app/api/google/threads/controller";
+import { ThreadsQuery } from "@/app/api/google/threads/validation";
+import { LoadingContent } from "@/components/LoadingContent";
+import { runAiRules } from "@/providers/QueueProvider";
+import { isDefined } from "@/utils/types";
+import { aiQueueAtom } from "@/store/queue";
+import { sleep } from "@/utils/sleep";
+
+export function BulkRunRules() {
+  const { isModalOpen, openModal, closeModal } = useModal();
+
+  const [started, setStarted] = useState(false);
+
+  const queue = useAtomValue(aiQueueAtom);
+
+  const query: ThreadsQuery = { type: "inbox" };
+  const { data, isLoading, error } = useSWR<ThreadsResponse>(
+    `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
+  );
+
+  console.log(data, isLoading, error);
+
+  useEffect(() => {
+    if (queue.length === 0 && started) {
+      setStarted(false);
+    }
+  }, [queue, started]);
+
+  return (
+    <div>
+      <Button type="button" color="white" onClick={openModal}>
+        <ListTodoIcon className="mr-2 h-4 w-4" />
+        Run Rules On All Emails
+      </Button>
+      <Modal
+        isOpen={isModalOpen}
+        hideModal={closeModal}
+        title="Run against all emails in inbox"
+      >
+        <LoadingContent loading={isLoading} error={error}>
+          {data && (
+            <>
+              <SectionDescription className="mt-2">
+                To select individual emails to run rules on, go to the{" "}
+                {`"Mail"`} tab, select the emails you want to run rules on, and
+                click the {`"Run AI Rules"`} button.
+              </SectionDescription>
+              {!!queue.length && (
+                <SectionDescription className="mt-2">
+                  There are {queue.length} emails left to be processed.
+                </SectionDescription>
+              )}
+              <div className="mt-4">
+                <Button
+                  loading={started}
+                  disabled={started}
+                  onClick={() => {
+                    setStarted(true);
+                    onRun();
+                  }}
+                >
+                  Run Rules On All Inbox Emails
+                </Button>
+              </div>
+            </>
+          )}
+        </LoadingContent>
+      </Modal>
+    </div>
+  );
+}
+
+// fetch batches of messages and add them to the ai queue
+async function onRun() {
+  let nextPageToken = "";
+  const LIMIT = 50;
+
+  for (let i = 0; i < 100; i++) {
+    const query: ThreadsQuery = { type: "inbox", nextPageToken, limit: LIMIT };
+    const res = await fetch(
+      `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
+    );
+    const data: ThreadsResponse = await res.json();
+
+    nextPageToken = data.nextPageToken || "";
+
+    const messages = data.threads
+      .map((thread) => {
+        const message = thread.messages?.[thread.messages.length - 1];
+        if (!message) return;
+        const email = {
+          from: message.parsedMessage.headers.from,
+          to: message.parsedMessage.headers.to,
+          date: message.parsedMessage.headers.date,
+          replyTo: message.parsedMessage.headers["reply-to"],
+          cc: message.parsedMessage.headers.cc,
+          subject: message.parsedMessage.headers.subject,
+          textPlain: message.parsedMessage.textPlain || null,
+          textHtml: message.parsedMessage.textHtml || null,
+          snippet: thread.snippet,
+          threadId: message.threadId || "",
+          messageId: message.id || "",
+          headerMessageId: message.parsedMessage.headers["message-id"] || "",
+          references: message.parsedMessage.headers.references,
+        };
+        return email;
+      })
+      .filter(isDefined);
+
+    runAiRules(messages);
+
+    if (!nextPageToken || data.threads.length < LIMIT) break;
+
+    // avoid gmail api rate limits
+    // ai takes longer anyway
+    sleep(1000);
+  }
+}

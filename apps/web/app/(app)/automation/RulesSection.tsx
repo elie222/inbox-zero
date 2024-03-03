@@ -41,6 +41,7 @@ import { type UpdateRuleBody } from "@/app/api/user/rules/[id]/validation";
 import { AlertBasic } from "@/components/Alert";
 import { TestRules } from "@/app/(app)/automation/TestRules";
 import { RuleModal } from "@/app/(app)/automation/RuleModal";
+import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 
 export function RulesSection() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -312,6 +313,10 @@ export function RulesForm(props: {
               Click save to test new rules.
             </div>
           )}
+        </div>
+
+        <div className="mt-2">
+          <BulkRunRules />
         </div>
       </div>
 

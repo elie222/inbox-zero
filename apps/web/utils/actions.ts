@@ -38,9 +38,12 @@ import {
   markReadThread,
 } from "@/utils/gmail/label";
 import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
-import { captureException } from "@/utils/error";
+import { captureException, isError } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
 import { markSpam } from "@/utils/gmail/spam";
+import { planOrExecuteAct } from "@/app/api/ai/act/controller";
+import { getAiModel } from "@/utils/openai";
+import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -255,6 +258,40 @@ export async function markSpamThreadAction(threadId: string) {
   const gmail = getGmailClient(session);
   const res = await markSpam({ gmail, threadId });
   return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function runAiAction(email: ActBodyWithHtml["email"]) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      email: true,
+      about: true,
+      aiModel: true,
+      openAIApiKey: true,
+      rules: { include: { actions: true } },
+    },
+  });
+
+  const result = await planOrExecuteAct({
+    email,
+    rules: user.rules,
+    gmail,
+    allowExecute: true,
+    forceExecute: false,
+    userId: user.id,
+    userEmail: user.email || "",
+    automated: false,
+    userAbout: user.about || "",
+    aiModel: getAiModel(user.aiModel),
+    openAIApiKey: user.openAIApiKey,
+  });
+
+  return { ok: !isError(result) };
 }
 
 export async function changePremiumStatus(options: ChangePremiumStatusOptions) {

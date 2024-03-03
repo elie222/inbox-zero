@@ -4,6 +4,7 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { Menu, Transition } from "@headlessui/react";
 import { Button } from "@/components/Button";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
+import { logOut } from "@/utils/user";
 // import { PromptBar } from "@/components/PromptBar";
 
 const userNavigation = [
@@ -11,7 +12,7 @@ const userNavigation = [
   {
     name: "Sign out",
     href: "#",
-    onClick: () => signOut({ callbackUrl: window.location.origin }),
+    onClick: () => logOut(window.location.origin),
   },
 ];
 

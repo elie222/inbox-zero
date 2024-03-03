@@ -44,6 +44,7 @@ export async function getThreads(query: ThreadsQuery) {
           : query.type === "archive"
             ? `-label:${INBOX_LABEL_ID}`
             : undefined),
+      pageToken: query.nextPageToken || undefined,
     }),
     prisma.rule.findMany({ where: { userId: session.user.id } }),
   ]);
@@ -75,7 +76,10 @@ export async function getThreads(query: ThreadsQuery) {
     }) || [],
   );
 
-  return { threads: threadsWithMessages };
+  return {
+    threads: threadsWithMessages,
+    nextPageToken: gmailThreads.data.nextPageToken,
+  };
 }
 
 function getLabelIds(type?: string | null) {

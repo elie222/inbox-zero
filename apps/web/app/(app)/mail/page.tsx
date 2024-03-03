@@ -33,20 +33,28 @@ export default function Mail({
       mutate(undefined, {
         rollbackOnError: true,
         optimisticData: (currentData) => {
-          if (!removedThreadIds) return { threads: currentData?.threads || [] };
+          if (!removedThreadIds)
+            return {
+              threads: currentData?.threads || [],
+              nextPageToken: undefined,
+            };
           const threads =
             currentData?.threads.filter(
               (t) => !removedThreadIds.includes(t.id),
             ) || [];
-          return { threads };
+          return { threads, nextPageToken: undefined };
         },
         populateCache: (_, currentData) => {
-          if (!removedThreadIds) return { threads: currentData?.threads || [] };
+          if (!removedThreadIds)
+            return {
+              threads: currentData?.threads || [],
+              nextPageToken: undefined,
+            };
           const threads =
             currentData?.threads.filter(
               (t) => !removedThreadIds.includes(t.id),
             ) || [];
-          return { threads };
+          return { threads, nextPageToken: undefined };
         },
       });
     },
