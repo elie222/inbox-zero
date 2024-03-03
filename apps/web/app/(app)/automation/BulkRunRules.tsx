@@ -50,9 +50,12 @@ export function BulkRunRules() {
           {data && (
             <>
               <SectionDescription className="mt-2">
-                To select individual emails to run rules on, go to the{" "}
-                {`"Mail"`} tab, select the emails you want to run rules on, and
+                If you want to select individual emails instead, go to the{" "}
+                {`"Mail"`} tab, mark the emails you want to run rules on, and
                 click the {`"Run AI Rules"`} button.
+              </SectionDescription>
+              <SectionDescription className="mt-2">
+                This will not run on emails that already have an AI plan set.
               </SectionDescription>
               {!!queue.length && (
                 <SectionDescription className="mt-2">
@@ -95,6 +98,8 @@ async function onRun() {
 
     const messages = data.threads
       .map((thread) => {
+        // skip emails with a plan
+        if (thread.plan) return;
         const message = thread.messages?.[thread.messages.length - 1];
         if (!message) return;
         const email = {
