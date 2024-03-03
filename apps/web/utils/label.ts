@@ -39,6 +39,7 @@ export async function getGmailLabels(gmail: gmail_v1.Gmail) {
 async function createGmailLabel(options: {
   name: string;
   gmail: gmail_v1.Gmail;
+  labelListVisibility: "labelShow" | "labelHide";
 }) {
   const { name, gmail } = options;
 
@@ -52,7 +53,7 @@ async function createGmailLabel(options: {
           textColor: "#ffffff",
         },
         messageListVisibility: "hide",
-        labelListVisibility: "labelShow",
+        labelListVisibility: options.labelListVisibility,
       },
     });
 
@@ -132,6 +133,7 @@ export async function getOrCreateInboxZeroLabels(
           gmailLabel = await createGmailLabel({
             name: inboxZeroLabels[key],
             gmail,
+            labelListVisibility: "labelHide",
           });
         }
 
@@ -172,6 +174,7 @@ export async function getOrCreateInboxZeroLabel(options: {
     gmailLabel = await createGmailLabel({
       name: labelName,
       gmail,
+      labelListVisibility: "labelHide",
     });
   }
 
