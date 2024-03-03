@@ -5,6 +5,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import Link from "next/link";
 import { useAtomValue } from "jotai";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
@@ -17,6 +18,8 @@ import { Checkbox } from "@/components/Checkbox";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createInAiQueueSelector } from "@/store/queue";
+import { Button } from "@/components/ui/button";
+import { findCtaLink } from "@/utils/parse/parseHtml.client";
 
 export const EmailListItem = forwardRef(
   (
@@ -69,6 +72,10 @@ export const EmailListItem = forwardRef(
 
     if (!lastMessage) return null;
 
+    const decodedSnippet = decodeSnippet(thread.snippet || lastMessage.snippet);
+
+    const cta = findCtaLink(lastMessage.parsedMessage.textHtml);
+
     return (
       <li
         ref={ref}
@@ -113,11 +120,23 @@ export const EmailListItem = forwardRef(
               </div>
               {!splitView && (
                 <>
-                  <div className="ml-4 min-w-0 overflow-hidden text-gray-700">
+                  {cta && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="ml-2"
+                      asChild
+                    >
+                      <Link href={cta.ctaLink} target="_blank">
+                        {cta.ctaText}
+                      </Link>
+                    </Button>
+                  )}
+                  <div className="ml-2 min-w-0 overflow-hidden text-gray-700">
                     {lastMessage.parsedMessage.headers.subject}
                   </div>
                   <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                    {decodeSnippet(thread.snippet || lastMessage.snippet)}
+                    {decodedSnippet}
                   </div>
                 </>
               )}
@@ -178,8 +197,15 @@ export const EmailListItem = forwardRef(
                 {lastMessage.parsedMessage.headers.subject}
               </div>
               <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-gray-500">
-                {decodeSnippet(thread.snippet)}
+                {decodedSnippet}
               </div>
+              {cta && (
+                <Button variant="outline" size="xs" className="mt-2" asChild>
+                  <Link href={cta.ctaLink} target="_blank">
+                    {cta.ctaText}
+                  </Link>
+                </Button>
+              )}
             </div>
           )}
         </div>

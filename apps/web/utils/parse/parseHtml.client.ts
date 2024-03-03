@@ -55,7 +55,10 @@ export function findCtaLink(
   links.forEach((element) => {
     if (!element.textContent) return;
     if (containsCtaKeyword(element.textContent.toLowerCase())) {
-      ctaText = element.textContent;
+      // capitalise first letter
+      ctaText =
+        element.textContent.charAt(0).toUpperCase() +
+        element.textContent.slice(1);
       ctaLink = element.getAttribute("href") ?? undefined;
       return;
     }
