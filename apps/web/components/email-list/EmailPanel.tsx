@@ -1,4 +1,5 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
+import { useAtomValue } from "jotai";
 import { capitalCase } from "capital-case";
 import { ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
@@ -12,10 +13,10 @@ import { PlanBadge, getActionColor } from "@/components/PlanBadge";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { createInAiQueueSelector } from "@/store/queue";
 
 export function EmailPanel(props: {
   row: Thread;
-  isPlanning: boolean;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
   onAiCategorize: (thread: Thread) => void;
@@ -28,6 +29,12 @@ export function EmailPanel(props: {
   rejectPlan: (thread: Thread) => Promise<void>;
   refetch: () => void;
 }) {
+  const inAiQueueSelector = useMemo(
+    () => createInAiQueueSelector(props.row.id),
+    [props.row.id],
+  );
+  const isPlanning = useAtomValue(inAiQueueSelector);
+
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
   const plan = props.row.plan;
@@ -50,7 +57,7 @@ export function EmailPanel(props: {
         <div className="mt-3 flex items-center md:ml-2 md:mt-0">
           <ActionButtons
             threadId={props.row.id!}
-            isPlanning={props.isPlanning}
+            isPlanning={isPlanning}
             isCategorizing={props.isCategorizing}
             onPlanAiAction={() => props.onPlanAiAction(props.row)}
             onAiCategorize={() => props.onAiCategorize(props.row)}

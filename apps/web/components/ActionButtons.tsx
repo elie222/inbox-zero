@@ -65,6 +65,15 @@ export function ActionButtons(props: {
         ),
       },
       {
+        tooltip: "Run AI Rules",
+        onClick: onPlanAiAction,
+        icon: isPlanning ? (
+          <LoadingMiniSpinner />
+        ) : (
+          <SparklesIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+        ),
+      },
+      {
         tooltip: "AI Categorize",
         onClick: onAiCategorize,
         icon: isCategorizing ? (
@@ -74,15 +83,12 @@ export function ActionButtons(props: {
         ),
       },
       {
-        tooltip: "Run AI Rules",
-        onClick: onPlanAiAction,
-        icon: isPlanning ? (
-          <LoadingMiniSpinner />
-        ) : (
-          <SparklesIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+        tooltip: "Archive",
+        onClick: onArchive,
+        icon: (
+          <ArchiveIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
         ),
       },
-
       // may remove later
       {
         tooltip: "Delete",
@@ -91,14 +97,6 @@ export function ActionButtons(props: {
           <LoadingMiniSpinner />
         ) : (
           <Trash2Icon className="h-4 w-4 text-gray-700" aria-hidden="true" />
-        ),
-      },
-
-      {
-        tooltip: "Archive",
-        onClick: onArchive,
-        icon: (
-          <ArchiveIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
         ),
       },
     ],

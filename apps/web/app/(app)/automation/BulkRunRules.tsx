@@ -30,7 +30,7 @@ export function BulkRunRules() {
   console.log(data, isLoading, error);
 
   useEffect(() => {
-    if (queue.length === 0 && started) {
+    if (queue.size === 0 && started) {
       setStarted(false);
     }
   }, [queue, started]);
@@ -57,9 +57,9 @@ export function BulkRunRules() {
               <SectionDescription className="mt-2">
                 This will not run on emails that already have an AI plan set.
               </SectionDescription>
-              {!!queue.length && (
+              {!!queue.size && (
                 <SectionDescription className="mt-2">
-                  There are {queue.length} emails left to be processed.
+                  There are {queue.size} emails left to be processed.
                 </SectionDescription>
               )}
               <div className="mt-4">
@@ -96,32 +96,9 @@ async function onRun() {
 
     nextPageToken = data.nextPageToken || "";
 
-    const messages = data.threads
-      .map((thread) => {
-        // skip emails with a plan
-        if (thread.plan) return;
-        const message = thread.messages?.[thread.messages.length - 1];
-        if (!message) return;
-        const email = {
-          from: message.parsedMessage.headers.from,
-          to: message.parsedMessage.headers.to,
-          date: message.parsedMessage.headers.date,
-          replyTo: message.parsedMessage.headers["reply-to"],
-          cc: message.parsedMessage.headers.cc,
-          subject: message.parsedMessage.headers.subject,
-          textPlain: message.parsedMessage.textPlain || null,
-          textHtml: message.parsedMessage.textHtml || null,
-          snippet: thread.snippet,
-          threadId: message.threadId || "",
-          messageId: message.id || "",
-          headerMessageId: message.parsedMessage.headers["message-id"] || "",
-          references: message.parsedMessage.headers.references,
-        };
-        return email;
-      })
-      .filter(isDefined);
+    const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
 
-    runAiRules(messages);
+    runAiRules(threadsWithoutPlan);
 
     if (!nextPageToken || data.threads.length < LIMIT) break;
 

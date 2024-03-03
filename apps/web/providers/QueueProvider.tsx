@@ -11,6 +11,7 @@ import {
 } from "@/utils/actions";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
+import { Thread } from "@/components/email-list/types";
 
 const queue = new PQueue({ concurrency: 3 });
 
@@ -61,23 +62,48 @@ export const markReadThreads = async (
 };
 
 export const runAiRules = async (
-  threads: ActBodyWithHtml["email"][],
+  threads: Thread[],
   // refetch: () => void,
 ) => {
   // updateRunAiQueueStorage(threads, "pending");
 
-  pushToAiQueueAtom(threads.map((t) => t.threadId));
+  pushToAiQueueAtom(threads.map((t) => t.id));
 
   queue.addAll(
     threads.map((thread) => async () => {
-      console.log("runAiRules on thread:", thread.subject);
-      await runAiAction(thread);
-      removeFromAiQueueAtom(thread.threadId);
+      const message = threadToRunAiEmail(thread);
+      if (!message) return;
+      console.log("runAiRules on thread:", message.subject);
+      await runAiAction(message);
+      removeFromAiQueueAtom(thread.id);
       // updateRunAiQueueStorage([thread], "complete");
       // refetch();
     }),
   );
 };
+
+function threadToRunAiEmail(
+  thread: Thread,
+): ActBodyWithHtml["email"] | undefined {
+  const message = thread.messages?.[thread.messages.length - 1];
+  if (!message) return;
+  const email = {
+    from: message.parsedMessage.headers.from,
+    to: message.parsedMessage.headers.to,
+    date: message.parsedMessage.headers.date,
+    replyTo: message.parsedMessage.headers["reply-to"],
+    cc: message.parsedMessage.headers.cc,
+    subject: message.parsedMessage.headers.subject,
+    textPlain: message.parsedMessage.textPlain || null,
+    textHtml: message.parsedMessage.textHtml || null,
+    snippet: thread.snippet,
+    threadId: message.threadId || "",
+    messageId: message.id || "",
+    headerMessageId: message.parsedMessage.headers["message-id"] || "",
+    references: message.parsedMessage.headers.references,
+  };
+  return email;
+}
 
 export function QueueProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {

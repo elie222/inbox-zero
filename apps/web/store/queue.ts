@@ -2,16 +2,24 @@
 
 import { atom } from "jotai";
 import { jotaiStore } from "@/store";
-import uniq from "lodash/uniq";
 
-export const aiQueueAtom = atom<string[]>([]);
-export const pushToAiQueueAtom = (ids: string[]) => {
+export const aiQueueAtom = atom<Set<string>>(new Set([]));
+export const pushToAiQueueAtom = (pushIds: string[]) => {
   const currentIds = jotaiStore.get(aiQueueAtom);
-  const newIds = uniq([...currentIds, ...ids]);
+  const newIds = new Set(currentIds);
+  pushIds.forEach((id) => newIds.add(id));
   jotaiStore.set(aiQueueAtom, newIds);
 };
-export const removeFromAiQueueAtom = (id: string) => {
+export const removeFromAiQueueAtom = (removeId: string) => {
   const currentIds = jotaiStore.get(aiQueueAtom);
-  const newIds = currentIds.filter((i) => i !== id);
+  const newIds = new Set(currentIds);
+  newIds.delete(removeId);
   jotaiStore.set(aiQueueAtom, newIds);
+};
+
+export const createInAiQueueSelector = (id: string) => {
+  return atom((get) => {
+    const ids = get(aiQueueAtom);
+    return ids.has(id);
+  });
 };
