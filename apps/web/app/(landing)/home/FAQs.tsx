@@ -45,7 +45,7 @@ const faqs = [
     ),
   },
   {
-    question: "Can I still use Inbox Zero alonside my current email client?",
+    question: "Can I still use Inbox Zero alongside my current email client?",
     answer:
       "Yes! Inbox Zero is intended to be used alongside your existing email client.",
   },
