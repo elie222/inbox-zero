@@ -11,7 +11,6 @@ import { ThreadsResponse } from "@/app/api/google/threads/controller";
 import { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/providers/QueueProvider";
-import { isDefined } from "@/utils/types";
 import { aiQueueAtom } from "@/store/queue";
 import { sleep } from "@/utils/sleep";
 
@@ -19,6 +18,7 @@ export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
 
   const [started, setStarted] = useState(false);
+  const [totalThreads, setTotalThreads] = useState(0);
 
   const queue = useAtomValue(aiQueueAtom);
 
@@ -26,8 +26,6 @@ export function BulkRunRules() {
   const { data, isLoading, error } = useSWR<ThreadsResponse>(
     `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
   );
-
-  console.log(data, isLoading, error);
 
   useEffect(() => {
     if (queue.size === 0 && started) {
@@ -59,7 +57,8 @@ export function BulkRunRules() {
               </SectionDescription>
               {!!queue.size && (
                 <SectionDescription className="mt-2">
-                  There are {queue.size} emails left to be processed.
+                  There are {queue.size}/{totalThreads || queue.size} emails
+                  left to be processed.
                 </SectionDescription>
               )}
               <div className="mt-4">
@@ -68,7 +67,7 @@ export function BulkRunRules() {
                   disabled={started}
                   onClick={() => {
                     setStarted(true);
-                    onRun();
+                    onRun((count) => setTotalThreads((total) => total + count));
                   }}
                 >
                   Run Rules On All Inbox Emails
@@ -83,7 +82,7 @@ export function BulkRunRules() {
 }
 
 // fetch batches of messages and add them to the ai queue
-async function onRun() {
+async function onRun(incrementThreadsQueued: (count: number) => void) {
   let nextPageToken = "";
   const LIMIT = 50;
 
@@ -98,12 +97,14 @@ async function onRun() {
 
     const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
 
+    incrementThreadsQueued(threadsWithoutPlan.length);
+
     runAiRules(threadsWithoutPlan);
 
     if (!nextPageToken || data.threads.length < LIMIT) break;
 
     // avoid gmail api rate limits
     // ai takes longer anyway
-    sleep(1000);
+    sleep(5_000);
   }
 }
