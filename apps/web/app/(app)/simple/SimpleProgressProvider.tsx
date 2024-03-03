@@ -68,7 +68,7 @@ export function SimpleEmailStateProvider(props: { children: React.ReactNode }) {
       onSetToHandleLater,
       onCompleted,
     };
-  }, [state, onSetHandled, onSetToHandleLater]);
+  }, [state, onSetHandled, onSetToHandleLater, onCompleted]);
 
   return (
     <SimpleProgressContext.Provider value={value}>
