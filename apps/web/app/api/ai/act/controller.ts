@@ -24,6 +24,7 @@ import { ChatCompletionCreateParams } from "openai/resources/index";
 import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
+import { parseEmail } from "@/utils/mail";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
@@ -431,7 +432,7 @@ export async function executeAct(options: {
 export async function planOrExecuteAct(
   options: {
     gmail: gmail_v1.Gmail;
-    email: ActBodyWithHtml["email"] & { content: string; snippet: string };
+    email: ActBodyWithHtml["email"];
     rules: RuleWithActions[];
     allowExecute: boolean;
     forceExecute?: boolean;
@@ -443,7 +444,20 @@ export async function planOrExecuteAct(
 ) {
   if (!options.rules.length) return;
 
-  const plannedAct = await planAct(options);
+  const content =
+    (options.email.textHtml &&
+      parseEmail(options.email.textHtml, false, null)) ||
+    options.email.textPlain ||
+    options.email.snippet;
+
+  const plannedAct = await planAct({
+    ...options,
+    email: {
+      ...options.email,
+      content: content || "",
+      snippet: options.email.snippet || "",
+    },
+  });
 
   console.log("Planned act:", plannedAct);
 

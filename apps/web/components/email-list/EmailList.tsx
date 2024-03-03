@@ -34,6 +34,7 @@ import {
   archiveEmails,
   deleteEmails,
   markReadThreads,
+  runAiRules,
 } from "@/providers/QueueProvider";
 import { selectedEmailAtom } from "@/store/email";
 // import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -201,67 +202,16 @@ export function EmailList(props: {
     });
   }, [threads, isAllSelected]);
 
-  const [isPlanning, setIsPlanning] = useState<Record<string, boolean>>({});
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
     {},
   );
 
-  const onPlanAiAction = useCallback(
-    (thread: Thread) => {
-      toast.promise(
-        async () => {
-          setIsPlanning((s) => ({ ...s, [thread.id!]: true }));
-
-          const message = thread.messages?.[thread.messages.length - 1];
-
-          if (!message) return;
-
-          const res = await postRequest<ActResponse, ActBodyWithHtml>(
-            "/api/ai/act",
-            {
-              email: {
-                from: message.parsedMessage.headers.from,
-                to: message.parsedMessage.headers.to,
-                date: message.parsedMessage.headers.date,
-                replyTo: message.parsedMessage.headers["reply-to"],
-                cc: message.parsedMessage.headers.cc,
-                subject: message.parsedMessage.headers.subject,
-                textPlain: message.parsedMessage.textPlain || null,
-                textHtml: message.parsedMessage.textHtml || null,
-                snippet: thread.snippet,
-                threadId: message.threadId || "",
-                messageId: message.id || "",
-                headerMessageId:
-                  message.parsedMessage.headers["message-id"] || "",
-                references: message.parsedMessage.headers.references,
-              },
-              allowExecute: true,
-            },
-          );
-
-          if (isError(res)) {
-            console.error(res);
-            setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
-            throw new Error(`There was an error planning the email.`);
-          } else {
-            // setPlan(res);
-            refetch();
-          }
-          setIsPlanning((s) => ({ ...s, [thread.id!]: false }));
-          return res;
-        },
-        {
-          loading: "Planning...",
-          success: (res) =>
-            res?.rule
-              ? `Planned as ${res?.rule?.name}`
-              : `No plan determined. ${res?.reason || ""}`,
-          error: "There was an error planning the email :(",
-        },
-      );
-    },
-    [refetch],
-  );
+  const onPlanAiAction = useCallback((thread: Thread) => {
+    toast.promise(() => runAiRules([thread]), {
+      success: "Running...",
+      error: "There was an error running the AI rules :(",
+    });
+  }, []);
 
   const onAiCategorize = useCallback(
     (thread: Thread) => {
@@ -366,9 +316,6 @@ export function EmailList(props: {
     [threads, selectedRows, refetch],
   );
 
-  const onPlanAiBulk = useCallback(async () => {
-    onApplyAction(onPlanAiAction);
-  }, [onApplyAction, onPlanAiAction]);
   const onCategorizeAiBulk = useCallback(async () => {
     onApplyAction(onAiCategorize);
   }, [onApplyAction, onAiCategorize]);
@@ -412,6 +359,23 @@ export function EmailList(props: {
       },
     );
   }, [selectedRows, refetch]);
+
+  const onPlanAiBulk = useCallback(async () => {
+    toast.promise(
+      async () => {
+        const selectedThreads = Object.entries(selectedRows)
+          .filter(([, selected]) => selected)
+          .map(([id]) => threads.find((t) => t.id === id)!);
+
+        runAiRules(selectedThreads);
+        // runAiRules(threadIds, () => refetch(threadIds));
+      },
+      {
+        success: "Running AI rules...",
+        error: "There was an error running the AI rules :(",
+      },
+    );
+  }, [selectedRows, threads]);
 
   const isEmpty = threads.length === 0;
 
@@ -507,7 +471,6 @@ export function EmailList(props: {
                     onSelected={onSetSelectedRow}
                     splitView={!!openedRowId}
                     onClick={onOpen}
-                    isPlanning={isPlanning[thread.id!]}
                     isCategorizing={isCategorizing[thread.id!]}
                     onPlanAiAction={onPlanAiAction}
                     onAiCategorize={onAiCategorize}
@@ -526,7 +489,6 @@ export function EmailList(props: {
             !!(openedRowId && openedRow) && (
               <EmailPanel
                 row={openedRow}
-                isPlanning={isPlanning[openedRowId]}
                 isCategorizing={isCategorizing[openedRowId]}
                 onPlanAiAction={onPlanAiAction}
                 onAiCategorize={onAiCategorize}

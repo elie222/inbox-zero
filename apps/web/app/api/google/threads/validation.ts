@@ -5,5 +5,6 @@ export const threadsQuery = z.object({
   limit: z.coerce.number().max(100).nullish(),
   type: z.string().nullish(),
   q: z.string().nullish(),
+  nextPageToken: z.string().nullish(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;

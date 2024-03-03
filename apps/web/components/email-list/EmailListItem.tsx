@@ -5,6 +5,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { useAtomValue } from "jotai";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { PlanBadge } from "@/components/PlanBadge";
@@ -15,6 +16,7 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { decodeSnippet } from "@/utils/gmail/decode";
+import { createInAiQueueSelector } from "@/store/queue";
 
 export const EmailListItem = forwardRef(
   (
@@ -27,7 +29,6 @@ export const EmailListItem = forwardRef(
       onClick: MouseEventHandler<HTMLLIElement>;
       closePanel: () => void;
       onSelected: (id: string) => void;
-      isPlanning: boolean;
       isCategorizing: boolean;
       onPlanAiAction: (thread: Thread) => void;
       onAiCategorize: (thread: Thread) => void;
@@ -59,6 +60,12 @@ export const EmailListItem = forwardRef(
       () => onSelected(props.thread.id!),
       [onSelected, props.thread.id],
     );
+
+    const inAiQueueSelector = useMemo(
+      () => createInAiQueueSelector(props.thread.id),
+      [props.thread.id],
+    );
+    const isPlanning = useAtomValue(inAiQueueSelector);
 
     if (!lastMessage) return null;
 
@@ -127,7 +134,7 @@ export const EmailListItem = forwardRef(
                   <ActionButtons
                     threadId={thread.id!}
                     shadow
-                    isPlanning={props.isPlanning}
+                    isPlanning={isPlanning}
                     isCategorizing={props.isCategorizing}
                     onPlanAiAction={() => props.onPlanAiAction(thread)}
                     onAiCategorize={() => props.onAiCategorize(thread)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { signOut } from "next-auth/react";
+import { logOut } from "@/utils/user";
 
 export default function AutoLogOut(props: { loggedIn: boolean }) {
   useEffect(() => {
@@ -10,7 +10,7 @@ export default function AutoLogOut(props: { loggedIn: boolean }) {
     // More here: https://github.com/nextauthjs/next-auth/issues/3300
     if (props.loggedIn) {
       console.log("Logging user out");
-      signOut();
+      logOut();
     }
   }, [props.loggedIn]);
 

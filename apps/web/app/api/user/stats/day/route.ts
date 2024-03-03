@@ -52,8 +52,6 @@ async function getPastSevenDayStats(
         });
 
         count = messages.data.messages?.length || 0;
-        // does this work better when we have more than 500 results?
-        // count = messages.data.resultSizeEstimate
       }
 
       return {

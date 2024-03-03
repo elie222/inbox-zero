@@ -346,12 +346,6 @@ async function processHistoryItem(
         return;
       }
 
-      const content =
-        (parsedMessage.textHtml &&
-          parseEmail(parsedMessage.textHtml, false, null)) ||
-        parsedMessage.textPlain ||
-        parsedMessage.snippet;
-
       const res = await planOrExecuteAct({
         allowExecute: true,
         email: {
@@ -362,7 +356,6 @@ async function processHistoryItem(
           textHtml: parsedMessage.textHtml || null,
           textPlain: parsedMessage.textPlain || null,
           snippet: parsedMessage.snippet,
-          content,
           threadId: m.message.threadId,
           messageId: m.message.id,
           headerMessageId: parsedMessage.headers["message-id"] || "",
