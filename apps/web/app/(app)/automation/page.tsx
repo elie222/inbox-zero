@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { Tabs } from "@/components/Tabs";
 import { RulesSection } from "@/app/(app)/automation/RulesSection";
-import { SectionDescription } from "@/components/Typography";
+import { SectionDescription, TextLink } from "@/components/Typography";
 import { TopSection } from "@/components/TopSection";
 import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
 import { Planned } from "@/app/(app)/automation/Planned";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { PremiumTier } from "@prisma/client";
 import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { PlannedResponse } from "@/app/api/user/planned/route";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 export default function PlannedPage() {
   const params = useSearchParams();
@@ -72,6 +73,24 @@ export default function PlannedPage() {
                     automatically. Run in {`"Confirmation Mode"`} or{" "}
                     {`"Automated Mode"`}.
                   </SectionDescription>
+
+                  <div className="mt-3">
+                    <OnboardingModal
+                      title="Getting started with AI Automations"
+                      description={
+                        <>
+                          Learn how to set up your AI assistant to better handle
+                          your emails. You can read more in our{" "}
+                          <TextLink href="https://docs.getinboxzero.com/essentials/email-ai-automation">
+                            documentation
+                          </TextLink>
+                          .
+                        </>
+                      }
+                      videoId="gyVkFiv70a8"
+                    />
+                  </div>
+
                   {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
                     <div className="mt-4 max-w-prose">
                       <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
