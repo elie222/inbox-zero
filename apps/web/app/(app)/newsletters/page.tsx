@@ -7,6 +7,8 @@ import { NewsletterStats } from "@/app/(app)/newsletters/NewsletterStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
+import { OnboardingModal } from "@/components/OnboardingModal";
+import { TextLink } from "@/components/Typography";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -47,7 +49,23 @@ export default function NewslettersPage() {
   return (
     <div>
       <div className="sticky top-0 z-10 flex border-b bg-white px-4 py-2 shadow sm:justify-between">
-        <div />
+        <div className="flex items-center">
+          <OnboardingModal
+            title="Getting started with Bulk Unsubscribe"
+            description={
+              <>
+                Learn how to quickly bulk unsubscribe from unwanted emails. You
+                can read more in our{" "}
+                <TextLink href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber">
+                  documentation
+                </TextLink>
+                .
+              </>
+            }
+            videoId="T1rnooV4OYc"
+          />
+        </div>
+
         <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
           <ActionBar
             selectOptions={selectOptions}
