@@ -32,7 +32,7 @@ import {
   ActionCell,
   Row,
   HeaderButton,
-} from "@/app/(app)/newsletters/common";
+} from "@/app/(app)/bulk-unsubscribe/common";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";

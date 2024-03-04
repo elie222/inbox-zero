@@ -45,8 +45,8 @@ type NavItem = {
 
 export const navigation: NavItem[] = [
   {
-    name: "Newsletters",
-    href: "/newsletters",
+    name: "Bulk Unsubscribe",
+    href: "/bulk-unsubscribe",
     icon: MailsIcon,
   },
   {
@@ -290,7 +290,7 @@ function Sidebar(props: { isMobile: boolean }) {
         },
       )}
     >
-      <Link href="/newsletters">
+      <Link href="/bulk-unsubscribe">
         <div className="flex h-16 shrink-0 items-center text-white">
           <Logo className="h-4" />
         </div>

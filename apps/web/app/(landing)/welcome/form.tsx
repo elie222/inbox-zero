@@ -59,7 +59,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       if (questionIndex === survey.questions.length - 1) {
         submitPosthog(responses);
         await completedOnboarding();
-        router.push("/newsletters");
+        router.push("/bulk-unsubscribe");
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
@@ -139,7 +139,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
               submitPosthog(responses);
               posthog.capture("survey dismissed", { $survey_id: surveyId });
               await completedOnboarding();
-              router.push("/newsletters");
+              router.push("/bulk-unsubscribe");
             }}
           >
             Skip Onboarding

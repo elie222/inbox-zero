@@ -24,13 +24,15 @@ export default async function WelcomePage({
   const session = await auth();
 
   if (!session?.user.email) redirect("/login");
-  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) redirect("/newsletters");
+  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)
+    redirect("/bulk-unsubscribe");
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: { completedOnboarding: true },
   });
-  if (!searchParams.force && user.completedOnboarding) redirect("/newsletters");
+  if (!searchParams.force && user.completedOnboarding)
+    redirect("/bulk-unsubscribe");
 
   const questionIndex = searchParams.question
     ? parseInt(searchParams.question)
