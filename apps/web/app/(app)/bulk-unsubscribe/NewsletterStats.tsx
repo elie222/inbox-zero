@@ -37,8 +37,8 @@ import {
   SectionHeader,
   ActionCell,
   HeaderButton,
-} from "@/app/(app)/newsletters/common";
-import NewsletterSummary from "@/app/(app)/newsletters/NewsletterSummary";
+} from "@/app/(app)/bulk-unsubscribe/common";
+import NewsletterSummary from "@/app/(app)/bulk-unsubscribe/NewsletterSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];

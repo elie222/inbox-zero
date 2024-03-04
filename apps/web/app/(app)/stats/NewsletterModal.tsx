@@ -28,7 +28,7 @@ import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions-client";
-import { Row } from "@/app/(app)/newsletters/common";
+import { Row } from "@/app/(app)/bulk-unsubscribe/common";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
