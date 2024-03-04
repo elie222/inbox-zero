@@ -7,6 +7,7 @@ import {
   MessageText,
   TypographyP,
   TypographyH3,
+  TextLink,
 } from "@/components/Typography";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -27,6 +28,7 @@ export default function Components() {
           <SectionDescription>SectionDescription</SectionDescription>
           <MessageText>MessageText</MessageText>
           <TypographyP>TypographyP</TypographyP>
+          <TextLink href="#">TextLink</TextLink>
         </div>
 
         <div className="space-y-6">
