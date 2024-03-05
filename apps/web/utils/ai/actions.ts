@@ -1,4 +1,6 @@
 import { type gmail_v1 } from "googleapis";
+import { z } from "zod";
+import zodToJsonSchema from "zod-to-json-schema";
 import { draftEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
@@ -15,208 +17,142 @@ type ActionFunction = (
 ) => Promise<any>;
 
 type ActionFunctionDef = {
+  action: ActionType | null;
   name: string;
   description: string;
-  parameters:
-    | {
-        type: string;
-        properties: PartialRecord<
-          "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
-          {
-            type: string;
-            description: string;
-          }
-        >;
-        required: string[];
-      }
-    | { type: string; properties?: undefined; required: string[] };
-  action: ActionType | null;
+  parameters: z.AnyZodObject;
+  // | {
+  //     type: string;
+  //     properties: PartialRecord<
+  //       "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
+  //       {
+  //         type: string;
+  //         description: string;
+  //       }
+  //     >;
+  //     required: string[];
+  //   }
+  // | { type: string; properties?: undefined; required: string[] };
 };
 
 const ARCHIVE: ActionFunctionDef = {
   name: "archive",
   description: "Archive an email",
-  parameters: {
-    type: "object",
-    properties: {},
-    required: [],
-  },
+  parameters: z.object({}),
   action: ActionType.ARCHIVE,
 };
 
 const LABEL: ActionFunctionDef = {
   name: "label",
   description: "Label an email",
-  parameters: {
-    type: "object",
-    properties: {
-      label: {
-        type: "string",
-        description: "The name of the label.",
-      },
-    },
-    required: ["label"],
-  },
+  parameters: z.object({
+    label: z.string().describe("The name of the label."),
+  }),
   action: ActionType.LABEL,
 };
 
 const DRAFT_EMAIL: ActionFunctionDef = {
   name: "draft",
   description: "Draft an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      to: {
-        type: "string",
-        description: "A comma separated list of the recipient email addresses.",
-      },
-      cc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the cc recipients to send to.",
-      },
-      bcc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the bcc recipients to send to.",
-      },
-      subject: {
-        type: "string",
-        description: "The subject of the email that is being drafted.",
-      },
-      content: {
-        type: "string",
-        description: "The content of the email that is being drafted.",
-      },
-    },
-    required: ["content"],
-  },
+  parameters: z.object({
+    to: z
+      .string()
+      .optional()
+      .describe("A comma separated list of the recipient email addresses."),
+    cc: z
+      .string()
+      .optional()
+      .describe(
+        "A comma separated list of email addresses of the cc recipients to send to.",
+      ),
+    bcc: z
+      .string()
+      .optional()
+      .describe(
+        "A comma separated list of email addresses of the bcc recipients to send to.",
+      ),
+    subject: z
+      .string()
+      .optional()
+      .describe("The subject of the email that is being drafted."),
+    content: z
+      .string()
+      .describe("The content of the email that is being drafted."),
+  }),
   action: ActionType.DRAFT_EMAIL,
 };
 
 const REPLY_TO_EMAIL: ActionFunctionDef = {
   name: "reply",
   description: "Reply to an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      cc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the cc recipients to send to.",
-      },
-      bcc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the bcc recipients to send to.",
-      },
-      content: {
-        type: "string",
-        description: "The content to send in the reply.",
-      },
-    },
-    required: ["to", "subject", "content"],
-  },
+  parameters: z.object({
+    content: z.string().describe("The content to send in the reply."),
+    cc: z
+      .string()
+      .optional()
+      .describe(
+        "A comma separated list of email addresses of the cc recipients to send to.",
+      ),
+    bcc: z
+      .string()
+      .optional()
+      .describe(
+        "A comma separated list of email addresses of the bcc recipients to send to.",
+      ),
+  }),
   action: ActionType.REPLY,
 };
 
 const SEND_EMAIL: ActionFunctionDef = {
   name: "send_email",
   description: "Send an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      to: {
-        type: "string",
-        description: "Comma separated email addresses of the recipients.",
-      },
-      cc: {
-        type: "string",
-        description: "Comma separated email addresses of the cc recipients.",
-      },
-      bcc: {
-        type: "string",
-        description: "Comma separated email addresses of the bcc recipients.",
-      },
-      subject: {
-        type: "string",
-        description: "The subject of the email to be sent.",
-      },
-      content: {
-        type: "string",
-        description: "The content to send in the email.",
-      },
-    },
-    required: ["to", "subject", "content"],
-  },
+  parameters: z.object({
+    to: z
+      .string()
+      .describe("Comma separated email addresses of the recipients."),
+    cc: z
+      .string()
+      .optional()
+      .describe("Comma separated email addresses of the cc recipients."),
+    bcc: z
+      .string()
+      .optional()
+      .describe("Comma separated email addresses of the bcc recipients."),
+    subject: z.string().describe("The subject of the email to be sent."),
+    content: z.string().describe("The content to send in the email."),
+  }),
   action: ActionType.SEND_EMAIL,
 };
 
 const FORWARD_EMAIL: ActionFunctionDef = {
   name: "forward",
   description: "Forward an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      to: {
-        type: "string",
-        description:
-          "Comma separated email addresses of the recipients to forward the email to.",
-      },
-      cc: {
-        type: "string",
-        description:
-          "Comma separated email addresses of the cc recipients to forward the email to.",
-      },
-      bcc: {
-        type: "string",
-        description:
-          "Comma separated email addresses of the bcc recipients to forward the email to.",
-      },
-      content: {
-        type: "string",
-        description: "Extra content to add to the forwarded email.",
-      },
-    },
-    required: ["to"],
-  },
+  parameters: z.object({
+    to: z
+      .string()
+      .describe("Comma separated email addresses of the recipients."),
+    cc: z
+      .string()
+      .optional()
+      .describe("Comma separated email addresses of the cc recipients."),
+    bcc: z
+      .string()
+      .optional()
+      .describe("Comma separated email addresses of the bcc recipients."),
+    content: z
+      .string()
+      .optional()
+      .describe("Extra content to add to the forwarded email."),
+  }),
   action: ActionType.FORWARD,
 };
 
 const MARK_SPAM: ActionFunctionDef = {
   name: "mark_spam",
   description: "Mark as spam.",
-  parameters: {
-    type: "object",
-    properties: {},
-    required: [],
-  },
+  parameters: z.object({}),
   action: ActionType.MARK_SPAM,
 };
-
-// const ASK_FOR_MORE_INFORMATION: ActionFunctionDef = {
-//   name: "ask_for_more_information",
-//   description: "Ask for more information on how to handle the email.",
-//   parameters: {
-//     type: "object",
-//     properties: {
-//       from: {
-//         type: "string",
-//         description: "The email address of the sender.",
-//       },
-//       subject: {
-//         type: "string",
-//         description: "The subject of the email.",
-//       },
-//       content: {
-//         type: "string",
-//         description: "The content of the email.",
-//       },
-//     },
-//     required: [],
-//   },
-//   action: null,
-// };
 
 export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.ARCHIVE]: ARCHIVE,
@@ -228,11 +164,16 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.MARK_SPAM]: MARK_SPAM,
   // [ActionType.ADD_TO_DO]: ADD_TO_DO,
   // [ActionType.CALL_WEBHOOK]: CALL_WEBHOOK,
-  // ASK_FOR_MORE_INFORMATION
 };
 
+export function getJsonSchemaForAction(action: ActionType) {
+  return zodToJsonSchema(actionFunctionDefs[action].parameters) as Record<
+    string,
+    any
+  >;
+}
+
 export const actionFunctions: ActionFunctionDef[] = [
-  // ASK_FOR_MORE_INFORMATION,
   ARCHIVE,
   LABEL,
   DRAFT_EMAIL,

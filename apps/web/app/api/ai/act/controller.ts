@@ -11,8 +11,8 @@ import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
   ActionProperty,
-  actionFunctionDefs,
   runActionFunction,
+  getJsonSchemaForAction,
 } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import { markPlanExecuted, savePlan } from "@/utils/redis/plan";
@@ -264,9 +264,9 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
         type: "object",
         properties: rule.actions.reduce(
           (properties, action) => {
-            const actionProperties = {
-              ...actionFunctionDefs[action.type].parameters.properties,
-            };
+            const actionProperties = getJsonSchemaForAction(
+              action.type,
+            ).properties;
 
             return { ...properties, ...actionProperties };
           },
@@ -279,7 +279,7 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
         ),
         required: uniq(
           rule.actions.flatMap((action) => {
-            return actionFunctionDefs[action.type].parameters.required;
+            return getJsonSchemaForAction(action.type).required;
           }),
         ),
       },

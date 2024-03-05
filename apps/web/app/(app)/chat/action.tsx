@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAI, createStreamableUI, getMutableAIState } from "ai/rsc";
-import { z } from "zod";
+import { SendIcon } from "lucide-react";
 import { getOpenAI } from "@/utils/openai";
 import {
   BotCard,
@@ -11,6 +11,9 @@ import {
 import { spinner } from "@/app/(app)/chat/components/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { runOpenAICompletion } from "@/app/(app)/chat/utils";
+import { actionFunctions } from "@/utils/ai/actions";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/button";
 
 async function confirmSendEmail(to: string) {
   "use server";
@@ -96,8 +99,7 @@ async function submitUserMessage(content: string) {
     messages: [
       {
         role: "system",
-        content: `\
-You are an email assistant bot and you can help users send emails, step by step.`,
+        content: `You are an email assistant bot and you can help users send emails, step by step.`,
       },
       ...aiState.get().map((info: any) => ({
         role: info.role,
@@ -105,29 +107,30 @@ You are an email assistant bot and you can help users send emails, step by step.
         name: info.name,
       })),
     ],
-    functions: [
-      {
-        name: "send_email",
-        description:
-          "Send an email to the recipient. Use this if the user wants to send an email.",
-        parameters: z.object({
-          to: z.string().describe("The recipient of the email."),
-          subject: z.string().describe("The subject of the email."),
-          body: z.string().describe("The body of the email."),
-        }),
-      },
-      {
-        name: "list_important_emails",
-        description:
-          "List important emails. Use this if the user wants to see important emails.",
-        parameters: z.object({
-          count: z
-            .number()
-            .optional()
-            .describe("The number of emails to list."),
-        }),
-      },
-    ],
+    functions: actionFunctions,
+    // functions: [
+    //   {
+    //     name: "send_email",
+    //     description:
+    //       "Send an email to the recipient. Use this if the user wants to send an email.",
+    //     parameters: z.object({
+    //       to: z.string().describe("The recipient of the email."),
+    //       subject: z.string().describe("The subject of the email."),
+    //       body: z.string().describe("The body of the email."),
+    //     }),
+    //   },
+    //   {
+    //     name: "list_important_emails",
+    //     description:
+    //       "List important emails. Use this if the user wants to see important emails.",
+    //     parameters: z.object({
+    //       count: z
+    //         .number()
+    //         .optional()
+    //         .describe("The number of emails to list."),
+    //     }),
+    //   },
+    // ],
     temperature: 0,
   });
 
@@ -173,6 +176,52 @@ You are an email assistant bot and you can help users send emails, step by step.
         role: "function",
         name: "list_important_emails",
         content: JSON.stringify(emails),
+      },
+    ]);
+  });
+
+  completion.onFunctionCall("draft", async (options: any) => {
+    console.log("draft", options);
+    reply.update(
+      <BotCard>
+        <Skeleton />
+      </BotCard>,
+    );
+
+    reply.done(
+      <BotCard>
+        <Card title="Draft">
+          <p>
+            <strong>To:</strong> {options.to}
+          </p>
+          {options.cc && (
+            <p>
+              <strong>CC:</strong> {options.cc}
+            </p>
+          )}
+          {options.bcc && (
+            <p>
+              <strong>BCC:</strong> {options.bcc}
+            </p>
+          )}
+          <p className="mt-2">
+            <strong>{options.subject}</strong>
+          </p>
+          <p className="mt-1">{options.content}</p>
+          <Button className="mt-2">
+            <SendIcon className="mr-2 h-4 w-4" />
+            Send
+          </Button>
+        </Card>
+      </BotCard>,
+    );
+
+    aiState.done([
+      ...aiState.get(),
+      {
+        role: "function",
+        name: "draft",
+        content: JSON.stringify(options),
       },
     ]);
   });

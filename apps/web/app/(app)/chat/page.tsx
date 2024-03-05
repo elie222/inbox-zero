@@ -131,7 +131,7 @@ export default function Page() {
                         window.location.reload();
                       }}
                     >
-                      <PlusIcon />
+                      <PlusIcon className="h-4 w-4" />
                       <span className="sr-only">New Chat</span>
                     </Button>
                   </TooltipTrigger>
@@ -142,7 +142,7 @@ export default function Page() {
                   tabIndex={0}
                   onKeyDown={onKeyDown}
                   placeholder="Send a message."
-                  className="min-h-[60px] w-full resize-none bg-transparent px-4 py-[1.3rem] focus-within:outline-none sm:text-sm"
+                  className="min-h-[60px] w-full resize-none border-none bg-transparent px-4 py-[1.3rem] focus-within:outline-none sm:text-sm"
                   autoFocus
                   spellCheck={false}
                   autoComplete="off"
@@ -160,7 +160,7 @@ export default function Page() {
                         size="icon"
                         disabled={inputValue === ""}
                       >
-                        <CornerDownLeftIcon />
+                        <CornerDownLeftIcon className="h-4 w-4" />
                         <span className="sr-only">Send message</span>
                       </Button>
                     </TooltipTrigger>
