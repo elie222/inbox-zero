@@ -226,6 +226,67 @@ async function submitUserMessage(content: string) {
     ]);
   });
 
+  completion.onFunctionCall("forward", async (options: any) => {
+    console.log("forward", options);
+    reply.update(
+      <BotCard>
+        <Skeleton />
+      </BotCard>,
+    );
+
+    reply.done(
+      <BotCard>
+        <Card title="Draft">
+          <p>
+            <strong>To:</strong> {options.to}
+          </p>
+          {options.cc && (
+            <p>
+              <strong>CC:</strong> {options.cc}
+            </p>
+          )}
+          {options.bcc && (
+            <p>
+              <strong>BCC:</strong> {options.bcc}
+            </p>
+          )}
+          <p className="mt-2">
+            <strong>{options.subject}</strong>
+          </p>
+          <p className="mt-1">{options.content}</p>
+          <Button className="mt-2">
+            <SendIcon className="mr-2 h-4 w-4" />
+            Send
+          </Button>
+        </Card>
+      </BotCard>,
+    );
+
+    aiState.done([
+      ...aiState.get(),
+      {
+        role: "function",
+        name: "forward",
+        content: JSON.stringify(options),
+      },
+    ]);
+  });
+
+  completion.onFunctionCall("archive", async (options: any) => {
+    console.log("archive", options);
+    reply.done(<div>TODO Archive {JSON.stringify(options, null, 2)}</div>);
+  });
+
+  completion.onFunctionCall("label", async (options: any) => {
+    console.log("label", options);
+    reply.done(<div>TODO Label {JSON.stringify(options, null, 2)}</div>);
+  });
+
+  completion.onFunctionCall("reply", async (options: any) => {
+    console.log("reply", options);
+    reply.done(<div>TODO Reply {JSON.stringify(options, null, 2)}</div>);
+  });
+
   return {
     id: Date.now(),
     display: reply.value,
