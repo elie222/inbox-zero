@@ -50,6 +50,21 @@ const posts = [
       imageUrl: "/images/blog/elie-profile.jpg",
     },
   },
+  {
+    title: "How to Bulk Unsubscribe from Emails",
+    file: "bulk-unsubscribe-from-emails",
+    description:
+      "Want to stop the flood of unwanted subscriptions in your email? Learn how to bulk unsubscribe from emails and create a clutter-free inbox with Inbox Zero.",
+    date: "March 05, 2024",
+    datetime: "2024-03-05",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
 ];
 
 export default async function BlogPage() {

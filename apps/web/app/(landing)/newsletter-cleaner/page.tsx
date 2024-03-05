@@ -19,7 +19,7 @@ export default function NewsletterCleaner() {
   return (
     <BasicLayout>
       <Hero
-        title="Clean up your newsletter subscriptions"
+        title="Bulk unsubscribe from marketing emails and newsletters"
         subtitle="Effortlessly manage the newsletters in your inbox: one click unsubscribe, auto archive, or approve."
       />
       <Testimonials />
