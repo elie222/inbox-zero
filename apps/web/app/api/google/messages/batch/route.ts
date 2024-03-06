@@ -7,7 +7,10 @@ import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
 
 const messagesBatchQuery = z.object({
-  messageIds: z.array(z.string()).transform((arr) => uniq(arr)),
+  messageIds: z
+    .array(z.string())
+    .max(100)
+    .transform((arr) => uniq(arr)),
 });
 export type MessagesBatchQuery = z.infer<typeof messagesBatchQuery>;
 export type MessagesBatchResponse = {

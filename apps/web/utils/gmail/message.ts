@@ -21,6 +21,8 @@ export async function getMessagesBatch(
   messageIds: string[],
   accessToken: string,
 ) {
+  if (messageIds.length > 100) throw new Error("Too many messages. Max 100");
+
   const batch: MessageWithPayload[] = await getBatch(
     messageIds,
     "/gmail/v1/users/me/messages",
