@@ -40,7 +40,7 @@ export function PlanHistory() {
   } = useSWR<MessagesBatchResponse>(
     data
       ? `/api/google/messages/batch?${new URLSearchParams(
-          data.history.map((h) => ["messageIds", h.messageId]),
+          data.history.slice(0, 100).map((h) => ["messageIds", h.messageId]),
         )}`
       : null,
     {

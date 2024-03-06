@@ -51,16 +51,53 @@ export async function getPlan(options: {
   return { ...plan, id: planKey };
 }
 
-export async function getPlans(options: {
-  userId: string;
-}): Promise<(Plan & { id: string })[]> {
-  const key = getKey(options.userId);
-  const plans = await redis.hgetall<Record<string, Plan>>(key);
+// runs into issues with large datasets
+// export async function getPlans(options: {
+//   userId: string;
+// }): Promise<(Plan & { id: string })[]> {
+//   const key = getKey(options.userId);
+//   const plans = await redis.hgetall<Record<string, Plan>>(key);
 
-  return Object.entries(plans || {}).map(([planId, plan]) => ({
-    ...plan,
-    id: planId,
-  }));
+//   return Object.entries(plans || {}).map(([planId, plan]) => ({
+//     ...plan,
+//     id: planId,
+//   }));
+// }
+
+// to avoid fetching too much data from Redis
+export async function getFilteredPlans({
+  userId,
+  count = 50,
+  filter,
+}: {
+  userId: string;
+  filter?: (plan: Plan) => boolean;
+  count?: number;
+}): Promise<(Plan & { id: string })[]> {
+  const key = getKey(userId);
+  let cursor = 0;
+  let results: [string, Plan][] = [];
+
+  do {
+    const reply = await redis.hscan(key, cursor, { count });
+    cursor = reply[0];
+    const pairs = reply[1];
+
+    for (let i = 0; i < pairs.length; i += 2) {
+      const planId = pairs[i] as string;
+      const planData = pairs[i + 1] as unknown as Plan;
+
+      if (!filter || filter(planData)) results.push([planId, planData]);
+
+      // Break if we have collected enough data
+      if (results.length >= count) {
+        cursor = 0; // Reset cursor to end the loop
+        break;
+      }
+    }
+  } while (cursor !== 0);
+
+  return results.map(([planId, plan]) => ({ ...plan, id: planId }));
 }
 
 export async function savePlan(options: {
@@ -70,7 +107,8 @@ export async function savePlan(options: {
 }) {
   const key = getKey(options.userId);
   const planKey = getPlanKey(options.threadId);
-  return redis.hset(key, { [planKey]: options.plan });
+  redis.hset(key, { [planKey]: options.plan });
+  redis.expire(key, 60 * 60 * 24 * 7); // 1 week
 }
 
 export async function markPlanExecuted(options: {

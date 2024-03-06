@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import sortBy from "lodash/sortBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
-import { getPlans } from "@/utils/redis/plan";
+import { getFilteredPlans } from "@/utils/redis/plan";
+import { getCategory } from "@/utils/redis/category";
 import { parseMessage } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import { Thread } from "@/components/email-list/types";
-import { getCategory } from "@/utils/redis/category";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { decodeSnippet } from "@/utils/gmail/decode";
@@ -24,7 +24,10 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not authenticated");
 
-  const allPlans = await getPlans({ userId: session.user.id });
+  const allPlans = await getFilteredPlans({
+    userId: session.user.id,
+    filter: (plan) => !plan.executed,
+  });
   console.log(`Fetched ${allPlans.length} plans`);
   const plans = take(allPlans, LIMIT);
 
