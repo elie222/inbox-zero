@@ -70,7 +70,8 @@ export async function savePlan(options: {
 }) {
   const key = getKey(options.userId);
   const planKey = getPlanKey(options.threadId);
-  return redis.hset(key, { [planKey]: options.plan });
+  redis.hset(key, { [planKey]: options.plan });
+  redis.expire(key, 60 * 60 * 24 * 7); // 1 week
 }
 
 export async function markPlanExecuted(options: {
