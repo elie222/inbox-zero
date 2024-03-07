@@ -30,41 +30,30 @@ async function confirmSendEmail(to: string) {
   const systemMessage = createStreamableUI(null);
 
   // runAsyncFnWithoutBlocking(async () => {
-  //   // You can update the UI at any point.
-  //   purchasing.update(
-  //     <div className="inline-flex items-start gap-1 md:items-center">
-  //       {spinner}
-  //       <p className="mb-2">
-  //         Purchasing {amount} ${symbol}... working on it...
-  //       </p>
-  //     </div>,
-  //   );
+  sending.update(
+    <div className="inline-flex items-start gap-1 md:items-center">
+      {spinner}
+      <p className="mb-2">Sending email to {to}...</p>
+    </div>,
+  );
 
-  //   purchasing.done(
-  //     <div>
-  //       <p className="mb-2">
-  //         You have successfully purchased {amount} ${symbol}. Total cost:{' '}
-  //         {formatNumber(amount * price)}
-  //       </p>
-  //     </div>,
-  //   );
+  sending.done(
+    <div>
+      <p className="mb-2">Your email to {to} has been sent.</p>
+    </div>,
+  );
 
-  //   systemMessage.done(
-  //     <SystemMessage>
-  //       You have purchased {amount} shares of {symbol} at ${price}. Total cost ={' '}
-  //       {formatNumber(amount * price)}.
-  //     </SystemMessage>,
-  //   );
+  systemMessage.done(
+    <SystemMessage>Your email to {to} has been sent.</SystemMessage>,
+  );
 
-  //   aiState.done([
-  //     ...aiState.get(),
-  //     {
-  //       role: 'system',
-  //       content: `[User has purchased ${amount} shares of ${symbol} at ${price}. Total cost = ${amount * price
-  //         }]`,
-  //     },
-  //   ]);
-  // });
+  aiState.done([
+    ...aiState.get(),
+    {
+      role: "system",
+      content: `[User sent email to ${to}]`,
+    },
+  ]);
 
   return {
     sendingUI: sending.value,
