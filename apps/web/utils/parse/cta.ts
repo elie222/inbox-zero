@@ -11,6 +11,7 @@ const ctaKeywords = [
   "go to console",
   "open messenger", // Facebook
   "open in", // eg. Slack
+  "reply",
 ];
 
 export function containsCtaKeyword(text: string) {
