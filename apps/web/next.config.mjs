@@ -10,7 +10,7 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     instrumentationHook: true,
-    serverComponentsExternalPackages: ['@sentry/nextjs', '@sentry/node'],
+    // serverComponentsExternalPackages: ['@sentry/nextjs', '@sentry/node'],
   },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {
