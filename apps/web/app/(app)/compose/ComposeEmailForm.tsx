@@ -9,8 +9,8 @@ import {
   EditorCommandItem,
   EditorContent,
   EditorRoot,
-  defaultEditorProps,
 } from "novel";
+import { handleCommandNavigation } from "novel/extensions";
 import React, { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
@@ -291,7 +291,9 @@ export const ComposeEmailForm = (props: {
             props.novelEditorClassName,
           )}
           editorProps={{
-            ...defaultEditorProps,
+            handleDOMEvents: {
+              keydown: (_view, event) => handleCommandNavigation(event),
+            },
             attributes: {
               class: `prose-lg prose-stone dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full`,
             },
