@@ -8,7 +8,7 @@ import {
   StarterKit,
   Placeholder,
 } from "novel/extensions";
-import { UploadImagesPlugin } from "novel/plugins";
+// import { UploadImagesPlugin } from "novel/plugins";
 
 import { cx } from "class-variance-authority";
 
@@ -25,9 +25,9 @@ const tiptapLink = TiptapLink.configure({
 });
 
 const tiptapImage = TiptapImage.extend({
-  addProseMirrorPlugins() {
-    return [UploadImagesPlugin()];
-  },
+  // addProseMirrorPlugins() {
+  //   return [UploadImagesPlugin({imageClass: ''})]
+  // }
 }).configure({
   allowBase64: true,
   HTMLAttributes: {
