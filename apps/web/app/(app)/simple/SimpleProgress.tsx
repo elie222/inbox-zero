@@ -53,7 +53,7 @@ export function SimpleProgressCompleted() {
 
   useEffect(() => {
     onCompleted();
-  }, []);
+  }, [onCompleted]);
 
   const emailsHandled = Object.keys(handled).length;
   const emailsToHandleLater = Object.keys(toHandleLater).length;
