@@ -4,11 +4,16 @@ import { env } from "@/env.mjs";
 import {
   lemonSqueezySetup,
   updateSubscriptionItem,
+  getCustomer,
 } from "@lemonsqueezy/lemonsqueezy.js";
+
+let isSetUp = false;
 
 function setUpLemon() {
   if (!env.LEMON_SQUEEZY_API_KEY) return;
+  if (isSetUp) return;
   lemonSqueezySetup({ apiKey: env.LEMON_SQUEEZY_API_KEY });
+  isSetUp = true;
 }
 
 export async function updateSubscriptionItemQuantity(options: {
@@ -20,4 +25,9 @@ export async function updateSubscriptionItemQuantity(options: {
     quantity: options.quantity,
     invoiceImmediately: true,
   });
+}
+
+export async function getLemonCustomer(customerId: string) {
+  setUpLemon();
+  return getCustomer(customerId, { include: ["subscriptions", "orders"] });
 }

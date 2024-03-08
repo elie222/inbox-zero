@@ -37,7 +37,10 @@ import {
   markImportantMessage,
   markReadThread,
 } from "@/utils/gmail/label";
-import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
+import {
+  getLemonCustomer,
+  updateSubscriptionItemQuantity,
+} from "@/app/api/lemon-squeezy/api";
 import { captureException, isError } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
 import { markSpam } from "@/utils/gmail/spam";
@@ -306,16 +309,41 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
 
   const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
 
+  let lemonSqueezySubscriptionId: number | null = null;
+  let lemonSqueezySubscriptionItemId: number | null = null;
+  let lemonSqueezyOrderId: number | null = null;
+  let lemonSqueezyProductId: number | null = null;
+  let lemonSqueezyVariantId: number | null = null;
+
   if (options.upgrade) {
+    if (options.lemonSqueezyCustomerId) {
+      const lemonCustomer = await getLemonCustomer(
+        options.lemonSqueezyCustomerId.toString(),
+      );
+      if (!lemonCustomer.data) throw new Error("Lemon customer not found");
+      const subscription = lemonCustomer.data.included?.find(
+        (i) => i.type === "subscriptions",
+      );
+      if (!subscription) throw new Error("Subscription not found");
+      lemonSqueezySubscriptionId = parseInt(subscription.id);
+      const attributes = subscription.attributes as any;
+      lemonSqueezyOrderId = parseInt(attributes.order_id);
+      lemonSqueezyProductId = parseInt(attributes.product_id);
+      lemonSqueezyVariantId = parseInt(attributes.variant_id);
+      lemonSqueezySubscriptionItemId = attributes.first_subscription_item.id
+        ? parseInt(attributes.first_subscription_item.id)
+        : null;
+    }
+
     await upgradeToPremium({
       userId: userToUpgrade.id,
       tier: options.period,
       lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || null,
-      lemonSqueezySubscriptionId: null,
-      lemonSqueezySubscriptionItemId: null,
-      lemonSqueezyOrderId: null,
-      lemonSqueezyProductId: null,
-      lemonSqueezyVariantId: null,
+      lemonSqueezySubscriptionId,
+      lemonSqueezySubscriptionItemId,
+      lemonSqueezyOrderId,
+      lemonSqueezyProductId,
+      lemonSqueezyVariantId,
       lemonSqueezyRenewsAt:
         options.period === PremiumTier.PRO_ANNUALLY ||
         options.period === PremiumTier.BUSINESS_ANNUALLY
