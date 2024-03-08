@@ -159,4 +159,4 @@ ngrok http 3000
 
 And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
 
-To start watching emails visit: `/api/google/watch/all`.
+To start watching emails visit: `/api/google/watch/all`
