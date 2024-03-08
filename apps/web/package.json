@@ -12,8 +12,8 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@auth/core": "^0.24.0",
-    "@auth/prisma-adapter": "^1.1.0",
+    "@auth/core": "^0.28.0",
+    "@auth/prisma-adapter": "^1.5.0",
     "@baselime/node-opentelemetry": "^0.4.3",
     "@formkit/auto-animate": "^0.8.1",
     "@headlessui/react": "^1.7.18",
