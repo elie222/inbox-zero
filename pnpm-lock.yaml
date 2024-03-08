@@ -39,8 +39,8 @@ importers:
         specifier: ^1.5.0
         version: 1.5.0(@prisma/client@5.10.2)(nodemailer@6.9.11)
       '@baselime/node-opentelemetry':
-        specifier: ^0.4.3
-        version: 0.4.3(@trpc/server@10.45.1)
+        specifier: ^0.3.8
+        version: 0.3.9(@trpc/server@10.45.1)
       '@formkit/auto-animate':
         specifier: ^0.8.1
         version: 0.8.1
@@ -1199,8 +1199,8 @@ packages:
       '@babel/helper-validator-identifier': 7.22.20
       to-fast-properties: 2.0.0
 
-  /@baselime/node-opentelemetry@0.4.3(@trpc/server@10.45.1):
-    resolution: {integrity: sha512-LVQv6iX2e4PBR5WaTVBPkisvLuDTUC4/TShXWmKJsKxd7X3vTK/pqX5QtPdWHNT8qm0pUT2CSwJQ3V+s8Ava9g==}
+  /@baselime/node-opentelemetry@0.3.9(@trpc/server@10.45.1):
+    resolution: {integrity: sha512-UXePQu8DW1E+q56JqRtfcnaiAuexvDh+ykw3v/xR8vi1MWiBMuL6KWqmFcSjzelRGbbw4vqd9zZeg58p692uAw==}
     peerDependencies:
       '@trpc/server': ^10.0.0 || ^11.0.0
     dependencies:
