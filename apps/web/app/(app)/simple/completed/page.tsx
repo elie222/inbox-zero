@@ -8,6 +8,7 @@ import { getGmailBasicSearchUrl } from "@/utils/url";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { OpenMultipleGmailButton } from "@/app/(app)/simple/completed/OpenMultipleGmailButton";
 import { SimpleProgressCompleted } from "@/app/(app)/simple/SimpleProgress";
+import { ShareOnTwitterButton } from "@/app/(app)/simple/completed/ShareOnTwitterButton";
 
 export default async function SimpleCompletedPage() {
   const session = await auth();
@@ -31,7 +32,7 @@ export default async function SimpleCompletedPage() {
         </div>
 
         {!!threads.length && (
-          <div className="mt-4 space-y-2 text-center sm:space-x-2 sm:space-y-0">
+          <div className="mt-4 grid gap-2 text-center sm:block sm:space-x-2">
             <Button asChild variant="outline">
               <Link
                 href={getGmailBasicSearchUrl(email, "newer_than:1d in:inbox")}
@@ -46,6 +47,8 @@ export default async function SimpleCompletedPage() {
               threadIds={threads.map((t) => t.id)}
               userEmail={email}
             />
+
+            <ShareOnTwitterButton />
           </div>
         )}
       </div>
