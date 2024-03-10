@@ -501,8 +501,10 @@ export async function updateMultiAccountPremium(
       });
 
       // delete premium for other users when adding them to this premium plan
+      // don't delete the premium for the current user
       await prisma.premium.deleteMany({
         where: {
+          id: { not: premium.id },
           users: { some: { id: { in: otherUsersToAdd.map((u) => u.id) } } },
         },
       });
