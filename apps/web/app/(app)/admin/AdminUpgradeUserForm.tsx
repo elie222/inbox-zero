@@ -15,7 +15,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PremiumTier } from "@prisma/client";
 
-export const UpgradeToAdminForm = () => {
+export const AdminUpgradeUserForm = () => {
   const {
     register,
     formState: { errors, isSubmitting },
