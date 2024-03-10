@@ -35,6 +35,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       ? `$survey_response`
       : (`$survey_response_${questionIndex}` as const);
 
+  const isFinalQuestion = questionIndex === survey.questions.length - 1;
+
   const submitPosthog = useCallback(
     (responses: {}) => {
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
@@ -56,7 +58,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       });
 
       // submit on last question
-      if (questionIndex === survey.questions.length - 1) {
+      if (isFinalQuestion) {
         submitPosthog(responses);
         await completedOnboarding();
         router.push("/bulk-unsubscribe");
@@ -64,7 +66,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         router.push(`/welcome?${newSeachParams}`);
       }
     },
-    [name, questionIndex, router, searchParams, submitPosthog],
+    [name, questionIndex, router, searchParams, submitPosthog, isFinalQuestion],
   );
 
   const question = survey.questions[questionIndex];
@@ -129,22 +131,24 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
           </Button>
         )}
 
-        <div className="">
-          <Button
-            variant="ghost"
-            className="mt-8"
-            type="button"
-            onClick={async () => {
-              const responses = getResponses(searchParams);
-              submitPosthog(responses);
-              posthog.capture("survey dismissed", { $survey_id: surveyId });
-              await completedOnboarding();
-              router.push("/bulk-unsubscribe");
-            }}
-          >
-            Skip Onboarding
-          </Button>
-        </div>
+        {!isFinalQuestion && (
+          <div>
+            <Button
+              variant="ghost"
+              className="mt-8"
+              type="button"
+              onClick={async () => {
+                const responses = getResponses(searchParams);
+                submitPosthog(responses);
+                posthog.capture("survey dismissed", { $survey_id: surveyId });
+                await completedOnboarding();
+                router.push("/bulk-unsubscribe");
+              }}
+            >
+              Skip Onboarding
+            </Button>
+          </div>
+        )}
       </div>
     </form>
   );
