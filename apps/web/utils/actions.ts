@@ -105,8 +105,7 @@ export async function deleteAccountAction() {
     },
   });
 
-  const lemonSqueezySubscriptionItemId =
-    user?.premium?.lemonSqueezySubscriptionItemId;
+  const lemonSqueezySubscriptionId = user?.premium?.lemonSqueezySubscriptionId;
 
   try {
     await Promise.allSettled([
@@ -125,10 +124,10 @@ export async function deleteAccountAction() {
     captureException(error);
   }
 
-  if (lemonSqueezySubscriptionItemId)
-    await cancelSubScriptionForUser(lemonSqueezySubscriptionItemId);
+  if (lemonSqueezySubscriptionId)
+    await cancelSubScriptionForUser(lemonSqueezySubscriptionId);
 
-  await prisma.user.delete({ where: { email: session.user.email } });
+  // await prisma.user.delete({ where: { email: session.user.email } });
 }
 
 export async function updateLabels(
