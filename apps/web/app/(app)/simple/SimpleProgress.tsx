@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSimpleProgress } from "@/app/(app)/simple/SimpleProgressProvider";
 
-function calculateTimePassed(endTime: Date, startTime: Date) {
+export function calculateTimePassed(endTime: Date, startTime: Date) {
   return Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
 }
 
@@ -53,7 +53,7 @@ export function SimpleProgressCompleted() {
 
   useEffect(() => {
     onCompleted();
-  }, []);
+  }, [onCompleted]);
 
   const emailsHandled = Object.keys(handled).length;
   const emailsToHandleLater = Object.keys(toHandleLater).length;
@@ -72,6 +72,6 @@ export function SimpleProgressCompleted() {
   );
 }
 
-function formatTime(seconds: number) {
+export function formatTime(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }

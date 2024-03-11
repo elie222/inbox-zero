@@ -11,8 +11,12 @@ const ctaKeywords = [
   "go to console",
   "open messenger", // Facebook
   "open in", // eg. Slack
+  "reply",
 ];
 
 export function containsCtaKeyword(text: string) {
-  return ctaKeywords.some((keyword) => text.includes(keyword));
+  const maxLength = 30; // Avoid CTAs that are sentences
+  return ctaKeywords.some(
+    (keyword) => text.includes(keyword) && text.length < maxLength,
+  );
 }

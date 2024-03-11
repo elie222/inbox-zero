@@ -7,7 +7,7 @@ export const simpleEmailCategoriesArray: ReadonlyArray<
   ["CATEGORY_SOCIAL", "social"],
   ["CATEGORY_PROMOTIONS", "promotions"],
   ["CATEGORY_UPDATES", "updates"],
-  ["CATEGORY_FORUMS", "forums"],
+  // ["CATEGORY_FORUMS", "forums"],
   ["OTHER", "other"],
 ];
 
