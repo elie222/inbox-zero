@@ -9,6 +9,7 @@ import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { env } from "@/env.mjs";
 import { completedOnboarding, saveOnboardingAnswers } from "@/utils/actions";
+import { appHomePath } from "@/utils/config";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -61,7 +62,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       if (isFinalQuestion) {
         submitPosthog(responses);
         await completedOnboarding();
-        router.push("/bulk-unsubscribe");
+        router.push(appHomePath);
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
@@ -142,7 +143,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
                 submitPosthog(responses);
                 posthog.capture("survey dismissed", { $survey_id: surveyId });
                 await completedOnboarding();
-                router.push("/bulk-unsubscribe");
+                router.push(appHomePath);
               }}
             >
               Skip Onboarding
