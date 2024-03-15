@@ -1,3 +1,5 @@
+import { env } from "@/env.mjs";
+
 export const AI_GENERATED_FIELD_VALUE = "___AI_GENERATE___";
 
 // This will be a user setting in the future
@@ -10,3 +12,7 @@ Rules to follow:
 * Add the newsletter label to emails that are newsletters.
 * Draft responses to snoozed emails that I haven't received a response to yet.
 `;
+
+export const appHomePath = env.NEXT_PUBLIC_DISABLE_TINYBIRD
+  ? "/automation"
+  : "/bulk-unsubscribe";

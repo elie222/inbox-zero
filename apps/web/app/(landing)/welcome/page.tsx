@@ -9,6 +9,7 @@ import { env } from "@/env.mjs";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
+import { appHomePath } from "@/utils/config";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -24,15 +25,13 @@ export default async function WelcomePage({
   const session = await auth();
 
   if (!session?.user.email) redirect("/login");
-  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)
-    redirect("/bulk-unsubscribe");
+  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) redirect(appHomePath);
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: { completedOnboarding: true },
   });
-  if (!searchParams.force && user.completedOnboarding)
-    redirect("/bulk-unsubscribe");
+  if (!searchParams.force && user.completedOnboarding) redirect(appHomePath);
 
   const questionIndex = searchParams.question
     ? parseInt(searchParams.question)

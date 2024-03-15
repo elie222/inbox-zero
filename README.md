@@ -70,8 +70,8 @@ The external services that are required are:
 - [OpenAI](https://platform.openai.com/api-keys)
 - [Google OAuth](https://console.cloud.google.com/apis/credentials)
 - [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list) - see set up instructions below
-- [Upstash Redis](https://upstash.com/)
-- [Tinybird](https://www.tinybird.co/)
+- [Upstash Redis](https://upstash.com/) - you can also use regular Redis with the Docker Compose.
+- [Tinybird](https://www.tinybird.co/) - you can run the app without this but some features then will be disabled.
 
 We use Postgres for the database.
 
@@ -96,10 +96,10 @@ The required environment variables:
 - `NEXTAUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
 - `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
-- `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region).
 - `OPENAI_API_KEY` -- OpenAI API key.
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash.
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash.
+- `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region). You can also decide to disabled Tinybird and then the analytics and bulk unsubscribe features will be disabled. Set `NEXT_PUBLIC_DISABLE_TINYBIRD=true` if you decide to disable Tinybird.
 
 To run the migrations:
 

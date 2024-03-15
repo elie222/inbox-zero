@@ -7,6 +7,7 @@ import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail } from "@/utils/email";
 import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { env } from "@/env.mjs";
 
 const PAGE_SIZE = 100;
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
@@ -20,6 +21,8 @@ export async function loadTinybirdEmails(
   },
   body: LoadTinybirdEmailsBody,
 ) {
+  if (!env.TINYBIRD_TOKEN) return { pages: 0 };
+
   const { ownerEmail, gmail, accessToken } = options;
 
   let nextPageToken: string | undefined = undefined;
