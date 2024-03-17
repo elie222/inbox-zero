@@ -40,6 +40,7 @@ export const POST = withError(async (request: Request) => {
       content,
       snippet: body.snippet || truncate(content, 300),
       openAIApiKey: user.openAIApiKey,
+      aiProvider: "openai",
       aiModel: getAiModel(user.aiModel),
       unsubscribeLink,
       hasPreviousEmail,

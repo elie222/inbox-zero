@@ -290,6 +290,7 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
+    aiProvider: "openai",
     aiModel: getAiModel(user.aiModel),
     openAIApiKey: user.openAIApiKey,
   });

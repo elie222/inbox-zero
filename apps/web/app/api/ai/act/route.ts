@@ -41,6 +41,7 @@ export const POST = withError(async (request: Request) => {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
+    aiProvider: "openai",
     aiModel: getAiModel(user.aiModel),
     openAIApiKey: user.openAIApiKey,
   });
