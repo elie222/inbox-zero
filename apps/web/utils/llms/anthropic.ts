@@ -13,17 +13,37 @@ export function getAnthropic(apiKey: string | null) {
 
 export async function anthropicChatCompletion(
   model: string,
+  apiKey: string | null,
   messages: Array<{
     role: "assistant" | "user";
     content: string;
   }>,
 ) {
-  const anthropic = getAnthropic(null);
+  const anthropic = getAnthropic(apiKey);
 
   return anthropic.messages.create({
     model,
     temperature: 0,
     messages,
     max_tokens: 2000, // TODO
+  });
+}
+
+export async function anthropicChatCompletionStream(
+  model: string,
+  apiKey: string | null,
+  messages: Array<{
+    role: "assistant" | "user";
+    content: string;
+  }>,
+) {
+  const anthropic = getAnthropic(apiKey);
+
+  return anthropic.messages.create({
+    model,
+    temperature: 0,
+    messages,
+    max_tokens: 2000, // TODO
+    stream: true,
   });
 }

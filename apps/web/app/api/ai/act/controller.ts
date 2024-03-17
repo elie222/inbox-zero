@@ -85,7 +85,13 @@ ${email.snippet}`,
   ];
 
   const model = options.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await chatCompletion("openai", model, messages);
+  const aiResponse = await chatCompletion(
+    "openai",
+    model,
+    options.openAIApiKey,
+    messages,
+    { jsonResponse: true },
+  );
   // tools: [
   //   {
   //     type: "function",

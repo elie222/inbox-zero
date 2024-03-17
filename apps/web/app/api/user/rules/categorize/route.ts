@@ -3,17 +3,13 @@ import { NextResponse } from "next/server";
 import { parseJSON } from "@/utils/json";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import {
-  DEFAULT_AI_MODEL,
-  getAiModel,
-  getOpenAI,
-  jsonResponseFormat,
-} from "@/utils/llms/openai";
+import { DEFAULT_AI_MODEL, getAiModel } from "@/utils/llms/openai";
 import { UserAIFields } from "@/utils/llms/types";
 import { Action, ActionType, Rule } from "@prisma/client";
 import { actionInputs } from "@/utils/actionType";
 import { withError } from "@/utils/middleware";
 import { saveAiUsage } from "@/utils/usage";
+import { chatCompletion } from "@/utils/llms";
 
 const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
@@ -64,22 +60,22 @@ async function aiCategorizeRule(
   >[];
 } | void> {
   const model = user.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await getOpenAI(user.openAIApiKey).chat.completions.create(
-    {
-      model,
-      ...jsonResponseFormat(model),
-      messages: [
-        {
-          role: "system",
-          content: `You are an AI assistant that helps people manage their emails. This is the list of actions you are able to take:
+  const aiResponse = await chatCompletion(
+    "openai",
+    model,
+    user.openAIApiKey,
+    [
+      {
+        role: "system",
+        content: `You are an AI assistant that helps people manage their emails. This is the list of actions you are able to take:
 ${Object.entries(actionInputs).map(([actionType, { fields }]) => {
   return `- ${actionType}
     Optional fields: ${fields.map((field) => field.name).join(", ")}`;
 })}`,
-        },
-        {
-          role: "user",
-          content: `Return a JSON array of actions that this instruction would require taking.
+      },
+      {
+        role: "user",
+        content: `Return a JSON array of actions that this instruction would require taking.
 
 An example response is:
 { "name": "Archive examples", "actions": [{ type: "FORWARD", to: "example@gmail.com" }, { type: "ARCHIVE" }] }
@@ -96,9 +92,9 @@ Do not use an example value.
 ###
 Instruction:
 ${rule.instructions}`,
-        },
-      ],
-    },
+      },
+    ],
+    { jsonResponse: true },
   );
 
   if (aiResponse.usage) {
@@ -110,7 +106,7 @@ ${rule.instructions}`,
     });
   }
 
-  const contentString = aiResponse.choices?.[0]?.message.content;
+  const contentString = aiResponse.response;
 
   if (!contentString) return;
 

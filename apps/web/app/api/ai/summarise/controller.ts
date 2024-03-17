@@ -1,4 +1,4 @@
-import { getOpenAI } from "@/utils/llms/openai";
+import { chatCompletionStream } from "@/utils/llms";
 import { saveAiUsageStream } from "@/utils/usage";
 
 export async function summarise(
@@ -11,8 +11,6 @@ export async function summarise(
     onFinal?: (completion: string) => Promise<void>;
   },
 ) {
-  const ai = getOpenAI(null);
-
   const model = "gpt-3.5-turbo-1106" as const;
   const messages = [
     {
@@ -28,13 +26,10 @@ export async function summarise(
     },
   ];
 
-  const response = await ai.chat.completions.create({
-    model,
-    stream: true,
-    messages,
-  });
+  const response = await chatCompletionStream("openai", model, "", messages);
 
   const stream = await saveAiUsageStream({
+    provider: "openai",
     response,
     model,
     userEmail,

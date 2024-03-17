@@ -1,15 +1,12 @@
 import { z } from "zod";
 import { parseJSON } from "@/utils/json";
-import {
-  DEFAULT_AI_MODEL,
-  getOpenAI,
-  jsonResponseFormat,
-} from "@/utils/llms/openai";
+import { DEFAULT_AI_MODEL } from "@/utils/llms/openai";
 import { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { truncate } from "@/utils/mail";
 import { saveAiUsage } from "@/utils/usage";
+import { chatCompletion } from "@/utils/llms";
 
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
@@ -83,10 +80,11 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
 `;
 
   const model = body.aiModel || DEFAULT_AI_MODEL;
-  const response = await getOpenAI(body.openAIApiKey).chat.completions.create({
+  const response = await chatCompletion(
+    "openai",
     model,
-    ...jsonResponseFormat(model),
-    messages: [
+    body.openAIApiKey,
+    [
       {
         role: "system",
         content: "You are an assistant that helps categorize emails.",
@@ -96,7 +94,8 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
         content: message,
       },
     ],
-  });
+    { jsonResponse: true },
+  );
 
   if (response.usage) {
     await saveAiUsage({
@@ -107,7 +106,7 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
     });
   }
 
-  const content = response.choices[0].message.content;
+  const content = response.response;
 
   if (!content) return;
 

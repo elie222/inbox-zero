@@ -26,7 +26,7 @@ export function getAiModel(model: string | null): string {
   return model || DEFAULT_AI_MODEL;
 }
 
-export function jsonResponseFormat(model: string): {
+function jsonResponseFormat(model: string): {
   response_format?: ChatCompletionCreateParams.ResponseFormat;
 } {
   const supportJsonResponse = [
@@ -46,12 +46,34 @@ export function jsonResponseFormat(model: string): {
 
 export async function openAIChatCompletion(
   model: string,
+  apiKey: string | null,
+  messages: Array<{
+    role: "system" | "user";
+    content: string;
+  }>,
+  options?: { jsonResponse?: boolean },
+) {
+  const openai = getOpenAI(apiKey);
+
+  return openai.chat.completions.create({
+    ...(options?.jsonResponse ? jsonResponseFormat(model) : {}),
+    model,
+    messages,
+    temperature: 0,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+  });
+}
+
+export async function openAIChatCompletionStream(
+  model: string,
+  apiKey: string | null,
   messages: Array<{
     role: "system" | "user";
     content: string;
   }>,
 ) {
-  const openai = getOpenAI(null);
+  const openai = getOpenAI(apiKey);
 
   return openai.chat.completions.create({
     model,
@@ -59,6 +81,6 @@ export async function openAIChatCompletion(
     temperature: 0,
     frequency_penalty: 0,
     presence_penalty: 0,
-    ...jsonResponseFormat(model),
+    stream: true,
   });
 }

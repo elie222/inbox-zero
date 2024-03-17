@@ -1,9 +1,8 @@
-import { OpenAIStream } from "ai";
+import { AnthropicStream, OpenAIStream } from "ai";
 import { TiktokenModel, encodingForModel } from "js-tiktoken";
-import { ChatCompletionChunk } from "openai/resources/index";
-import { Stream } from "openai/streaming";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
+import { ChatCompletionStreamResponse } from "@/utils/llms";
 
 export async function saveAiUsage({
   email,
@@ -39,6 +38,7 @@ export async function saveAiUsage({
 }
 
 export async function saveAiUsageStream({
+  provider,
   response,
   model,
   userEmail,
@@ -46,7 +46,8 @@ export async function saveAiUsageStream({
   label,
   onFinal,
 }: {
-  response: Stream<ChatCompletionChunk>;
+  provider: "openai" | "anthropic" | null;
+  response: ChatCompletionStreamResponse;
   model: string;
   userEmail: string;
   messages: { role: "system" | "user"; content: string }[];
@@ -56,9 +57,11 @@ export async function saveAiUsageStream({
   const enc = encodingForModel(model as TiktokenModel);
   let completionTokens = 0;
 
+  const llmStream = provider === "anthropic" ? AnthropicStream : OpenAIStream;
+
   // to count token usage:
   // https://www.linkedin.com/pulse/token-usage-openai-streams-peter-marton-7bgpc/
-  const stream = OpenAIStream(response, {
+  const stream = llmStream(response as any, {
     onToken: (content) => {
       // We call encode for every message as some experienced
       // regression when tiktoken called with the full completion

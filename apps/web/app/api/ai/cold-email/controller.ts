@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type gmail_v1 } from "googleapis";
 import { parseJSON } from "@/utils/json";
-import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/llms/openai";
+import { DEFAULT_AI_MODEL } from "@/utils/llms/openai";
 import { UserAIFields } from "@/utils/llms/types";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelMessage } from "@/utils/gmail/label";
@@ -9,7 +9,7 @@ import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { saveAiUsage } from "@/utils/usage";
-import { jsonResponseFormat } from "@/utils/llms/openai";
+import { chatCompletion } from "@/utils/llms";
 
 const aiResponseSchema = z.object({
   coldEmail: z.boolean().nullish(),
@@ -73,13 +73,12 @@ Subject: ${email.subject}
 Body: ${email.body}
 `;
 
-  const openai = getOpenAI(userOptions.openAIApiKey);
-
   const model = userOptions.aiModel || DEFAULT_AI_MODEL;
-  const response = await openai.chat.completions.create({
+  const response = await chatCompletion(
+    "openai",
     model,
-    ...jsonResponseFormat(model),
-    messages: [
+    userOptions.openAIApiKey,
+    [
       {
         role: "system",
         content:
@@ -90,7 +89,8 @@ Body: ${email.body}
         content: message,
       },
     ],
-  });
+    { jsonResponse: true },
+  );
 
   if (response.usage) {
     await saveAiUsage({
@@ -101,7 +101,7 @@ Body: ${email.body}
     });
   }
 
-  const content = response.choices[0].message.content;
+  const content = response.response;
 
   // this is an error
   if (!content) return false;
