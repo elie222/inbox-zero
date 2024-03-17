@@ -274,6 +274,7 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
       id: true,
       email: true,
       about: true,
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
       rules: { include: { actions: true } },
@@ -290,7 +291,7 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
-    aiProvider: "openai",
+    aiProvider: user.aiProvider,
     aiModel: getAiModel(user.aiModel),
     openAIApiKey: user.openAIApiKey,
   });

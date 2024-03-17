@@ -6,11 +6,13 @@ import { ChatCompletionStreamResponse } from "@/utils/llms";
 
 export async function saveAiUsage({
   email,
+  provider,
   model,
   usage,
   label,
 }: {
   email: string;
+  provider: string | null;
   model: string;
   usage: {
     prompt_tokens: number;
@@ -24,7 +26,7 @@ export async function saveAiUsage({
   return Promise.all([
     publishAiCall({
       userId: email,
-      provider: "openai",
+      provider: provider || "openai",
       totalTokens: usage.total_tokens,
       completionTokens: usage.completion_tokens,
       promptTokens: usage.prompt_tokens,
@@ -46,7 +48,7 @@ export async function saveAiUsageStream({
   label,
   onFinal,
 }: {
-  provider: "openai" | "anthropic" | null;
+  provider: string | null;
   response: ChatCompletionStreamResponse;
   model: string;
   userEmail: string;
@@ -83,6 +85,7 @@ export async function saveAiUsageStream({
             completion_tokens: completionTokens,
             total_tokens: promptTokens + completionTokens,
           },
+          provider: provider || "openai",
           model,
           label,
         }),

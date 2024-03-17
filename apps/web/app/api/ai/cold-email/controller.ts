@@ -75,7 +75,7 @@ Body: ${email.body}
 
   const model = userOptions.aiModel || DEFAULT_AI_MODEL;
   const response = await chatCompletion(
-    "openai",
+    userOptions.aiProvider,
     model,
     userOptions.openAIApiKey,
     [
@@ -96,6 +96,7 @@ Body: ${email.body}
     await saveAiUsage({
       email: userEmail,
       usage: response.usage,
+      provider: userOptions.aiProvider,
       model,
       label: "Cold email check",
     });

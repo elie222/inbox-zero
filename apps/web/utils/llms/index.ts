@@ -11,7 +11,7 @@ export const DEFAULT_AI_PROVIDER = "openai";
 export const DEFAULT_AI_MODEL = "gpt-4-turbo-preview";
 
 export async function chatCompletion(
-  provider: "openai" | "anthropic" | null,
+  provider: string | null,
   model: string,
   apiKey: string | null,
   messages: Array<{
@@ -61,7 +61,7 @@ export async function chatCompletion(
 }
 
 export async function chatCompletionStream(
-  provider: "openai" | "anthropic" | null,
+  provider: string | null,
   model: string,
   apiKey: string | null,
   messages: Array<{

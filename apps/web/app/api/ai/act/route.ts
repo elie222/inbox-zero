@@ -25,6 +25,7 @@ export const POST = withError(async (request: Request) => {
       id: true,
       email: true,
       about: true,
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
       rules: { include: { actions: true } },
@@ -41,7 +42,7 @@ export const POST = withError(async (request: Request) => {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
-    aiProvider: "openai",
+    aiProvider: user.aiProvider,
     aiModel: getAiModel(user.aiModel),
     openAIApiKey: user.openAIApiKey,
   });

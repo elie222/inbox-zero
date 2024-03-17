@@ -86,7 +86,7 @@ ${email.snippet}`,
 
   const model = options.aiModel || DEFAULT_AI_MODEL;
   const aiResponse = await chatCompletion(
-    "openai",
+    options.aiProvider,
     model,
     options.openAIApiKey,
     messages,
@@ -120,6 +120,7 @@ ${email.snippet}`,
     await saveAiUsage({
       email: userEmail,
       usage: aiResponse.usage,
+      provider: options.aiProvider,
       model,
       label: "Choose rule",
     });
@@ -215,6 +216,7 @@ ${email.content}`,
     await saveAiUsage({
       email: userEmail,
       usage: aiResponse.usage,
+      provider: options.aiProvider,
       model,
       label: "Args for rule",
     });
@@ -322,7 +324,7 @@ export async function planAct(
     userAbout: options.userAbout,
     userEmail: options.userEmail,
     functions,
-    aiProvider: "openai",
+    aiProvider: options.aiProvider,
     aiModel: options.aiModel,
     openAIApiKey: options.openAIApiKey,
   });
@@ -346,7 +348,7 @@ export async function planAct(
         userAbout: options.userAbout,
         userEmail: options.userEmail,
         selectedFunction: selectedRule,
-        aiProvider: "openai",
+        aiProvider: options.aiProvider,
         aiModel: options.aiModel,
         openAIApiKey: options.openAIApiKey,
       })

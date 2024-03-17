@@ -81,7 +81,7 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
 
   const model = body.aiModel || DEFAULT_AI_MODEL;
   const response = await chatCompletion(
-    "openai",
+    body.aiProvider,
     model,
     body.openAIApiKey,
     [
@@ -101,6 +101,7 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
     await saveAiUsage({
       email: userEmail,
       usage: response.usage,
+      provider: body.aiProvider,
       model,
       label: "Categorize",
     });

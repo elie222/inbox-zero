@@ -61,7 +61,7 @@ async function aiCategorizeRule(
 } | void> {
   const model = user.aiModel || DEFAULT_AI_MODEL;
   const aiResponse = await chatCompletion(
-    "openai",
+    user.aiProvider,
     model,
     user.openAIApiKey,
     [
@@ -101,6 +101,7 @@ ${rule.instructions}`,
     await saveAiUsage({
       email: userEmail,
       usage: aiResponse.usage,
+      provider: user.aiProvider,
       model,
       label: "Categorize rule",
     });
@@ -181,6 +182,7 @@ export const POST = withError(async (request: Request) => {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: {
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
@@ -191,7 +193,7 @@ export const POST = withError(async (request: Request) => {
     session.user.id,
     session.user.email,
     {
-      aiProvider: "openai",
+      aiProvider: user.aiProvider,
       aiModel: getAiModel(user.aiModel),
       openAIApiKey: user.openAIApiKey,
     },

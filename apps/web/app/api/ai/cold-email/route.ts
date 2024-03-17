@@ -33,6 +33,7 @@ async function checkColdEmail(
     where: { email: userEmail },
     select: {
       coldEmailPrompt: true,
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
@@ -55,8 +56,8 @@ async function checkColdEmail(
   const yes = await isColdEmail({
     email: body.email,
     userOptions: {
+      aiProvider: user.aiProvider,
       aiModel: user.aiModel,
-      aiProvider: "openai",
       openAIApiKey: user.openAIApiKey,
       coldEmailPrompt: user.coldEmailPrompt,
     },

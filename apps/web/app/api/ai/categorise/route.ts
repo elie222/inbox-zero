@@ -24,6 +24,7 @@ export const POST = withError(async (request: Request) => {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: {
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
@@ -40,7 +41,7 @@ export const POST = withError(async (request: Request) => {
       content,
       snippet: body.snippet || truncate(content, 300),
       openAIApiKey: user.openAIApiKey,
-      aiProvider: "openai",
+      aiProvider: user.aiProvider,
       aiModel: getAiModel(user.aiModel),
       unsubscribeLink,
       hasPreviousEmail,

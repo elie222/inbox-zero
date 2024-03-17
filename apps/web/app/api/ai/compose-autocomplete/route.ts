@@ -16,6 +16,7 @@ export const POST = withError(async (request: Request): Promise<Response> => {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: {
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
@@ -41,15 +42,15 @@ export const POST = withError(async (request: Request): Promise<Response> => {
   ];
 
   const response = await chatCompletionStream(
-    "openai",
+    user.aiProvider,
     model,
     user.openAIApiKey,
     messages,
   );
 
   const stream = await saveAiUsageStream({
-    provider: "openai",
     response,
+    provider: user.aiProvider,
     model,
     userEmail,
     messages,

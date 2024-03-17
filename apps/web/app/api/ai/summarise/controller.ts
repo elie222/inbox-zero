@@ -26,11 +26,11 @@ export async function summarise(
     },
   ];
 
-  const response = await chatCompletionStream("openai", model, "", messages);
+  const response = await chatCompletionStream("openai", model, null, messages);
 
   const stream = await saveAiUsageStream({
-    provider: "openai",
     response,
+    provider: "openai",
     model,
     userEmail,
     messages,
