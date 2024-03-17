@@ -1,7 +1,7 @@
 import { StreamingTextResponse } from "ai";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/llms/openai";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";

@@ -45,7 +45,7 @@ import { captureException, isError } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
 import { markSpam } from "@/utils/gmail/spam";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
-import { getAiModel } from "@/utils/openai";
+import { getAiModel } from "@/utils/llms/openai";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {

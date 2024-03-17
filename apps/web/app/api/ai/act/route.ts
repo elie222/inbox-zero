@@ -5,7 +5,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { actBodyWithHtml } from "@/app/api/ai/act/validation";
 import { withError } from "@/utils/middleware";
-import { getAiModel } from "@/utils/openai";
+import { getAiModel } from "@/utils/llms/openai";
 
 export const maxDuration = 60;
 

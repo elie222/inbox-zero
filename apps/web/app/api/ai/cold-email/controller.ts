@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { type gmail_v1 } from "googleapis";
 import { parseJSON } from "@/utils/json";
-import { DEFAULT_AI_MODEL, UserAIFields, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/llms/openai";
+import { UserAIFields } from "@/utils/llms/types";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { saveAiUsage } from "@/utils/usage";
-import { jsonResponseFormat } from "@/utils/openai";
+import { jsonResponseFormat } from "@/utils/llms/openai";
 
 const aiResponseSchema = z.object({
   coldEmail: z.boolean().nullish(),

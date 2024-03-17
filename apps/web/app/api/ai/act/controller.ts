@@ -3,10 +3,10 @@ import { z } from "zod";
 import uniq from "lodash/uniq";
 import {
   DEFAULT_AI_MODEL,
-  UserAIFields,
   getOpenAI,
   jsonResponseFormat,
-} from "@/utils/openai";
+} from "@/utils/llms/openai";
+import { UserAIFields } from "@/utils/llms/types";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
@@ -329,6 +329,7 @@ export async function planAct(
     userAbout: options.userAbout,
     userEmail: options.userEmail,
     functions,
+    aiProvider: "openai",
     aiModel: options.aiModel,
     openAIApiKey: options.openAIApiKey,
   });
@@ -352,6 +353,7 @@ export async function planAct(
         userAbout: options.userAbout,
         userEmail: options.userEmail,
         selectedFunction: selectedRule,
+        aiProvider: "openai",
         aiModel: options.aiModel,
         openAIApiKey: options.openAIApiKey,
       })

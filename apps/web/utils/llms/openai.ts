@@ -26,11 +26,6 @@ export function getAiModel(model: string | null): string {
   return model || DEFAULT_AI_MODEL;
 }
 
-export type UserAIFields = {
-  aiModel: string | null;
-  openAIApiKey: string | null;
-};
-
 export function jsonResponseFormat(model: string): {
   response_format?: ChatCompletionCreateParams.ResponseFormat;
 } {
@@ -47,4 +42,20 @@ export function jsonResponseFormat(model: string): {
     return { response_format: { type: "json_object" } };
 
   return {};
+}
+
+export async function openAIChatCompletion(
+  model: string,
+  messages: Array<{
+    role: "assistant" | "user";
+    content: string;
+  }>,
+) {
+  const openai = getOpenAI(null);
+
+  return openai.chat.completions.create({
+    model,
+    messages,
+    ...jsonResponseFormat(model),
+  });
 }

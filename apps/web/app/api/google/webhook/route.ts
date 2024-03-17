@@ -9,8 +9,9 @@ import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
-import { parseEmail } from "@/utils/mail";
-import { UserAIFields, getAiModel } from "@/utils/openai";
+// import { parseEmail } from "@/utils/mail";
+import { getAiModel } from "@/utils/llms/openai";
+import { UserAIFields } from "@/utils/llms/types";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
@@ -161,6 +162,7 @@ export const POST = withError(async (request: Request) => {
         gmail,
         rules: account.user.rules,
         about: account.user.about || "",
+        aiProvider: "openai",
         aiModel: getAiModel(account.user.aiModel),
         openAIApiKey: account.user.openAIApiKey,
         hasAutomationRules,
@@ -366,6 +368,7 @@ async function processHistoryItem(
         gmail,
         userId,
         userEmail,
+        aiProvider: "openai",
         aiModel: options.aiModel,
         openAIApiKey: options.openAIApiKey,
         automated: true,

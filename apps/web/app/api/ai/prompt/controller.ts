@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/openai";
+import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/llms/openai";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { filterFunctions } from "@/utils/ai/filters";
 import prisma from "@/utils/prisma";

@@ -5,11 +5,11 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import {
   DEFAULT_AI_MODEL,
-  UserAIFields,
   getAiModel,
   getOpenAI,
   jsonResponseFormat,
-} from "@/utils/openai";
+} from "@/utils/llms/openai";
+import { UserAIFields } from "@/utils/llms/types";
 import { Action, ActionType, Rule } from "@prisma/client";
 import { actionInputs } from "@/utils/actionType";
 import { withError } from "@/utils/middleware";
@@ -195,6 +195,7 @@ export const POST = withError(async (request: Request) => {
     session.user.id,
     session.user.email,
     {
+      aiProvider: "openai",
       aiModel: getAiModel(user.aiModel),
       openAIApiKey: user.openAIApiKey,
     },

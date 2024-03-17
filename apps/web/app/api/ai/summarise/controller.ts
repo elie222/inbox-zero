@@ -1,4 +1,4 @@
-import { getOpenAI } from "@/utils/openai";
+import { getOpenAI } from "@/utils/llms/openai";
 import { saveAiUsageStream } from "@/utils/usage";
 
 export async function summarise(

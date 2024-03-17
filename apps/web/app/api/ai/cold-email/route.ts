@@ -5,7 +5,6 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
-import { UserAIFields } from "@/utils/openai";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -56,7 +55,8 @@ async function checkColdEmail(
   const yes = await isColdEmail({
     email: body.email,
     userOptions: {
-      aiModel: user.aiModel as UserAIFields["aiModel"],
+      aiModel: user.aiModel,
+      aiProvider: "openai",
       openAIApiKey: user.openAIApiKey,
       coldEmailPrompt: user.coldEmailPrompt,
     },

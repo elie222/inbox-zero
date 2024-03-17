@@ -5,7 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { categoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { parseEmail, truncate } from "@/utils/mail";
 import prisma from "@/utils/prisma";
-import { getAiModel } from "@/utils/openai";
+import { getAiModel } from "@/utils/llms/openai";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";

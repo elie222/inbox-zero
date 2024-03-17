@@ -2,10 +2,10 @@ import { z } from "zod";
 import { parseJSON } from "@/utils/json";
 import {
   DEFAULT_AI_MODEL,
-  UserAIFields,
   getOpenAI,
   jsonResponseFormat,
-} from "@/utils/openai";
+} from "@/utils/llms/openai";
+import { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { truncate } from "@/utils/mail";
