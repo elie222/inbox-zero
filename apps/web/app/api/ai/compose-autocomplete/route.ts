@@ -1,12 +1,11 @@
 import { StreamingTextResponse } from "ai";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { DEFAULT_AI_MODEL } from "@/utils/llms/openai";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
 import { saveAiUsageStream } from "@/utils/usage";
-import { chatCompletionStream } from "@/utils/llms";
+import { chatCompletionStream, getAiProviderAndModel } from "@/utils/llms";
 
 export const POST = withError(async (request: Request): Promise<Response> => {
   const session = await auth();
@@ -25,7 +24,10 @@ export const POST = withError(async (request: Request): Promise<Response> => {
   const json = await request.json();
   const { prompt } = composeAutocompleteBody.parse(json);
 
-  const model = user.aiModel || DEFAULT_AI_MODEL;
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
 
   const messages = [
     {
@@ -42,7 +44,7 @@ export const POST = withError(async (request: Request): Promise<Response> => {
   ];
 
   const response = await chatCompletionStream(
-    user.aiProvider,
+    provider,
     model,
     user.openAIApiKey,
     messages,

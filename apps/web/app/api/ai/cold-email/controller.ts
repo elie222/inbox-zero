@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type gmail_v1 } from "googleapis";
 import { parseJSON } from "@/utils/json";
-import { DEFAULT_AI_MODEL } from "@/utils/llms/openai";
+import { getAiProviderAndModel } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelMessage } from "@/utils/gmail/label";
@@ -73,9 +73,12 @@ Subject: ${email.subject}
 Body: ${email.body}
 `;
 
-  const model = userOptions.aiModel || DEFAULT_AI_MODEL;
-  const response = await chatCompletion(
+  const { model, provider } = getAiProviderAndModel(
     userOptions.aiProvider,
+    userOptions.aiModel,
+  );
+  const response = await chatCompletion(
+    provider,
     model,
     userOptions.openAIApiKey,
     [

@@ -3,13 +3,12 @@ import { NextResponse } from "next/server";
 import { parseJSON } from "@/utils/json";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { DEFAULT_AI_MODEL, getAiModel } from "@/utils/llms/openai";
 import { UserAIFields } from "@/utils/llms/types";
 import { Action, ActionType, Rule } from "@prisma/client";
 import { actionInputs } from "@/utils/actionType";
 import { withError } from "@/utils/middleware";
 import { saveAiUsage } from "@/utils/usage";
-import { chatCompletion } from "@/utils/llms";
+import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
 
 const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
@@ -59,9 +58,13 @@ async function aiCategorizeRule(
     "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content"
   >[];
 } | void> {
-  const model = user.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await chatCompletion(
+  const { model, provider } = getAiProviderAndModel(
     user.aiProvider,
+    user.aiModel,
+  );
+
+  const aiResponse = await chatCompletion(
+    provider,
     model,
     user.openAIApiKey,
     [
@@ -188,13 +191,18 @@ export const POST = withError(async (request: Request) => {
     },
   });
 
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
+
   const result = await categorizeRule(
     body,
     session.user.id,
     session.user.email,
     {
-      aiProvider: user.aiProvider,
-      aiModel: getAiModel(user.aiModel),
+      aiProvider: provider,
+      aiModel: model,
       openAIApiKey: user.openAIApiKey,
     },
   );

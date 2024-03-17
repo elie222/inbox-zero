@@ -1,7 +1,7 @@
 import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/llms/openai";
+import { getOpenAI } from "@/utils/llms/openai";
 import { UserAIFields } from "@/utils/llms/types";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
@@ -21,7 +21,7 @@ import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { parseEmail } from "@/utils/mail";
-import { chatCompletion } from "@/utils/llms";
+import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
@@ -84,9 +84,12 @@ ${email.snippet}`,
     },
   ];
 
-  const model = options.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await chatCompletion(
+  const { model, provider } = getAiProviderAndModel(
     options.aiProvider,
+    options.aiModel,
+  );
+  const aiResponse = await chatCompletion(
+    provider,
     model,
     options.openAIApiKey,
     messages,
@@ -192,7 +195,15 @@ ${email.content}`,
     },
   ];
 
-  const model = options.aiModel || DEFAULT_AI_MODEL;
+  const { model, provider } = getAiProviderAndModel(
+    options.aiProvider,
+    options.aiModel,
+  );
+
+  console.warn(
+    "TODO: this uses openai function calling. needs to be reformatted to use anthropic",
+  );
+
   // TODO - this uses openai function calling. needs to be reformatted to use anthropic
   const aiResponse = await getOpenAI(
     options.openAIApiKey,

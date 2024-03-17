@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseJSON } from "@/utils/json";
-import { DEFAULT_AI_MODEL } from "@/utils/llms/openai";
+import { getAiProviderAndModel } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
@@ -79,9 +79,12 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
 ###
 `;
 
-  const model = body.aiModel || DEFAULT_AI_MODEL;
-  const response = await chatCompletion(
+  const { model, provider } = getAiProviderAndModel(
     body.aiProvider,
+    body.aiModel,
+  );
+  const response = await chatCompletion(
+    provider,
     model,
     body.openAIApiKey,
     [

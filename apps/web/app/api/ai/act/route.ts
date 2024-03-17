@@ -5,7 +5,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { actBodyWithHtml } from "@/app/api/ai/act/validation";
 import { withError } from "@/utils/middleware";
-import { getAiModel } from "@/utils/llms/openai";
+import { getAiProviderAndModel } from "@/utils/llms";
 
 export const maxDuration = 60;
 
@@ -32,6 +32,11 @@ export const POST = withError(async (request: Request) => {
     },
   });
 
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
+
   const result = await planOrExecuteAct({
     email: body.email,
     rules: user.rules,
@@ -42,8 +47,8 @@ export const POST = withError(async (request: Request) => {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
-    aiProvider: user.aiProvider,
-    aiModel: getAiModel(user.aiModel),
+    aiProvider: provider,
+    aiModel: model,
     openAIApiKey: user.openAIApiKey,
   });
 

@@ -1,14 +1,35 @@
 import {
+  DEFAULT_ANTHROPIC_MODEL,
   anthropicChatCompletion,
   anthropicChatCompletionStream,
 } from "@/utils/llms/anthropic";
 import {
+  DEFAULT_OPENAI_MODEL,
   openAIChatCompletion,
   openAIChatCompletionStream,
 } from "@/utils/llms/openai";
 
-export const DEFAULT_AI_PROVIDER = "openai";
-export const DEFAULT_AI_MODEL = "gpt-4-turbo-preview";
+const DEFAULT_AI_PROVIDER = "openai";
+
+export function getAiProviderAndModel(
+  provider: string | null,
+  model: string | null,
+): {
+  provider: string;
+  model: string;
+} {
+  if (provider === "anthropic") {
+    return {
+      provider,
+      model: model || DEFAULT_ANTHROPIC_MODEL,
+    };
+  }
+
+  return {
+    provider: provider || DEFAULT_AI_PROVIDER,
+    model: model || DEFAULT_OPENAI_MODEL,
+  };
+}
 
 export async function chatCompletion(
   provider: string | null,

@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/env.mjs";
 
+export const DEFAULT_ANTHROPIC_MODEL = "claude-3-haiku-20240307";
+
 const anthropics: Record<string, Anthropic> = {};
 
 export function getAnthropic(apiKey: string | null) {

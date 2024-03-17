@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/llms/openai";
+import { getOpenAI } from "@/utils/llms/openai";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { filterFunctions } from "@/utils/ai/filters";
 import prisma from "@/utils/prisma";
@@ -16,7 +16,7 @@ export async function createFilterFromPrompt(body: PromptQuery) {
   if (!session?.user) throw new Error("Not logged in");
 
   const aiResponsePromise = getOpenAI(null).chat.completions.create({
-    model: DEFAULT_AI_MODEL,
+    model: "gpt-3.5-turbo-1106",
     messages: [
       {
         role: "system",

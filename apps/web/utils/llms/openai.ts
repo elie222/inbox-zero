@@ -3,6 +3,8 @@ import { OpenAI } from "openai";
 import { env } from "@/env.mjs";
 import { ChatCompletionCreateParams } from "openai/resources/index";
 
+export const DEFAULT_OPENAI_MODEL = "gpt-4-turbo-preview";
+
 const openAIs: Record<string, OpenAI> = {};
 
 export function getOpenAI(apiKey: string | null) {
@@ -15,16 +17,8 @@ export function getOpenAI(apiKey: string | null) {
   return openAIs[key];
 }
 
-// model must support response_type: json_object
 export const zodAIModel = z.enum(["gpt-3.5-turbo-1106", "gpt-4-turbo-preview"]);
 // export type AIModel = z.infer<typeof zodAIModel>;
-
-// beware of rate limits for different models
-export const DEFAULT_AI_MODEL = "gpt-4-turbo-preview";
-
-export function getAiModel(model: string | null): string {
-  return model || DEFAULT_AI_MODEL;
-}
 
 function jsonResponseFormat(model: string): {
   response_format?: ChatCompletionCreateParams.ResponseFormat;
