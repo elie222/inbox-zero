@@ -47,7 +47,7 @@ export function jsonResponseFormat(model: string): {
 export async function openAIChatCompletion(
   model: string,
   messages: Array<{
-    role: "assistant" | "user";
+    role: "system" | "user";
     content: string;
   }>,
 ) {
@@ -56,6 +56,9 @@ export async function openAIChatCompletion(
   return openai.chat.completions.create({
     model,
     messages,
+    temperature: 0,
+    frequency_penalty: 0,
+    presence_penalty: 0,
     ...jsonResponseFormat(model),
   });
 }

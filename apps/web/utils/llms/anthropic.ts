@@ -22,7 +22,8 @@ export async function anthropicChatCompletion(
 
   return anthropic.messages.create({
     model,
-    max_tokens: 2000,
+    temperature: 0,
     messages,
+    max_tokens: 2000, // TODO
   });
 }

@@ -1,11 +1,7 @@
 import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import {
-  DEFAULT_AI_MODEL,
-  getOpenAI,
-  jsonResponseFormat,
-} from "@/utils/llms/openai";
+import { DEFAULT_AI_MODEL, getOpenAI } from "@/utils/llms/openai";
 import { UserAIFields } from "@/utils/llms/types";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
@@ -25,6 +21,7 @@ import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { parseEmail } from "@/utils/mail";
+import { chatCompletion } from "@/utils/llms";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
@@ -88,39 +85,30 @@ ${email.snippet}`,
   ];
 
   const model = options.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await getOpenAI(
-    options.openAIApiKey,
-  ).chat.completions.create({
-    model,
-    messages,
-    temperature: 0,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-    ...jsonResponseFormat(model),
-    // tools: [
-    //   {
-    //     type: "function",
-    //     function: {
-    //       name: "selectRule",
-    //       description: "Select a rule to apply to the email.",
-    //       parameters: {
-    //         type: "object",
-    //         properties: {
-    //           ruleNumber: {
-    //             type: "number",
-    //             description: "The number of the rule to apply.",
-    //           },
-    //           reason: {
-    //             type: "string",
-    //             description: "The reason for choosing this rule.",
-    //           },
-    //         },
-    //         required: ["ruleNumber"],
-    //       },
-    //     },
-    //   },
-    // ],
-  });
+  const aiResponse = await chatCompletion("openai", model, messages);
+  // tools: [
+  //   {
+  //     type: "function",
+  //     function: {
+  //       name: "selectRule",
+  //       description: "Select a rule to apply to the email.",
+  //       parameters: {
+  //         type: "object",
+  //         properties: {
+  //           ruleNumber: {
+  //             type: "number",
+  //             description: "The number of the rule to apply.",
+  //           },
+  //           reason: {
+  //             type: "string",
+  //             description: "The reason for choosing this rule.",
+  //           },
+  //         },
+  //         required: ["ruleNumber"],
+  //       },
+  //     },
+  //   },
+  // ],
 
   if (aiResponse.usage) {
     await saveAiUsage({
@@ -136,17 +124,15 @@ ${email.snippet}`,
     reason: z.string().optional(),
   });
 
-  if (!aiResponse.choices[0].message.content) return;
+  if (!aiResponse.response) return;
 
   try {
-    const result = responseSchema.parse(
-      parseJSON(aiResponse.choices[0].message.content),
-    );
+    const result = responseSchema.parse(parseJSON(aiResponse.response));
     return result;
   } catch (error) {
     console.warn(
       "Error parsing data.\nResponse:",
-      aiResponse?.choices?.[0]?.message?.content,
+      aiResponse?.response,
       "\nError:",
       error,
     );
@@ -200,6 +186,7 @@ ${email.content}`,
   ];
 
   const model = options.aiModel || DEFAULT_AI_MODEL;
+  // TODO - this uses openai function calling. needs to be reformatted to use anthropic
   const aiResponse = await getOpenAI(
     options.openAIApiKey,
   ).chat.completions.create({
