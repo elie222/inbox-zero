@@ -26,7 +26,7 @@ export async function anthropicChatCompletion(
   return anthropic.messages.create({
     model,
     temperature: 0,
-    messages,
+    messages: fixMessages(messages),
     max_tokens: 2000, // TODO
   });
 }
@@ -44,8 +44,29 @@ export async function anthropicChatCompletionStream(
   return anthropic.messages.create({
     model,
     temperature: 0,
-    messages,
+    messages: fixMessages(messages),
     max_tokens: 2000, // TODO
     stream: true,
   });
+}
+
+// roles must alternate between "user" and "assistant", but found multiple "user" roles in a row'
+// if we find two "user" roles in a row, merge them into one with a new line between them
+function fixMessages(
+  messages: Array<{ role: "assistant" | "user"; content: string }>,
+) {
+  const fixed = [];
+  for (const message of messages) {
+    if (
+      fixed.length > 0 &&
+      fixed[fixed.length - 1].role === "user" &&
+      message.role === "user"
+    ) {
+      fixed[fixed.length - 1].content += "\n" + message.content;
+    } else {
+      fixed.push(message);
+    }
+  }
+
+  return fixed;
 }

@@ -8,6 +8,7 @@ import { isColdEmail } from "@/app/api/ai/cold-email/controller";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
+import { getAiProviderAndModel } from "@/utils/llms";
 
 const coldEmailBlockerBody = z.object({
   email: z.object({
@@ -53,11 +54,16 @@ async function checkColdEmail(
         })
       : false;
 
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
+
   const yes = await isColdEmail({
     email: body.email,
     userOptions: {
-      aiProvider: user.aiProvider,
-      aiModel: user.aiModel,
+      aiProvider: provider,
+      aiModel: model,
       openAIApiKey: user.openAIApiKey,
       coldEmailPrompt: user.coldEmailPrompt,
     },
