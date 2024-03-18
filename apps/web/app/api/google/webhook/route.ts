@@ -9,13 +9,14 @@ import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
-import { parseEmail } from "@/utils/mail";
-import { UserAIFields, getAiModel } from "@/utils/openai";
+// import { parseEmail } from "@/utils/mail";
+import { UserAIFields } from "@/utils/llms/types";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { getAiProviderAndModel } from "@/utils/llms";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -44,6 +45,7 @@ export const POST = withError(async (request: Request) => {
           rules: { include: { actions: true } },
           coldEmailBlocker: true,
           coldEmailPrompt: true,
+          aiProvider: true,
           aiModel: true,
           openAIApiKey: true,
           premium: {
@@ -153,6 +155,11 @@ export const POST = withError(async (request: Request) => {
     if (history.data.history) {
       console.log("Webhook: Processing...", decodedData.emailAddress);
 
+      const { model, provider } = getAiProviderAndModel(
+        account.user.aiProvider,
+        account.user.aiModel,
+      );
+
       await processHistory({
         history: history.data.history,
         userId: account.userId,
@@ -161,7 +168,8 @@ export const POST = withError(async (request: Request) => {
         gmail,
         rules: account.user.rules,
         about: account.user.about || "",
-        aiModel: getAiModel(account.user.aiModel),
+        aiProvider: provider,
+        aiModel: model,
         openAIApiKey: account.user.openAIApiKey,
         hasAutomationRules,
         coldEmailPrompt: account.user.coldEmailPrompt,
@@ -366,6 +374,7 @@ async function processHistoryItem(
         gmail,
         userId,
         userEmail,
+        aiProvider: options.aiProvider,
         aiModel: options.aiModel,
         openAIApiKey: options.openAIApiKey,
         automated: true,

@@ -1,12 +1,7 @@
 import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import {
-  DEFAULT_AI_MODEL,
-  UserAIFields,
-  getOpenAI,
-  jsonResponseFormat,
-} from "@/utils/openai";
+import { UserAIFields } from "@/utils/llms/types";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
   ACTION_PROPERTIES,
@@ -25,6 +20,11 @@ import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { parseEmail } from "@/utils/mail";
+import {
+  chatCompletion,
+  chatCompletionTools,
+  getAiProviderAndModel,
+} from "@/utils/llms";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
@@ -87,45 +87,46 @@ ${email.snippet}`,
     },
   ];
 
-  const model = options.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await getOpenAI(
-    options.openAIApiKey,
-  ).chat.completions.create({
+  const { model, provider } = getAiProviderAndModel(
+    options.aiProvider,
+    options.aiModel,
+  );
+  const aiResponse = await chatCompletion(
+    provider,
     model,
+    options.openAIApiKey,
     messages,
-    temperature: 0,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-    ...jsonResponseFormat(model),
-    // tools: [
-    //   {
-    //     type: "function",
-    //     function: {
-    //       name: "selectRule",
-    //       description: "Select a rule to apply to the email.",
-    //       parameters: {
-    //         type: "object",
-    //         properties: {
-    //           ruleNumber: {
-    //             type: "number",
-    //             description: "The number of the rule to apply.",
-    //           },
-    //           reason: {
-    //             type: "string",
-    //             description: "The reason for choosing this rule.",
-    //           },
-    //         },
-    //         required: ["ruleNumber"],
-    //       },
-    //     },
-    //   },
-    // ],
-  });
+    { jsonResponse: true },
+  );
+  // tools: [
+  //   {
+  //     type: "function",
+  //     function: {
+  //       name: "selectRule",
+  //       description: "Select a rule to apply to the email.",
+  //       parameters: {
+  //         type: "object",
+  //         properties: {
+  //           ruleNumber: {
+  //             type: "number",
+  //             description: "The number of the rule to apply.",
+  //           },
+  //           reason: {
+  //             type: "string",
+  //             description: "The reason for choosing this rule.",
+  //           },
+  //         },
+  //         required: ["ruleNumber"],
+  //       },
+  //     },
+  //   },
+  // ],
 
   if (aiResponse.usage) {
     await saveAiUsage({
       email: userEmail,
       usage: aiResponse.usage,
+      provider: options.aiProvider,
       model,
       label: "Choose rule",
     });
@@ -136,17 +137,15 @@ ${email.snippet}`,
     reason: z.string().optional(),
   });
 
-  if (!aiResponse.choices[0].message.content) return;
+  if (!aiResponse.response) return;
 
   try {
-    const result = responseSchema.parse(
-      parseJSON(aiResponse.choices[0].message.content),
-    );
+    const result = responseSchema.parse(parseJSON(aiResponse.response));
     return result;
   } catch (error) {
     console.warn(
       "Error parsing data.\nResponse:",
-      aiResponse?.choices?.[0]?.message?.content,
+      aiResponse?.response,
       "\nError:",
       error,
     );
@@ -199,36 +198,43 @@ ${email.content}`,
     },
   ];
 
-  const model = options.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await getOpenAI(
-    options.openAIApiKey,
-  ).chat.completions.create({
+  const { model, provider } = getAiProviderAndModel(
+    options.aiProvider,
+    options.aiModel,
+  );
+
+  console.log("Calling chat completion tools");
+
+  const aiResponse = await chatCompletionTools(
+    provider,
     model,
+    options.openAIApiKey,
     messages,
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: selectedFunction.name,
-          description: "Act on the email using the selected rule.",
-          parameters: selectedFunction.parameters,
+    {
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: selectedFunction.name,
+            description: "Act on the email using the selected rule.",
+            parameters: selectedFunction.parameters,
+          },
         },
-      },
-    ],
-    temperature: 0,
-  });
+      ],
+    },
+  );
 
   if (aiResponse.usage) {
     await saveAiUsage({
       email: userEmail,
       usage: aiResponse.usage,
+      provider: options.aiProvider,
       model,
       label: "Args for rule",
     });
   }
 
-  const functionCall =
-    aiResponse?.choices?.[0]?.message.tool_calls?.[0]?.function;
+  const functionCall = aiResponse.functionCall;
 
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
@@ -329,6 +335,7 @@ export async function planAct(
     userAbout: options.userAbout,
     userEmail: options.userEmail,
     functions,
+    aiProvider: options.aiProvider,
     aiModel: options.aiModel,
     openAIApiKey: options.openAIApiKey,
   });
@@ -340,7 +347,7 @@ export async function planAct(
   }
 
   const selectedRule = rulesWithProperties[ruleNumber];
-  console.log("selectedRule", selectedRule);
+  console.log("selectedRule", selectedRule.name);
 
   if (selectedRule.name === REQUIRES_MORE_INFO)
     return { reason: aiResponse?.reason };
@@ -352,6 +359,7 @@ export async function planAct(
         userAbout: options.userAbout,
         userEmail: options.userEmail,
         selectedFunction: selectedRule,
+        aiProvider: options.aiProvider,
         aiModel: options.aiModel,
         openAIApiKey: options.openAIApiKey,
       })
@@ -459,7 +467,12 @@ export async function planOrExecuteAct(
     },
   });
 
-  console.log("Planned act:", plannedAct);
+  console.log(
+    "Planned act:",
+    plannedAct.rule?.name,
+    plannedAct.plannedAction?.actions.map((a) => a.type),
+    plannedAct.plannedAction?.args,
+  );
 
   if (!plannedAct.rule) {
     await savePlan({

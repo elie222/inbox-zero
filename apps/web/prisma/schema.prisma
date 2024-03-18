@@ -58,6 +58,7 @@ model User {
   onboardingAnswers         Json?
 
   // settings
+  aiProvider          String?
   aiModel             String?
   openAIApiKey        String?
   statsEmailFrequency Frequency         @default(WEEKLY)

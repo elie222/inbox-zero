@@ -5,10 +5,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { categoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { parseEmail, truncate } from "@/utils/mail";
 import prisma from "@/utils/prisma";
-import { getAiModel } from "@/utils/openai";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { getAiProviderAndModel } from "@/utils/llms";
 
 export const POST = withError(async (request: Request) => {
   const session = await auth();
@@ -24,6 +24,7 @@ export const POST = withError(async (request: Request) => {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: {
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
@@ -34,13 +35,19 @@ export const POST = withError(async (request: Request) => {
   const unsubscribeLink = findUnsubscribeLink(body.textHtml);
   const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, body);
 
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
+
   const res = await categorise(
     {
       ...body,
       content,
       snippet: body.snippet || truncate(content, 300),
       openAIApiKey: user.openAIApiKey,
-      aiModel: getAiModel(user.aiModel),
+      aiProvider: provider,
+      aiModel: model,
       unsubscribeLink,
       hasPreviousEmail,
     },

@@ -10,6 +10,7 @@ async function getUser(userId: string) {
     where: { id: userId },
     select: {
       id: true,
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
       statsEmailFrequency: true,

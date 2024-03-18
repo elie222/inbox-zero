@@ -1,4 +1,4 @@
-import { zodAIModel } from "@/utils/openai";
+import { zodAIModel } from "@/utils/llms/openai";
 import { z } from "zod";
 
 export const saveSettingsBody = z

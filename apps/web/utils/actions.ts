@@ -45,8 +45,8 @@ import { captureException, isError } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
 import { markSpam } from "@/utils/gmail/spam";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
-import { getAiModel } from "@/utils/openai";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
+import { getAiProviderAndModel } from "@/utils/llms";
 
 export async function createFilterFromPromptAction(body: PromptQuery) {
   return createFilterFromPrompt(body);
@@ -274,11 +274,17 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
       id: true,
       email: true,
       about: true,
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
       rules: { include: { actions: true } },
     },
   });
+
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
 
   const result = await planOrExecuteAct({
     email,
@@ -290,7 +296,8 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
     userEmail: user.email || "",
     automated: false,
     userAbout: user.about || "",
-    aiModel: getAiModel(user.aiModel),
+    aiProvider: provider,
+    aiModel: model,
     openAIApiKey: user.openAIApiKey,
   });
 

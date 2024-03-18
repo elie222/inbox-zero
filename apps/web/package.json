@@ -12,6 +12,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.18.0",
     "@auth/core": "^0.28.0",
     "@auth/prisma-adapter": "^1.5.0",
     "@baselime/node-opentelemetry": "0.3.8",
@@ -22,6 +23,8 @@
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@inboxzero/tinybird-ai-analytics": "workspace:*",
+    "@langchain/anthropic": "^0.1.8",
+    "@langchain/core": "^0.1.48",
     "@lemonsqueezy/lemonsqueezy.js": "^2.2.0",
     "@mdx-js/loader": "^3.0.1",
     "@mdx-js/react": "^3.0.1",

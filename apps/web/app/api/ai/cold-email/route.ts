@@ -5,10 +5,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
-import { UserAIFields } from "@/utils/openai";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
+import { getAiProviderAndModel } from "@/utils/llms";
 
 const coldEmailBlockerBody = z.object({
   email: z.object({
@@ -34,6 +34,7 @@ async function checkColdEmail(
     where: { email: userEmail },
     select: {
       coldEmailPrompt: true,
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
@@ -53,10 +54,16 @@ async function checkColdEmail(
         })
       : false;
 
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
+
   const yes = await isColdEmail({
     email: body.email,
     userOptions: {
-      aiModel: user.aiModel as UserAIFields["aiModel"],
+      aiProvider: provider,
+      aiModel: model,
       openAIApiKey: user.openAIApiKey,
       coldEmailPrompt: user.coldEmailPrompt,
     },

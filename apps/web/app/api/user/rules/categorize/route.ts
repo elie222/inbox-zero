@@ -3,17 +3,12 @@ import { NextResponse } from "next/server";
 import { parseJSON } from "@/utils/json";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import {
-  DEFAULT_AI_MODEL,
-  UserAIFields,
-  getAiModel,
-  getOpenAI,
-  jsonResponseFormat,
-} from "@/utils/openai";
+import { UserAIFields } from "@/utils/llms/types";
 import { Action, ActionType, Rule } from "@prisma/client";
 import { actionInputs } from "@/utils/actionType";
 import { withError } from "@/utils/middleware";
 import { saveAiUsage } from "@/utils/usage";
+import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
 
 const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
@@ -63,23 +58,27 @@ async function aiCategorizeRule(
     "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content"
   >[];
 } | void> {
-  const model = user.aiModel || DEFAULT_AI_MODEL;
-  const aiResponse = await getOpenAI(user.openAIApiKey).chat.completions.create(
-    {
-      model,
-      ...jsonResponseFormat(model),
-      messages: [
-        {
-          role: "system",
-          content: `You are an AI assistant that helps people manage their emails. This is the list of actions you are able to take:
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
+
+  const aiResponse = await chatCompletion(
+    provider,
+    model,
+    user.openAIApiKey,
+    [
+      {
+        role: "system",
+        content: `You are an AI assistant that helps people manage their emails. This is the list of actions you are able to take:
 ${Object.entries(actionInputs).map(([actionType, { fields }]) => {
   return `- ${actionType}
     Optional fields: ${fields.map((field) => field.name).join(", ")}`;
 })}`,
-        },
-        {
-          role: "user",
-          content: `Return a JSON array of actions that this instruction would require taking.
+      },
+      {
+        role: "user",
+        content: `Return a JSON array of actions that this instruction would require taking.
 
 An example response is:
 { "name": "Archive examples", "actions": [{ type: "FORWARD", to: "example@gmail.com" }, { type: "ARCHIVE" }] }
@@ -96,21 +95,22 @@ Do not use an example value.
 ###
 Instruction:
 ${rule.instructions}`,
-        },
-      ],
-    },
+      },
+    ],
+    { jsonResponse: true },
   );
 
   if (aiResponse.usage) {
     await saveAiUsage({
       email: userEmail,
       usage: aiResponse.usage,
+      provider: user.aiProvider,
       model,
       label: "Categorize rule",
     });
   }
 
-  const contentString = aiResponse.choices?.[0]?.message.content;
+  const contentString = aiResponse.response;
 
   if (!contentString) return;
 
@@ -185,17 +185,24 @@ export const POST = withError(async (request: Request) => {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: {
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
   });
+
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
 
   const result = await categorizeRule(
     body,
     session.user.id,
     session.user.email,
     {
-      aiModel: getAiModel(user.aiModel),
+      aiProvider: provider,
+      aiModel: model,
       openAIApiKey: user.openAIApiKey,
     },
   );
