@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { OpenAI } from "openai";
 import { env } from "@/env.mjs";
-import { ChatCompletionCreateParams } from "openai/resources/index";
+import {
+  ChatCompletionCreateParams,
+  ChatCompletionTool,
+} from "openai/resources/index";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-4-turbo-preview";
 
@@ -45,7 +48,7 @@ export async function openAIChatCompletion(
     role: "system" | "user";
     content: string;
   }>,
-  options?: { jsonResponse?: boolean },
+  options?: { jsonResponse?: boolean; tools?: Array<ChatCompletionTool> },
 ) {
   const openai = getOpenAI(apiKey);
 
@@ -56,6 +59,7 @@ export async function openAIChatCompletion(
     temperature: 0,
     frequency_penalty: 0,
     presence_penalty: 0,
+    tools: options?.tools,
   });
 }
 

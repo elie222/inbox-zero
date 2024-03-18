@@ -1,7 +1,6 @@
 import { type gmail_v1 } from "googleapis";
 import { z } from "zod";
 import uniq from "lodash/uniq";
-import { getOpenAI } from "@/utils/llms/openai";
 import { UserAIFields } from "@/utils/llms/types";
 import { PartialRecord, RuleWithActions } from "@/utils/types";
 import {
@@ -21,7 +20,11 @@ import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { parseEmail } from "@/utils/mail";
-import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
+import {
+  chatCompletion,
+  chatCompletionTools,
+  getAiProviderAndModel,
+} from "@/utils/llms";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
@@ -200,28 +203,26 @@ ${email.content}`,
     options.aiModel,
   );
 
-  console.warn(
-    "TODO: this uses openai function calling. needs to be reformatted to use anthropic",
-  );
+  console.log("Calling chat completion tools");
 
-  // TODO - this uses openai function calling. needs to be reformatted to use anthropic
-  const aiResponse = await getOpenAI(
-    options.openAIApiKey,
-  ).chat.completions.create({
+  const aiResponse = await chatCompletionTools(
+    provider,
     model,
+    options.openAIApiKey,
     messages,
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: selectedFunction.name,
-          description: "Act on the email using the selected rule.",
-          parameters: selectedFunction.parameters,
+    {
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: selectedFunction.name,
+            description: "Act on the email using the selected rule.",
+            parameters: selectedFunction.parameters,
+          },
         },
-      },
-    ],
-    temperature: 0,
-  });
+      ],
+    },
+  );
 
   if (aiResponse.usage) {
     await saveAiUsage({
@@ -233,8 +234,7 @@ ${email.content}`,
     });
   }
 
-  const functionCall =
-    aiResponse?.choices?.[0]?.message.tool_calls?.[0]?.function;
+  const functionCall = aiResponse.functionCall;
 
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
@@ -347,7 +347,7 @@ export async function planAct(
   }
 
   const selectedRule = rulesWithProperties[ruleNumber];
-  console.log("selectedRule", selectedRule);
+  console.log("selectedRule", selectedRule.name);
 
   if (selectedRule.name === REQUIRES_MORE_INFO)
     return { reason: aiResponse?.reason };
@@ -467,7 +467,12 @@ export async function planOrExecuteAct(
     },
   });
 
-  console.log("Planned act:", plannedAct);
+  console.log(
+    "Planned act:",
+    plannedAct.rule?.name,
+    plannedAct.plannedAction?.actions.map((a) => a.type),
+    plannedAct.plannedAction?.args,
+  );
 
   if (!plannedAct.rule) {
     await savePlan({

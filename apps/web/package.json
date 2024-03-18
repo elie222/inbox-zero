@@ -23,6 +23,8 @@
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@inboxzero/tinybird-ai-analytics": "workspace:*",
+    "@langchain/anthropic": "^0.1.8",
+    "@langchain/core": "^0.1.48",
     "@lemonsqueezy/lemonsqueezy.js": "^2.2.0",
     "@mdx-js/loader": "^3.0.1",
     "@mdx-js/react": "^3.0.1",

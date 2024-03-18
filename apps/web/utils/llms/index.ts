@@ -2,12 +2,14 @@ import {
   DEFAULT_ANTHROPIC_MODEL,
   anthropicChatCompletion,
   anthropicChatCompletionStream,
+  anthropicChatCompletionTools,
 } from "@/utils/llms/anthropic";
 import {
   DEFAULT_OPENAI_MODEL,
   openAIChatCompletion,
   openAIChatCompletionStream,
 } from "@/utils/llms/openai";
+import { ChatCompletionTool } from "openai/resources/index";
 
 const DEFAULT_AI_PROVIDER = "openai";
 
@@ -113,3 +115,61 @@ export async function chatCompletionStream(
 export type ChatCompletionStreamResponse = Awaited<
   ReturnType<typeof chatCompletionStream>
 >;
+
+export async function chatCompletionTools(
+  provider: string | null,
+  model: string,
+  apiKey: string | null,
+  messages: Array<{
+    role: "system" | "user";
+    content: string;
+  }>,
+  options: { jsonResponse?: boolean; tools: Array<ChatCompletionTool> },
+): Promise<{
+  functionCall?: {
+    name: string;
+    arguments: string;
+  };
+  usage: {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
+  } | null;
+}> {
+  if (provider === "openai") {
+    const completion = await openAIChatCompletion(
+      model,
+      apiKey,
+      messages,
+      options,
+    );
+
+    return {
+      functionCall: completion.choices?.[0]?.message.tool_calls?.[0]?.function,
+      usage: completion.usage || null,
+    };
+  }
+
+  if (provider === "anthropic") {
+    const completion = await anthropicChatCompletionTools(
+      model,
+      apiKey,
+      messages.map((m) => ({ role: "user", content: m.content })),
+      options.tools,
+    );
+    const completion_tokens =
+      (completion.additional_kwargs.usage as any).output_tokens || 0;
+    const prompt_tokens =
+      (completion.additional_kwargs as any).usage.input_tokens || 0;
+    return {
+      functionCall: completion.additional_kwargs.tool_calls?.[0]?.function,
+      usage: {
+        completion_tokens,
+        prompt_tokens,
+        total_tokens: completion_tokens + prompt_tokens,
+      },
+    };
+  }
+
+  throw new Error("AI provider not supported");
+}
