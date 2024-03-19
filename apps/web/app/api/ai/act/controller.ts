@@ -468,12 +468,12 @@ export async function planOrExecuteAct(
   if (!plannedAct.rule) {
     await prisma.executedRule.create({
       data: {
-        userId: options.userId,
         threadId: options.email.threadId,
         messageId: options.email.messageId,
         automated: options.automated,
         reason: plannedAct.reason,
         status: ExecutedRuleStatus.SKIPPED,
+        user: { connect: { id: options.userId } },
       },
     });
 
@@ -485,24 +485,26 @@ export async function planOrExecuteAct(
 
   console.log("shouldExecute:", shouldExecute);
 
-  const executedRule = await prisma.executedRule.create({
-    data: {
-      ruleId: plannedAct.rule.id,
-      actionItems: {
-        createMany: {
-          data: plannedAct.plannedAction.actions,
+  const executedRule = options.email.messageId
+    ? await prisma.executedRule.create({
+        data: {
+          actionItems: {
+            createMany: {
+              data: plannedAct.plannedAction.actions,
+            },
+          },
+          messageId: options.email.messageId,
+          threadId: options.email.threadId,
+          automated: plannedAct.rule.automate,
+          status: ExecutedRuleStatus.PENDING,
+          reason: plannedAct.reason,
+          rule: { connect: { id: plannedAct.rule.id } },
+          user: { connect: { id: options.userId } },
         },
-      },
-      messageId: options.email.messageId,
-      threadId: options.email.threadId,
-      automated: plannedAct.rule.automate,
-      userId: options.userId,
-      status: ExecutedRuleStatus.PENDING,
-      reason: plannedAct.reason,
-    },
-  });
+      })
+    : undefined;
 
-  if (shouldExecute) {
+  if (shouldExecute && executedRule) {
     await executeAct({
       ...options,
       act: plannedAct.plannedAction,
