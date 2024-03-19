@@ -7,7 +7,6 @@ import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/resend";
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import { labelThread } from "@/app/api/google/threads/label/controller";
-import { deletePromptHistory } from "@/app/api/user/prompt-history/controller";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus, type Label, PremiumTier } from "@prisma/client";
@@ -148,13 +147,6 @@ export async function updateLabels(
       id: l.gmailLabelId,
     })),
   });
-}
-
-export async function deletePromptHistoryAction(options: { id: string }) {
-  const session = await auth();
-  if (!session) throw new Error("Not logged in");
-
-  return deletePromptHistory({ id: options.id, userId: session.user.id });
 }
 
 export async function completedOnboarding() {
