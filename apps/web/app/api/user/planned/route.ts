@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import sortBy from "lodash/sortBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
-import { getFilteredPlans } from "@/utils/redis/plan";
 import { getCategory } from "@/utils/redis/category";
 import { parseMessage } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
@@ -11,6 +9,7 @@ import { Thread } from "@/components/email-list/types";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { decodeSnippet } from "@/utils/gmail/decode";
+import { ExecutedRuleStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30; // TODO not great if this is taking more than 15s
@@ -24,18 +23,22 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not authenticated");
 
-  const allPlans = await getFilteredPlans({
-    userId: session.user.id,
-    filter: (plan) => !plan.executed,
+  const plans = await prisma.executedRule.findMany({
+    where: { userId: session.user.id, status: ExecutedRuleStatus.PENDING },
+    take: LIMIT,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      messageId: true,
+      threadId: true,
+      rule: true,
+      actionItems: true,
+      status: true,
+      reason: true,
+    },
   });
-  console.log(`Fetched ${allPlans.length} plans`);
-  const plans = take(allPlans, LIMIT);
 
   const gmail = getGmailClient(session);
-
-  const rules = await prisma.rule.findMany({
-    where: { userId: session.user.id },
-  });
 
   // should we fetch threads instead here?
   const messages = await Promise.all(
@@ -53,10 +56,6 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
         const threadId = message.threadId;
         if (!threadId) return;
 
-        const rule = plan
-          ? rules.find((r) => r.id === plan?.rule?.id)
-          : undefined;
-
         const thread: Thread = {
           id: threadId,
           historyId: message.historyId,
@@ -71,7 +70,7 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
               parsedMessage: parseMessage(message),
             },
           ],
-          plan: plan ? { ...plan, databaseRule: rule } : undefined,
+          plan,
           category,
         };
 
@@ -83,10 +82,6 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
   );
 
   return { messages: messages.filter(isDefined) };
-}
-
-function take<T extends { createdAt: Date }>(array: T[], count: number) {
-  return sortBy(array, (x) => -new Date(x.createdAt)).slice(0, count);
 }
 
 export const GET = withError(async () => {

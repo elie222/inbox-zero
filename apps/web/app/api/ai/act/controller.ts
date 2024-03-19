@@ -10,8 +10,7 @@ import {
   runActionFunction,
 } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
-import { markPlanExecuted, savePlan } from "@/utils/redis/plan";
-import { Action, Rule } from "@prisma/client";
+import { ExecutedAction, Rule } from "@prisma/client";
 import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
@@ -25,12 +24,13 @@ import {
   chatCompletionTools,
   getAiProviderAndModel,
 } from "@/utils/llms";
+import { ExecutedRuleStatus } from "@prisma/client";
 
 export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 
 type PlannedAction = {
-  actions: Pick<Action, "type">[];
-  args: PartialRecord<ActionProperty, string>;
+  actions: Pick<ExecutedAction, "type">[];
+  args: PartialRecord<ActionProperty, string | null>;
 };
 
 export const REQUIRES_MORE_INFO = "requires_more_information";
@@ -389,12 +389,10 @@ export async function executeAct(options: {
   gmail: gmail_v1.Gmail;
   act: PlannedAction;
   email: ActBodyWithHtml["email"];
-  userId: string;
   userEmail: string;
-  automated: boolean;
-  ruleId: string;
+  executedRuleId: string;
 }) {
-  const { gmail, email, act, automated, userId, userEmail, ruleId } = options;
+  const { gmail, email, act, userEmail, executedRuleId } = options;
 
   console.log("Executing act:", JSON.stringify(act, null, 2));
 
@@ -421,19 +419,11 @@ export async function executeAct(options: {
   }
 
   await Promise.all([
-    prisma.executedRule.create({
-      data: {
-        actions: act.actions.map((a) => a.type),
-        data: act.args,
-        messageId: email.messageId,
-        threadId: email.threadId,
-        automated,
-        userId,
-        ruleId,
-      },
+    prisma.executedRule.update({
+      where: { id: executedRuleId },
+      data: { status: ExecutedRuleStatus.APPLIED },
     }),
     labelActed(),
-    markPlanExecuted({ userId, threadId: email.threadId }),
   ]);
 }
 
@@ -474,16 +464,16 @@ export async function planOrExecuteAct(
     plannedAct.plannedAction?.args,
   );
 
+  // no rule to apply to this thread
   if (!plannedAct.rule) {
-    await savePlan({
-      userId: options.userId,
-      threadId: options.email.threadId,
-      plan: {
-        createdAt: new Date(),
-        messageId: options.email.messageId,
+    await prisma.executedRule.create({
+      data: {
+        userId: options.userId,
         threadId: options.email.threadId,
-        rule: null,
+        messageId: options.email.messageId,
+        automated: options.automated,
         reason: plannedAct.reason,
+        status: ExecutedRuleStatus.SKIPPED,
       },
     });
 
@@ -495,15 +485,19 @@ export async function planOrExecuteAct(
 
   console.log("shouldExecute:", shouldExecute);
 
-  await savePlan({
-    userId: options.userId,
-    threadId: options.email.threadId,
-    plan: {
-      createdAt: new Date(),
+  const executedRule = await prisma.executedRule.create({
+    data: {
+      ruleId: plannedAct.rule.id,
+      actionItems: {
+        createMany: {
+          data: plannedAct.plannedAction.actions,
+        },
+      },
       messageId: options.email.messageId,
       threadId: options.email.threadId,
-      rule: { ...plannedAct.rule, actions: plannedAct.plannedAction.actions },
-      functionArgs: plannedAct.plannedAction.args,
+      automated: plannedAct.rule.automate,
+      userId: options.userId,
+      status: ExecutedRuleStatus.PENDING,
       reason: plannedAct.reason,
     },
   });
@@ -513,7 +507,7 @@ export async function planOrExecuteAct(
       ...options,
       act: plannedAct.plannedAction,
       email: options.email,
-      ruleId: plannedAct.rule.id,
+      executedRuleId: executedRule.id,
     });
   }
 

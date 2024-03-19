@@ -401,7 +401,7 @@ export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
   email: ActBodyWithHtml["email"],
   action: ActionType,
-  args: PartialRecord<ActionProperty, string>,
+  args: PartialRecord<ActionProperty, string | null>,
   userEmail: string,
 ): Promise<any> => {
   switch (action) {

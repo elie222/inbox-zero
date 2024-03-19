@@ -5,10 +5,6 @@ import uniq from "lodash/uniq";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/resend";
-import {
-  createFilterFromPrompt,
-  type PromptQuery,
-} from "@/app/api/ai/prompt/controller";
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import { labelThread } from "@/app/api/google/threads/label/controller";
 import { deletePromptHistory } from "@/app/api/user/prompt-history/controller";
@@ -20,7 +16,6 @@ import {
   deleteUserLabels,
   saveUserLabels,
 } from "@/utils/redis/label";
-import { deletePlans } from "@/utils/redis/plan";
 import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
@@ -47,10 +42,6 @@ import { markSpam } from "@/utils/gmail/spam";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getAiProviderAndModel } from "@/utils/llms";
-
-export async function createFilterFromPromptAction(body: PromptQuery) {
-  return createFilterFromPrompt(body);
-}
 
 export async function createLabelAction(options: {
   name: string;
@@ -96,7 +87,6 @@ export async function deleteAccountAction() {
     await Promise.allSettled([
       deleteUserLabels({ email: session.user.email }),
       deleteInboxZeroLabels({ email: session.user.email }),
-      deletePlans({ userId: session.user.id }),
       deleteUserStats({ email: session.user.email }),
       deleteTinybirdEmails({ email: session.user.email }),
       deleteTinybirdAiCalls({ userId: session.user.email }),

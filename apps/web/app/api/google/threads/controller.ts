@@ -1,7 +1,6 @@
 import { parseMessages } from "@/utils/mail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
-import { getPlan } from "@/utils/redis/plan";
 import {
   DRAFT_LABEL_ID,
   IMPORTANT_LABEL_ID,
@@ -18,6 +17,7 @@ import { getCategory } from "@/utils/redis/category";
 import { getThreadsBatch } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ThreadsQuery } from "@/app/api/google/threads/validation";
+import { ExecutedRuleStatus } from "@prisma/client";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
@@ -55,22 +55,35 @@ export async function getThreads(query: ThreadsQuery) {
     accessToken,
   );
 
+  const plans = await prisma.executedRule.findMany({
+    where: {
+      threadId: { in: threads.map((t) => t.id!) },
+      status: ExecutedRuleStatus.PENDING,
+    },
+    select: {
+      id: true,
+      messageId: true,
+      threadId: true,
+      rule: true,
+      actionItems: true,
+      status: true,
+      reason: true,
+    },
+  });
+
   const threadsWithMessages = await Promise.all(
     threads.map(async (thread) => {
       const id = thread.id!;
       const messages = parseMessages(thread as ThreadWithPayloadMessages);
 
-      const plan = await getPlan({ userId: session.user.id, threadId: id });
-      const rule = plan
-        ? rules.find((r) => r.id === plan?.rule?.id)
-        : undefined;
+      const plan = plans.find((p) => p.threadId === id);
 
       return {
         id,
         historyId: thread.historyId,
         messages,
         snippet: decodeSnippet(thread.snippet),
-        plan: plan ? { ...plan, databaseRule: rule } : undefined,
+        plan,
         category: await getCategory({ email, threadId: id }),
       };
     }) || [],

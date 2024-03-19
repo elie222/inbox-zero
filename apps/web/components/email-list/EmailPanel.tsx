@@ -14,6 +14,7 @@ import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { createInAiQueueSelector } from "@/store/queue";
+import { getActionFields } from "@/utils/actionType";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -290,10 +291,10 @@ function PlanExplanation(props: {
         <div className="flex-shrink-0">
           <PlanBadge plan={plan} />
         </div>
-        <div className="ml-2">{plan.databaseRule?.instructions}</div>
+        <div className="ml-2">{plan.rule?.instructions}</div>
       </div>
       <div className="mt-4 flex space-x-1">
-        {plan.rule.actions?.map((action, i) => {
+        {plan.actionItems?.map((action, i) => {
           return (
             <div key={i}>
               <Badge color={getActionColor(action.type)}>
@@ -304,14 +305,16 @@ function PlanExplanation(props: {
         })}
       </div>
       <div className="mt-3">
-        {Object.entries(plan.functionArgs).map(([key, value]) => {
-          return (
-            <div key={key}>
-              <strong>{capitalCase(key)}: </strong>
-              <span className="whitespace-pre-wrap">{value as string}</span>
-            </div>
-          );
-        })}
+        {Object.entries(getActionFields(plan.actionItems?.[0])).map(
+          ([key, value]) => {
+            return (
+              <div key={key}>
+                <strong>{capitalCase(key)}: </strong>
+                <span className="whitespace-pre-wrap">{value as string}</span>
+              </div>
+            );
+          },
+        )}
       </div>
 
       <div className="mt-2">

@@ -1,4 +1,4 @@
-import { ActionType } from "@prisma/client";
+import { Action, ActionType, ExecutedAction } from "@prisma/client";
 
 export const actionInputs: Record<
   ActionType,
@@ -109,3 +109,21 @@ export const actionInputs: Record<
   },
   [ActionType.MARK_SPAM]: { fields: [] },
 };
+
+export function getActionFields({
+  label,
+  subject,
+  content,
+  to,
+  cc,
+  bcc,
+}: Action | ExecutedAction) {
+  return {
+    label,
+    subject,
+    content,
+    to,
+    cc,
+    bcc,
+  };
+}

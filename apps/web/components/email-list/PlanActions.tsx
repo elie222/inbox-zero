@@ -3,10 +3,7 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { type Executing, type Thread } from "@/components/email-list/types";
 import { useCallback, useState } from "react";
 import { postRequest } from "@/utils/api";
-import {
-  ExecutePlanBody,
-  ExecutePlanResponse,
-} from "@/app/api/user/planned/[id]/controller";
+import { ExecutePlanBody } from "@/app/api/user/planned/[id]/validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -14,6 +11,7 @@ import {
   RejectPlanResponse,
 } from "@/app/api/user/planned/reject/route";
 import { cn } from "@/utils";
+import { ExecutePlanResponse } from "@/app/api/user/planned/[id]/route";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
@@ -47,9 +45,6 @@ export function useExecutePlan(refetch: () => void) {
               messageId: lastMessage.id || "",
               threadId: lastMessage.threadId || "",
             },
-            ruleId: thread.plan.rule.id,
-            actions: thread.plan.rule.actions,
-            args: thread.plan.functionArgs,
           },
         );
 
@@ -119,7 +114,8 @@ export function PlanActions(props: {
   }, [rejectPlan, thread]);
 
   if (!thread.plan?.rule) return null;
-  if (thread.plan?.executed) return null;
+  if (thread.plan?.status === "APPLIED" || thread.plan?.status === "REJECTED")
+    return null;
 
   return (
     <div className={cn("flex items-center space-x-1", props.className)}>
