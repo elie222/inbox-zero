@@ -11,7 +11,7 @@ import {
   TRASH_LABEL_ID,
   UNREAD_LABEL_ID,
 } from "@/utils/label";
-import { ThreadWithPayloadMessages } from "@/utils/types";
+import { ThreadWithPayloadMessages, isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
 import { getThreadsBatch } from "@/utils/gmail/thread";
@@ -49,27 +49,28 @@ export async function getThreads(query: ThreadsQuery) {
     prisma.rule.findMany({ where: { userId: session.user.id } }),
   ]);
 
-  // may have been faster not using batch method, but doing 50 getMessages in parallel
-  const threads = await getThreadsBatch(
-    gmailThreads.data.threads?.map((thread) => thread.id!) || [],
-    accessToken,
-  );
+  const threadIds =
+    gmailThreads.data.threads?.map((thread) => thread.id).filter(isDefined) ||
+    [];
 
-  const plans = await prisma.executedRule.findMany({
-    where: {
-      threadId: { in: threads.map((t) => t.id!) },
-      status: ExecutedRuleStatus.PENDING,
-    },
-    select: {
-      id: true,
-      messageId: true,
-      threadId: true,
-      rule: true,
-      actionItems: true,
-      status: true,
-      reason: true,
-    },
-  });
+  const [threads, plans] = await Promise.all([
+    getThreadsBatch(threadIds, accessToken), // may have been faster not using batch method, but doing 50 getMessages in parallel
+    prisma.executedRule.findMany({
+      where: {
+        threadId: { in: threadIds },
+        status: ExecutedRuleStatus.PENDING,
+      },
+      select: {
+        id: true,
+        messageId: true,
+        threadId: true,
+        rule: true,
+        actionItems: true,
+        status: true,
+        reason: true,
+      },
+    }),
+  ]);
 
   const threadsWithMessages = await Promise.all(
     threads.map(async (thread) => {
