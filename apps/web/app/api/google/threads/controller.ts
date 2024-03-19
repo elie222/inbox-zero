@@ -32,33 +32,33 @@ export async function getThreads(query: ThreadsQuery) {
 
   if (!accessToken) throw new Error("Missing access token");
 
-  const [gmailThreads, rules] = await Promise.all([
-    gmail.users.threads.list({
-      userId: "me",
-      labelIds: getLabelIds(query.type),
-      maxResults: query.limit || 50,
-      q:
-        query.q ||
-        (query.fromEmail
-          ? `from:${query.fromEmail}`
-          : query.type === "archive"
-            ? `-label:${INBOX_LABEL_ID}`
-            : undefined),
-      pageToken: query.nextPageToken || undefined,
-    }),
-    prisma.rule.findMany({ where: { userId: session.user.id } }),
-  ]);
+  const gmailThreads = await gmail.users.threads.list({
+    userId: "me",
+    labelIds: getLabelIds(query.type),
+    maxResults: query.limit || 50,
+    q:
+      query.q ||
+      (query.fromEmail
+        ? `from:${query.fromEmail}`
+        : query.type === "archive"
+          ? `-label:${INBOX_LABEL_ID}`
+          : undefined),
+    pageToken: query.nextPageToken || undefined,
+  });
 
   const threadIds =
-    gmailThreads.data.threads?.map((thread) => thread.id).filter(isDefined) ||
-    [];
+    gmailThreads.data.threads?.map((t) => t.id).filter(isDefined) || [];
 
   const [threads, plans] = await Promise.all([
     getThreadsBatch(threadIds, accessToken), // may have been faster not using batch method, but doing 50 getMessages in parallel
     prisma.executedRule.findMany({
       where: {
+        userId: session.user.id,
         threadId: { in: threadIds },
-        status: ExecutedRuleStatus.PENDING,
+        status: {
+          // TODO probably want to show applied rules here in the future too
+          in: [ExecutedRuleStatus.PENDING, ExecutedRuleStatus.SKIPPED],
+        },
       },
       select: {
         id: true,

@@ -183,7 +183,7 @@ model ExecutedRule {
   updatedAt DateTime           @updatedAt
   threadId  String
   messageId String
-  actions ActionType[] // deprecated
+  actions   ActionType[] // deprecated
   data      Json? // deprecated
   status    ExecutedRuleStatus @default(APPLIED) // if APPLIED then the rule was executed
   automated Boolean
@@ -198,6 +198,8 @@ model ExecutedRule {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   actionItems ExecutedAction[]
+
+  @@unique([userId, threadId, messageId], name: "unique_user_thread_message")
 }
 
 model ExecutedAction {

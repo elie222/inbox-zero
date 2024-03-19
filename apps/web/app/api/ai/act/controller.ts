@@ -466,8 +466,23 @@ export async function planOrExecuteAct(
 
   // no rule to apply to this thread
   if (!plannedAct.rule) {
-    await prisma.executedRule.create({
-      data: {
+    await prisma.executedRule.upsert({
+      where: {
+        unique_user_thread_message: {
+          userId: options.userId,
+          threadId: options.email.threadId,
+          messageId: options.email.messageId,
+        },
+      },
+      create: {
+        threadId: options.email.threadId,
+        messageId: options.email.messageId,
+        automated: options.automated,
+        reason: plannedAct.reason,
+        status: ExecutedRuleStatus.SKIPPED,
+        user: { connect: { id: options.userId } },
+      },
+      update: {
         threadId: options.email.threadId,
         messageId: options.email.messageId,
         automated: options.automated,
@@ -490,7 +505,15 @@ export async function planOrExecuteAct(
         data: {
           actionItems: {
             createMany: {
-              data: plannedAct.plannedAction.actions,
+              data: plannedAct.plannedAction.actions.map((action) => ({
+                type: action.type,
+                label: plannedAct.plannedAction.args.label,
+                subject: plannedAct.plannedAction.args.subject,
+                content: plannedAct.plannedAction.args.content,
+                to: plannedAct.plannedAction.args.to,
+                cc: plannedAct.plannedAction.args.cc,
+                bcc: plannedAct.plannedAction.args.bcc,
+              })),
             },
           },
           messageId: options.email.messageId,
@@ -498,7 +521,9 @@ export async function planOrExecuteAct(
           automated: plannedAct.rule.automate,
           status: ExecutedRuleStatus.PENDING,
           reason: plannedAct.reason,
-          rule: { connect: { id: plannedAct.rule.id } },
+          rule: plannedAct.rule.id
+            ? { connect: { id: plannedAct.rule.id } }
+            : undefined,
           user: { connect: { id: options.userId } },
         },
       })
