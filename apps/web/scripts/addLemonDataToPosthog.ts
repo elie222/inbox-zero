@@ -152,6 +152,9 @@ async function saveOrders() {
   }
 }
 
+// TODO use uuid to make sure we don't send duplicates:
+// https://github.com/PostHog/posthog/issues/17211
+// can also use identify to set user properties
 async function posthogCaptureEvent(
   email: string,
   event: string,
@@ -160,7 +163,7 @@ async function posthogCaptureEvent(
   if (!posthogApiKey) throw new Error("No PostHog API key provided.");
   const client = new PostHog(posthogApiKey);
   client.capture({ distinctId: email, event, properties });
-  await client.shutdownAsync();
+  await client.shutdown();
 }
 
 main();
