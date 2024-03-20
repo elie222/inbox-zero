@@ -183,8 +183,6 @@ model ExecutedRule {
   updatedAt DateTime           @updatedAt
   threadId  String
   messageId String
-  actions   ActionType[] // deprecated
-  data      Json? // deprecated
   status    ExecutedRuleStatus @default(APPLIED) // if APPLIED then the rule was executed
   automated Boolean
   reason    String?
