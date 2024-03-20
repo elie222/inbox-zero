@@ -33,10 +33,7 @@ export const POST = withError(async (request, { params }) => {
     gmail,
     userEmail: session.user.email,
     email: body.email,
-    act: {
-      actions: executedRule.actionItems.map(({ type }) => ({ type })),
-      args: getActionFields(executedRule.actionItems[0]) || {},
-    },
+    actionItems: executedRule.actionItems,
     executedRuleId: params.id,
   });
 

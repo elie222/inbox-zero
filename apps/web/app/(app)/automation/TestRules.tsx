@@ -239,19 +239,24 @@ function Plan(props: { plan: ActResponse }) {
     );
   }
 
-  if (plan.plannedAction?.actions) {
+  if (plan.actionItems) {
     const MAX_LENGTH = 280;
 
-    const aiGeneratedContent = Object.entries(plan.plannedAction.args).map(
-      ([key, value]) => {
-        return (
-          <div key={key}>
-            <strong>{capitalCase(key)}: </strong>
-            {value}
-          </div>
-        );
-      },
-    );
+    const aiGeneratedContent = plan.actionItems.map((action, i) => {
+      return (
+        <div key={i}>
+          <strong>{capitalCase(action.type)}</strong>
+          {Object.entries(action).map(([key, value]) => {
+            return (
+              <div key={key}>
+                <strong>{capitalCase(key)}: </strong>
+                {value}
+              </div>
+            );
+          })}
+        </div>
+      );
+    });
 
     return (
       <AlertBasic
