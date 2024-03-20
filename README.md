@@ -5,7 +5,7 @@
     <h1 align="center">Inbox Zero</h1>
   </a>
   <p align="center">
-    Open source email app to reach inbox zero fast.
+    Open source gmail app to reach inbox zero fast.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -19,7 +19,7 @@
 
 ## About
 
-Inbox Zero is an open-source email app whose goal is to help you reach inbox zero fast with AI assistance.
+Inbox Zero is an open-source gmail app whose goal is to help you reach inbox zero fast with AI assistance.
 
 ## Demo Video
 
@@ -159,4 +159,4 @@ ngrok http 3000
 
 And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
 
-To start watching emails visit: `/api/google/watch/all`
+To start watching s visit: `/api/google/watch/all`
