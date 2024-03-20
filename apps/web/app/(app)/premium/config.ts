@@ -7,9 +7,9 @@ export const frequencies = [
 ];
 
 export const pricing: Record<PremiumTier, string> = {
-  [PremiumTier.PRO_MONTHLY]: "$14",
-  [PremiumTier.PRO_ANNUALLY]: "$119",
-  [PremiumTier.BUSINESS_MONTHLY]: "$24",
+  [PremiumTier.PRO_MONTHLY]: "$10",
+  [PremiumTier.PRO_ANNUALLY]: "$99",
+  [PremiumTier.BUSINESS_MONTHLY]: "$19",
   [PremiumTier.BUSINESS_ANNUALLY]: "$159",
   [PremiumTier.LIFETIME]: "$299",
 };
