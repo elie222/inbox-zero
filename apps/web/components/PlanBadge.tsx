@@ -47,8 +47,11 @@ export function PlanBadge(props: { plan?: Plan }) {
             {plan.actionItems?.map((action, i) => {
               return (
                 <div key={i}>
-                  <Badge color={getActionColor(action.type)}>
-                    {getActionMessage(action.type, plan)}
+                  <Badge
+                    color={getActionColor(action.type)}
+                    className="whitespace-pre-wrap"
+                  >
+                    {getActionMessage(action)}
                   </Badge>
                 </div>
               );
@@ -67,23 +70,19 @@ export function PlanBadge(props: { plan?: Plan }) {
   );
 }
 
-function getActionMessage(actionType: ActionType, plan: Plan): string {
-  const firstAction = plan.actionItems?.[0];
-
-  if (!firstAction) return capitalCase(actionType);
-
-  switch (actionType) {
+function getActionMessage(action: ExecutedAction): string {
+  switch (action.type) {
     case ActionType.LABEL:
-      if (firstAction.label) return `Label as ${firstAction.label}`;
+      if (action.label) return `Label as ${action.label}`;
     case ActionType.REPLY:
     case ActionType.SEND_EMAIL:
     case ActionType.FORWARD:
-      if (firstAction.to)
-        return `${capitalCase(actionType)} to ${firstAction.to}${
-          firstAction.content ? `:\n${firstAction.content}` : ""
+      if (action.to)
+        return `${capitalCase(action.type)} to ${action.to}${
+          action.content ? `:\n${action.content}` : ""
         }`;
     default:
-      return capitalCase(actionType);
+      return capitalCase(action.type);
   }
 }
 
