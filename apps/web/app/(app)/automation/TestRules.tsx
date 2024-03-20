@@ -247,6 +247,7 @@ function Plan(props: { plan: ActResponse }) {
         <div key={i}>
           <strong>{capitalCase(action.type)}</strong>
           {Object.entries(action).map(([key, value]) => {
+            if (key === "type" || !value) return;
             return (
               <div key={key}>
                 <strong>{capitalCase(key)}: </strong>
