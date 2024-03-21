@@ -22,6 +22,7 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { Badge } from "@/components/Badge";
 import { EmailDate } from "@/components/email-list/EmailDate";
+import { getActionFields } from "@/utils/actionType";
 
 export function PlanHistory() {
   const session = useSession();
@@ -116,26 +117,15 @@ export function PlanHistory() {
                   )}
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
-                  <PlanBadge
-                    plan={{
-                      rule: {
-                        name: h.rule?.name || "",
-                        actions: h.actions.map((actionType) => {
-                          return { type: actionType };
-                        }),
-                      },
-                      databaseRule: {
-                        instructions: h.rule?.instructions || "",
-                      },
-                      executed: false,
-                    }}
-                  />
+                  <PlanBadge plan={h} />
                 </TableCell>
                 <TableCell className="space-x-2">
-                  {h.actions.map((action) => capitalCase(action)).join(", ")}
+                  {h.actionItems
+                    .map((action) => capitalCase(action.type))
+                    .join(", ")}
                 </TableCell>
                 <TableCell className="space-y-4">
-                  {Object.entries(h.data as any).map(
+                  {Object.entries(getActionFields(h.actionItems?.[0])).map(
                     ([key, value]: [string, any]) => {
                       return (
                         <div key={key}>

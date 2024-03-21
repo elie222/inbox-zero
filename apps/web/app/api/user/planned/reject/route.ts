@@ -2,16 +2,21 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
-import { deletePlan } from "@/utils/redis/plan";
+import { ExecutedRuleStatus } from "@prisma/client";
 
 const rejectPlanBody = z.object({ threadId: z.string() });
 export type RejectPlanBody = z.infer<typeof rejectPlanBody>;
 export type RejectPlanResponse = Awaited<ReturnType<typeof rejectPlan>>;
 
 async function rejectPlan(body: RejectPlanBody, userId: string) {
-  return await deletePlan({
-    userId,
-    threadId: body.threadId,
+  return await prisma?.executedRule.updateMany({
+    where: {
+      userId,
+      threadId: body.threadId,
+    },
+    data: {
+      status: ExecutedRuleStatus.REJECTED,
+    },
   });
 }
 

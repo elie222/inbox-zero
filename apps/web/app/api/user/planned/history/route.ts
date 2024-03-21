@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import { ExecutedRuleStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,9 @@ async function getPlanHistory() {
   if (!session) throw new Error("Not authenticated");
 
   const history = await prisma.executedRule.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, status: ExecutedRuleStatus.APPLIED },
     orderBy: { createdAt: "desc" },
-    include: { rule: true },
+    include: { rule: true, actionItems: true },
   });
 
   return { history };

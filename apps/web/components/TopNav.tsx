@@ -1,11 +1,10 @@
 import { Fragment } from "react";
 import clsx from "clsx";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { Menu, Transition } from "@headlessui/react";
 import { Button } from "@/components/Button";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
 import { logOut } from "@/utils/user";
-// import { PromptBar } from "@/components/PromptBar";
 
 const userNavigation = [
   { name: "Usage", href: "/usage" },
@@ -32,22 +31,7 @@ export function TopNav(props: { setSidebarOpen: (open: boolean) => void }) {
       <div className="h-6 w-px bg-gray-900/10 lg:hidden" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-        {/* <PromptBar /> */}
-
         <div className="ml-auto flex items-center gap-x-4 lg:gap-x-6">
-          {/* <button
-            type="button"
-            className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
-          >
-            <span className="sr-only">View notifications</span>
-            <BellIcon className="h-6 w-6" aria-hidden="true" />
-          </button>
-
-          <div
-            className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-900/10"
-            aria-hidden="true"
-          /> */}
-
           <ProfileDropdown />
         </div>
       </div>

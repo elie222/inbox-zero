@@ -1,6 +1,6 @@
 import { type gmail_v1 } from "googleapis";
 import { draftEmail, sendEmail } from "@/utils/gmail/mail";
-import { ActionType } from "@prisma/client";
+import { ActionType, ExecutedAction } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { labelThread } from "@/utils/gmail/label";
@@ -400,11 +400,11 @@ export type ActionProperty = (typeof ACTION_PROPERTIES)[number];
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
   email: ActBodyWithHtml["email"],
-  action: ActionType,
-  args: PartialRecord<ActionProperty, string>,
+  action: ActionItem,
   userEmail: string,
 ): Promise<any> => {
-  switch (action) {
+  const { type, ...args } = action;
+  switch (type) {
     case ActionType.ARCHIVE:
       return archive(gmail, email, args, userEmail);
     case ActionType.LABEL:
@@ -428,4 +428,14 @@ export const runActionFunction = async (
     default:
       throw new Error(`Unknown action: ${action}`);
   }
+};
+
+export type ActionItem = {
+  type: ExecutedAction["type"];
+  label?: ExecutedAction["label"];
+  subject?: ExecutedAction["subject"];
+  content?: ExecutedAction["content"];
+  to?: ExecutedAction["to"];
+  cc?: ExecutedAction["cc"];
+  bcc?: ExecutedAction["bcc"];
 };

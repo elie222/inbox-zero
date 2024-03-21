@@ -170,13 +170,11 @@ export const EmailListItem = forwardRef(
               </div>
 
               {!!(thread.category?.category || thread.plan) && (
-                <div className="ml-3 flex items-center whitespace-nowrap">
+                <div className="ml-3 flex items-center space-x-2 whitespace-nowrap">
                   {thread.category?.category ? (
                     <CategoryBadge category={thread.category.category} />
                   ) : null}
-                  <div className="ml-3">
-                    <PlanBadge plan={thread.plan} />
-                  </div>
+                  <PlanBadge plan={thread.plan} />
 
                   <PlanActions
                     thread={thread}
@@ -184,7 +182,6 @@ export const EmailListItem = forwardRef(
                     rejectPlan={props.rejectPlan}
                     executingPlan={props.executingPlan}
                     rejectingPlan={props.rejectingPlan}
-                    className={thread.plan?.rule ? "ml-3" : undefined}
                   />
                 </div>
               )}

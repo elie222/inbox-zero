@@ -175,15 +175,17 @@ model Action {
   bcc     String?
 }
 
+// Rule/Action models represent the rules and actions that the AI can take.
+// ExecutedRule/ExecutedAction models represent the rules/actions that have been planned or executed by the AI.
 model ExecutedRule {
-  id        String       @id @default(cuid())
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
   threadId  String
   messageId String
-  actions   ActionType[]
-  data      Json?
+  status    ExecutedRuleStatus @default(APPLIED) // if APPLIED then the rule was executed
   automated Boolean
+  reason    String?
 
   // may be null if the rule was deleted
   ruleId String?
@@ -192,6 +194,27 @@ model ExecutedRule {
   // storing user here in case rule was deleted
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  actionItems ExecutedAction[]
+
+  @@unique([userId, threadId, messageId], name: "unique_user_thread_message")
+}
+
+model ExecutedAction {
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  type           ActionType
+  executedRuleId String
+  executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+
+  // optional extra fields to be used with the action
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
 }
 
 // Represents a sender (`email`) that a user can unsubscribe from,
@@ -263,4 +286,11 @@ enum FeatureAccess {
   UNLOCKED
   UNLOCKED_WITH_API_KEY
   LOCKED
+}
+
+enum ExecutedRuleStatus {
+  APPLIED
+  REJECTED
+  PENDING
+  SKIPPED
 }
