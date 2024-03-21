@@ -61,6 +61,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "cmdk": "^1.0.0",
+    "crisp-sdk-web": "^1.0.22",
     "date-fns": "^3.6.0",
     "encoding": "^0.1.13",
     "eslint": "8.57.0",

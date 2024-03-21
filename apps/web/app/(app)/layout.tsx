@@ -1,5 +1,6 @@
 import "../../styles/globals.css";
-import React from "react";
+import React, { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { TokenCheck } from "@/components/TokenCheck";
@@ -23,6 +24,11 @@ export default async function AppLayout({
       <TokenCheck />
       <CommandK />
       <SideNavWithTopNav>{children}</SideNavWithTopNav>
+      <Suspense>
+        <CrispWithNoSSR email={session?.user.email} />
+      </Suspense>
     </AppProviders>
   );
 }
+
+const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
