@@ -72,7 +72,7 @@ export const env = createEnv({
       .optional()
       .default("elie@getinboxzero.com"),
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
-
+    NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
     NEXT_PUBLIC_DISABLE_TINYBIRD: z.coerce.boolean().optional().default(false),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
@@ -120,6 +120,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
     NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
+    NEXT_PUBLIC_CRISP_WEBSITE_ID: process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID,
     NEXT_PUBLIC_DISABLE_TINYBIRD: process.env.NEXT_PUBLIC_DISABLE_TINYBIRD,
   },
 });

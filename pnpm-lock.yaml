@@ -179,6 +179,9 @@ importers:
       cmdk:
         specifier: ^1.0.0
         version: 1.0.0(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0)(react@18.2.0)
+      crisp-sdk-web:
+        specifier: ^1.0.22
+        version: 1.0.22
       date-fns:
         specifier: ^3.6.0
         version: 3.6.0
@@ -7581,6 +7584,10 @@ packages:
 
   /crelt@1.0.6:
     resolution: {integrity: sha512-VQ2MBenTq1fWZUH9DJNGti7kKv6EeAuYr3cLwxUWhIu1baTaXh4Ib5W2CqHVqib4/MqbYGJqiL3Zb8GJZr3l4g==}
+    dev: false
+
+  /crisp-sdk-web@1.0.22:
+    resolution: {integrity: sha512-5LakqSr638Cv1J/FuM/RhCGVEaHmrbPpEY14h9GdoEUeNF+jzDhV2KwTVVL5hDwTo5Vhc1J+hprUzgqUv9xH4Q==}
     dev: false
 
   /cron-parser@4.8.1:
