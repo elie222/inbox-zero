@@ -91,7 +91,8 @@ async function migrateUserPlans(userId: string) {
   }
 
   for (const [index, planData] of Object.entries(plans)) {
-    if (parseInt(index || "0") % 100) console.log("plan index:", userId, index);
+    if (parseInt(index || "0") % 100 === 0)
+      console.log("plan index:", userId, index);
 
     // Not sure why TS doesn't give me `data`. Quick hack to make it work.
     const { success } = planSchema.safeParse(planData);
