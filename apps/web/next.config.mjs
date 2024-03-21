@@ -42,6 +42,16 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/roadmap',
+        destination: 'https://inboxzero.featurebase.app/roadmap',
+        permanent: true,
+      },
+      {
+        source: '/changelog',
+        destination: 'https://inboxzero.featurebase.app/changelog',
+        permanent: true,
+      },
+      {
         source: "/twitter",
         destination: "https://twitter.com/inboxzero_ai",
         permanent: true,
