@@ -33,12 +33,12 @@ const nextConfig = {
     return [
       {
         source: "/feature-requests",
-        destination: "https://inboxzero.canny.io/feature-requests",
+        destination: "https://inboxzero.featurebase.app",
         permanent: true,
       },
       {
         source: '/feedback',
-        destination: 'https://inboxzero.canny.io/feature-requests',
+        destination: 'https://inboxzero.featurebase.app',
         permanent: true,
       },
       {
