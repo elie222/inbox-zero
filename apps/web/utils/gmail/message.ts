@@ -1,6 +1,6 @@
 import { type gmail_v1 } from "googleapis";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload } from "@/utils/types";
+import { MessageWithPayload, isDefined } from "@/utils/types";
 import { getBatch } from "@/utils/gmail/batch";
 
 export async function getMessage(
@@ -84,4 +84,21 @@ export async function getMessages(
   });
 
   return messages.data;
+}
+
+export async function queryBatchMessages(
+  gmail: gmail_v1.Gmail,
+  accessToken: string,
+  {
+    query,
+    maxResults,
+  }: {
+    query?: string;
+    maxResults?: number;
+  },
+) {
+  const messages = await getMessages(gmail, { query, maxResults });
+  if (!messages.messages) return [];
+  const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
+  return getMessagesBatch(messageIds, accessToken);
 }
