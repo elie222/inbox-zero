@@ -78,3 +78,13 @@ export function parseEmail(
 
   return truncatedText;
 }
+
+export function getEmailClient(messageId: string) {
+  if (messageId.includes("mail.gmail.com")) return "gmail";
+  if (messageId.includes("we.are.superhuman.com")) return "superhuman";
+  if (messageId.includes("mail.shortwave.com")) return "shortwave";
+
+  // take part after @ and remove final >
+  const emailClient = messageId.split("@")[1].split(">")[0];
+  return emailClient;
+}

@@ -56,6 +56,7 @@ model User {
   lastSyncedHistoryId       String?
   completedOnboarding       Boolean   @default(false)
   onboardingAnswers         Json?
+  behaviorProfile           Json?
 
   // settings
   aiProvider          String?
