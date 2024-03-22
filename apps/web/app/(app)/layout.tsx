@@ -8,6 +8,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
+import { AssessUser } from "@/app/(app)/assess";
 
 export default async function AppLayout({
   children,
@@ -24,6 +25,9 @@ export default async function AppLayout({
       <TokenCheck />
       <CommandK />
       <SideNavWithTopNav>{children}</SideNavWithTopNav>
+      <Suspense>
+        <AssessUser />
+      </Suspense>
       <Suspense>
         <CrispWithNoSSR email={session?.user.email} />
       </Suspense>
