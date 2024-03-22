@@ -106,12 +106,22 @@ export function PlanActions(props: {
 }) {
   const { thread, executePlan, rejectPlan } = props;
 
-  const execute = useCallback(async () => {
-    executePlan(thread);
-  }, [executePlan, thread]);
-  const reject = useCallback(async () => {
-    rejectPlan(thread);
-  }, [rejectPlan, thread]);
+  const execute = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      executePlan(thread);
+    },
+    [executePlan, thread],
+  );
+  const reject = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      rejectPlan(thread);
+    },
+    [rejectPlan, thread],
+  );
 
   if (!thread.plan?.rule) return null;
   if (thread.plan?.status === "APPLIED" || thread.plan?.status === "REJECTED")
