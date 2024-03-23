@@ -273,13 +273,19 @@ async function processHistoryItem(
       `Skipping email with SENT label`,
       options.userEmail,
       m.message.id,
+      m.message.threadId,
     );
     return;
   }
 
   const { userId, userEmail, gmail, about } = options;
 
-  console.log("Getting message...", options.userEmail, m.message.id);
+  console.log(
+    "Getting message...",
+    options.userEmail,
+    m.message.id,
+    m.message.threadId,
+  );
 
   try {
     const gmailMessage = await getMessage(m.message.id, gmail, "full");
@@ -287,7 +293,12 @@ async function processHistoryItem(
     const gmailThread = await getThread(m.message.threadId!, gmail);
     const isThread = gmailThread.messages && gmailThread.messages.length > 1;
 
-    console.log("Fetched message", options.userEmail, m.message.id);
+    console.log(
+      "Fetched message",
+      options.userEmail,
+      m.message.id,
+      m.message.threadId,
+    );
 
     const parsedMessage = parseMessage(gmailMessage);
 
@@ -326,7 +337,12 @@ async function processHistoryItem(
     }
 
     if (options.hasAutomationRules && options.hasAiAutomationAccess) {
-      console.log("Plan or act on message...", options.userEmail, m.message.id);
+      console.log(
+        "Plan or act on message...",
+        options.userEmail,
+        m.message.id,
+        m.message.threadId,
+      );
 
       if (
         !parsedMessage.textHtml &&
@@ -337,6 +353,7 @@ async function processHistoryItem(
           "Skipping. No plain text found.",
           options.userEmail,
           m.message.id,
+          m.message.threadId,
         );
         return;
       }
@@ -350,6 +367,7 @@ async function processHistoryItem(
           `Skipping thread with ${gmailThread.messages?.length} messages`,
           options.userEmail,
           m.message.id,
+          m.message.threadId,
         );
         return;
       }
@@ -381,7 +399,13 @@ async function processHistoryItem(
         userAbout: about,
       });
 
-      console.log("Result:", options.userEmail, m.message.id, res);
+      console.log(
+        "Result:",
+        options.userEmail,
+        m.message.id,
+        m.message.threadId,
+        res,
+      );
     }
 
     // if (shouldCategorise) {
@@ -407,7 +431,12 @@ async function processHistoryItem(
   } catch (error: any) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
-      console.log("Message not found.", options.userEmail, m.message.id);
+      console.log(
+        "Message not found.",
+        options.userEmail,
+        m.message.id,
+        m.message.threadId,
+      );
       return;
     }
 
