@@ -149,11 +149,15 @@ export const POST = withError(async (request: Request) => {
       startHistoryId,
       labelId: INBOX_LABEL_ID,
       historyTypes: ["messageAdded"],
-      maxResults: 10,
+      maxResults: 100,
     });
 
     if (history.data.history) {
-      console.log("Webhook: Processing...", decodedData.emailAddress);
+      console.log(
+        "Webhook: Processing...",
+        decodedData.emailAddress,
+        history.data.historyId,
+      );
 
       const { model, provider } = getAiProviderAndModel(
         account.user.aiProvider,
@@ -178,7 +182,12 @@ export const POST = withError(async (request: Request) => {
         hasAiAutomationAccess: hasAiAccess,
       });
     } else {
-      console.log("Webhook: No history", decodedData);
+      console.log(
+        "Webhook: No history",
+        decodedData,
+        "startHistoryId:",
+        startHistoryId,
+      );
 
       // important to save this or we can get into a loop with never receiving history
       await prisma.user.update({
