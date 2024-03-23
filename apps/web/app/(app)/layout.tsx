@@ -9,6 +9,7 @@ import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
 import { AssessUser } from "@/app/(app)/assess";
+import { LastLogin } from "@/app/(app)/lastLogin";
 
 export default async function AppLayout({
   children,
@@ -29,7 +30,10 @@ export default async function AppLayout({
         <AssessUser />
       </Suspense>
       <Suspense>
-        <CrispWithNoSSR email={session?.user.email} />
+        <LastLogin email={session.user.email} />
+      </Suspense>
+      <Suspense>
+        <CrispWithNoSSR email={session.user.email} />
       </Suspense>
     </AppProviders>
   );

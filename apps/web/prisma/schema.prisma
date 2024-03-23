@@ -57,6 +57,8 @@ model User {
   completedOnboarding       Boolean   @default(false)
   onboardingAnswers         Json?
   behaviorProfile           Json?
+  lastLogin                 DateTime?
+  utms                      Json?
 
   // settings
   aiProvider          String?
