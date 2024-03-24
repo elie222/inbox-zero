@@ -47,7 +47,7 @@ import { HtmlEmail } from "@/components/email-list/EmailPanel";
 import { ViewMoreButton } from "@/app/(app)/simple/ViewMoreButton";
 
 export function SimpleList(props: {
-  messages: ParsedMessage[];
+  initialMessages: ParsedMessage[];
   nextPageToken?: string | null;
   userEmail: string;
   type: string;
@@ -55,20 +55,25 @@ export function SimpleList(props: {
   const { toHandleLater, onSetHandled, onSetToHandleLater } =
     useSimpleProgress();
 
+  const [messages, setMessages] = useState(props.initialMessages);
   const router = useRouter();
 
   const [parent] = useAutoAnimate();
 
   const [isPending, startTransition] = useTransition();
 
-  const toArchive = props.messages
+  const toArchive = messages
     .filter((m) => !toHandleLater[m.id])
     .map((m) => m.threadId);
+
+  const handleUnsubscribe = (id) => {
+    setMessages(messages.filter((message) => message.id !== id));
+  };
 
   return (
     <>
       <div className="mt-8 grid gap-4" ref={parent}>
-        {props.messages
+        {messages
           .filter((m) => !toHandleLater[m.id])
           .map((message) => {
             return (
@@ -78,12 +83,11 @@ export function SimpleList(props: {
                 userEmail={props.userEmail}
                 toHandleLater={toHandleLater}
                 onSetToHandleLater={onSetToHandleLater}
+                handleUnsubscribe={() => handleUnsubscribe(message.id)}
               />
             );
           })}
-        {props.messages.length === 0 && (
-          <Celebration message="All emails handled!" />
-        )}
+        {messages.length === 0 && <Celebration message="All emails handled!" />}
       </div>
 
       <div className="mt-8 flex justify-center">
@@ -116,7 +120,7 @@ export function SimpleList(props: {
             });
           }}
         >
-          {toArchive.length ? "Archive and Continue" : "Continue"}
+          {toArchive && toArchive.length ? "Archive and Continue" : "Continue"}
         </HoverButton>
       </div>
 
@@ -130,11 +134,13 @@ function SimpleListRow({
   userEmail,
   toHandleLater,
   onSetToHandleLater,
+  handleUnsubscribe,
 }: {
   message: ParsedMessage;
   userEmail: string;
   toHandleLater: Record<string, boolean>;
   onSetToHandleLater: (ids: string[]) => void;
+  handleUnsubscribe: (id: string) => void;
 }) {
   const unsubscribeLink = findUnsubscribeLink(message.textHtml);
   const cta = findCtaLink(message.textHtml);
@@ -148,7 +154,12 @@ function SimpleListRow({
     <div className="flex gap-2">
       {!!unsubscribeLink && (
         <Tooltip content="Unsubscribe">
-          <Button variant="outline" size="icon" asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            asChild
+            onClick={handleUnsubscribe}
+          >
             <Link href={unsubscribeLink} target="_blank">
               <MailMinusIcon className="h-4 w-4" />
               <span className="sr-only">Unsubscribe</span>

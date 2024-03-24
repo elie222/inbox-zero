@@ -69,7 +69,7 @@ export default async function SimplePage({
       <div className="w-full max-w-2xl">
         <PageHeading className="text-center">{title}</PageHeading>
         <SimpleList
-          messages={messages}
+          initialMessages={messages}
           nextPageToken={response.data.nextPageToken}
           userEmail={email}
           type={type}
