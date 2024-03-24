@@ -120,7 +120,7 @@ export function SimpleList(props: {
             });
           }}
         >
-          {toArchive && toArchive.length ? "Archive and Continue" : "Continue"}
+          {toArchive.length ? "Archive and Continue" : "Continue"}
         </HoverButton>
       </div>
 
