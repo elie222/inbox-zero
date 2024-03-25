@@ -67,10 +67,13 @@ function decodeHistoryId(body: any) {
   return { emailAddress: decodedData.emailAddress, historyId };
 }
 
-export async function processHistoryForUser(decodedData: {
-  emailAddress: string;
-  historyId: number;
-}) {
+export async function processHistoryForUser(
+  decodedData: {
+    emailAddress: string;
+    historyId: number;
+  },
+  options?: { startHistoryId?: string },
+) {
   const { emailAddress: email, historyId } = decodedData;
 
   const account = await prisma.account.findFirst({
@@ -165,10 +168,12 @@ export async function processHistoryForUser(decodedData: {
       account.providerAccountId,
     );
 
-    const startHistoryId = Math.max(
-      parseInt(account.user.lastSyncedHistoryId || "0"),
-      historyId - 500, // avoid going too far back
-    ).toString();
+    const startHistoryId =
+      options?.startHistoryId ||
+      Math.max(
+        parseInt(account.user.lastSyncedHistoryId || "0"),
+        historyId - 500, // avoid going too far back
+      ).toString();
 
     console.log(
       "Webhook: Listing history... Start:",

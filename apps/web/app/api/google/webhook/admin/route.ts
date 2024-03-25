@@ -14,12 +14,18 @@ export const GET = withError(async (request: Request) => {
   const { searchParams } = new URL(request.url);
   const emailAddress = searchParams.get("email");
   const historyId = searchParams.get("historyId");
+  const startHistoryId = searchParams.get("startHistoryId");
 
-  if (!emailAddress || !historyId)
+  if (!emailAddress)
     return NextResponse.json({ error: "Missing email or historyId" });
 
-  return await processHistoryForUser({
-    emailAddress,
-    historyId: parseInt(historyId),
-  });
+  return await processHistoryForUser(
+    {
+      emailAddress,
+      historyId: historyId ? parseInt(historyId) : 0,
+    },
+    {
+      startHistoryId: startHistoryId ? startHistoryId : undefined,
+    },
+  );
 });
