@@ -1,7 +1,5 @@
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
-import { PageHeading, TypographyP } from "@/components/Typography";
 import AutoLogOut from "@/app/(landing)/login/error/AutoLogOut";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { ErrorPage } from "@/components/ErrorPage";

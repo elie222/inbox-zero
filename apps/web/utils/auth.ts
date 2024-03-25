@@ -149,8 +149,13 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
     where: { userId: token.sub as string, provider: "google" },
   });
 
+  if (!account) {
+    console.error("No account found in database for", token.sub);
+    return { error: "MissingAccountError" };
+  }
+
   if (!account?.refresh_token) {
-    console.error("No refresh token found in database for", account?.userId);
+    console.error("No refresh token found in database for", account.userId);
     return {
       ...token,
       error: "RefreshAccessTokenError",
@@ -264,6 +269,6 @@ declare module "@auth/core/jwt" {
     access_token?: string;
     expires_at?: number;
     refresh_token?: string;
-    error?: "RefreshAccessTokenError";
+    error?: "RefreshAccessTokenError" | "MissingAccountError";
   }
 }

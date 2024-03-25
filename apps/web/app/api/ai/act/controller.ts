@@ -437,19 +437,19 @@ export async function executeAct(options: {
   ]);
 }
 
-export async function planOrExecuteAct(
-  options: {
-    gmail: gmail_v1.Gmail;
-    email: ActBodyWithHtml["email"];
-    rules: RuleWithActions[];
-    allowExecute: boolean;
-    forceExecute?: boolean;
-    userId: string;
-    userEmail: string;
-    userAbout: string;
-    automated: boolean;
-  } & UserAIFields,
-) {
+type PlanOrExecuteActOptions = {
+  gmail: gmail_v1.Gmail;
+  email: ActBodyWithHtml["email"];
+  rules: RuleWithActions[];
+  allowExecute: boolean;
+  forceExecute?: boolean;
+  userId: string;
+  userEmail: string;
+  userAbout: string;
+  automated: boolean;
+} & UserAIFields;
+
+export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
   if (!options.rules.length) return;
 
   const content =
@@ -505,20 +505,30 @@ export async function planOrExecuteAct(
 
   console.log("shouldExecute:", shouldExecute);
 
+  const data = {
+    actionItems: { createMany: { data: plannedAct.actionItems } },
+    messageId: options.email.messageId,
+    threadId: options.email.threadId,
+    automated: plannedAct.rule.automate,
+    status: ExecutedRuleStatus.PENDING,
+    reason: plannedAct.reason,
+    rule: plannedAct.rule.id
+      ? { connect: { id: plannedAct.rule.id } }
+      : undefined,
+    user: { connect: { id: options.userId } },
+  };
+
   const executedRule = options.email.messageId
-    ? await prisma.executedRule.create({
-        data: {
-          actionItems: { createMany: { data: plannedAct.actionItems } },
-          messageId: options.email.messageId,
-          threadId: options.email.threadId,
-          automated: plannedAct.rule.automate,
-          status: ExecutedRuleStatus.PENDING,
-          reason: plannedAct.reason,
-          rule: plannedAct.rule.id
-            ? { connect: { id: plannedAct.rule.id } }
-            : undefined,
-          user: { connect: { id: options.userId } },
+    ? await prisma.executedRule.upsert({
+        where: {
+          unique_user_thread_message: {
+            userId: options.userId,
+            threadId: options.email.threadId,
+            messageId: options.email.messageId,
+          },
         },
+        create: data,
+        update: data,
       })
     : undefined;
 

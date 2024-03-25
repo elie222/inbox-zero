@@ -9,7 +9,6 @@ import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
-// import { parseEmail } from "@/utils/mail";
 import { UserAIFields } from "@/utils/llms/types";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
@@ -292,47 +291,50 @@ async function processHistoryItem(
   m: gmail_v1.Schema$HistoryMessageAdded,
   options: ProcessHistoryOptions,
 ) {
-  if (!m.message?.id) return;
-  if (!m.message?.threadId) return;
+  const message = m.message;
+  const messageId = message?.id;
+  const threadId = message?.threadId;
+  const {
+    userId,
+    userEmail,
+    gmail,
+    about,
+    coldEmailBlocker,
+    hasColdEmailAccess,
+    hasAutomationRules,
+    hasAiAutomationAccess,
+    rules,
+  } = options;
+
+  if (!messageId) return;
+  if (!threadId) return;
+
   // skip emails the user sent
-  if (m.message.labelIds?.includes(SENT_LABEL_ID)) {
+  if (message.labelIds?.includes(SENT_LABEL_ID)) {
     console.log(
-      `Skipping email with SENT label`,
-      options.userEmail,
-      m.message.id,
-      m.message.threadId,
+      "Skipping email with SENT label",
+      userEmail,
+      messageId,
+      threadId,
     );
     return;
   }
 
-  const { userId, userEmail, gmail, about } = options;
-
-  console.log(
-    "Getting message...",
-    options.userEmail,
-    m.message.id,
-    m.message.threadId,
-  );
+  console.log("Getting message...", userEmail, messageId, threadId);
 
   try {
-    const gmailMessage = await getMessage(m.message.id, gmail, "full");
-
-    const gmailThread = await getThread(m.message.threadId!, gmail);
+    const gmailMessage = await getMessage(messageId, gmail, "full");
+    const gmailThread = await getThread(threadId, gmail);
     const isThread = gmailThread.messages && gmailThread.messages.length > 1;
 
-    console.log(
-      "Fetched message",
-      options.userEmail,
-      m.message.id,
-      m.message.threadId,
-    );
+    console.log("Fetched message", userEmail, messageId, threadId);
 
     const parsedMessage = parseMessage(gmailMessage);
 
     if (
-      options.coldEmailBlocker &&
-      options.coldEmailBlocker !== ColdEmailSetting.DISABLED &&
-      options.hasColdEmailAccess &&
+      coldEmailBlocker &&
+      coldEmailBlocker !== ColdEmailSetting.DISABLED &&
+      hasColdEmailAccess &&
       // skip messages in threads
       !isThread
     ) {
@@ -343,7 +345,7 @@ async function processHistoryItem(
       const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
         from: parsedMessage.headers.from,
         date: parsedMessage.headers.date,
-        threadId: m.message.threadId,
+        threadId,
       });
 
       await runColdEmailBlocker({
@@ -353,23 +355,18 @@ async function processHistoryItem(
           from: parsedMessage.headers.from,
           subject: parsedMessage.headers.subject,
           body: parsedMessage.snippet,
-          messageId: m.message.id,
+          messageId,
         },
         userOptions: options,
         gmail,
-        coldEmailBlocker: options.coldEmailBlocker,
+        coldEmailBlocker: coldEmailBlocker,
         userId,
         userEmail,
       });
     }
 
-    if (options.hasAutomationRules && options.hasAiAutomationAccess) {
-      console.log(
-        "Plan or act on message...",
-        options.userEmail,
-        m.message.id,
-        m.message.threadId,
-      );
+    if (hasAutomationRules && hasAiAutomationAccess) {
+      console.log("Plan or act on message...", userEmail, messageId, threadId);
 
       if (
         !parsedMessage.textHtml &&
@@ -378,23 +375,23 @@ async function processHistoryItem(
       ) {
         console.log(
           "Skipping. No plain text found.",
-          options.userEmail,
-          m.message.id,
-          m.message.threadId,
+          userEmail,
+          messageId,
+          threadId,
         );
         return;
       }
 
       const applicableRules = isThread
-        ? options.rules.filter((r) => r.runOnThreads)
-        : options.rules;
+        ? rules.filter((r) => r.runOnThreads)
+        : rules;
 
       if (applicableRules.length === 0) {
         console.log(
           `Skipping thread with ${gmailThread.messages?.length} messages`,
-          options.userEmail,
-          m.message.id,
-          m.message.threadId,
+          userEmail,
+          messageId,
+          threadId,
         );
         return;
       }
@@ -409,8 +406,8 @@ async function processHistoryItem(
           textHtml: parsedMessage.textHtml || null,
           textPlain: parsedMessage.textPlain || null,
           snippet: parsedMessage.snippet,
-          threadId: m.message.threadId,
-          messageId: m.message.id,
+          threadId,
+          messageId,
           headerMessageId: parsedMessage.headers["message-id"] || "",
           // unsubscribeLink,
           // hasPreviousEmail,
@@ -426,13 +423,7 @@ async function processHistoryItem(
         userAbout: about,
       });
 
-      console.log(
-        "Result:",
-        options.userEmail,
-        m.message.id,
-        m.message.threadId,
-        res,
-      );
+      console.log("Result:", userEmail, messageId, threadId, res);
     }
 
     // if (shouldCategorise) {
@@ -444,9 +435,9 @@ async function processHistoryItem(
     //     subject: parsedMessage.headers.subject,
     //     content,
     //     snippet: parsedMessage.snippet,
-    //     threadId: m.message.threadId,
-    //     aiModel: options.aiModel,
-    //     openAIApiKey: options.openAIApiKey,
+    //     threadId: threadId,
+    //     aiModel: aiModel,
+    //     openAIApiKey: openAIApiKey,
     //     unsubscribeLink,
     //     hasPreviousEmail,
     //   },
@@ -458,12 +449,7 @@ async function processHistoryItem(
   } catch (error: any) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
-      console.log(
-        "Message not found.",
-        options.userEmail,
-        m.message.id,
-        m.message.threadId,
-      );
+      console.log("Message not found.", userEmail, messageId, threadId);
       return;
     }
 
