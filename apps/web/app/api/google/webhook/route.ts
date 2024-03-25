@@ -40,12 +40,41 @@ export const POST = withError(async (request: Request) => {
 
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
-  const { historyId } = decodedData;
 
   console.log("Webhook. Processing:", decodedData);
 
+  return await processHistoryForUser(decodedData);
+});
+
+function decodeHistoryId(body: any) {
+  const data = body.message.data;
+
+  // data is base64url-encoded JSON
+  const decodedData: { emailAddress: string; historyId: number | string } =
+    JSON.parse(
+      Buffer.from(data, "base64")
+        .toString()
+        .replace(/-/g, "+")
+        .replace(/_/g, "/"),
+    );
+
+  // seem to get this in different formats? so unifying as number
+  const historyId =
+    typeof decodedData.historyId === "string"
+      ? parseInt(decodedData.historyId)
+      : decodedData.historyId;
+
+  return { emailAddress: decodedData.emailAddress, historyId };
+}
+
+export async function processHistoryForUser(decodedData: {
+  emailAddress: string;
+  historyId: number;
+}) {
+  const { emailAddress: email, historyId } = decodedData;
+
   const account = await prisma.account.findFirst({
-    where: { user: { email: decodedData.emailAddress }, provider: "google" },
+    where: { user: { email }, provider: "google" },
     select: {
       access_token: true,
       refresh_token: true,
@@ -76,10 +105,7 @@ export const POST = withError(async (request: Request) => {
   });
 
   if (!account) {
-    console.error(
-      "Google webhook: Account not found",
-      decodedData.emailAddress,
-    );
+    console.error("Google webhook: Account not found", email);
     return NextResponse.json({ ok: true });
   }
 
@@ -88,10 +114,7 @@ export const POST = withError(async (request: Request) => {
     : undefined;
 
   if (!premium) {
-    console.log(
-      "Google webhook: Account not premium",
-      decodedData.emailAddress,
-    );
+    console.log("Google webhook: Account not premium", email);
     return NextResponse.json({ ok: true });
   }
 
@@ -101,7 +124,7 @@ export const POST = withError(async (request: Request) => {
   if (!hasAiOrColdEmailAccess) {
     console.debug(
       "Google webhook: does not have hasAiOrColdEmailAccess",
-      decodedData.emailAddress,
+      email,
     );
     return NextResponse.json({ ok: true });
   }
@@ -113,7 +136,7 @@ export const POST = withError(async (request: Request) => {
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     console.debug(
       "Google webhook: has no rules set and cold email blocker disabled",
-      decodedData.emailAddress,
+      email,
     );
     return NextResponse.json({ ok: true });
   }
@@ -121,14 +144,14 @@ export const POST = withError(async (request: Request) => {
   if (!account.access_token || !account.refresh_token) {
     console.error(
       "Missing access or refresh token. User needs to re-authenticate.",
-      decodedData.emailAddress,
+      email,
     );
     return NextResponse.json({ ok: true });
   }
 
   if (!account.user.email) {
     // shouldn't ever happen
-    console.error("Missing user email.", decodedData.emailAddress);
+    console.error("Missing user email.", email);
     return NextResponse.json({ ok: true });
   }
 
@@ -154,7 +177,7 @@ export const POST = withError(async (request: Request) => {
       account.user.lastSyncedHistoryId,
       "gmail historyId",
       historyId,
-      decodedData.emailAddress,
+      email,
     );
 
     const history = await gmail.users.history.list({
@@ -168,11 +191,7 @@ export const POST = withError(async (request: Request) => {
     });
 
     if (history.data.history) {
-      console.log(
-        "Webhook: Processing...",
-        decodedData.emailAddress,
-        history.data.historyId,
-      );
+      console.log("Webhook: Processing...", email, history.data.historyId);
 
       const { model, provider } = getAiProviderAndModel(
         account.user.aiProvider,
@@ -183,7 +202,7 @@ export const POST = withError(async (request: Request) => {
         history: history.data.history,
         userId: account.userId,
         userEmail: account.user.email,
-        email: decodedData.emailAddress,
+        email,
         gmail,
         rules: account.user.rules,
         about: account.user.about || "",
@@ -221,27 +240,6 @@ export const POST = withError(async (request: Request) => {
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
     // return NextResponse.error();
   }
-});
-
-function decodeHistoryId(body: any) {
-  const data = body.message.data;
-
-  // data is base64url-encoded JSON
-  const decodedData: { emailAddress: string; historyId: number | string } =
-    JSON.parse(
-      Buffer.from(data, "base64")
-        .toString()
-        .replace(/-/g, "+")
-        .replace(/_/g, "/"),
-    );
-
-  // seem to get this in different formats? so unifying as number
-  const historyId =
-    typeof decodedData.historyId === "string"
-      ? parseInt(decodedData.historyId)
-      : decodedData.historyId;
-
-  return { emailAddress: decodedData.emailAddress, historyId };
 }
 
 type ProcessHistoryOptions = {
