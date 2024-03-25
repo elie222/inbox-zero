@@ -5,6 +5,8 @@ import { z } from "zod";
 import { ActionType, Prisma, PrismaClient } from "@prisma/client";
 import { Redis } from "@upstash/redis";
 
+const processedUserIds: string[] = [];
+
 const prisma = new PrismaClient();
 
 if (!process.env.UPSTASH_REDIS_URL || !process.env.UPSTASH_REDIS_TOKEN) {
@@ -78,6 +80,8 @@ async function migrateUserPlans(userId: string) {
   });
   if (!user) {
     console.error(`User not found for user ${userId}`);
+    processedUserIds.push(userId);
+    console.log("Processed user IDs:", processedUserIds);
     return;
   }
 
@@ -87,11 +91,18 @@ async function migrateUserPlans(userId: string) {
 
   if (!plans) {
     console.log(`No plans found for user ${userId}`);
+    processedUserIds.push(userId);
+    console.log("Processed user IDs:", processedUserIds);
     return;
   }
 
+  const userRules = await prisma.rule.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+
   for (const [index, planData] of Object.entries(plans)) {
-    if (parseInt(index || "0") % 100 === 0)
+    if (parseInt(index || "0") % 10 === 0)
       console.log("plan index:", userId, index);
 
     // Not sure why TS doesn't give me `data`. Quick hack to make it work.
@@ -103,6 +114,17 @@ async function migrateUserPlans(userId: string) {
       continue;
     }
     const plan = planSchema.parse(planData);
+
+    const ruleExists =
+      !plan.rule?.id ||
+      (plan.rule?.id && userRules.some((r) => r.id === plan.rule?.id));
+
+    if (!ruleExists) {
+      console.log(
+        `Rule ${plan.rule?.id} does not exist for user ${userId}. Skipping plan.`,
+      );
+      continue;
+    }
 
     const exists = await prisma.executedRule.findUnique({
       where: {
@@ -187,6 +209,8 @@ async function migrateUserPlans(userId: string) {
     }
   }
 
+  processedUserIds.push(userId);
+  console.log("Processed user IDs:", processedUserIds);
   console.log("Migration completed for", userId);
 }
 
@@ -241,5 +265,6 @@ migratePlansFromRedis()
     process.exit(1);
   })
   .finally(async () => {
+    console.log("Processed user IDs:", processedUserIds);
     await prisma.$disconnect();
   });
