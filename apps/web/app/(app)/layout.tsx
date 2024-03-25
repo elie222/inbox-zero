@@ -9,7 +9,8 @@ import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
 import { AssessUser } from "@/app/(app)/assess";
-import { LastLogin } from "@/app/(app)/lastLogin";
+import { LastLogin } from "@/app/(app)/last-login";
+import { SentryIdentify } from "@/app/(app)/sentry-identify";
 
 export default async function AppLayout({
   children,
@@ -28,8 +29,7 @@ export default async function AppLayout({
       <SideNavWithTopNav>{children}</SideNavWithTopNav>
       <Suspense>
         <AssessUser />
-      </Suspense>
-      <Suspense>
+        <SentryIdentify email={session.user.email} />
         <LastLogin email={session.user.email} />
       </Suspense>
       <Suspense>
