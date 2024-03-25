@@ -3,7 +3,7 @@ import { type gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
-import { INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
+import { DRAFT_LABEL_ID, INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
@@ -191,7 +191,7 @@ export async function processHistoryForUser(
       startHistoryId,
       labelId: INBOX_LABEL_ID,
       historyTypes: ["messageAdded"],
-      maxResults: 100,
+      maxResults: 500,
     });
 
     if (history.data.history) {
@@ -311,12 +311,12 @@ async function processHistoryItem(
 
   // skip emails the user sent
   if (message.labelIds?.includes(SENT_LABEL_ID)) {
-    console.log(
-      "Skipping email with SENT label",
-      userEmail,
-      messageId,
-      threadId,
-    );
+    console.log("Skipping SENT email", userEmail, messageId, threadId);
+    return;
+  }
+  // skip drafts
+  if (message.labelIds?.includes(DRAFT_LABEL_ID)) {
+    console.log("Skipping DRAFT email", userEmail, messageId, threadId);
     return;
   }
 
