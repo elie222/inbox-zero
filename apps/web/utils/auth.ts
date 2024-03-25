@@ -147,6 +147,11 @@ export const authOptions = getAuthOptions();
 const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   const account = await prisma.account.findFirst({
     where: { userId: token.sub as string, provider: "google" },
+    select: {
+      userId: true,
+      refresh_token: true,
+      providerAccountId: true,
+    },
   });
 
   if (!account) {
