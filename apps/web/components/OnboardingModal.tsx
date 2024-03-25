@@ -1,6 +1,7 @@
 "use client";
 
 import { PlayIcon } from "lucide-react";
+import { useWindowSize } from "usehooks-ts";
 import { useModal } from "@/components/Modal";
 import { YouTubeVideo } from "@/components/YouTubeVideo";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,10 @@ export function OnboardingModal({
   videoId: string;
 }) {
   const { isModalOpen, openModal, setIsModalOpen } = useModal();
+  const { width } = useWindowSize();
+
+  const videoWidth = Math.min(width * 0.75, 1200);
+  const videoHeight = videoWidth * (675 / 1200);
 
   return (
     <>
@@ -31,7 +36,7 @@ export function OnboardingModal({
       </Button>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="lg:min-w-[880px] xl:min-w-[1280px]">
+        <DialogContent className="min-w-[350px] sm:min-w-[600px] md:min-w-[750px] lg:min-w-[880px] xl:min-w-[1280px]">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
@@ -41,8 +46,8 @@ export function OnboardingModal({
             videoId={videoId}
             iframeClassName="mx-auto"
             opts={{
-              height: "675",
-              width: "1200",
+              height: `${videoHeight}`,
+              width: `${videoWidth}`,
               playerVars: {
                 // https://developers.google.com/youtube/player_parameters
                 autoplay: 1,
