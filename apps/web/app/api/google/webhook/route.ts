@@ -17,12 +17,27 @@ import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { getAiProviderAndModel } from "@/utils/llms";
+import { env } from "@/env.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request: Request) => {
+  const searchParams = new URL(request.url).searchParams;
+  if (
+    env.GOOGLE_PUBSUB_VERIFICATION_TOKEN &&
+    searchParams.get("token") !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN
+  ) {
+    console.error("Invalid verification token");
+    return NextResponse.json(
+      {
+        message: "Invalid verification token",
+      },
+      { status: 403 },
+    );
+  }
+
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
   const { historyId } = decodedData;

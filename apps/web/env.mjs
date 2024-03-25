@@ -14,6 +14,7 @@ export const env = createEnv({
     UPSTASH_REDIS_URL: z.string().min(1),
     UPSTASH_REDIS_TOKEN: z.string().min(1),
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
     BASELIME_PROJECT_NAME: z.string().optional(),
     BASELIME_KEY: z.string().optional(),
     SENTRY_AUTH_TOKEN: z.string().optional(),
