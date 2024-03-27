@@ -5,6 +5,7 @@ import { Menu, Transition } from "@headlessui/react";
 import { Button } from "@/components/Button";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
 import { logOut } from "@/utils/user";
+import Link from "@/node_modules/next/link";
 
 const userNavigation = [
   { name: "Usage", href: "/usage" },
@@ -88,7 +89,7 @@ function ProfileDropdown() {
             {userNavigation.map((item) => (
               <Menu.Item key={item.name}>
                 {({ active }) => (
-                  <a
+                  <Link
                     href={item.href}
                     className={clsx(
                       active ? "bg-gray-50" : "",
@@ -97,7 +98,7 @@ function ProfileDropdown() {
                     onClick={item.onClick}
                   >
                     {item.name}
-                  </a>
+                  </Link>
                 )}
               </Menu.Item>
             ))}
