@@ -1,3 +1,4 @@
+import uniqBy from "lodash/uniqBy";
 import { NextResponse } from "next/server";
 import { type gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
@@ -179,8 +180,8 @@ export async function processHistoryForUser(
       startHistoryId,
       "lastSyncedHistoryId",
       account.user.lastSyncedHistoryId,
-      "gmail historyId",
-      historyId,
+      "gmailHistoryId",
+      startHistoryId,
       email,
     );
 
@@ -190,12 +191,17 @@ export async function processHistoryForUser(
       // NOTE this doesn't include startHistoryId in the results
       startHistoryId,
       labelId: INBOX_LABEL_ID,
-      historyTypes: ["messageAdded"],
+      historyTypes: ["messageAdded", "labelAdded"],
       maxResults: 500,
     });
 
     if (history.data.history) {
-      console.log("Webhook: Processing...", email, history.data.historyId);
+      console.log(
+        "Webhook: Processing...",
+        email,
+        startHistoryId,
+        history.data.historyId,
+      );
 
       const { model, provider } = getAiProviderAndModel(
         account.user.aiProvider,
@@ -267,9 +273,22 @@ async function processHistory(options: ProcessHistoryOptions) {
   if (!history?.length) return;
 
   for (const h of history) {
-    if (!h.messagesAdded?.length) continue;
+    const historyMessages = [
+      ...(h.messagesAdded || []),
+      ...(h.labelsAdded || []),
+    ];
 
-    for (const m of h.messagesAdded) {
+    if (!historyMessages.length) continue;
+
+    const inboxMessages = historyMessages.filter(
+      (m) =>
+        m.message?.labelIds?.includes(INBOX_LABEL_ID) &&
+        !m.message?.labelIds?.includes(DRAFT_LABEL_ID) &&
+        !m.message?.labelIds?.includes(SENT_LABEL_ID),
+    );
+    const uniqueMessages = uniqBy(inboxMessages, (m) => m.message?.id);
+
+    for (const m of uniqueMessages) {
       try {
         await processHistoryItem(m, options);
       } catch (error) {
@@ -288,7 +307,7 @@ async function processHistory(options: ProcessHistoryOptions) {
 }
 
 async function processHistoryItem(
-  m: gmail_v1.Schema$HistoryMessageAdded,
+  m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   options: ProcessHistoryOptions,
 ) {
   const message = m.message;
@@ -309,22 +328,28 @@ async function processHistoryItem(
   if (!messageId) return;
   if (!threadId) return;
 
-  // skip emails the user sent
-  if (message.labelIds?.includes(SENT_LABEL_ID)) {
-    console.log("Skipping SENT email", userEmail, messageId, threadId);
-    return;
-  }
-  // skip drafts
-  if (message.labelIds?.includes(DRAFT_LABEL_ID)) {
-    console.log("Skipping DRAFT email", userEmail, messageId, threadId);
-    return;
-  }
-
   console.log("Getting message...", userEmail, messageId, threadId);
 
   try {
-    const gmailMessage = await getMessage(messageId, gmail, "full");
-    const gmailThread = await getThread(threadId, gmail);
+    const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
+      getMessage(messageId, gmail, "full"),
+      getThread(threadId, gmail),
+      prisma.executedRule.findUnique({
+        where: { unique_user_thread_message: { userId, threadId, messageId } },
+        select: { id: true },
+      }),
+    ]);
+
+    if (hasExistingRule) {
+      console.log(
+        "Skipping. Rule already exists.",
+        userEmail,
+        messageId,
+        threadId,
+      );
+      return;
+    }
+
     const isThread = gmailThread.messages && gmailThread.messages.length > 1;
 
     console.log("Fetched message", userEmail, messageId, threadId);
