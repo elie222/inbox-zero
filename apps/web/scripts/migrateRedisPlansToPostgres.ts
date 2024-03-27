@@ -101,6 +101,15 @@ async function migrateUserPlans(userId: string) {
     select: { id: true },
   });
 
+  const threadIds = plans.map((plan) => plan.threadId);
+  const existingPlans = await prisma.executedRule.findMany({
+    where: {
+      userId,
+      threadId: { in: threadIds },
+    },
+    select: { messageId: true, threadId: true },
+  });
+
   for (const [index, planData] of Object.entries(plans)) {
     if (parseInt(index || "0") % 10 === 0)
       console.log("plan index:", userId, index);
@@ -126,16 +135,9 @@ async function migrateUserPlans(userId: string) {
       continue;
     }
 
-    const exists = await prisma.executedRule.findUnique({
-      where: {
-        unique_user_thread_message: {
-          userId,
-          threadId: plan.threadId,
-          messageId: plan.messageId,
-        },
-      },
-      select: { id: true },
-    });
+    const exists = existingPlans.find(
+      (p) => p.threadId === plan.threadId && p.messageId === plan.messageId,
+    );
 
     if (exists) {
       console.log(
