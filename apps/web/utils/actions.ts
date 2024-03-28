@@ -32,6 +32,7 @@ import {
   markReadThread,
 } from "@/utils/gmail/label";
 import {
+  cancelSubScriptionForUser,
   getLemonCustomer,
   updateSubscriptionItemQuantity,
 } from "@/app/api/lemon-squeezy/api";
@@ -82,6 +83,21 @@ export async function deleteAccountAction() {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      premium: {
+        select: {
+          id: true,
+          tier: true,
+          lemonSqueezySubscriptionId: true,
+        },
+      },
+    },
+  });
+
+  const lemonSqueezySubscriptionId = user?.premium?.lemonSqueezySubscriptionId;
+
   try {
     await Promise.allSettled([
       deleteUserLabels({ email: session.user.email }),
@@ -98,7 +114,10 @@ export async function deleteAccountAction() {
     captureException(error);
   }
 
-  await prisma.user.delete({ where: { email: session.user.email } });
+  if (lemonSqueezySubscriptionId)
+    await cancelSubScriptionForUser(lemonSqueezySubscriptionId);
+
+  // await prisma.user.delete({ where: { email: session.user.email } });
 }
 
 export async function updateLabels(

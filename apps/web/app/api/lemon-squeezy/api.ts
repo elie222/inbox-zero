@@ -2,6 +2,7 @@
 
 import { env } from "@/env.mjs";
 import {
+  cancelSubscription,
   lemonSqueezySetup,
   updateSubscriptionItem,
   getCustomer,
@@ -27,6 +28,12 @@ export async function updateSubscriptionItemQuantity(options: {
   });
 }
 
+export async function cancelSubScriptionForUser(
+  lemonSqueezySubscriptionId: string | number,
+) {
+  setUpLemon();
+  await cancelSubscription(lemonSqueezySubscriptionId);
+}
 export async function getLemonCustomer(customerId: string) {
   setUpLemon();
   return getCustomer(customerId, { include: ["subscriptions", "orders"] });
