@@ -47,7 +47,7 @@ import { HtmlEmail } from "@/components/email-list/EmailPanel";
 import { ViewMoreButton } from "@/app/(app)/simple/ViewMoreButton";
 
 export function SimpleList(props: {
-  initialMessages: ParsedMessage[];
+  messages: ParsedMessage[];
   nextPageToken?: string | null;
   userEmail: string;
   type: string;
@@ -55,26 +55,36 @@ export function SimpleList(props: {
   const { toHandleLater, onSetHandled, onSetToHandleLater } =
     useSimpleProgress();
 
-  const [messages, setMessages] = useState(props.initialMessages);
+  const [unsubscribed, setUnsubscribed] = useState([]);
   const router = useRouter();
 
   const [parent] = useAutoAnimate();
 
   const [isPending, startTransition] = useTransition();
 
-  const toArchive = messages
+  const toArchive = props.messages
     .filter((m) => !toHandleLater[m.id])
     .map((m) => m.threadId);
 
   const handleUnsubscribe = (id) => {
-    setMessages(messages.filter((message) => message.id !== id));
+    const message = props.messages.find((item) => item.id === id);
+    if (message) {
+      setUnsubscribed((currentUnsubscribed) => [
+        ...currentUnsubscribed,
+        message,
+      ]);
+    }
   };
 
   return (
     <>
       <div className="mt-8 grid gap-4" ref={parent}>
-        {messages
-          .filter((m) => !toHandleLater[m.id])
+        {props.messages
+          .filter(
+            (m) =>
+              !toHandleLater[m.id] &&
+              !unsubscribed.find((unsub) => unsub.id === m.id),
+          )
           .map((message) => {
             return (
               <SimpleListRow
@@ -87,7 +97,11 @@ export function SimpleList(props: {
               />
             );
           })}
-        {messages.length === 0 && <Celebration message="All emails handled!" />}
+        {props.messages.filter(
+          (m) =>
+            !toHandleLater[m.id] &&
+            !unsubscribed.find((unsub) => unsub.id === m.id),
+        ).length === 0 && <Celebration message="All emails handled!" />}
       </div>
 
       <div className="mt-8 flex justify-center">
