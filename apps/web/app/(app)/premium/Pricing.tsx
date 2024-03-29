@@ -198,7 +198,7 @@ export function Pricing() {
                   {tier.priceAdditional ? (
                     <p className="mt-3 text-sm leading-6 text-gray-500">
                       +{tier.priceAdditional[frequency.value]} for each
-                      additional email
+                      additional email account
                     </p>
                   ) : (
                     <div className="mt-16" />
