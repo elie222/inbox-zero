@@ -31,7 +31,9 @@ export default function NewEmailSenders() {
       <Testimonials />
       <FeaturesNewSenders />
       <Suspense>
-        <Pricing />
+        <div className="pb-32">
+          <Pricing />
+        </div>
       </Suspense>
       <FAQs />
       <CTA />

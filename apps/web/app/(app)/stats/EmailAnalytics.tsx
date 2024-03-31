@@ -5,7 +5,6 @@ import { sortBy } from "lodash";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { DateRange } from "react-day-picker";
-import Link from "next/link";
 import { Text, Title } from "@tremor/react";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { CategoryStatsResponse } from "@/app/api/user/stats/categories/route";
@@ -19,6 +18,7 @@ import { getGmailSearchUrl } from "@/utils/url";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { usePremium } from "@/components/PremiumAlert";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
@@ -33,7 +33,7 @@ export function EmailAnalytics(props: {
     `/api/user/stats/senders?${new URLSearchParams(params as any)}`,
     {
       refreshInterval: props.refreshInterval,
-    }
+    },
   );
 
   const {
@@ -44,7 +44,7 @@ export function EmailAnalytics(props: {
     `/api/user/stats/recipients?${new URLSearchParams(params as any)}`,
     {
       refreshInterval: props.refreshInterval,
-    }
+    },
   );
   const {
     data: dataCategories,
@@ -54,10 +54,12 @@ export function EmailAnalytics(props: {
     `/api/user/stats/categories?${new URLSearchParams(params as any)}`,
     {
       refreshInterval: props.refreshInterval,
-    }
+    },
   );
 
   const { isPremium } = usePremium();
+
+  const { openModal, PremiumModal } = usePremiumModal();
 
   const { expanded, extra } = useExpanded();
 
@@ -143,7 +145,7 @@ export function EmailAnalytics(props: {
               col2="Emails"
               data={sortBy(
                 Object.entries(dataCategories.countByCategory),
-                ([, count]) => -count
+                ([, count]) => -count,
               )
                 .slice(0, expanded ? undefined : 5)
                 .map(([category, count]) => ({
@@ -164,9 +166,10 @@ export function EmailAnalytics(props: {
                     <Text className="mt-1">
                       Upgrade to premium to use AI categorisation.
                     </Text>
-                    <Button className="mt-4 w-full">
-                      <Link href="/premium">Upgrade</Link>
+                    <Button className="mt-4 w-full" onClick={openModal}>
+                      Upgrade
                     </Button>
+                    <PremiumModal />
                   </Card>
                 </div>
               </div>

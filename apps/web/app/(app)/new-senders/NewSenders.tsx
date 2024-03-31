@@ -37,6 +37,7 @@ import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";
 import { DateRange } from "react-day-picker";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function NewSenders(props: {
   dateRange?: DateRange | undefined;
@@ -94,6 +95,8 @@ export function NewSenders(props: {
     hasUnsubscribeAccess,
     mutate,
   });
+
+  const { openModal, PremiumModal } = usePremiumModal();
 
   return (
     <>
@@ -196,6 +199,7 @@ export function NewSenders(props: {
                       }}
                       hasUnsubscribeAccess={hasUnsubscribeAccess}
                       refetchPremium={refetchPremium}
+                      openPremiumModal={openModal}
                     />
                   );
                 })}
@@ -209,6 +213,7 @@ export function NewSenders(props: {
         onClose={() => setOpenedNewsletter(undefined)}
         refreshInterval={props.refreshInterval}
       />
+      <PremiumModal />
     </>
   );
 }
@@ -270,8 +275,10 @@ function NewSenderRow(props: {
   onSelectRow: () => void;
   hasUnsubscribeAccess: boolean;
   refetchPremium: () => Promise<any>;
+  openPremiumModal: () => void;
 }) {
-  const { item, firstEmail, numberOfEmails, refetchPremium } = props;
+  const { item, firstEmail, numberOfEmails, refetchPremium, openPremiumModal } =
+    props;
 
   return (
     <TableRow
@@ -298,6 +305,7 @@ function NewSenderRow(props: {
           setOpenedNewsletter={props.setOpenedNewsletter}
           selected={props.selected}
           gmailLabels={props.gmailLabels}
+          openPremiumModal={openPremiumModal}
         />
       </TableCell>
     </TableRow>

@@ -84,6 +84,7 @@ export function ActionCell<T extends Row>(props: {
   setOpenedNewsletter: React.Dispatch<React.SetStateAction<T | undefined>>;
   selected: boolean;
   gmailLabels: LabelsResponse["labels"];
+  openPremiumModal: () => void;
 }) {
   const {
     item,
@@ -111,7 +112,10 @@ export function ActionCell<T extends Row>(props: {
 
   return (
     <>
-      <PremiumTooltip showTooltip={!hasUnsubscribeAccess}>
+      <PremiumTooltip
+        showTooltip={!hasUnsubscribeAccess}
+        openModal={props.openPremiumModal}
+      >
         <Button
           size="sm"
           variant={
@@ -161,7 +165,9 @@ export function ActionCell<T extends Row>(props: {
       </PremiumTooltip>
       <Tooltip
         contentComponent={
-          !hasUnsubscribeAccess ? <PremiumTooltipContent /> : undefined
+          !hasUnsubscribeAccess ? (
+            <PremiumTooltipContent openModal={props.openPremiumModal} />
+          ) : undefined
         }
         content={
           hasUnsubscribeAccess
@@ -303,7 +309,9 @@ export function ActionCell<T extends Row>(props: {
       </Tooltip>
       <Tooltip
         contentComponent={
-          !hasUnsubscribeAccess ? <PremiumTooltipContent /> : undefined
+          !hasUnsubscribeAccess ? (
+            <PremiumTooltipContent openModal={props.openPremiumModal} />
+          ) : undefined
         }
         content={
           hasUnsubscribeAccess

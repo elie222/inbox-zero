@@ -60,7 +60,7 @@ export function Pricing() {
     <LoadingContent loading={isLoading} error={error}>
       <div
         id="pricing"
-        className="relative isolate mx-auto max-w-7xl bg-white px-6 pb-32 pt-10 lg:px-8"
+        className="relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8"
       >
         <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
           <h2 className="font-cal text-base leading-7 text-blue-600">

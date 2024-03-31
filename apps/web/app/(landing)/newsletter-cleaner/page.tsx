@@ -25,7 +25,9 @@ export default function NewsletterCleaner() {
       <Testimonials />
       <FeaturesUnsubscribe />
       <Suspense>
-        <Pricing />
+        <div className="pb-32">
+          <Pricing />
+        </div>
       </Suspense>
       <FAQs />
       <CTA />

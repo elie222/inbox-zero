@@ -25,6 +25,7 @@ import { PremiumTier } from "@prisma/client";
 import { env } from "@/env.mjs";
 import { getUserTier } from "@/utils/premium";
 import { captureException } from "@/utils/error";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function MultiAccountSection() {
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
@@ -38,6 +39,8 @@ export function MultiAccountSection() {
   } = usePremium();
 
   const premiumTier = getUserTier(dataPremium?.premium);
+
+  const { openModal, PremiumModal } = usePremiumModal();
 
   return (
     <FormSection id="manage-users">
@@ -83,8 +86,9 @@ export function MultiAccountSection() {
               title="Upgrade"
               description="Upgrade to premium to share premium with other email addresses."
               icon={<CrownIcon className="h-4 w-4" />}
-              button={<Button link={{ href: "/premium" }}>Upgrade</Button>}
+              button={<Button onClick={openModal}>Upgrade</Button>}
             />
+            <PremiumModal />
           </div>
         )}
       </LoadingContent>
