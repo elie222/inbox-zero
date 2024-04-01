@@ -242,11 +242,11 @@ export function Pricing() {
           })}
         </div>
 
-        <LifetimePricing
+        {/* <LifetimePricing
           user={session.data?.user}
           affiliateCode={affiliateCode}
           premiumTier={premiumTier}
-        />
+        /> */}
       </div>
     </LoadingContent>
   );
