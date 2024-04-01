@@ -60,7 +60,6 @@ export function OnboardingModalDialog({
   const videoWidth = Math.min(width * 0.75, 1200);
   const videoHeight = videoWidth * (675 / 1200);
 
-  console.log("🚀 ~ isModalOpen:", isModalOpen);
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogContent className="min-w-[350px] sm:min-w-[600px] md:min-w-[750px] lg:min-w-[880px] xl:min-w-[1280px]">
