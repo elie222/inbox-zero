@@ -10,6 +10,8 @@ import { PageHeading } from "@/components/Typography";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload } from "@/utils/types";
+import { SimpleModeOnboarding } from "@/app/(app)/simple/SimpleModeOnboarding";
+import { ClientOnly } from "@/components/ClientOnly";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +76,9 @@ export default async function SimplePage({
           userEmail={email}
           type={type}
         />
+        <ClientOnly>
+          <SimpleModeOnboarding />
+        </ClientOnly>
       </div>
     </div>
   );
