@@ -104,7 +104,7 @@ ${rule.instructions}`,
     await saveAiUsage({
       email: userEmail,
       usage: aiResponse.usage,
-      provider: user.aiProvider,
+      provider,
       model,
       label: "Categorize rule",
     });
