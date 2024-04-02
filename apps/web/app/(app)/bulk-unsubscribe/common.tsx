@@ -102,11 +102,7 @@ export function ActionCell<T extends Row>(props: {
   const posthog = usePostHog();
 
   const userGmailLabels = useMemo(
-    () =>
-      gmailLabels?.filter(
-        (l) =>
-          l.id && l.type === "user" && l.labelListVisibility === "labelShow",
-      ),
+    () => gmailLabels?.filter((l) => l.id && l.type === "user"),
     [gmailLabels],
   );
 
