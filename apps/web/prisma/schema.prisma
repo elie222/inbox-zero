@@ -78,6 +78,7 @@ model User {
   rules         Rule[]
   executedRules ExecutedRule[]
   newsletters   Newsletter[]
+  groups        Group[]
 }
 
 model Premium {
@@ -192,7 +193,7 @@ model ExecutedRule {
 
   // may be null if the rule was deleted
   ruleId String?
-  rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  rule   Rule?   @relation(fields: [ruleId], references: [id])
 
   // storing user here in case rule was deleted
   userId String
@@ -218,6 +219,27 @@ model ExecutedAction {
   to      String?
   cc      String?
   bcc     String?
+}
+
+model Group {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  name      String
+  items     GroupItem[]
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GroupItem {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  name      String
+  groupId   String?
+  group     Group?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  type      GroupItemType
+  value     String // eg "@gmail.com", "matt@gmail.com", "Receipt from"
 }
 
 // Represents a sender (`email`) that a user can unsubscribe from,
@@ -296,4 +318,10 @@ enum ExecutedRuleStatus {
   REJECTED
   PENDING
   SKIPPED
+}
+
+enum GroupItemType {
+  FROM
+  SUBJECT
+  BODY
 }

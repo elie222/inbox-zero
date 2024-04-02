@@ -41,6 +41,8 @@ import { markSpam } from "@/utils/gmail/spam";
 import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getAiProviderAndModel } from "@/utils/llms";
+import { revalidatePath } from "next/cache";
+import { CreateGroupBody } from "@/utils/actions-validation";
 
 export async function createLabelAction(options: {
   name: string;
@@ -520,4 +522,15 @@ async function createPremiumForUser(userId: string) {
   return await prisma.premium.create({
     data: { users: { connect: { id: userId } } },
   });
+}
+
+export async function createGroupAction({ name }: CreateGroupBody) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.group.create({
+    data: { name, userId: session.user.id },
+  });
+
+  revalidatePath("/groups");
 }
