@@ -102,7 +102,10 @@ export function ActionCell<T extends Row>(props: {
   const posthog = usePostHog();
 
   const userGmailLabels = useMemo(
-    () => gmailLabels?.filter((l) => l.id && l.type === "user"),
+    () =>
+      gmailLabels
+        ?.filter((l) => l.id && l.type === "user")
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
     [gmailLabels],
   );
 
