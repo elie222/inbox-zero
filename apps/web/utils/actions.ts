@@ -20,7 +20,7 @@ import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
 import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { trashMessage, trashThread } from "@/utils/gmail/trash";
 import { env } from "@/env.mjs";
 import { isOnHigherTier, isPremium } from "@/utils/premium";
@@ -43,6 +43,8 @@ import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getAiProviderAndModel } from "@/utils/llms";
 import { revalidatePath } from "next/cache";
 import { CreateGroupBody } from "@/utils/actions-validation";
+import { findNewsletters } from "@/utils/ai/group/find-newsletters";
+import { findReceipts } from "@/utils/ai/group/find-receipts";
 
 export async function createLabelAction(options: {
   name: string;
@@ -524,13 +526,79 @@ async function createPremiumForUser(userId: string) {
   });
 }
 
-export async function createGroupAction({ name }: CreateGroupBody) {
+export async function createGroupAction({ name, prompt }: CreateGroupBody) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
   await prisma.group.create({
-    data: { name, userId: session.user.id },
+    data: { name, prompt, userId: session.user.id },
   });
 
   revalidatePath("/groups");
+}
+
+export async function createNewsletterGroupAction({ name }: CreateGroupBody) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const gmail = getGmailClient(session);
+  const token = await getGmailAccessToken(session);
+  const newsletters = await findNewsletters(gmail, token.token!);
+
+  await prisma.group.create({
+    data: {
+      name,
+      userId: session.user.id,
+      items: {
+        create: newsletters.map((newsletter) => ({
+          type: "FROM",
+          value: newsletter,
+        })),
+      },
+    },
+  });
+
+  revalidatePath("/groups");
+}
+
+export async function createReceiptGroupAction({ name }: CreateGroupBody) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const gmail = getGmailClient(session);
+  const token = await getGmailAccessToken(session);
+  const receipts = await findReceipts(gmail, token.token!);
+
+  await prisma.group.create({
+    data: {
+      name,
+      userId: session.user.id,
+      items: {
+        create: receipts.map((receipt) => ({
+          type: "FROM",
+          value: receipt,
+        })),
+      },
+    },
+  });
+
+  revalidatePath("/groups");
+}
+
+export async function deleteGroupAction(id: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.group.delete({ where: { id, userId: session.user.id } });
+
+  revalidatePath("/groups");
+}
+
+export async function deleteGroupItemAction(id: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.groupItem.delete({
+    where: { id, group: { userId: session.user.id } },
+  });
 }

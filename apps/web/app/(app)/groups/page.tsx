@@ -24,6 +24,7 @@ export default async function GroupsPage() {
     select: {
       id: true,
       name: true,
+      _count: { select: { items: true } },
     },
     orderBy: {
       name: "desc",
@@ -52,7 +53,9 @@ export default async function GroupsPage() {
               {groups.map((group) => (
                 <TableRow key={group.id}>
                   <TableCell>{group.name}</TableCell>
-                  <TableCell className="text-center">25</TableCell>
+                  <TableCell className="text-center">
+                    {group._count.items}
+                  </TableCell>
                   <TableCell className="p-3 text-center">
                     <ViewGroupButton groupId={group.id} name={group.name} />
                   </TableCell>

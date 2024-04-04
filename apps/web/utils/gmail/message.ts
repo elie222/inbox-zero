@@ -1,6 +1,12 @@
 import { type gmail_v1 } from "googleapis";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload, isDefined } from "@/utils/types";
+import {
+  BatchError,
+  MessageWithPayload,
+  MessageWithPayloadAndParsedMessage,
+  isBatchError,
+  isDefined,
+} from "@/utils/types";
 import { getBatch } from "@/utils/gmail/batch";
 
 export async function getMessage(
@@ -23,18 +29,30 @@ export async function getMessagesBatch(
 ) {
   if (messageIds.length > 100) throw new Error("Too many messages. Max 100");
 
-  const batch: MessageWithPayload[] = await getBatch(
+  const batch: (MessageWithPayload | BatchError)[] = await getBatch(
     messageIds,
     "/gmail/v1/users/me/messages",
     accessToken,
   );
 
-  const messages = batch.map((message) => {
-    return {
-      ...message,
-      parsedMessage: parseMessage(message),
-    };
-  });
+  const messages = batch
+    .map((message) => {
+      if (isBatchError(message)) {
+        // TODO need a better way to handle this
+        console.error(
+          `Error fetching message ${message.error.code} ${message.error.message}`,
+        );
+        return;
+      }
+
+      const parsedMessage = parseMessage(message as MessageWithPayload);
+
+      return {
+        ...message,
+        parsedMessage,
+      };
+    })
+    .filter(isDefined);
 
   return messages;
 }
@@ -91,14 +109,47 @@ export async function queryBatchMessages(
   accessToken: string,
   {
     query,
-    maxResults,
+    maxResults = 25,
   }: {
     query?: string;
     maxResults?: number;
   },
 ) {
+  if (maxResults > 25) {
+    throw new Error(
+      "Max results must be 25 or Google will rate limit us and return 429 errors.",
+    );
+  }
+
   const messages = await getMessages(gmail, { query, maxResults });
-  if (!messages.messages) return [];
+  if (!messages.messages) return { messages: [], nextPageToken: undefined };
   const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
-  return getMessagesBatch(messageIds, accessToken);
+  return {
+    messages: (await getMessagesBatch(messageIds, accessToken)) || [],
+    nextPageToken: messages.nextPageToken,
+  };
+}
+
+// loops through multiple pages of messages
+export async function queryBatchMessagesPages(
+  gmail: gmail_v1.Gmail,
+  accessToken: string,
+  {
+    query,
+    maxResults,
+  }: {
+    query: string;
+    maxResults: number;
+  },
+) {
+  const messages: MessageWithPayloadAndParsedMessage[] = [];
+  let nextPageToken: string | undefined;
+  do {
+    const { messages: pageMessages, nextPageToken: pageNextPageToken } =
+      await queryBatchMessages(gmail, accessToken, { query, maxResults: 25 });
+    messages.push(...pageMessages);
+    nextPageToken = pageNextPageToken || undefined;
+  } while (nextPageToken && messages.length < maxResults);
+
+  return messages;
 }

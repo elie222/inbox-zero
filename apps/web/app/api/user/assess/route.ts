@@ -106,13 +106,13 @@ async function getForwardingAddressesCount(gmail: gmail_v1.Gmail) {
 
 async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
   try {
-    const sentMessages = await queryBatchMessages(gmail, accessToken, {
+    const { messages } = await queryBatchMessages(gmail, accessToken, {
       query: "from:me",
       maxResults: 20,
     });
 
     // go through the messages, and check the headers for the email client
-    const clients = sentMessages
+    const clients = messages
       .map((message) => {
         const parsedMessage = parseMessage(message);
         return (

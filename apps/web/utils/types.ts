@@ -11,6 +11,21 @@ export function isDefined<T>(value: T | undefined | null): value is T {
 
 export type RuleWithActions = Rule & { actions: Action[] };
 
+export type BatchError = {
+  error: {
+    code: number;
+    message: string;
+    errors: any[][];
+    status: string;
+  };
+};
+
+export function isBatchError(
+  message: MessageWithPayload | BatchError,
+): message is BatchError {
+  return (message as BatchError).error !== undefined;
+}
+
 // export type ChatCompletionResponse = {
 //   choices: { message: Message }[];
 //   usage: {
@@ -38,6 +53,10 @@ export type RuleWithActions = Rule & { actions: Action[] };
 
 export type MessageWithPayload = gmail_v1.Schema$Message & {
   payload: gmail_v1.Schema$MessagePart;
+};
+
+export type MessageWithPayloadAndParsedMessage = MessageWithPayload & {
+  parsedMessage: ParsedMessage;
 };
 
 export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
