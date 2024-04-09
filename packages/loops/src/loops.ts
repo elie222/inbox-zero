@@ -13,13 +13,16 @@ function getLoopsClient(): LoopsClient | undefined {
   return loops;
 }
 
-export async function createContact(email: string): Promise<{
+export async function createContact(
+  email: string,
+  firstName?: string,
+): Promise<{
   success: boolean;
   id?: string;
 }> {
   const loops = getLoopsClient();
   if (!loops) return { success: false };
-  const resp = await loops.createContact(email);
+  const resp = await loops.createContact(email, firstName ? { firstName } : {});
   return resp;
 }
 
@@ -29,5 +32,27 @@ export async function deleteContact(
   const loops = getLoopsClient();
   if (!loops) return { success: false };
   const resp = await loops.deleteContact({ email });
+  return resp;
+}
+
+export async function upgradedToPremium(
+  email: string,
+  tier: string,
+): Promise<{ success: boolean }> {
+  const loops = getLoopsClient();
+  if (!loops) return { success: false };
+  const resp = await loops.sendEvent(email, "upgraded", { tier });
+  return resp;
+}
+
+export async function cancelledPremium(
+  email: string,
+): Promise<{ success: boolean }> {
+  const loops = getLoopsClient();
+  if (!loops) return { success: false };
+  const resp = await loops.sendEvent(email, "cancelled", {
+    tier: "",
+    cancelled: true,
+  });
   return resp;
 }
