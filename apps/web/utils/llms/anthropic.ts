@@ -1,8 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { ChatAnthropicTools } from "@langchain/anthropic/experimental";
+import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage } from "@langchain/core/messages";
 import { ChatCompletionTool } from "openai/resources/index";
-import { ToolDefinition } from "@langchain/core/language_models/base";
 import { env } from "@/env.mjs";
 
 export const DEFAULT_ANTHROPIC_MODEL = "claude-3-haiku-20240307";
@@ -64,25 +63,18 @@ export async function anthropicChatCompletionTools(
   }>,
   tools: Array<ChatCompletionTool>,
 ) {
-  // Using `ChatAnthropicTools` for function calling with Anthropic models. Doesn't work great right now.
-  const anthropic = new ChatAnthropicTools({
+  const anthropic = new ChatAnthropic({
     modelName: model,
     anthropicApiKey: apiKey || env.ANTHROPIC_API_KEY,
   });
 
-  anthropic.bind({
-    tools: tools as ToolDefinition[],
-    // You can set the `function_call` arg to force the model to use a function
-    tool_choice:
-      tools.length === 1
-        ? {
-            type: "function",
-            function: {
-              name: tools[0].function.name,
-            },
-          }
-        : undefined,
-  });
+  const anthropicTools = tools.map((tool) => ({
+    name: tool.function.name,
+    description: tool.function.description || "",
+    input_schema: tool.function.parameters || {},
+  }));
+
+  anthropic.bind({ tools: anthropicTools });
 
   const response = await anthropic.invoke([
     new HumanMessage({
