@@ -31,3 +31,25 @@ export async function deleteContact(
   const resp = await loops.deleteContact({ email });
   return resp;
 }
+
+export async function upgradedToPremium(
+  email: string,
+  tier: string,
+): Promise<{ success: boolean }> {
+  const loops = getLoopsClient();
+  if (!loops) return { success: false };
+  const resp = await loops.sendEvent(email, "upgraded", { tier });
+  return resp;
+}
+
+export async function cancelledPremium(
+  email: string,
+): Promise<{ success: boolean }> {
+  const loops = getLoopsClient();
+  if (!loops) return { success: false };
+  const resp = await loops.sendEvent(email, "cancelled", {
+    tier: "",
+    cancelled: true,
+  });
+  return resp;
+}

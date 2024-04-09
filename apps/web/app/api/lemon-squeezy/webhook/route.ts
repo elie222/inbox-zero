@@ -12,6 +12,7 @@ import {
 } from "@/utils/premium/server";
 import { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { PremiumTier } from "@prisma/client";
+import { cancelledPremium, upgradedToPremium } from "@inboxzero/loops";
 
 export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
@@ -114,9 +115,11 @@ async function subscriptionCreated({
   if (!payload.data.attributes.first_subscription_item)
     throw new Error("No subscription item");
 
+  const tier = getTier({ variantId: payload.data.attributes.variant_id });
+
   const updatedPremium = await upgradeToPremium({
     userId,
-    tier: getTier({ variantId: payload.data.attributes.variant_id }),
+    tier,
     lemonSqueezyRenewsAt,
     lemonSqueezySubscriptionId:
       payload.data.attributes.first_subscription_item.subscription_id,
@@ -130,10 +133,13 @@ async function subscriptionCreated({
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
-    await posthogCaptureEvent(email, "Upgraded to premium", {
-      ...payload.data.attributes,
-      $set: { premium: true, premiumTier: "subscription" },
-    });
+    await Promise.allSettled([
+      posthogCaptureEvent(email, "Upgraded to premium", {
+        ...payload.data.attributes,
+        $set: { premium: true, premiumTier: "subscription" },
+      }),
+      upgradedToPremium(email, tier),
+    ]);
   }
 
   return NextResponse.json({ ok: true });
@@ -163,10 +169,13 @@ async function lifetimeOrder({
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
-    await posthogCaptureEvent(email, "Upgraded to lifetime plan", {
-      ...payload.data.attributes,
-      $set: { premium: true, premiumTier: "lifetime" },
-    });
+    await Promise.allSettled([
+      posthogCaptureEvent(email, "Upgraded to lifetime plan", {
+        ...payload.data.attributes,
+        $set: { premium: true, premiumTier: "lifetime" },
+      }),
+      upgradedToPremium(email, PremiumTier.LIFETIME),
+    ]);
   }
 
   return NextResponse.json({ ok: true });
@@ -240,10 +249,13 @@ async function subscriptionCancelled({
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
-    await posthogCaptureEvent(email, "Cancelled premium subscription", {
-      ...payload.data.attributes,
-      $set: { premiumCancelled: true, premium: false },
-    });
+    await Promise.allSettled([
+      posthogCaptureEvent(email, "Cancelled premium subscription", {
+        ...payload.data.attributes,
+        $set: { premiumCancelled: true, premium: false },
+      }),
+      cancelledPremium(email),
+    ]);
   }
 
   return NextResponse.json({ ok: true });
