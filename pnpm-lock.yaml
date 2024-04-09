@@ -66,11 +66,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tinybird-ai-analytics
       '@langchain/anthropic':
-        specifier: ^0.1.8
-        version: 0.1.8(encoding@0.1.13)
+        specifier: ^0.1.10
+        version: 0.1.10(encoding@0.1.13)
       '@langchain/core':
-        specifier: ^0.1.48
-        version: 0.1.48
+        specifier: ^0.1.54
+        version: 0.1.54
       '@lemonsqueezy/lemonsqueezy.js':
         specifier: ^2.2.0
         version: 2.2.0
@@ -311,6 +311,9 @@ importers:
       zod:
         specifier: ^3.22.4
         version: 3.22.4
+      zod-to-json-schema:
+        specifier: ^3.22.5
+        version: 3.22.5(zod@3.22.4)
     devDependencies:
       '@headlessui/tailwindcss':
         specifier: ^0.2.0
@@ -2191,8 +2194,8 @@ packages:
   /@jridgewell/source-map@0.3.5:
     resolution: {integrity: sha512-UTYAUj/wviwdsMfzoSJspJxbkH5o1snzwX0//0ENX1u/55kkZZkcTZP6u9bwKGkv+dkk9at4m1Cpt0uY80kcpQ==}
     dependencies:
-      '@jridgewell/gen-mapping': 0.3.3
-      '@jridgewell/trace-mapping': 0.3.21
+      '@jridgewell/gen-mapping': 0.3.4
+      '@jridgewell/trace-mapping': 0.3.23
     dev: false
 
   /@jridgewell/sourcemap-codec@1.4.15:
@@ -2217,21 +2220,21 @@ packages:
       '@jridgewell/sourcemap-codec': 1.4.15
     dev: true
 
-  /@langchain/anthropic@0.1.8(encoding@0.1.13):
-    resolution: {integrity: sha512-MW/0TtVyaEmFn7gmWRhH5qB8F5knDXDq4Arqd3MiP3u/8VqYF5tBa2ur4nsrsjH8keGpOPnTeZW3sDwoZgBnSQ==}
+  /@langchain/anthropic@0.1.10(encoding@0.1.13):
+    resolution: {integrity: sha512-5JxH5NhmogrkOpvqvHNfo+kWW0X2Q7aGR4yoPBG9noQTz/w0PcONvAe50NPl8zRlw0PC2SMb0Ulknd4NF2Q4+w==}
     engines: {node: '>=18'}
     dependencies:
       '@anthropic-ai/sdk': 0.17.2(encoding@0.1.13)
-      '@langchain/core': 0.1.48
+      '@langchain/core': 0.1.54
       fast-xml-parser: 4.3.6
       zod: 3.22.4
-      zod-to-json-schema: 3.22.4(zod@3.22.4)
+      zod-to-json-schema: 3.22.5(zod@3.22.4)
     transitivePeerDependencies:
       - encoding
     dev: false
 
-  /@langchain/core@0.1.48:
-    resolution: {integrity: sha512-kGggyDbaYzCIPGkzvMvm/v0+lcTy1jlX6QZ7PSzUQFYJg5JK399x3AOYIDkbbUVxBAyHRgrWlxVQXH0FW3N6Bg==}
+  /@langchain/core@0.1.54:
+    resolution: {integrity: sha512-87pQ8dnWY8P1Kgnu/SgnRijLRNSEzTzkjBK6O/Z1klXf/eQTXAG5O5cKwe3lwM6Afn+4U2byzSMYjwViAYuR4g==}
     engines: {node: '>=18'}
     dependencies:
       ansi-styles: 5.2.0
@@ -2244,7 +2247,7 @@ packages:
       p-retry: 4.6.2
       uuid: 9.0.0
       zod: 3.22.4
-      zod-to-json-schema: 3.22.4(zod@3.22.4)
+      zod-to-json-schema: 3.22.5(zod@3.22.4)
     dev: false
 
   /@lemonsqueezy/lemonsqueezy.js@2.2.0:
@@ -6502,7 +6505,7 @@ packages:
       swrv: 1.0.4(vue@3.4.19)
       vue: 3.4.19(typescript@5.4.2)
       zod: 3.22.4
-      zod-to-json-schema: 3.22.4(zod@3.22.4)
+      zod-to-json-schema: 3.22.5(zod@3.22.4)
     dev: false
 
   /ajv-keywords@3.5.2(ajv@6.12.6):
@@ -16841,8 +16844,8 @@ packages:
       - supports-color
     dev: false
 
-  /zod-to-json-schema@3.22.4(zod@3.22.4):
-    resolution: {integrity: sha512-2Ed5dJ+n/O3cU383xSY28cuVi0BCQhF8nYqWU5paEpl7fVdqdAmiLdqLyfblbNdfOFwFfi/mqU4O1pwc60iBhQ==}
+  /zod-to-json-schema@3.22.5(zod@3.22.4):
+    resolution: {integrity: sha512-+akaPo6a0zpVCCseDed504KBJUQpEW5QZw7RMneNmKw+fGaML1Z9tUNLnHHAC8x6dzVRO1eB2oEMyZRnuBZg7Q==}
     peerDependencies:
       zod: ^3.22.4
     dependencies:
