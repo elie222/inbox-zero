@@ -121,7 +121,7 @@ export const getAuthOptions: (options?: {
       if (isNewUser && user.email) {
         try {
           await Promise.allSettled([
-            createLoopsContact(user.email),
+            createLoopsContact(user.email, user.name?.split(" ")?.[0]),
             createResendContact({ email: user.email }),
           ]);
         } catch (error) {
