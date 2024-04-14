@@ -75,20 +75,20 @@ export const navigation: NavItem[] = [
           icon: BarChartBigIcon,
         },
       ]),
-  ...(NEXT_PUBLIC_DISABLE_TINYBIRD
-    ? []
-    : [
-        {
-          name: "New Senders",
-          href: "/new-senders",
-          icon: Users2Icon,
-        },
-      ]),
-  {
-    name: "Mail (Beta)",
-    href: "/mail",
-    icon: InboxIcon,
-  },
+  // ...(NEXT_PUBLIC_DISABLE_TINYBIRD
+  //   ? []
+  //   : [
+  //       {
+  //         name: "New Senders",
+  //         href: "/new-senders",
+  //         icon: Users2Icon,
+  //       },
+  //     ]),
+  // {
+  //   name: "Mail (Beta)",
+  //   href: "/mail",
+  //   icon: InboxIcon,
+  // },
   // {
   //   name: "Send Email",
   //   href: "/compose",

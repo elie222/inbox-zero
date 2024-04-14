@@ -1,17 +1,40 @@
 import { Fragment } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { useSession, signIn } from "next-auth/react";
 import { Menu, Transition } from "@headlessui/react";
+import {
+  BarChartIcon,
+  ChevronDownIcon,
+  InboxIcon,
+  LogOutIcon,
+  MenuIcon,
+  Users2Icon,
+} from "lucide-react";
 import { Button } from "@/components/Button";
-import { ChevronDownIcon, MenuIcon } from "lucide-react";
 import { logOut } from "@/utils/user";
-import Link from "@/node_modules/next/link";
+import { env } from "@/env.mjs";
 
 const userNavigation = [
-  { name: "Usage", href: "/usage" },
+  ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD
+    ? []
+    : [
+        {
+          name: "New Senders",
+          href: "/new-senders",
+          icon: Users2Icon,
+        },
+      ]),
+  {
+    name: "Mail (Beta)",
+    href: "/mail",
+    icon: InboxIcon,
+  },
+  { name: "Usage", href: "/usage", icon: BarChartIcon },
   {
     name: "Sign out",
     href: "#",
+    icon: LogOutIcon,
     onClick: () => logOut(window.location.origin),
   },
 ];
@@ -93,10 +116,11 @@ function ProfileDropdown() {
                     href={item.href}
                     className={clsx(
                       active ? "bg-gray-50" : "",
-                      "block px-3 py-1 text-sm leading-6 text-gray-900",
+                      "flex items-center px-3 py-1 text-sm leading-6 text-gray-900",
                     )}
                     onClick={item.onClick}
                   >
+                    {item.icon && <item.icon className="mr-2 h-4 w-4" />}
                     {item.name}
                   </Link>
                 )}
