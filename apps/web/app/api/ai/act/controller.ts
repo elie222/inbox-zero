@@ -428,7 +428,7 @@ export async function executeAct(options: {
     });
   }
 
-  await Promise.all([
+  await Promise.allSettled([
     prisma.executedRule.update({
       where: { id: executedRuleId },
       data: { status: ExecutedRuleStatus.APPLIED },

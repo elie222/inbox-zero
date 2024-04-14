@@ -293,28 +293,29 @@ function PlanExplanation(props: {
         </div>
         <div className="ml-2">{plan.rule?.instructions}</div>
       </div>
-      <div className="mt-4 flex space-x-1">
+      <div className="mt-4 space-y-2">
         {plan.actionItems?.map((action, i) => {
           return (
             <div key={i}>
               <Badge color={getActionColor(action.type)}>
                 {capitalCase(action.type)}
               </Badge>
+
+              <div className="mt-1">
+                {Object.entries(getActionFields(action)).map(([key, value]) => {
+                  return (
+                    <div key={key}>
+                      <strong>{capitalCase(key)}: </strong>
+                      <span className="whitespace-pre-wrap">
+                        {value as string}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
-      </div>
-      <div className="mt-3">
-        {Object.entries(getActionFields(plan.actionItems?.[0])).map(
-          ([key, value]) => {
-            return (
-              <div key={key}>
-                <strong>{capitalCase(key)}: </strong>
-                <span className="whitespace-pre-wrap">{value as string}</span>
-              </div>
-            );
-          },
-        )}
       </div>
 
       <div className="mt-2">
