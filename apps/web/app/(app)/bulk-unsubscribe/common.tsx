@@ -411,6 +411,9 @@ export function useNewsletterShortcuts<T extends Row>({
       const item = selectedRow;
       if (!item) return;
 
+      // to prevent when typing in an input such as Crisp support
+      if (document?.activeElement?.tagName !== "BODY") return;
+
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         const index = newsletters?.findIndex((n) => n.name === item.name);
