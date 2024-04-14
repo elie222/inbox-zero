@@ -1,4 +1,5 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import { useAtomValue } from "jotai";
 import { capitalCase } from "capital-case";
 import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
@@ -184,6 +185,8 @@ function EmailMessage(props: {
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         {message.parsedMessage.attachments?.map((attachment) => {
+          const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
+
           return (
             <Card key={attachment.filename}>
               <div className="text-gray-600">{attachment.filename}</div>
@@ -191,10 +194,14 @@ function EmailMessage(props: {
                 <div className="text-gray-600">
                   {mimeTypeToString(attachment.mimeType)}
                 </div>
-                {/* <Button variant="outline">
-                  <DownloadIcon className="mr-2 h-4 w-4" />
-                  Download
-                </Button> */}
+                <Button variant="outline" asChild>
+                  <Link href={url} target="_blank">
+                    <>
+                      <DownloadIcon className="mr-2 h-4 w-4" />
+                      Download
+                    </>
+                  </Link>
+                </Button>
               </div>
             </Card>
           );
@@ -376,4 +383,15 @@ function mimeTypeToString(mimeType: string): string {
     default:
       return mimeType;
   }
+}
+
+function base64ToBlob(base64: string, mimeType: string) {
+  const byteCharacters = atob(base64.replace(/\s/g, "")); // Remove all spaces
+  const byteArrays: Uint8Array[] = [];
+
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    const slice = byteCharacters.slice(offset, offset + 512);
+  }
+
+  return new Blob(byteArrays, { type: mimeType });
 }
