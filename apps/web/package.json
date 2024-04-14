@@ -94,7 +94,6 @@
     "react-dom": "18.2.0",
     "react-dom-confetti": "^0.2.0",
     "react-hook-form": "^7.51.1",
-    "react-hotkeys-hook": "^4.5.0",
     "react-resizable-panels": "^2.0.13",
     "react-youtube": "^10.1.0",
     "server-only": "^0.0.1",

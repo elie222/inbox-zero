@@ -278,9 +278,6 @@ importers:
       react-hook-form:
         specifier: ^7.51.1
         version: 7.51.1(react@18.2.0)
-      react-hotkeys-hook:
-        specifier: ^4.5.0
-        version: 4.5.0(react-dom@18.2.0)(react@18.2.0)
       react-resizable-panels:
         specifier: ^2.0.13
         version: 2.0.13(react-dom@18.2.0)(react@18.2.0)
@@ -13906,16 +13903,6 @@ packages:
       react: ^16.8.0 || ^17 || ^18
     dependencies:
       react: 18.2.0
-    dev: false
-
-  /react-hotkeys-hook@4.5.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-Samb85GSgAWFQNvVt3PS90LPPGSf9mkH/r4au81ZP1yOIFayLC3QAvqTgGtJ8YEDMXtPmaVBs6NgipHO6h4Mug==}
-    peerDependencies:
-      react: '>=16.8.1'
-      react-dom: '>=16.8.1'
-    dependencies:
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
     dev: false
 
   /react-is@16.13.1:
