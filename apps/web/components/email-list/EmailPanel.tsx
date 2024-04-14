@@ -1,7 +1,7 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
 import { useAtomValue } from "jotai";
 import { capitalCase } from "capital-case";
-import { ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
+import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { createInAiQueueSelector } from "@/store/queue";
 import { getActionFields } from "@/utils/actionType";
+import { Card } from "@/components/Card";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -181,6 +182,24 @@ function EmailMessage(props: {
           <PlainEmail text={message.parsedMessage.textPlain || ""} />
         )}
       </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {message.parsedMessage.attachments?.map((attachment) => {
+          return (
+            <Card key={attachment.filename}>
+              <div className="text-gray-600">{attachment.filename}</div>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-gray-600">
+                  {mimeTypeToString(attachment.mimeType)}
+                </div>
+                {/* <Button variant="outline">
+                  <DownloadIcon className="mr-2 h-4 w-4" />
+                  Download
+                </Button> */}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
 
       {(showReply || showForward) && (
         <>
@@ -329,4 +348,32 @@ function PlanExplanation(props: {
       </div>
     </div>
   );
+}
+
+function mimeTypeToString(mimeType: string): string {
+  switch (mimeType) {
+    case "application/pdf":
+      return "PDF";
+    case "application/zip":
+      return "ZIP";
+    case "image/png":
+      return "PNG";
+    case "image/jpeg":
+      return "JPEG";
+    // LLM generated. Need to check they're actually needed
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      return "DOCX";
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+      return "XLSX";
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      return "PPTX";
+    case "application/vnd.ms-excel":
+      return "XLS";
+    case "application/vnd.ms-powerpoint":
+      return "PPT";
+    case "application/vnd.ms-word":
+      return "DOC";
+    default:
+      return mimeType;
+  }
 }
