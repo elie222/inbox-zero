@@ -384,14 +384,3 @@ function mimeTypeToString(mimeType: string): string {
       return mimeType;
   }
 }
-
-function base64ToBlob(base64: string, mimeType: string) {
-  const byteCharacters = atob(base64.replace(/\s/g, "")); // Remove all spaces
-  const byteArrays: Uint8Array[] = [];
-
-  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-    const slice = byteCharacters.slice(offset, offset + 512);
-  }
-
-  return new Blob(byteArrays, { type: mimeType });
-}

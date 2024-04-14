@@ -78,7 +78,7 @@ export const EmailListItem = forwardRef(
     const cta = findCtaLink(lastMessage.parsedMessage.textHtml);
 
     return (
-      <ErrorBoundary>
+      <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
         <li
           ref={ref}
           className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
