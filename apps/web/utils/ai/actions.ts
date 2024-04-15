@@ -1,11 +1,12 @@
 import { type gmail_v1 } from "googleapis";
-import { draftEmail, sendEmail } from "@/utils/gmail/mail";
+import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType, ExecutedAction } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { labelThread } from "@/utils/gmail/label";
 import { getUserLabel } from "@/utils/label";
 import { markSpam } from "@/utils/gmail/spam";
+import { Attachment } from "@/utils/types/mail";
 
 type ActionFunction = (
   gmail: gmail_v1.Gmail,
@@ -279,6 +280,7 @@ const draft: ActionFunction = async (
     to: string;
     subject: string;
     content: string;
+    attachments?: Attachment[];
   },
 ) => {
   await draftEmail(gmail, {
@@ -290,6 +292,7 @@ const draft: ActionFunction = async (
       references: email.references,
       headerMessageId: email.headerMessageId,
     },
+    attachments: args.attachments,
   });
 };
 
@@ -302,6 +305,7 @@ const send_email: ActionFunction = async (
     content: string;
     cc: string;
     bcc: string;
+    attachments?: Attachment[];
   },
 ) => {
   await sendEmail(gmail, {
@@ -310,6 +314,7 @@ const send_email: ActionFunction = async (
     bcc: args.bcc,
     subject: args.subject,
     messageText: args.content,
+    attachments: args.attachments,
   });
 };
 
@@ -320,6 +325,7 @@ const reply: ActionFunction = async (
     content: string;
     cc: string; // TODO - do we allow the ai to adjust this?
     bcc: string;
+    attachments?: Attachment[];
   },
 ) => {
   await sendEmail(gmail, {
@@ -333,6 +339,7 @@ const reply: ActionFunction = async (
     bcc: args.bcc,
     subject: email.subject,
     messageText: args.content,
+    attachments: args.attachments,
   });
 };
 
@@ -347,31 +354,12 @@ const forward: ActionFunction = async (
   },
 ) => {
   // We may need to make sure the AI isn't adding the extra forward content on its own
-  // TODO handle HTML emails
-  // TODO handle attachments
-  await sendEmail(gmail, {
+  await forwardEmail(gmail, {
+    messageId: email.messageId,
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
-    replyToEmail: {
-      threadId: email.threadId,
-      references: "",
-      headerMessageId: "",
-    },
-    subject: `Fwd: ${email.subject}`,
-    messageText: `${args.content ?? ""}
-
----------- Forwarded message ----------
-
-From: ${email.from}
-
-Date: ${email.date}
-
-Subject: ${email.subject}
-
-To: ${email.to}
-
-${email.textHtml || email.textPlain}`,
+    content: args.content,
   });
 };
 
