@@ -1,4 +1,4 @@
-import LoopsClient from "loops";
+import { LoopsClient } from "loops";
 
 let loops: LoopsClient | undefined;
 function getLoopsClient(): LoopsClient | undefined {
@@ -41,7 +41,12 @@ export async function upgradedToPremium(
 ): Promise<{ success: boolean }> {
   const loops = getLoopsClient();
   if (!loops) return { success: false };
-  const resp = await loops.sendEvent(email, "upgraded", { tier });
+  const resp = await loops.sendEvent({
+    eventName: "upgraded",
+    email,
+    contactProperties: { tier },
+    eventProperties: { tier },
+  });
   return resp;
 }
 
@@ -50,9 +55,10 @@ export async function cancelledPremium(
 ): Promise<{ success: boolean }> {
   const loops = getLoopsClient();
   if (!loops) return { success: false };
-  const resp = await loops.sendEvent(email, "cancelled", {
-    tier: "",
-    cancelled: true,
+  const resp = await loops.sendEvent({
+    eventName: "cancelled",
+    email,
+    contactProperties: { tier: "" },
   });
   return resp;
 }
