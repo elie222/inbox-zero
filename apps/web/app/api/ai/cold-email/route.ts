@@ -59,7 +59,7 @@ async function checkColdEmail(
     user.aiModel,
   );
 
-  const yes = await isColdEmail({
+  const response = await isColdEmail({
     email: body.email,
     userOptions: {
       aiProvider: provider,
@@ -72,7 +72,7 @@ async function checkColdEmail(
     userEmail,
   });
 
-  return { isColdEmail: yes };
+  return response;
 }
 
 export const POST = withError(async (request: Request) => {

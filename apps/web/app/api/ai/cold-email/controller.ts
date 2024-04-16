@@ -16,6 +16,8 @@ const aiResponseSchema = z.object({
   expandEmail: z.boolean().nullish(),
 });
 
+type ColdEmailBlockerReason = "hasPreviousEmail" | "unsubscribeLink" | "ai";
+
 export async function isColdEmail(options: {
   hasPreviousEmail: boolean;
   unsubscribeLink?: string;
@@ -26,10 +28,15 @@ export async function isColdEmail(options: {
   };
   userOptions: UserAIFields & { coldEmailPrompt: string | null };
   userEmail: string;
-}) {
-  if (options.hasPreviousEmail) return false;
+}): Promise<{
+  isColdEmail: boolean;
+  reason: ColdEmailBlockerReason;
+}> {
+  if (options.hasPreviousEmail)
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
   // need to check how true this is in practice
-  if (options.unsubscribeLink) return false;
+  if (options.unsubscribeLink)
+    return { isColdEmail: false, reason: "unsubscribeLink" };
 
   // otherwise run through ai to see if it's a cold email
   const isColdEmail = await aiIsColdEmail(
@@ -38,7 +45,7 @@ export async function isColdEmail(options: {
     options.userEmail,
   );
 
-  return isColdEmail;
+  return { isColdEmail: !!isColdEmail, reason: "ai" };
 }
 
 async function aiIsColdEmail(
@@ -138,9 +145,9 @@ export async function runColdEmailBlocker(options: {
   userId: string;
   userEmail: string;
 }) {
-  const yes = await isColdEmail(options);
+  const response = await isColdEmail(options);
 
-  if (yes) {
+  if (response.isColdEmail) {
     console.log("Blocking cold email...");
 
     await blockColdEmail(options);
