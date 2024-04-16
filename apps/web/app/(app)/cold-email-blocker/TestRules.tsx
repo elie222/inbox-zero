@@ -111,7 +111,10 @@ const TestRulesForm = () => {
 
     if (isError(res)) {
       console.error(res);
-      toastError({ description: `Error checking if cold email.` });
+      toastError({
+        title: "Error checking if cold email.",
+        description: res.error,
+      });
     } else {
       setColdEmailResponse(res);
     }
@@ -196,7 +199,8 @@ function TestRulesContentRow(props: {
               if (isError(res)) {
                 console.error(res);
                 toastError({
-                  description: `There was an error checking whether it's a cold email.`,
+                  title: "Error checking whether it's a cold email.",
+                  description: res.error,
                 });
               } else {
                 setColdEmailResponse(res);

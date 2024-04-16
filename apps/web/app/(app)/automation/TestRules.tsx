@@ -113,7 +113,10 @@ const TestRulesForm = () => {
 
     if (isError(res)) {
       console.error(res);
-      toastError({ description: `Error checking email.` });
+      toastError({
+        title: "Error checking email.",
+        description: res.error,
+      });
     } else {
       setPlan(res);
     }
