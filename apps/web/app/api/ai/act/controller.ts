@@ -15,7 +15,7 @@ import { Rule } from "@prisma/client";
 import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
-import { ChatCompletionCreateParams } from "openai/resources/index";
+import { Function } from "ai";
 import { parseJSON, parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
@@ -156,7 +156,7 @@ async function getArgsAiResponse(
     };
     userAbout: string;
     userEmail: string;
-    selectedFunction: ChatCompletionCreateParams.Function;
+    selectedFunction: Function;
   } & UserAIFields,
 ) {
   const { email, userAbout, userEmail, selectedFunction } = options;
@@ -299,12 +299,11 @@ function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
     rule: {} as any,
   });
 
-  const functions: ChatCompletionCreateParams.Function[] =
-    rulesWithProperties.map((r) => ({
-      name: r.name,
-      description: r.description,
-      parameters: r.parameters,
-    }));
+  const functions: Function[] = rulesWithProperties.map((r) => ({
+    name: r.name,
+    description: r.description,
+    parameters: r.parameters,
+  }));
 
   return { functions, rulesWithProperties };
 }
@@ -325,17 +324,12 @@ export async function planAct(
   | { rule?: undefined; actionItems?: undefined; reason?: string }
 > {
   const { email, rules } = options;
-
   const { functions, rulesWithProperties } = getFunctionsFromRules({ rules });
 
   const aiResponse = await getAiResponse({
+    ...options,
     email,
-    userAbout: options.userAbout,
-    userEmail: options.userEmail,
     functions,
-    aiProvider: options.aiProvider,
-    aiModel: options.aiModel,
-    openAIApiKey: options.openAIApiKey,
   });
 
   const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
@@ -353,13 +347,9 @@ export async function planAct(
   // TODO may want to pass full email content to this function so it has maximum context to act on
   const aiArgsResponse = selectedRule.shouldAiGenerateArgs
     ? await getArgsAiResponse({
+        ...options,
         email,
-        userAbout: options.userAbout,
-        userEmail: options.userEmail,
         selectedFunction: selectedRule,
-        aiProvider: options.aiProvider,
-        aiModel: options.aiModel,
-        openAIApiKey: options.openAIApiKey,
       })
     : { arguments: undefined };
 
@@ -450,20 +440,22 @@ type PlanOrExecuteActOptions = {
 } & UserAIFields;
 
 export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
-  if (!options.rules.length) return;
+  const { rules, email, allowExecute, forceExecute, userId, automated } =
+    options;
+
+  if (!rules.length) return;
 
   const content =
-    (options.email.textHtml &&
-      parseEmail(options.email.textHtml, false, null)) ||
-    options.email.textPlain ||
-    options.email.snippet;
+    (email.textHtml && parseEmail(email.textHtml, false, null)) ||
+    email.textPlain ||
+    email.snippet;
 
   const plannedAct = await planAct({
     ...options,
     email: {
-      ...options.email,
+      ...email,
       content: content || "",
-      snippet: options.email.snippet || "",
+      snippet: email.snippet || "",
     },
   });
 
@@ -474,26 +466,26 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
     await prisma.executedRule.upsert({
       where: {
         unique_user_thread_message: {
-          userId: options.userId,
-          threadId: options.email.threadId,
-          messageId: options.email.messageId,
+          userId,
+          threadId: email.threadId,
+          messageId: email.messageId,
         },
       },
       create: {
-        threadId: options.email.threadId,
-        messageId: options.email.messageId,
-        automated: options.automated,
+        threadId: email.threadId,
+        messageId: email.messageId,
+        automated,
         reason: plannedAct.reason,
         status: ExecutedRuleStatus.SKIPPED,
-        user: { connect: { id: options.userId } },
+        user: { connect: { id: userId } },
       },
       update: {
-        threadId: options.email.threadId,
-        messageId: options.email.messageId,
-        automated: options.automated,
+        threadId: email.threadId,
+        messageId: email.messageId,
+        automated,
         reason: plannedAct.reason,
         status: ExecutedRuleStatus.SKIPPED,
-        user: { connect: { id: options.userId } },
+        user: { connect: { id: userId } },
       },
     });
 
@@ -501,30 +493,30 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
   }
 
   const shouldExecute =
-    options.allowExecute && (plannedAct.rule.automate || options.forceExecute);
+    allowExecute && (plannedAct.rule.automate || forceExecute);
 
   console.log("shouldExecute:", shouldExecute);
 
   const data = {
     actionItems: { createMany: { data: plannedAct.actionItems } },
-    messageId: options.email.messageId,
-    threadId: options.email.threadId,
+    messageId: email.messageId,
+    threadId: email.threadId,
     automated: plannedAct.rule.automate,
     status: ExecutedRuleStatus.PENDING,
     reason: plannedAct.reason,
     rule: plannedAct.rule.id
       ? { connect: { id: plannedAct.rule.id } }
       : undefined,
-    user: { connect: { id: options.userId } },
+    user: { connect: { id: userId } },
   };
 
-  const executedRule = options.email.messageId
+  const executedRule = email.messageId
     ? await prisma.executedRule.upsert({
         where: {
           unique_user_thread_message: {
-            userId: options.userId,
-            threadId: options.email.threadId,
-            messageId: options.email.messageId,
+            userId,
+            threadId: email.threadId,
+            messageId: email.messageId,
           },
         },
         create: data,
@@ -536,7 +528,7 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
     await executeAct({
       ...options,
       actionItems: plannedAct.actionItems,
-      email: options.email,
+      email,
       executedRuleId: executedRule.id,
     });
   }
