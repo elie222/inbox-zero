@@ -197,7 +197,8 @@ function TestRulesContentRow(props: {
               if (isError(res)) {
                 console.error(res);
                 toastError({
-                  description: `There was an error planning the email.`,
+                  title: "There was an error planning the email.",
+                  description: res.error,
                 });
               } else {
                 setPlan(res);
