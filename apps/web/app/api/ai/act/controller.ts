@@ -396,12 +396,6 @@ export async function executeAct(options: {
 
   console.log("Executing act:", JSON.stringify(actionItems, null, 2));
 
-  await Promise.all(
-    actionItems.map(async (action) => {
-      return runActionFunction(gmail, email, action, userEmail);
-    }),
-  );
-
   async function labelActed() {
     const label = await getOrCreateInboxZeroLabel({
       gmail,
@@ -419,6 +413,9 @@ export async function executeAct(options: {
   }
 
   await Promise.allSettled([
+    ...actionItems.map(async (action) => {
+      return runActionFunction(gmail, email, action, userEmail);
+    }),
     prisma.executedRule.update({
       where: { id: executedRuleId },
       data: { status: ExecutedRuleStatus.APPLIED },
