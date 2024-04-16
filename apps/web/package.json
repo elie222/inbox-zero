@@ -15,7 +15,6 @@
     "@anthropic-ai/sdk": "^0.20.4",
     "@auth/core": "^0.29.0",
     "@auth/prisma-adapter": "^1.6.0",
-    "@baselime/node-opentelemetry": "^0.5.8",
     "@formkit/auto-animate": "^0.8.2",
     "@headlessui/react": "^1.7.18",
     "@hookform/resolvers": "^3.3.4",
