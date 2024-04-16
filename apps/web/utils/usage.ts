@@ -108,7 +108,7 @@ const costs: Record<
     input: 0.001 / 1000,
     output: 0.002 / 1000,
   },
-  "gpt-4-turbo-preview": {
+  "gpt-4-turbo": {
     input: 0.01 / 1000,
     output: 0.03 / 1000,
   },
