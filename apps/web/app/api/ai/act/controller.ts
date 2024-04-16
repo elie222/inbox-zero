@@ -492,11 +492,6 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
     return plannedAct;
   }
 
-  const shouldExecute =
-    allowExecute && (plannedAct.rule.automate || forceExecute);
-
-  console.log("shouldExecute:", shouldExecute);
-
   const data = {
     actionItems: { createMany: { data: plannedAct.actionItems } },
     messageId: email.messageId,
@@ -510,21 +505,22 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
     user: { connect: { id: userId } },
   };
 
-  const executedRule = email.messageId
-    ? await prisma.executedRule.upsert({
-        where: {
-          unique_user_thread_message: {
-            userId,
-            threadId: email.threadId,
-            messageId: email.messageId,
-          },
-        },
-        create: data,
-        update: data,
-      })
-    : undefined;
+  const executedRule = await prisma.executedRule.upsert({
+    where: {
+      unique_user_thread_message: {
+        userId,
+        threadId: email.threadId,
+        messageId: email.messageId,
+      },
+    },
+    create: data,
+    update: data,
+  });
 
-  if (shouldExecute && executedRule) {
+  const shouldExecute =
+    allowExecute && (plannedAct.rule.automate || forceExecute);
+
+  if (shouldExecute) {
     await executeAct({
       ...options,
       actionItems: plannedAct.actionItems,
