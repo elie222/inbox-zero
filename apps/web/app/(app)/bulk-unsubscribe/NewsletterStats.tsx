@@ -185,7 +185,7 @@ export function NewsletterStats(props: {
                       onSelectRow={() => {
                         setSelectedRow(item);
                       }}
-                      onDoubleClick={setOpenedNewsletter(item)}
+                      onDoubleClick={() => setOpenedNewsletter(item)}
                       hasUnsubscribeAccess={hasUnsubscribeAccess}
                       refetchPremium={refetchPremium}
                       openPremiumModal={openModal}
@@ -279,7 +279,7 @@ function NewsletterRow(props: {
       aria-selected={props.selected || undefined}
       data-selected={props.selected || undefined}
       onMouseEnter={props.onSelectRow}
-      onDoubleClick={onDoubleClick}
+      onDoubleClick={props.onDoubleClick}
     >
       <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-none">
         {item.name}
