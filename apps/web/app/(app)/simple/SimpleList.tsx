@@ -55,7 +55,7 @@ export function SimpleList(props: {
   const { toHandleLater, onSetHandled, onSetToHandleLater } =
     useSimpleProgress();
 
-  const [unsubscribed, setUnsubscribed] = useState([]);
+  const [unsubscribed, setUnsubscribed] = useState(new Set());
   const router = useRouter();
 
   const [parent] = useAutoAnimate();
@@ -67,41 +67,33 @@ export function SimpleList(props: {
     .map((m) => m.threadId);
 
   const handleUnsubscribe = (id) => {
-    const message = props.messages.find((item) => item.id === id);
-    if (message) {
-      setUnsubscribed((currentUnsubscribed) => [
-        ...currentUnsubscribed,
-        message,
-      ]);
-    }
+    setUnsubscribed((currentUnsubscribed) =>
+      new Set(currentUnsubscribed).add(id),
+    );
   };
+
+  const filteredMessages = props.messages.filter(
+    (m) => !toHandleLater[m.id] && !unsubscribed.has(m.id),
+  );
 
   return (
     <>
       <div className="mt-8 grid gap-4" ref={parent}>
-        {props.messages
-          .filter(
-            (m) =>
-              !toHandleLater[m.id] &&
-              !unsubscribed.find((unsub) => unsub.id === m.id),
-          )
-          .map((message) => {
-            return (
-              <SimpleListRow
-                key={message.id}
-                message={message}
-                userEmail={props.userEmail}
-                toHandleLater={toHandleLater}
-                onSetToHandleLater={onSetToHandleLater}
-                handleUnsubscribe={() => handleUnsubscribe(message.id)}
-              />
-            );
-          })}
-        {props.messages.filter(
-          (m) =>
-            !toHandleLater[m.id] &&
-            !unsubscribed.find((unsub) => unsub.id === m.id),
-        ).length === 0 && <Celebration message="All emails handled!" />}
+        {filteredMessages.map((message) => {
+          return (
+            <SimpleListRow
+              key={message.id}
+              message={message}
+              userEmail={props.userEmail}
+              toHandleLater={toHandleLater}
+              onSetToHandleLater={onSetToHandleLater}
+              handleUnsubscribe={() => handleUnsubscribe(message.id)}
+            />
+          );
+        })}
+        {filteredMessages.length === 0 && (
+          <Celebration message="All emails handled!" />
+        )}
       </div>
 
       <div className="mt-8 flex justify-center">
