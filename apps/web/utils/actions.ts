@@ -32,6 +32,7 @@ import {
   markReadThread,
 } from "@/utils/gmail/label";
 import {
+  activateLemonLicenseKey,
   getLemonCustomer,
   updateSubscriptionItemQuantity,
 } from "@/app/api/lemon-squeezy/api";
@@ -519,5 +520,43 @@ export async function updateMultiAccountPremium(
 async function createPremiumForUser(userId: string) {
   return await prisma.premium.create({
     data: { users: { connect: { id: userId } } },
+  });
+}
+
+export async function activateLicenseKey(licenseKey: string) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+
+  const lemonSqueezyLicense = await activateLemonLicenseKey(
+    licenseKey,
+    `License for ${session.user.email}`,
+  );
+
+  if (lemonSqueezyLicense.error) {
+    throw new Error(
+      lemonSqueezyLicense.data?.error || "Error activating license",
+    );
+  }
+
+  const seats = {
+    [env.LICENSE_1_SEAT_VARIANT_ID || ""]: 1,
+    [env.LICENSE_3_SEAT_VARIANT_ID || ""]: 3,
+    [env.LICENSE_5_SEAT_VARIANT_ID || ""]: 5,
+    [env.LICENSE_10_SEAT_VARIANT_ID || ""]: 10,
+  };
+
+  await upgradeToPremium({
+    userId: session.user.id,
+    tier: PremiumTier.LIFETIME,
+    lemonLicenseKey: licenseKey,
+    lemonLicenseInstanceId: lemonSqueezyLicense.data?.instance?.id,
+    emailAccountsAccess: seats[lemonSqueezyLicense.data?.meta.variant_id || ""],
+    lemonSqueezyCustomerId: lemonSqueezyLicense.data?.meta.customer_id || null,
+    lemonSqueezyOrderId: lemonSqueezyLicense.data?.meta.order_id || null,
+    lemonSqueezyProductId: lemonSqueezyLicense.data?.meta.product_id || null,
+    lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
+    lemonSqueezySubscriptionId: null,
+    lemonSqueezySubscriptionItemId: null,
+    lemonSqueezyRenewsAt: null,
   });
 }

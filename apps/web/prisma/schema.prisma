@@ -95,6 +95,8 @@ model Premium {
   lemonSqueezyOrderId            Int? // lifetime purchase is an order and not a subscription
   lemonSqueezyProductId          Int?
   lemonSqueezyVariantId          Int?
+  lemonLicenseKey                String?
+  lemonLicenseInstanceId         String?
 
   tier PremiumTier?
 
@@ -109,7 +111,7 @@ model Premium {
   unsubscribeMonth   Int? // 1-12
   unsubscribeCredits Int?
   aiMonth            Int? // 1-12
-  aiCredits          Int? // 100_00 = $100 of credits
+  aiCredits          Int?
 }
 
 // not in use as it's only used for passwordless login

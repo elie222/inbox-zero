@@ -5,6 +5,7 @@ import {
   lemonSqueezySetup,
   updateSubscriptionItem,
   getCustomer,
+  activateLicense,
 } from "@lemonsqueezy/lemonsqueezy.js";
 
 let isSetUp = false;
@@ -30,4 +31,12 @@ export async function updateSubscriptionItemQuantity(options: {
 export async function getLemonCustomer(customerId: string) {
   setUpLemon();
   return getCustomer(customerId, { include: ["subscriptions", "orders"] });
+}
+
+export async function activateLemonLicenseKey(
+  licenseKey: string,
+  name: string,
+) {
+  setUpLemon();
+  return activateLicense(licenseKey, name);
 }

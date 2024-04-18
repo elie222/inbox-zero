@@ -24,6 +24,7 @@ async function getUser(userId: string) {
           unsubscribeCredits: true,
           tier: true,
           emailAccountsAccess: true,
+          lemonLicenseKey: true,
         },
       },
     },
