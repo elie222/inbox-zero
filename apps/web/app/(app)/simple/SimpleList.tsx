@@ -66,7 +66,7 @@ export function SimpleList(props: {
     .filter((m) => !toHandleLater[m.id])
     .map((m) => m.threadId);
 
-  const handleUnsubscribe = (id) => {
+  const handleUnsubscribe = (id: string) => {
     setUnsubscribed((currentUnsubscribed) =>
       new Set(currentUnsubscribed).add(id),
     );
@@ -164,7 +164,7 @@ function SimpleListRow({
             variant="outline"
             size="icon"
             asChild
-            onClick={handleUnsubscribe}
+            onClick={() => handleUnsubscribe(message.id)}
           >
             <Link href={unsubscribeLink} target="_blank">
               <MailMinusIcon className="h-4 w-4" />
