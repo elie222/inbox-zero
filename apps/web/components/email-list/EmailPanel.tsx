@@ -1,7 +1,8 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import { useAtomValue } from "jotai";
 import { capitalCase } from "capital-case";
-import { ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
+import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/Badge";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { createInAiQueueSelector } from "@/store/queue";
 import { getActionFields } from "@/utils/actionType";
+import { Card } from "@/components/Card";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -181,6 +183,30 @@ function EmailMessage(props: {
           <PlainEmail text={message.parsedMessage.textPlain || ""} />
         )}
       </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {message.parsedMessage.attachments?.map((attachment) => {
+          const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
+
+          return (
+            <Card key={attachment.filename}>
+              <div className="text-gray-600">{attachment.filename}</div>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-gray-600">
+                  {mimeTypeToString(attachment.mimeType)}
+                </div>
+                <Button variant="outline" asChild>
+                  <Link href={url} target="_blank">
+                    <>
+                      <DownloadIcon className="mr-2 h-4 w-4" />
+                      Download
+                    </>
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
 
       {(showReply || showForward) && (
         <>
@@ -293,28 +319,29 @@ function PlanExplanation(props: {
         </div>
         <div className="ml-2">{plan.rule?.instructions}</div>
       </div>
-      <div className="mt-4 flex space-x-1">
+      <div className="mt-4 space-y-2">
         {plan.actionItems?.map((action, i) => {
           return (
             <div key={i}>
               <Badge color={getActionColor(action.type)}>
                 {capitalCase(action.type)}
               </Badge>
+
+              <div className="mt-1">
+                {Object.entries(getActionFields(action)).map(([key, value]) => {
+                  return (
+                    <div key={key}>
+                      <strong>{capitalCase(key)}: </strong>
+                      <span className="whitespace-pre-wrap">
+                        {value as string}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
-      </div>
-      <div className="mt-3">
-        {Object.entries(getActionFields(plan.actionItems?.[0])).map(
-          ([key, value]) => {
-            return (
-              <div key={key}>
-                <strong>{capitalCase(key)}: </strong>
-                <span className="whitespace-pre-wrap">{value as string}</span>
-              </div>
-            );
-          },
-        )}
       </div>
 
       <div className="mt-2">
@@ -328,4 +355,32 @@ function PlanExplanation(props: {
       </div>
     </div>
   );
+}
+
+function mimeTypeToString(mimeType: string): string {
+  switch (mimeType) {
+    case "application/pdf":
+      return "PDF";
+    case "application/zip":
+      return "ZIP";
+    case "image/png":
+      return "PNG";
+    case "image/jpeg":
+      return "JPEG";
+    // LLM generated. Need to check they're actually needed
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      return "DOCX";
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+      return "XLSX";
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      return "PPTX";
+    case "application/vnd.ms-excel":
+      return "XLS";
+    case "application/vnd.ms-powerpoint":
+      return "PPT";
+    case "application/vnd.ms-word":
+      return "DOC";
+    default:
+      return mimeType;
+  }
 }

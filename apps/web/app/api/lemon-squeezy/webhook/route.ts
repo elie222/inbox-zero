@@ -57,8 +57,13 @@ export const POST = withError(async (request: Request) => {
   // extra seats for lifetime plan
   const isLifetimeSeatPlan =
     variant === env.NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_VARIANT_ID;
-  if (payload.meta.event_name === "order_created" && isLifetimeSeatPlan) {
-    return await lifetimeSeatOrder({ payload, premiumId });
+  if (payload.meta.event_name === "order_created") {
+    if (isLifetimeSeatPlan) {
+      return await lifetimeSeatOrder({ payload, premiumId });
+    } else {
+      // license plan - not handled here
+      return NextResponse.json({ ok: true });
+    }
   }
 
   // renewal

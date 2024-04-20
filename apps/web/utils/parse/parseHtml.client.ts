@@ -64,7 +64,8 @@ export function findCtaLink(
     }
   });
 
-  if (ctaLink && !ctaLink.startsWith("http")) ctaLink = `https://${ctaLink}`;
+  if (ctaLink && !ctaLink.startsWith("http") && !ctaLink.startsWith("mailto:"))
+    ctaLink = `https://${ctaLink}`;
 
   return ctaText && ctaLink ? { ctaText, ctaLink } : undefined;
 }

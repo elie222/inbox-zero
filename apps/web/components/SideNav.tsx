@@ -47,15 +47,6 @@ type NavItem = {
 const NEXT_PUBLIC_DISABLE_TINYBIRD = env.NEXT_PUBLIC_DISABLE_TINYBIRD;
 
 export const navigation: NavItem[] = [
-  ...(NEXT_PUBLIC_DISABLE_TINYBIRD
-    ? []
-    : [
-        {
-          name: "Bulk Unsubscribe",
-          href: "/bulk-unsubscribe",
-          icon: MailsIcon,
-        },
-      ]),
   {
     name: "AI Automation",
     href: "/automation",
@@ -70,25 +61,34 @@ export const navigation: NavItem[] = [
     ? []
     : [
         {
-          name: "Analytics",
-          href: "/stats",
-          icon: BarChartBigIcon,
+          name: "Bulk Unsubscribe",
+          href: "/bulk-unsubscribe",
+          icon: MailsIcon,
         },
       ]),
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
     : [
         {
-          name: "New Senders",
-          href: "/new-senders",
-          icon: Users2Icon,
+          name: "Analytics",
+          href: "/stats",
+          icon: BarChartBigIcon,
         },
       ]),
-  {
-    name: "Mail (Beta)",
-    href: "/mail",
-    icon: InboxIcon,
-  },
+  // ...(NEXT_PUBLIC_DISABLE_TINYBIRD
+  //   ? []
+  //   : [
+  //       {
+  //         name: "New Senders",
+  //         href: "/new-senders",
+  //         icon: Users2Icon,
+  //       },
+  //     ]),
+  // {
+  //   name: "Mail (Beta)",
+  //   href: "/mail",
+  //   icon: InboxIcon,
+  // },
   // {
   //   name: "Send Email",
   //   href: "/compose",

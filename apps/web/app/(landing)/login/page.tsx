@@ -20,7 +20,13 @@ export default async function AuthenticationPage({
   searchParams?: Record<string, string>;
 }) {
   const session = await auth();
-  if (session?.user.email && !searchParams?.error) redirect("/welcome");
+  if (session?.user.email && !searchParams?.error) {
+    if (searchParams?.next) {
+      redirect(searchParams?.next);
+    } else {
+      redirect("/welcome");
+    }
+  }
 
   return (
     <div className="flex h-screen flex-col justify-center text-gray-900">

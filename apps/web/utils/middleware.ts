@@ -46,6 +46,15 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
+      if ((error as any)?.code === "insufficient_quota") {
+        return NextResponse.json(
+          {
+            error: `OpenAI error: ${(error as any)?.error?.message}`,
+          },
+          { status: 429 },
+        );
+      }
+
       if (isErrorWithConfigAndHeaders(error)) {
         delete error.config.headers;
       }

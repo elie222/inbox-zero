@@ -21,7 +21,8 @@ import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";
 import { ColdEmailPromptModal } from "@/app/(app)/cold-email-blocker/ColdEmailPromptModal";
 
 export function ColdEmailSettings() {
-  const { data, isLoading, error } = useSWR<UserResponse>("/api/user/me");
+  const { data, isLoading, error, mutate } =
+    useSWR<UserResponse>("/api/user/me");
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -30,7 +31,10 @@ export function ColdEmailSettings() {
           <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
           <div className="mt-2 space-x-2">
             <TestRules />
-            <ColdEmailPromptModal coldEmailPrompt={data.coldEmailPrompt} />
+            <ColdEmailPromptModal
+              coldEmailPrompt={data.coldEmailPrompt}
+              refetch={mutate}
+            />
           </div>
         </>
       )}

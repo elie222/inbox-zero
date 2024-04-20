@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const actEmail = z.object({
+const actEmail = z.object({
   from: z.string(),
   to: z.string().optional(), // used when forwarding
   date: z.string().optional(), // used when forwarding
@@ -13,7 +13,7 @@ export const actEmail = z.object({
   references: z.string().optional(),
 });
 
-export const actBody = z.object({
+const actBody = z.object({
   email: actEmail,
   allowExecute: z.boolean().optional(),
   forceExecute: z.boolean().optional(),

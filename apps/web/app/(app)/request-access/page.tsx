@@ -20,6 +20,20 @@ export default function RequestAccessPage() {
       </Card>
 
       <Card className="mx-auto mt-8 w-full max-w-2xl">
+        <PageHeading>Email Client</PageHeading>
+        <div className="mt-2 max-w-prose">
+          <SectionDescription>
+            Use the Inbox Zero email client to manage your email.
+          </SectionDescription>
+        </div>
+        <div className="mt-4">
+          <Button size="xl" link={{ href: "/mail" }}>
+            Open Mail
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="mx-auto mt-8 w-full max-w-2xl">
         <PageHeading>Inbox Zero Daily Challenge</PageHeading>
         <div className="mt-2 max-w-prose">
           <SectionDescription>

@@ -17,8 +17,15 @@ import { isErrorMessage } from "@/utils/error";
 
 export function ColdEmailPromptModal(props: {
   coldEmailPrompt?: string | null;
+  refetch: () => void;
 }) {
   const { isModalOpen, openModal, closeModal } = useModal();
+  const { refetch } = props;
+
+  const onSuccess = useCallback(() => {
+    refetch();
+    closeModal();
+  }, [closeModal, refetch]);
 
   return (
     <>
@@ -33,7 +40,7 @@ export function ColdEmailPromptModal(props: {
       >
         <ColdEmailPromptForm
           coldEmailPrompt={props.coldEmailPrompt}
-          closeModal={closeModal}
+          onSuccess={onSuccess}
         />
       </Modal>
     </>
@@ -42,7 +49,7 @@ export function ColdEmailPromptModal(props: {
 
 function ColdEmailPromptForm(props: {
   coldEmailPrompt?: string | null;
-  closeModal: () => void;
+  onSuccess: () => void;
 }) {
   const {
     register,
@@ -55,7 +62,7 @@ function ColdEmailPromptForm(props: {
     },
   });
 
-  const { closeModal } = props;
+  const { onSuccess } = props;
 
   const onSubmit: SubmitHandler<UpdateColdEmailSettingsBody> = useCallback(
     async (data) => {
@@ -75,10 +82,10 @@ function ColdEmailPromptForm(props: {
         toastError({ description: `Error updating cold email prompt.` });
       } else {
         toastSuccess({ description: `Prompt updated!` });
-        closeModal();
+        onSuccess();
       }
     },
-    [closeModal],
+    [onSuccess],
   );
 
   return (

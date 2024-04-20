@@ -13,6 +13,9 @@ export async function upgradeToPremium(options: {
   lemonSqueezyCustomerId: number | null;
   lemonSqueezyProductId: number | null;
   lemonSqueezyVariantId: number | null;
+  lemonLicenseKey?: string;
+  lemonLicenseInstanceId?: string;
+  emailAccountsAccess?: number;
 }) {
   const { userId, ...rest } = options;
 
