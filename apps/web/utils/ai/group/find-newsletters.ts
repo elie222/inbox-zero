@@ -2,6 +2,7 @@ import { gmail_v1 } from "googleapis";
 import uniq from "lodash/uniq";
 import { queryBatchMessagesPages } from "@/utils/gmail/message";
 
+const newsletterSenders = ["@substack.com", "@mail.beehiiv.com", "@ghost.io"];
 const ignoreList = ["@github.com", "@google.com", "@gmail.com", "@slack.com"];
 
 export async function findNewsletters(
@@ -13,7 +14,7 @@ export async function findNewsletters(
     maxResults: 100,
   });
   const messages2 = await queryBatchMessagesPages(gmail, accessToken, {
-    query: "from:(@substack.com OR @mail.beehiiv.com)",
+    query: `from:(${newsletterSenders.join(" OR ")})`,
     maxResults: 100,
   });
 
