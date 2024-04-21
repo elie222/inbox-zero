@@ -35,11 +35,11 @@ export function CreateGroupModalButton() {
                 const res = await createNewsletterGroupAction({
                   name: "Newsletter",
                 });
-                if (isErrorMessage(res))
+                if (isErrorMessage(res)) {
                   toastError({
                     description: `There was an error creating the group.`,
                   });
-                else {
+                } else {
                   toastSuccess({ description: `Group created!` });
                   closeModal();
                 }
@@ -55,11 +55,11 @@ export function CreateGroupModalButton() {
               onClick={async () => {
                 setReceiptsLoading(true);
                 const res = await createReceiptGroupAction({ name: "Receipt" });
-                if (isErrorMessage(res))
+                if (isErrorMessage(res)) {
                   toastError({
                     description: `There was an error creating the group.`,
                   });
-                else {
+                } else {
                   toastSuccess({ description: `Group created!` });
                   closeModal();
                 }

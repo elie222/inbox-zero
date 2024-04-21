@@ -108,7 +108,6 @@ async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
   try {
     const { messages } = await queryBatchMessages(gmail, accessToken, {
       query: "from:me",
-      maxResults: 20,
     });
 
     // go through the messages, and check the headers for the email client

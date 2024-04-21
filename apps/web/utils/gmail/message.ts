@@ -111,7 +111,7 @@ export async function queryBatchMessages(
   accessToken: string,
   {
     query,
-    maxResults = 25,
+    maxResults = 20,
     pageToken,
   }: {
     query?: string;
@@ -119,9 +119,9 @@ export async function queryBatchMessages(
     pageToken?: string;
   },
 ) {
-  if (maxResults > 25) {
+  if (maxResults > 20) {
     throw new Error(
-      "Max results must be 25 or Google will rate limit us and return 429 errors.",
+      "Max results must be 20 or Google will rate limit us and return 429 errors.",
     );
   }
 
@@ -149,10 +149,13 @@ export async function queryBatchMessagesPages(
   const messages: MessageWithPayloadAndParsedMessage[] = [];
   let nextPageToken: string | undefined;
   do {
-    const { messages: pageMessages, nextPageToken: pageNextPageToken } =
-      await queryBatchMessages(gmail, accessToken, { query, maxResults: 25 });
+    const { messages: pageMessages, nextPageToken: nextToken } =
+      await queryBatchMessages(gmail, accessToken, {
+        query,
+        pageToken: nextPageToken,
+      });
     messages.push(...pageMessages);
-    nextPageToken = pageNextPageToken || undefined;
+    nextPageToken = nextToken || undefined;
   } while (nextPageToken && messages.length < maxResults);
 
   return messages;
