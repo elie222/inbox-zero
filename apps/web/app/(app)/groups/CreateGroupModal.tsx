@@ -18,12 +18,66 @@ import { CreateGroupBody, createGroupBody } from "@/utils/actions-validation";
 export function CreateGroupModalButton() {
   const { isModalOpen, openModal, closeModal } = useModal();
 
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+  const [receiptsLoading, setReceiptsLoading] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+
   return (
     <>
       <Button onClick={openModal}>Create group</Button>
       <Modal isOpen={isModalOpen} hideModal={closeModal} title="Create Group">
         <div className="mt-4">
-          <CreateGroupForm closeModal={closeModal} />
+          <div className="space-x-2">
+            <Button
+              loading={newsletterLoading}
+              onClick={async () => {
+                setNewsletterLoading(true);
+                const res = await createNewsletterGroupAction({
+                  name: "Newsletter",
+                });
+                if (isErrorMessage(res))
+                  toastError({
+                    description: `There was an error creating the group.`,
+                  });
+                else {
+                  toastSuccess({ description: `Group created!` });
+                  closeModal();
+                }
+                setNewsletterLoading(false);
+              }}
+              color="white"
+            >
+              Newsletter
+            </Button>
+            <Button
+              color="white"
+              loading={receiptsLoading}
+              onClick={async () => {
+                setReceiptsLoading(true);
+                const res = await createReceiptGroupAction({ name: "Receipt" });
+                if (isErrorMessage(res))
+                  toastError({
+                    description: `There was an error creating the group.`,
+                  });
+                else {
+                  toastSuccess({ description: `Group created!` });
+                  closeModal();
+                }
+                setReceiptsLoading(false);
+              }}
+            >
+              Receipt
+            </Button>
+            <Button color="white" onClick={() => setShowCustom(true)}>
+              Custom
+            </Button>
+          </div>
+
+          {showCustom && (
+            <div className="mt-4">
+              <CreateGroupForm closeModal={closeModal} />
+            </div>
+          )}
         </div>
       </Modal>
     </>
@@ -52,54 +106,8 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
     [closeModal],
   );
 
-  const [newsletterLoading, setNewsletterLoading] = useState(false);
-  const [receiptsLoading, setReceiptsLoading] = useState(false);
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-x-2">
-        <Button
-          loading={newsletterLoading}
-          onClick={async () => {
-            setNewsletterLoading(true);
-            const res = await createNewsletterGroupAction({
-              name: "Newsletter",
-            });
-            if (isErrorMessage(res))
-              toastError({
-                description: `There was an error creating the group.`,
-              });
-            else {
-              toastSuccess({ description: `Group created!` });
-              closeModal();
-            }
-            setNewsletterLoading(false);
-          }}
-          color="white"
-        >
-          Newsletter
-        </Button>
-        <Button
-          color="white"
-          loading={receiptsLoading}
-          onClick={async () => {
-            setReceiptsLoading(true);
-            const res = await createReceiptGroupAction({ name: "Receipt" });
-            if (isErrorMessage(res))
-              toastError({
-                description: `There was an error creating the group.`,
-              });
-            else {
-              toastSuccess({ description: `Group created!` });
-              closeModal();
-            }
-            setReceiptsLoading(false);
-          }}
-        >
-          Receipt
-        </Button>
-      </div>
-
       <Input
         type="text"
         name="name"
