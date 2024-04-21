@@ -36,7 +36,11 @@ export default async function GroupsPage() {
       <TopSectionWithRightSection
         title="Groups"
         description="Manage your groups"
-        rightComponent={<CreateGroupModalButton />}
+        rightComponent={
+          <CreateGroupModalButton
+            existingGroups={groups.map((group) => group.name)}
+          />
+        }
       />
 
       {groups.length ? (
