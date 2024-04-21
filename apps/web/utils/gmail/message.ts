@@ -93,12 +93,14 @@ export async function getMessages(
   options: {
     query?: string;
     maxResults?: number;
+    pageToken?: string;
   },
 ) {
   const messages = await gmail.users.messages.list({
     userId: "me",
     maxResults: options.maxResults,
     q: options.query,
+    pageToken: options.pageToken,
   });
 
   return messages.data;
@@ -110,9 +112,11 @@ export async function queryBatchMessages(
   {
     query,
     maxResults = 25,
+    pageToken,
   }: {
     query?: string;
     maxResults?: number;
+    pageToken?: string;
   },
 ) {
   if (maxResults > 25) {
@@ -121,7 +125,7 @@ export async function queryBatchMessages(
     );
   }
 
-  const messages = await getMessages(gmail, { query, maxResults });
+  const messages = await getMessages(gmail, { query, maxResults, pageToken });
   if (!messages.messages) return { messages: [], nextPageToken: undefined };
   const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
   return {

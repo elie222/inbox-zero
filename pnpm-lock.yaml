@@ -50,9 +50,15 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.3.4
         version: 3.3.4(react-hook-form@7.51.3(react@18.2.0))
+      '@inboxzero/embedding':
+        specifier: workspace:*
+        version: link:../../packages/embedding
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
+      '@inboxzero/pinecone':
+        specifier: workspace:*
+        version: link:../../packages/pinecone
       '@inboxzero/resend':
         specifier: workspace:*
         version: link:../../packages/resend
@@ -372,6 +378,22 @@ importers:
       turbo:
         specifier: ^1.13.2
         version: 1.13.2
+
+  packages/embedding:
+    dependencies:
+      openai:
+        specifier: ^4.33.1
+        version: 4.33.1(encoding@0.1.13)
+    devDependencies:
+      '@types/node':
+        specifier: 20.12.7
+        version: 20.12.7
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 5.4.5
+        version: 5.4.5
 
   packages/eslint-config-custom:
     dependencies:

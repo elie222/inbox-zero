@@ -104,7 +104,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         type="text"
         name="name"
         label="Name"
-        placeholder="eg. Newsletter, Receipt, VIP"
+        placeholder="eg. VIP"
         registerProps={register("name", { required: true })}
         error={errors.name}
       />
