@@ -4,7 +4,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 
-export const groupItemsQuery = z.object({ groupId: z.string() });
+const groupItemsQuery = z.object({ groupId: z.string() });
 
 export type GroupItemsResponse = Awaited<ReturnType<typeof getGroupItems>>;
 
