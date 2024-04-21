@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { MessageText } from "@/components/Typography";
 import { deleteGroupAction, deleteGroupItemAction } from "@/utils/actions";
+import { GroupItemType } from "@prisma/client";
 
 export function ViewGroupButton({
   groupId,
@@ -87,7 +88,10 @@ function ViewGroup({ groupId, name }: { groupId: string; name: string }) {
                     <TableBody>
                       {data?.items.map((item) => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.value}</TableCell>
+                          <TableCell>
+                            {item.type === GroupItemType.SUBJECT && "Subject: "}
+                            {item.value}
+                          </TableCell>
                           <TableCell className="py-2">
                             <Button
                               variant="outline"

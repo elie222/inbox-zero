@@ -9,7 +9,12 @@ import { createLabel } from "@/app/api/google/labels/create/controller";
 import { labelThread } from "@/app/api/google/threads/label/controller";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { NewsletterStatus, type Label, PremiumTier } from "@prisma/client";
+import {
+  NewsletterStatus,
+  type Label,
+  PremiumTier,
+  GroupItemType,
+} from "@prisma/client";
 import {
   deleteInboxZeroLabels,
   deleteUserLabels,
@@ -590,7 +595,7 @@ export async function createNewsletterGroupAction({ name }: CreateGroupBody) {
       userId: session.user.id,
       items: {
         create: newsletters.map((newsletter) => ({
-          type: "FROM",
+          type: GroupItemType.FROM,
           value: newsletter,
         })),
       },
@@ -612,12 +617,7 @@ export async function createReceiptGroupAction({ name }: CreateGroupBody) {
     data: {
       name,
       userId: session.user.id,
-      items: {
-        create: receipts.map((receipt) => ({
-          type: "FROM",
-          value: receipt,
-        })),
-      },
+      items: { create: receipts },
     },
   });
 
