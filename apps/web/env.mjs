@@ -61,6 +61,7 @@ export const env = createEnv({
     LICENSE_3_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
 
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
     NEXT_PUBLIC_CALL_LINK: z

@@ -543,6 +543,7 @@ export async function activateLicenseKey(licenseKey: string) {
     [env.LICENSE_3_SEAT_VARIANT_ID || ""]: 3,
     [env.LICENSE_5_SEAT_VARIANT_ID || ""]: 5,
     [env.LICENSE_10_SEAT_VARIANT_ID || ""]: 10,
+    [env.LICENSE_25_SEAT_VARIANT_ID || ""]: 25,
   };
 
   await upgradeToPremium({
