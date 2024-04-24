@@ -437,8 +437,7 @@ type PlanOrExecuteActOptions = {
 } & UserAIFields;
 
 export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
-  const { rules, email, allowExecute, forceExecute, userId, automated } =
-    options;
+  const { rules, email, userId, automated } = options;
 
   if (!rules.length) return;
 
@@ -489,14 +488,30 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
     return plannedAct;
   }
 
+  await excuteRuleActions(options, plannedAct);
+
+  return plannedAct;
+}
+
+export async function excuteRuleActions(
+  options: Pick<
+    PlanOrExecuteActOptions,
+    "email" | "userId" | "allowExecute" | "forceExecute" | "gmail" | "userEmail"
+  >,
+  plannedAct: Awaited<ReturnType<typeof planAct>>,
+) {
+  const { email, userId, allowExecute, forceExecute } = options;
+
+  if (!plannedAct.rule) return;
+
   const data = {
-    actionItems: { createMany: { data: plannedAct.actionItems } },
+    actionItems: { createMany: { data: plannedAct.actionItems || [] } },
     messageId: email.messageId,
     threadId: email.threadId,
     automated: plannedAct.rule.automate,
     status: ExecutedRuleStatus.PENDING,
     reason: plannedAct.reason,
-    rule: plannedAct.rule.id
+    rule: plannedAct.rule?.id
       ? { connect: { id: plannedAct.rule.id } }
       : undefined,
     user: { connect: { id: userId } },
@@ -525,6 +540,4 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
       executedRuleId: executedRule.id,
     });
   }
-
-  return plannedAct;
 }
