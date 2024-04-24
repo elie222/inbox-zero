@@ -55,7 +55,10 @@ function ViewGroup({ groupId, name }: { groupId: string; name: string }) {
   return (
     <div>
       <div className="flex justify-end space-x-2">
-        {/* <Button variant="outline">Add</Button> */}
+        {/* <Button variant="outline">
+          <PlusIcon className="mr-2 h-4 w-4" />
+          Add Item
+        </Button> */}
         <Button
           variant="outline"
           onClick={async () => {
@@ -64,6 +67,7 @@ function ViewGroup({ groupId, name }: { groupId: string; name: string }) {
             }
           }}
         >
+          <TrashIcon className="mr-2 h-4 w-4" />
           Delete Group
         </Button>
       </div>

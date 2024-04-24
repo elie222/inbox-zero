@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { ActionType } from "@prisma/client";
-import { getRule, updateRule } from "@/app/api/user/rules/[id]/controller";
+import {
+  createRule,
+  getRule,
+  updateRule,
+} from "@/app/api/user/rules/[id]/controller";
 
 export type GetRuleResponse = Awaited<ReturnType<typeof getRule>>;
 
@@ -30,7 +34,12 @@ export const updateRuleBody = z.object({
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
   actions: z.array(zodAction).nullish(),
+  groupId: z.string().nullish(),
 });
 
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 export type UpdateRuleResponse = Awaited<ReturnType<typeof updateRule>>;
+
+export const createRuleBody = updateRuleBody;
+export type CreateRuleBody = z.infer<typeof createRuleBody>;
+export type CreateRuleResponse = Awaited<ReturnType<typeof createRule>>;

@@ -117,6 +117,7 @@ export function RulesForm(props: {
       const res = await postRequest<UpdateRulesResponse, UpdateRulesBody>(
         "/api/user/rules",
         data,
+        "PUT",
       );
 
       posthog.capture("Clicked Save Rules");

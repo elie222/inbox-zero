@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import prisma from "@/utils/prisma";
 import { ViewGroupButton } from "@/app/(app)/groups/ViewGroup";
+import { ViewGroupRulesButton } from "@/app/(app)/groups/ViewGroupRules";
 
 export const dynamic = "force-dynamic";
 
@@ -60,8 +61,12 @@ export default async function GroupsPage() {
                   <TableCell className="text-center">
                     {group._count.items}
                   </TableCell>
-                  <TableCell className="p-3 text-center">
+                  <TableCell className="space-x-1 p-3 text-center">
                     <ViewGroupButton groupId={group.id} name={group.name} />
+                    <ViewGroupRulesButton
+                      groupId={group.id}
+                      name={group.name}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

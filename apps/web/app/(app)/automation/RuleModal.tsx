@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import {
   FieldError,
   SubmitHandler,
@@ -15,19 +15,20 @@ import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionHeader, TypographyH3 } from "@/components/Typography";
+import { TypographyH3 } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { ActionType } from "@prisma/client";
 import { Modal } from "@/components/Modal";
 import {
+  CreateRuleBody,
+  CreateRuleResponse,
   updateRuleBody,
   type UpdateRuleBody,
   type UpdateRuleResponse,
 } from "@/app/api/user/rules/[id]/validation";
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
-import { AlertBasic } from "@/components/Alert";
 import { Toggle } from "@/components/Toggle";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { Tooltip } from "@/components/Tooltip";
@@ -55,18 +56,13 @@ export function RuleModal(props: {
   );
 }
 
-function UpdateRuleForm(props: {
+export function UpdateRuleForm(props: {
   rule: UpdateRuleBody & { id?: string };
   closeModal: () => void;
   refetchRules: () => Promise<any>;
+  hideInstructions?: boolean;
 }) {
-  const { closeModal, refetchRules } = props;
-
-  const [editingActionType, setEditingActionType] = useState(false);
-  const toggleEdittingActionType = useCallback(
-    () => setEditingActionType(!editingActionType),
-    [setEditingActionType, editingActionType],
-  );
+  const { closeModal, refetchRules, hideInstructions } = props;
 
   const {
     register,
@@ -80,15 +76,24 @@ function UpdateRuleForm(props: {
     defaultValues: props.rule,
   });
 
-  const { append, remove } = useFieldArray({ control, name: "actions" });
+  const { append, remove, update } = useFieldArray({
+    control,
+    name: "actions",
+  });
 
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
-      if (!props.rule.id) return;
-      const res = await postRequest<UpdateRuleResponse, UpdateRuleBody>(
-        `/api/user/rules/${props.rule.id}`,
-        data,
-      );
+      const body = { ...data, groupId: props.rule.groupId };
+      const res = props.rule.id
+        ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
+            `/api/user/rules/${props.rule.id}`,
+            body,
+            "PATCH",
+          )
+        : await postRequest<CreateRuleResponse, CreateRuleBody>(
+            "/api/user/rules",
+            body,
+          );
 
       await refetchRules();
 
@@ -105,23 +110,30 @@ function UpdateRuleForm(props: {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <div className="mt-4">
-        <AlertBasic
-          title="Instructions"
-          description={props.rule.instructions}
-          icon={null}
-        />
-
+      {!hideInstructions && (
         <div className="mt-4">
-          <Input
-            type="text"
-            name="Name"
-            label="Rule name"
-            registerProps={register("name")}
-            error={errors.name}
-          />
+          <div className="mt-4 space-y-4">
+            <Input
+              type="text"
+              name="Name"
+              label="Rule name"
+              registerProps={register("name")}
+              error={errors.name}
+              placeholder="eg. Label receipts"
+            />
+            <Input
+              type="text"
+              as="textarea"
+              rows={3}
+              name="Instructions"
+              label="Instructions"
+              registerProps={register("instructions")}
+              error={errors.instructions}
+              placeholder='eg. Apply this rule to all "receipts"'
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 
@@ -131,37 +143,26 @@ function UpdateRuleForm(props: {
             <Card key={i}>
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-1">
-                  {editingActionType ? (
-                    <Select
-                      name={`actions.${i}.type`}
-                      label="Action type"
-                      options={Object.keys(ActionType).map((action) => ({
-                        label: capitalCase(action),
-                        value: action,
-                      }))}
-                      registerProps={register(`actions.${i}.type`)}
-                      error={
-                        errors["actions"]?.[i]?.["type"] as
-                          | FieldError
-                          | undefined
-                      }
-                    />
-                  ) : (
-                    <div
-                      className="cursor-pointer"
-                      onClick={toggleEdittingActionType}
-                    >
-                      <SectionHeader>{capitalCase(action.type)}</SectionHeader>
-                    </div>
-                  )}
+                  <Select
+                    name={`actions.${i}.type`}
+                    label="Action type"
+                    options={Object.keys(ActionType).map((action) => ({
+                      label: capitalCase(action),
+                      value: action,
+                    }))}
+                    registerProps={register(`actions.${i}.type`)}
+                    error={
+                      errors["actions"]?.[i]?.["type"] as FieldError | undefined
+                    }
+                  />
 
-                  <button
-                    type="button"
-                    className="text-xs hover:text-red-500"
+                  <Button
+                    className="mt-2"
+                    color="transparent"
                     onClick={() => remove(i)}
                   >
                     Remove
-                  </button>
+                  </Button>
                 </div>
                 <div className="col-span-3 space-y-4">
                   {actionInputs[watch(`actions.${i}.type`)].fields.map(
@@ -234,11 +235,6 @@ function UpdateRuleForm(props: {
         })}
       </div>
 
-      {!watch("actions")?.length && (
-        <div className="mt-8 flex justify-center">
-          <div className="text-gray-700">No actions</div>
-        </div>
-      )}
       <div className="mt-4">
         <Button
           color="white"
@@ -248,6 +244,21 @@ function UpdateRuleForm(props: {
           <PlusIcon className="mr-2 h-4 w-4" />
           Add Action
         </Button>
+      </div>
+
+      <div className="mt-4 flex items-center justify-end space-x-2">
+        <Tooltip content="If enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first.">
+          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
+        </Tooltip>
+
+        <Toggle
+          name="automate"
+          label="Automate"
+          enabled={watch("automate") || false}
+          onChange={(enabled) => {
+            setValue("automate", enabled);
+          }}
+        />
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">

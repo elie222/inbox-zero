@@ -12,6 +12,34 @@ export async function getRule(options: { id: string; userId: string }) {
   return { rule };
 }
 
+export async function createRule({
+  userId,
+  body,
+}: {
+  userId: string;
+  body: UpdateRuleBody;
+}) {
+  const rule = await prisma.rule.create({
+    data: {
+      name: body.name || "",
+      instructions: body.instructions || "",
+      automate: body.automate ?? undefined,
+      runOnThreads: body.runOnThreads ?? undefined,
+      actions: body.actions
+        ? {
+            createMany: {
+              data: body.actions,
+            },
+          }
+        : undefined,
+      userId,
+      groupId: body.groupId,
+    },
+  });
+
+  return { rule };
+}
+
 export async function updateRule(options: {
   id: string;
   userId: string;
