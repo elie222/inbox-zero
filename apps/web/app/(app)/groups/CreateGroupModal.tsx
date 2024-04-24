@@ -37,16 +37,14 @@ export function CreateGroupModalButton(props: { existingGroups: string[] }) {
                 loading={newsletterLoading}
                 onClick={async () => {
                   setNewsletterLoading(true);
-                  const res = await createNewsletterGroupAction({
-                    name: "Newsletter",
-                  });
-                  if (isErrorMessage(res)) {
+                  try {
+                    await createNewsletterGroupAction({ name: "Newsletter" });
+                    toastSuccess({ description: `Group created!` });
+                    closeModal();
+                  } catch (error) {
                     toastError({
                       description: `There was an error creating the group.`,
                     });
-                  } else {
-                    toastSuccess({ description: `Group created!` });
-                    closeModal();
                   }
                   setNewsletterLoading(false);
                 }}
@@ -61,16 +59,14 @@ export function CreateGroupModalButton(props: { existingGroups: string[] }) {
                 loading={receiptsLoading}
                 onClick={async () => {
                   setReceiptsLoading(true);
-                  const res = await createReceiptGroupAction({
-                    name: "Receipt",
-                  });
-                  if (isErrorMessage(res)) {
+                  try {
+                    await createReceiptGroupAction({ name: "Receipt" });
+                    toastSuccess({ description: `Group created!` });
+                    closeModal();
+                  } catch (error) {
                     toastError({
                       description: `There was an error creating the group.`,
                     });
-                  } else {
-                    toastSuccess({ description: `Group created!` });
-                    closeModal();
                   }
                   setReceiptsLoading(false);
                 }}
