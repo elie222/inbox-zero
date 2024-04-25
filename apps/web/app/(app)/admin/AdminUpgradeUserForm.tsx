@@ -61,6 +61,15 @@ export const AdminUpgradeUserForm = () => {
         })}
         error={errors.lemonSqueezyCustomerId}
       />
+      <Input
+        type="number"
+        name="emailAccountsAccess"
+        label="Seats"
+        registerProps={register("emailAccountsAccess", {
+          valueAsNumber: true,
+        })}
+        error={errors.emailAccountsAccess}
+      />
       <Select<PremiumTier>
         name="period"
         label="Period"
@@ -97,6 +106,7 @@ export const AdminUpgradeUserForm = () => {
             onSubmit({
               email: getValues("email"),
               lemonSqueezyCustomerId: getValues("lemonSqueezyCustomerId"),
+              emailAccountsAccess: getValues("emailAccountsAccess"),
               period: getValues("period"),
               upgrade: true,
             });
