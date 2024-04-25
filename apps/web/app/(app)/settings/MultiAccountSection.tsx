@@ -55,14 +55,12 @@ export function MultiAccountSection() {
             {data && (
               <div>
                 {premiumTier && (
-                  <AlertBasic
-                    title="Extra email price"
-                    description={`You are on the ${capitalCase(
-                      premiumTier,
-                    )} plan. You will be billed ${
-                      pricingAdditonalEmail[premiumTier]
-                    } for each extra email you add to your account.`}
-                    icon={<CrownIcon className="h-4 w-4" />}
+                  <ExtraSeatsAlert
+                    premiumTier={premiumTier}
+                    emailAccountsAccess={
+                      dataPremium?.premium?.emailAccountsAccess || 0
+                    }
+                    seatsUsed={data.users.length}
                   />
                 )}
 
@@ -193,5 +191,37 @@ function MultiAccountForm({
         </Button>
       )}
     </form>
+  );
+}
+
+function ExtraSeatsAlert({
+  emailAccountsAccess,
+  premiumTier,
+  seatsUsed,
+}: {
+  emailAccountsAccess: number;
+  premiumTier: PremiumTier;
+  seatsUsed: number;
+}) {
+  if (emailAccountsAccess > seatsUsed) {
+    return (
+      <AlertBasic
+        title="Seats"
+        description={`You have access to ${emailAccountsAccess} seats.`}
+        icon={<CrownIcon className="h-4 w-4" />}
+      />
+    );
+  }
+
+  return (
+    <AlertBasic
+      title="Extra email price"
+      description={`You are on the ${capitalCase(
+        premiumTier,
+      )} plan. You will be billed ${
+        pricingAdditonalEmail[premiumTier]
+      } for each extra email you add to your account.`}
+      icon={<CrownIcon className="h-4 w-4" />}
+    />
   );
 }
