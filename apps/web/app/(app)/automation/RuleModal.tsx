@@ -76,13 +76,11 @@ export function UpdateRuleForm(props: {
     defaultValues: props.rule,
   });
 
-  const { append, remove, update } = useFieldArray({
-    control,
-    name: "actions",
-  });
+  const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
+      console.log("🚀 ~ data:", data);
       const body = { ...data, groupId: props.rule.groupId };
       const res = props.rule.id
         ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
@@ -134,6 +132,43 @@ export function UpdateRuleForm(props: {
           </div>
         </div>
       )}
+
+      <TypographyH3 className="mt-6">Conditions</TypographyH3>
+
+      <Card className="mt-4 space-y-4">
+        <Input
+          type="text"
+          name="from"
+          label="From"
+          registerProps={register("from")}
+          error={errors.from}
+          placeholder="eg. elie@getinboxzero.com"
+        />
+        <Input
+          type="text"
+          name="to"
+          label="To"
+          registerProps={register("to")}
+          error={errors.to}
+          placeholder="eg. elie@getinboxzero.com"
+        />
+        <Input
+          type="text"
+          name="subject"
+          label="Subject"
+          registerProps={register("subject")}
+          error={errors.subject}
+          placeholder="eg. Receipt for your purchase"
+        />
+        {/* <Input
+          type="text"
+          name="body"
+          label="Body"
+          registerProps={register("body")}
+          error={errors.body}
+          placeholder="eg. Thanks for your purchase!"
+        /> */}
+      </Card>
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 

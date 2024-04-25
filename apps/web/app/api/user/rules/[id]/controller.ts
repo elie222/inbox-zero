@@ -40,34 +40,35 @@ export async function createRule({
   return { rule };
 }
 
-export async function updateRule(options: {
+export async function updateRule({
+  id,
+  userId,
+  body,
+}: {
   id: string;
   userId: string;
   body: UpdateRuleBody;
 }) {
   const [, rule] = await prisma.$transaction([
     prisma.action.deleteMany({
-      where: {
-        ruleId: options.id,
-      },
+      where: { ruleId: id },
     }),
     prisma.rule.update({
-      where: {
-        id: options.id,
-        userId: options.userId,
-      },
+      where: { id, userId },
       data: {
-        instructions: options.body.instructions || undefined,
-        automate: options.body.automate ?? undefined,
-        runOnThreads: options.body.runOnThreads ?? undefined,
-        name: options.body.name || undefined,
-        actions: options.body.actions
+        instructions: body.instructions || undefined,
+        automate: body.automate ?? undefined,
+        runOnThreads: body.runOnThreads ?? undefined,
+        name: body.name || undefined,
+        actions: body.actions
           ? {
-              createMany: {
-                data: options.body.actions,
-              },
+              createMany: { data: body.actions },
             }
           : undefined,
+        from: body.from || undefined,
+        to: body.to || undefined,
+        subject: body.subject || undefined,
+        body: body.body || undefined,
       },
     }),
   ]);

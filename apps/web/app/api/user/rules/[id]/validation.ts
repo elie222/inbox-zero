@@ -35,6 +35,10 @@ export const updateRuleBody = z.object({
   runOnThreads: z.boolean().nullish(),
   actions: z.array(zodAction).nullish(),
   groupId: z.string().nullish(),
+  from: z.string().nullish(),
+  to: z.string().nullish(),
+  subject: z.string().nullish(),
+  body: z.string().nullish(),
 });
 
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
