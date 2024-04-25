@@ -453,6 +453,7 @@ export async function updateMultiAccountPremium(
               id: true,
               tier: true,
               lemonSqueezySubscriptionItemId: true,
+              emailAccountsAccess: true,
             },
           },
         },
@@ -480,16 +481,19 @@ export async function updateMultiAccountPremium(
         }
       }
 
-      if (!premium.lemonSqueezySubscriptionItemId) {
-        return {
-          error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
-        };
-      }
+      if ((premium.emailAccountsAccess || 0) < users.length) {
+        // TODO lifetime users
+        if (!premium.lemonSqueezySubscriptionItemId) {
+          return {
+            error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+          };
+        }
 
-      await updateSubscriptionItemQuantity({
-        id: premium.lemonSqueezySubscriptionItemId,
-        quantity: otherUsersToAdd.length + 1,
-      });
+        await updateSubscriptionItemQuantity({
+          id: premium.lemonSqueezySubscriptionItemId,
+          quantity: otherUsersToAdd.length + 1,
+        });
+      }
 
       // delete premium for other users when adding them to this premium plan
       // don't delete the premium for the current user
