@@ -19,6 +19,7 @@ import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { getAiProviderAndModel } from "@/utils/llms";
 import { env } from "@/env.mjs";
 import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
+import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -357,13 +358,22 @@ async function processHistoryItem(
 
     const parsedMessage = parseMessage(gmailMessage);
 
-    const { handled } = await handleGroupRule({
+    const staticRule = await handleStaticRule({
+      rules,
       message: parsedMessage,
       user: { id: userId, email: userEmail },
       gmail,
     });
 
-    if (handled) return;
+    if (staticRule.handled) return;
+
+    const groupRule = await handleGroupRule({
+      message: parsedMessage,
+      user: { id: userId, email: userEmail },
+      gmail,
+    });
+
+    if (groupRule.handled) return;
 
     if (
       coldEmailBlocker &&
