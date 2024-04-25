@@ -20,7 +20,7 @@ export const GET = withError(async (request, { params }) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(
+export const PATCH = withError(
   async (request, { params }: { params: { id?: string } }) => {
     const session = await auth();
     if (!session?.user.email)
