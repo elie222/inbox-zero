@@ -7,6 +7,10 @@ export const changePremiumStatusSchema = z.object({
     .number()
     .optional()
     .transform((v) => v || undefined),
+  emailAccountsAccess: z
+    .number()
+    .optional()
+    .transform((v) => v || undefined),
   period: z.enum([
     PremiumTier.PRO_MONTHLY,
     PremiumTier.PRO_ANNUALLY,

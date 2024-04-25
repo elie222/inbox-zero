@@ -342,6 +342,7 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
               options.period === PremiumTier.BUSINESS_MONTHLY
             ? new Date(+new Date() + ONE_MONTH)
             : null,
+      emailAccountsAccess: options.emailAccountsAccess,
     });
   } else if (userToUpgrade) {
     if (userToUpgrade.premiumId) {
