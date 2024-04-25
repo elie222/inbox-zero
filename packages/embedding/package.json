@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "openai": "^4.33.1"
+    "openai": "^4.38.5"
   },
   "devDependencies": {
     "@types/node": "20.12.7",
