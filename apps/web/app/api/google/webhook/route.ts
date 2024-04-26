@@ -358,10 +358,19 @@ async function processHistoryItem(
 
     const parsedMessage = parseMessage(gmailMessage);
 
+    const user = {
+      id: userId,
+      email: userEmail,
+      aiModel: options.aiModel,
+      aiProvider: options.aiProvider,
+      openAIApiKey: options.openAIApiKey,
+      about: about,
+    };
+
     const staticRule = await handleStaticRule({
       rules,
       message: parsedMessage,
-      user: { id: userId, email: userEmail },
+      user,
       gmail,
     });
 
@@ -369,7 +378,7 @@ async function processHistoryItem(
 
     const groupRule = await handleGroupRule({
       message: parsedMessage,
-      user: { id: userId, email: userEmail },
+      user,
       gmail,
     });
 

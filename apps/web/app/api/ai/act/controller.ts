@@ -16,7 +16,7 @@ import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
-import { parseEmail } from "@/utils/mail";
+import { emailToContent } from "@/utils/mail";
 import { ExecutedRuleStatus } from "@prisma/client";
 import {
   getActionItemsFromAiArgsResponse,
@@ -31,7 +31,7 @@ export type ActResponse = Awaited<ReturnType<typeof planOrExecuteAct>>;
 // NOTE: if two actions require the same field, the AI will generate the same value for both.
 // For example, if two actions require the "content" field, the AI will generate the same content for both.
 // We probably want to improve this in the future. So that action1.content and action2.content are different.
-function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
+export function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
   const rulesWithProperties = options.rules.map((rule, i) => {
     const toAiGenerateValues: ActionProperty[] = [];
 
@@ -210,10 +210,7 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
 
   if (!rules.length) return;
 
-  const content =
-    (email.textHtml && parseEmail(email.textHtml, false, null)) ||
-    email.textPlain ||
-    email.snippet;
+  const content = emailToContent(email);
 
   const plannedAct = await planAct({
     ...options,

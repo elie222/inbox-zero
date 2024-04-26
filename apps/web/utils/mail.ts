@@ -64,7 +64,7 @@ export function truncate(str: string, length: number) {
 
 // extract replies can sometimes return no content.
 // as we don't run ai on threads with multiple messages, 'extractReply' can be disabled for now
-export function parseEmail(
+function parseEmail(
   html: string,
   extractReply = false,
   maxLength: number | null = 2000,
@@ -87,4 +87,17 @@ export function getEmailClient(messageId: string) {
   // take part after @ and remove final >
   const emailClient = messageId.split("@")[1].split(">")[0];
   return emailClient;
+}
+
+export function emailToContent(email: {
+  textHtml: string | null;
+  textPlain: string | null;
+  snippet: string | null;
+}) {
+  const content =
+    (email.textHtml && parseEmail(email.textHtml, false, null)) ||
+    email.textPlain ||
+    email.snippet;
+
+  return content || "";
 }

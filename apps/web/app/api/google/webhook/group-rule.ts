@@ -1,8 +1,16 @@
 import { gmail_v1 } from "googleapis";
-import { excuteRuleActions } from "@/app/api/ai/act/controller";
+import {
+  excuteRuleActions,
+  getFunctionsFromRules,
+} from "@/app/api/ai/act/controller";
 import prisma from "@/utils/prisma";
 import { ParsedMessage } from "@/utils/types";
 import { GroupItemType, User } from "@prisma/client";
+import { emailToContent } from "@/utils/mail";
+import {
+  getActionItemsFromAiArgsResponse,
+  getArgsAiResponse,
+} from "@/app/api/ai/act/ai-choose-args";
 
 export async function handleGroupRule({
   message,
@@ -10,7 +18,10 @@ export async function handleGroupRule({
   gmail,
 }: {
   message: ParsedMessage;
-  user: Pick<User, "id" | "email">;
+  user: Pick<
+    User,
+    "id" | "email" | "aiModel" | "aiProvider" | "openAIApiKey" | "about"
+  >;
   gmail: gmail_v1.Gmail;
 }): Promise<{ handled: boolean }> {
   const groups = await getGroups(user.id);
@@ -20,32 +31,62 @@ export async function handleGroupRule({
   if (!match) return { handled: false };
   if (!match.rule) return { handled: true };
 
+  const email = {
+    from: message.headers.from,
+    to: message.headers.to,
+    subject: message.headers.subject,
+    headerMessageId: message.headers["message-id"] || "",
+    messageId: message.id,
+    snippet: message.snippet,
+    textHtml: message.textHtml || null,
+    textPlain: message.textPlain || null,
+    threadId: message.threadId,
+    cc: message.headers.cc || undefined,
+    date: message.headers.date,
+    references: message.headers.references,
+    replyTo: message.headers["reply-to"],
+    content: emailToContent({
+      textHtml: message.textHtml || null,
+      textPlain: message.textPlain || null,
+      snippet: message.snippet || null,
+    }),
+  };
+
+  const functions = getFunctionsFromRules({ rules: [match.rule] });
+  const shouldAiGenerateArgs =
+    functions.rulesWithProperties[0].shouldAiGenerateArgs;
+
+  // generate args
+  const aiArgsResponse = shouldAiGenerateArgs
+    ? await getArgsAiResponse({
+        email,
+        selectedFunction: functions.functions[0],
+        aiModel: user.aiModel,
+        aiProvider: user.aiProvider,
+        openAIApiKey: user.openAIApiKey,
+        userAbout: user.about || "",
+        userEmail: user.email || "",
+      })
+    : undefined;
+
+  const actionItems = getActionItemsFromAiArgsResponse(
+    aiArgsResponse,
+    match.rule.actions,
+  );
+
   // handle action
+  // TODO use automate/thread toggle
   await excuteRuleActions(
     {
       gmail,
       userId: user.id,
       userEmail: user.email || "",
       allowExecute: true,
-      email: {
-        from: message.headers.from,
-        to: message.headers.to,
-        subject: message.headers.subject,
-        headerMessageId: message.headers["message-id"] || "",
-        messageId: message.id,
-        snippet: message.snippet,
-        textHtml: message.textHtml || null,
-        textPlain: message.textPlain || null,
-        threadId: message.threadId,
-        cc: message.headers.cc || undefined,
-        date: message.headers.date,
-        references: message.headers.references,
-        replyTo: message.headers["reply-to"],
-      },
+      email,
     },
     {
       rule: match.rule,
-      actionItems: match.rule.actions,
+      actionItems,
     },
   );
 

@@ -6,7 +6,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
 import { getSummary, saveSummary } from "@/utils/redis/summary";
 import { expire } from "@/utils/redis";
-import { parseEmail } from "@/utils/mail";
+import { emailToContent } from "@/utils/mail";
 
 // doesn't work with parsing email packages we use
 // export const runtime = "edge";
@@ -19,7 +19,11 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = summariseBody.parse(json);
 
-  const prompt = body.textHtml ? parseEmail(body.textHtml) : body.textPlain;
+  const prompt = emailToContent({
+    textHtml: body.textHtml || null,
+    textPlain: body.textPlain || null,
+    snippet: null,
+  });
 
   if (!prompt)
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
