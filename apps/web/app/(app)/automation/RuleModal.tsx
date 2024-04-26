@@ -83,17 +83,20 @@ export function UpdateRuleForm(props: {
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
+  const [tab, setTab] = useState<"ai" | "static" | "group">("ai");
+
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
+      const body = cleanRule(data, tab);
       const res = props.rule.id
         ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
             `/api/user/rules/${props.rule.id}`,
-            data,
+            body,
             "PATCH",
           )
         : await postRequest<CreateRuleResponse, CreateRuleBody>(
             "/api/user/rules",
-            data,
+            body,
           );
 
       await refetchRules();
@@ -108,8 +111,6 @@ export function UpdateRuleForm(props: {
     },
     [props.rule.id, closeModal, refetchRules],
   );
-
-  const [tab, setTab] = useState("ai");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -126,7 +127,7 @@ export function UpdateRuleForm(props: {
 
       <TypographyH3 className="mt-6">Conditions</TypographyH3>
 
-      <Tabs defaultValue={tab} className="mt-2" onValueChange={setTab}>
+      <Tabs defaultValue={tab} className="mt-2" onValueChange={setTab as any}>
         <TabsList>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="static">Static</TabsTrigger>
@@ -375,4 +376,33 @@ function GroupsTab(props: {
       </LoadingContent>
     </div>
   );
+}
+
+function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
+  if (type === "static") {
+    return {
+      ...rule,
+      instructions: null,
+      groupId: null,
+    };
+  }
+  if (type === "group") {
+    return {
+      ...rule,
+      instructions: null,
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
+    };
+  }
+  // type === "ai"
+  return {
+    ...rule,
+    groupId: null,
+    from: null,
+    to: null,
+    subject: null,
+    body: null,
+  };
 }

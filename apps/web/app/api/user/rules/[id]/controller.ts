@@ -58,7 +58,7 @@ export async function updateRule({
     prisma.rule.update({
       where: { id, userId },
       data: {
-        instructions: body.instructions || undefined,
+        instructions: body.instructions || "",
         automate: body.automate ?? undefined,
         runOnThreads: body.runOnThreads ?? undefined,
         name: body.name || undefined,
@@ -67,11 +67,11 @@ export async function updateRule({
               createMany: { data: body.actions },
             }
           : undefined,
-        from: body.from || undefined,
-        to: body.to || undefined,
-        subject: body.subject || undefined,
-        body: body.body || undefined,
-        groupId: body.groupId || undefined,
+        from: body.from,
+        to: body.to,
+        subject: body.subject,
+        body: body.body,
+        groupId: body.groupId,
       },
     }),
   ]);
