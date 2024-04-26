@@ -78,24 +78,22 @@ export function UpdateRuleForm(props: {
     formState: { errors, isSubmitting },
   } = useForm<UpdateRuleBody>({
     resolver: zodResolver(updateRuleBody),
-    defaultValues: props.rule,
+    defaultValues: { ...props.rule, groupId: props.rule.groupId },
   });
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
-      console.log("🚀 ~ data:", data);
-      const body = { ...data, groupId: props.rule.groupId };
       const res = props.rule.id
         ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
             `/api/user/rules/${props.rule.id}`,
-            body,
+            data,
             "PATCH",
           )
         : await postRequest<CreateRuleResponse, CreateRuleBody>(
             "/api/user/rules",
-            body,
+            data,
           );
 
       await refetchRules();

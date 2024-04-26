@@ -33,7 +33,11 @@ export async function createRule({
           }
         : undefined,
       userId,
-      groupId: body.groupId,
+      from: body.from || undefined,
+      to: body.to || undefined,
+      subject: body.subject || undefined,
+      body: body.body || undefined,
+      groupId: body.groupId || undefined,
     },
   });
 
@@ -50,9 +54,7 @@ export async function updateRule({
   body: UpdateRuleBody;
 }) {
   const [, rule] = await prisma.$transaction([
-    prisma.action.deleteMany({
-      where: { ruleId: id },
-    }),
+    prisma.action.deleteMany({ where: { ruleId: id } }),
     prisma.rule.update({
       where: { id, userId },
       data: {
@@ -69,6 +71,7 @@ export async function updateRule({
         to: body.to || undefined,
         subject: body.subject || undefined,
         body: body.body || undefined,
+        groupId: body.groupId || undefined,
       },
     }),
   ]);
