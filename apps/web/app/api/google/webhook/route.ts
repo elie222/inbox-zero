@@ -352,11 +352,15 @@ async function processHistoryItem(
       return;
     }
 
-    const isThread = gmailThread.messages && gmailThread.messages.length > 1;
+    const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
 
     console.log("Fetched message", userEmail, messageId, threadId);
 
     const parsedMessage = parseMessage(gmailMessage);
+
+    const applicableRules = isThread
+      ? rules.filter((r) => r.runOnThreads)
+      : rules;
 
     const user = {
       id: userId,
@@ -368,7 +372,7 @@ async function processHistoryItem(
     };
 
     const staticRule = await handleStaticRule({
-      rules,
+      rules: applicableRules,
       message: parsedMessage,
       user,
       gmail,
@@ -380,6 +384,7 @@ async function processHistoryItem(
       message: parsedMessage,
       user,
       gmail,
+      isThread,
     });
 
     if (groupRule.handled) return;
@@ -434,10 +439,6 @@ async function processHistoryItem(
         );
         return;
       }
-
-      const applicableRules = isThread
-        ? rules.filter((r) => r.runOnThreads)
-        : rules;
 
       if (applicableRules.length === 0) {
         console.log(

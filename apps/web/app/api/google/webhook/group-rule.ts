@@ -16,6 +16,7 @@ export async function handleGroupRule({
   message,
   user,
   gmail,
+  isThread,
 }: {
   message: ParsedMessage;
   user: Pick<
@@ -23,6 +24,7 @@ export async function handleGroupRule({
     "id" | "email" | "aiModel" | "aiProvider" | "openAIApiKey" | "about"
   >;
   gmail: gmail_v1.Gmail;
+  isThread: boolean;
 }): Promise<{ handled: boolean }> {
   const groups = await getGroups(user.id);
 
@@ -30,6 +32,7 @@ export async function handleGroupRule({
   const match = findMatchingGroup(message, groups);
   if (!match) return { handled: false };
   if (!match.rule) return { handled: true };
+  if (isThread && !match.rule.runOnThreads) return { handled: true };
 
   const email = {
     from: message.headers.from,
