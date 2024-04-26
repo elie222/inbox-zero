@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { TrashIcon } from "lucide-react";
-import { GroupItemsResponse } from "@/app/api/user/group/route";
+import { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
@@ -40,21 +40,21 @@ export function ViewGroupButton({
         size="4xl"
       >
         <div className="mt-4">
-          <ViewGroup groupId={groupId} name={name} />
+          <ViewGroup groupId={groupId} />
         </div>
       </Modal>
     </>
   );
 }
 
-function ViewGroup({ groupId, name }: { groupId: string; name: string }) {
+function ViewGroup({ groupId }: { groupId: string }) {
   const { data, isLoading, error } = useSWR<GroupItemsResponse>(
-    `/api/user/group?groupId=${groupId}`,
+    `/api/user/group/${groupId}/items`,
   );
 
   return (
     <div>
-      <div className="flex justify-end space-x-2">
+      <div className="flex items-center justify-between space-x-2">
         {/* <Button variant="outline">
           <PlusIcon className="mr-2 h-4 w-4" />
           Add Item

@@ -6,7 +6,7 @@ import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UpdateRuleForm } from "@/app/(app)/automation/RuleModal";
-import { GroupRulesResponse } from "@/app/api/user/group/rules/route";
+import { GroupRulesResponse } from "@/app/api/user/group/[groupId]/rules/route";
 
 export function ViewGroupRulesButton({
   groupId,
@@ -44,7 +44,7 @@ function ViewGroupRules({
   closeModal: () => void;
 }) {
   const { data, isLoading, error, mutate } = useSWR<GroupRulesResponse>(
-    `/api/user/group/rules?groupId=${groupId}`,
+    `/api/user/group/${groupId}/rules`,
   );
 
   return (
@@ -66,7 +66,6 @@ function ViewGroupRules({
             }
             closeModal={closeModal}
             refetchRules={mutate}
-            hideInstructions
           />
         </LoadingContent>
       </div>

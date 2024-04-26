@@ -1,10 +1,7 @@
-import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-
-const groupRulesQuery = z.object({ groupId: z.string() });
 
 export type GroupRulesResponse = Awaited<ReturnType<typeof getGroupRules>>;
 
@@ -28,18 +25,16 @@ async function getGroupRules({
   return { rule: groupWithRules.rule };
 }
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async (_request: Request, { params }) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  const { searchParams } = new URL(request.url);
-  const groupId = searchParams.get("groupId");
-  const query = groupRulesQuery.parse({ groupId });
+  if (!params.groupId) return NextResponse.json({ error: "Group id required" });
 
   const result = await getGroupRules({
     userId: session.user.id,
-    groupId: query.groupId,
+    groupId: params.groupId,
   });
 
   return NextResponse.json(result);

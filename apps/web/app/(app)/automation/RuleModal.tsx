@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   FieldError,
+  FieldErrors,
   SubmitHandler,
+  UseFormRegisterReturn,
   useFieldArray,
   useForm,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
-import { HelpCircleIcon, PlusIcon } from "lucide-react";
+import { HelpCircleIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
@@ -32,6 +34,10 @@ import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { Tooltip } from "@/components/Tooltip";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import useSWR from "swr";
+import { GroupsResponse } from "@/app/api/user/group/route";
+import { LoadingContent } from "@/components/LoadingContent";
 
 export function RuleModal(props: {
   rule?: UpdateRuleBody;
@@ -60,9 +66,8 @@ export function UpdateRuleForm(props: {
   rule: UpdateRuleBody & { id?: string };
   closeModal: () => void;
   refetchRules: () => Promise<any>;
-  hideInstructions?: boolean;
 }) {
-  const { closeModal, refetchRules, hideInstructions } = props;
+  const { closeModal, refetchRules } = props;
 
   const {
     register,
@@ -106,61 +111,73 @@ export function UpdateRuleForm(props: {
     [props.rule.id, closeModal, refetchRules],
   );
 
+  const [tab, setTab] = useState("ai");
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      {!hideInstructions && (
-        <div className="mt-4">
-          <div className="mt-4 space-y-4">
-            <Input
-              type="text"
-              name="Name"
-              label="Rule name"
-              registerProps={register("name")}
-              error={errors.name}
-              placeholder="eg. Label receipts"
-            />
-            <Input
-              type="text"
-              as="textarea"
-              rows={3}
-              name="Instructions"
-              label="Instructions"
-              registerProps={register("instructions")}
-              error={errors.instructions}
-              placeholder='eg. Apply this rule to all "receipts"'
-            />
-          </div>
-        </div>
-      )}
+      <div className="mt-4">
+        <Input
+          type="text"
+          name="Name"
+          label="Rule name"
+          registerProps={register("name")}
+          error={errors.name}
+          placeholder="eg. Label receipts"
+        />
+      </div>
 
       <TypographyH3 className="mt-6">Conditions</TypographyH3>
 
-      <Card className="mt-4 space-y-4">
-        <Input
-          type="text"
-          name="from"
-          label="From"
-          registerProps={register("from")}
-          error={errors.from}
-          placeholder="eg. elie@getinboxzero.com"
-        />
-        <Input
-          type="text"
-          name="to"
-          label="To"
-          registerProps={register("to")}
-          error={errors.to}
-          placeholder="eg. elie@getinboxzero.com"
-        />
-        <Input
-          type="text"
-          name="subject"
-          label="Subject"
-          registerProps={register("subject")}
-          error={errors.subject}
-          placeholder="eg. Receipt for your purchase"
-        />
-        {/* <Input
+      <Tabs defaultValue={tab} className="mt-2" onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="ai">AI</TabsTrigger>
+          <TabsTrigger value="static">Static</TabsTrigger>
+          <TabsTrigger value="group">Group</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {tab === "ai" && (
+        <div className="mt-4 space-y-4">
+          <Input
+            type="text"
+            as="textarea"
+            rows={3}
+            name="Instructions"
+            label="Instructions"
+            registerProps={register("instructions")}
+            error={errors.instructions}
+            placeholder='eg. Apply this rule to all "receipts"'
+          />
+        </div>
+      )}
+
+      {tab === "static" && (
+        <Card className="mt-4 space-y-4">
+          <Input
+            type="text"
+            name="from"
+            label="From"
+            registerProps={register("from")}
+            error={errors.from}
+            placeholder="eg. elie@getinboxzero.com"
+          />
+          <Input
+            type="text"
+            name="to"
+            label="To"
+            registerProps={register("to")}
+            error={errors.to}
+            placeholder="eg. elie@getinboxzero.com"
+          />
+          <Input
+            type="text"
+            name="subject"
+            label="Subject"
+            registerProps={register("subject")}
+            error={errors.subject}
+            placeholder="eg. Receipt for your purchase"
+          />
+          {/* <Input
           type="text"
           name="body"
           label="Body"
@@ -168,7 +185,12 @@ export function UpdateRuleForm(props: {
           error={errors.body}
           placeholder="eg. Thanks for your purchase!"
         /> */}
-      </Card>
+        </Card>
+      )}
+
+      {tab === "group" && (
+        <GroupsTab registerProps={register("groupId")} errors={errors} />
+      )}
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 
@@ -319,5 +341,40 @@ export function UpdateRuleForm(props: {
         </SubmitButtonWrapper>
       </div>
     </form>
+  );
+}
+
+function GroupsTab(props: {
+  registerProps: UseFormRegisterReturn<"groupId">;
+  errors: FieldErrors<UpdateRuleBody>;
+}) {
+  const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
+
+  return (
+    <div className="mt-4">
+      <LoadingContent loading={isLoading} error={error}>
+        <div className="flex items-center space-x-2">
+          {data?.groups && data?.groups.length > 0 && (
+            <div className="min-w-[250px]">
+              <Select
+                name="groupId"
+                label=""
+                options={data.groups.map((group) => ({
+                  label: group.name,
+                  value: group.id,
+                }))}
+                registerProps={props.registerProps}
+                error={props.errors["groupId"]}
+              />
+            </div>
+          )}
+
+          <Button color="white" link={{ href: "/groups", target: "_blank" }}>
+            <SettingsIcon className="mr-2 h-4 w-4" />
+            Manage groups
+          </Button>
+        </div>
+      </LoadingContent>
+    </div>
   );
 }

@@ -5,7 +5,6 @@ import { executePlanBody } from "@/app/api/user/planned/[id]/validation";
 import { executeAct } from "@/app/api/ai/act/controller";
 import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
-import { getActionFields } from "@/utils/actionType";
 
 export type ExecutePlanResponse = Awaited<ReturnType<typeof executeAct>>;
 
