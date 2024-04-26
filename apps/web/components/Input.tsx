@@ -2,6 +2,7 @@ import React, { HTMLInputTypeAttribute } from "react";
 import { FieldError } from "react-hook-form";
 import { MinusCircleIcon, PlusCircleIcon } from "lucide-react";
 import { cn } from "@/utils";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export interface InputProps {
   name: string;
@@ -11,6 +12,7 @@ export interface InputProps {
   placeholder?: string;
   registerProps?: any; // TODO
   explainText?: string;
+  tooltipText?: string;
   as?: React.ElementType;
   rows?: number;
   min?: number;
@@ -55,7 +57,11 @@ export const Input = (props: InputProps) => {
         {props.labelComponent ? (
           props.labelComponent
         ) : (
-          <Label name={props.name} label={props.label} />
+          <Label
+            name={props.name}
+            label={props.label}
+            tooltipText={props.tooltipText}
+          />
         )}
 
         <div className="mt-1">
@@ -100,7 +106,7 @@ export const Input = (props: InputProps) => {
   );
 };
 
-type LabelProps = Pick<InputProps, "name" | "label">;
+type LabelProps = Pick<InputProps, "name" | "label" | "tooltipText">;
 
 export const Label = (props: LabelProps) => {
   return (
@@ -108,7 +114,14 @@ export const Label = (props: LabelProps) => {
       htmlFor={props.name}
       className="block text-sm font-medium text-gray-700"
     >
-      {props.label}
+      {props.tooltipText ? (
+        <span className="flex items-center space-x-1">
+          <span>{props.label}</span>
+          <TooltipExplanation text={props.tooltipText} />
+        </span>
+      ) : (
+        props.label
+      )}
     </label>
   );
 };

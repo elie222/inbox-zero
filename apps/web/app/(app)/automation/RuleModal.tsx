@@ -38,6 +38,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import useSWR from "swr";
 import { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export function RuleModal(props: {
   rule?: UpdateRuleBody;
@@ -146,6 +147,7 @@ export function UpdateRuleForm(props: {
             registerProps={register("instructions")}
             error={errors.instructions}
             placeholder='eg. Apply this rule to all "receipts"'
+            tooltipText="The instructions that will be passed to the AI."
           />
         </div>
       )}
@@ -159,6 +161,7 @@ export function UpdateRuleForm(props: {
             registerProps={register("from")}
             error={errors.from}
             placeholder="eg. elie@getinboxzero.com"
+            tooltipText="Only apply this rule to emails from this address."
           />
           <Input
             type="text"
@@ -167,6 +170,7 @@ export function UpdateRuleForm(props: {
             registerProps={register("to")}
             error={errors.to}
             placeholder="eg. elie@getinboxzero.com"
+            tooltipText="Only apply this rule to emails sent to this address."
           />
           <Input
             type="text"
@@ -175,6 +179,7 @@ export function UpdateRuleForm(props: {
             registerProps={register("subject")}
             error={errors.subject}
             placeholder="eg. Receipt for your purchase"
+            tooltipText="Only apply this rule to emails with this subject."
           />
           {/* <Input
           type="text"
@@ -183,6 +188,7 @@ export function UpdateRuleForm(props: {
           registerProps={register("body")}
           error={errors.body}
           placeholder="eg. Thanks for your purchase!"
+          tooltipText="Only apply this rule to emails with this body."
         /> */}
         </Card>
       )}
@@ -232,9 +238,7 @@ export function UpdateRuleForm(props: {
                           <div className="flex items-center justify-between">
                             <Label name={field.name} label={field.label} />
                             <div className="flex items-center space-x-2">
-                              <Tooltip content="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation.">
-                                <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
-                              </Tooltip>
+                              <TooltipExplanation text="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation." />
                               <Toggle
                                 name={`actions.${i}.${field.name}`}
                                 label="AI generated"
@@ -351,8 +355,14 @@ function GroupsTab(props: {
 
   return (
     <div className="mt-4">
+      <Card>
+        A group is a collection of senders or subjects. For example, a group
+        could be all receipts or all newsletters. Click 'Manage Groups' to
+        create and adjust groups.
+      </Card>
+
       <LoadingContent loading={isLoading} error={error}>
-        <div className="flex items-center space-x-2">
+        <div className="mt-4 flex items-center space-x-2">
           {data?.groups && data?.groups.length > 0 && (
             <div className="min-w-[250px]">
               <Select
