@@ -12,7 +12,7 @@ import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { UserAIFields } from "@/utils/llms/types";
 import { hasFeatureAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@prisma/client";
+import { ColdEmailSetting, RuleType } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
@@ -431,18 +431,15 @@ async function processHistoryItem(
         !parsedMessage.textPlain &&
         !parsedMessage.snippet
       ) {
-        console.log(
-          "Skipping. No plain text found.",
-          userEmail,
-          messageId,
-          threadId,
-        );
+        console.log("Skipping. No text found.", userEmail, messageId, threadId);
         return;
       }
 
-      if (applicableRules.length === 0) {
+      const aiRules = applicableRules.filter((r) => r.type === RuleType.AI);
+
+      if (aiRules.length === 0) {
         console.log(
-          `Skipping thread with ${gmailThread.messages?.length} messages`,
+          `Skipping thread. ${gmailThread.messages?.length} messages in thread and no AI rules.`,
           userEmail,
           messageId,
           threadId,
@@ -479,27 +476,6 @@ async function processHistoryItem(
 
       console.log("Result:", userEmail, messageId, threadId, res);
     }
-
-    // if (shouldCategorise) {
-    // console.log("Categorising thread...");
-
-    // await categorise(
-    //   {
-    //     from: parsedMessage.headers.from,
-    //     subject: parsedMessage.headers.subject,
-    //     content,
-    //     snippet: parsedMessage.snippet,
-    //     threadId: threadId,
-    //     aiModel: aiModel,
-    //     openAIApiKey: openAIApiKey,
-    //     unsubscribeLink,
-    //     hasPreviousEmail,
-    //   },
-    //   {
-    //     email,
-    //   },
-    // );
-    // }
   } catch (error: any) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {

@@ -20,7 +20,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { TypographyH3 } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
-import { ActionType } from "@prisma/client";
+import { ActionType, RuleType } from "@prisma/client";
 import { Modal } from "@/components/Modal";
 import {
   CreateRuleBody,
@@ -392,6 +392,7 @@ function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
   if (type === "static") {
     return {
       ...rule,
+      type: RuleType.STATIC,
       instructions: null,
       groupId: null,
     };
@@ -399,6 +400,7 @@ function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
   if (type === "group") {
     return {
       ...rule,
+      type: RuleType.GROUP,
       instructions: null,
       from: null,
       to: null,
@@ -409,6 +411,7 @@ function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
   // type === "ai"
   return {
     ...rule,
+    type: RuleType.AI,
     groupId: null,
     from: null,
     to: null,

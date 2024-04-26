@@ -157,11 +157,10 @@ model Rule {
   actions       Action[]
   automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
   runOnThreads  Boolean        @default(false) // if disabled only runs on individual emails
-  // type          RuleType       @default(AI)
+  type          RuleType       @default(AI)
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules ExecutedRule[]
-  // filters       EmailFilter[]
   groupId       String?        @unique
   group         Group?         @relation(fields: [groupId], references: [id])
 
@@ -260,19 +259,6 @@ model GroupItem {
   @@unique([groupId, type, value])
 }
 
-// // Gmail filters we created
-// model EmailFilter {
-//   id        String   @id @default(cuid())
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//   gmailId   String
-//   criteria  Json?
-//   action    Json?
-
-//   ruleId String?
-//   rule   Rule?   @relation(fields: [ruleId], references: [id])
-// }
-
 // Represents a sender (`email`) that a user can unsubscribe from,
 // or that our AI can mark as a cold email.
 // `Newsletter` is a bad name for this. Will rename this model in the future.
@@ -351,10 +337,11 @@ enum ExecutedRuleStatus {
   SKIPPED
 }
 
-// enum RuleType {
-//   AI
-//   FILTER
-// }
+enum RuleType {
+  AI
+  STATIC
+  GROUP
+}
 
 enum GroupItemType {
   FROM

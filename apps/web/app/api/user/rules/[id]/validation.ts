@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ActionType } from "@prisma/client";
+import { ActionType, RuleType } from "@prisma/client";
 import {
   createRule,
   getRule,
@@ -28,6 +28,12 @@ export const zodAction = z.object({
   bcc: z.string().nullish(),
 });
 
+export const zodRuleType = z.enum([
+  RuleType.AI,
+  RuleType.STATIC,
+  RuleType.GROUP,
+]);
+
 export const updateRuleBody = z.object({
   name: z.string(),
   instructions: z.string().nullish(),
@@ -39,6 +45,7 @@ export const updateRuleBody = z.object({
   to: z.string().nullish(),
   subject: z.string().nullish(),
   body: z.string().nullish(),
+  type: zodRuleType,
 });
 
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;

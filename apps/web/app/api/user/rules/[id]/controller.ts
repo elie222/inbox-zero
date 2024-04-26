@@ -1,6 +1,9 @@
 import "server-only";
 import prisma from "@/utils/prisma";
-import { type UpdateRuleBody } from "@/app/api/user/rules/[id]/validation";
+import {
+  CreateRuleBody,
+  type UpdateRuleBody,
+} from "@/app/api/user/rules/[id]/validation";
 
 export async function getRule(options: { id: string; userId: string }) {
   const rule = await prisma.rule.findUniqueOrThrow({
@@ -17,7 +20,7 @@ export async function createRule({
   body,
 }: {
   userId: string;
-  body: UpdateRuleBody;
+  body: CreateRuleBody;
 }) {
   const rule = await prisma.rule.create({
     data: {
