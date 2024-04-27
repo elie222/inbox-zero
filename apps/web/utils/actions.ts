@@ -51,6 +51,7 @@ import { revalidatePath } from "next/cache";
 import { CreateGroupBody } from "@/utils/actions-validation";
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
+import { aiCategorizeRule } from "@/app/api/user/rules/categorize/route";
 
 export async function createLabelAction(options: {
   name: string;
@@ -645,5 +646,32 @@ export async function deleteGroupItemAction(id: string) {
 
   await prisma.groupItem.delete({
     where: { id, group: { userId: session.user.id } },
+  });
+}
+
+export async function createAutomationAction(prompt: string) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: { aiProvider: true, aiModel: true, openAIApiKey: true },
+  });
+
+  const result = await aiCategorizeRule(prompt, user, session.user.email);
+
+  if (!result) throw new Error("No result");
+
+  await prisma.rule.create({
+    data: {
+      name: result.name,
+      instructions: prompt,
+      userId: session.user.id,
+      actions: {
+        createMany: {
+          data: result.actions,
+        },
+      },
+    },
   });
 }

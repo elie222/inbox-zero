@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import {
   ForwardIcon,
   ShieldAlertIcon,
@@ -18,6 +19,9 @@ import {
   TypographyH3,
 } from "@/components/Typography";
 import { Button, ButtonLoader } from "@/components/ui/button";
+import { createAutomationAction } from "@/utils/actions";
+import { captureException } from "@/utils/error";
+import { toastError } from "@/components/Toast";
 
 const examples = [
   {
@@ -53,6 +57,7 @@ const examples = [
 type Inputs = { prompt?: string };
 
 export default function AutomationSettingsPage() {
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -66,10 +71,29 @@ export default function AutomationSettingsPage() {
       "🚀 ~ constonSubmit:SubmitHandler<Inputs>=useCallback ~ data:",
       data,
     );
-    // const res = await updateProfile(data);
-    // if (isErrorMessage(res)) toastError({ description: `` });
-    // else toastSuccess({ description: `` });
+    if (data.prompt) {
+      try {
+        await createAutomationAction(data.prompt);
+        router.push("/automation");
+      } catch (error) {
+        console.error(error);
+        captureException(error, {
+          extra: {
+            page: "automation/settings",
+            action: "create automation",
+            prompt: data.prompt,
+          },
+        });
+        toastError({
+          description:
+            "There was an error creating your automation. " +
+            (error as Error)?.message,
+        });
+      }
+    }
   }, []);
+
+  const prompt = watch("prompt");
 
   return (
     <div>
@@ -82,7 +106,7 @@ export default function AutomationSettingsPage() {
 
       <div className="mx-auto mt-16 max-w-xl">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {typeof watch("prompt") === "string" ? (
+          {typeof prompt === "string" ? (
             <>
               <TypographyH3>Tell the AI what to do</TypographyH3>
 
@@ -106,7 +130,10 @@ export default function AutomationSettingsPage() {
                   <ArrowLeftIcon className="h-4 w-4" />
                   <span className="sr-only">Back</span>
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !prompt || prompt.length < 5}
+                >
                   {isSubmitting && <ButtonLoader />}
                   Create Automation
                 </Button>

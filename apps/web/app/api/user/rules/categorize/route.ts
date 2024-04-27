@@ -47,8 +47,8 @@ const categorizeRuleResponse = z.object({
   ),
 });
 
-async function aiCategorizeRule(
-  rule: Rule,
+export async function aiCategorizeRule(
+  instructions: string,
   user: UserAIFields,
   userEmail: string,
 ): Promise<{
@@ -94,7 +94,7 @@ Do not use an example value.
 
 ###
 Instruction:
-${rule.instructions}`,
+${instructions}`,
       },
     ],
     { jsonResponse: true },
@@ -140,7 +140,11 @@ async function categorizeRule(
   if (rule.userId !== userId) throw new Error("Unauthorized");
 
   // ask ai to categorize the rule
-  const categorizedRule = await aiCategorizeRule(rule, userAiFields, userEmail);
+  const categorizedRule = await aiCategorizeRule(
+    rule.instructions,
+    userAiFields,
+    userEmail,
+  );
 
   if (!categorizedRule?.actions?.length) return;
 
