@@ -22,7 +22,6 @@ export interface InputProps {
   error?: FieldError;
   leftText?: string;
   rightText?: string;
-  condensed?: boolean;
   className?: string;
   onClickAdd?: () => void;
   onClickRemove?: () => void;
@@ -47,60 +46,51 @@ export const Input = (props: InputProps) => {
   };
 
   return (
-    <div
-      className={cn(
-        props.condensed &&
-          "mt-6 grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-6",
-      )}
-    >
-      <div className={cn(props.condensed && "sm:col-span-4")}>
-        {props.labelComponent ? (
-          props.labelComponent
-        ) : (
-          <Label
-            name={props.name}
-            label={props.label}
-            tooltipText={props.tooltipText}
-          />
-        )}
+    <div>
+      {props.labelComponent ? (
+        props.labelComponent
+      ) : props.label ? (
+        <Label
+          name={props.name}
+          label={props.label}
+          tooltipText={props.tooltipText}
+        />
+      ) : null}
 
-        <div className="mt-1">
-          <div className="flex">
-            {props.leftText ? (
-              <div className="flex-1">
-                <InputWithLeftFixedText
-                  inputProps={inputProps}
-                  leftText={props.leftText}
-                  condensed={props.condensed}
-                />
-              </div>
-            ) : props.rightText ? (
-              <InputWithRightFixedText
+      <div className={cn(props.label || props.labelComponent ? "mt-1" : "")}>
+        <div className="flex">
+          {props.leftText ? (
+            <div className="flex-1">
+              <InputWithLeftFixedText
                 inputProps={inputProps}
-                rightText={props.rightText}
-                condensed={props.condensed}
+                leftText={props.leftText}
               />
-            ) : (
-              <Component
-                {...inputProps}
-                className={cn(
-                  "block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm",
-                  props.className,
-                )}
-              />
-            )}
-
-            <AddRemoveButtons
-              onClickAdd={props.onClickAdd}
-              onClickRemove={props.onClickRemove}
+            </div>
+          ) : props.rightText ? (
+            <InputWithRightFixedText
+              inputProps={inputProps}
+              rightText={props.rightText}
             />
-          </div>
+          ) : (
+            <Component
+              {...inputProps}
+              className={cn(
+                "block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm",
+                props.className,
+              )}
+            />
+          )}
 
-          {props.explainText ? (
-            <ExplainText>{props.explainText}</ExplainText>
-          ) : null}
-          {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
+          <AddRemoveButtons
+            onClickAdd={props.onClickAdd}
+            onClickRemove={props.onClickRemove}
+          />
         </div>
+
+        {props.explainText ? (
+          <ExplainText>{props.explainText}</ExplainText>
+        ) : null}
+        {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
       </div>
     </div>
   );
@@ -145,14 +135,9 @@ export const ErrorMessage = (props: { message: string }) => {
 const InputWithLeftFixedText = (props: {
   leftText: string;
   inputProps: any;
-  condensed?: boolean;
 }) => {
   return (
-    <div
-      className={cn("flex rounded-md shadow-sm", {
-        "max-w-lg": props.condensed,
-      })}
-    >
+    <div className="flex rounded-md shadow-sm">
       <span className="inline-flex max-w-[150px] flex-shrink items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:max-w-full sm:text-sm">
         {props.leftText}
       </span>
@@ -167,14 +152,9 @@ const InputWithLeftFixedText = (props: {
 const InputWithRightFixedText = (props: {
   rightText: string;
   inputProps: any;
-  condensed?: boolean;
 }) => {
   return (
-    <div
-      className={cn("flex rounded-md shadow-sm", {
-        "max-w-lg": props.condensed,
-      })}
-    >
+    <div className="flex rounded-md shadow-sm">
       <input
         {...props.inputProps}
         className="block w-full min-w-0 flex-1 rounded-none rounded-l-md border-gray-300 focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
