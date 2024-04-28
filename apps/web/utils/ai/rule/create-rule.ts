@@ -3,7 +3,6 @@ import zodToJsonSchema from "zod-to-json-schema";
 import { parseJSON } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { ActionType } from "@prisma/client";
-import { zodRuleType } from "@/app/api/user/rules/[id]/validation";
 import { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
 
@@ -46,7 +45,6 @@ const createRuleSchema = z.object({
       }),
     )
     .describe("The actions to take"),
-  ruleType: zodRuleType.describe("The type of the rule"),
   staticConditions: z
     .object({
       from: z.string().optional().describe("The from email address to match"),

@@ -14,6 +14,7 @@ import {
   type Label,
   PremiumTier,
   GroupItemType,
+  RuleType,
 } from "@prisma/client";
 import {
   deleteInboxZeroLabels,
@@ -596,7 +597,7 @@ export async function createNewsletterGroupAction({ name }: CreateGroupBody) {
   const token = await getGmailAccessToken(session);
   const newsletters = await findNewsletters(gmail, token.token!);
 
-  await prisma.group.create({
+  const group = await prisma.group.create({
     data: {
       name,
       userId: session.user.id,
@@ -610,6 +611,8 @@ export async function createNewsletterGroupAction({ name }: CreateGroupBody) {
   });
 
   revalidatePath("/groups");
+
+  return { id: group.id };
 }
 
 export async function createReceiptGroupAction({ name }: CreateGroupBody) {
@@ -620,7 +623,7 @@ export async function createReceiptGroupAction({ name }: CreateGroupBody) {
   const token = await getGmailAccessToken(session);
   const receipts = await findReceipts(gmail, token.token!);
 
-  await prisma.group.create({
+  const group = await prisma.group.create({
     data: {
       name,
       userId: session.user.id,
@@ -629,6 +632,8 @@ export async function createReceiptGroupAction({ name }: CreateGroupBody) {
   });
 
   revalidatePath("/groups");
+
+  return { id: group.id };
 }
 
 export async function deleteGroupAction(id: string) {
@@ -662,12 +667,46 @@ export async function createAutomationAction(prompt: string) {
 
   if (!result) throw new Error("No result");
 
+  let groupId: string | null = null;
+
+  if (result.group) {
+    const groups = await prisma.group.findMany({
+      where: { userId: session.user.id },
+      select: { id: true, name: true },
+    });
+
+    if (result.group === "Newsletters") {
+      if (!groups.find((g) => g.name.toLowerCase().includes("newsletter"))) {
+        const group = await createNewsletterGroupAction({
+          name: "Newsletters",
+        });
+        groupId = group.id;
+      }
+    } else if (result.group === "Receipts") {
+      if (!groups.find((g) => g.name.toLowerCase().includes("receipt"))) {
+        const group = await createReceiptGroupAction({ name: "Receipts" });
+        groupId = group.id;
+      }
+    }
+  }
+
+  function getRuleType() {
+    if (
+      result?.staticConditions?.from ||
+      result?.staticConditions?.to ||
+      result?.staticConditions?.subject
+    )
+      return RuleType.STATIC;
+    if (result?.group) return RuleType.GROUP;
+    return RuleType.AI;
+  }
+
   const rule = await prisma.rule.create({
     data: {
       name: result.name,
       instructions: prompt,
       userId: session.user.id,
-      type: result.ruleType,
+      type: getRuleType(),
       actions: {
         createMany: {
           data: result.actions,
@@ -678,7 +717,7 @@ export async function createAutomationAction(prompt: string) {
       from: result.staticConditions?.from,
       to: result.staticConditions?.to,
       subject: result.staticConditions?.subject,
-      // groupId: result.group?.id, // TODO
+      groupId,
     },
   });
 
