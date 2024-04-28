@@ -66,18 +66,16 @@ ${email.content}`,
     model,
     options.openAIApiKey,
     messages,
-    {
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: selectedFunction.name,
-            description: "Act on the email using the selected rule.",
-            parameters: selectedFunction.parameters,
-          },
+    [
+      {
+        type: "function",
+        function: {
+          name: selectedFunction.name,
+          description: "Act on the email using the selected rule.",
+          parameters: selectedFunction.parameters,
         },
-      ],
-    },
+      },
+    ],
   );
 
   if (aiResponse.usage) {

@@ -95,18 +95,16 @@ export async function aiCategorizeRule(
     model,
     user.openAIApiKey,
     messages,
-    {
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "categorizeRule",
-            description: "Generate a rule to handle the email",
-            parameters: zodToJsonSchema(categorizeRuleResponse),
-          },
+    [
+      {
+        type: "function",
+        function: {
+          name: "categorizeRule",
+          description: "Generate a rule to handle the email",
+          parameters: zodToJsonSchema(categorizeRuleResponse),
         },
-      ],
-    },
+      },
+    ],
   );
 
   if (aiResponse.usage) {

@@ -124,7 +124,7 @@ export async function chatCompletionTools(
     role: "system" | "user";
     content: string;
   }>,
-  options: { tools: Array<ChatCompletionTool> },
+  tools: Array<ChatCompletionTool>,
 ): Promise<{
   functionCall?: {
     name: string;
@@ -137,12 +137,9 @@ export async function chatCompletionTools(
   } | null;
 }> {
   if (provider === "openai") {
-    const completion = await openAIChatCompletion(
-      model,
-      apiKey,
-      messages,
-      options,
-    );
+    const completion = await openAIChatCompletion(model, apiKey, messages, {
+      tools,
+    });
 
     return {
       functionCall: completion.choices?.[0]?.message.tool_calls?.[0]?.function,
@@ -155,7 +152,7 @@ export async function chatCompletionTools(
       model,
       apiKey,
       messages.map((m) => ({ role: "user", content: m.content })),
-      options.tools,
+      tools,
     );
     const completion_tokens =
       (completion.additional_kwargs.usage as any).output_tokens || 0;
