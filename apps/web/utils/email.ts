@@ -28,10 +28,7 @@ export function extractDomainFromEmail(email: string) {
 // if we're the sender, then return the recipient
 // if we're the recipient, then return the sender
 export function participant(message: ParsedMessage, userEmail: string) {
-  const sender: string = message.headers.from;
-  const recipient = message.headers.to;
-
-  if (sender.includes(userEmail)) return recipient;
-
-  return sender;
+  if (!userEmail) return message.headers.from;
+  if (message.headers.from.includes(userEmail)) return message.headers.to;
+  return message.headers.from;
 }
