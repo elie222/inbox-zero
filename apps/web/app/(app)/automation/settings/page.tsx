@@ -69,8 +69,8 @@ export default function AutomationSettingsPage() {
   const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
     if (data.prompt) {
       try {
-        await createAutomationAction(data.prompt);
-        router.push("/automation");
+        const rule = await createAutomationAction(data.prompt);
+        router.push(`/automation/rule/${rule.id}`);
       } catch (error) {
         console.error(error);
         captureException(error, {

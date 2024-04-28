@@ -662,7 +662,7 @@ export async function createAutomationAction(prompt: string) {
 
   if (!result) throw new Error("No result");
 
-  await prisma.rule.create({
+  const rule = await prisma.rule.create({
     data: {
       name: result.name,
       instructions: prompt,
@@ -681,4 +681,6 @@ export async function createAutomationAction(prompt: string) {
       // groupId: result.group?.id, // TODO
     },
   });
+
+  return { id: rule.id };
 }
