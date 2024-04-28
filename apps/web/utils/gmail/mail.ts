@@ -99,18 +99,18 @@ export async function forwardEmail(
     content?: string;
   },
 ) {
-  const message = await gmail.users.messages.get({
+  const m = await gmail.users.messages.get({
     userId: "me",
     id: options.messageId,
   });
 
-  const messageId = message.data.id;
+  const messageId = m.data.id;
   if (!messageId) throw new Error("Message not found");
 
-  const parsedMessage = parseMessage(message.data as MessageWithPayload);
+  const message = parseMessage(m.data as MessageWithPayload);
 
   const attachments = await Promise.all(
-    parsedMessage.attachments.map(async (attachment) => {
+    message.attachments.map(async (attachment) => {
       const attachmentData = await gmail.users.messages.attachments.get({
         userId: "me",
         messageId,
@@ -128,29 +128,29 @@ export async function forwardEmail(
     to: options.to,
     cc: options.cc,
     bcc: options.bcc,
-    subject: `Fwd: ${parsedMessage.headers.subject}`,
+    subject: `Fwd: ${message.headers.subject}`,
     messageText: `${options.content ?? ""}
         
 ---------- Forwarded message ----------
-From: ${parsedMessage.headers.from}
-Date: ${parsedMessage.headers.date}
-Subject: ${parsedMessage.headers.subject}
-To: <${parsedMessage.headers.to}>
+From: ${message.headers.from}
+Date: ${message.headers.date}
+Subject: ${message.headers.subject}
+To: <${message.headers.to}>
 
-${parsedMessage.textPlain}`,
+${message.textPlain}`,
     messageHtml: `<div>${options.content ?? ""}</div>
 
 <div>---------- Forwarded message ----------</div>
-<div>From: ${parsedMessage.headers.from}</div>
-<div>Date: ${parsedMessage.headers.date}</div>
-<div>Subject: ${parsedMessage.headers.subject}</div>
-<div>To: <${parsedMessage.headers.to}></div>
+<div>From: ${message.headers.from}</div>
+<div>Date: ${message.headers.date}</div>
+<div>Subject: ${message.headers.subject}</div>
+<div>To: <${message.headers.to}></div>
 
 <br>
 
-${parsedMessage.textHtml}`,
+${message.textHtml}`,
     replyToEmail: {
-      threadId: message.data.threadId || "",
+      threadId: message.threadId || "",
       references: "",
       headerMessageId: "",
     },
@@ -160,7 +160,7 @@ ${parsedMessage.textHtml}`,
   const result = await gmail.users.messages.send({
     userId: "me",
     requestBody: {
-      threadId: message.data.threadId,
+      threadId: message.threadId,
       raw,
     },
   });

@@ -43,7 +43,7 @@ async function checkColdEmail(
   const unsubscribeLink = findUnsubscribeLink(
     body.email.textHtml || body.email.body,
   );
-  // || parsedMessage.headers["list-unsubscribe"];
+  // || message.headers["list-unsubscribe"];
 
   const hasPreviousEmail =
     body.email.date && body.email.threadId

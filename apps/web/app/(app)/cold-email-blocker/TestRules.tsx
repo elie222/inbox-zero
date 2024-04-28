@@ -161,8 +161,8 @@ function TestRulesContentRow(props: {
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
         <TestRulesMessage
-          from={message.parsedMessage.headers.from}
-          subject={message.parsedMessage.headers.subject}
+          from={message.headers.from}
+          subject={message.headers.subject}
           snippet={message.snippet?.trim() || ""}
           userEmail={props.userEmail}
         />
@@ -173,7 +173,7 @@ function TestRulesContentRow(props: {
             onClick={async () => {
               setLoading(true);
 
-              const text = message.snippet || message.parsedMessage.textPlain;
+              const text = message.snippet || message.textPlain;
 
               if (!text) {
                 toastError({
@@ -189,10 +189,10 @@ function TestRulesContentRow(props: {
                 ColdEmailBlockerBody
               >("/api/ai/cold-email", {
                 email: {
-                  from: message.parsedMessage.headers.from,
-                  subject: message.parsedMessage.headers.subject,
+                  from: message.headers.from,
+                  subject: message.headers.subject,
                   body: text,
-                  textHtml: message.parsedMessage.textHtml,
+                  textHtml: message.textHtml,
                 },
               });
 

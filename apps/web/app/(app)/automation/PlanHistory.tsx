@@ -91,20 +91,16 @@ export function PlanHistory() {
                     <LoadingMiniSpinner />
                   ) : message ? (
                     <Tooltip
-                      content={`From: ${
-                        message.parsedMessage.headers.from
-                      }. Date: ${new Date(
-                        message.parsedMessage.headers.date,
+                      content={`From: ${message.headers.from}. Date: ${new Date(
+                        message.headers.date,
                       ).toLocaleString()}.`}
                     >
                       <div className="flex max-w-[500px] items-center justify-between">
                         <div>
                           <div className="text-gray-900">
-                            {message.parsedMessage.headers.subject}
+                            {message.headers.subject}
                           </div>
-                          <div className="text-gray-500">
-                            {message.parsedMessage.snippet}
-                          </div>
+                          <div className="text-gray-500">{message.snippet}</div>
                         </div>
                         {openInGmailButton}
                       </div>

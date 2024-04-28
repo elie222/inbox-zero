@@ -162,8 +162,8 @@ function TestRulesContentRow(props: {
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
         <TestRulesMessage
-          from={message.parsedMessage.headers.from}
-          subject={message.parsedMessage.headers.subject}
+          from={message.headers.from}
+          subject={message.headers.subject}
           snippet={message.snippet?.trim() || ""}
           userEmail={props.userEmail}
         />
@@ -178,20 +178,19 @@ function TestRulesContentRow(props: {
                 "/api/ai/act",
                 {
                   email: {
-                    from: message.parsedMessage.headers.from,
-                    to: message.parsedMessage.headers.to,
-                    date: message.parsedMessage.headers.date,
-                    replyTo: message.parsedMessage.headers["reply-to"],
-                    cc: message.parsedMessage.headers.cc,
-                    subject: message.parsedMessage.headers.subject,
-                    textPlain: message.parsedMessage.textPlain || null,
-                    textHtml: message.parsedMessage.textHtml || null,
+                    from: message.headers.from,
+                    to: message.headers.to,
+                    date: message.headers.date,
+                    replyTo: message.headers["reply-to"],
+                    cc: message.headers.cc,
+                    subject: message.headers.subject,
+                    textPlain: message.textPlain || null,
+                    textHtml: message.textHtml || null,
                     snippet: message.snippet || null,
                     threadId: message.threadId || "",
                     messageId: message.id || "",
-                    headerMessageId:
-                      message.parsedMessage.headers["message-id"] || "",
-                    references: message.parsedMessage.headers.references,
+                    headerMessageId: message.headers["message-id"] || "",
+                    references: message.headers.references,
                   },
                   allowExecute: false,
                 },

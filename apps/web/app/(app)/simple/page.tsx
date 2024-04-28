@@ -48,10 +48,7 @@ export default async function SimplePage({
         userId: "me",
         id: message.id!,
       });
-      const parsedMessage = parseMessage(
-        fullMessage.data as MessageWithPayload,
-      );
-      return parsedMessage;
+      return parseMessage(fullMessage.data as MessageWithPayload);
     }) || [],
   );
 

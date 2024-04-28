@@ -20,7 +20,7 @@ export async function findNewsletters(
 
   return uniq(
     [...messages, ...messages2]
-      .map((message) => message.parsedMessage.headers.from)
+      .map((message) => message.headers.from)
       .filter((from) => !ignoreList.find((ignore) => from.includes(ignore))),
   );
 }

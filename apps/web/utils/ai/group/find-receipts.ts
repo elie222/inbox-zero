@@ -33,7 +33,7 @@ async function findReceiptSenders(gmail: gmail_v1.Gmail, accessToken: string) {
     maxResults: 100,
   });
 
-  return uniq(messages.map((message) => message.parsedMessage.headers.from));
+  return uniq(messages.map((message) => message.headers.from));
 }
 
 const receiptSubjects = [
@@ -54,8 +54,8 @@ async function findReceiptSubjects(gmail: gmail_v1.Gmail, accessToken: string) {
 
   return uniqBy(
     messages.map((message) => ({
-      from: message.parsedMessage.headers.from,
-      subject: removeNumbersFromSubject(message.parsedMessage.headers.subject),
+      from: message.headers.from,
+      subject: removeNumbersFromSubject(message.headers.subject),
     })),
     (message) => message.from,
   );

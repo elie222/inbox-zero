@@ -11,7 +11,7 @@ import {
 } from "@/utils/actions";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
-import { Thread } from "@/components/email-list/types";
+import { type Thread } from "@/components/email-list/types";
 
 const queue = new PQueue({ concurrency: 3 });
 
@@ -88,19 +88,19 @@ function threadToRunAiEmail(
   const message = thread.messages?.[thread.messages.length - 1];
   if (!message) return;
   const email = {
-    from: message.parsedMessage.headers.from,
-    to: message.parsedMessage.headers.to,
-    date: message.parsedMessage.headers.date,
-    replyTo: message.parsedMessage.headers["reply-to"],
-    cc: message.parsedMessage.headers.cc,
-    subject: message.parsedMessage.headers.subject,
-    textPlain: message.parsedMessage.textPlain || null,
-    textHtml: message.parsedMessage.textHtml || null,
+    from: message.headers.from,
+    to: message.headers.to,
+    date: message.headers.date,
+    replyTo: message.headers["reply-to"],
+    cc: message.headers.cc,
+    subject: message.headers.subject,
+    textPlain: message.textPlain || null,
+    textHtml: message.textHtml || null,
     snippet: thread.snippet,
     threadId: message.threadId || "",
     messageId: message.id || "",
-    headerMessageId: message.parsedMessage.headers["message-id"] || "",
-    references: message.parsedMessage.headers.references,
+    headerMessageId: message.headers["message-id"] || "",
+    references: message.headers.references,
   };
   return email;
 }

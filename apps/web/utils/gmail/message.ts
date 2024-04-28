@@ -3,7 +3,7 @@ import { parseMessage } from "@/utils/mail";
 import {
   BatchError,
   MessageWithPayload,
-  MessageWithPayloadAndParsedMessage,
+  ParsedMessage,
   isBatchError,
   isDefined,
 } from "@/utils/types";
@@ -26,8 +26,8 @@ export async function getMessage(
 export async function getMessagesBatch(
   messageIds: string[],
   accessToken: string,
-) {
-  if (messageIds.length > 100) throw new Error("Too many messages. Max 100");
+): Promise<ParsedMessage[]> {
+  if (messageIds.length > 100) throw new Error("Too many messages. Max 1000");
 
   const batch: (MessageWithPayload | BatchError)[] = await getBatch(
     messageIds,
@@ -45,12 +45,7 @@ export async function getMessagesBatch(
         return;
       }
 
-      const parsedMessage = parseMessage(message as MessageWithPayload);
-
-      return {
-        ...message,
-        parsedMessage,
-      };
+      return parseMessage(message as MessageWithPayload);
     })
     .filter(isDefined);
 
@@ -146,7 +141,7 @@ export async function queryBatchMessagesPages(
     maxResults: number;
   },
 ) {
-  const messages: MessageWithPayloadAndParsedMessage[] = [];
+  const messages: ParsedMessage[] = [];
   let nextPageToken: string | undefined;
   do {
     const { messages: pageMessages, nextPageToken: nextToken } =

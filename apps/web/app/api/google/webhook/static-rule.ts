@@ -93,20 +93,20 @@ export async function handleStaticRule({
 
 function findStaticRule(
   applicableRules: RuleWithActions[],
-  parsedMessage: ParsedMessage,
+  message: ParsedMessage,
 ): RuleWithActions | null {
   for (const rule of applicableRules) {
     const fromMatch = rule.from
-      ? new RegExp(rule.from).test(parsedMessage.headers.from)
+      ? new RegExp(rule.from).test(message.headers.from)
       : true;
     const toMatch = rule.to
-      ? new RegExp(rule.to).test(parsedMessage.headers.to)
+      ? new RegExp(rule.to).test(message.headers.to)
       : true;
     const subjectMatch = rule.subject
-      ? new RegExp(rule.subject).test(parsedMessage.headers.subject)
+      ? new RegExp(rule.subject).test(message.headers.subject)
       : true;
     const bodyMatch = rule.body
-      ? new RegExp(rule.body).test(parsedMessage.textPlain || "")
+      ? new RegExp(rule.body).test(message.textPlain || "")
       : true;
 
     if (fromMatch && toMatch && subjectMatch && bodyMatch) {

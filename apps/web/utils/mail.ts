@@ -21,20 +21,7 @@ export function parseReply(content: string) {
 export function parseMessages(thread: ThreadWithPayloadMessages) {
   const messages =
     thread.messages?.map((message: MessageWithPayload) => {
-      const parsedMessage = parseMessage(message);
-      return {
-        // ...message,
-        id: message.id,
-        threadId: message.threadId,
-        labelIds: message.labelIds,
-        snippet: message.snippet,
-        internalDate: message.internalDate,
-        parsedMessage,
-        // parsedReply: parseReply(
-        //   parsedMessage.textPlain || parsedMessage.textHtml
-        // ),
-        // text: message.payload?.parts?.[0]?.body?.data ? decodeMessage(message.payload?.parts?.[0]?.body?.data) : ''
-      };
+      return parseMessage(message);
     }) || [];
 
   return messages;

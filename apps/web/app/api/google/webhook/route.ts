@@ -356,7 +356,7 @@ async function processHistoryItem(
 
     console.log("Fetched message", userEmail, messageId, threadId);
 
-    const parsedMessage = parseMessage(gmailMessage);
+    const message = parseMessage(gmailMessage);
 
     const applicableRules = isThread
       ? rules.filter((r) => r.runOnThreads)
@@ -373,7 +373,7 @@ async function processHistoryItem(
 
     const staticRule = await handleStaticRule({
       rules: applicableRules,
-      message: parsedMessage,
+      message,
       user,
       gmail,
     });
@@ -381,7 +381,7 @@ async function processHistoryItem(
     if (staticRule.handled) return;
 
     const groupRule = await handleGroupRule({
-      message: parsedMessage,
+      message,
       user,
       gmail,
       isThread,
@@ -397,12 +397,12 @@ async function processHistoryItem(
       !isThread
     ) {
       const unsubscribeLink =
-        findUnsubscribeLink(parsedMessage.textHtml) ||
-        parsedMessage.headers["list-unsubscribe"];
+        findUnsubscribeLink(message.textHtml) ||
+        message.headers["list-unsubscribe"];
 
       const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
-        from: parsedMessage.headers.from,
-        date: parsedMessage.headers.date,
+        from: message.headers.from,
+        date: message.headers.date,
         threadId,
       });
 
@@ -410,9 +410,9 @@ async function processHistoryItem(
         hasPreviousEmail,
         unsubscribeLink,
         email: {
-          from: parsedMessage.headers.from,
-          subject: parsedMessage.headers.subject,
-          body: parsedMessage.snippet,
+          from: message.headers.from,
+          subject: message.headers.subject,
+          body: message.snippet,
           messageId,
         },
         userOptions: options,
@@ -426,11 +426,7 @@ async function processHistoryItem(
     if (hasAutomationRules && hasAiAutomationAccess) {
       console.log("Plan or act on message...", userEmail, messageId, threadId);
 
-      if (
-        !parsedMessage.textHtml &&
-        !parsedMessage.textPlain &&
-        !parsedMessage.snippet
-      ) {
+      if (!message.textHtml && !message.textPlain && !message.snippet) {
         console.log("Skipping. No text found.", userEmail, messageId, threadId);
         return;
       }
@@ -450,16 +446,16 @@ async function processHistoryItem(
       const res = await planOrExecuteAct({
         allowExecute: true,
         email: {
-          from: parsedMessage.headers.from,
-          replyTo: parsedMessage.headers["reply-to"],
-          cc: parsedMessage.headers.cc,
-          subject: parsedMessage.headers.subject,
-          textHtml: parsedMessage.textHtml || null,
-          textPlain: parsedMessage.textPlain || null,
-          snippet: parsedMessage.snippet,
+          from: message.headers.from,
+          replyTo: message.headers["reply-to"],
+          cc: message.headers.cc,
+          subject: message.headers.subject,
+          textHtml: message.textHtml || null,
+          textPlain: message.textPlain || null,
+          snippet: message.snippet,
           threadId,
           messageId,
-          headerMessageId: parsedMessage.headers["message-id"] || "",
+          headerMessageId: message.headers["message-id"] || "",
           // unsubscribeLink,
           // hasPreviousEmail,
         },

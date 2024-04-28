@@ -36,18 +36,13 @@ async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
   const messages = await Promise.all(
     res.data.messages?.map(async (m) => {
       const message = await getMessage(m.id!, gmail);
-      const parsedMessage = parseMessage(message);
-
-      return {
-        ...message,
-        parsedMessage,
-      };
+      return parseMessage(message);
     }) || [],
   );
 
-  const countByRecipient = countBy(messages, (m) => m.parsedMessage.headers.to);
+  const countByRecipient = countBy(messages, (m) => m.headers.to);
   const countByDomain = countBy(messages, (m) =>
-    extractDomainFromEmail(m.parsedMessage.headers.to),
+    extractDomainFromEmail(m.headers.to),
   );
 
   const mostActiveRecipientEmails = sortBy(

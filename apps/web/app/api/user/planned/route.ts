@@ -60,16 +60,7 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
           id: threadId,
           historyId: message.historyId,
           snippet: decodeSnippet(message.snippet),
-          messages: [
-            {
-              id: message.id,
-              threadId,
-              labelIds: message.labelIds,
-              snippet: message.snippet,
-              internalDate: message.internalDate,
-              parsedMessage: parseMessage(message),
-            },
-          ],
+          messages: [parseMessage(message)],
           plan,
           category,
         };

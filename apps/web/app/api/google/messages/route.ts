@@ -22,12 +22,8 @@ async function getMessages() {
 
   const fullMessages = await Promise.all(
     (messages.data.messages || []).map(async (m) => {
-      const res = await getMessage(m.id!, gmail);
-
-      return {
-        ...res,
-        parsedMessage: parseMessage(res),
-      };
+      const message = await getMessage(m.id!, gmail);
+      return parseMessage(message);
     }),
   );
 

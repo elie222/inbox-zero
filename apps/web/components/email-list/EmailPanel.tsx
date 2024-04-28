@@ -50,10 +50,10 @@ export function EmailPanel(props: {
             id="message-heading"
             className="text-lg font-medium text-gray-900"
           >
-            {lastMessage.parsedMessage.headers.subject}
+            {lastMessage.headers.subject}
           </h1>
           <p className="mt-1 truncate text-sm text-gray-500">
-            {lastMessage.parsedMessage.headers.from}
+            {lastMessage.headers.from}
           </p>
         </div>
 
@@ -134,15 +134,15 @@ function EmailMessage(props: {
       <div className="sm:flex sm:items-baseline sm:justify-between">
         <h3 className="text-base font-medium">
           <span className="text-gray-900">
-            {extractNameFromEmail(message.parsedMessage.headers.from)}
+            {extractNameFromEmail(message.headers.from)}
           </span>{" "}
           <span className="text-gray-600">wrote</span>
         </h3>
 
         <div className="flex items-center space-x-2">
           <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
-            <time dateTime={message.parsedMessage.headers.date}>
-              {formatShortDate(new Date(message.parsedMessage.headers.date))}
+            <time dateTime={message.headers.date}>
+              {formatShortDate(new Date(message.headers.date))}
             </time>
           </p>
           <div className="flex items-center">
@@ -177,14 +177,14 @@ function EmailMessage(props: {
         </div>
       </div>
       <div className="mt-4">
-        {message.parsedMessage.textHtml ? (
-          <HtmlEmail html={message.parsedMessage.textHtml} />
+        {message.textHtml ? (
+          <HtmlEmail html={message.textHtml} />
         ) : (
-          <PlainEmail text={message.parsedMessage.textPlain || ""} />
+          <PlainEmail text={message.textPlain || ""} />
         )}
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {message.parsedMessage.attachments?.map((attachment) => {
+        {message.attachments?.map((attachment) => {
           const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
 
           return (
@@ -217,17 +217,16 @@ function EmailMessage(props: {
               replyingToEmail={
                 showReply
                   ? {
-                      to: message.parsedMessage.headers.from,
-                      subject: `Re: ${message.parsedMessage.headers.subject}`,
-                      headerMessageId:
-                        message.parsedMessage.headers["message-id"]!,
+                      to: message.headers.from,
+                      subject: `Re: ${message.headers.subject}`,
+                      headerMessageId: message.headers["message-id"]!,
                       threadId: message.threadId!,
-                      cc: message.parsedMessage.headers.cc,
-                      references: message.parsedMessage.headers.references,
+                      cc: message.headers.cc,
+                      references: message.headers.references,
                     }
                   : {
                       to: "",
-                      subject: `Fwd: ${message.parsedMessage.headers.subject}`,
+                      subject: `Fwd: ${message.headers.subject}`,
                       headerMessageId: "",
                       threadId: message.threadId!,
                       cc: "",

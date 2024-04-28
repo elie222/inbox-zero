@@ -62,11 +62,9 @@ export function LargestEmails(props: { refreshInterval: number }) {
                 .map((item) => {
                   return (
                     <TableRow key={item.id}>
-                      <TableCell>{item.parsedMessage.headers.from}</TableCell>
+                      <TableCell>{item.headers.from}</TableCell>
                       <TableCell>
-                        {truncate(item.parsedMessage.headers.subject, {
-                          length: 80,
-                        })}
+                        {truncate(item.headers.subject, { length: 80 })}
                       </TableCell>
                       <TableCell>
                         {formatShortDate(new Date(+(item.internalDate || 0)), {

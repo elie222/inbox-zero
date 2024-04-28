@@ -44,7 +44,7 @@ async function loadEmbeddings() {
       if (!message.id) continue;
       console.log("Loading embedding for message", message.id);
       const embedding = await createEmbedding(openai, {
-        input: message.parsedMessage.headers.subject,
+        input: message.headers.subject,
         userId: session.user.id,
       });
       embeddings.push({

@@ -50,8 +50,8 @@ async function queryEmbeddings(query: string) {
     const m = messages.find((m) => m.id === result.id);
     return {
       ...result,
-      subject: m?.parsedMessage.headers.subject,
-      body: m?.parsedMessage.headers.from,
+      subject: m?.headers.subject,
+      body: m?.headers.from,
       threadId: m?.threadId,
       messageId: m?.id,
     };

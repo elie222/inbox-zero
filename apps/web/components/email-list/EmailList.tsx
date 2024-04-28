@@ -12,8 +12,6 @@ import { Celebration } from "@/components/Celebration";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { useSession } from "next-auth/react";
-import { ActResponse } from "@/app/api/ai/act/controller";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import { type Thread } from "@/components/email-list/types";
 import { useExecutePlan } from "@/components/email-list/PlanActions";
@@ -37,9 +35,6 @@ import {
   runAiRules,
 } from "@/providers/QueueProvider";
 import { selectedEmailAtom } from "@/store/email";
-// import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-// import { Button } from "@/components/ui/button";
-// import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 export function List(props: {
   emails: Thread[];
@@ -228,13 +223,13 @@ export function EmailList(props: {
             CategoriseResponse,
             CategoriseBodyWithHtml
           >("/api/ai/categorise", {
-            from: message.parsedMessage.headers.from,
-            subject: message.parsedMessage.headers.subject,
-            textPlain: message.parsedMessage.textPlain || null,
-            textHtml: message.parsedMessage.textHtml || null,
+            from: message.headers.from,
+            subject: message.headers.subject,
+            textPlain: message.textPlain || null,
+            textHtml: message.textHtml || null,
             snippet: thread.snippet,
             threadId: message.threadId || "",
-            date: message.parsedMessage.headers.date || "",
+            date: message.headers.date || "",
           });
 
           if (isError(res)) {
@@ -512,7 +507,7 @@ function ResizeGroup(props: {
   left: React.ReactNode;
   right?: React.ReactNode;
 }) {
-  if (!props.right) return <>{props.left}</>;
+  if (!props.right) return props.left;
 
   return (
     <ResizablePanelGroup direction="horizontal">

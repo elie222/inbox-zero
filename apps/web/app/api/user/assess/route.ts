@@ -113,10 +113,9 @@ async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
     // go through the messages, and check the headers for the email client
     const clients = messages
       .map((message) => {
-        const parsedMessage = parseMessage(message);
         return (
-          parsedMessage.headers["message-id"] &&
-          getEmailClient(parsedMessage.headers["message-id"])
+          message.headers["message-id"] &&
+          getEmailClient(message.headers["message-id"])
         );
       })
       .filter(isDefined);
