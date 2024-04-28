@@ -8,6 +8,7 @@ import { MessageWithPayload } from "@/utils/types";
 import { extractEmailAddress } from "@/utils/email";
 import { EmailList } from "@/components/email-list/EmailList";
 import { groupBy } from "lodash";
+import { TopSection } from "@/components/TopSection";
 
 type RuleWithGroup = Prisma.RuleGetPayload<{
   include: { group: { include: { items: true } } };
@@ -49,6 +50,7 @@ export default async function RuleExamplesPage({
 
   return (
     <div className="">
+      <TopSection title="Examples for this Rule" />
       <EmailList
         threads={Object.entries(threads).map(([id, messages]) => ({
           id,
