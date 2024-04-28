@@ -1,103 +1,112 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
+import zodToJsonSchema from "zod-to-json-schema";
 import { parseJSON } from "@/utils/json";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { UserAIFields } from "@/utils/llms/types";
-import { Action, ActionType, Rule } from "@prisma/client";
-import { actionInputs } from "@/utils/actionType";
+import { ActionType } from "@prisma/client";
 import { withError } from "@/utils/middleware";
 import { saveAiUsage } from "@/utils/usage";
-import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
+import { zodRuleType } from "@/app/api/user/rules/[id]/validation";
 
 const categorizeRuleBody = z.object({ ruleId: z.string() });
 export type CategorizeRuleBody = z.infer<typeof categorizeRuleBody>;
 export type CategorizeRuleResponse = Awaited<ReturnType<typeof categorizeRule>>;
 
 const categorizeRuleResponse = z.object({
-  name: z.string(),
-  actions: z.array(
-    z.object({
-      type: z.nativeEnum(ActionType),
-      label: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null),
-      to: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null),
-      cc: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null),
-      bcc: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null),
-      subject: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null),
-      content: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null),
-    }),
-  ),
+  name: z.string().describe("The name of the rule"),
+  actions: z
+    .array(
+      z.object({
+        type: z.nativeEnum(ActionType).describe("The type of the action"),
+        label: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The label to apply to the email"),
+        to: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The to email address to send the email to"),
+        cc: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The cc email address to send the email to"),
+        bcc: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The bcc email address to send the email to"),
+        subject: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The subject of the email"),
+        content: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The content of the email"),
+      }),
+    )
+    .describe("The actions to take"),
+  ruleType: zodRuleType.describe("The type of the rule"),
+  staticConditions: z
+    .object({
+      from: z.string().optional().describe("The from email address to match"),
+      to: z.string().optional().describe("The to email address to match"),
+      subject: z.string().optional().describe("The subject to match"),
+    })
+    .optional()
+    .describe("The static conditions to match"),
+  group: z
+    .enum(["Receipts", "Newsletters"])
+    .optional()
+    .describe("The group to match"),
 });
 
 export async function aiCategorizeRule(
   instructions: string,
   user: UserAIFields,
   userEmail: string,
-): Promise<{
-  name: string;
-  actions: Pick<
-    Action,
-    "type" | "label" | "to" | "cc" | "bcc" | "subject" | "content"
-  >[];
-} | void> {
+) {
   const { model, provider } = getAiProviderAndModel(
     user.aiProvider,
     user.aiModel,
   );
 
-  const aiResponse = await chatCompletion(
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are an AI assistant that helps people manage their emails.`,
+    },
+    {
+      role: "user" as const,
+      content: `Generate a rule for these instructions:\n${instructions}`,
+    },
+  ];
+
+  const aiResponse = await chatCompletionTools(
     provider,
     model,
     user.openAIApiKey,
-    [
-      {
-        role: "system",
-        content: `You are an AI assistant that helps people manage their emails. This is the list of actions you are able to take:
-${Object.entries(actionInputs).map(([actionType, { fields }]) => {
-  return `- ${actionType}
-    Optional fields: ${fields.map((field) => field.name).join(", ")}`;
-})}`,
-      },
-      {
-        role: "user",
-        content: `Return a JSON array of actions that this instruction would require taking.
-
-An example response is:
-{ "name": "Archive examples", "actions": [{ type: "FORWARD", to: "example@gmail.com" }, { type: "ARCHIVE" }] }
-
-Another example response is:
-{ "name": "Forward XYZ", "actions": [{ type: "FORWARD" }] }
-
-Keep the actions to a minimum.
-Only "type" is required. Other fields are optional and may only be available at runtime.
-Leave other fields blank if you do not have enough information to fill them out.
-Do not use an example value.
-"name" should be 1-2 words that describe the rule.
-
-###
-Instruction:
-${instructions}`,
-      },
-    ],
-    { jsonResponse: true },
+    messages,
+    {
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "categorizeRule",
+            description: "Generate a rule to handle the email",
+            parameters: zodToJsonSchema(categorizeRuleResponse),
+          },
+        },
+      ],
+    },
   );
 
   if (aiResponse.usage) {
@@ -110,7 +119,7 @@ ${instructions}`,
     });
   }
 
-  const contentString = aiResponse.response;
+  const contentString = aiResponse.functionCall?.arguments;
 
   if (!contentString) return;
 

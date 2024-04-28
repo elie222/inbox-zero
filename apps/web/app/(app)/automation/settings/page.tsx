@@ -67,10 +67,6 @@ export default function AutomationSettingsPage() {
   } = useForm<Inputs>();
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
-    console.log(
-      "🚀 ~ constonSubmit:SubmitHandler<Inputs>=useCallback ~ data:",
-      data,
-    );
     if (data.prompt) {
       try {
         await createAutomationAction(data.prompt);

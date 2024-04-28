@@ -667,11 +667,18 @@ export async function createAutomationAction(prompt: string) {
       name: result.name,
       instructions: prompt,
       userId: session.user.id,
+      type: result.ruleType,
       actions: {
         createMany: {
           data: result.actions,
         },
       },
+      automate: false,
+      runOnThreads: false,
+      from: result.staticConditions?.from,
+      to: result.staticConditions?.to,
+      subject: result.staticConditions?.subject,
+      // groupId: result.group?.id, // TODO
     },
   });
 }
