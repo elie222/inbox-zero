@@ -55,7 +55,7 @@ export function RuleModal(props: {
       {props.rule && (
         <UpdateRuleForm
           rule={props.rule}
-          closeModal={props.closeModal}
+          onSuccess={props.closeModal}
           refetchRules={props.refetchRules}
         />
       )}
@@ -65,10 +65,10 @@ export function RuleModal(props: {
 
 export function UpdateRuleForm(props: {
   rule: UpdateRuleBody & { id?: string };
-  closeModal: () => void;
-  refetchRules: () => Promise<any>;
+  onSuccess?: () => void;
+  refetchRules?: () => Promise<any>;
 }) {
-  const { closeModal, refetchRules } = props;
+  const { onSuccess, refetchRules } = props;
 
   const {
     register,
@@ -100,17 +100,17 @@ export function UpdateRuleForm(props: {
             body,
           );
 
-      await refetchRules();
+      await refetchRules?.();
 
       if (isError(res)) {
         console.error(res);
         toastError({ description: `There was an error updating the rule.` });
       } else {
         toastSuccess({ description: `Saved!` });
-        closeModal();
+        onSuccess?.();
       }
     },
-    [props.rule.id, closeModal, refetchRules],
+    [props.rule.id, onSuccess, refetchRules],
   );
 
   return (

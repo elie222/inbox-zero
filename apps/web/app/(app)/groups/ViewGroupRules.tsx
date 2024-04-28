@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UpdateRuleForm } from "@/app/(app)/automation/RuleModal";
 import { GroupRulesResponse } from "@/app/api/user/group/[groupId]/rules/route";
+import { RuleType } from "@prisma/client";
 
 export function ViewGroupRulesButton({
   groupId,
@@ -62,9 +63,10 @@ function ViewGroupRules({
                 automate: true,
                 runOnThreads: true,
                 groupId,
+                type: RuleType.GROUP,
               }
             }
-            closeModal={closeModal}
+            onSuccess={closeModal}
             refetchRules={mutate}
           />
         </LoadingContent>
