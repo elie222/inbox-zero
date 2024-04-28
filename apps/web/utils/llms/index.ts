@@ -124,7 +124,7 @@ export async function chatCompletionTools(
     role: "system" | "user";
     content: string;
   }>,
-  options: { jsonResponse?: boolean; tools: Array<ChatCompletionTool> },
+  options: { tools: Array<ChatCompletionTool> },
 ): Promise<{
   functionCall?: {
     name: string;
