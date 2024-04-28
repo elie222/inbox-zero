@@ -12,13 +12,11 @@ export default function Error({ error }: any) {
   }, [error]);
 
   return (
-    <html>
-      <body className="p-4">
-        <ErrorDisplay error={{ error: error?.message }} />
-        <Button className="mt-2" onClick={() => logOut()}>
-          Log out
-        </Button>
-      </body>
-    </html>
+    <div className="p-4">
+      <ErrorDisplay error={{ error: error?.message }} />
+      <Button className="mt-2" onClick={() => logOut()}>
+        Log out
+      </Button>
+    </div>
   );
 }
