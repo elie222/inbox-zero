@@ -51,7 +51,7 @@ import { revalidatePath } from "next/cache";
 import { CreateGroupBody } from "@/utils/actions-validation";
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
-import { aiCategorizeRule } from "@/app/api/user/rules/categorize/route";
+import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 
 export async function createLabelAction(options: {
   name: string;
@@ -658,7 +658,7 @@ export async function createAutomationAction(prompt: string) {
     select: { aiProvider: true, aiModel: true, openAIApiKey: true },
   });
 
-  const result = await aiCategorizeRule(prompt, user, session.user.email);
+  const result = await aiCreateRule(prompt, user, session.user.email);
 
   if (!result) throw new Error("No result");
 
