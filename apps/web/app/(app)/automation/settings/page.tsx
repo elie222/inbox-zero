@@ -137,7 +137,7 @@ export default function AutomationSettingsPage() {
             </>
           ) : (
             <>
-              <TypographyH3>Choose from an example</TypographyH3>
+              <TypographyH3>Choose an example</TypographyH3>
 
               <div className="mt-2 space-y-1 text-sm leading-6 text-gray-700">
                 {examples.map((example) => {
