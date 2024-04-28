@@ -39,6 +39,7 @@ import useSWR from "swr";
 import { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { ViewGroupButton } from "@/app/(app)/groups/ViewGroup";
 
 export function RuleModal(props: {
   rule?: UpdateRuleBody;
@@ -194,7 +195,11 @@ export function UpdateRuleForm(props: {
       )}
 
       {tab === "group" && (
-        <GroupsTab registerProps={register("groupId")} errors={errors} />
+        <GroupsTab
+          registerProps={register("groupId")}
+          errors={errors}
+          groupId={watch("groupId")}
+        />
       )}
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
@@ -350,6 +355,7 @@ export function UpdateRuleForm(props: {
 function GroupsTab(props: {
   registerProps: UseFormRegisterReturn<"groupId">;
   errors: FieldErrors<UpdateRuleBody>;
+  groupId?: string | null;
 }) {
   const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
 
@@ -376,6 +382,18 @@ function GroupsTab(props: {
                 error={props.errors["groupId"]}
               />
             </div>
+          )}
+
+          {props.groupId && (
+            <ViewGroupButton
+              groupId={props.groupId}
+              name="View group"
+              ButtonComponent={({ onClick }) => (
+                <Button color="white" onClick={onClick}>
+                  View group
+                </Button>
+              )}
+            />
           )}
 
           <Button color="white" link={{ href: "/groups", target: "_blank" }}>

@@ -22,17 +22,23 @@ import { GroupItemType } from "@prisma/client";
 export function ViewGroupButton({
   groupId,
   name,
+  ButtonComponent,
 }: {
   groupId: string;
   name: string;
+  ButtonComponent?: React.ComponentType<{ onClick: () => void }>;
 }) {
   const { isModalOpen, openModal, closeModal } = useModal();
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={openModal}>
-        View
-      </Button>
+      {ButtonComponent ? (
+        <ButtonComponent onClick={openModal} />
+      ) : (
+        <Button size="sm" variant="outline" onClick={openModal}>
+          View
+        </Button>
+      )}
       <Modal
         isOpen={isModalOpen}
         hideModal={closeModal}
@@ -54,7 +60,7 @@ function ViewGroup({ groupId }: { groupId: string }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between space-x-2">
+      <div className="flex items-center justify-end space-x-2">
         {/* <Button variant="outline">
           <PlusIcon className="mr-2 h-4 w-4" />
           Add Item
