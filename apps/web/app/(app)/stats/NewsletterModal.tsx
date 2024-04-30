@@ -1,4 +1,3 @@
-import { useState } from "react";
 import useSWR from "swr";
 import { BarChart } from "@tremor/react";
 import { DateRange } from "react-day-picker";
@@ -22,7 +21,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 import { type ThreadsResponse } from "@/app/api/google/threads/controller";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
@@ -140,44 +139,87 @@ function EmailsChart(props: {
 }
 
 function Emails(props: { fromEmail: string; refreshInterval?: number }) {
-  const [tab, setTab] = useState<"unarchived" | "all">("unarchived");
-  const url = `/api/google/threads?&fromEmail=${encodeURIComponent(
-    props.fromEmail,
-  )}${tab === "all" ? "&type=all" : ""}`;
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
-    refreshInterval: props.refreshInterval,
-  });
-
   return (
     <>
       <SectionHeader>Emails</SectionHeader>
-      <Tabs
-        defaultValue="unarchived"
-        className="mt-2"
-        onValueChange={setTab as any}
-      >
+      <Tabs defaultValue="unarchived" className="mt-2">
         <TabsList>
           <TabsTrigger value="unarchived">Unarchived</TabsTrigger>
           <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
       </Tabs>
       <div className="mt-2">
-        <LoadingContent loading={isLoading} error={error}>
-          {data && (
-            <EmailList
-              threads={data.threads}
-              emptyMessage={
-                <AlertBasic
-                  title="No emails"
-                  description={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
-                />
-              }
-              hideActionBarWhenEmpty
-              refetch={() => mutate()}
-            />
-          )}
-        </LoadingContent>
+        <TabsContent value="unarchived">
+          <UnarchivedEmails fromEmail={props.fromEmail} />
+        </TabsContent>
+        <TabsContent value="all">
+          <AllEmails fromEmail={props.fromEmail} />
+        </TabsContent>
       </div>
     </>
+  );
+}
+
+function UnarchivedEmails({
+  fromEmail,
+  refreshInterval,
+}: {
+  fromEmail: string;
+  refreshInterval?: number;
+}) {
+  const url = `/api/google/threads?fromEmail=${encodeURIComponent(fromEmail)}`;
+  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
+    refreshInterval,
+  });
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && (
+        <EmailList
+          threads={data.threads}
+          emptyMessage={
+            <AlertBasic
+              title="No emails"
+              description={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
+            />
+          }
+          hideActionBarWhenEmpty
+          refetch={() => mutate()}
+        />
+      )}
+    </LoadingContent>
+  );
+}
+
+function AllEmails({
+  fromEmail,
+  refreshInterval,
+}: {
+  fromEmail: string;
+  refreshInterval?: number;
+}) {
+  const url = `/api/google/threads?fromEmail=${encodeURIComponent(
+    fromEmail,
+  )}&type=all`;
+  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
+    refreshInterval,
+  });
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && (
+        <EmailList
+          threads={data.threads}
+          emptyMessage={
+            <AlertBasic
+              title="No emails"
+              description={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
+            />
+          }
+          hideActionBarWhenEmpty
+          refetch={() => mutate()}
+        />
+      )}
+    </LoadingContent>
   );
 }

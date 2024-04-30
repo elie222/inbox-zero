@@ -34,7 +34,7 @@ import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { Tooltip } from "@/components/Tooltip";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import useSWR from "swr";
 import { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -129,78 +129,76 @@ export function UpdateRuleForm(props: {
 
       <TypographyH3 className="mt-6">Conditions</TypographyH3>
 
-      <Tabs defaultValue={tab} className="mt-2" onValueChange={setTab as any}>
+      <Tabs defaultValue={tab} className="mt-2">
         <TabsList>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="static">Static</TabsTrigger>
           <TabsTrigger value="group">Group</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ai">
+          <div className="mt-4 space-y-4">
+            <Input
+              type="text"
+              as="textarea"
+              rows={3}
+              name="Instructions"
+              label="Instructions"
+              registerProps={register("instructions")}
+              error={errors.instructions}
+              placeholder='eg. Apply this rule to all "receipts"'
+              tooltipText="The instructions that will be passed to the AI."
+            />
+          </div>
+        </TabsContent>
+        <TabsContent value="static">
+          <Card className="mt-4 space-y-4">
+            <Input
+              type="text"
+              name="from"
+              label="From"
+              registerProps={register("from")}
+              error={errors.from}
+              placeholder="eg. elie@getinboxzero.com"
+              tooltipText="Only apply this rule to emails from this address."
+            />
+            <Input
+              type="text"
+              name="to"
+              label="To"
+              registerProps={register("to")}
+              error={errors.to}
+              placeholder="eg. elie@getinboxzero.com"
+              tooltipText="Only apply this rule to emails sent to this address."
+            />
+            <Input
+              type="text"
+              name="subject"
+              label="Subject"
+              registerProps={register("subject")}
+              error={errors.subject}
+              placeholder="eg. Receipt for your purchase"
+              tooltipText="Only apply this rule to emails with this subject."
+            />
+            {/* <Input
+                  type="text"
+                  name="body"
+                  label="Body"
+                  registerProps={register("body")}
+                  error={errors.body}
+                  placeholder="eg. Thanks for your purchase!"
+                  tooltipText="Only apply this rule to emails with this body."
+                /> */}
+          </Card>
+        </TabsContent>
+        <TabsContent value="group">
+          <GroupsTab
+            registerProps={register("groupId")}
+            errors={errors}
+            groupId={watch("groupId")}
+          />
+        </TabsContent>
       </Tabs>
-
-      {tab === "ai" && (
-        <div className="mt-4 space-y-4">
-          <Input
-            type="text"
-            as="textarea"
-            rows={3}
-            name="Instructions"
-            label="Instructions"
-            registerProps={register("instructions")}
-            error={errors.instructions}
-            placeholder='eg. Apply this rule to all "receipts"'
-            tooltipText="The instructions that will be passed to the AI."
-          />
-        </div>
-      )}
-
-      {tab === "static" && (
-        <Card className="mt-4 space-y-4">
-          <Input
-            type="text"
-            name="from"
-            label="From"
-            registerProps={register("from")}
-            error={errors.from}
-            placeholder="eg. elie@getinboxzero.com"
-            tooltipText="Only apply this rule to emails from this address."
-          />
-          <Input
-            type="text"
-            name="to"
-            label="To"
-            registerProps={register("to")}
-            error={errors.to}
-            placeholder="eg. elie@getinboxzero.com"
-            tooltipText="Only apply this rule to emails sent to this address."
-          />
-          <Input
-            type="text"
-            name="subject"
-            label="Subject"
-            registerProps={register("subject")}
-            error={errors.subject}
-            placeholder="eg. Receipt for your purchase"
-            tooltipText="Only apply this rule to emails with this subject."
-          />
-          {/* <Input
-          type="text"
-          name="body"
-          label="Body"
-          registerProps={register("body")}
-          error={errors.body}
-          placeholder="eg. Thanks for your purchase!"
-          tooltipText="Only apply this rule to emails with this body."
-        /> */}
-        </Card>
-      )}
-
-      {tab === "group" && (
-        <GroupsTab
-          registerProps={register("groupId")}
-          errors={errors}
-          groupId={watch("groupId")}
-        />
-      )}
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 
