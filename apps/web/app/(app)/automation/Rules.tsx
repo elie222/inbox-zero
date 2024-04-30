@@ -89,7 +89,9 @@ export function Rules() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/automation/rule/${rule.id}`}>Edit</Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={async () => {
                             await deleteRuleAction(rule.id);
