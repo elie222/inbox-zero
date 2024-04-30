@@ -70,7 +70,7 @@ export default function AutomationSettingsPage() {
     if (data.prompt) {
       try {
         const rule = await createAutomationAction(data.prompt);
-        router.push(`/automation/rule/${rule.id}`);
+        router.push(`/automation/rule/${rule.id}/examples`);
       } catch (error) {
         console.error(error);
         captureException(error, {

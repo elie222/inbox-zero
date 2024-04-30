@@ -6,9 +6,9 @@ import { gmail_v1 } from "googleapis";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload } from "@/utils/types";
 import { extractEmailAddress } from "@/utils/email";
-import { EmailList } from "@/components/email-list/EmailList";
 import { groupBy } from "lodash";
 import { TopSection } from "@/components/TopSection";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type RuleWithGroup = Prisma.RuleGetPayload<{
   include: { group: { include: { items: true } } };
@@ -47,21 +47,31 @@ export default async function RuleExamplesPage({
   );
 
   const threads = groupBy(messages, (m) => m.threadId);
+  const groupedBySenders = groupBy(threads, (t) => t[0]?.headers.from);
 
   return (
     <div className="">
-      <TopSection title="Examples for this Rule" />
-      <EmailList
-        threads={Object.entries(threads).map(([id, messages]) => ({
-          id,
-          messages,
-          snippet: messages[0]?.snippet || "",
-          plan: undefined,
-          category: null,
-        }))}
-        hideActionBarWhenEmpty
-        // refetch={() => mutate()}
+      <TopSection
+        title="Your automation has been created!"
+        description="Here are some examples of previous emails that match this rule"
       />
+      <div className="m-4 grid max-w-4xl gap-4">
+        {Object.entries(groupedBySenders).map(([from, threads]) => {
+          return (
+            <Card key={from}>
+              <CardHeader>
+                <CardTitle>{from}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {threads.map((t) => (
+                  <div key={t[0]?.id}>{t[0]?.headers.subject}</div>
+                ))}
+                {/* <Button variant="outline" size='sm' className="mt-4">Remove from group</Button> */}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
