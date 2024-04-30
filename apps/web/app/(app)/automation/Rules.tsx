@@ -108,7 +108,7 @@ export function Rules() {
             </CardHeader>
             <CardContent>
               <Button asChild variant="outline">
-                <Link href="/automation/new">Create Automation</Link>
+                <Link href="/automation/create">Create Automation</Link>
               </Button>
             </CardContent>
           </>
