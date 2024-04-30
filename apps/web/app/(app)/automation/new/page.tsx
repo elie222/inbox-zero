@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { Button } from "@/components/ui/button";
+import { RulesSection } from "@/app/(app)/automation/RulesSection";
 
 export default async function NewAutomationPage() {
   const session = await auth();
@@ -29,6 +30,7 @@ export default async function NewAutomationPage() {
         <TabsList className="m-2">
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="automations">Automations</TabsTrigger>
         </TabsList>
 
         <Button asChild>
@@ -44,6 +46,9 @@ export default async function NewAutomationPage() {
       </TabsContent>
       <TabsContent value="history">
         <PlanHistory />
+      </TabsContent>
+      <TabsContent value="automations">
+        <RulesSection />
       </TabsContent>
     </Tabs>
   );
