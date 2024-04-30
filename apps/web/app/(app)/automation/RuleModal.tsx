@@ -17,7 +17,7 @@ import { Button } from "@/components/Button";
 import { SubmitButtonWrapper } from "@/components/Form";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { TypographyH3 } from "@/components/Typography";
+import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { ActionType, RuleType } from "@prisma/client";
@@ -359,11 +359,10 @@ function GroupsTab(props: {
 
   return (
     <div className="mt-4">
-      <Card>
+      <SectionDescription>
         A group is a collection of senders or subjects. For example, a group
-        could be all receipts or all newsletters. Click 'Manage Groups' to
-        create and adjust groups.
-      </Card>
+        could be all receipts or all newsletters.
+      </SectionDescription>
 
       <LoadingContent loading={isLoading} error={error}>
         <div className="mt-4 flex items-center space-x-2">
@@ -396,7 +395,7 @@ function GroupsTab(props: {
 
           <Button color="white" link={{ href: "/groups", target: "_blank" }}>
             <SettingsIcon className="mr-2 h-4 w-4" />
-            Manage groups
+            {data?.groups.length ? "Manage groups" : "Create group"}
           </Button>
         </div>
       </LoadingContent>
