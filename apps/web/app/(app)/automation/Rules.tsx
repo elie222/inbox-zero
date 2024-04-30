@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Tag } from "@/components/Tag";
 import Link from "next/link";
+import { deleteRuleAction } from "@/utils/actions";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -89,7 +90,14 @@ export function Rules() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            await deleteRuleAction(rule.id);
+                            mutate();
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

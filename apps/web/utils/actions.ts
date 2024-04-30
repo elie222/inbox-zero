@@ -53,6 +53,7 @@ import { CreateGroupBody } from "@/utils/actions-validation";
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
+import { deleteRule } from "@/app/api/user/rules/controller";
 
 export async function createLabelAction(options: {
   name: string;
@@ -722,4 +723,11 @@ export async function createAutomationAction(prompt: string) {
   });
 
   return { id: rule.id };
+}
+
+export async function deleteRuleAction(ruleId: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await deleteRule({ ruleId }, session.user.id);
 }
