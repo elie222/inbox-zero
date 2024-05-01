@@ -10,6 +10,8 @@ import { extractEmailAddress } from "@/utils/email";
 import { groupBy } from "lodash";
 import { TopSection } from "@/components/TopSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 type RuleWithGroup = Prisma.RuleGetPayload<{
   include: { group: { include: { items: true } } };
@@ -51,10 +53,19 @@ export default async function RuleExamplesPage({
   const groupedBySenders = groupBy(threads, (t) => t[0]?.headers.from);
 
   return (
-    <div className="">
+    <div>
       <TopSection
         title="Your automation has been created!"
-        description="Here are some examples of previous emails that match this rule"
+        descriptionComponent={
+          <>
+            <p>
+              Here are some examples of previous emails that match this rule.
+            </p>
+            <Button className="mt-4" asChild>
+              <Link href={`/automation/rule/${rule.id}`}>Continue</Link>
+            </Button>
+          </>
+        }
       />
       <div className="m-4 grid max-w-4xl gap-4">
         {Object.entries(groupedBySenders).map(([from, threads]) => {
@@ -78,6 +89,12 @@ export default async function RuleExamplesPage({
             </Card>
           );
         })}
+      </div>
+
+      <div className="m-4 pb-10">
+        <Button size="lg" asChild>
+          <Link href={`/automation/rule/${rule.id}`}>Continue</Link>
+        </Button>
       </div>
     </div>
   );
