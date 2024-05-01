@@ -132,7 +132,7 @@ export function UpdateRuleForm(props: {
 
       <TypographyH3 className="mt-6">Conditions</TypographyH3>
 
-      <Tabs defaultValue="ai" className="mt-2">
+      <Tabs defaultValue={ruleTypeToTab(props.rule.type)} className="mt-2">
         <TabsList>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="static">Static</TabsTrigger>
@@ -381,7 +381,7 @@ function GroupsTab(props: {
       </SectionDescription>
 
       <LoadingContent loading={isLoading} error={error}>
-        <div className="mt-4 flex items-center space-x-2">
+        <div className="mt-2 flex items-center space-x-2">
           {data?.groups && data?.groups.length > 0 && (
             <div className="min-w-[250px]">
               <Select
@@ -449,4 +449,15 @@ function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
     subject: null,
     body: null,
   };
+}
+
+function ruleTypeToTab(ruleType: RuleType) {
+  switch (ruleType) {
+    case RuleType.AI:
+      return "ai";
+    case RuleType.STATIC:
+      return "static";
+    case RuleType.GROUP:
+      return "group";
+  }
 }
