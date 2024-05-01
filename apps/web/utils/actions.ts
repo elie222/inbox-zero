@@ -742,3 +742,29 @@ export async function deleteRuleAction(ruleId: string) {
 
   await deleteRule({ ruleId }, session.user.id);
 }
+
+export async function setRuleAutomatedAction(
+  ruleId: string,
+  automate: boolean,
+) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.rule.update({
+    where: { id: ruleId, userId: session.user.id },
+    data: { automate },
+  });
+}
+
+export async function setRuleRunOnThreadsAction(
+  ruleId: string,
+  runOnThreads: boolean,
+) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.rule.update({
+    where: { id: ruleId, userId: session.user.id },
+    data: { runOnThreads },
+  });
+}

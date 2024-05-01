@@ -24,7 +24,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tag } from "@/components/Tag";
-import { deleteRuleAction } from "@/utils/actions";
+import {
+  deleteRuleAction,
+  setRuleAutomatedAction,
+  setRuleRunOnThreadsAction,
+} from "@/utils/actions";
+import { RuleType } from "@prisma/client";
+import { Toggle } from "@/components/Toggle";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -61,11 +67,28 @@ export function Rules() {
                   <TableCell>
                     <Actions actions={rule.actions} />
                   </TableCell>
-                  <TableCell className="text-center">
-                    {rule.automate ? "Yes" : "No"}
+                  <TableCell>
+                    <Toggle
+                      enabled={rule.automate}
+                      name="automate"
+                      onChange={async () => {
+                        await setRuleAutomatedAction(rule.id, !rule.automate);
+                        mutate();
+                      }}
+                    />
                   </TableCell>
-                  <TableCell className="text-center">
-                    {rule.runOnThreads ? "Yes" : "No"}
+                  <TableCell>
+                    <Toggle
+                      enabled={rule.runOnThreads}
+                      name="runOnThreads"
+                      onChange={async () => {
+                        await setRuleRunOnThreadsAction(
+                          rule.id,
+                          !rule.runOnThreads,
+                        );
+                        mutate();
+                      }}
+                    />
                   </TableCell>
                   {/* <TableCell className="text-right">33</TableCell>
                 <TableCell className="text-right">43</TableCell> */}
@@ -82,6 +105,16 @@ export function Rules() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/automation/rule/${rule.id}`}>View</Link>
+                        </DropdownMenuItem>
+                        {rule.type !== RuleType.AI && (
+                          <DropdownMenuItem asChild>
+                            <Link href={`/automation/rule/${rule.id}/examples`}>
+                              Examples
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem asChild>
                           <Link href={`/automation/rule/${rule.id}`}>Edit</Link>

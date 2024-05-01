@@ -343,12 +343,14 @@ export function UpdateRuleForm(props: {
       </div>
 
       <div className="flex justify-end space-x-2 py-6">
-        <Button
-          color="white"
-          link={{ href: `/automation/rule/${props.rule.id}/examples` }}
-        >
-          View Examples
-        </Button>
+        {props.rule.type !== RuleType.AI && (
+          <Button
+            color="white"
+            link={{ href: `/automation/rule/${props.rule.id}/examples` }}
+          >
+            View Examples
+          </Button>
+        )}
         <Button
           type="submit"
           color={continueHref ? "white" : "primary"}

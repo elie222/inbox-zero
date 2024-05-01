@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { type gmail_v1 } from "googleapis";
 import groupBy from "lodash/groupBy";
 import prisma from "@/utils/prisma";
@@ -46,6 +47,9 @@ export default async function RuleExamplesPage({
   const continueHref = `/automation/rule/${rule.id}?new=true`;
 
   const hasExamples = Object.keys(groupedBySenders).length > 0;
+
+  // we don't have examples for AI rules atm
+  if (rule.type === RuleType.AI) redirect(continueHref);
 
   return (
     <div>
