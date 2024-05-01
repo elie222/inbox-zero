@@ -68,6 +68,10 @@ export default async function RuleExamplesPage({
       <div className="m-4 grid max-w-4xl gap-4">
         {Object.entries(groupedBySenders).map(([from, threads]) => {
           const matchingGroupItemId = threads[0]?.[0]?.matchingGroupItem?.id;
+          const handleRemove = deleteGroupItemAction.bind(
+            null,
+            matchingGroupItemId || "",
+          );
 
           return (
             <Card key={from}>
@@ -85,17 +89,13 @@ export default async function RuleExamplesPage({
                   ))}
                 </ul>
                 {!!matchingGroupItemId && (
-                  <form
-                    action={async () => {
-                      "use server";
-                      await deleteGroupItemAction(matchingGroupItemId);
-                    }}
-                  >
+                  <form>
                     <Button
                       type="submit"
                       variant="outline"
                       size="sm"
                       className="mt-4"
+                      formAction={handleRemove}
                     >
                       Remove
                     </Button>
