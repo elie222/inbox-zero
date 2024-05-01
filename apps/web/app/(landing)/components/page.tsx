@@ -13,6 +13,7 @@ import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBasic } from "@/components/Alert";
+import { Suspense } from "react";
 
 export default function Components() {
   return (
@@ -72,14 +73,16 @@ export default function Components() {
         <div>
           <div className="underline">Tabs</div>
           <div className="mt-4">
-            <Tabs defaultValue="account" className="w-[400px]">
-              <TabsList>
-                <TabsTrigger value="account">Account</TabsTrigger>
-                <TabsTrigger value="password">Password</TabsTrigger>
-              </TabsList>
-              <TabsContent value="account">Account content</TabsContent>
-              <TabsContent value="password">Password content</TabsContent>
-            </Tabs>
+            <Suspense>
+              <Tabs defaultValue="account" className="w-[400px]">
+                <TabsList>
+                  <TabsTrigger value="account">Account</TabsTrigger>
+                  <TabsTrigger value="password">Password</TabsTrigger>
+                </TabsList>
+                <TabsContent value="account">Account content</TabsContent>
+                <TabsContent value="password">Password content</TabsContent>
+              </Tabs>
+            </Suspense>
           </div>
         </div>
 
