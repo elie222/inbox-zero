@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   FieldError,
   FieldErrors,
@@ -14,7 +15,6 @@ import { capitalCase } from "capital-case";
 import { HelpCircleIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
-import { SubmitButtonWrapper } from "@/components/Form";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
@@ -66,10 +66,11 @@ export function RuleModal(props: {
 
 export function UpdateRuleForm(props: {
   rule: UpdateRuleBody & { id?: string };
+  continueHref?: string;
   onSuccess?: () => void;
   refetchRules?: () => Promise<any>;
 }) {
-  const { onSuccess, refetchRules } = props;
+  const { onSuccess, continueHref, refetchRules } = props;
 
   const {
     register,
@@ -114,6 +115,8 @@ export function UpdateRuleForm(props: {
     [props.rule.id, onSuccess, refetchRules],
   );
 
+  const router = useRouter();
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mt-4">
@@ -152,7 +155,7 @@ export function UpdateRuleForm(props: {
           </div>
         </TabsContent>
         <TabsContent value="static">
-          <Card className="mt-4 space-y-4">
+          <div className="mt-4 space-y-4">
             <Input
               type="text"
               name="from"
@@ -189,7 +192,7 @@ export function UpdateRuleForm(props: {
                   placeholder="eg. Thanks for your purchase!"
                   tooltipText="Only apply this rule to emails with this body."
                 /> */}
-          </Card>
+          </div>
         </TabsContent>
         <TabsContent value="group">
           <GroupsTab
@@ -339,12 +342,25 @@ export function UpdateRuleForm(props: {
         />
       </div>
 
-      <div className="flex justify-end">
-        <SubmitButtonWrapper>
-          <Button type="submit" loading={isSubmitting}>
-            Save
+      <div className="flex justify-end space-x-2 py-6">
+        <Button
+          type="submit"
+          color={continueHref ? "white" : "primary"}
+          loading={isSubmitting}
+        >
+          Save
+        </Button>
+        {continueHref && (
+          <Button
+            onClick={() => {
+              handleSubmit(onSubmit)();
+              router.push(continueHref);
+            }}
+            loading={isSubmitting}
+          >
+            Continue
           </Button>
-        </SubmitButtonWrapper>
+        )}
       </div>
     </form>
   );
