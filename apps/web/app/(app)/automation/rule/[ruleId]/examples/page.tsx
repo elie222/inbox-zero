@@ -16,6 +16,7 @@ import {
   MessageWithGroupItem,
   RuleWithGroup,
 } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
+import { matchesStaticRule } from "@/app/api/google/webhook/static-rule";
 
 export const dynamic = "force-dynamic";
 
@@ -116,7 +117,8 @@ async function fetchStaticExampleMessages(
     }),
   );
 
-  return messages;
+  // search might include messages that don't match the rule, so we filter those out
+  return messages.filter((message) => matchesStaticRule(rule, message));
 }
 
 async function fetchGroupExampleMessages(
@@ -164,5 +166,6 @@ async function fetchGroupExampleMessages(
     }),
   );
 
+  // search might include messages that don't match the rule, so we filter those out
   return messages.filter((message) => message.matchingGroupItem);
 }

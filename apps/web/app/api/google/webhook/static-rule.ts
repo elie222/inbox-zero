@@ -96,22 +96,25 @@ function findStaticRule(
   message: ParsedMessage,
 ): RuleWithActions | null {
   for (const rule of applicableRules) {
-    const fromMatch = rule.from
-      ? new RegExp(rule.from).test(message.headers.from)
-      : true;
-    const toMatch = rule.to
-      ? new RegExp(rule.to).test(message.headers.to)
-      : true;
-    const subjectMatch = rule.subject
-      ? new RegExp(rule.subject).test(message.headers.subject)
-      : true;
-    const bodyMatch = rule.body
-      ? new RegExp(rule.body).test(message.textPlain || "")
-      : true;
-
-    if (fromMatch && toMatch && subjectMatch && bodyMatch) {
-      return rule;
-    }
+    if (matchesStaticRule(rule, message)) return rule;
   }
   return null;
+}
+
+export function matchesStaticRule(
+  rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body">,
+  message: ParsedMessage,
+) {
+  const { from, to, subject, body } = rule;
+
+  const fromMatch = from ? new RegExp(from).test(message.headers.from) : true;
+  const toMatch = to ? new RegExp(to).test(message.headers.to) : true;
+  const subjectMatch = subject
+    ? new RegExp(subject).test(message.headers.subject)
+    : true;
+  const bodyMatch = body
+    ? new RegExp(body).test(message.textPlain || "")
+    : true;
+
+  return fromMatch && toMatch && subjectMatch && bodyMatch;
 }
