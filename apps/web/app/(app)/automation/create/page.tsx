@@ -21,7 +21,7 @@ import {
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { createAutomationAction } from "@/utils/actions";
 import { captureException } from "@/utils/error";
-import { toastError } from "@/components/Toast";
+import { toastError, toastInfo } from "@/components/Toast";
 
 const examples = [
   {
@@ -70,7 +70,15 @@ export default function AutomationSettingsPage() {
     if (data.prompt) {
       try {
         const rule = await createAutomationAction(data.prompt);
-        router.push(`/automation/rule/${rule.id}/examples`);
+        if (rule.existingRuleId) {
+          toastInfo({
+            title: "Rule for group already exists",
+            description: "Edit the existing rule to create your automation.",
+          });
+          router.push(`/automation/rule/${rule.existingRuleId}`);
+        } else {
+          router.push(`/automation/rule/${rule.id}/examples`);
+        }
       } catch (error) {
         console.error(error);
         captureException(error, {

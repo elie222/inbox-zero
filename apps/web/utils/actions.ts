@@ -15,6 +15,7 @@ import {
   PremiumTier,
   GroupItemType,
   RuleType,
+  Prisma,
 } from "@prisma/client";
 import {
   deleteInboxZeroLabels,
@@ -673,7 +674,7 @@ export async function createAutomationAction(prompt: string) {
   if (result.group) {
     const groups = await prisma.group.findMany({
       where: { userId: session.user.id },
-      select: { id: true, name: true },
+      select: { id: true, name: true, rule: true },
     });
 
     if (result.group === "Newsletters") {
@@ -681,6 +682,13 @@ export async function createAutomationAction(prompt: string) {
         g.name.toLowerCase().includes("newsletter"),
       );
       if (newsletterGroup) {
+        if (newsletterGroup.rule) {
+          return {
+            error: "Newsletter group already has a rule",
+            existingRuleId: newsletterGroup.rule.id,
+          };
+        }
+
         groupId = newsletterGroup.id;
       } else {
         const group = await createNewsletterGroupAction({
@@ -695,6 +703,13 @@ export async function createAutomationAction(prompt: string) {
 
       if (receiptsGroup) {
         groupId = receiptsGroup.id;
+
+        if (receiptsGroup.rule) {
+          return {
+            error: "Receipt group already has a rule",
+            existingRuleId: receiptsGroup.rule.id,
+          };
+        }
       } else {
         const group = await createReceiptGroupAction({ name: "Receipts" });
         groupId = group.id;
@@ -713,27 +728,51 @@ export async function createAutomationAction(prompt: string) {
     return RuleType.AI;
   }
 
-  const rule = await prisma.rule.create({
-    data: {
-      name: result.name,
-      instructions: prompt,
-      userId: session.user.id,
-      type: getRuleType(),
-      actions: {
-        createMany: {
-          data: result.actions,
+  async function createRule(
+    result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+    userId: string,
+  ) {
+    const rule = await prisma.rule.create({
+      data: {
+        name: result.name,
+        instructions: prompt,
+        userId,
+        type: getRuleType(),
+        actions: {
+          createMany: {
+            data: result.actions,
+          },
         },
+        automate: false,
+        runOnThreads: false,
+        from: result.staticConditions?.from,
+        to: result.staticConditions?.to,
+        subject: result.staticConditions?.subject,
+        groupId,
       },
-      automate: false,
-      runOnThreads: false,
-      from: result.staticConditions?.from,
-      to: result.staticConditions?.to,
-      subject: result.staticConditions?.subject,
-      groupId,
-    },
-  });
+    });
+    return rule;
+  }
 
-  return { id: rule.id };
+  try {
+    const rule = await createRule(result, session.user.id);
+    return { id: rule.id };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (
+        error.code === "P2002" &&
+        (error.meta?.target as string[])?.includes?.("name")
+      ) {
+        // if rule name already exists, create a new rule with a unique name
+        const rule = await createRule(
+          { ...result, name: result.name + " - " + Date.now() },
+          session.user.id,
+        );
+        return { id: rule.id };
+      }
+    }
+    throw error;
+  }
 }
 
 export async function deleteRuleAction(ruleId: string) {
