@@ -14,6 +14,8 @@ import {
 } from "@/utils/actions";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateGroupBody, createGroupBody } from "@/utils/actions-validation";
+import { Tooltip } from "@/components/Tooltip";
+import { AlertBasic } from "@/components/Alert";
 
 export function CreateGroupModalButton(props: { existingGroups: string[] }) {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -116,7 +118,10 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <AlertBasic title="Coming soon" description="" />
+
       <Input
+        disabled
         type="text"
         name="name"
         label="Name"
@@ -125,6 +130,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         error={errors.name}
       />
       <Input
+        disabled
         type="text"
         as="textarea"
         rows={3}
@@ -135,9 +141,11 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         registerProps={register("prompt", { required: true })}
         error={errors.prompt}
       />
-      <Button type="submit" loading={isSubmitting}>
-        Create
-      </Button>
+      <Tooltip content="Coming soon">
+        <Button type="submit" loading={isSubmitting} disabled>
+          Create
+        </Button>
+      </Tooltip>
     </form>
   );
 }
