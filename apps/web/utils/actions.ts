@@ -677,14 +677,25 @@ export async function createAutomationAction(prompt: string) {
     });
 
     if (result.group === "Newsletters") {
-      if (!groups.find((g) => g.name.toLowerCase().includes("newsletter"))) {
+      const newsletterGroup = groups.find((g) =>
+        g.name.toLowerCase().includes("newsletter"),
+      );
+      if (newsletterGroup) {
+        groupId = newsletterGroup.id;
+      } else {
         const group = await createNewsletterGroupAction({
           name: "Newsletters",
         });
         groupId = group.id;
       }
     } else if (result.group === "Receipts") {
-      if (!groups.find((g) => g.name.toLowerCase().includes("receipt"))) {
+      const receiptsGroup = groups.find((g) =>
+        g.name.toLowerCase().includes("receipt"),
+      );
+
+      if (receiptsGroup) {
+        groupId = receiptsGroup.id;
+      } else {
         const group = await createReceiptGroupAction({ name: "Receipts" });
         groupId = group.id;
       }

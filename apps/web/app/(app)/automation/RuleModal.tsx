@@ -352,8 +352,8 @@ export function UpdateRuleForm(props: {
         </Button>
         {continueHref && (
           <Button
-            onClick={() => {
-              handleSubmit(onSubmit)();
+            onClick={async () => {
+              await handleSubmit(onSubmit)();
               router.push(continueHref);
             }}
             loading={isSubmitting}
