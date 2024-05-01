@@ -9,9 +9,9 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PageHeading } from "@/components/Typography";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload } from "@/utils/types";
 import { SimpleModeOnboarding } from "@/app/(app)/simple/SimpleModeOnboarding";
 import { ClientOnly } from "@/components/ClientOnly";
+import { getMessage } from "@/utils/gmail/message";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +44,8 @@ export default async function SimplePage({
 
   const messages = await Promise.all(
     filteredMessages?.map(async (message) => {
-      const fullMessage = await gmail.users.messages.get({
-        userId: "me",
-        id: message.id!,
-      });
-      return parseMessage(fullMessage.data as MessageWithPayload);
+      const m = await getMessage(message.id!, gmail);
+      return parseMessage(m);
     }) || [],
   );
 

@@ -3,14 +3,17 @@ import {
   excuteRuleActions,
   getFunctionsFromRules,
 } from "@/app/api/ai/act/controller";
-import prisma from "@/utils/prisma";
 import { ParsedMessage } from "@/utils/types";
-import { GroupItemType, User } from "@prisma/client";
+import { User } from "@prisma/client";
 import { emailToContent } from "@/utils/mail";
 import {
   getActionItemsFromAiArgsResponse,
   getArgsAiResponse,
 } from "@/app/api/ai/act/ai-choose-args";
+import {
+  findMatchingGroup,
+  getGroups,
+} from "@/utils/group/find-matching-group";
 
 export async function handleGroupRule({
   message,
@@ -94,37 +97,4 @@ export async function handleGroupRule({
   );
 
   return { handled: true };
-}
-
-type Groups = Awaited<ReturnType<typeof getGroups>>;
-async function getGroups(userId: string) {
-  return prisma.group.findMany({
-    where: { userId },
-    include: { items: true, rule: { include: { actions: true } } },
-  });
-}
-
-function findMatchingGroup(message: ParsedMessage, groups: Groups) {
-  const { from, subject } = message.headers;
-
-  const group = groups.find((group) =>
-    group.items.some((item) => {
-      if (item.type === GroupItemType.FROM) {
-        return item.value.includes(from);
-      }
-
-      if (item.type === GroupItemType.SUBJECT) {
-        return item.value.includes(subject);
-      }
-
-      // TODO
-      // if (item.type === GroupItemType.BODY) {
-      //   return item.value.includes(body);
-      // }
-
-      return false;
-    }),
-  );
-
-  return group;
 }

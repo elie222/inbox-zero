@@ -4,7 +4,7 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import Mail, { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload } from "@/utils/types";
+import { getMessage } from "@/utils/gmail/message";
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -99,15 +99,12 @@ export async function forwardEmail(
     content?: string;
   },
 ) {
-  const m = await gmail.users.messages.get({
-    userId: "me",
-    id: options.messageId,
-  });
+  const m = await getMessage(options.messageId, gmail);
 
-  const messageId = m.data.id;
+  const messageId = m.id;
   if (!messageId) throw new Error("Message not found");
 
-  const message = parseMessage(m.data as MessageWithPayload);
+  const message = parseMessage(m);
 
   const attachments = await Promise.all(
     message.attachments.map(async (attachment) => {

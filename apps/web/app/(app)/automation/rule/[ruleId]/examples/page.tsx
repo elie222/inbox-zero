@@ -4,18 +4,24 @@ import { type gmail_v1 } from "googleapis";
 import groupBy from "lodash/groupBy";
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { GroupItemType, Prisma, RuleType } from "@prisma/client";
+import { GroupItem, GroupItemType, Prisma, RuleType } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload } from "@/utils/types";
 import { extractEmailAddress } from "@/utils/email";
 import { TopSection } from "@/components/TopSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
+import { getMessage } from "@/utils/gmail/message";
+import { deleteGroupItemAction } from "@/utils/actions";
+import { ParsedMessage } from "@/utils/types";
 
 type RuleWithGroup = Prisma.RuleGetPayload<{
   include: { group: { include: { items: true } } };
 }>;
+type MessageWithGroupItem = ParsedMessage & {
+  matchingGroupItem?: GroupItem | null;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -39,17 +45,7 @@ export default async function RuleExamplesPage({
 
   const exampleMessages = await fetchExampleMessages(rule, gmail);
 
-  const messages = await Promise.all(
-    exampleMessages?.map(async (message) => {
-      const fullMessage = await gmail.users.messages.get({
-        userId: "me",
-        id: message.id!,
-      });
-      return parseMessage(fullMessage.data as MessageWithPayload);
-    }) || [],
-  );
-
-  const threads = groupBy(messages, (m) => m.threadId);
+  const threads = groupBy(exampleMessages, (m) => m.threadId);
   const groupedBySenders = groupBy(threads, (t) => t[0]?.headers.from);
 
   const continueHref = `/automation/rule/${rule.id}?new=true`;
@@ -71,6 +67,8 @@ export default async function RuleExamplesPage({
       />
       <div className="m-4 grid max-w-4xl gap-4">
         {Object.entries(groupedBySenders).map(([from, threads]) => {
+          const matchingGroupItemId = threads[0]?.[0]?.matchingGroupItem?.id;
+
           return (
             <Card key={from}>
               <CardHeader>
@@ -86,7 +84,23 @@ export default async function RuleExamplesPage({
                     <li key={t[0]?.id}>{t[0]?.headers.subject}</li>
                   ))}
                 </ul>
-                {/* <Button variant="outline" size='sm' className="mt-4">Remove from group</Button> */}
+                {!!matchingGroupItemId && (
+                  <form
+                    action={async () => {
+                      "use server";
+                      await deleteGroupItemAction(matchingGroupItemId);
+                    }}
+                  >
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                    >
+                      Remove
+                    </Button>
+                  </form>
+                )}
               </CardContent>
             </Card>
           );
@@ -106,29 +120,21 @@ async function fetchExampleMessages(
   rule: RuleWithGroup,
   gmail: gmail_v1.Gmail,
 ) {
-  let q = "";
   switch (rule.type) {
     case RuleType.STATIC:
-      q = staticQuery(rule);
-      break;
+      return fetchStaticExampleMessages(rule, gmail);
     case RuleType.GROUP:
-      q = groupQuery(rule);
-      break;
+      if (!rule.group) return [];
+      return fetchGroupExampleMessages(rule.group, gmail);
     case RuleType.AI:
       return [];
   }
-
-  console.log("🚀 ~ q:", q);
-  const response = await gmail.users.messages.list({
-    userId: "me",
-    maxResults: 50,
-    q,
-  });
-
-  return response.data.messages;
 }
 
-function staticQuery(rule: RuleWithGroup) {
+async function fetchStaticExampleMessages(
+  rule: RuleWithGroup,
+  gmail: gmail_v1.Gmail,
+): Promise<MessageWithGroupItem[]> {
   let q = "";
   if (rule.from) {
     q += `from:${rule.from} `;
@@ -140,11 +146,28 @@ function staticQuery(rule: RuleWithGroup) {
     q += `subject:${rule.subject} `;
   }
 
-  return q;
+  const response = await gmail.users.messages.list({
+    userId: "me",
+    maxResults: 50,
+    q,
+  });
+
+  const messages = await Promise.all(
+    (response.data.messages || []).map(async (message) => {
+      const m = await getMessage(message.id!, gmail);
+      const parsedMessage = parseMessage(m);
+      return parsedMessage;
+    }),
+  );
+
+  return messages;
 }
 
-function groupQuery(rule: RuleWithGroup) {
-  const items = rule.group?.items || [];
+async function fetchGroupExampleMessages(
+  group: NonNullable<RuleWithGroup["group"]>,
+  gmail: gmail_v1.Gmail,
+): Promise<MessageWithGroupItem[]> {
+  const items = group.items || [];
 
   let q = "";
 
@@ -164,5 +187,26 @@ function groupQuery(rule: RuleWithGroup) {
     q += `subject:(${subjects.map((item) => item.value).join(" OR ")}) `;
   }
 
-  return q;
+  const response = await gmail.users.messages.list({
+    userId: "me",
+    maxResults: 50,
+    q,
+  });
+
+  const messages = await Promise.all(
+    (response.data.messages || []).map(async (message) => {
+      const m = await getMessage(message.id!, gmail);
+      const parsedMessage = parseMessage(m);
+
+      return {
+        ...parsedMessage,
+        matchingGroupItem: findMatchingGroupItem(
+          parsedMessage.headers,
+          group.items,
+        ),
+      };
+    }),
+  );
+
+  return messages.filter((message) => message.matchingGroupItem);
 }
