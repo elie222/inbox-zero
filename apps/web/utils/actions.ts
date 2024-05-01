@@ -737,7 +737,7 @@ export async function createAutomationAction(prompt: string) {
         name: result.name,
         instructions: prompt,
         userId,
-        type: getRuleType(),
+        type: getRuleType(), // TODO might want to set this to AI if "requiresAI" is true
         actions: {
           createMany: {
             data: result.actions,

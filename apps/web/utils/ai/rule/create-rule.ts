@@ -8,6 +8,12 @@ import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
 
 const createRuleSchema = z.object({
   name: z.string().describe("The name of the rule"),
+  // `requiresAI` helps prevent the subject line being set too narrowly
+  requiresAI: z
+    .enum(["yes", "no"])
+    .describe(
+      "Yes, if an AI is required to process each email. No, if we can create static conditions to process the emails.",
+    ),
   actions: z
     .array(
       z.object({
@@ -49,7 +55,12 @@ const createRuleSchema = z.object({
     .object({
       from: z.string().optional().describe("The from email address to match"),
       to: z.string().optional().describe("The to email address to match"),
-      subject: z.string().optional().describe("The subject to match"),
+      subject: z
+        .string()
+        .optional()
+        .describe(
+          "The subject to match. Leave blank if AI is required to process the subject line.",
+        ),
     })
     .optional()
     .describe("The static conditions to match"),
