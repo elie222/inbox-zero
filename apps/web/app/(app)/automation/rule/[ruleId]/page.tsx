@@ -41,7 +41,7 @@ export default async function RulePage({
       <div className="max-w-3xl px-4 sm:px-6 lg:px-8">
         <UpdateRuleForm
           rule={rule}
-          continueHref="/automations?tab=automations"
+          continueHref="/automation?tab=automations"
         />
       </div>
     </div>
