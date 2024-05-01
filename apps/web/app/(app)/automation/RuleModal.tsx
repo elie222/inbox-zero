@@ -89,8 +89,8 @@ export function UpdateRuleForm(props: {
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
-      const tab = searchParams.get("tab") || "ai";
-      const body = cleanRule(data, tab as any);
+      const tab = searchParams.get("tab") || RuleType.AI;
+      const body = cleanRule(data, tab as RuleType);
       const res = props.rule.id
         ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
             `/api/user/rules/${props.rule.id}`,
@@ -132,14 +132,14 @@ export function UpdateRuleForm(props: {
 
       <TypographyH3 className="mt-6">Conditions</TypographyH3>
 
-      <Tabs defaultValue={ruleTypeToTab(props.rule.type)} className="mt-2">
+      <Tabs defaultValue={props.rule.type} className="mt-2">
         <TabsList>
-          <TabsTrigger value="ai">AI</TabsTrigger>
-          <TabsTrigger value="static">Static</TabsTrigger>
-          <TabsTrigger value="group">Group</TabsTrigger>
+          <TabsTrigger value={RuleType.AI}>AI</TabsTrigger>
+          <TabsTrigger value={RuleType.STATIC}>Static</TabsTrigger>
+          <TabsTrigger value={RuleType.GROUP}>Group</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ai">
+        <TabsContent value={RuleType.AI}>
           <div className="mt-4 space-y-4">
             <Input
               type="text"
@@ -154,7 +154,7 @@ export function UpdateRuleForm(props: {
             />
           </div>
         </TabsContent>
-        <TabsContent value="static">
+        <TabsContent value={RuleType.STATIC}>
           <div className="mt-4 space-y-4">
             <Input
               type="text"
@@ -194,7 +194,7 @@ export function UpdateRuleForm(props: {
                 /> */}
           </div>
         </TabsContent>
-        <TabsContent value="group">
+        <TabsContent value={RuleType.GROUP}>
           <GroupsTab
             registerProps={register("groupId")}
             errors={errors}
@@ -427,8 +427,8 @@ function GroupsTab(props: {
   );
 }
 
-function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
-  if (type === "static") {
+function cleanRule(rule: UpdateRuleBody, type: RuleType) {
+  if (type === RuleType.STATIC) {
     return {
       ...rule,
       type: RuleType.STATIC,
@@ -436,7 +436,7 @@ function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
       groupId: null,
     };
   }
-  if (type === "group") {
+  if (type === RuleType.GROUP) {
     return {
       ...rule,
       type: RuleType.GROUP,
@@ -447,7 +447,7 @@ function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
       body: null,
     };
   }
-  // type === "ai"
+  // type === RuleType.AI
   return {
     ...rule,
     type: RuleType.AI,
@@ -457,15 +457,4 @@ function cleanRule(rule: UpdateRuleBody, type: "ai" | "static" | "group") {
     subject: null,
     body: null,
   };
-}
-
-function ruleTypeToTab(ruleType: RuleType) {
-  switch (ruleType) {
-    case RuleType.AI:
-      return "ai";
-    case RuleType.STATIC:
-      return "static";
-    case RuleType.GROUP:
-      return "group";
-  }
 }

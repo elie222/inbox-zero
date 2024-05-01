@@ -31,6 +31,7 @@ import {
 } from "@/utils/actions";
 import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
+import { ruleTypeToString } from "@/utils/rule";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -63,7 +64,7 @@ export function Rules() {
                 <TableRow key={rule.id}>
                   <TableCell className="font-medium">{rule.name}</TableCell>
                   <TableCell>{rule.instructions}</TableCell>
-                  <TableCell>{capitalCase(rule.type)}</TableCell>
+                  <TableCell>{ruleTypeToString(rule.type)}</TableCell>
                   <TableCell>
                     <Actions actions={rule.actions} />
                   </TableCell>
