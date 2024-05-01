@@ -26,8 +26,8 @@ export default async function NewAutomationPage() {
 
   return (
     <Tabs defaultValue="pending">
-      <div className="flex h-16 shrink-0 items-center justify-between gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6">
-        <TabsList className="m-2">
+      <div className="flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white px-4 py-2 shadow-sm sm:flex-row sm:gap-x-6 sm:space-y-0 sm:px-6">
+        <TabsList>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="automations">Automations</TabsTrigger>
