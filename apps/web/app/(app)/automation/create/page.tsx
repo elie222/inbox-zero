@@ -139,7 +139,7 @@ export default function AutomationSettingsPage() {
                   disabled={isSubmitting || !prompt || prompt.length < 5}
                 >
                   {isSubmitting && <ButtonLoader />}
-                  Create Automation
+                  Preview Automation
                 </Button>
               </div>
             </>
