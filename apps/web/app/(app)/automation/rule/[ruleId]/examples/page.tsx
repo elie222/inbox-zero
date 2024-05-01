@@ -1,27 +1,21 @@
-import clsx from "clsx";
 import Link from "next/link";
 import { type gmail_v1 } from "googleapis";
 import groupBy from "lodash/groupBy";
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { GroupItem, GroupItemType, Prisma, RuleType } from "@prisma/client";
+import { GroupItemType, RuleType } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { extractEmailAddress } from "@/utils/email";
 import { TopSection } from "@/components/TopSection";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { getMessage } from "@/utils/gmail/message";
-import { deleteGroupItemAction } from "@/utils/actions";
-import { ParsedMessage } from "@/utils/types";
-
-type RuleWithGroup = Prisma.RuleGetPayload<{
-  include: { group: { include: { items: true } } };
-}>;
-type MessageWithGroupItem = ParsedMessage & {
-  matchingGroupItem?: GroupItem | null;
-};
+import { ExampleList } from "@/app/(app)/automation/rule/[ruleId]/examples/example-list";
+import {
+  MessageWithGroupItem,
+  RuleWithGroup,
+} from "@/app/(app)/automation/rule/[ruleId]/examples/types";
 
 export const dynamic = "force-dynamic";
 
@@ -66,45 +60,7 @@ export default async function RuleExamplesPage({
         }
       />
       <div className="m-4 grid max-w-4xl gap-4">
-        {Object.entries(groupedBySenders).map(([from, threads]) => {
-          const matchingGroupItemId = threads[0]?.[0]?.matchingGroupItem?.id;
-          const handleRemove = deleteGroupItemAction.bind(
-            null,
-            matchingGroupItemId || "",
-          );
-
-          return (
-            <Card key={from}>
-              <CardHeader>
-                <CardTitle>{from}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul
-                  className={clsx(
-                    threads.length > 1 && "list-inside list-disc",
-                  )}
-                >
-                  {threads.map((t) => (
-                    <li key={t[0]?.id}>{t[0]?.headers.subject}</li>
-                  ))}
-                </ul>
-                {!!matchingGroupItemId && (
-                  <form>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      size="sm"
-                      className="mt-4"
-                      formAction={handleRemove}
-                    >
-                      Remove
-                    </Button>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+        <ExampleList groupedBySenders={groupedBySenders} />
       </div>
 
       <div className="m-4 pb-10">
