@@ -1,17 +1,17 @@
 import clsx from "clsx";
+import Link from "next/link";
+import { type gmail_v1 } from "googleapis";
+import groupBy from "lodash/groupBy";
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { GroupItemType, Prisma, RuleType } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
-import { gmail_v1 } from "googleapis";
 import { parseMessage } from "@/utils/mail";
 import { MessageWithPayload } from "@/utils/types";
 import { extractEmailAddress } from "@/utils/email";
-import { groupBy } from "lodash";
 import { TopSection } from "@/components/TopSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
 type RuleWithGroup = Prisma.RuleGetPayload<{
   include: { group: { include: { items: true } } };
@@ -52,6 +52,8 @@ export default async function RuleExamplesPage({
   const threads = groupBy(messages, (m) => m.threadId);
   const groupedBySenders = groupBy(threads, (t) => t[0]?.headers.from);
 
+  const continueHref = `/automation/rule/${rule.id}?new=true`;
+
   return (
     <div>
       <TopSection
@@ -62,7 +64,7 @@ export default async function RuleExamplesPage({
               Here are some examples of previous emails that match this rule.
             </p>
             <Button className="mt-4" asChild>
-              <Link href={`/automation/rule/${rule.id}`}>Continue</Link>
+              <Link href={continueHref}>Continue</Link>
             </Button>
           </>
         }
@@ -93,7 +95,7 @@ export default async function RuleExamplesPage({
 
       <div className="m-4 pb-10">
         <Button size="lg" asChild>
-          <Link href={`/automation/rule/${rule.id}`}>Continue</Link>
+          <Link href={continueHref}>Continue</Link>
         </Button>
       </div>
     </div>

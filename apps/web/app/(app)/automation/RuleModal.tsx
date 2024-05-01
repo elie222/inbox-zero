@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import {
   FieldError,
   FieldErrors,
@@ -85,11 +85,11 @@ export function UpdateRuleForm(props: {
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
-  const [tab, setTab] = useState<"ai" | "static" | "group">("ai");
-
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
-      const body = cleanRule(data, tab);
+      const searchParams = new URLSearchParams(window.location.search);
+      const tab = searchParams.get("tab") || "ai";
+      const body = cleanRule(data, tab as any);
       const res = props.rule.id
         ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
             `/api/user/rules/${props.rule.id}`,
@@ -129,7 +129,7 @@ export function UpdateRuleForm(props: {
 
       <TypographyH3 className="mt-6">Conditions</TypographyH3>
 
-      <Tabs defaultValue={tab} className="mt-2">
+      <Tabs defaultValue="ai" className="mt-2">
         <TabsList>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="static">Static</TabsTrigger>
