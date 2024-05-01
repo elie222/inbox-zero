@@ -45,15 +45,23 @@ export default async function RuleExamplesPage({
 
   const continueHref = `/automation/rule/${rule.id}?new=true`;
 
+  const hasExamples = Object.keys(groupedBySenders).length > 0;
+
   return (
     <div>
       <TopSection
         title="Your automation has been created!"
         descriptionComponent={
           <>
-            <p>
-              Here are some examples of previous emails that match this rule.
-            </p>
+            {hasExamples ? (
+              <p>
+                Here are some examples of previous emails that match this rule.
+              </p>
+            ) : (
+              <p>
+                We did not find any examples to show you that match this rule.
+              </p>
+            )}
             <Button className="mt-4" asChild>
               <Link href={continueHref}>Continue</Link>
             </Button>
@@ -64,11 +72,13 @@ export default async function RuleExamplesPage({
         <ExampleList groupedBySenders={groupedBySenders} />
       </div>
 
-      <div className="m-4 pb-10">
-        <Button size="lg" asChild>
-          <Link href={continueHref}>Continue</Link>
-        </Button>
-      </div>
+      {hasExamples && (
+        <div className="m-4 pb-10">
+          <Button size="lg" asChild>
+            <Link href={continueHref}>Continue</Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
