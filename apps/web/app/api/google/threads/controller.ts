@@ -81,7 +81,6 @@ export async function getThreads(query: ThreadsQuery) {
 
       return {
         id,
-        historyId: thread.historyId,
         messages,
         snippet: decodeSnippet(thread.snippet),
         plan,

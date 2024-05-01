@@ -58,7 +58,6 @@ async function getPlanned(): Promise<{ messages: Thread[] }> {
 
         const thread: Thread = {
           id: threadId,
-          historyId: message.historyId,
           snippet: decodeSnippet(message.snippet),
           messages: [parseMessage(message)],
           plan,
