@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { GroupItemType, Prisma, RuleType } from "@prisma/client";
@@ -63,9 +64,15 @@ export default async function RuleExamplesPage({
                 <CardTitle>{from}</CardTitle>
               </CardHeader>
               <CardContent>
-                {threads.map((t) => (
-                  <div key={t[0]?.id}>{t[0]?.headers.subject}</div>
-                ))}
+                <ul
+                  className={clsx(
+                    threads.length > 1 && "list-inside list-disc",
+                  )}
+                >
+                  {threads.map((t) => (
+                    <li key={t[0]?.id}>{t[0]?.headers.subject}</li>
+                  ))}
+                </ul>
                 {/* <Button variant="outline" size='sm' className="mt-4">Remove from group</Button> */}
               </CardContent>
             </Card>
