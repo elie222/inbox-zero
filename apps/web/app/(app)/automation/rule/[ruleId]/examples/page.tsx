@@ -171,10 +171,6 @@ async function fetchGroupExampleMessages(
     const q = `subject:(${subjects
       .map((item) => `"${item.value}"`)
       .join(" OR ")})`;
-    // may want to limit to last year
-    // const oneYearAgo = new Date();
-    // oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    // q += ` after:${oneYearAgo.getFullYear()}/${oneYearAgo.getMonth() + 1}/${oneYearAgo.getDate()}`
 
     const responseSubject = await gmail.users.messages.list({
       userId: "me",
