@@ -50,7 +50,12 @@ import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getAiProviderAndModel } from "@/utils/llms";
 import { revalidatePath } from "next/cache";
-import { CreateGroupBody } from "@/utils/actions-validation";
+import {
+  AddGroupItemBody,
+  addGroupItemBody,
+  CreateGroupBody,
+  createGroupBody,
+} from "@/utils/actions-validation";
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
@@ -580,7 +585,8 @@ export async function activateLicenseKey(licenseKey: string) {
   });
 }
 
-export async function createGroupAction({ name, prompt }: CreateGroupBody) {
+export async function createGroupAction(body: CreateGroupBody) {
+  const { name, prompt } = createGroupBody.parse(body);
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
@@ -591,7 +597,8 @@ export async function createGroupAction({ name, prompt }: CreateGroupBody) {
   revalidatePath("/groups");
 }
 
-export async function createNewsletterGroupAction({ name }: CreateGroupBody) {
+export async function createNewsletterGroupAction(body: CreateGroupBody) {
+  const { name } = createGroupBody.parse(body);
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
@@ -645,6 +652,13 @@ export async function deleteGroupAction(id: string) {
   await prisma.group.delete({ where: { id, userId: session.user.id } });
 
   revalidatePath("/groups");
+}
+
+export async function addGroupItemAction(body: AddGroupItemBody) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.groupItem.create({ data: addGroupItemBody.parse(body) });
 }
 
 export async function deleteGroupItemAction(id: string) {
