@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 
 export default async function NewAutomationPage() {
   const session = await auth();
@@ -36,7 +37,7 @@ export default async function NewAutomationPage() {
   return (
     <Suspense>
       <Tabs defaultValue="automations">
-        <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm sm:flex-row sm:gap-x-6 sm:space-y-0">
+        <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
           <TabsList>
             <TabsTrigger value="automations">Automations</TabsTrigger>
             <TabsTrigger value="pending">Pending</TabsTrigger>
@@ -44,12 +45,16 @@ export default async function NewAutomationPage() {
             <TabsTrigger value="test">Test</TabsTrigger>
           </TabsList>
 
-          <Button asChild>
-            <Link href="/automation/create">
-              <SparklesIcon className="mr-2 h-4 w-4" />
-              Create Automation
-            </Link>
-          </Button>
+          <div className="flex space-x-2">
+            <BulkRunRules />
+
+            <Button asChild>
+              <Link href="/automation/create">
+                <SparklesIcon className="mr-2 h-4 w-4" />
+                Create Automation
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <TabsContent value="automations" className="content-container">

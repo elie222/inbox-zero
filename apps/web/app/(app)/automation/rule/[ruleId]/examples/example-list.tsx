@@ -44,7 +44,7 @@ export function ExampleList({
                 setRemoved([...removed, firstThreadId]);
               }}
             >
-              Remove ({matchingGroupItem.type}: {matchingGroupItem.value})
+              Remove {matchingGroupItem.type}: {matchingGroupItem.value}
             </Button>
           )}
         </CardContent>
