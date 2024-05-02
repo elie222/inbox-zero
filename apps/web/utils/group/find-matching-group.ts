@@ -1,3 +1,4 @@
+import { removeNumbersFromSubject } from "@/utils/ai/group/find-receipts";
 import prisma from "@/utils/prisma";
 import { ParsedMessage } from "@/utils/types";
 import { GroupItemType } from "@prisma/client";
@@ -25,11 +26,19 @@ export function findMatchingGroupItem(
 
   return groupItems.find((item) => {
     if (item.type === GroupItemType.FROM) {
-      return item.value.includes(from);
+      return item.value.includes(from) || from.includes(item.value);
     }
 
     if (item.type === GroupItemType.SUBJECT) {
-      return item.value.includes(subject);
+      const subjectWithoutNumbers = removeNumbersFromSubject(subject);
+      const valueWithoutNumbers = removeNumbersFromSubject(item.value);
+
+      return (
+        item.value.includes(subject) ||
+        subject.includes(item.value) ||
+        valueWithoutNumbers.includes(subjectWithoutNumbers) ||
+        subjectWithoutNumbers.includes(valueWithoutNumbers)
+      );
     }
 
     // TODO

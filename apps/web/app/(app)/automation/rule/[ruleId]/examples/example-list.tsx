@@ -16,9 +16,11 @@ export function ExampleList({
   const [removed, setRemoved] = useState<string[]>([]);
 
   return Object.entries(groupedBySenders).map(([from, threads]) => {
-    const matchingGroupItemId = threads[0]?.[0]?.matchingGroupItem?.id;
+    const matchingGroupItem = threads[0]?.[0]?.matchingGroupItem;
 
-    if (removed.includes(threads[0]?.[0]?.id)) return null;
+    const firstThreadId = threads[0]?.[0]?.id;
+
+    if (removed.includes(firstThreadId)) return null;
 
     return (
       <Card key={from}>
@@ -31,18 +33,18 @@ export function ExampleList({
               <li key={t[0]?.id}>{t[0]?.headers.subject}</li>
             ))}
           </ul>
-          {!!matchingGroupItemId && (
+          {!!matchingGroupItem && (
             <Button
               type="submit"
               variant="outline"
               size="sm"
               className="mt-4"
               onClick={() => {
-                deleteGroupItemAction(matchingGroupItemId);
-                setRemoved([...removed, threads[0]?.[0]?.id]);
+                deleteGroupItemAction(matchingGroupItem.id);
+                setRemoved([...removed, firstThreadId]);
               }}
             >
-              Remove
+              Remove ({matchingGroupItem.type}: {matchingGroupItem.value})
             </Button>
           )}
         </CardContent>

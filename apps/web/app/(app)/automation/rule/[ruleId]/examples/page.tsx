@@ -141,42 +141,68 @@ async function fetchGroupExampleMessages(
 ): Promise<MessageWithGroupItem[]> {
   const items = group.items || [];
 
-  let q = "";
+  let responseMessages: gmail_v1.Schema$Message[] = [];
 
   // we slice to avoid the query being too long or it won't work
   const froms = items
     .filter((item) => item.type === GroupItemType.FROM)
     .slice(0, 50);
-  const subjects = items
-    .filter((item) => item.type === GroupItemType.SUBJECT)
-    .slice(0, Math.max(20 - froms.length, 0));
 
   if (froms.length > 0) {
-    q += `from:(${froms
+    const q = `from:(${froms
       .map((item) => `"${extractEmailAddress(item.value)}"`)
       .join(" OR ")}) `;
-  }
-  if (subjects.length > 0) {
-    q += `subject:(${subjects.map((item) => `"${item.value}"`).join(" OR ")}) `;
+
+    const responseFrom = await gmail.users.messages.list({
+      userId: "me",
+      maxResults: 50,
+      q,
+    });
+
+    if (responseFrom.data.messages)
+      responseMessages = responseFrom.data.messages;
   }
 
-  const response = await gmail.users.messages.list({
-    userId: "me",
-    maxResults: 50,
-    q,
-  });
+  const subjects = items
+    .filter((item) => item.type === GroupItemType.SUBJECT)
+    .slice(0, 50);
+
+  if (subjects.length > 0) {
+    const q = `subject:(${subjects
+      .map((item) => `"${item.value}"`)
+      .join(" OR ")})`;
+    // may want to limit to last year
+    // const oneYearAgo = new Date();
+    // oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    // q += ` after:${oneYearAgo.getFullYear()}/${oneYearAgo.getMonth() + 1}/${oneYearAgo.getDate()}`
+
+    const responseSubject = await gmail.users.messages.list({
+      userId: "me",
+      maxResults: 50,
+      q,
+    });
+
+    if (responseSubject.data.messages) {
+      responseMessages = [
+        ...responseMessages,
+        ...responseSubject.data.messages,
+      ];
+    }
+  }
 
   const messages = await Promise.all(
-    (response.data.messages || []).map(async (message) => {
+    responseMessages.map(async (message) => {
       const m = await getMessage(message.id!, gmail);
       const parsedMessage = parseMessage(m);
 
+      const matchingGroupItem = findMatchingGroupItem(
+        parsedMessage.headers,
+        group.items,
+      );
+
       return {
         ...parsedMessage,
-        matchingGroupItem: findMatchingGroupItem(
-          parsedMessage.headers,
-          group.items,
-        ),
+        matchingGroupItem,
       };
     }),
   );

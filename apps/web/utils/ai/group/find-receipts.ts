@@ -61,7 +61,7 @@ async function findReceiptSubjects(gmail: gmail_v1.Gmail, accessToken: string) {
   );
 }
 
-function removeNumbersFromSubject(subject: string) {
+export function removeNumbersFromSubject(subject: string) {
   // replace numbers to make subject more generic
   // also removes [], () ,and words that start with #
   // only a GPT can understand what is written here
