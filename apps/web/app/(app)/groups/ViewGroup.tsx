@@ -203,7 +203,7 @@ const AddGroupItemForm = ({
         error={errors.value}
         className="min-w-[250px]"
       />
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" variant="outline" disabled={isSubmitting}>
         {isSubmitting && <ButtonLoader />}
         Add
       </Button>

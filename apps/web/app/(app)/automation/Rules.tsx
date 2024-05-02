@@ -51,7 +51,7 @@ export function Rules() {
                 <TableHead>Type</TableHead>
                 <TableHead>Actions</TableHead>
                 <TableHead className="text-center">Automated</TableHead>
-                <TableHead className="text-center">Run on Threads</TableHead>
+                <TableHead className="text-center">Threads</TableHead>
                 {/* <TableHead className="text-right">Pending</TableHead>
               <TableHead className="text-right">Executed</TableHead> */}
                 <TableHead>
@@ -63,7 +63,9 @@ export function Rules() {
               {data?.map((rule) => (
                 <TableRow key={rule.id}>
                   <TableCell className="font-medium">{rule.name}</TableCell>
-                  <TableCell>{rule.instructions}</TableCell>
+                  <TableCell className="whitespace-pre-wrap">
+                    {rule.instructions}
+                  </TableCell>
                   <TableCell>{ruleTypeToString(rule.type)}</TableCell>
                   <TableCell>
                     <Actions actions={rule.actions} />

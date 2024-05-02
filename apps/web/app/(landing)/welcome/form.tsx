@@ -119,7 +119,11 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
               error={errors[name]}
               placeholder="Optional"
             />
-            <Button className="mt-4 w-full" type="submit">
+            <Button
+              className="mt-4 w-full"
+              type="submit"
+              disabled={isSubmitting}
+            >
               {isSubmitting && <ButtonLoader />}
               Get Started
             </Button>

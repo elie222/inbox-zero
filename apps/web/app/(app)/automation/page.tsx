@@ -9,6 +9,14 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { Button } from "@/components/ui/button";
 import { Rules } from "@/app/(app)/automation/Rules";
+import { TestRulesContent } from "@/app/(app)/automation/TestRules";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default async function NewAutomationPage() {
   const session = await auth();
@@ -33,6 +41,7 @@ export default async function NewAutomationPage() {
             <TabsTrigger value="automations">Automations</TabsTrigger>
             <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="test">Test</TabsTrigger>
           </TabsList>
 
           <Button asChild>
@@ -43,14 +52,30 @@ export default async function NewAutomationPage() {
           </Button>
         </div>
 
+        <TabsContent value="automations">
+          <Rules />
+        </TabsContent>
         <TabsContent value="pending">
           <Planned />
         </TabsContent>
         <TabsContent value="history">
           <PlanHistory />
         </TabsContent>
-        <TabsContent value="automations">
-          <Rules />
+        <TabsContent value="test">
+          <Card className="m-4 max-w-3xl">
+            <CardHeader>
+              <CardTitle>Test your rules</CardTitle>
+              <CardDescription>
+                Check how your rules perform against previous emails or custom
+                content.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div>
+                <TestRulesContent />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </Suspense>

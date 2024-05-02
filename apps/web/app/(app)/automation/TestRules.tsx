@@ -29,7 +29,11 @@ export function TestRules(props: { disabled?: boolean }) {
     <SlideOverSheet
       title="Test Rules"
       description="Test how your rules perform against real emails."
-      content={<TestRulesContent />}
+      content={
+        <div className="mt-4">
+          <TestRulesContent />
+        </div>
+      }
     >
       <Button color="white" disabled={props.disabled}>
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
@@ -39,7 +43,7 @@ export function TestRules(props: { disabled?: boolean }) {
   );
 }
 
-function TestRulesContent() {
+export function TestRulesContent() {
   const { data, isLoading, error } = useSWR<MessagesResponse>(
     "/api/google/messages",
     {
@@ -53,9 +57,7 @@ function TestRulesContent() {
 
   return (
     <div>
-      <div className="mt-4">
-        <TestRulesForm />
-      </div>
+      <TestRulesForm />
 
       <div className="mt-4">
         <Separator />
@@ -130,8 +132,8 @@ const TestRulesForm = () => {
           as="textarea"
           rows={3}
           name="message"
-          label="Email to test against"
-          placeholder="Hey, I run a marketing agency, and would love to chat."
+          // label="Email to test against"
+          placeholder="Paste in email content or write your own. eg. Receipt from Stripe for $49"
           registerProps={register("message", { required: true })}
           error={errors.message}
         />
