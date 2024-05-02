@@ -143,12 +143,13 @@ async function fetchGroupExampleMessages(
 
   let q = "";
 
+  // we slice to avoid the query being too long or it won't work
   const froms = items
     .filter((item) => item.type === GroupItemType.FROM)
     .slice(0, 50);
   const subjects = items
     .filter((item) => item.type === GroupItemType.SUBJECT)
-    .slice(0, 50);
+    .slice(0, Math.max(20 - froms.length, 0));
 
   if (froms.length > 0) {
     q += `from:(${froms
@@ -156,7 +157,7 @@ async function fetchGroupExampleMessages(
       .join(" OR ")}) `;
   }
   if (subjects.length > 0) {
-    q += `subject:(${subjects.map((item) => item.value).join(" OR ")}) `;
+    q += `subject:(${subjects.map((item) => `"${item.value}"`).join(" OR ")}) `;
   }
 
   const response = await gmail.users.messages.list({
