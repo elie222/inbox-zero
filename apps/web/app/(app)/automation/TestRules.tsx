@@ -13,16 +13,14 @@ import {
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
-import { postRequest } from "@/utils/api";
-import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
-import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
+import { TestAiActionResponse, testAiAction } from "@/utils/actions";
+import { RuleType } from "@prisma/client";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -85,7 +83,7 @@ export function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [plan, setPlan] = useState<ActResponse>();
+  const [testResult, setTestResult] = useState<TestAiActionResponse>();
 
   const {
     register,
@@ -94,8 +92,8 @@ const TestRulesForm = () => {
   } = useForm<TestRulesInputs>();
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const res = await postRequest<ActResponse, ActBodyWithHtml>("/api/ai/act", {
-      email: {
+    try {
+      const testResult = await testAiAction({
         from: "",
         to: "",
         date: "",
@@ -109,18 +107,14 @@ const TestRulesForm = () => {
         messageId: "",
         headerMessageId: "",
         references: "",
-      },
-      allowExecute: false,
-    });
-
-    if (isError(res)) {
-      console.error(res);
+      });
+      setTestResult(testResult);
+    } catch (error) {
+      console.error(error);
       toastError({
         title: "Error checking email.",
-        description: res.error,
+        description: (error as Error).message,
       });
-    } else {
-      setPlan(res);
     }
   }, []);
 
@@ -132,7 +126,6 @@ const TestRulesForm = () => {
           as="textarea"
           rows={3}
           name="message"
-          // label="Email to test against"
           placeholder="Paste in email content or write your own. eg. Receipt from Stripe for $49"
           registerProps={register("message", { required: true })}
           error={errors.message}
@@ -142,9 +135,9 @@ const TestRulesForm = () => {
           Test Rules
         </Button>
       </form>
-      {plan && (
+      {testResult && (
         <div className="mt-4">
-          <Plan plan={plan} />
+          <TestResult response={testResult} />
         </div>
       )}
     </div>
@@ -157,8 +150,8 @@ function TestRulesContentRow(props: {
 }) {
   const { message } = props;
 
-  const [planning, setPlanning] = useState(false);
-  const [plan, setPlan] = useState<ActResponse>();
+  const [checking, setChecking] = useState(false);
+  const [testResult, setTestResult] = useState<TestAiActionResponse>();
 
   return (
     <div className="border-b border-gray-200">
@@ -172,42 +165,35 @@ function TestRulesContentRow(props: {
         <div className="ml-4">
           <Button
             color="white"
-            loading={planning}
+            loading={checking}
             onClick={async () => {
-              setPlanning(true);
+              setChecking(true);
 
-              const res = await postRequest<ActResponse, ActBodyWithHtml>(
-                "/api/ai/act",
-                {
-                  email: {
-                    from: message.headers.from,
-                    to: message.headers.to,
-                    date: message.headers.date,
-                    replyTo: message.headers["reply-to"],
-                    cc: message.headers.cc,
-                    subject: message.headers.subject,
-                    textPlain: message.textPlain || null,
-                    textHtml: message.textHtml || null,
-                    snippet: message.snippet || null,
-                    threadId: message.threadId || "",
-                    messageId: message.id || "",
-                    headerMessageId: message.headers["message-id"] || "",
-                    references: message.headers.references,
-                  },
-                  allowExecute: false,
-                },
-              );
-
-              if (isError(res)) {
-                console.error(res);
-                toastError({
-                  title: "There was an error planning the email.",
-                  description: res.error,
+              try {
+                const testResult = await testAiAction({
+                  from: message.headers.from,
+                  to: message.headers.to,
+                  date: message.headers.date,
+                  replyTo: message.headers["reply-to"],
+                  cc: message.headers.cc,
+                  subject: message.headers.subject,
+                  textPlain: message.textPlain || null,
+                  textHtml: message.textHtml || null,
+                  snippet: message.snippet || null,
+                  threadId: message.threadId || "",
+                  messageId: message.id || "",
+                  headerMessageId: message.headers["message-id"] || "",
+                  references: message.headers.references,
                 });
-              } else {
-                setPlan(res);
+                setTestResult(testResult);
+              } catch (error) {
+                console.error(error);
+                toastError({
+                  title: "There was an error testing the email.",
+                  description: (error as Error).message,
+                });
               }
-              setPlanning(false);
+              setChecking(false);
             }}
           >
             <SparklesIcon className="mr-2 h-4 w-4" />
@@ -216,18 +202,16 @@ function TestRulesContentRow(props: {
         </div>
       </div>
       <div className="pb-4">
-        <Plan plan={plan} />
+        <TestResult response={testResult} />
       </div>
     </div>
   );
 }
 
-function Plan(props: { plan: ActResponse }) {
-  const { plan } = props;
+function TestResult({ response }: { response: TestAiActionResponse }) {
+  if (!response) return null;
 
-  if (!plan) return null;
-
-  if (!plan.rule) {
+  if (!response.rule) {
     return (
       <AlertBasic
         variant="destructive"
@@ -235,24 +219,26 @@ function Plan(props: { plan: ActResponse }) {
         description={
           <div className="space-y-2">
             <div>This email does not match any of the rules you have set.</div>
-            <div>
-              <strong>AI reason:</strong> {plan.reason}
-            </div>
+            {!!response.reason && (
+              <div>
+                <strong>AI reason:</strong> {response.reason}
+              </div>
+            )}
           </div>
         }
       />
     );
   }
 
-  if (plan.actionItems) {
+  if (response.actionItems) {
     const MAX_LENGTH = 280;
 
-    const aiGeneratedContent = plan.actionItems.map((action, i) => {
+    const aiGeneratedContent = response.actionItems.map((action, i) => {
       return (
         <div key={i}>
           <strong>{capitalCase(action.type)}</strong>
           {Object.entries(action).map(([key, value]) => {
-            if (key === "type" || !value) return;
+            if (key === "type" || !value) return null;
             return (
               <div key={key}>
                 <strong>{capitalCase(key)}: </strong>
@@ -266,7 +252,7 @@ function Plan(props: { plan: ActResponse }) {
 
     return (
       <AlertBasic
-        title={`Rule found: "${plan.rule.name}"`}
+        title={`Rule found: "${response.rule.name}"`}
         variant="blue"
         description={
           <div className="mt-4 space-y-4">
@@ -276,17 +262,19 @@ function Plan(props: { plan: ActResponse }) {
                 {aiGeneratedContent}
               </div>
             )}
-            {!!plan.reason && (
+            {!!response.reason && (
               <div>
                 <strong>AI reason: </strong>
-                {plan.reason}
+                {response.reason}
               </div>
             )}
-            <div>
-              <strong>Instructions: </strong>
-              {plan.rule.instructions.substring(0, MAX_LENGTH) +
-                (plan.rule.instructions.length < MAX_LENGTH ? "" : "...")}
-            </div>
+            {response.rule.type === RuleType.AI && (
+              <div>
+                <strong>Instructions: </strong>
+                {response.rule.instructions.substring(0, MAX_LENGTH) +
+                  (response.rule.instructions.length < MAX_LENGTH ? "" : "...")}
+              </div>
+            )}
           </div>
         }
         icon={<CheckCircle2Icon className="h-4 w-4" />}

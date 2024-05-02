@@ -5,6 +5,7 @@ import { parseJSON } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
 import { User } from "@prisma/client";
+import { truncate } from "@/utils/mail";
 
 // after some testing i see the AI performs better when it works on smaller tasks
 // if we try ask it to select a rule, and provide the args for that rule in one go, it doesn't do as well
@@ -15,7 +16,6 @@ import { User } from "@prisma/client";
 export async function getAiResponse(options: {
   email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
     content: string;
-    snippet: string;
   };
   user: Pick<User, "email" | "about"> & UserAIFields;
   functions: { description?: string }[];
@@ -51,7 +51,7 @@ Reply to: ${email.replyTo}
 CC: ${email.cc}
 Subject: ${email.subject}
 Body:
-${email.snippet}`,
+${truncate(email.content, 500)}`,
     },
   ];
 

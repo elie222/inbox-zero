@@ -1,10 +1,10 @@
 import { gmail_v1 } from "googleapis";
 import {
-  excuteRuleActions,
+  executeRuleActions,
   getFunctionsFromRules,
 } from "@/app/api/ai/act/controller";
 import { ParsedMessage, RuleWithActions } from "@/utils/types";
-import { User } from "@prisma/client";
+import { RuleType, User } from "@prisma/client";
 import {
   getActionItemsFromAiArgsResponse,
   getArgsAiResponse,
@@ -16,6 +16,7 @@ export async function handleStaticRule({
   user,
   gmail,
   rules,
+  isTest,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
@@ -24,10 +25,12 @@ export async function handleStaticRule({
     "id" | "email" | "aiModel" | "aiProvider" | "openAIApiKey" | "about"
   >;
   gmail: gmail_v1.Gmail;
-}): Promise<{ handled: boolean }> {
+  isTest: boolean;
+}) {
   const staticRule = findStaticRule(rules, message);
+  console.log("🚀 ~ staticRule:", staticRule);
   if (!staticRule) {
-    return { handled: false };
+    return { handled: false, rule: null };
   }
 
   const email = {
@@ -70,27 +73,28 @@ export async function handleStaticRule({
   );
 
   // handle action
-  await excuteRuleActions(
-    {
-      gmail,
-      user,
-      allowExecute: true,
-      email,
-    },
-    {
-      rule: staticRule,
-      actionItems,
-    },
-  );
+  const executedRule = isTest
+    ? undefined
+    : await executeRuleActions(
+        {
+          gmail,
+          user,
+          email,
+        },
+        {
+          rule: staticRule,
+          actionItems,
+        },
+      );
 
-  return { handled: true };
+  return { handled: true, rule: staticRule, actionItems, executedRule };
 }
 
 function findStaticRule(
-  applicableRules: RuleWithActions[],
+  rules: RuleWithActions[],
   message: ParsedMessage,
 ): RuleWithActions | null {
-  for (const rule of applicableRules) {
+  for (const rule of rules.filter((rule) => rule.type === RuleType.STATIC)) {
     if (matchesStaticRule(rule, message)) return rule;
   }
   return null;
@@ -101,6 +105,8 @@ export function matchesStaticRule(
   message: ParsedMessage,
 ) {
   const { from, to, subject, body } = rule;
+
+  if (!from && !to && !subject && !body) return false;
 
   const fromMatch = from ? new RegExp(from).test(message.headers.from) : true;
   const toMatch = to ? new RegExp(to).test(message.headers.to) : true;

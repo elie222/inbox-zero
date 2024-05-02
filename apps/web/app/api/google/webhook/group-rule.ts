@@ -1,6 +1,6 @@
 import { gmail_v1 } from "googleapis";
 import {
-  excuteRuleActions,
+  executeRuleActions,
   getFunctionsFromRules,
 } from "@/app/api/ai/act/controller";
 import { ParsedMessage } from "@/utils/types";
@@ -20,6 +20,7 @@ export async function handleGroupRule({
   user,
   gmail,
   isThread,
+  isTest,
 }: {
   message: ParsedMessage;
   user: Pick<
@@ -28,14 +29,16 @@ export async function handleGroupRule({
   >;
   gmail: gmail_v1.Gmail;
   isThread: boolean;
-}): Promise<{ handled: boolean }> {
+  isTest: boolean;
+}) {
   const groups = await getGroups(user.id);
 
   // check if matches group
   const match = findMatchingGroup(message, groups);
-  if (!match) return { handled: false };
-  if (!match.rule) return { handled: true };
-  if (isThread && !match.rule.runOnThreads) return { handled: true };
+  if (!match) return { handled: false, rule: null };
+  if (!match.rule) return { handled: true, rule: null };
+  if (isThread && !match.rule.runOnThreads)
+    return { handled: true, rule: null };
 
   const email = {
     from: message.headers.from,
@@ -78,18 +81,24 @@ export async function handleGroupRule({
 
   // handle action
   // TODO use automate/thread toggle
-  await excuteRuleActions(
-    {
-      gmail,
-      user,
-      allowExecute: true,
-      email,
-    },
-    {
-      rule: match.rule,
-      actionItems,
-    },
-  );
+  const executedRule = isTest
+    ? undefined
+    : await executeRuleActions(
+        {
+          gmail,
+          user,
+          email,
+        },
+        {
+          rule: match.rule,
+          actionItems,
+        },
+      );
 
-  return { handled: true };
+  return {
+    handled: true,
+    rule: match.rule,
+    executedRule,
+    actionItems,
+  };
 }

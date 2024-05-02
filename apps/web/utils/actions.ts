@@ -58,7 +58,10 @@ import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import { deleteRule } from "@/app/api/user/rules/controller";
-import { runRulesOnMessage } from "@/app/api/google/webhook/run-rules";
+import {
+  runRulesOnMessage,
+  testRulesOnMessage,
+} from "@/app/api/google/webhook/run-rules";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
@@ -318,6 +321,44 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
   });
 
   return { ok: !isError(result) };
+}
+
+export type TestAiActionResponse = Awaited<ReturnType<typeof testAiAction>>;
+export async function testAiAction(email: ActBodyWithHtml["email"]) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      email: true,
+      about: true,
+      aiProvider: true,
+      aiModel: true,
+      openAIApiKey: true,
+      rules: { include: { actions: true } },
+    },
+  });
+
+  const [gmailMessage, gmailThread] = await Promise.all([
+    getMessage(email.messageId, gmail, "full"),
+    getThread(email.threadId, gmail),
+  ]);
+
+  const message = parseMessage(gmailMessage);
+  const isThread = !!gmailThread?.messages && gmailThread.messages.length > 1;
+
+  const result = await testRulesOnMessage({
+    gmail,
+    message,
+    rules: user.rules,
+    user: { ...user, email: user.email! },
+    isThread,
+  });
+
+  return result;
 }
 
 export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
