@@ -33,6 +33,7 @@ async function checkColdEmail(
   const user = await prisma.user.findUniqueOrThrow({
     where: { email: userEmail },
     select: {
+      email: true,
       coldEmailPrompt: true,
       aiProvider: true,
       aiModel: true,
@@ -54,22 +55,11 @@ async function checkColdEmail(
         })
       : false;
 
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
-
   const response = await isColdEmail({
     email: body.email,
-    userOptions: {
-      aiProvider: provider,
-      aiModel: model,
-      openAIApiKey: user.openAIApiKey,
-      coldEmailPrompt: user.coldEmailPrompt,
-    },
+    user,
     hasPreviousEmail,
     unsubscribeLink,
-    userEmail,
   });
 
   return response;

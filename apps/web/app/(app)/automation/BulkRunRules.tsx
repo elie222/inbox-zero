@@ -68,7 +68,7 @@ export function BulkRunRules() {
                   }}
                 >
                   {started && <ButtonLoader />}
-                  Run Rules On All Inbox Emails
+                  Run AI On All Inbox Emails
                 </Button>
               </div>
             </>

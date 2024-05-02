@@ -4,6 +4,7 @@ import { ActBody } from "@/app/api/ai/act/validation";
 import { parseJSON } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
+import { User } from "@prisma/client";
 
 // after some testing i see the AI performs better when it works on smaller tasks
 // if we try ask it to select a rule, and provide the args for that rule in one go, it doesn't do as well
@@ -11,18 +12,15 @@ import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
 // 1. select rule
 // 2. generate args for rule
 
-export async function getAiResponse(
-  options: {
-    email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
-      content: string;
-      snippet: string;
-    };
-    userAbout: string;
-    userEmail: string;
-    functions: { description?: string }[];
-  } & UserAIFields,
-) {
-  const { email, userAbout, userEmail, functions } = options;
+export async function getAiResponse(options: {
+  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+    content: string;
+    snippet: string;
+  };
+  user: Pick<User, "email" | "about"> & UserAIFields;
+  functions: { description?: string }[];
+}) {
+  const { email, user, functions } = options;
 
   const messages = [
     {
@@ -33,11 +31,11 @@ It's better not to act if you don't know how.
 These are the rules you can select from:
 ${functions.map((f, i) => `${i + 1}. ${f.description}`).join("\n")}`,
     },
-    ...(userAbout
+    ...(user.about
       ? [
           {
             role: "user" as const,
-            content: `Some additional information the user has provided:\n\n${userAbout}`,
+            content: `Some additional information the user has provided:\n\n${user.about}`,
           },
         ]
       : []),
@@ -58,13 +56,13 @@ ${email.snippet}`,
   ];
 
   const { model, provider } = getAiProviderAndModel(
-    options.aiProvider,
-    options.aiModel,
+    user.aiProvider,
+    user.aiModel,
   );
   const aiResponse = await chatCompletion(
     provider,
     model,
-    options.openAIApiKey,
+    user.openAIApiKey,
     messages,
     { jsonResponse: true },
   );
@@ -94,9 +92,9 @@ ${email.snippet}`,
 
   if (aiResponse.usage) {
     await saveAiUsage({
-      email: userEmail,
+      email: user.email || "",
       usage: aiResponse.usage,
-      provider: options.aiProvider,
+      provider: user.aiProvider,
       model,
       label: "Choose rule",
     });

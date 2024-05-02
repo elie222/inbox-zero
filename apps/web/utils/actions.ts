@@ -46,9 +46,7 @@ import {
 import { captureException, isError } from "@/utils/error";
 import { isAdmin } from "@/utils/admin";
 import { markSpam } from "@/utils/gmail/spam";
-import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
-import { getAiProviderAndModel } from "@/utils/llms";
 import { revalidatePath } from "next/cache";
 import {
   AddGroupItemBody,
@@ -60,6 +58,10 @@ import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import { deleteRule } from "@/app/api/user/rules/controller";
+import { runRulesOnMessage } from "@/app/api/google/webhook/run-rules";
+import { parseMessage } from "@/utils/mail";
+import { getMessage } from "@/utils/gmail/message";
+import { getThread } from "@/utils/gmail/thread";
 
 export async function createLabelAction(options: {
   name: string;
@@ -282,24 +284,37 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
     },
   });
 
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
+  if (!user.email) throw new Error("User email not found");
 
-  const result = await planOrExecuteAct({
-    email,
-    rules: user.rules,
+  const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
+    getMessage(email.messageId, gmail, "full"),
+    getThread(email.threadId, gmail),
+    prisma.executedRule.findUnique({
+      where: {
+        unique_user_thread_message: {
+          userId: user.id,
+          threadId: email.threadId,
+          messageId: email.messageId,
+        },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  if (hasExistingRule) {
+    console.log("Skipping. Rule already exists.");
+    return;
+  }
+
+  const message = parseMessage(gmailMessage);
+  const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
+
+  const result = await runRulesOnMessage({
     gmail,
-    allowExecute: true,
-    forceExecute: false,
-    userId: user.id,
-    userEmail: user.email || "",
-    automated: false,
-    userAbout: user.about || "",
-    aiProvider: provider,
-    aiModel: model,
-    openAIApiKey: user.openAIApiKey,
+    message,
+    rules: user.rules,
+    user: { ...user, email: user.email! },
+    isThread,
   });
 
   return { ok: !isError(result) };

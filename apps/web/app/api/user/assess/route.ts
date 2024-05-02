@@ -6,7 +6,7 @@ import { withError } from "@/utils/middleware";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { gmail_v1 } from "googleapis";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import { getEmailClient, parseMessage } from "@/utils/mail";
+import { getEmailClient } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 

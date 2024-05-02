@@ -60,11 +60,7 @@ export async function handleStaticRule({
     ? await getArgsAiResponse({
         email,
         selectedFunction: functions.functions[0],
-        aiModel: user.aiModel,
-        aiProvider: user.aiProvider,
-        openAIApiKey: user.openAIApiKey,
-        userAbout: user.about || "",
-        userEmail: user.email || "",
+        user,
       })
     : undefined;
 
@@ -77,8 +73,7 @@ export async function handleStaticRule({
   await excuteRuleActions(
     {
       gmail,
-      userId: user.id,
-      userEmail: user.email || "",
+      user,
       allowExecute: true,
       email,
     },

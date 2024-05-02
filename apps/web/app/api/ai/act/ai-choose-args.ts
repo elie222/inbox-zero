@@ -1,6 +1,6 @@
 import { UserAIFields } from "@/utils/llms/types";
 import { ActionItem } from "@/utils/ai/actions";
-import { Action } from "@prisma/client";
+import { Action, User } from "@prisma/client";
 import { ActBody } from "@/app/api/ai/act/validation";
 import { Function } from "ai";
 import { parseJSONWithMultilines } from "@/utils/json";
@@ -9,17 +9,14 @@ import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
 import { REQUIRES_MORE_INFO } from "@/app/api/ai/act/consts";
 
-export async function getArgsAiResponse(
-  options: {
-    email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
-      content: string;
-    };
-    userAbout: string;
-    userEmail: string;
-    selectedFunction: Function;
-  } & UserAIFields,
-) {
-  const { email, userAbout, userEmail, selectedFunction } = options;
+export async function getArgsAiResponse(options: {
+  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+    content: string;
+  };
+  user: Pick<User, "email" | "about"> & UserAIFields;
+  selectedFunction: Function;
+}) {
+  const { email, user, selectedFunction } = options;
 
   const messages = [
     {
@@ -28,11 +25,11 @@ export async function getArgsAiResponse(
 Never put placeholders in your email responses.
 Do not mention you are an AI assistant when responding to people.`,
     },
-    ...(userAbout
+    ...(user.about
       ? [
           {
             role: "user" as const,
-            content: `Some additional information the user has provided about themselves:\n\n${userAbout}`,
+            content: `Some additional information the user has provided about themselves:\n\n${user.about}`,
           },
         ]
       : []),
@@ -55,8 +52,8 @@ ${email.content}`,
   ];
 
   const { model, provider } = getAiProviderAndModel(
-    options.aiProvider,
-    options.aiModel,
+    user.aiProvider,
+    user.aiModel,
   );
 
   console.log("Calling chat completion tools");
@@ -64,7 +61,7 @@ ${email.content}`,
   const aiResponse = await chatCompletionTools(
     provider,
     model,
-    options.openAIApiKey,
+    user.openAIApiKey,
     messages,
     [
       {
@@ -80,9 +77,9 @@ ${email.content}`,
 
   if (aiResponse.usage) {
     await saveAiUsage({
-      email: userEmail,
+      email: user.email || "",
       usage: aiResponse.usage,
-      provider: options.aiProvider,
+      provider: user.aiProvider,
       model,
       label: "Args for rule",
     });

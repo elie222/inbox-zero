@@ -11,7 +11,7 @@ import {
   runActionFunction,
 } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
-import { Rule } from "@prisma/client";
+import { Rule, User } from "@prisma/client";
 import { ActBody, ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelThread } from "@/utils/gmail/label";
@@ -97,14 +97,11 @@ export function getFunctionsFromRules(options: { rules: RuleWithActions[] }) {
   return { functions, rulesWithProperties };
 }
 
-export async function planAct(
-  options: {
-    email: ActBody["email"] & { content: string; snippet: string };
-    rules: RuleWithActions[];
-    userAbout: string;
-    userEmail: string;
-  } & UserAIFields,
-): Promise<
+export async function planAct(options: {
+  email: ActBody["email"] & { content: string; snippet: string };
+  rules: RuleWithActions[];
+  user: Pick<User, "email" | "about"> & UserAIFields;
+}): Promise<
   | {
       rule: Rule;
       actionItems: ActionItem[];
@@ -112,13 +109,13 @@ export async function planAct(
     }
   | { rule?: undefined; actionItems?: undefined; reason?: string }
 > {
-  const { email, rules } = options;
+  const { email, rules, user } = options;
   const { functions, rulesWithProperties } = getFunctionsFromRules({ rules });
 
   const aiResponse = await getAiResponse({
-    ...options,
     email,
     functions,
+    user,
   });
 
   const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
@@ -199,14 +196,12 @@ type PlanOrExecuteActOptions = {
   rules: RuleWithActions[];
   allowExecute: boolean;
   forceExecute?: boolean;
-  userId: string;
-  userEmail: string;
-  userAbout: string;
   automated: boolean;
-} & UserAIFields;
+  user: Pick<User, "id" | "email" | "about"> & UserAIFields;
+};
 
 export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
-  const { rules, email, userId, automated } = options;
+  const { rules, email, user, automated } = options;
 
   if (!rules.length) return;
 
@@ -228,7 +223,7 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
     await prisma.executedRule.upsert({
       where: {
         unique_user_thread_message: {
-          userId,
+          userId: user.id,
           threadId: email.threadId,
           messageId: email.messageId,
         },
@@ -239,7 +234,7 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
         automated,
         reason: plannedAct.reason,
         status: ExecutedRuleStatus.SKIPPED,
-        user: { connect: { id: userId } },
+        user: { connect: { id: user.id } },
       },
       update: {
         threadId: email.threadId,
@@ -247,7 +242,7 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
         automated,
         reason: plannedAct.reason,
         status: ExecutedRuleStatus.SKIPPED,
-        user: { connect: { id: userId } },
+        user: { connect: { id: user.id } },
       },
     });
 
@@ -262,11 +257,11 @@ export async function planOrExecuteAct(options: PlanOrExecuteActOptions) {
 export async function excuteRuleActions(
   options: Pick<
     PlanOrExecuteActOptions,
-    "email" | "userId" | "allowExecute" | "forceExecute" | "gmail" | "userEmail"
+    "email" | "user" | "allowExecute" | "forceExecute" | "gmail"
   >,
   plannedAct: Awaited<ReturnType<typeof planAct>>,
 ) {
-  const { email, userId, allowExecute, forceExecute } = options;
+  const { email, user, allowExecute, forceExecute } = options;
 
   if (!plannedAct.rule) return;
 
@@ -280,13 +275,13 @@ export async function excuteRuleActions(
     rule: plannedAct.rule?.id
       ? { connect: { id: plannedAct.rule.id } }
       : undefined,
-    user: { connect: { id: userId } },
+    user: { connect: { id: user.id } },
   };
 
   const executedRule = await prisma.executedRule.upsert({
     where: {
       unique_user_thread_message: {
-        userId,
+        userId: user.id,
         threadId: email.threadId,
         messageId: email.messageId,
       },
@@ -300,9 +295,10 @@ export async function excuteRuleActions(
 
   if (shouldExecute) {
     await executeAct({
-      ...options,
+      gmail: options.gmail,
       actionItems: plannedAct.actionItems,
       email,
+      userEmail: user.email || "",
       executedRuleId: executedRule.id,
     });
   }
