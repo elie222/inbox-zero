@@ -151,10 +151,10 @@ export function PlanHistory() {
       </Table>
 
       {!data?.history?.length && (
-        <div className="px-6 py-2">
+        <div className="p-2">
           <AlertBasic
             title="No history"
-            description="You have no history of AI automations yet."
+            description="No AI automations have been run yet."
           />
         </div>
       )}

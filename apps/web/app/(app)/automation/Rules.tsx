@@ -40,7 +40,7 @@ export function Rules() {
   >(`/api/user/rules`);
 
   return (
-    <Card className="m-4">
+    <Card>
       <LoadingContent loading={isLoading} error={error}>
         {data?.length ? (
           <Table>
@@ -62,7 +62,11 @@ export function Rules() {
             <TableBody>
               {data?.map((rule) => (
                 <TableRow key={rule.id}>
-                  <TableCell className="font-medium">{rule.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/automation/rule/${rule.id}`}>
+                      {rule.name}
+                    </Link>
+                  </TableCell>
                   <TableCell className="whitespace-pre-wrap">
                     {rule.instructions}
                   </TableCell>

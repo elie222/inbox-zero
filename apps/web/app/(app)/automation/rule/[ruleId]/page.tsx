@@ -38,7 +38,7 @@ export default async function RulePage({
           }
         />
       )}
-      <div className="max-w-3xl px-4 sm:px-6 lg:px-8">
+      <div className="content-container max-w-3xl">
         <UpdateRuleForm
           rule={rule}
           continueHref="/automation?tab=automations"

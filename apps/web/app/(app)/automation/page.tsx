@@ -36,7 +36,7 @@ export default async function NewAutomationPage() {
   return (
     <Suspense>
       <Tabs defaultValue="automations">
-        <div className="flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white px-4 py-2 shadow-sm sm:flex-row sm:gap-x-6 sm:space-y-0 sm:px-6">
+        <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm sm:flex-row sm:gap-x-6 sm:space-y-0">
           <TabsList>
             <TabsTrigger value="automations">Automations</TabsTrigger>
             <TabsTrigger value="pending">Pending</TabsTrigger>
@@ -52,17 +52,19 @@ export default async function NewAutomationPage() {
           </Button>
         </div>
 
-        <TabsContent value="automations">
+        <TabsContent value="automations" className="content-container">
           <Rules />
         </TabsContent>
         <TabsContent value="pending">
           <Planned />
         </TabsContent>
-        <TabsContent value="history">
-          <PlanHistory />
+        <TabsContent value="history" className="content-container">
+          <Card>
+            <PlanHistory />
+          </Card>
         </TabsContent>
-        <TabsContent value="test">
-          <Card className="m-4 max-w-3xl">
+        <TabsContent value="test" className="content-container">
+          <Card className="max-w-3xl">
             <CardHeader>
               <CardTitle>Test your rules</CardTitle>
               <CardDescription>

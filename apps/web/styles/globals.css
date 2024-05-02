@@ -36,3 +36,7 @@
     --radius: 0.5rem;
   }
 }
+
+.content-container {
+  @apply px-4 sm:px-6;
+}

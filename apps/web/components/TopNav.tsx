@@ -41,7 +41,7 @@ const userNavigation = [
 
 export function TopNav(props: { setSidebarOpen: (open: boolean) => void }) {
   return (
-    <div className="flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+    <div className="content-container flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white shadow-sm sm:gap-x-6">
       <button
         type="button"
         className="-m-2.5 p-2.5 text-gray-700 lg:hidden"

@@ -21,7 +21,7 @@ export function Planned() {
         <EmailList
           threads={data.messages || []}
           emptyMessage={
-            <div className="px-6">
+            <div className="content-container">
               <AlertBasic
                 title="No planned emails"
                 description="Set rules above for our AI to handle incoming emails for you."

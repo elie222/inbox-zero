@@ -7,7 +7,7 @@ export function GroupHeading(props: {
   buttons?: { label: string; loading?: boolean; onClick: () => void }[];
 }) {
   return (
-    <div className="flex max-w-full flex-wrap items-center gap-x-6 px-4 sm:flex-nowrap sm:px-6">
+    <div className="content-container flex max-w-full flex-wrap items-center gap-x-6 sm:flex-nowrap ">
       {/* <div className="border-l-4 border-transparent">
         <Checkbox checked onChange={() => {}} />
       </div> */}

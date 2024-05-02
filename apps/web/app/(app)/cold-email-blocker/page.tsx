@@ -28,7 +28,7 @@ export default function ColdEmailBlockerPage() {
           </>
         }
       />
-      <div className="border-b border-gray-200 bg-white px-4 py-6 shadow-sm sm:px-6 lg:px-8">
+      <div className="content-container border-b border-gray-200 bg-white py-6 shadow-sm">
         <ColdEmailSettings />
       </div>
       <ColdEmailList />
