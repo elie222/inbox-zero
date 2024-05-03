@@ -26,6 +26,7 @@ import {
 } from "@/utils/actions";
 import { RuleType } from "@prisma/client";
 import { RulesResponse } from "@/app/api/user/rules/controller";
+import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -74,17 +75,19 @@ export function TestRulesContent() {
 
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <div>
-            {data.messages.map((message) => {
-              return (
-                <TestRulesContentRow
-                  key={message.id}
-                  message={message}
-                  userEmail={email!}
-                />
-              );
-            })}
-          </div>
+          <Table>
+            <TableBody>
+              {data.messages.map((message) => {
+                return (
+                  <TestRulesContentRow
+                    key={message.id}
+                    message={message}
+                    userEmail={email!}
+                  />
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </LoadingContent>
     </div>
@@ -153,46 +156,48 @@ function TestRulesContentRow(props: {
   const [testResult, setTestResult] = useState<TestAiActionResponse>();
 
   return (
-    <div className="border-b border-gray-200">
-      <div className="flex items-center justify-between py-2">
-        <TestRulesMessage
-          from={message.headers.from}
-          subject={message.headers.subject}
-          snippet={message.snippet?.trim() || ""}
-          userEmail={props.userEmail}
-        />
-        <div className="ml-4">
-          <Button
-            color="white"
-            loading={checking}
-            onClick={async () => {
-              setChecking(true);
+    <TableRow>
+      <TableCell>
+        <div className="flex items-center justify-between">
+          <TestRulesMessage
+            from={message.headers.from}
+            subject={message.headers.subject}
+            snippet={message.snippet?.trim() || ""}
+            userEmail={props.userEmail}
+          />
+          <div className="ml-4">
+            <Button
+              color="white"
+              loading={checking}
+              onClick={async () => {
+                setChecking(true);
 
-              try {
-                const testResult = await testAiAction({
-                  messageId: message.id,
-                  threadId: message.threadId,
-                });
-                setTestResult(testResult);
-              } catch (error) {
-                console.error(error);
-                toastError({
-                  title: "There was an error testing the email.",
-                  description: (error as Error).message,
-                });
-              }
-              setChecking(false);
-            }}
-          >
-            <SparklesIcon className="mr-2 h-4 w-4" />
-            Test
-          </Button>
+                try {
+                  const testResult = await testAiAction({
+                    messageId: message.id,
+                    threadId: message.threadId,
+                  });
+                  setTestResult(testResult);
+                } catch (error) {
+                  console.error(error);
+                  toastError({
+                    title: "There was an error testing the email.",
+                    description: (error as Error).message,
+                  });
+                }
+                setChecking(false);
+              }}
+            >
+              <SparklesIcon className="mr-2 h-4 w-4" />
+              Test
+            </Button>
+          </div>
         </div>
-      </div>
+      </TableCell>
       <div className="pb-4">
         <TestResult response={testResult} />
       </div>
-    </div>
+    </TableRow>
   );
 }
 

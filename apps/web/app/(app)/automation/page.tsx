@@ -68,7 +68,7 @@ export default async function NewAutomationPage() {
             <PlanHistory />
           </Card>
         </TabsContent>
-        <TabsContent value="test" className="content-container">
+        <TabsContent value="test" className="content-container mb-2">
           <Card className="max-w-3xl">
             <CardHeader>
               <CardTitle>Test your rules</CardTitle>
@@ -77,11 +77,7 @@ export default async function NewAutomationPage() {
                 content.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div>
-                <TestRulesContent />
-              </div>
-            </CardContent>
+            <TestRulesContent />
           </Card>
         </TabsContent>
       </Tabs>
