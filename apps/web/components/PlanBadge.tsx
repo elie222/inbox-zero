@@ -3,6 +3,7 @@ import { capitalCase } from "capital-case";
 import { Badge, Color } from "@/components/Badge";
 import { HoverCard } from "@/components/HoverCard";
 import { ActionType, ExecutedRule, ExecutedAction, Rule } from "@prisma/client";
+import { truncate } from "@/utils/string";
 
 type Plan = Pick<ExecutedRule, "reason" | "status"> & {
   rule: Rule | null;
@@ -70,6 +71,79 @@ export function PlanBadge(props: { plan?: Plan }) {
   );
 }
 
+export function ActionBadge({ type }: { type: ActionType }) {
+  return <Badge color={getActionColor(type)}>{getActionLabel(type)}</Badge>;
+}
+
+export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
+  switch (action.type) {
+    case ActionType.ARCHIVE:
+      return <ActionBadge type={ActionType.ARCHIVE} />;
+    case ActionType.LABEL:
+      return <Badge color="blue">Label as {action.label}</Badge>;
+    case ActionType.REPLY:
+      console.log("🚀 ~ ActionBadgeExpanded ~ action:", action);
+      return (
+        <div>
+          <Badge color="indigo">Reply to {action.to}</Badge>
+          <ActionContent action={action} />
+        </div>
+      );
+    case ActionType.SEND_EMAIL:
+      return (
+        <div>
+          <Badge color="indigo">Send email to {action.to}</Badge>
+          <ActionContent action={action} />
+        </div>
+      );
+    case ActionType.FORWARD:
+      return (
+        <div>
+          <Badge color="indigo">Forward email to {action.to}</Badge>
+          <ActionContent action={action} />
+        </div>
+      );
+    case ActionType.DRAFT_EMAIL:
+      return (
+        <div>
+          <Badge color="pink">Draft email to {action.to}</Badge>
+          <ActionContent action={action} />
+        </div>
+      );
+    case ActionType.MARK_SPAM:
+      return <ActionBadge type={ActionType.MARK_SPAM} />;
+    default:
+      return <ActionBadge type={action.type} />;
+  }
+}
+
+function ActionContent({ action }: { action: ExecutedAction }) {
+  return (
+    !!action.content && (
+      <div className="mt-1">{truncate(action.content, 280)}</div>
+    )
+  );
+}
+
+function getActionLabel(type: ActionType) {
+  switch (type) {
+    case ActionType.LABEL:
+      return "Label";
+    case ActionType.ARCHIVE:
+      return "Archive";
+    case ActionType.FORWARD:
+      return "Forward";
+    case ActionType.REPLY:
+      return "Reply";
+    case ActionType.SEND_EMAIL:
+      return "Send email";
+    case ActionType.DRAFT_EMAIL:
+      return "Draft email";
+    default:
+      return capitalCase(type);
+  }
+}
+
 function getActionMessage(action: ExecutedAction): string {
   switch (action.type) {
     case ActionType.LABEL:
@@ -78,11 +152,11 @@ function getActionMessage(action: ExecutedAction): string {
     case ActionType.SEND_EMAIL:
     case ActionType.FORWARD:
       if (action.to)
-        return `${capitalCase(action.type)} to ${action.to}${
+        return `${getActionLabel(action.type)} to ${action.to}${
           action.content ? `:\n${action.content}` : ""
         }`;
     default:
-      return capitalCase(action.type);
+      return getActionLabel(action.type);
   }
 }
 

@@ -26,7 +26,7 @@ const userNavigation = [
         },
       ]),
   {
-    name: "Mail (Beta)",
+    name: "Mail (Alpha)",
     href: "/mail",
     icon: InboxIcon,
   },

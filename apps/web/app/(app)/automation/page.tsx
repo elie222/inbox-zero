@@ -60,7 +60,7 @@ export default async function NewAutomationPage() {
         <TabsContent value="automations" className="content-container">
           <Rules />
         </TabsContent>
-        <TabsContent value="pending">
+        <TabsContent value="pending" className="content-container">
           <Planned />
         </TabsContent>
         <TabsContent value="history" className="content-container">

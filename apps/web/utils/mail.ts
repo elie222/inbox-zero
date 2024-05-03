@@ -7,6 +7,7 @@ import {
   type MessageWithPayload,
   type ParsedMessage,
 } from "@/utils/types";
+import { truncate } from "@/utils/string";
 
 export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
@@ -43,10 +44,6 @@ function htmlToText(html: string, removeLinks = true, removeImages = true) {
   });
 
   return text;
-}
-
-export function truncate(str: string, length: number) {
-  return str.length > length ? str.slice(0, length) + "..." : str;
 }
 
 // extract replies can sometimes return no content.

@@ -1,30 +1,43 @@
-import clsx from "clsx";
+import { cn } from "@/utils";
+import { VariantProps, cva } from "class-variance-authority";
+import { forwardRef } from "react";
 
-export function Tag(props: {
-  children: React.ReactNode;
-  color?: "green" | "red" | "white";
+const tagVariants = cva(
+  "truncate rounded border-2 border-white px-2 py-0.5 text-center text-sm font-semibold shadow",
+  {
+    variants: {
+      variant: {
+        green: "bg-green-200 text-green-900",
+        red: "bg-red-200 text-red-900",
+        white: "bg-white text-gray-900",
+      },
+    },
+  },
+);
+
+export interface TagProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof tagVariants> {
+  asChild?: boolean;
   customColors?: {
     textColor?: string | null;
     backgroundColor?: string | null;
   };
-}) {
-  const { color = "green" } = props;
-  return (
-    <div
-      className={clsx(
-        "truncate rounded border-2 border-white px-2 py-0.5 text-center text-sm font-semibold shadow",
-        {
-          "bg-green-200 text-green-900": color === "green",
-          "bg-red-200 text-red-900": color === "red",
-          "bg-white text-gray-900": color === "white",
-        }
-      )}
-      style={{
-        color: props.customColors?.textColor ?? undefined,
-        backgroundColor: props.customColors?.backgroundColor ?? undefined,
-      }}
-    >
-      {props.children}
-    </div>
-  );
 }
+
+export const Tag = forwardRef<HTMLDivElement, TagProps>(
+  ({ variant = "green", customColors, className, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        {...props}
+        className={cn(tagVariants({ variant, className }))}
+        style={{
+          color: customColors?.textColor ?? undefined,
+          backgroundColor: customColors?.backgroundColor ?? undefined,
+        }}
+      />
+    );
+  },
+);
+Tag.displayName = "Tag";

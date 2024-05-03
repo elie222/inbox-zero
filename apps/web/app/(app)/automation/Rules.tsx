@@ -32,6 +32,8 @@ import {
 import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
 import { ruleTypeToString } from "@/utils/rule";
+import { Badge } from "@/components/Badge";
+import { getActionColor } from "@/components/PlanBadge";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -163,9 +165,9 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
     <div className="flex flex-1 space-x-2">
       {actions?.map((action) => {
         return (
-          <Tag key={action.id} color="green">
+          <Badge key={action.id} color={getActionColor(action.type)}>
             {capitalCase(action.type)}
-          </Tag>
+          </Badge>
         );
       })}
     </div>
