@@ -38,6 +38,7 @@ import {
 } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 
 export type Row = {
   name: string;
@@ -129,7 +130,11 @@ export function ActionCell<T extends Row>(props: {
                 ? undefined
                 : "pointer-events-none opacity-50"
             }
-            href={hasUnsubscribeAccess ? item.lastUnsubscribeLink ?? "#" : "#"}
+            href={
+              hasUnsubscribeAccess
+                ? cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#")
+                : "#"
+            }
             target="_blank"
             onClick={async () => {
               if (!hasUnsubscribeAccess) return;
@@ -448,7 +453,7 @@ export function useNewsletterShortcuts<T extends Row>({
         // unsubscribe
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
-        window.open(item.lastUnsubscribeLink, "_blank");
+        window.open(cleanUnsubscribeLink(item.lastUnsubscribeLink), "_blank");
         await setNewsletterStatus({
           newsletterEmail: item.name,
           status: NewsletterStatus.UNSUBSCRIBED,
