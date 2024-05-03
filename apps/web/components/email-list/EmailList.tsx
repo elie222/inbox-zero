@@ -449,6 +449,7 @@ export function EmailList(props: {
 
                 return (
                   <EmailListItem
+                    key={thread.id}
                     ref={(node) => {
                       const map = getMap();
                       if (node) {
@@ -457,7 +458,6 @@ export function EmailList(props: {
                         map.delete(thread.id!);
                       }
                     }}
-                    key={thread.id}
                     userEmailAddress={session.data?.user.email || ""}
                     thread={thread}
                     opened={openedRowId === thread.id}

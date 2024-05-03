@@ -74,7 +74,8 @@ export async function getThreads(query: ThreadsQuery) {
 
   const threadsWithMessages = await Promise.all(
     threads.map(async (thread) => {
-      const id = thread.id!;
+      const id = thread.id;
+      if (!id) return;
       const messages = parseMessages(thread as ThreadWithPayloadMessages);
 
       const plan = plans.find((p) => p.threadId === id);
@@ -90,7 +91,7 @@ export async function getThreads(query: ThreadsQuery) {
   );
 
   return {
-    threads: threadsWithMessages,
+    threads: threadsWithMessages.filter(isDefined),
     nextPageToken: gmailThreads.data.nextPageToken,
   };
 }
