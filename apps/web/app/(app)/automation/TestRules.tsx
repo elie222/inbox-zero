@@ -25,6 +25,7 @@ import {
   testAiCustomContentAction,
 } from "@/utils/actions";
 import { RuleType } from "@prisma/client";
+import { RulesResponse } from "@/app/api/user/rules/controller";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -53,17 +54,23 @@ export function TestRulesContent() {
       dedupingInterval: 1_000,
     },
   );
+  const { data: rules } = useSWR<RulesResponse>(`/api/user/rules`);
 
   const session = useSession();
   const email = session.data?.user.email;
 
   return (
     <div>
-      <TestRulesForm />
+      {/* only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users  */}
+      {rules?.some((rule) => rule.type === RuleType.AI) && (
+        <>
+          <TestRulesForm />
 
-      <div className="mt-4">
-        <Separator />
-      </div>
+          <div className="mt-4">
+            <Separator />
+          </div>
+        </>
+      )}
 
       <LoadingContent loading={isLoading} error={error}>
         {data && (
