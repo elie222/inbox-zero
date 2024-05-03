@@ -89,7 +89,7 @@ export function UpdateRuleForm(props: {
   const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
-      const tab = searchParams.get("tab") || RuleType.AI;
+      const tab = searchParams.get("tab") || props.rule.type;
       const body = cleanRule(data, tab as RuleType);
       const res = props.rule.id
         ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
@@ -364,7 +364,6 @@ export function UpdateRuleForm(props: {
               await handleSubmit(onSubmit)();
               router.push(continueHref);
             }}
-            loading={isSubmitting}
           >
             Continue
           </Button>
@@ -432,7 +431,7 @@ function cleanRule(rule: UpdateRuleBody, type: RuleType) {
     return {
       ...rule,
       type: RuleType.STATIC,
-      instructions: null,
+      // instructions: null,
       groupId: null,
     };
   }
@@ -440,7 +439,7 @@ function cleanRule(rule: UpdateRuleBody, type: RuleType) {
     return {
       ...rule,
       type: RuleType.GROUP,
-      instructions: null,
+      // instructions: null,
       from: null,
       to: null,
       subject: null,
