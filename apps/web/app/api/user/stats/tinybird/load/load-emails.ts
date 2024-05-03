@@ -9,9 +9,9 @@ import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { env } from "@/env.mjs";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
-const MAX_PAGES = 25;
+const MAX_PAGES = 50;
 
 export async function loadTinybirdEmails(
   options: {
@@ -49,6 +49,7 @@ export async function loadTinybirdEmails(
         before: undefined,
       });
     } catch (error) {
+      // TODO save batch won't throw a rate limit error anymore. Just logs: `Error fetching message 429 Resource has been exhausted (e.g. check quota).`
       console.log(`Rate limited. Waiting ${PAUSE_AFTER_RATE_LIMIT} seconds...`);
       await sleep(PAUSE_AFTER_RATE_LIMIT);
       res = await saveBatch({
