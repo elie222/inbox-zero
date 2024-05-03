@@ -19,7 +19,11 @@ import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
-import { TestAiActionResponse, testAiAction } from "@/utils/actions";
+import {
+  TestAiActionResponse,
+  testAiAction,
+  testAiCustomContentAction,
+} from "@/utils/actions";
 import { RuleType } from "@prisma/client";
 
 export function TestRules(props: { disabled?: boolean }) {
@@ -93,20 +97,8 @@ const TestRulesForm = () => {
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
     try {
-      const testResult = await testAiAction({
-        from: "",
-        to: "",
-        date: "",
-        replyTo: "",
-        cc: "",
-        subject: "",
-        textPlain: data.message,
-        textHtml: "",
-        snippet: data.message,
-        threadId: "",
-        messageId: "",
-        headerMessageId: "",
-        references: "",
+      const testResult = await testAiCustomContentAction({
+        content: data.message,
       });
       setTestResult(testResult);
     } catch (error) {
@@ -171,19 +163,8 @@ function TestRulesContentRow(props: {
 
               try {
                 const testResult = await testAiAction({
-                  from: message.headers.from,
-                  to: message.headers.to,
-                  date: message.headers.date,
-                  replyTo: message.headers["reply-to"],
-                  cc: message.headers.cc,
-                  subject: message.headers.subject,
-                  textPlain: message.textPlain || null,
-                  textHtml: message.textHtml || null,
-                  snippet: message.snippet || null,
-                  threadId: message.threadId || "",
-                  messageId: message.id || "",
-                  headerMessageId: message.headers["message-id"] || "",
-                  references: message.headers.references,
+                  messageId: message.id,
+                  threadId: message.threadId,
                 });
                 setTestResult(testResult);
               } catch (error) {

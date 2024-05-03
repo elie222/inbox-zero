@@ -28,7 +28,6 @@ export async function handleStaticRule({
   isTest: boolean;
 }) {
   const staticRule = findStaticRule(rules, message);
-  console.log("🚀 ~ staticRule:", staticRule);
   if (!staticRule) {
     return { handled: false, rule: null };
   }

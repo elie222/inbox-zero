@@ -65,6 +65,7 @@ import {
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
+import { ParsedMessage } from "@/utils/types";
 
 export async function createLabelAction(options: {
   name: string;
@@ -324,7 +325,13 @@ export async function runAiAction(email: ActBodyWithHtml["email"]) {
 }
 
 export type TestAiActionResponse = Awaited<ReturnType<typeof testAiAction>>;
-export async function testAiAction(email: ActBodyWithHtml["email"]) {
+export async function testAiAction({
+  messageId,
+  threadId,
+}: {
+  messageId: string;
+  threadId: string;
+}) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
@@ -343,8 +350,8 @@ export async function testAiAction(email: ActBodyWithHtml["email"]) {
   });
 
   const [gmailMessage, gmailThread] = await Promise.all([
-    getMessage(email.messageId, gmail, "full"),
-    getThread(email.threadId, gmail),
+    getMessage(messageId, gmail, "full"),
+    getThread(threadId, gmail),
   ]);
 
   const message = parseMessage(gmailMessage);
@@ -356,6 +363,55 @@ export async function testAiAction(email: ActBodyWithHtml["email"]) {
     rules: user.rules,
     user: { ...user, email: user.email! },
     isThread,
+  });
+
+  return result;
+}
+
+export async function testAiCustomContentAction({
+  content,
+}: {
+  content: string;
+}) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      email: true,
+      about: true,
+      aiProvider: true,
+      aiModel: true,
+      openAIApiKey: true,
+      rules: { include: { actions: true } },
+    },
+  });
+
+  const result = await testRulesOnMessage({
+    gmail,
+    message: {
+      id: "",
+      threadId: "",
+      labelIds: [],
+      snippet: content,
+      textPlain: content,
+      attachments: [],
+      headers: {
+        date: new Date().toISOString(),
+        from: "",
+        to: "",
+        subject: "",
+      },
+      historyId: "",
+      inline: [],
+      internalDate: new Date().toISOString(),
+    },
+    rules: user.rules,
+    user: { ...user, email: user.email! },
+    isThread: false,
   });
 
   return result;
