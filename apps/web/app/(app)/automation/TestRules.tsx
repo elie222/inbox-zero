@@ -23,7 +23,7 @@ import {
   TestAiActionResponse,
   testAiAction,
   testAiCustomContentAction,
-} from "@/utils/actions";
+} from "@/utils/actions/ai-rule";
 import { RuleType } from "@prisma/client";
 import { RulesResponse } from "@/app/api/user/rules/controller";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";

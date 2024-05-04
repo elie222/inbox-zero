@@ -19,7 +19,7 @@ import {
   TypographyH3,
 } from "@/components/Typography";
 import { Button, ButtonLoader } from "@/components/ui/button";
-import { createAutomationAction } from "@/utils/actions";
+import { createAutomationAction } from "@/utils/actions/ai-rule";
 import { captureException } from "@/utils/error";
 import { toastError, toastInfo } from "@/components/Toast";
 

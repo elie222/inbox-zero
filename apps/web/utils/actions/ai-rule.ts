@@ -2,8 +2,7 @@
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { NewsletterStatus, RuleType, Prisma } from "@prisma/client";
-import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
+import { RuleType, Prisma } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { isError } from "@/utils/error";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
@@ -20,26 +19,6 @@ import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
 } from "@/utils/actions/group";
-import { isStatusOk } from "@/utils/actions/helpers";
-
-export async function createAutoArchiveFilterAction(
-  from: string,
-  gmailLabelId?: string,
-) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
-
-export async function deleteFilterAction(id: string) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await deleteFilter({ gmail, id });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
 
 export async function runAiAction(email: ActBodyWithHtml["email"]) {
   const session = await auth();
@@ -186,29 +165,6 @@ export async function testAiCustomContentAction({
   });
 
   return result;
-}
-
-export async function setNewsletterStatus(options: {
-  newsletterEmail: string;
-  status: NewsletterStatus | null;
-}) {
-  const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
-
-  return await prisma.newsletter.upsert({
-    where: {
-      email_userId: {
-        email: options.newsletterEmail,
-        userId: session.user.id,
-      },
-    },
-    create: {
-      status: options.status,
-      email: options.newsletterEmail,
-      user: { connect: { id: session.user.id } },
-    },
-    update: { status: options.status },
-  });
 }
 
 export async function createAutomationAction(prompt: string) {

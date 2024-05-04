@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import PQueue from "p-queue";
 import uniqBy from "lodash/uniqBy";
-import { runAiAction } from "@/utils/actions";
+import { runAiAction } from "@/utils/actions/ai-rule";
 import {
   archiveThreadAction,
   markReadThreadAction,

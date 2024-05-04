@@ -27,7 +27,7 @@ import {
   deleteRuleAction,
   setRuleAutomatedAction,
   setRuleRunOnThreadsAction,
-} from "@/utils/actions";
+} from "@/utils/actions/ai-rule";
 import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
 import { ruleTypeToString } from "@/utils/rule";

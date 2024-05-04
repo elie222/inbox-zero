@@ -15,6 +15,7 @@ import {
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
 import { isStatusOk } from "@/utils/actions/helpers";
+import { createAutoArchiveFilter, deleteFilter } from "@/utils/gmail/filter";
 
 export async function createLabelAction(options: {
   name: string;
@@ -134,5 +135,24 @@ export async function markSpamThreadAction(threadId: string) {
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
   const res = await markSpam({ gmail, threadId });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function createAutoArchiveFilterAction(
+  from: string,
+  gmailLabelId?: string,
+) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
+  return isStatusOk(res.status) ? { ok: true } : res;
+}
+
+export async function deleteFilterAction(id: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+  const gmail = getGmailClient(session);
+  const res = await deleteFilter({ gmail, id });
   return isStatusOk(res.status) ? { ok: true } : res;
 }
