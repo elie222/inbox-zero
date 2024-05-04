@@ -4,7 +4,7 @@ import { getAiProviderAndModel } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import { CategoriseBody } from "@/app/api/ai/categorise/validation";
-import { truncate } from "@/utils/mail";
+import { truncate } from "@/utils/string";
 import { saveAiUsage } from "@/utils/usage";
 import { chatCompletion } from "@/utils/llms";
 
