@@ -13,7 +13,7 @@ import {
   createReceiptGroupAction,
 } from "@/utils/actions/group";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CreateGroupBody, createGroupBody } from "@/utils/actions-validation";
+import { CreateGroupBody, createGroupBody } from "@/utils/actions/validation";
 import { AlertBasic } from "@/components/Alert";
 
 export function CreateGroupModalButton(props: { existingGroups: string[] }) {

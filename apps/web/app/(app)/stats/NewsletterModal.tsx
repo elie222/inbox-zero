@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
-import { onAutoArchive } from "@/utils/actions-client";
+import { onAutoArchive } from "@/utils/actions/client";
 import { Row } from "@/app/(app)/bulk-unsubscribe/common";
 
 export function NewsletterModal(props: {

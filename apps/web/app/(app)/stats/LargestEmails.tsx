@@ -23,7 +23,7 @@ import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
 import { getGmailUrl } from "@/utils/url";
 import { Button, ButtonLoader } from "@/components/ui/button";
-import { onTrashMessage } from "@/utils/actions-client";
+import { onTrashMessage } from "@/utils/actions/client";
 import { useState } from "react";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();

@@ -17,7 +17,7 @@ import {
 import { usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
-import { onAutoArchive, onDeleteFilter } from "@/utils/actions-client";
+import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,

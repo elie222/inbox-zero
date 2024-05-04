@@ -28,7 +28,7 @@ import { GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AddGroupItemBody, addGroupItemBody } from "@/utils/actions-validation";
+import { AddGroupItemBody, addGroupItemBody } from "@/utils/actions/validation";
 
 export function ViewGroupButton({
   groupId,

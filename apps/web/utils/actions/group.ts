@@ -8,7 +8,7 @@ import {
   addGroupItemBody,
   CreateGroupBody,
   createGroupBody,
-} from "@/utils/actions-validation";
+} from "@/utils/actions/validation";
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
