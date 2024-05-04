@@ -23,7 +23,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tag } from "@/components/Tag";
 import {
   deleteRuleAction,
   setRuleAutomatedAction,

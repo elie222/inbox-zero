@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import PQueue from "p-queue";
 import uniqBy from "lodash/uniqBy";
+import { runAiAction } from "@/utils/actions";
 import {
   archiveThreadAction,
   markReadThreadAction,
-  runAiAction,
   trashThreadAction,
-} from "@/utils/actions";
+} from "@/utils/actions/mail";
 import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
 import { type Thread } from "@/components/email-list/types";

@@ -28,10 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LabelsResponse } from "@/app/api/google/labels/route";
-import {
-  decrementUnsubscribeCredit,
-  setNewsletterStatus,
-} from "@/utils/actions";
+import { setNewsletterStatus } from "@/utils/actions";
+import { decrementUnsubscribeCredit } from "@/utils/actions/premium";
 import {
   PremiumTooltip,
   PremiumTooltipContent,

@@ -33,7 +33,7 @@ import {
 import {
   markImportantMessageAction,
   markSpamThreadAction,
-} from "@/utils/actions";
+} from "@/utils/actions/mail";
 import { SimpleProgress } from "@/app/(app)/simple/SimpleProgress";
 import { useSimpleProgress } from "@/app/(app)/simple/SimpleProgressProvider";
 import {

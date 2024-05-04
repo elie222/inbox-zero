@@ -23,7 +23,7 @@ import {
   addGroupItemAction,
   deleteGroupAction,
   deleteGroupItemAction,
-} from "@/utils/actions";
+} from "@/utils/actions/group";
 import { GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";

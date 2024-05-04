@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { saveAboutAction, type SaveAboutBody } from "@/utils/actions";
+import { saveAboutAction, type SaveAboutBody } from "@/utils/actions/user";
 import { toastError, toastSuccess } from "@/components/Toast";
 import {
   FormSection,

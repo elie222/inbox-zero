@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { type Dictionary } from "lodash";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { deleteGroupItemAction } from "@/utils/actions";
+import { deleteGroupItemAction } from "@/utils/actions/group";
 import { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
 
 export function ExampleList({

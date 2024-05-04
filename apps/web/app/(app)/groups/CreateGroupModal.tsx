@@ -11,7 +11,7 @@ import {
   createGroupAction,
   createNewsletterGroupAction,
   createReceiptGroupAction,
-} from "@/utils/actions";
+} from "@/utils/actions/group";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateGroupBody, createGroupBody } from "@/utils/actions-validation";
 import { AlertBasic } from "@/components/Alert";

@@ -7,7 +7,7 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TopSection } from "@/components/TopSection";
-import { activateLicenseKey } from "@/utils/actions";
+import { activateLicenseKey } from "@/utils/actions/premium";
 import { UserResponse } from "@/app/api/user/me/route";
 import { AlertBasic } from "@/components/Alert";
 

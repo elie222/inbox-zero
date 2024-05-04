@@ -2,9 +2,8 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import {
   createAutoArchiveFilterAction,
   deleteFilterAction,
-  trashMessageAction,
-  trashThreadAction,
 } from "@/utils/actions";
+import { trashMessageAction, trashThreadAction } from "@/utils/actions/mail";
 
 export async function onAutoArchive(from: string, gmailLabelId?: string) {
   try {

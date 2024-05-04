@@ -23,7 +23,7 @@ import {
   GmailProvider,
   useGmail,
 } from "@/providers/GmailProvider";
-import { createLabelAction, updateLabels } from "@/utils/actions";
+import { createLabelAction, updateLabels } from "@/utils/actions/mail";
 import { useModal, Modal } from "@/components/Modal";
 import { type Label } from "@prisma/client";
 import { postRequest } from "@/utils/api";

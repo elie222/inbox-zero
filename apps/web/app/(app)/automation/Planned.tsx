@@ -55,7 +55,7 @@ function PlannedTable({ pending }: { pending: PendingExecutedRules }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
+          <TableHead>Email</TableHead>
           <TableHead>Actions</TableHead>
           <TableHead></TableHead>
         </TableRow>
@@ -71,14 +71,14 @@ function PlannedTable({ pending }: { pending: PendingExecutedRules }) {
                       {p.message.headers.from.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
+                  <div className="flex flex-col justify-center">
                     <div className="font-semibold">
                       {p.message.headers.from}
                     </div>
                     <div className="mt-1 font-medium">
                       {p.message.headers.subject}
                     </div>
-                    <div className="text-muted-foreground">
+                    <div className="mt-1 text-muted-foreground">
                       {decodeSnippet(p.message.snippet)}
                     </div>
                   </div>
