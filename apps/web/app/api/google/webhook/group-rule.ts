@@ -61,10 +61,9 @@ export async function handleGroupRule({
   };
 
   const rulesWithFunctions = getFunctionsFromRules({ rules: [match.rule] });
-  const shouldAiGenerateArgs = rulesWithFunctions[0].shouldAiGenerateArgs;
 
   // generate args
-  const aiArgsResponse = shouldAiGenerateArgs
+  const aiArgsResponse = rulesWithFunctions[0].shouldAiGenerateArgs
     ? await getArgsAiResponse({
         email,
         selectedRule: rulesWithFunctions[0].function,

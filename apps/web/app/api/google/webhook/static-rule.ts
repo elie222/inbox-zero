@@ -53,10 +53,9 @@ export async function handleStaticRule({
   };
 
   const rulesWithFunctions = getFunctionsFromRules({ rules: [staticRule] });
-  const shouldAiGenerateArgs = rulesWithFunctions[0].shouldAiGenerateArgs;
 
   // generate args
-  const aiArgsResponse = shouldAiGenerateArgs
+  const aiArgsResponse = rulesWithFunctions[0].shouldAiGenerateArgs
     ? await getArgsAiResponse({
         email,
         selectedRule: rulesWithFunctions[0].function,

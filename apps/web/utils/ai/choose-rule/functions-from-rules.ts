@@ -49,7 +49,7 @@ export function getFunctionsFromRules({ rules }: { rules: RuleWithActions[] }) {
         description: rule.instructions,
         parameters: {},
       } as FunctionWithDescription,
-      shouldAiGenerateArgs: functionForArgsProperties.length > 0,
+      shouldAiGenerateArgs: Object.keys(functionForArgsProperties).length > 0,
       functionForArgs: {
         name: "handle_email",
         description: "Handle the email.",
