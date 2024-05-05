@@ -193,10 +193,10 @@ function TestRulesContentRow(props: {
             </Button>
           </div>
         </div>
+        <div className="mt-4">
+          <TestResult response={testResult} />
+        </div>
       </TableCell>
-      <div className="pb-4">
-        <TestResult response={testResult} />
-      </div>
     </TableRow>
   );
 }
