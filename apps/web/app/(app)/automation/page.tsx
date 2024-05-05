@@ -57,17 +57,17 @@ export default async function AutomationPage() {
           </div>
         </div>
 
-        <TabsContent value="automations" className="content-container">
+        <TabsContent value="automations" className="content-container mb-10">
           <Rules />
         </TabsContent>
-        <TabsContent value="pending" className="content-container">
+        <TabsContent value="pending" className="content-container mb-10">
           <Pending />
         </TabsContent>
-        <TabsContent value="history" className="content-container">
+        <TabsContent value="history" className="content-container mb-10">
           <History />
         </TabsContent>
-        <TabsContent value="test" className="content-container mb-2">
-          <Card className="max-w-3xl">
+        <TabsContent value="test" className="content-container mb-10">
+          <Card>
             <CardHeader>
               <CardTitle>Test your rules</CardTitle>
               <CardDescription>
