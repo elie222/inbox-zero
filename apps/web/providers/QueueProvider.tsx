@@ -36,6 +36,18 @@ export const archiveEmails = async (
   );
 };
 
+export const markReadThreads = async (
+  threadIds: string[],
+  refetch: () => void,
+) => {
+  queue.addAll(
+    threadIds.map((threadId) => async () => {
+      await markReadThreadAction(threadId, true);
+      refetch();
+    }),
+  );
+};
+
 export const deleteEmails = async (
   threadIds: string[],
   refetch: () => void,
@@ -43,19 +55,6 @@ export const deleteEmails = async (
   queue.addAll(
     threadIds.map((threadId) => async () => {
       trashThreadAction(threadId);
-      refetch();
-    }),
-  );
-};
-
-export const markReadThreads = async (
-  threadIds: string[],
-  read: boolean,
-  refetch: () => void,
-) => {
-  queue.addAll(
-    threadIds.map((threadId) => async () => {
-      await markReadThreadAction(threadId, read);
       refetch();
     }),
   );
@@ -111,13 +110,13 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     if (pendingArchive) archiveEmails(pendingArchive, () => {});
 
     const pendingMarkRead = getPendingEmails("markReadQueue");
-    if (pendingMarkRead) archiveEmails(pendingMarkRead, () => {});
+    if (pendingMarkRead) markReadThreads(pendingMarkRead, () => {});
 
     const pendingDelete = getPendingEmails("deleteQueue");
-    if (pendingDelete) archiveEmails(pendingDelete, () => {});
+    if (pendingDelete) deleteEmails(pendingDelete, () => {});
 
     const pendingAi = getPendingEmails("aiRuleQueue");
-    if (pendingAi) archiveEmails(pendingAi, () => {});
+    if (pendingAi) runAiRules(pendingAi);
   }, []);
 
   return <>{children}</>;
@@ -143,27 +142,27 @@ function updateQueueStorage(
 }
 
 // Copy and paste of the above. Might be able to refactor to use a generic
-function updateRunAiQueueStorage(
-  threads: ActBodyWithHtml["email"][],
-  state: "pending" | "complete",
-) {
-  const name: QueueNameLocalStorage = "aiRuleQueue";
-  const currentStateString = localStorage.getItem(name);
+// function updateRunAiQueueStorage(
+//   threads: ActBodyWithHtml["email"][],
+//   state: "pending" | "complete",
+// ) {
+//   const name: QueueNameLocalStorage = "aiRuleQueue";
+//   const currentStateString = localStorage.getItem(name);
 
-  if (currentStateString) {
-    const currentState: ActBodyWithHtml["email"][] =
-      JSON.parse(currentStateString);
-    const updatedState: ActBodyWithHtml["email"][] =
-      state === "pending"
-        ? uniqBy([...currentState, ...threads], (t) => t.threadId)
-        : currentState.filter(
-            ({ threadId }) => !threads.find((t) => t.threadId === threadId),
-          );
-    localStorage.setItem(name, JSON.stringify(updatedState));
-  } else {
-    return localStorage.setItem(name, JSON.stringify(threads));
-  }
-}
+//   if (currentStateString) {
+//     const currentState: ActBodyWithHtml["email"][] =
+//       JSON.parse(currentStateString);
+//     const updatedState: ActBodyWithHtml["email"][] =
+//       state === "pending"
+//         ? uniqBy([...currentState, ...threads], (t) => t.threadId)
+//         : currentState.filter(
+//             ({ threadId }) => !threads.find((t) => t.threadId === threadId),
+//           );
+//     localStorage.setItem(name, JSON.stringify(updatedState));
+//   } else {
+//     return localStorage.setItem(name, JSON.stringify(threads));
+//   }
+// }
 
 function getPendingEmails(name: QueueNameLocalStorage) {
   const currentStateString = localStorage.getItem(name);
