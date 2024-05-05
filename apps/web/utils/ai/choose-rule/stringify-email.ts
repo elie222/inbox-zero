@@ -10,8 +10,8 @@ export type EmailForLLM = {
 
 export function stringifyEmail(email: EmailForLLM, maxLength: number) {
   return `From: ${email.from}
-${email.replyTo && `Reply to: ${email.replyTo}`}
-${email.cc && `CC: ${email.cc}`}
+${email.replyTo ? `Reply to: ${email.replyTo}` : ""}
+${email.cc ? `CC: ${email.cc}` : ""}
 Subject: ${email.subject}
 Body:
 ${truncate(email.content, maxLength)}`;
