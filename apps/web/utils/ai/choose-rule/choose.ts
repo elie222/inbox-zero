@@ -25,7 +25,7 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
   | { rule?: undefined; actionItems?: undefined; reason?: string }
 > {
   const { email, rules, user } = options;
-  const { functions, rulesWithProperties } = getFunctionsFromRules({ rules });
+  const { functions, rulesWithFunctions } = getFunctionsFromRules({ rules });
 
   const aiResponse = await getAiResponse({
     email,
@@ -39,17 +39,16 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
     return { reason: aiResponse?.reason };
   }
 
-  const selectedRule = rulesWithProperties[ruleNumber];
-  console.log("selectedRule", selectedRule.name);
+  const selectedRule = rulesWithFunctions[ruleNumber];
 
-  if (selectedRule.name === REQUIRES_MORE_INFO)
+  if (selectedRule.function.name === REQUIRES_MORE_INFO)
     return { reason: aiResponse?.reason };
 
   const aiArgsResponse = selectedRule.shouldAiGenerateArgs
     ? await getArgsAiResponse({
         ...options,
         email,
-        selectedFunction: selectedRule,
+        selectedFunction: selectedRule.function,
       })
     : undefined;
 

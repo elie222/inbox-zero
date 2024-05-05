@@ -62,7 +62,7 @@ export async function handleGroupRule({
 
   const functions = getFunctionsFromRules({ rules: [match.rule] });
   const shouldAiGenerateArgs =
-    functions.rulesWithProperties[0].shouldAiGenerateArgs;
+    functions.rulesWithFunctions[0].shouldAiGenerateArgs;
 
   // generate args
   const aiArgsResponse = shouldAiGenerateArgs

@@ -34,19 +34,21 @@ type ActionFunction<T extends Omit<ActionItem, "type">> = (
   userEmail: string,
 ) => Promise<any>;
 
+export type Properties = PartialRecord<
+  "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
+  {
+    type: string;
+    description: string;
+  }
+>;
+
 type ActionFunctionDef = {
   name: string;
   description: string;
   parameters:
     | {
         type: string;
-        properties: PartialRecord<
-          "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
-          {
-            type: string;
-            description: string;
-          }
-        >;
+        properties: Properties;
         required: string[];
       }
     | { type: string; properties?: undefined; required: string[] };
@@ -369,8 +371,6 @@ export const ACTION_PROPERTIES = [
   "subject",
   "content",
 ] as const;
-
-export type ActionProperty = (typeof ACTION_PROPERTIES)[number];
 
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,

@@ -54,7 +54,7 @@ export async function handleStaticRule({
 
   const functions = getFunctionsFromRules({ rules: [staticRule] });
   const shouldAiGenerateArgs =
-    functions.rulesWithProperties[0].shouldAiGenerateArgs;
+    functions.rulesWithFunctions[0].shouldAiGenerateArgs;
 
   // generate args
   const aiArgsResponse = shouldAiGenerateArgs
