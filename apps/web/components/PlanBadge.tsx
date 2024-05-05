@@ -82,10 +82,9 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
     case ActionType.LABEL:
       return <Badge color="blue">Label as {action.label}</Badge>;
     case ActionType.REPLY:
-      console.log("🚀 ~ ActionBadgeExpanded ~ action:", action);
       return (
         <div>
-          <Badge color="indigo">Reply to {action.to}</Badge>
+          <Badge color="indigo">Reply</Badge>
           <ActionContent action={action} />
         </div>
       );
