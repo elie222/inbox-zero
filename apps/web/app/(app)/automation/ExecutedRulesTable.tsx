@@ -20,10 +20,13 @@ export function EmailCell({
   messageId: string;
   userEmail: string;
 }) {
+  // use regex to find first letter
+  const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
+
   return (
     <div className="flex items-center gap-4">
       <Avatar>
-        <AvatarFallback>{from.charAt(0).toUpperCase()}</AvatarFallback>
+        <AvatarFallback>{firstLetter}</AvatarFallback>
       </Avatar>
       <div className="flex flex-col justify-center">
         <div className="font-semibold">{from}</div>
