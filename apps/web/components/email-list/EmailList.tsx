@@ -188,12 +188,12 @@ export function EmailList(props: {
   );
 
   const isAllSelected = useMemo(() => {
-    return threads.every((thread) => selectedRows[thread.id!]);
+    return threads.every((thread) => selectedRows[thread.id]);
   }, [threads, selectedRows]);
 
   const onToggleSelectAll = useCallback(() => {
     threads.forEach((thread) => {
-      setSelectedRows((s) => ({ ...s, [thread.id!]: !isAllSelected }));
+      setSelectedRows((s) => ({ ...s, [thread.id]: !isAllSelected }));
     });
   }, [threads, isAllSelected]);
 
@@ -212,7 +212,7 @@ export function EmailList(props: {
     (thread: Thread) => {
       toast.promise(
         async () => {
-          setIsCategorizing((s) => ({ ...s, [thread.id!]: true }));
+          setIsCategorizing((s) => ({ ...s, [thread.id]: true }));
 
           // categorizing by first message for threads
           const message = thread.messages?.[0];
@@ -234,13 +234,13 @@ export function EmailList(props: {
 
           if (isError(res)) {
             console.error(res);
-            setIsCategorizing((s) => ({ ...s, [thread.id!]: false }));
+            setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
             throw new Error(`There was an error categorizing the email.`);
           } else {
             // setCategory(res);
             refetch();
           }
-          setIsCategorizing((s) => ({ ...s, [thread.id!]: false }));
+          setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
 
           return res?.category;
         },
@@ -257,7 +257,7 @@ export function EmailList(props: {
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      const threadIds = [thread.id!];
+      const threadIds = [thread.id];
       toast.promise(() => archiveEmails(threadIds, () => refetch(threadIds)), {
         loading: "Archiving...",
         success: "Archived!",
@@ -440,11 +440,11 @@ export function EmailList(props: {
               {threads.map((thread) => {
                 const onOpen = () => {
                   const alreadyOpen = !!openedRowId;
-                  setOpenedRowId(thread.id!);
+                  setOpenedRowId(thread.id);
 
-                  if (!alreadyOpen) scrollToId(thread.id!);
+                  if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads([thread.id!], true, refetch);
+                  markReadThreads([thread.id], refetch);
                 };
 
                 return (
@@ -453,27 +453,27 @@ export function EmailList(props: {
                     ref={(node) => {
                       const map = getMap();
                       if (node) {
-                        map.set(thread.id!, node);
+                        map.set(thread.id, node);
                       } else {
-                        map.delete(thread.id!);
+                        map.delete(thread.id);
                       }
                     }}
                     userEmailAddress={session.data?.user.email || ""}
                     thread={thread}
                     opened={openedRowId === thread.id}
                     closePanel={closePanel}
-                    selected={selectedRows[thread.id!]}
+                    selected={selectedRows[thread.id]}
                     onSelected={onSetSelectedRow}
                     splitView={!!openedRowId}
                     onClick={onOpen}
-                    isCategorizing={isCategorizing[thread.id!]}
+                    isCategorizing={isCategorizing[thread.id]}
                     onPlanAiAction={onPlanAiAction}
                     onAiCategorize={onAiCategorize}
                     onArchive={onArchive}
                     executePlan={executePlan}
                     rejectPlan={rejectPlan}
-                    executingPlan={executingPlan[thread.id!]}
-                    rejectingPlan={rejectingPlan[thread.id!]}
+                    executingPlan={executingPlan[thread.id]}
+                    rejectingPlan={rejectingPlan[thread.id]}
                     refetch={refetch}
                   />
                 );

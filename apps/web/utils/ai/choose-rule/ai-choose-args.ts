@@ -1,21 +1,24 @@
 import { UserAIFields } from "@/utils/llms/types";
 import { ActionItem } from "@/utils/ai/actions";
 import { Action, User } from "@prisma/client";
-import { ActBody } from "@/app/api/ai/act/validation";
 import { Function } from "ai";
 import { parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
-import { REQUIRES_MORE_INFO } from "@/app/api/ai/act/consts";
+import { REQUIRES_MORE_INFO } from "@/utils/ai/choose-rule/consts";
+import {
+  EmailForLLM,
+  stringifyEmail,
+} from "@/utils/ai/choose-rule/stringify-email";
 
-export async function getArgsAiResponse(options: {
-  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
-    content: string;
-  };
+type GetArgsAiResponseOptions = {
+  email: EmailForLLM;
   user: Pick<User, "email" | "about"> & UserAIFields;
   selectedFunction: Function;
-}) {
+};
+
+export async function getArgsAiResponse(options: GetArgsAiResponseOptions) {
   const { email, user, selectedFunction } = options;
 
   const messages = [
@@ -42,12 +45,7 @@ ${selectedFunction.name} - ${selectedFunction.description}
 
 The email:
 
-From: ${email.from}
-Reply to: ${email.replyTo}
-CC: ${email.cc}
-Subject: ${email.subject}
-Body:
-${email.content}`,
+${stringifyEmail(email, 3000)}`,
     },
   ];
 

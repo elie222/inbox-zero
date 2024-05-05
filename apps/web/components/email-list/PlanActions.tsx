@@ -1,17 +1,11 @@
+import { useCallback, useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { LoadingMiniSpinner } from "@/components/Loading";
-import { type Executing, type Thread } from "@/components/email-list/types";
-import { useCallback, useState } from "react";
-import { postRequest } from "@/utils/api";
-import { ExecutePlanBody } from "@/app/api/user/planned/[id]/validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
-import {
-  RejectPlanBody,
-  RejectPlanResponse,
-} from "@/app/api/user/planned/reject/route";
+import { type Executing, type Thread } from "@/components/email-list/types";
 import { cn } from "@/utils";
-import { ExecutePlanResponse } from "@/app/api/user/planned/[id]/route";
+import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
@@ -26,27 +20,7 @@ export function useExecutePlan(refetch: () => void) {
       const lastMessage = thread.messages?.[thread.messages.length - 1];
 
       try {
-        await postRequest<ExecutePlanResponse, ExecutePlanBody>(
-          `/api/user/planned/${thread.plan.id}`,
-          {
-            email: {
-              subject: lastMessage.headers.subject,
-              from: lastMessage.headers.from,
-              to: lastMessage.headers.to,
-              cc: lastMessage.headers.cc,
-              replyTo: lastMessage.headers["reply-to"],
-              references: lastMessage.headers["references"],
-              date: lastMessage.headers.date,
-              headerMessageId: lastMessage.headers["message-id"] || "",
-              textPlain: lastMessage.textPlain || null,
-              textHtml: lastMessage.textHtml || null,
-              snippet: lastMessage.snippet || null,
-              messageId: lastMessage.id || "",
-              threadId: lastMessage.threadId || "",
-            },
-          },
-        );
-
+        await approvePlanAction(thread.plan.id, lastMessage);
         toastSuccess({ description: "Executed!" });
       } catch (error) {
         console.error(error);
@@ -67,12 +41,12 @@ export function useExecutePlan(refetch: () => void) {
       setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
       try {
-        await postRequest<RejectPlanResponse, RejectPlanBody>(
-          `/api/user/planned/reject`,
-          { threadId: thread.id! },
-        );
-
-        toastSuccess({ description: "Plan rejected" });
+        if (thread.plan?.id) {
+          await rejectPlanAction(thread.plan.id);
+          toastSuccess({ description: "Plan rejected" });
+        } else {
+          toastError({ description: "Plan not found" });
+        }
       } catch (error) {
         console.error(error);
         toastError({

@@ -1,10 +1,11 @@
 import { gmail_v1 } from "googleapis";
-import { planOrExecuteAct } from "@/app/api/ai/act/controller";
 import { type ParsedMessage, type RuleWithActions } from "@/utils/types";
 import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
 import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 import { UserAIFields } from "@/utils/llms/types";
 import { RuleType, User } from "@prisma/client";
+import { chooseRuleAndExecute } from "@/utils/ai/choose-rule/choose-and-execute";
+import { emailToContent } from "@/utils/mail";
 
 export async function runRulesOnMessage({
   gmail,
@@ -58,15 +59,18 @@ export async function runRulesOnMessage({
     return;
   }
 
-  const plan = await planOrExecuteAct({
+  const content = emailToContent({
+    textHtml: message.textHtml || null,
+    textPlain: message.textPlain || null,
+    snippet: message.snippet,
+  });
+  const plan = await chooseRuleAndExecute({
     email: {
       from: message.headers.from,
       replyTo: message.headers["reply-to"],
       cc: message.headers.cc,
       subject: message.headers.subject,
-      textHtml: message.textHtml || null,
-      textPlain: message.textPlain || null,
-      snippet: message.snippet,
+      content,
       threadId: message.threadId,
       messageId: message.id,
       headerMessageId: message.headers["message-id"] || "",
@@ -74,7 +78,6 @@ export async function runRulesOnMessage({
     rules: applicableRules,
     gmail,
     user,
-    allowExecute: true,
   });
 
   return plan;
@@ -142,15 +145,18 @@ export async function testRulesOnMessage({
     return { rule: null, reason: null, actionItems: [] };
   }
 
-  const plan = await planOrExecuteAct({
+  const content = emailToContent({
+    textHtml: message.textHtml || null,
+    textPlain: message.textPlain || null,
+    snippet: message.snippet,
+  });
+  const plan = await chooseRuleAndExecute({
     email: {
       from: message.headers.from,
       replyTo: message.headers["reply-to"],
       cc: message.headers.cc,
       subject: message.headers.subject,
-      textHtml: message.textHtml || null,
-      textPlain: message.textPlain || null,
-      snippet: message.snippet,
+      content,
       threadId: message.threadId,
       messageId: message.id,
       headerMessageId: message.headers["message-id"] || "",
@@ -158,7 +164,6 @@ export async function testRulesOnMessage({
     rules: applicableRules,
     gmail,
     user,
-    allowExecute: true,
   });
 
   return plan;

@@ -1,19 +1,18 @@
 import { gmail_v1 } from "googleapis";
-import {
-  executeRuleActions,
-  getFunctionsFromRules,
-} from "@/app/api/ai/act/controller";
+import { getFunctionsFromRules } from "@/utils/ai/choose-rule/functions-from-rules";
 import { ParsedMessage } from "@/utils/types";
 import { User } from "@prisma/client";
 import { emailToContent } from "@/utils/mail";
 import {
   getActionItemsFromAiArgsResponse,
   getArgsAiResponse,
-} from "@/app/api/ai/act/ai-choose-args";
+} from "@/utils/ai/choose-rule/ai-choose-args";
 import {
   findMatchingGroup,
   getGroups,
 } from "@/utils/group/find-matching-group";
+import { executeAct } from "@/utils/ai/choose-rule/execute";
+import { saveExecutedRule } from "@/utils/ai/choose-rule/choose-and-execute";
 
 export async function handleGroupRule({
   message,
@@ -80,20 +79,31 @@ export async function handleGroupRule({
   );
 
   // handle action
-  // TODO use automate/thread toggle
+  // TODO isThread check to skip
   const executedRule = isTest
     ? undefined
-    : await executeRuleActions(
+    : await saveExecutedRule(
         {
-          gmail,
-          user,
-          email,
+          userId: user.id,
+          threadId: email.threadId,
+          messageId: email.messageId,
         },
         {
           rule: match.rule,
           actionItems,
         },
       );
+
+  const shouldExecute = executedRule && match.rule.automate;
+
+  if (shouldExecute) {
+    await executeAct({
+      gmail,
+      userEmail: user.email || "",
+      executedRule,
+      email,
+    });
+  }
 
   return {
     handled: true,

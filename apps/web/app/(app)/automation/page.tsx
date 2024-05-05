@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
 import { PlanHistory } from "@/app/(app)/automation/PlanHistory";
-import { Planned } from "@/app/(app)/automation/Planned";
+import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/card";
 import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 
-export default async function NewAutomationPage() {
+export default async function AutomationPage() {
   const session = await auth();
   if (!session?.user) throw new Error("Not logged in");
   const [rule, executedRule] = await Promise.all([
@@ -61,7 +61,7 @@ export default async function NewAutomationPage() {
           <Rules />
         </TabsContent>
         <TabsContent value="pending" className="content-container">
-          <Planned />
+          <Pending />
         </TabsContent>
         <TabsContent value="history" className="content-container">
           <Card>

@@ -1,25 +1,24 @@
 import { z } from "zod";
 import { UserAIFields } from "@/utils/llms/types";
-import { ActBody } from "@/app/api/ai/act/validation";
 import { parseJSON } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
 import { User } from "@prisma/client";
-import { truncate } from "@/utils/string";
+import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 
-// after some testing i see the AI performs better when it works on smaller tasks
-// if we try ask it to select a rule, and provide the args for that rule in one go, it doesn't do as well
-// so i've split this up into two ai calls:
-// 1. select rule
-// 2. generate args for rule
-
-export async function getAiResponse(options: {
-  email: Pick<ActBody["email"], "from" | "cc" | "replyTo" | "subject"> & {
+type GetAiResponseOptions = {
+  email: {
+    from: string;
+    subject: string;
     content: string;
+    cc?: string;
+    replyTo?: string;
   };
   user: Pick<User, "email" | "about"> & UserAIFields;
   functions: { description?: string }[];
-}) {
+};
+
+export async function getAiResponse(options: GetAiResponseOptions) {
   const { email, user, functions } = options;
 
   const messages = [
@@ -46,12 +45,9 @@ Respond with a JSON object with the following fields:
 "rule" - the number of the rule you want to apply
 "reason" - the reason you chose that rule
 
-From: ${email.from}
-Reply to: ${email.replyTo}
-CC: ${email.cc}
-Subject: ${email.subject}
-Body:
-${truncate(email.content, 500)}`,
+The email:
+
+${stringifyEmail(email, 500)}`,
     },
   ];
 
@@ -66,29 +62,6 @@ ${truncate(email.content, 500)}`,
     messages,
     { jsonResponse: true },
   );
-  // tools: [
-  //   {
-  //     type: "function",
-  //     function: {
-  //       name: "selectRule",
-  //       description: "Select a rule to apply to the email.",
-  //       parameters: {
-  //         type: "object",
-  //         properties: {
-  //           ruleNumber: {
-  //             type: "number",
-  //             description: "The number of the rule to apply.",
-  //           },
-  //           reason: {
-  //             type: "string",
-  //             description: "The reason for choosing this rule.",
-  //           },
-  //         },
-  //         required: ["ruleNumber"],
-  //       },
-  //     },
-  //   },
-  // ],
 
   if (aiResponse.usage) {
     await saveAiUsage({

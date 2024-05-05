@@ -2,10 +2,9 @@
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { RuleType, Prisma } from "@prisma/client";
+import { RuleType, Prisma, ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { isError } from "@/utils/error";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import { deleteRule } from "@/app/api/user/rules/controller";
 import {
@@ -19,8 +18,11 @@ import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
 } from "@/utils/actions/group";
+import { EmailForAction } from "@/utils/ai/actions";
+import { executeAct } from "@/utils/ai/choose-rule/execute";
+import { ParsedMessage } from "@/utils/types";
 
-export async function runAiAction(email: ActBodyWithHtml["email"]) {
+export async function runAiAction(email: EmailForAction) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);
@@ -316,5 +318,45 @@ export async function setRuleRunOnThreadsAction(
   await prisma.rule.update({
     where: { id: ruleId, userId: session.user.id },
     data: { runOnThreads },
+  });
+}
+
+export async function approvePlanAction(
+  executedRuleId: string,
+  message: ParsedMessage,
+) {
+  const session = await auth();
+  if (!session?.user.email) throw new Error("Not logged in");
+
+  const gmail = getGmailClient(session);
+
+  const executedRule = await prisma.executedRule.findUniqueOrThrow({
+    where: { id: executedRuleId },
+    include: { actionItems: true },
+  });
+
+  await executeAct({
+    gmail,
+    email: {
+      messageId: executedRule.messageId,
+      threadId: executedRule.threadId,
+      from: message.headers.from,
+      subject: message.headers.subject,
+      references: message.headers.references,
+      replyTo: message.headers["reply-to"],
+      headerMessageId: message.headers["message-id"] || "",
+    },
+    executedRule,
+    userEmail: session.user.email,
+  });
+}
+
+export async function rejectPlanAction(executedRuleId: string) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  await prisma.executedRule.updateMany({
+    where: { id: executedRuleId, userId: session.user.id },
+    data: { status: ExecutedRuleStatus.REJECTED },
   });
 }

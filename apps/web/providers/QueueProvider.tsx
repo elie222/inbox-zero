@@ -2,14 +2,13 @@
 
 import { useEffect } from "react";
 import PQueue from "p-queue";
-import uniqBy from "lodash/uniqBy";
 import { runAiAction } from "@/utils/actions/ai-rule";
 import {
   archiveThreadAction,
   markReadThreadAction,
   trashThreadAction,
 } from "@/utils/actions/mail";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
+import { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
 import { type Thread } from "@/components/email-list/types";
 
@@ -81,26 +80,25 @@ export const runAiRules = async (
   );
 };
 
-function threadToRunAiEmail(
-  thread: Thread,
-): ActBodyWithHtml["email"] | undefined {
+function threadToRunAiEmail(thread: Thread): EmailForAction | undefined {
   const message = thread.messages?.[thread.messages.length - 1];
   if (!message) return;
-  const email = {
+  const email: EmailForAction = {
     from: message.headers.from,
-    to: message.headers.to,
-    date: message.headers.date,
+    // to: message.headers.to,
+    // date: message.headers.date,
     replyTo: message.headers["reply-to"],
-    cc: message.headers.cc,
+    // cc: message.headers.cc,
     subject: message.headers.subject,
-    textPlain: message.textPlain || null,
-    textHtml: message.textHtml || null,
-    snippet: thread.snippet,
+    // textPlain: message.textPlain || null,
+    // textHtml: message.textHtml || null,
+    // snippet: thread.snippet,
     threadId: message.threadId || "",
     messageId: message.id || "",
     headerMessageId: message.headers["message-id"] || "",
     references: message.headers.references,
   };
+
   return email;
 }
 
@@ -144,16 +142,16 @@ function updateQueueStorage(
 
 // Copy and paste of the above. Might be able to refactor to use a generic
 // function updateRunAiQueueStorage(
-//   threads: ActBodyWithHtml["email"][],
+//   threads: EmailForAction[],
 //   state: "pending" | "complete",
 // ) {
 //   const name: QueueNameLocalStorage = "aiRuleQueue";
 //   const currentStateString = localStorage.getItem(name);
 
 //   if (currentStateString) {
-//     const currentState: ActBodyWithHtml["email"][] =
+//     const currentState: EmailForAction[] =
 //       JSON.parse(currentStateString);
-//     const updatedState: ActBodyWithHtml["email"][] =
+//     const updatedState: EmailForAction[] =
 //       state === "pending"
 //         ? uniqBy([...currentState, ...threads], (t) => t.threadId)
 //         : currentState.filter(

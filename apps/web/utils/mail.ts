@@ -77,7 +77,7 @@ export function emailToContent(email: {
   textHtml: string | null;
   textPlain: string | null;
   snippet: string | null;
-}) {
+}): string {
   const content =
     (email.textHtml && parseEmail(email.textHtml, false, null)) ||
     email.textPlain ||

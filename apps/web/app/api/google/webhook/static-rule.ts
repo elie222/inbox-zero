@@ -1,15 +1,14 @@
 import { gmail_v1 } from "googleapis";
-import {
-  executeRuleActions,
-  getFunctionsFromRules,
-} from "@/app/api/ai/act/controller";
+import { getFunctionsFromRules } from "@/utils/ai/choose-rule/functions-from-rules";
 import { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { RuleType, User } from "@prisma/client";
 import {
   getActionItemsFromAiArgsResponse,
   getArgsAiResponse,
-} from "@/app/api/ai/act/ai-choose-args";
+} from "@/utils/ai/choose-rule/ai-choose-args";
 import { emailToContent } from "@/utils/mail";
+import { saveExecutedRule } from "@/utils/ai/choose-rule/choose-and-execute";
+import { executeAct } from "@/utils/ai/choose-rule/execute";
 
 export async function handleStaticRule({
   message,
@@ -72,19 +71,31 @@ export async function handleStaticRule({
   );
 
   // handle action
+  // TODO isThread check to skip
   const executedRule = isTest
     ? undefined
-    : await executeRuleActions(
+    : await saveExecutedRule(
         {
-          gmail,
-          user,
-          email,
+          userId: user.id,
+          threadId: email.threadId,
+          messageId: email.messageId,
         },
         {
           rule: staticRule,
           actionItems,
         },
       );
+
+  const shouldExecute = executedRule && staticRule.automate;
+
+  if (shouldExecute) {
+    await executeAct({
+      gmail,
+      userEmail: user.email || "",
+      executedRule,
+      email,
+    });
+  }
 
   return { handled: true, rule: staticRule, actionItems, executedRule };
 }
