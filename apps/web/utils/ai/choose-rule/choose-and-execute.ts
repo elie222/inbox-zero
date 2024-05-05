@@ -1,12 +1,12 @@
 import { type gmail_v1 } from "googleapis";
 import { UserAIFields } from "@/utils/llms/types";
 import prisma from "@/utils/prisma";
-import { User } from "@prisma/client";
+import { Rule, User } from "@prisma/client";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { ChooseRuleOptions, chooseRule } from "@/utils/ai/choose-rule/choose";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
-import { EmailForAction } from "@/utils/ai/actions";
+import { ActionItem, EmailForAction } from "@/utils/ai/actions";
 
 type ChooseRuleAndExecuteOptions = ChooseRuleOptions & {
   email: EmailForLLM & EmailForAction;
@@ -21,7 +21,12 @@ type ChooseRuleAndExecuteOptions = ChooseRuleOptions & {
  */
 export async function chooseRuleAndExecute(
   options: ChooseRuleAndExecuteOptions,
-): Promise<{ handled: boolean; reason?: string }> {
+): Promise<{
+  handled: boolean;
+  rule?: Rule;
+  actionItems?: ActionItem[];
+  reason?: string;
+}> {
   const { rules, email, user, forceExecute, gmail } = options;
 
   if (!rules.length) return { handled: false };
@@ -53,7 +58,11 @@ export async function chooseRuleAndExecute(
     });
   }
 
-  return { handled: true };
+  return {
+    handled: true,
+    rule: plannedAct.rule,
+    actionItems: plannedAct.actionItems,
+  };
 }
 
 export async function saveExecutedRule(

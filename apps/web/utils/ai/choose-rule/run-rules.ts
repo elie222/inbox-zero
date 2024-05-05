@@ -3,10 +3,11 @@ import { type ParsedMessage, type RuleWithActions } from "@/utils/types";
 import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
 import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 import { UserAIFields } from "@/utils/llms/types";
-import { ExecutedRuleStatus, RuleType, User } from "@prisma/client";
+import { ExecutedRuleStatus, Rule, RuleType, User } from "@prisma/client";
 import { chooseRuleAndExecute } from "@/utils/ai/choose-rule/choose-and-execute";
 import { emailToContent } from "@/utils/mail";
 import prisma from "@/utils/prisma";
+import { ActionItem } from "@/utils/ai/actions";
 
 export async function runRulesOnMessage({
   gmail,
@@ -143,7 +144,11 @@ export async function testRulesOnMessage({
   rules: RuleWithActions[];
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
-}) {
+}): Promise<{
+  rule?: Rule | null;
+  actionItems?: ActionItem[];
+  reason?: string | null;
+}> {
   const applicableRules = isThread
     ? rules.filter((r) => r.runOnThreads)
     : rules;
@@ -160,8 +165,8 @@ export async function testRulesOnMessage({
   if (staticRule.handled) {
     return {
       rule: staticRule.rule,
-      reason: null,
       actionItems: staticRule.actionItems,
+      reason: null,
     };
   }
 
@@ -177,21 +182,13 @@ export async function testRulesOnMessage({
   if (groupRule.handled) {
     return {
       rule: groupRule.rule,
-      reason: null,
       actionItems: groupRule.actionItems,
+      reason: null,
     };
   }
 
   // ai rules
-  if (!message.textHtml && !message.textPlain && !message.snippet) {
-    return { rule: null, reason: null, actionItems: [] };
-  }
-
   const aiRules = applicableRules.filter((r) => r.type === RuleType.AI);
-
-  if (aiRules.length === 0) {
-    return { rule: null, reason: null, actionItems: [] };
-  }
 
   const content = emailToContent({
     textHtml: message.textHtml || null,
@@ -209,7 +206,7 @@ export async function testRulesOnMessage({
       messageId: message.id,
       headerMessageId: message.headers["message-id"] || "",
     },
-    rules: applicableRules,
+    rules: aiRules,
     gmail,
     user,
   });

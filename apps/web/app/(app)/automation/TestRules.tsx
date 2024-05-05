@@ -193,9 +193,11 @@ function TestRulesContentRow(props: {
             </Button>
           </div>
         </div>
-        <div className="mt-4">
-          <TestResult response={testResult} />
-        </div>
+        {!!testResult && (
+          <div className="mt-4">
+            <TestResult response={testResult} />
+          </div>
+        )}
       </TableCell>
     </TableRow>
   );
