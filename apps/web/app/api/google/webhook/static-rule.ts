@@ -52,15 +52,15 @@ export async function handleStaticRule({
     }),
   };
 
-  const functions = getFunctionsFromRules({ rules: [staticRule] });
-  const shouldAiGenerateArgs =
-    functions.rulesWithFunctions[0].shouldAiGenerateArgs;
+  const rulesWithFunctions = getFunctionsFromRules({ rules: [staticRule] });
+  const shouldAiGenerateArgs = rulesWithFunctions[0].shouldAiGenerateArgs;
 
   // generate args
   const aiArgsResponse = shouldAiGenerateArgs
     ? await getArgsAiResponse({
         email,
-        selectedFunction: functions.functions[0],
+        selectedRule: rulesWithFunctions[0].function,
+        argsFunction: rulesWithFunctions[0].functionForArgs,
         user,
       })
     : undefined;

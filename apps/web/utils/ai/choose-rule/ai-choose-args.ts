@@ -15,11 +15,12 @@ import {
 type GetArgsAiResponseOptions = {
   email: EmailForLLM;
   user: Pick<User, "email" | "about"> & UserAIFields;
-  selectedFunction: Function;
+  selectedRule: { name: string; description: string };
+  argsFunction: Function;
 };
 
 export async function getArgsAiResponse(options: GetArgsAiResponseOptions) {
-  const { email, user, selectedFunction } = options;
+  const { email, user, selectedRule, argsFunction } = options;
 
   const messages = [
     {
@@ -38,13 +39,12 @@ Do not mention you are an AI assistant when responding to people.`,
       : []),
     {
       role: "user" as const,
-      content: `An email was received for processing and a rule was selected to process it. Please act on this email.
+      content: `An email was received for processing and a rule was already selected to process it. Handle the email.
 
 The selected rule:
-${selectedFunction.name} - ${selectedFunction.description}
+${selectedRule.name} - ${selectedRule.description}
 
-The email:
-
+The email the rule will be applied to:
 ${stringifyEmail(email, 3000)}`,
     },
   ];
@@ -64,11 +64,7 @@ ${stringifyEmail(email, 3000)}`,
     [
       {
         type: "function",
-        function: {
-          name: selectedFunction.name,
-          description: "Act on the email using the selected rule.",
-          parameters: selectedFunction.parameters,
-        },
+        function: argsFunction,
       },
     ],
   );

@@ -60,15 +60,15 @@ export async function handleGroupRule({
     }),
   };
 
-  const functions = getFunctionsFromRules({ rules: [match.rule] });
-  const shouldAiGenerateArgs =
-    functions.rulesWithFunctions[0].shouldAiGenerateArgs;
+  const rulesWithFunctions = getFunctionsFromRules({ rules: [match.rule] });
+  const shouldAiGenerateArgs = rulesWithFunctions[0].shouldAiGenerateArgs;
 
   // generate args
   const aiArgsResponse = shouldAiGenerateArgs
     ? await getArgsAiResponse({
         email,
-        selectedFunction: functions.functions[0],
+        selectedRule: rulesWithFunctions[0].function,
+        argsFunction: rulesWithFunctions[0].functionForArgs,
         user,
       })
     : undefined;

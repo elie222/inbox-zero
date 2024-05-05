@@ -25,11 +25,11 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
   | { rule?: undefined; actionItems?: undefined; reason?: string }
 > {
   const { email, rules, user } = options;
-  const { functions, rulesWithFunctions } = getFunctionsFromRules({ rules });
+  const rulesWithFunctions = getFunctionsFromRules({ rules });
 
   const aiResponse = await getAiResponse({
     email,
-    functions,
+    functions: rulesWithFunctions.map((r) => r.function),
     user,
   });
 
@@ -48,7 +48,8 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
     ? await getArgsAiResponse({
         ...options,
         email,
-        selectedFunction: selectedRule.function,
+        selectedRule: selectedRule.function,
+        argsFunction: selectedRule.functionForArgs,
       })
     : undefined;
 
