@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
-import { PlanHistory } from "@/app/(app)/automation/PlanHistory";
+import { History } from "@/app/(app)/automation/History";
 import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -64,9 +64,7 @@ export default async function AutomationPage() {
           <Pending />
         </TabsContent>
         <TabsContent value="history" className="content-container">
-          <Card>
-            <PlanHistory />
-          </Card>
+          <History />
         </TabsContent>
         <TabsContent value="test" className="content-container mb-2">
           <Card className="max-w-3xl">
