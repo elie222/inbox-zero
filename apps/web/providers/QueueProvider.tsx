@@ -54,7 +54,7 @@ export const deleteEmails = async (
 ) => {
   queue.addAll(
     threadIds.map((threadId) => async () => {
-      trashThreadAction(threadId);
+      await trashThreadAction(threadId);
       refetch();
     }),
   );
@@ -115,8 +115,9 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     const pendingDelete = getPendingEmails("deleteQueue");
     if (pendingDelete) deleteEmails(pendingDelete, () => {});
 
-    const pendingAi = getPendingEmails("aiRuleQueue");
-    if (pendingAi) runAiRules(pendingAi);
+    // TODO revisit this to make it's working as intended
+    // const pendingAi = getPendingEmails("aiRuleQueue");
+    // if (pendingAi) runAiRules(pendingAi);
   }, []);
 
   return <>{children}</>;
