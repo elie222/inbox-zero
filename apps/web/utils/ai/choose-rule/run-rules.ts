@@ -3,9 +3,10 @@ import { type ParsedMessage, type RuleWithActions } from "@/utils/types";
 import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
 import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 import { UserAIFields } from "@/utils/llms/types";
-import { RuleType, User } from "@prisma/client";
+import { ExecutedRuleStatus, RuleType, User } from "@prisma/client";
 import { chooseRuleAndExecute } from "@/utils/ai/choose-rule/choose-and-execute";
 import { emailToContent } from "@/utils/mail";
+import prisma from "@/utils/prisma";
 
 export async function runRulesOnMessage({
   gmail,
@@ -19,7 +20,11 @@ export async function runRulesOnMessage({
   rules: RuleWithActions[];
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
-}) {
+}): Promise<{ handled: boolean }> {
+  // 1. Check if a static rule matches
+  // 2. Check if a group rule matches
+  // 3. Check if an ai rule matches
+
   const applicableRules = isThread
     ? rules.filter((r) => r.runOnThreads)
     : rules;
@@ -33,7 +38,7 @@ export async function runRulesOnMessage({
     isTest: false,
   });
 
-  if (staticRule.handled) return;
+  if (staticRule.handled) return { handled: true };
 
   // group rules
   const groupRule = await handleGroupRule({
@@ -44,27 +49,17 @@ export async function runRulesOnMessage({
     isTest: false,
   });
 
-  if (groupRule.handled) return;
+  if (groupRule.handled) return { handled: true };
 
   // ai rules
-  if (!message.textHtml && !message.textPlain && !message.snippet) {
-    console.log("Skipping. No text found.");
-    return;
-  }
-
   const aiRules = applicableRules.filter((r) => r.type === RuleType.AI);
-
-  if (aiRules.length === 0) {
-    console.log(`Skipping thread. No AI rules.`);
-    return;
-  }
 
   const content = emailToContent({
     textHtml: message.textHtml || null,
     textPlain: message.textPlain || null,
     snippet: message.snippet,
   });
-  const plan = await chooseRuleAndExecute({
+  const aiResponse = await chooseRuleAndExecute({
     email: {
       from: message.headers.from,
       replyTo: message.headers["reply-to"],
@@ -75,12 +70,65 @@ export async function runRulesOnMessage({
       messageId: message.id,
       headerMessageId: message.headers["message-id"] || "",
     },
-    rules: applicableRules,
+    rules: aiRules,
     gmail,
     user,
   });
 
-  return plan;
+  if (aiResponse.handled) return { handled: true };
+
+  console.log(
+    `No rules matched. ${user.email} ${message.threadId} ${message.id}`,
+  );
+
+  // no rules matched
+  await saveSkippedExecutedRule({
+    userId: user.id,
+    threadId: message.threadId,
+    messageId: message.id,
+    reason: aiResponse?.reason,
+  });
+
+  return { handled: false };
+}
+
+async function saveSkippedExecutedRule({
+  userId,
+  threadId,
+  messageId,
+  reason,
+}: {
+  userId: string;
+  threadId: string;
+  messageId: string;
+  reason?: string;
+}) {
+  await prisma.executedRule.upsert({
+    where: {
+      unique_user_thread_message: {
+        userId,
+        threadId,
+        messageId,
+      },
+    },
+    // `automated` only relevent when we have a rule
+    create: {
+      threadId,
+      messageId,
+      automated: true,
+      reason,
+      status: ExecutedRuleStatus.SKIPPED,
+      user: { connect: { id: userId } },
+    },
+    update: {
+      threadId,
+      messageId,
+      automated: true,
+      reason,
+      status: ExecutedRuleStatus.SKIPPED,
+      user: { connect: { id: userId } },
+    },
+  });
 }
 
 export async function testRulesOnMessage({

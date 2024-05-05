@@ -10,7 +10,7 @@ import { deleteRule } from "@/app/api/user/rules/controller";
 import {
   runRulesOnMessage,
   testRulesOnMessage,
-} from "@/app/api/google/webhook/run-rules";
+} from "@/utils/ai/choose-rule/run-rules";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
@@ -22,7 +22,7 @@ import { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ParsedMessage } from "@/utils/types";
 
-export async function runAiAction(email: EmailForAction) {
+export async function runRules(email: EmailForAction) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
   const gmail = getGmailClient(session);

@@ -17,7 +17,7 @@ import { captureException } from "@/utils/error";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { getAiProviderAndModel } from "@/utils/llms";
 import { env } from "@/env.mjs";
-import { runRulesOnMessage } from "@/app/api/google/webhook/run-rules";
+import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

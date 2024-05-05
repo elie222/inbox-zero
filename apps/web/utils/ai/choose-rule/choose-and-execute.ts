@@ -21,25 +21,17 @@ type ChooseRuleAndExecuteOptions = ChooseRuleOptions & {
  */
 export async function chooseRuleAndExecute(
   options: ChooseRuleAndExecuteOptions,
-) {
+): Promise<{ handled: boolean; reason?: string }> {
   const { rules, email, user, forceExecute, gmail } = options;
 
-  if (!rules.length) return;
+  if (!rules.length) return { handled: false };
 
   const plannedAct = await chooseRule(options);
 
   console.log("Planned act:", plannedAct.rule?.name, plannedAct.actionItems);
 
   // no rule to apply to this thread
-  if (!plannedAct.rule) {
-    await saveSkippedExecutedRule({
-      userId: user.id,
-      threadId: email.threadId,
-      messageId: email.messageId,
-      reason: plannedAct.reason,
-    });
-    return plannedAct;
-  }
+  if (!plannedAct.rule) return { handled: false, reason: plannedAct.reason };
 
   const executedRule = await saveExecutedRule(
     {
@@ -50,7 +42,7 @@ export async function chooseRuleAndExecute(
     plannedAct,
   );
 
-  const shouldExecute = plannedAct.rule.automate || forceExecute;
+  const shouldExecute = plannedAct.rule?.automate || forceExecute;
 
   if (shouldExecute) {
     await executeAct({
@@ -61,45 +53,7 @@ export async function chooseRuleAndExecute(
     });
   }
 
-  return plannedAct;
-}
-
-async function saveSkippedExecutedRule({
-  userId,
-  threadId,
-  messageId,
-  reason,
-}: {
-  userId: string;
-  threadId: string;
-  messageId: string;
-  reason?: string;
-}) {
-  await prisma.executedRule.upsert({
-    where: {
-      unique_user_thread_message: {
-        userId,
-        threadId,
-        messageId,
-      },
-    },
-    create: {
-      threadId,
-      messageId,
-      automated: true,
-      reason,
-      status: ExecutedRuleStatus.SKIPPED,
-      user: { connect: { id: userId } },
-    },
-    update: {
-      threadId,
-      messageId,
-      automated: true,
-      reason,
-      status: ExecutedRuleStatus.SKIPPED,
-      user: { connect: { id: userId } },
-    },
-  });
+  return { handled: true };
 }
 
 export async function saveExecutedRule(
