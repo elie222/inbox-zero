@@ -1,6 +1,6 @@
 import { UserAIFields } from "@/utils/llms/types";
 import { ActionItem } from "@/utils/ai/actions";
-import { Action, User } from "@prisma/client";
+import { Action, ActionType, User } from "@prisma/client";
 import { Function } from "ai";
 import { parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
@@ -18,6 +18,11 @@ type GetArgsAiResponseOptions = {
   selectedRule: { name: string; description: string };
   argsFunction: Function;
 };
+
+type AIGeneratedArgs = Record<
+  ActionType,
+  Record<keyof Omit<ActionItem, "type">, string>
+>;
 
 export async function getArgsAiResponse(options: GetArgsAiResponseOptions) {
   const { email, user, selectedRule, argsFunction } = options;
@@ -84,34 +89,29 @@ ${stringifyEmail(email, 3000)}`,
   if (!functionCall?.name) return;
   if (functionCall.name === REQUIRES_MORE_INFO) return;
 
-  const aiGeneratedArgs: Omit<ActionItem, "type"> | undefined =
-    functionCall?.arguments
-      ? parseJSONWithMultilines(functionCall.arguments)
-      : undefined;
+  const aiGeneratedArgs: AIGeneratedArgs = functionCall?.arguments
+    ? parseJSONWithMultilines(functionCall.arguments)
+    : undefined;
 
   return aiGeneratedArgs;
 }
 
 export function getActionItemsFromAiArgsResponse(
-  aiArgsResponse: Omit<ActionItem, "type"> | undefined,
+  response: AIGeneratedArgs | undefined,
   ruleActions: Action[],
 ) {
   return ruleActions.map(({ type, label, subject, content, to, cc, bcc }) => {
     // use prefilled values where we have them
+    const a = response?.[type] || ({} as any);
+
     return {
       type,
-      label: label === AI_GENERATED_FIELD_VALUE ? aiArgsResponse?.label : label,
-      subject:
-        subject === AI_GENERATED_FIELD_VALUE
-          ? aiArgsResponse?.subject
-          : subject,
-      content:
-        content === AI_GENERATED_FIELD_VALUE
-          ? aiArgsResponse?.content
-          : content,
-      to: to === AI_GENERATED_FIELD_VALUE ? aiArgsResponse?.to : to,
-      cc: cc === AI_GENERATED_FIELD_VALUE ? aiArgsResponse?.cc : cc,
-      bcc: bcc === AI_GENERATED_FIELD_VALUE ? aiArgsResponse?.bcc : bcc,
+      label: label === AI_GENERATED_FIELD_VALUE ? a.label : label,
+      subject: subject === AI_GENERATED_FIELD_VALUE ? a.subject : subject,
+      content: content === AI_GENERATED_FIELD_VALUE ? a.content : content,
+      to: to === AI_GENERATED_FIELD_VALUE ? a.to : to,
+      cc: cc === AI_GENERATED_FIELD_VALUE ? a.cc : cc,
+      bcc: bcc === AI_GENERATED_FIELD_VALUE ? a.bcc : bcc,
     };
   });
 }
