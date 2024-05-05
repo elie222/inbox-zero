@@ -18,6 +18,7 @@ import {
   ActionItemsCell,
   DateCell,
   EmailCell,
+  RuleCell,
 } from "@/app/(app)/automation/ExecutedRulesTable";
 import { Badge } from "@/components/Badge";
 
@@ -58,9 +59,10 @@ function HistoryTable({
       <TableHeader>
         <TableRow>
           <TableHead>Email</TableHead>
-          <TableHead>Actions</TableHead>
-          <TableHead />
-          <TableHead />
+          <TableHead>Rule</TableHead>
+          <TableHead>Action items</TableHead>
+          <TableHead>Automated</TableHead>
+          <TableHead>Date</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -76,7 +78,10 @@ function HistoryTable({
               />
             </TableCell>
             <TableCell>
-              <ActionItemsCell rule={p.rule} actionItems={p.actionItems} />
+              <RuleCell rule={p.rule} />
+            </TableCell>
+            <TableCell>
+              <ActionItemsCell actionItems={p.actionItems} />
             </TableCell>
             <TableCell>
               {p.automated ? (

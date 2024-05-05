@@ -42,21 +42,24 @@ export function EmailCell({
   );
 }
 
-export function ActionItemsCell({
+export function RuleCell({
   rule,
-  actionItems,
 }: {
   rule: PendingExecutedRules[number]["rule"];
+}) {
+  return <>{rule?.name}</>;
+}
+
+export function ActionItemsCell({
+  actionItems,
+}: {
   actionItems: PendingExecutedRules[number]["actionItems"];
 }) {
   return (
-    <div>
-      <div className="font-medium">{rule?.name}</div>
-      <div className="mt-2 flex flex-wrap gap-1">
-        {actionItems.map((item) => (
-          <ActionBadgeExpanded key={item.id} action={item} />
-        ))}
-      </div>
+    <div className="mt-2 flex flex-wrap gap-1">
+      {actionItems.map((item) => (
+        <ActionBadgeExpanded key={item.id} action={item} />
+      ))}
     </div>
   );
 }

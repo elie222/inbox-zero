@@ -22,6 +22,7 @@ import { ParsedMessage } from "@/utils/types";
 import {
   ActionItemsCell,
   EmailCell,
+  RuleCell,
   // DateCell,
 } from "@/app/(app)/automation/ExecutedRulesTable";
 
@@ -70,7 +71,8 @@ function PendingTable({
       <TableHeader>
         <TableRow>
           <TableHead>Email</TableHead>
-          <TableHead>Actions</TableHead>
+          <TableHead>Rule</TableHead>
+          <TableHead>Action items</TableHead>
           <TableHead />
           {/* <TableHead /> */}
         </TableRow>
@@ -88,7 +90,10 @@ function PendingTable({
               />
             </TableCell>
             <TableCell>
-              <ActionItemsCell rule={p.rule} actionItems={p.actionItems} />
+              <RuleCell rule={p.rule} />
+            </TableCell>
+            <TableCell>
+              <ActionItemsCell actionItems={p.actionItems} />
             </TableCell>
             <TableCell>
               <ExecuteButtons id={p.id} message={p.message} mutate={mutate} />
