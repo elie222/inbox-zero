@@ -107,7 +107,7 @@ export async function forwardEmail(
   const message = parseMessage(m);
 
   const attachments = await Promise.all(
-    message.attachments.map(async (attachment) => {
+    message.attachments?.map(async (attachment) => {
       const attachmentData = await gmail.users.messages.attachments.get({
         userId: "me",
         messageId,
@@ -118,7 +118,7 @@ export async function forwardEmail(
         contentType: attachment.mimeType,
         filename: attachment.filename,
       };
-    }),
+    }) || [],
   );
 
   const raw = await createRawMailMessage({

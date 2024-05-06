@@ -147,10 +147,8 @@ export async function testAiCustomContentAction({
     message: {
       id: "",
       threadId: "",
-      labelIds: [],
       snippet: content,
       textPlain: content,
-      attachments: [],
       headers: {
         date: new Date().toISOString(),
         from: "",

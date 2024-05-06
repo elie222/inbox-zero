@@ -226,15 +226,6 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.MARK_SPAM]: MARK_SPAM,
 };
 
-export const actionFunctions: ActionFunctionDef[] = [
-  ARCHIVE,
-  LABEL,
-  DRAFT_EMAIL,
-  REPLY_TO_EMAIL,
-  SEND_EMAIL,
-  FORWARD_EMAIL,
-];
-
 const archive: ActionFunction<{}> = async (gmail, email) => {
   await gmail.users.threads.modify({
     userId: "me",
@@ -362,15 +353,6 @@ const mark_spam: ActionFunction<any> = async (
 ) => {
   return await markSpam({ gmail, threadId: email.threadId });
 };
-
-export const ACTION_PROPERTIES = [
-  "label",
-  "to",
-  "cc",
-  "bcc",
-  "subject",
-  "content",
-] as const;
 
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
