@@ -229,13 +229,14 @@ export async function createAutomationAction(prompt: string) {
   }
 
   function getRuleType() {
+    // prioritise group rules
+    if (result?.group) return RuleType.GROUP;
     if (
       result?.staticConditions?.from ||
       result?.staticConditions?.to ||
       result?.staticConditions?.subject
     )
       return RuleType.STATIC;
-    if (result?.group) return RuleType.GROUP;
     return RuleType.AI;
   }
 
