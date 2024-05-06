@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ExternalLinkIcon } from "lucide-react";
 import { PendingExecutedRules } from "@/app/api/user/planned/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -5,7 +7,6 @@ import { ActionBadgeExpanded } from "@/components/PlanBadge";
 import { Tooltip } from "@/components/Tooltip";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { getGmailUrl } from "@/utils/url";
-import { ExternalLinkIcon } from "lucide-react";
 
 export function EmailCell({
   from,
@@ -47,7 +48,8 @@ export function RuleCell({
 }: {
   rule: PendingExecutedRules[number]["rule"];
 }) {
-  return <>{rule?.name}</>;
+  if (!rule) return null;
+  return <Link href={`/automation/rule/${rule.id}`}>{rule.name}</Link>;
 }
 
 export function ActionItemsCell({
