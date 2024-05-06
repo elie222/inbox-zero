@@ -12,12 +12,12 @@ import { Rules } from "@/app/(app)/automation/Rules";
 import { TestRulesContent } from "@/app/(app)/automation/TestRules";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
+import { Groups } from "@/app/(app)/automation/groups/Groups";
 
 export default async function AutomationPage() {
   const session = await auth();
@@ -43,6 +43,7 @@ export default async function AutomationPage() {
             <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
             <TabsTrigger value="test">Test</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
           </TabsList>
 
           <div className="flex space-x-2">
@@ -77,6 +78,9 @@ export default async function AutomationPage() {
             </CardHeader>
             <TestRulesContent />
           </Card>
+        </TabsContent>
+        <TabsContent value="groups" className="content-container mb-10">
+          <Groups />
         </TabsContent>
       </Tabs>
     </Suspense>

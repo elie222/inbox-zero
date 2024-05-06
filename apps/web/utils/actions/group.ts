@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
@@ -22,8 +21,6 @@ export async function createGroupAction(body: CreateGroupBody) {
   await prisma.group.create({
     data: { name, prompt, userId: session.user.id },
   });
-
-  revalidatePath("/groups");
 }
 
 export async function createNewsletterGroupAction(body: CreateGroupBody) {
@@ -48,8 +45,6 @@ export async function createNewsletterGroupAction(body: CreateGroupBody) {
     },
   });
 
-  revalidatePath("/groups");
-
   return { id: group.id };
 }
 
@@ -69,8 +64,6 @@ export async function createReceiptGroupAction({ name }: CreateGroupBody) {
     },
   });
 
-  revalidatePath("/groups");
-
   return { id: group.id };
 }
 
@@ -79,8 +72,6 @@ export async function deleteGroupAction(id: string) {
   if (!session?.user.id) throw new Error("Not logged in");
 
   await prisma.group.delete({ where: { id, userId: session.user.id } });
-
-  revalidatePath("/groups");
 }
 
 export async function addGroupItemAction(body: AddGroupItemBody) {

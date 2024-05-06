@@ -39,7 +39,7 @@ import useSWR from "swr";
 import { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { ViewGroupButton } from "@/app/(app)/groups/ViewGroup";
+import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
 
 export function RuleModal(props: {
   rule?: UpdateRuleBody;
@@ -416,7 +416,10 @@ function GroupsTab(props: {
             />
           )}
 
-          <Button color="white" link={{ href: "/groups", target: "_blank" }}>
+          <Button
+            color="white"
+            link={{ href: "/automation?tab=groups", target: "_blank" }}
+          >
             <SettingsIcon className="mr-2 h-4 w-4" />
             {data?.groups.length ? "Manage groups" : "Create group"}
           </Button>

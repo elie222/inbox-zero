@@ -6,7 +6,15 @@ import { withError } from "@/utils/middleware";
 export type GroupsResponse = Awaited<ReturnType<typeof getGroups>>;
 
 async function getGroups({ userId }: { userId: string }) {
-  const groups = await prisma.group.findMany({ where: { userId } });
+  const groups = await prisma.group.findMany({
+    where: { userId },
+    select: {
+      id: true,
+      name: true,
+      rule: { select: { id: true, name: true } },
+      _count: { select: { items: true } },
+    },
+  });
   return { groups };
 }
 
