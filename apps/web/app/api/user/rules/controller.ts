@@ -16,7 +16,7 @@ export async function getRules(options: { userId: string }) {
   });
 }
 
-// POST
+// PUT
 export type UpdateRulesResponse = Awaited<ReturnType<typeof updateRules>>;
 
 export async function updateRules({

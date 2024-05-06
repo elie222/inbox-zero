@@ -1,6 +1,9 @@
 import "server-only";
 import prisma from "@/utils/prisma";
-import { type UpdateRuleBody } from "@/app/api/user/rules/[id]/validation";
+import {
+  CreateRuleBody,
+  type UpdateRuleBody,
+} from "@/app/api/user/rules/[id]/validation";
 
 export async function getRule(options: { id: string; userId: string }) {
   const rule = await prisma.rule.findUniqueOrThrow({
@@ -12,34 +15,66 @@ export async function getRule(options: { id: string; userId: string }) {
   return { rule };
 }
 
-export async function updateRule(options: {
+export async function createRule({
+  userId,
+  body,
+}: {
+  userId: string;
+  body: CreateRuleBody;
+}) {
+  const rule = await prisma.rule.create({
+    data: {
+      name: body.name || "",
+      instructions: body.instructions || "",
+      automate: body.automate ?? undefined,
+      runOnThreads: body.runOnThreads ?? undefined,
+      actions: body.actions
+        ? {
+            createMany: {
+              data: body.actions,
+            },
+          }
+        : undefined,
+      userId,
+      from: body.from || undefined,
+      to: body.to || undefined,
+      subject: body.subject || undefined,
+      body: body.body || undefined,
+      groupId: body.groupId || undefined,
+    },
+  });
+
+  return { rule };
+}
+
+export async function updateRule({
+  id,
+  userId,
+  body,
+}: {
   id: string;
   userId: string;
   body: UpdateRuleBody;
 }) {
   const [, rule] = await prisma.$transaction([
-    prisma.action.deleteMany({
-      where: {
-        ruleId: options.id,
-      },
-    }),
+    prisma.action.deleteMany({ where: { ruleId: id } }),
     prisma.rule.update({
-      where: {
-        id: options.id,
-        userId: options.userId,
-      },
+      where: { id, userId },
       data: {
-        instructions: options.body.instructions || undefined,
-        automate: options.body.automate ?? undefined,
-        runOnThreads: options.body.runOnThreads ?? undefined,
-        name: options.body.name || undefined,
-        actions: options.body.actions
+        instructions: body.instructions || "",
+        automate: body.automate ?? undefined,
+        runOnThreads: body.runOnThreads ?? undefined,
+        name: body.name || undefined,
+        actions: body.actions
           ? {
-              createMany: {
-                data: options.body.actions,
-              },
+              createMany: { data: body.actions },
             }
           : undefined,
+        from: body.from,
+        to: body.to,
+        subject: body.subject,
+        body: body.body,
+        groupId: body.groupId,
       },
     }),
   ]);

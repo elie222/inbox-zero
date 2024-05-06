@@ -14,8 +14,10 @@ export function AlertBasic(props: {
       {props.icon === null
         ? null
         : props.icon || <TerminalIcon className="h-4 w-4" />}
-      <AlertTitle>{props.title}</AlertTitle>
-      <AlertDescription>{props.description}</AlertDescription>
+      {props.title ? <AlertTitle>{props.title}</AlertTitle> : null}
+      {props.description ? (
+        <AlertDescription>{props.description}</AlertDescription>
+      ) : null}
     </Alert>
   );
 }

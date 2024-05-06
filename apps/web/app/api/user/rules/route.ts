@@ -10,6 +10,8 @@ import {
   updateRulesBody,
 } from "@/app/api/user/rules/validation";
 import { withError } from "@/utils/middleware";
+import { createRuleBody } from "@/app/api/user/rules/[id]/validation";
+import { createRule } from "@/app/api/user/rules/[id]/controller";
 
 export const GET = withError(async () => {
   const session = await auth();
@@ -21,7 +23,23 @@ export const GET = withError(async () => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
+
+  const json = await request.json();
+  const body = createRuleBody.parse(json);
+
+  const result = await createRule({
+    userId: session.user.id,
+    body,
+  });
+
+  return NextResponse.json(result);
+});
+
+export const PUT = withError(async (request: Request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });

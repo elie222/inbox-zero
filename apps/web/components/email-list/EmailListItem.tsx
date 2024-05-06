@@ -75,7 +75,7 @@ export const EmailListItem = forwardRef(
 
     const decodedSnippet = decodeSnippet(thread.snippet || lastMessage.snippet);
 
-    const cta = findCtaLink(lastMessage.parsedMessage.textHtml);
+    const cta = findCtaLink(lastMessage.textHtml);
 
     return (
       <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
@@ -112,10 +112,7 @@ export const EmailListItem = forwardRef(
 
                 <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-gray-900">
                   {extractNameFromEmail(
-                    participant(
-                      lastMessage.parsedMessage,
-                      props.userEmailAddress,
-                    ),
+                    participant(lastMessage, props.userEmailAddress),
                   )}{" "}
                   {thread.messages.length > 1 ? (
                     <span className="font-normal">
@@ -138,7 +135,7 @@ export const EmailListItem = forwardRef(
                       </Button>
                     )}
                     <div className="ml-2 min-w-0 overflow-hidden text-gray-700">
-                      {lastMessage.parsedMessage.headers.subject}
+                      {lastMessage.headers.subject}
                     </div>
                     <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
                       {decodedSnippet}
@@ -196,7 +193,7 @@ export const EmailListItem = forwardRef(
             {splitView && (
               <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
                 <div className="min-w-0 overflow-hidden font-medium text-gray-700">
-                  {lastMessage.parsedMessage.headers.subject}
+                  {lastMessage.headers.subject}
                 </div>
                 <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-gray-500">
                   {decodedSnippet}

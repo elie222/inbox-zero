@@ -52,7 +52,7 @@ export const POST = withError(async (request: Request): Promise<Response> => {
 
   const stream = await saveAiUsageStream({
     response,
-    provider: user.aiProvider,
+    provider,
     model,
     userEmail,
     messages,

@@ -85,7 +85,7 @@ export const navigation: NavItem[] = [
   //       },
   //     ]),
   // {
-  //   name: "Mail (Beta)",
+  //   name: "Mail (Alpha)",
   //   href: "/mail",
   //   icon: InboxIcon,
   // },

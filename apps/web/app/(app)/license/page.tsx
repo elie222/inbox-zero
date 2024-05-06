@@ -7,7 +7,7 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TopSection } from "@/components/TopSection";
-import { activateLicenseKey } from "@/utils/actions";
+import { activateLicenseKey } from "@/utils/actions/premium";
 import { UserResponse } from "@/app/api/user/me/route";
 import { AlertBasic } from "@/components/Alert";
 
@@ -26,7 +26,7 @@ export default function LicensePage({
     <div>
       <TopSection title="Activate your license" />
 
-      <div className="max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="content-container max-w-2xl py-6 ">
         {data?.premium?.lemonLicenseKey && (
           <AlertBasic
             variant="success"

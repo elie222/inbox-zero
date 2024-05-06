@@ -8,7 +8,10 @@ import { survey } from "@/app/(landing)/welcome/survey";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { env } from "@/env.mjs";
-import { completedOnboarding, saveOnboardingAnswers } from "@/utils/actions";
+import {
+  completedOnboarding,
+  saveOnboardingAnswers,
+} from "@/utils/actions/user";
 import { appHomePath } from "@/utils/config";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
@@ -119,7 +122,11 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
               error={errors[name]}
               placeholder="Optional"
             />
-            <Button className="mt-4 w-full" type="submit">
+            <Button
+              className="mt-4 w-full"
+              type="submit"
+              disabled={isSubmitting}
+            >
               {isSubmitting && <ButtonLoader />}
               Get Started
             </Button>

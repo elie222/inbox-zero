@@ -267,7 +267,7 @@ function LifetimePricing(props: {
           <h3 className="flex items-center font-cal text-2xl text-gray-900">
             Lifetime access
             <div className="ml-4">
-              <Tag color="green">Limited Time Offer</Tag>
+              <Tag variant="green">Limited Time Offer</Tag>
             </div>
           </h3>
           <p className="mt-6 text-base leading-7 text-gray-600">

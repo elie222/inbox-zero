@@ -23,7 +23,7 @@ import {
   GmailProvider,
   useGmail,
 } from "@/providers/GmailProvider";
-import { createLabelAction, updateLabels } from "@/utils/actions";
+import { createLabelAction, updateLabels } from "@/utils/actions/mail";
 import { useModal, Modal } from "@/components/Modal";
 import { type Label } from "@prisma/client";
 import { postRequest } from "@/utils/api";
@@ -262,7 +262,7 @@ export function LabelItem(props: {
   return (
     <div className="grid grid-cols-4 items-center gap-x-4 gap-y-6">
       <div className="">
-        <Tag color="white" customColors={label.color}>
+        <Tag variant="white" customColors={label.color}>
           {label?.type === "system" ? capitalCase(label.name) : label.name}
         </Tag>
       </div>

@@ -37,10 +37,8 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
             thread: {
               ...thread,
               messages: thread.messages?.map((message) => {
-                return {
-                  ...message,
-                  parsedMessage: parseMessage(message as MessageWithPayload),
-                };
+                // TODO need to fetch full message with `getMessage()` here?
+                return parseMessage(message as MessageWithPayload);
               }),
             },
           };

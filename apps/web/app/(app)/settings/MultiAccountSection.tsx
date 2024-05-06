@@ -16,7 +16,7 @@ import {
   saveMultiAccountPremiumBody,
   SaveMultiAccountPremiumBody,
 } from "@/app/api/user/settings/multi-account/validation";
-import { updateMultiAccountPremium } from "@/utils/actions";
+import { updateMultiAccountPremium } from "@/utils/actions/premium";
 import { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";

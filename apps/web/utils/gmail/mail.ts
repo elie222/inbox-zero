@@ -4,7 +4,7 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import Mail, { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
 import { parseMessage } from "@/utils/mail";
-import { MessageWithPayload } from "@/utils/types";
+import { getMessage } from "@/utils/gmail/message";
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -99,18 +99,15 @@ export async function forwardEmail(
     content?: string;
   },
 ) {
-  const message = await gmail.users.messages.get({
-    userId: "me",
-    id: options.messageId,
-  });
+  const m = await getMessage(options.messageId, gmail);
 
-  const messageId = message.data.id;
+  const messageId = m.id;
   if (!messageId) throw new Error("Message not found");
 
-  const parsedMessage = parseMessage(message.data as MessageWithPayload);
+  const message = parseMessage(m);
 
   const attachments = await Promise.all(
-    parsedMessage.attachments.map(async (attachment) => {
+    message.attachments?.map(async (attachment) => {
       const attachmentData = await gmail.users.messages.attachments.get({
         userId: "me",
         messageId,
@@ -121,36 +118,36 @@ export async function forwardEmail(
         contentType: attachment.mimeType,
         filename: attachment.filename,
       };
-    }),
+    }) || [],
   );
 
   const raw = await createRawMailMessage({
     to: options.to,
     cc: options.cc,
     bcc: options.bcc,
-    subject: `Fwd: ${parsedMessage.headers.subject}`,
+    subject: `Fwd: ${message.headers.subject}`,
     messageText: `${options.content ?? ""}
         
 ---------- Forwarded message ----------
-From: ${parsedMessage.headers.from}
-Date: ${parsedMessage.headers.date}
-Subject: ${parsedMessage.headers.subject}
-To: <${parsedMessage.headers.to}>
+From: ${message.headers.from}
+Date: ${message.headers.date}
+Subject: ${message.headers.subject}
+To: <${message.headers.to}>
 
-${parsedMessage.textPlain}`,
+${message.textPlain}`,
     messageHtml: `<div>${options.content ?? ""}</div>
 
 <div>---------- Forwarded message ----------</div>
-<div>From: ${parsedMessage.headers.from}</div>
-<div>Date: ${parsedMessage.headers.date}</div>
-<div>Subject: ${parsedMessage.headers.subject}</div>
-<div>To: <${parsedMessage.headers.to}></div>
+<div>From: ${message.headers.from}</div>
+<div>Date: ${message.headers.date}</div>
+<div>Subject: ${message.headers.subject}</div>
+<div>To: <${message.headers.to}></div>
 
 <br>
 
-${parsedMessage.textHtml}`,
+${message.textHtml}`,
     replyToEmail: {
-      threadId: message.data.threadId || "",
+      threadId: message.threadId || "",
       references: "",
       headerMessageId: "",
     },
@@ -160,7 +157,7 @@ ${parsedMessage.textHtml}`,
   const result = await gmail.users.messages.send({
     userId: "me",
     requestBody: {
-      threadId: message.data.threadId,
+      threadId: message.threadId,
       raw,
     },
   });

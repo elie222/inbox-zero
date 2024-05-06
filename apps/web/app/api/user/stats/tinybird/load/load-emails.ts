@@ -149,30 +149,27 @@ async function saveBatch(
     .map((m) => {
       if (!m.id || !m.threadId) return;
 
-      const parsedEmail = m.parsedMessage;
-
       const unsubscribeLink =
-        findUnsubscribeLink(parsedEmail.textHtml) ||
-        parsedEmail.headers["list-unsubscribe"];
+        findUnsubscribeLink(m.textHtml) || m.headers["list-unsubscribe"];
 
       const tinybirdEmail: TinybirdEmail = {
         ownerEmail,
         threadId: m.threadId,
         gmailMessageId: m.id,
-        from: parsedEmail.headers.from,
-        fromDomain: extractDomainFromEmail(parsedEmail.headers.from),
-        to: parsedEmail.headers.to || "Missing",
-        toDomain: parsedEmail.headers.to
-          ? extractDomainFromEmail(parsedEmail.headers.to)
+        from: m.headers.from,
+        fromDomain: extractDomainFromEmail(m.headers.from),
+        to: m.headers.to || "Missing",
+        toDomain: m.headers.to
+          ? extractDomainFromEmail(m.headers.to)
           : "Missing",
-        subject: parsedEmail.headers.subject,
-        timestamp: +new Date(parsedEmail.headers.date),
+        subject: m.headers.subject,
+        timestamp: +new Date(m.headers.date),
         unsubscribeLink,
-        read: !parsedEmail.labelIds?.includes("UNREAD"),
-        sent: !!parsedEmail.labelIds?.includes("SENT"),
-        draft: !!parsedEmail.labelIds?.includes("DRAFT"),
-        inbox: !!parsedEmail.labelIds?.includes("INBOX"),
-        sizeEstimate: m.sizeEstimate,
+        read: !m.labelIds?.includes("UNREAD"),
+        sent: !!m.labelIds?.includes("SENT"),
+        draft: !!m.labelIds?.includes("DRAFT"),
+        inbox: !!m.labelIds?.includes("INBOX"),
+        sizeEstimate: m.sizeEstimate ?? 0,
       };
 
       if (!tinybirdEmail.timestamp) {
@@ -180,7 +177,7 @@ async function saveBatch(
           "No timestamp for email",
           tinybirdEmail.ownerEmail,
           tinybirdEmail.gmailMessageId,
-          parsedEmail.headers.date,
+          m.headers.date,
         );
         return;
       }

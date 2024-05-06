@@ -78,6 +78,7 @@ model User {
   rules         Rule[]
   executedRules ExecutedRule[]
   newsletters   Newsletter[]
+  groups        Group[]
 }
 
 model Premium {
@@ -156,9 +157,19 @@ model Rule {
   actions       Action[]
   automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
   runOnThreads  Boolean        @default(false) // if disabled only runs on individual emails
+  type          RuleType       @default(AI)
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules ExecutedRule[]
+  groupId       String?        @unique
+  group         Group?         @relation(fields: [groupId], references: [id])
+
+  // automatically apply this rule if it matches a filter
+  // supports regex
+  from    String?
+  to      String?
+  subject String?
+  body    String?
 
   @@unique([name, userId])
 }
@@ -194,7 +205,7 @@ model ExecutedRule {
 
   // may be null if the rule was deleted
   ruleId String?
-  rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  rule   Rule?   @relation(fields: [ruleId], references: [id])
 
   // storing user here in case rule was deleted
   userId String
@@ -220,6 +231,32 @@ model ExecutedAction {
   to      String?
   cc      String?
   bcc     String?
+}
+
+model Group {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  name      String
+  prompt    String?
+  items     GroupItem[]
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rule      Rule?
+
+  @@unique([name, userId])
+}
+
+model GroupItem {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  groupId   String?
+  group     Group?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  type      GroupItemType
+  value     String // eg "@gmail.com", "matt@gmail.com", "Receipt from"
+
+  @@unique([groupId, type, value])
 }
 
 // Represents a sender (`email`) that a user can unsubscribe from,
@@ -298,4 +335,16 @@ enum ExecutedRuleStatus {
   REJECTED
   PENDING
   SKIPPED
+}
+
+enum RuleType {
+  AI
+  STATIC
+  GROUP
+}
+
+enum GroupItemType {
+  FROM
+  SUBJECT
+  BODY
 }

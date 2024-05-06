@@ -47,7 +47,6 @@ async function getColdEmails(
 
       return {
         id,
-        historyId: thread.historyId,
         messages,
         snippet: decodeSnippet(thread.snippet),
         plan: undefined,

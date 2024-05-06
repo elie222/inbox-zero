@@ -6,7 +6,7 @@ import { withError } from "@/utils/middleware";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { gmail_v1 } from "googleapis";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import { getEmailClient, parseMessage } from "@/utils/mail";
+import { getEmailClient } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 
@@ -106,18 +106,16 @@ async function getForwardingAddressesCount(gmail: gmail_v1.Gmail) {
 
 async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
   try {
-    const sentMessages = await queryBatchMessages(gmail, accessToken, {
+    const { messages } = await queryBatchMessages(gmail, accessToken, {
       query: "from:me",
-      maxResults: 20,
     });
 
     // go through the messages, and check the headers for the email client
-    const clients = sentMessages
+    const clients = messages
       .map((message) => {
-        const parsedMessage = parseMessage(message);
         return (
-          parsedMessage.headers["message-id"] &&
-          getEmailClient(parsedMessage.headers["message-id"])
+          message.headers["message-id"] &&
+          getEmailClient(message.headers["message-id"])
         );
       })
       .filter(isDefined);

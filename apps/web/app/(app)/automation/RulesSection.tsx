@@ -117,6 +117,7 @@ export function RulesForm(props: {
       const res = await postRequest<UpdateRulesResponse, UpdateRulesBody>(
         "/api/user/rules",
         data,
+        "PUT",
       );
 
       posthog.capture("Clicked Save Rules");
@@ -251,7 +252,7 @@ export function RulesForm(props: {
                       <div className="flex flex-1 space-x-2">
                         {props.rules?.[i]?.actions?.map((action) => {
                           return (
-                            <Tag key={action.id} color="green">
+                            <Tag key={action.id} variant="green">
                               {capitalCase(action.type)}
                             </Tag>
                           );

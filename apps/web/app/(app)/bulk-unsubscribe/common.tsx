@@ -17,7 +17,7 @@ import {
 import { usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
-import { onAutoArchive, onDeleteFilter } from "@/utils/actions-client";
+import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -28,10 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LabelsResponse } from "@/app/api/google/labels/route";
-import {
-  decrementUnsubscribeCredit,
-  setNewsletterStatus,
-} from "@/utils/actions";
+import { setNewsletterStatus } from "@/utils/actions/unsubscriber";
+import { decrementUnsubscribeCredit } from "@/utils/actions/premium";
 import {
   PremiumTooltip,
   PremiumTooltipContent,

@@ -6,7 +6,7 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
-import { changePremiumStatus } from "@/utils/actions";
+import { changePremiumStatus } from "@/utils/actions/premium";
 import { Select } from "@/components/Select";
 import {
   changePremiumStatusSchema,
