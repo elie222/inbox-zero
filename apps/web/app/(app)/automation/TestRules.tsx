@@ -69,10 +69,7 @@ export function TestRulesContent() {
           <CardContent>
             <TestRulesForm />
           </CardContent>
-
-          <div className="mt-4">
-            <Separator />
-          </div>
+          <Separator />
         </>
       )}
 
