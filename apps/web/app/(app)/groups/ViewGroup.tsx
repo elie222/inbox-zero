@@ -127,6 +127,7 @@ function ViewGroup({ groupId }: { groupId: string }) {
                               size="icon"
                               onClick={async () => {
                                 await deleteGroupItemAction(item.id);
+                                mutate();
                               }}
                             >
                               <TrashIcon className="h-4 w-4" />
