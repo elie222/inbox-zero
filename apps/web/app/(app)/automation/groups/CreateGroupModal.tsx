@@ -2,11 +2,11 @@
 
 import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
+import { useSWRConfig } from "swr";
 import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { isErrorMessage } from "@/utils/error";
 import {
   createGroupAction,
   createNewsletterGroupAction,
@@ -18,14 +18,19 @@ import { AlertBasic } from "@/components/Alert";
 
 export function CreateGroupModalButton(props: { existingGroups: string[] }) {
   const { isModalOpen, openModal, closeModal } = useModal();
+  const { mutate } = useSWRConfig();
 
-  const showNewsletter = !props.existingGroups.includes("Newsletter");
-  const showReceipts = !props.existingGroups.includes("Receipt");
-  const showCustomButton = showNewsletter || showReceipts;
+  const showNewsletter = !props.existingGroups.find((g) =>
+    g.toLowerCase().includes("newsletter"),
+  );
+  const showReceipts = !props.existingGroups.find((g) =>
+    g.toLowerCase().includes("receipt"),
+  );
 
   const [newsletterLoading, setNewsletterLoading] = useState(false);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
-  const [showCustom, setShowCustom] = useState(!showCustomButton);
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const showForm = showCustomForm || (!showNewsletter && !showReceipts);
 
   return (
     <>
@@ -48,6 +53,7 @@ export function CreateGroupModalButton(props: { existingGroups: string[] }) {
                     });
                   }
                   setNewsletterLoading(false);
+                  mutate("/api/user/group");
                 }}
                 color="white"
               >
@@ -70,19 +76,20 @@ export function CreateGroupModalButton(props: { existingGroups: string[] }) {
                     });
                   }
                   setReceiptsLoading(false);
+                  mutate("/api/user/group");
                 }}
               >
                 Receipt
               </Button>
             )}
-            {showCustomButton && (
-              <Button color="white" onClick={() => setShowCustom(true)}>
+            {!showForm && (
+              <Button color="white" onClick={() => setShowCustomForm(true)}>
                 Custom
               </Button>
             )}
           </div>
 
-          {showCustom && (
+          {showForm && (
             <div className="mt-4">
               <CreateGroupForm closeModal={closeModal} />
             </div>
@@ -101,16 +108,22 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
   } = useForm<CreateGroupBody>({
     resolver: zodResolver(createGroupBody),
   });
+  const { mutate } = useSWRConfig();
 
   const onSubmit: SubmitHandler<CreateGroupBody> = useCallback(
     async (data) => {
-      const res = await createGroupAction(data);
-      if (isErrorMessage(res))
-        toastError({ description: `There was an error creating the group.` });
-      else {
+      try {
+        await createGroupAction(data);
         toastSuccess({ description: `Group created!` });
         closeModal();
+      } catch (error) {
+        toastError({
+          description: `There was an error creating the group. ${
+            (error as Error).message
+          }`,
+        });
       }
+      mutate("/api/user/group");
     },
     [closeModal],
   );

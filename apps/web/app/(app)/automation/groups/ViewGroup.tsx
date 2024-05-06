@@ -87,6 +87,7 @@ function ViewGroup({ groupId }: { groupId: string }) {
               onClick={async () => {
                 if (confirm("Are you sure you want to delete this group?")) {
                   await deleteGroupAction(groupId);
+                  mutate();
                 }
               }}
             >
