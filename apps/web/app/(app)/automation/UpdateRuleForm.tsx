@@ -54,25 +54,22 @@ export function UpdateRuleForm(props: {
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
-  const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
-    async (data) => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const tab = searchParams.get("tab") || props.rule.type;
-      const body = cleanRule(data, tab as RuleType);
-      const res = props.rule.id
-        ? await updateRuleAction(body)
-        : await createRuleAction(body);
+  const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(async (data) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tab = searchParams.get("tab") || props.rule.type;
+    const body = cleanRule(data, tab as RuleType);
+    const res = body.id
+      ? await updateRuleAction(body)
+      : await createRuleAction(body);
 
-      if (isError(res)) {
-        console.error(res);
-        toastError({ description: `There was an error updating the rule.` });
-      } else {
-        toastSuccess({ description: `Saved!` });
-        router.replace(`/automation/rule/${props.rule.id}`);
-      }
-    },
-    [props.rule.id],
-  );
+    if (isError(res)) {
+      console.error(res);
+      toastError({ description: `There was an error updating the rule.` });
+    } else {
+      toastSuccess({ description: `Saved!` });
+      router.replace(`/automation/rule/${res.rule.id}`);
+    }
+  }, []);
 
   const router = useRouter();
 
