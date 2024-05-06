@@ -21,7 +21,7 @@ const defaultSelected = selectOptions[2];
 
 // Some copy paste from /stats page in here
 // May want to refactor some of this into a shared hook
-export default function NewslettersPage() {
+export default function BulkUnsubscribePage() {
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
