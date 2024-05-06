@@ -50,15 +50,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.3.4
         version: 3.3.4(react-hook-form@7.51.3(react@18.3.0))
-      '@inboxzero/embedding':
-        specifier: workspace:*
-        version: link:../../packages/embedding
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
-      '@inboxzero/pinecone':
-        specifier: workspace:*
-        version: link:../../packages/pinecone
       '@inboxzero/resend':
         specifier: workspace:*
         version: link:../../packages/resend
@@ -379,22 +373,6 @@ importers:
         specifier: ^1.13.3
         version: 1.13.3
 
-  packages/embedding:
-    dependencies:
-      openai:
-        specifier: ^4.38.5
-        version: 4.38.5(encoding@0.1.13)
-    devDependencies:
-      '@types/node':
-        specifier: 20.12.7
-        version: 20.12.7
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      typescript:
-        specifier: 5.4.5
-        version: 5.4.5
-
   packages/eslint-config-custom:
     dependencies:
       eslint-config-next:
@@ -415,22 +393,6 @@ importers:
       loops:
         specifier: ^2.0.0
         version: 2.0.0
-    devDependencies:
-      '@types/node':
-        specifier: 20.12.7
-        version: 20.12.7
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      typescript:
-        specifier: 5.4.5
-        version: 5.4.5
-
-  packages/pinecone:
-    dependencies:
-      '@pinecone-database/pinecone':
-        specifier: ^2.2.0
-        version: 2.2.0
     devDependencies:
       '@types/node':
         specifier: 20.12.7
@@ -1723,10 +1685,6 @@ packages:
   '@panva/hkdf@1.1.1':
     resolution: {integrity: sha512-dhPeilub1NuIG0X5Kvhh9lH4iW3ZsHlnzwgwbOlgwQ2wG1IqFzsgHqmKPk3WzsdWAeaxKJxgM0+W433RmN45GA==}
 
-  '@pinecone-database/pinecone@2.2.0':
-    resolution: {integrity: sha512-qfVs9n5YyTmerIV1GE1u89xF1W3oFSF53STW68Oqyxey0dGq4775cCw8G5pnwoy872uqfh+tMRDME9bcWfinUw==}
-    engines: {node: '>=14.0.0'}
-
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
@@ -2706,9 +2664,6 @@ packages:
 
   '@sinclair/typebox@0.27.8':
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
-
-  '@sinclair/typebox@0.29.6':
-    resolution: {integrity: sha512-aX5IFYWlMa7tQ8xZr3b2gtVReCvg7f3LEhjir/JAjX2bJCMVJA5tIPv30wTD4KDfcwMd7DDYY3hFDeGmOgtrZQ==}
 
   '@sinonjs/commons@3.0.0':
     resolution: {integrity: sha512-jXBtWAF4vmdNmZgD5FoKsVLv3rPgDnLgPbU84LIJ3otV44vJlDRokVng5v8NFJdCf/da9legHcKaRuZs4L7faA==}
@@ -3746,9 +3701,6 @@ packages:
   ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
 
-  ajv@8.12.0:
-    resolution: {integrity: sha512-sRu1kpcO9yLtYxBKvqfTeh9KzZEwO3STyX1HT+4CaDzC6HpTGYhIhPIzj9XuKU7KYDwnaeh5hcOwjy1QuJzBPA==}
-
   ansi-escapes@4.3.2:
     resolution: {integrity: sha512-gKXj5ALrKWQLsYG9jlTRmR/xKluxHV+Z9QEwNIgCfM1/uwPMCuzVVnh5mwTd+OuBZcwSIMbqssNWRm1lE51QaQ==}
     engines: {node: '>=8'}
@@ -4346,9 +4298,6 @@ packages:
   cron-parser@4.8.1:
     resolution: {integrity: sha512-jbokKWGcyU4gl6jAfX97E1gDpY12DJ1cLJZmoDzaAln/shZ+S3KBFBuA2Q6WeUN4gJf/8klnV1EfvhA2lK5IRQ==}
     engines: {node: '>=12.0.0'}
-
-  cross-fetch@3.1.8:
-    resolution: {integrity: sha512-cvA+JwZoU0Xq+h6WkMvAUqPEYy92Obet6UdKLfW60qn99ftItKjB5T+BkyWOFWe2pUyfQ+IJHmpOTznqk1M6Kg==}
 
   cross-spawn@7.0.3:
     resolution: {integrity: sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==}
@@ -6116,9 +6065,6 @@ packages:
   json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
 
-  json-schema-traverse@1.0.0:
-    resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
-
   json-schema@0.4.0:
     resolution: {integrity: sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA==}
 
@@ -7668,10 +7614,6 @@ packages:
 
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
-    engines: {node: '>=0.10.0'}
-
-  require-from-string@2.0.2:
-    resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
 
   requires-port@1.0.0:
@@ -10169,13 +10111,6 @@ snapshots:
 
   '@panva/hkdf@1.1.1': {}
 
-  '@pinecone-database/pinecone@2.2.0':
-    dependencies:
-      '@sinclair/typebox': 0.29.6
-      ajv: 8.12.0
-      cross-fetch: 3.1.8(encoding@0.1.13)
-      encoding: 0.1.13
-
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -11318,8 +11253,6 @@ snapshots:
       - supports-color
 
   '@sinclair/typebox@0.27.8': {}
-
-  '@sinclair/typebox@0.29.6': {}
 
   '@sinonjs/commons@3.0.0':
     dependencies:
@@ -12503,13 +12436,6 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
-  ajv@8.12.0:
-    dependencies:
-      fast-deep-equal: 3.1.3
-      json-schema-traverse: 1.0.0
-      require-from-string: 2.0.2
-      uri-js: 4.4.1
-
   ansi-escapes@4.3.2:
     dependencies:
       type-fest: 0.21.3
@@ -13191,12 +13117,6 @@ snapshots:
   cron-parser@4.8.1:
     dependencies:
       luxon: 3.4.0
-
-  cross-fetch@3.1.8(encoding@0.1.13):
-    dependencies:
-      node-fetch: 2.6.12(encoding@0.1.13)
-    transitivePeerDependencies:
-      - encoding
 
   cross-spawn@7.0.3:
     dependencies:
@@ -15600,8 +15520,6 @@ snapshots:
 
   json-schema-traverse@0.4.1: {}
 
-  json-schema-traverse@1.0.0: {}
-
   json-schema@0.4.0: {}
 
   json-stable-stringify-without-jsonify@1.0.1: {}
@@ -17687,8 +17605,6 @@ snapshots:
       vfile: 6.0.1
 
   require-directory@2.1.1: {}
-
-  require-from-string@2.0.2: {}
 
   requires-port@1.0.0: {}
 
