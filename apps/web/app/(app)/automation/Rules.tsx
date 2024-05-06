@@ -4,7 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
 import { MoreHorizontalIcon } from "lucide-react";
-import { RulesResponse } from "@/app/api/user/rules/controller";
+import { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

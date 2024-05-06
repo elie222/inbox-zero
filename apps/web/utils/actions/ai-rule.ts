@@ -6,7 +6,6 @@ import { RuleType, Prisma, ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { isError } from "@/utils/error";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
-import { deleteRule } from "@/app/api/user/rules/controller";
 import {
   runRulesOnMessage,
   testRulesOnMessage,
@@ -291,7 +290,9 @@ export async function deleteRuleAction(ruleId: string) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
-  await deleteRule({ ruleId }, session.user.id);
+  await prisma.rule.delete({
+    where: { id: ruleId, userId: session.user.id },
+  });
 }
 
 export async function setRuleAutomatedAction(

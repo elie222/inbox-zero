@@ -25,7 +25,7 @@ import {
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
 import { RuleType } from "@prisma/client";
-import { RulesResponse } from "@/app/api/user/rules/controller";
+import { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
 
