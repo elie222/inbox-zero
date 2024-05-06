@@ -18,7 +18,6 @@ import { Button } from "@/components/Button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
-import { isError } from "@/utils/error";
 import { ActionType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import { CreateRuleBody, createRuleBody } from "@/utils/actions/validation";
@@ -58,16 +57,21 @@ export function UpdateRuleForm(props: {
     const searchParams = new URLSearchParams(window.location.search);
     const tab = searchParams.get("tab") || props.rule.type;
     const body = cleanRule(data, tab as RuleType);
-    const res = body.id
-      ? await updateRuleAction(body)
-      : await createRuleAction(body);
 
-    if (isError(res)) {
-      console.error(res);
-      toastError({ description: `There was an error updating the rule.` });
-    } else {
+    try {
+      const res = body.id
+        ? await updateRuleAction(body)
+        : await createRuleAction(body);
+
       toastSuccess({ description: `Saved!` });
       router.replace(`/automation/rule/${res.rule.id}`);
+    } catch (error) {
+      console.error(error);
+      toastError({
+        description: `There was an error updating the rule. ${
+          (error as Error).message
+        }`,
+      });
     }
   }, []);
 
