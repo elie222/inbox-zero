@@ -27,6 +27,7 @@ import {
 import { RuleType } from "@prisma/client";
 import { RulesResponse } from "@/app/api/user/rules/controller";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { CardContent } from "@/components/ui/card";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -65,7 +66,9 @@ export function TestRulesContent() {
       {/* only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users  */}
       {rules?.some((rule) => rule.type === RuleType.AI) && (
         <>
-          <TestRulesForm />
+          <CardContent>
+            <TestRulesForm />
+          </CardContent>
 
           <div className="mt-4">
             <Separator />
