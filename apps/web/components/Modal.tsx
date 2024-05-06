@@ -27,7 +27,7 @@ export function useModal() {
 export function Modal(props: ModalProps) {
   return (
     <Transition appear show={props.isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-30" onClose={props.hideModal}>
+      <Dialog as="div" className="relative z-50" onClose={props.hideModal}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
