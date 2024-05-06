@@ -48,10 +48,12 @@ export function Groups() {
         {data?.groups.length ? (
           <GroupTable groups={data.groups} />
         ) : (
-          <AlertBasic
-            title="No groups"
-            description="No groups have been created yet."
-          />
+          <div className="mx-2 mb-2">
+            <AlertBasic
+              title="No groups"
+              description="No groups have been created yet."
+            />
+          </div>
         )}
       </LoadingContent>
     </Card>
