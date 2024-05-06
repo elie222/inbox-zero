@@ -169,7 +169,7 @@ async function saveBatch(
         sent: !!m.labelIds?.includes("SENT"),
         draft: !!m.labelIds?.includes("DRAFT"),
         inbox: !!m.labelIds?.includes("INBOX"),
-        sizeEstimate: m.sizeEstimate,
+        sizeEstimate: m.sizeEstimate ?? 0,
       };
 
       if (!tinybirdEmail.timestamp) {

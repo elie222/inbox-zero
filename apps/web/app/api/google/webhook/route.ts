@@ -25,9 +25,10 @@ export const maxDuration = 60;
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request: Request) => {
   const searchParams = new URL(request.url).searchParams;
+  const token = searchParams.get("token");
   if (
     env.GOOGLE_PUBSUB_VERIFICATION_TOKEN &&
-    searchParams.get("token") !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN
+    token !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN
   ) {
     console.error("Invalid verification token");
     return NextResponse.json(
