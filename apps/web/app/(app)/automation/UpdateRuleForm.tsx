@@ -18,17 +18,10 @@ import { Button } from "@/components/Button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
-import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { ActionType, RuleType } from "@prisma/client";
-import { Modal } from "@/components/Modal";
-import {
-  CreateRuleBody,
-  CreateRuleResponse,
-  updateRuleBody,
-  type UpdateRuleBody,
-  type UpdateRuleResponse,
-} from "@/app/api/user/rules/[id]/validation";
+import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
+import { CreateRuleBody, createRuleBody } from "@/utils/actions/validation";
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
@@ -41,36 +34,11 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
 
-export function RuleModal(props: {
-  rule?: UpdateRuleBody;
-  closeModal: () => void;
-  refetchRules: () => Promise<any>;
-}) {
-  return (
-    <Modal
-      isOpen={Boolean(props.rule)}
-      hideModal={props.closeModal}
-      title="Edit Rule"
-      size="4xl"
-    >
-      {props.rule && (
-        <UpdateRuleForm
-          rule={props.rule}
-          onSuccess={props.closeModal}
-          refetchRules={props.refetchRules}
-        />
-      )}
-    </Modal>
-  );
-}
-
 export function UpdateRuleForm(props: {
-  rule: UpdateRuleBody & { id?: string };
+  rule: CreateRuleBody & { id?: string };
   continueHref?: string;
-  onSuccess?: () => void;
-  refetchRules?: () => Promise<any>;
 }) {
-  const { onSuccess, continueHref, refetchRules } = props;
+  const { continueHref } = props;
 
   const {
     register,
@@ -79,40 +47,31 @@ export function UpdateRuleForm(props: {
     setValue,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<UpdateRuleBody>({
-    resolver: zodResolver(updateRuleBody),
+  } = useForm<CreateRuleBody>({
+    resolver: zodResolver(createRuleBody),
     defaultValues: { ...props.rule, groupId: props.rule.groupId },
   });
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
-  const onSubmit: SubmitHandler<UpdateRuleBody> = useCallback(
+  const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
       const tab = searchParams.get("tab") || props.rule.type;
       const body = cleanRule(data, tab as RuleType);
       const res = props.rule.id
-        ? await postRequest<UpdateRuleResponse, UpdateRuleBody>(
-            `/api/user/rules/${props.rule.id}`,
-            body,
-            "PATCH",
-          )
-        : await postRequest<CreateRuleResponse, CreateRuleBody>(
-            "/api/user/rules",
-            body,
-          );
-
-      await refetchRules?.();
+        ? await updateRuleAction(body)
+        : await createRuleAction(body);
 
       if (isError(res)) {
         console.error(res);
         toastError({ description: `There was an error updating the rule.` });
       } else {
         toastSuccess({ description: `Saved!` });
-        onSuccess?.();
+        router.replace(`/automation/rule/${props.rule.id}`);
       }
     },
-    [props.rule.id, onSuccess, refetchRules],
+    [props.rule.id],
   );
 
   const router = useRouter();
@@ -375,7 +334,7 @@ export function UpdateRuleForm(props: {
 
 function GroupsTab(props: {
   registerProps: UseFormRegisterReturn<"groupId">;
-  errors: FieldErrors<UpdateRuleBody>;
+  errors: FieldErrors<CreateRuleBody>;
   groupId?: string | null;
 }) {
   const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
@@ -429,7 +388,7 @@ function GroupsTab(props: {
   );
 }
 
-function cleanRule(rule: UpdateRuleBody, type: RuleType) {
+function cleanRule(rule: CreateRuleBody, type: RuleType) {
   if (type === RuleType.STATIC) {
     return {
       ...rule,

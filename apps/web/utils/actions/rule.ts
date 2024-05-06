@@ -1,27 +1,20 @@
-import "server-only";
-import prisma from "@/utils/prisma";
+"use server";
+
 import {
   CreateRuleBody,
-  type UpdateRuleBody,
-} from "@/app/api/user/rules/[id]/validation";
+  createRuleBody,
+  UpdateRuleBody,
+  updateRuleBody,
+} from "@/utils/actions/validation";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import prisma from "@/utils/prisma";
 
-export async function getRule(options: { id: string; userId: string }) {
-  const rule = await prisma.rule.findUniqueOrThrow({
-    where: {
-      id: options.id,
-      userId: options.userId,
-    },
-  });
-  return { rule };
-}
+export async function createRuleAction(options: CreateRuleBody) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
 
-export async function createRule({
-  userId,
-  body,
-}: {
-  userId: string;
-  body: CreateRuleBody;
-}) {
+  const body = createRuleBody.parse(options);
+
   const rule = await prisma.rule.create({
     data: {
       name: body.name || "",
@@ -35,7 +28,7 @@ export async function createRule({
             },
           }
         : undefined,
-      userId,
+      userId: session.user.id,
       from: body.from || undefined,
       to: body.to || undefined,
       subject: body.subject || undefined,
@@ -47,19 +40,16 @@ export async function createRule({
   return { rule };
 }
 
-export async function updateRule({
-  id,
-  userId,
-  body,
-}: {
-  id: string;
-  userId: string;
-  body: UpdateRuleBody;
-}) {
+export async function updateRuleAction(options: UpdateRuleBody) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const body = updateRuleBody.parse(options);
+
   const [, rule] = await prisma.$transaction([
-    prisma.action.deleteMany({ where: { ruleId: id } }),
+    prisma.action.deleteMany({ where: { ruleId: body.id } }),
     prisma.rule.update({
-      where: { id, userId },
+      where: { id: body.id, userId: session.user.id },
       data: {
         instructions: body.instructions || "",
         automate: body.automate ?? undefined,
@@ -82,11 +72,14 @@ export async function updateRule({
   return { rule };
 }
 
-export async function deleteRule(options: { id: string; userId: string }) {
+export async function deleteRuleAction(params: { id: string }) {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
   return await prisma.rule.delete({
     where: {
-      id: options.id,
-      userId: options.userId,
+      id: params.id,
+      userId: session.user.id,
     },
   });
 }

@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { UpdateRuleForm } from "@/app/(app)/automation/RuleModal";
+import { UpdateRuleForm } from "@/app/(app)/automation/UpdateRuleForm";
 import { TopSection } from "@/components/TopSection";
 
 export default async function RulePage({
