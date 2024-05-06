@@ -147,15 +147,16 @@ function Emails(props: { fromEmail: string; refreshInterval?: number }) {
           <TabsTrigger value="unarchived">Unarchived</TabsTrigger>
           <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
+
+        <div className="mt-2">
+          <TabsContent value="unarchived">
+            <UnarchivedEmails fromEmail={props.fromEmail} />
+          </TabsContent>
+          <TabsContent value="all">
+            <AllEmails fromEmail={props.fromEmail} />
+          </TabsContent>
+        </div>
       </Tabs>
-      <div className="mt-2">
-        <TabsContent value="unarchived">
-          <UnarchivedEmails fromEmail={props.fromEmail} />
-        </TabsContent>
-        <TabsContent value="all">
-          <AllEmails fromEmail={props.fromEmail} />
-        </TabsContent>
-      </div>
     </>
   );
 }
