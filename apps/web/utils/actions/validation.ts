@@ -27,7 +27,7 @@ export const zodActionType = z.enum([
   ActionType.SEND_EMAIL,
 ]);
 
-export const zodAction = z.object({
+const zodAction = z.object({
   type: zodActionType,
   label: z.string().nullish(),
   subject: z.string().nullish(),
@@ -49,7 +49,7 @@ export const createRuleBody = z.object({
   instructions: z.string().nullish(),
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
-  actions: z.array(zodAction).nullish(),
+  actions: z.array(zodAction),
   groupId: z.string().nullish(),
   from: z.string().nullish(),
   to: z.string().nullish(),
@@ -59,5 +59,8 @@ export const createRuleBody = z.object({
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
-export const updateRuleBody = createRuleBody.extend({ id: z.string() });
+export const updateRuleBody = createRuleBody.extend({
+  id: z.string(),
+  actions: z.array(zodAction.extend({ id: z.string().optional() })),
+});
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;

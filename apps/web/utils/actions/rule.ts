@@ -46,8 +46,22 @@ export async function updateRuleAction(options: UpdateRuleBody) {
 
   const body = updateRuleBody.parse(options);
 
-  const [, rule] = await prisma.$transaction([
-    prisma.action.deleteMany({ where: { ruleId: body.id } }),
+  const currentRule = await prisma.rule.findUniqueOrThrow({
+    where: { id: body.id, userId: session.user.id },
+    include: { actions: true },
+  });
+  const currentActions = currentRule.actions;
+
+  const actionsToDelete = currentActions.filter(
+    (currentAction) => !body.actions.find((a) => a.id === currentAction.id),
+  );
+  const actionsToUpdate = currentActions.filter((currentAction) =>
+    body.actions.find((a) => a.id === currentAction.id),
+  );
+  const actionsToCreate = body.actions.filter((a) => !a.id);
+
+  const [rule] = await prisma.$transaction([
+    // update rule
     prisma.rule.update({
       where: { id: body.id, userId: session.user.id },
       data: {
@@ -55,11 +69,6 @@ export async function updateRuleAction(options: UpdateRuleBody) {
         automate: body.automate ?? undefined,
         runOnThreads: body.runOnThreads ?? undefined,
         name: body.name || undefined,
-        actions: body.actions
-          ? {
-              createMany: { data: body.actions },
-            }
-          : undefined,
         from: body.from,
         to: body.to,
         subject: body.subject,
@@ -67,6 +76,48 @@ export async function updateRuleAction(options: UpdateRuleBody) {
         groupId: body.groupId,
       },
     }),
+    // delete removed actions
+    ...(actionsToDelete.length
+      ? [
+          prisma.action.deleteMany({
+            where: { id: { in: actionsToDelete.map((a) => a.id) } },
+          }),
+        ]
+      : []),
+    // update existing actions
+    ...(actionsToUpdate.length
+      ? [
+          prisma.action.updateMany({
+            where: { id: { in: actionsToUpdate.map((a) => a.id) } },
+            data: actionsToUpdate.map((a) => ({
+              type: a.type,
+              label: a.label,
+              subject: a.subject,
+              content: a.content,
+              to: a.to,
+              cc: a.cc,
+              bcc: a.bcc,
+            })),
+          }),
+        ]
+      : []),
+    // create new actions
+    ...(actionsToCreate.length
+      ? [
+          prisma.action.createMany({
+            data: actionsToCreate.map((a) => ({
+              ruleId: body.id,
+              type: a.type,
+              label: a.label,
+              subject: a.subject,
+              content: a.content,
+              to: a.to,
+              cc: a.cc,
+              bcc: a.bcc,
+            })),
+          }),
+        ]
+      : []),
   ]);
 
   return { rule };
