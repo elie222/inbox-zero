@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import Link from "next/link";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import {
@@ -148,7 +149,7 @@ export default function AutomationSettingsPage() {
             </>
           ) : (
             <>
-              <TypographyH3>Choose an example</TypographyH3>
+              <TypographyH3>Start from an example</TypographyH3>
 
               <div className="mt-2 space-y-1 text-sm leading-6 text-gray-700">
                 {examples.map((example) => {
@@ -170,6 +171,13 @@ export default function AutomationSettingsPage() {
                   );
                 })}
               </div>
+
+              <TypographyH3 className="pt-8">
+                Or set up a rule yourself
+              </TypographyH3>
+              <Button variant="outline" asChild>
+                <Link href="/automation/rule/create">Create rule</Link>
+              </Button>
             </>
           )}
         </form>

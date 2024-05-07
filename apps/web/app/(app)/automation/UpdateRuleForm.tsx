@@ -60,7 +60,7 @@ export function UpdateRuleForm(props: {
 
     try {
       const res = body.id
-        ? await updateRuleAction(body)
+        ? await updateRuleAction({ ...body, id: body.id })
         : await createRuleAction(body);
 
       toastSuccess({ description: `Saved!` });

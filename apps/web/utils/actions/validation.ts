@@ -44,7 +44,7 @@ export const zodRuleType = z.enum([
 ]);
 
 export const createRuleBody = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   name: z.string(),
   instructions: z.string().nullish(),
   automate: z.boolean().nullish(),
