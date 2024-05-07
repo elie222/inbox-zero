@@ -135,9 +135,9 @@ function getActionLabel(type: ActionType) {
     case ActionType.REPLY:
       return "Reply";
     case ActionType.SEND_EMAIL:
-      return "Send email";
+      return "Send";
     case ActionType.DRAFT_EMAIL:
-      return "Draft email";
+      return "Draft";
     default:
       return capitalCase(type);
   }

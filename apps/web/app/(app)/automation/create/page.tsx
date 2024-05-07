@@ -78,7 +78,7 @@ export default function AutomationSettingsPage() {
           });
           router.push(`/automation/rule/${rule.existingRuleId}`);
         } else {
-          router.push(`/automation/rule/${rule.id}/examples`);
+          router.push(`/automation/rule/${rule.id}?new=true`);
         }
       } catch (error) {
         console.error(error);
