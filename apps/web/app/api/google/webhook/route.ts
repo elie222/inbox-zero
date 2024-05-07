@@ -367,10 +367,6 @@ async function processHistoryItem(
         isThread,
       )
     ) {
-      const unsubscribeLink =
-        findUnsubscribeLink(message.textHtml) ||
-        message.headers["list-unsubscribe"];
-
       const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
         from: message.headers.from,
         date: message.headers.date,
@@ -379,7 +375,6 @@ async function processHistoryItem(
 
       await runColdEmailBlocker({
         hasPreviousEmail,
-        unsubscribeLink,
         email: {
           from: message.headers.from,
           subject: message.headers.subject,

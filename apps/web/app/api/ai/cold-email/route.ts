@@ -8,7 +8,6 @@ import { isColdEmail } from "@/app/api/ai/cold-email/controller";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
-import { getAiProviderAndModel } from "@/utils/llms";
 
 const coldEmailBlockerBody = z.object({
   email: z.object({
@@ -41,11 +40,6 @@ async function checkColdEmail(
     },
   });
 
-  const unsubscribeLink = findUnsubscribeLink(
-    body.email.textHtml || body.email.body,
-  );
-  // || message.headers["list-unsubscribe"];
-
   const hasPreviousEmail =
     body.email.date && body.email.threadId
       ? await hasPreviousEmailsFromSender(gmail, {
@@ -59,7 +53,6 @@ async function checkColdEmail(
     email: body.email,
     user,
     hasPreviousEmail,
-    unsubscribeLink,
   });
 
   return response;

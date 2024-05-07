@@ -20,7 +20,6 @@ type ColdEmailBlockerReason = "hasPreviousEmail" | "unsubscribeLink" | "ai";
 
 export async function isColdEmail(options: {
   hasPreviousEmail: boolean;
-  unsubscribeLink?: string;
   email: {
     from: string;
     subject: string;
@@ -33,9 +32,6 @@ export async function isColdEmail(options: {
 }> {
   if (options.hasPreviousEmail)
     return { isColdEmail: false, reason: "hasPreviousEmail" };
-  // need to check how true this is in practice
-  if (options.unsubscribeLink)
-    return { isColdEmail: false, reason: "unsubscribeLink" };
 
   // otherwise run through ai to see if it's a cold email
   const isColdEmail = await aiIsColdEmail(options.email, options.user);
@@ -124,7 +120,6 @@ Body: ${email.body}
 
 export async function runColdEmailBlocker(options: {
   hasPreviousEmail: boolean;
-  unsubscribeLink?: string;
   email: {
     from: string;
     subject: string;
