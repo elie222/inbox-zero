@@ -17,6 +17,7 @@ export async function createRuleAction(options: CreateRuleBody) {
 
   const rule = await prisma.rule.create({
     data: {
+      type: body.type,
       name: body.name || "",
       instructions: body.instructions || "",
       automate: body.automate ?? undefined,
@@ -65,6 +66,7 @@ export async function updateRuleAction(options: UpdateRuleBody) {
     prisma.rule.update({
       where: { id: body.id, userId: session.user.id },
       data: {
+        type: body.type,
         instructions: body.instructions || "",
         automate: body.automate ?? undefined,
         runOnThreads: body.runOnThreads ?? undefined,
