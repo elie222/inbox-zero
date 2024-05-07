@@ -49,7 +49,7 @@ const examples = [
   },
   {
     title: "Custom rule",
-    description: `Set up a custom rule.`,
+    description: "",
     icon: <PenLineIcon className="h-4 w-4" />,
   },
 ];
