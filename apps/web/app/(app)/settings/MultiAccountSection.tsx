@@ -17,7 +17,10 @@ import {
   saveMultiAccountPremiumBody,
   SaveMultiAccountPremiumBody,
 } from "@/app/api/user/settings/multi-account/validation";
-import { updateMultiAccountPremium } from "@/utils/actions/premium";
+import {
+  claimPremiumAdmin,
+  updateMultiAccountPremium,
+} from "@/utils/actions/premium";
 import { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
@@ -30,7 +33,7 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function MultiAccountSection() {
   const { data: session } = useSession();
-  const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
+  const { data, isLoading, error, mutate } = useSWR<MultiAccountEmailsResponse>(
     "/api/user/settings/multi-account",
   );
   const {
@@ -58,6 +61,27 @@ export function MultiAccountSection() {
           <LoadingContent loading={isLoading} error={error}>
             {data && (
               <div>
+                {!data?.admins.length && (
+                  <div className="mb-4">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          await claimPremiumAdmin();
+                          toastSuccess({ description: "Admin claimed!" });
+                        } catch (error) {
+                          toastError({
+                            description:
+                              "There was an error claiming the admin.",
+                          });
+                        }
+                        mutate();
+                      }}
+                    >
+                      Claim Admin
+                    </Button>
+                  </div>
+                )}
+
                 {premiumTier && (
                   <ExtraSeatsAlert
                     premiumTier={premiumTier}

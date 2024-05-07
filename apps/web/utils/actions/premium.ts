@@ -279,3 +279,21 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
     }
   }
 }
+
+export async function claimPremiumAdmin() {
+  const session = await auth();
+  if (!session?.user.id) throw new Error("Not logged in");
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: { premium: { select: { id: true, admins: true } } },
+  });
+
+  if (!user.premium?.id) throw new Error("User does not have a premium");
+  if (user.premium?.admins.length) throw new Error("Already has admin");
+
+  await prisma.premium.update({
+    where: { id: user.premium.id },
+    data: { admins: { connect: { id: session.user.id } } },
+  });
+}
