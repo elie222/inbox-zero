@@ -39,10 +39,7 @@ export default async function RulePage({
         />
       )}
       <div className="content-container mx-auto w-full max-w-3xl">
-        <UpdateRuleForm
-          rule={rule}
-          continueHref="/automation?tab=automations"
-        />
+        <UpdateRuleForm rule={rule} />
       </div>
     </div>
   );

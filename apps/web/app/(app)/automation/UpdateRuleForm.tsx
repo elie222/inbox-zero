@@ -35,10 +35,7 @@ import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
 
 export function UpdateRuleForm(props: {
   rule: CreateRuleBody & { id?: string };
-  continueHref?: string;
 }) {
-  const { continueHref } = props;
-
   const {
     register,
     handleSubmit,
@@ -303,29 +300,31 @@ export function UpdateRuleForm(props: {
       </div>
 
       <div className="flex justify-end space-x-2 py-6">
-        {props.rule.type !== RuleType.AI && (
-          <Button
-            color="white"
-            link={{ href: `/automation/rule/${props.rule.id}/examples` }}
-          >
-            View Examples
-          </Button>
-        )}
-        <Button
-          type="submit"
-          color={continueHref ? "white" : "primary"}
-          loading={isSubmitting}
-        >
-          Save
-        </Button>
-        {continueHref && (
-          <Button
-            onClick={async () => {
-              await handleSubmit(onSubmit)();
-              router.push(continueHref);
-            }}
-          >
-            Continue
+        {props.rule.id ? (
+          <>
+            {props.rule.type !== RuleType.AI && (
+              <Button
+                color="white"
+                link={{ href: `/automation/rule/${props.rule.id}/examples` }}
+              >
+                View Examples
+              </Button>
+            )}
+            <Button type="submit" color="white" loading={isSubmitting}>
+              Save
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleSubmit(onSubmit)();
+                router.push("/automation?tab=automations");
+              }}
+            >
+              Continue
+            </Button>
+          </>
+        ) : (
+          <Button type="submit" loading={isSubmitting}>
+            Create
           </Button>
         )}
       </div>

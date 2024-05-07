@@ -9,7 +9,6 @@ export default function CreateRulePage() {
           actions: [],
           type: "AI",
         }}
-        continueHref="/automation?tab=automations"
       />
     </div>
   );
