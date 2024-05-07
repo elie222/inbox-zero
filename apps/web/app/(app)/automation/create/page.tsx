@@ -112,13 +112,16 @@ export default function AutomationSettingsPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {typeof prompt === "string" ? (
             <>
-              <TypographyH3>Tell the AI what to do</TypographyH3>
+              <TypographyH3>
+                Instruct the AI how to process an incoming email
+              </TypographyH3>
 
               <Input
                 type="text"
                 as="textarea"
                 rows={4}
                 name="prompt"
+                placeholder={`eg. Forward receipts to alice@accountant.com.`}
                 className="mt-2 min-w-[500px]"
                 registerProps={register("prompt")}
                 error={errors.prompt}
