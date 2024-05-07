@@ -1,5 +1,6 @@
 "use server";
 
+import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { RuleType, Prisma, ExecutedRuleStatus } from "@prisma/client";
@@ -83,40 +84,49 @@ export async function testAiAction({
   messageId: string;
   threadId: string;
 }) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      email: true,
-      about: true,
-      aiProvider: true,
-      aiModel: true,
-      openAIApiKey: true,
-      rules: { include: { actions: true } },
+  return await withServerActionInstrumentation(
+    "testAiAction",
+    {
+      recordResponse: true,
     },
-  });
+    async () => {
+      const session = await auth();
+      if (!session?.user.id) throw new Error("Not logged in");
+      const gmail = getGmailClient(session);
 
-  const [gmailMessage, gmailThread] = await Promise.all([
-    getMessage(messageId, gmail, "full"),
-    getThread(threadId, gmail),
-  ]);
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: session.user.id },
+        select: {
+          id: true,
+          email: true,
+          about: true,
+          aiProvider: true,
+          aiModel: true,
+          openAIApiKey: true,
+          rules: { include: { actions: true } },
+        },
+      });
 
-  const message = parseMessage(gmailMessage);
-  const isThread = !!gmailThread?.messages && gmailThread.messages.length > 1;
+      const [gmailMessage, gmailThread] = await Promise.all([
+        getMessage(messageId, gmail, "full"),
+        getThread(threadId, gmail),
+      ]);
 
-  const result = await testRulesOnMessage({
-    gmail,
-    message,
-    rules: user.rules,
-    user: { ...user, email: user.email! },
-    isThread,
-  });
+      const message = parseMessage(gmailMessage);
+      const isThread =
+        !!gmailThread?.messages && gmailThread.messages.length > 1;
 
-  return result;
+      const result = await testRulesOnMessage({
+        gmail,
+        message,
+        rules: user.rules,
+        user: { ...user, email: user.email! },
+        isThread,
+      });
+
+      return result;
+    },
+  );
 }
 
 export async function testAiCustomContentAction({

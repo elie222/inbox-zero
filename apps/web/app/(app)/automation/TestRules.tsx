@@ -253,7 +253,7 @@ function TestResult({ response }: { response: TestAiActionResponse }) {
           <div className="mt-4 space-y-4">
             {!!aiGeneratedContent.length && (
               <div>
-                <strong>AI generated content: </strong>
+                <strong>Content: </strong>
                 {aiGeneratedContent}
               </div>
             )}
