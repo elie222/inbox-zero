@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
@@ -6,7 +5,6 @@ import { History } from "@/app/(app)/automation/History";
 import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma from "@/utils/prisma";
 import { Button } from "@/components/ui/button";
 import { Rules } from "@/app/(app)/automation/Rules";
 import { TestRulesContent } from "@/app/(app)/automation/TestRules";
@@ -22,17 +20,6 @@ import { Groups } from "@/app/(app)/automation/groups/Groups";
 export default async function AutomationPage() {
   const session = await auth();
   if (!session?.user) throw new Error("Not logged in");
-  const [rule, executedRule] = await Promise.all([
-    prisma.rule.findFirst({
-      where: { userId: session.user.id },
-      select: { id: true },
-    }),
-    prisma.executedRule.findFirst({
-      where: { userId: session.user.id },
-      select: { id: true },
-    }),
-  ]);
-  if (!rule && !executedRule) redirect("/automation/create");
 
   return (
     <Suspense>

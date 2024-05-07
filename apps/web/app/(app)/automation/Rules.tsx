@@ -7,7 +7,13 @@ import { MoreHorizontalIcon } from "lucide-react";
 import { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -148,7 +154,11 @@ export function Rules() {
         ) : (
           <>
             <CardHeader>
-              <CardTitle>No automations</CardTitle>
+              <CardTitle>Create your first automation</CardTitle>
+              <CardDescription>
+                Automations are the rules that will be applied to your incoming
+                emails.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild variant="outline">
