@@ -71,7 +71,10 @@ export function Rules() {
                   <TableCell className="whitespace-pre-wrap">
                     {rule.instructions}
                   </TableCell>
-                  <TableCell>{ruleTypeToString(rule.type)}</TableCell>
+                  <TableCell>
+                    {ruleTypeToString(rule.type)}
+                    {rule.group?.name ? `: ${rule.group.name}` : ""}
+                  </TableCell>
                   <TableCell>
                     <Actions actions={rule.actions} />
                   </TableCell>
