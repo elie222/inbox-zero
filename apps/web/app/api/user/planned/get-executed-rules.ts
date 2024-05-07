@@ -8,38 +8,42 @@ import prisma from "@/utils/prisma";
 
 const LIMIT = 50;
 
-export async function getExecutedRules(status: ExecutedRuleStatus) {
+export async function getExecutedRules(
+  status: ExecutedRuleStatus,
+  page: number,
+) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not authenticated");
 
-  const pendingExecutedRules = await prisma.executedRule.findMany({
-    where: { userId: session.user.id, status },
-    take: LIMIT,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      messageId: true,
-      threadId: true,
-      rule: true,
-      actionItems: true,
-      status: true,
-      reason: true,
-      automated: true,
-      createdAt: true,
-    },
-  });
+  const [pendingExecutedRules, total] = await Promise.all([
+    prisma.executedRule.findMany({
+      where: { userId: session.user.id, status, rule: { isNot: null } },
+      take: LIMIT,
+      skip: (page - 1) * LIMIT,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        messageId: true,
+        threadId: true,
+        rule: true,
+        actionItems: true,
+        status: true,
+        reason: true,
+        automated: true,
+        createdAt: true,
+      },
+    }),
+    prisma.executedRule.count({
+      where: { userId: session.user.id, status, rule: { isNot: null } },
+    }),
+  ]);
 
   const gmail = getGmailClient(session);
 
-  const pendingRulesWithMessage = await Promise.all(
+  const executedRules = await Promise.all(
     pendingExecutedRules.map(async (p) => {
-      if (!p.rule) return;
       try {
         const message = await getMessage(p.messageId, gmail);
-
-        const threadId = message.threadId;
-        if (!threadId) return;
-
         return {
           ...p,
           message: parseMessage(message),
@@ -50,5 +54,8 @@ export async function getExecutedRules(status: ExecutedRuleStatus) {
     }),
   );
 
-  return pendingRulesWithMessage.filter(isDefined);
+  return {
+    executedRules: executedRules.filter(isDefined),
+    totalPages: Math.ceil(total / LIMIT),
+  };
 }

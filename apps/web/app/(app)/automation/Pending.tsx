@@ -23,16 +23,16 @@ import {
   ActionItemsCell,
   EmailCell,
   RuleCell,
+  TablePagination,
   // DateCell,
 } from "@/app/(app)/automation/ExecutedRulesTable";
+import { useSearchParams } from "next/navigation";
 
 export function Pending() {
+  const searchParams = useSearchParams();
+  const page = parseInt(searchParams.get("page") || "1");
   const { data, isLoading, error, mutate } = useSWR<PendingExecutedRules>(
-    "/api/user/planned",
-    {
-      keepPreviousData: true,
-      dedupingInterval: 1_000,
-    },
+    `/api/user/planned?page=${page}`,
   );
 
   const session = useSession();
@@ -40,9 +40,10 @@ export function Pending() {
   return (
     <Card>
       <LoadingContent loading={isLoading} error={error}>
-        {data?.length ? (
+        {data?.executedRules.length ? (
           <PendingTable
-            pending={data}
+            pending={data.executedRules}
+            totalPages={data.totalPages}
             userEmail={session.data?.user.email || ""}
             mutate={mutate}
           />
@@ -59,52 +60,58 @@ export function Pending() {
 
 function PendingTable({
   pending,
+  totalPages,
   userEmail,
   mutate,
 }: {
-  pending: PendingExecutedRules;
+  pending: PendingExecutedRules["executedRules"];
+  totalPages: number;
   userEmail: string;
   mutate: () => void;
 }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Email</TableHead>
-          <TableHead>Rule</TableHead>
-          <TableHead>Action items</TableHead>
-          <TableHead />
-          {/* <TableHead /> */}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {pending.map((p) => (
-          <TableRow key={p.id}>
-            <TableCell>
-              <EmailCell
-                from={p.message.headers.from}
-                subject={p.message.headers.subject}
-                snippet={p.message.snippet}
-                messageId={p.message.id}
-                userEmail={userEmail}
-              />
-            </TableCell>
-            <TableCell>
-              <RuleCell rule={p.rule} />
-            </TableCell>
-            <TableCell>
-              <ActionItemsCell actionItems={p.actionItems} />
-            </TableCell>
-            <TableCell>
-              <ExecuteButtons id={p.id} message={p.message} mutate={mutate} />
-            </TableCell>
-            {/* <TableCell>
+    <div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Email</TableHead>
+            <TableHead>Rule</TableHead>
+            <TableHead>Action items</TableHead>
+            <TableHead />
+            {/* <TableHead /> */}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pending.map((p) => (
+            <TableRow key={p.id}>
+              <TableCell>
+                <EmailCell
+                  from={p.message.headers.from}
+                  subject={p.message.headers.subject}
+                  snippet={p.message.snippet}
+                  messageId={p.message.id}
+                  userEmail={userEmail}
+                />
+              </TableCell>
+              <TableCell>
+                <RuleCell rule={p.rule} />
+              </TableCell>
+              <TableCell>
+                <ActionItemsCell actionItems={p.actionItems} />
+              </TableCell>
+              <TableCell>
+                <ExecuteButtons id={p.id} message={p.message} mutate={mutate} />
+              </TableCell>
+              {/* <TableCell>
               <DateCell createdAt={p.createdAt} />
             </TableCell> */}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <TablePagination totalPages={totalPages} />
+    </div>
   );
 }
 
