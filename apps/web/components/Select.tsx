@@ -1,6 +1,6 @@
 import { FieldError } from "react-hook-form";
+import clsx from "clsx";
 import { ErrorMessage, ExplainText, Label } from "@/components/Input";
-
 interface SelectProps<T> {
   name: string;
   label: string;
@@ -16,11 +16,14 @@ export function Select<T extends string | number = string>(
 ) {
   return (
     <div>
-      <Label name={props.name} label={props.label} />
+      {props.label ? <Label name={props.name} label={props.label} /> : null}
       <select
         id={props.name}
         name={props.name}
-        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6"
+        className={clsx(
+          "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6",
+          props.label && "mt-1",
+        )}
         disabled={props.disabled}
         {...props.registerProps}
       >

@@ -17,7 +17,7 @@ export const Toggle = (props: ToggleProps) => {
 
   return (
     <div>
-      <Switch.Group as="div" className="flex items-center">
+      <Switch.Group as="div" className="flex items-center justify-center">
         {label && (
           <Switch.Label as="span" className="mr-3">
             <Label name={props.name} label={label} />
@@ -28,7 +28,7 @@ export const Toggle = (props: ToggleProps) => {
           onChange={onChange}
           className={clsx(
             enabled ? "bg-black" : "bg-gray-200",
-            "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+            "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2",
           )}
         >
           <span className="sr-only">{label}</span>
@@ -36,7 +36,7 @@ export const Toggle = (props: ToggleProps) => {
             aria-hidden="true"
             className={clsx(
               enabled ? "translate-x-5" : "translate-x-0",
-              "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+              "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
             )}
           />
         </Switch>

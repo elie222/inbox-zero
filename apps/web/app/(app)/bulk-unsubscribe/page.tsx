@@ -21,7 +21,7 @@ const defaultSelected = selectOptions[2];
 
 // Some copy paste from /stats page in here
 // May want to refactor some of this into a shared hook
-export default function NewslettersPage() {
+export default function BulkUnsubscribePage() {
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
@@ -48,7 +48,7 @@ export default function NewslettersPage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 flex border-b bg-white px-4 py-2 shadow sm:justify-between">
+      <div className="sticky top-0 z-10 border-b bg-white px-4 py-2 shadow sm:flex sm:justify-between">
         <div className="flex items-center">
           <OnboardingModal
             title="Getting started with Bulk Unsubscribe"
@@ -66,7 +66,7 @@ export default function NewslettersPage() {
           />
         </div>
 
-        <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
+        <div className="mt-1 space-y-1 sm:mt-0 sm:flex sm:space-x-1 sm:space-y-0">
           <ActionBar
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}

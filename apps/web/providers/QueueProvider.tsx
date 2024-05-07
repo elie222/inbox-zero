@@ -2,16 +2,15 @@
 
 import { useEffect } from "react";
 import PQueue from "p-queue";
-import uniqBy from "lodash/uniqBy";
+import { runRules } from "@/utils/actions/ai-rule";
 import {
   archiveThreadAction,
   markReadThreadAction,
-  runAiAction,
   trashThreadAction,
-} from "@/utils/actions";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
+} from "@/utils/actions/mail";
+import { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
-import { Thread } from "@/components/email-list/types";
+import { type Thread } from "@/components/email-list/types";
 
 const queue = new PQueue({ concurrency: 3 });
 
@@ -36,26 +35,25 @@ export const archiveEmails = async (
   );
 };
 
+export const markReadThreads = async (
+  threadIds: string[],
+  refetch: () => void,
+) => {
+  queue.addAll(
+    threadIds.map((threadId) => async () => {
+      await markReadThreadAction(threadId, true);
+      refetch();
+    }),
+  );
+};
+
 export const deleteEmails = async (
   threadIds: string[],
   refetch: () => void,
 ) => {
   queue.addAll(
     threadIds.map((threadId) => async () => {
-      trashThreadAction(threadId);
-      refetch();
-    }),
-  );
-};
-
-export const markReadThreads = async (
-  threadIds: string[],
-  read: boolean,
-  refetch: () => void,
-) => {
-  queue.addAll(
-    threadIds.map((threadId) => async () => {
-      await markReadThreadAction(threadId, read);
+      await trashThreadAction(threadId);
       refetch();
     }),
   );
@@ -71,10 +69,9 @@ export const runAiRules = async (
 
   queue.addAll(
     threads.map((thread) => async () => {
-      const message = threadToRunAiEmail(thread);
+      const message = threadToRunRulesEmail(thread);
       if (!message) return;
-      console.log("runAiRules on thread:", message.subject);
-      await runAiAction(message);
+      await runRules(message);
       removeFromAiQueueAtom(thread.id);
       // updateRunAiQueueStorage([thread], "complete");
       // refetch();
@@ -82,26 +79,25 @@ export const runAiRules = async (
   );
 };
 
-function threadToRunAiEmail(
-  thread: Thread,
-): ActBodyWithHtml["email"] | undefined {
+function threadToRunRulesEmail(thread: Thread): EmailForAction | undefined {
   const message = thread.messages?.[thread.messages.length - 1];
   if (!message) return;
-  const email = {
-    from: message.parsedMessage.headers.from,
-    to: message.parsedMessage.headers.to,
-    date: message.parsedMessage.headers.date,
-    replyTo: message.parsedMessage.headers["reply-to"],
-    cc: message.parsedMessage.headers.cc,
-    subject: message.parsedMessage.headers.subject,
-    textPlain: message.parsedMessage.textPlain || null,
-    textHtml: message.parsedMessage.textHtml || null,
-    snippet: thread.snippet,
+  const email: EmailForAction = {
+    from: message.headers.from,
+    // to: message.headers.to,
+    // date: message.headers.date,
+    replyTo: message.headers["reply-to"],
+    // cc: message.headers.cc,
+    subject: message.headers.subject,
+    // textPlain: message.textPlain || null,
+    // textHtml: message.textHtml || null,
+    // snippet: thread.snippet,
     threadId: message.threadId || "",
     messageId: message.id || "",
-    headerMessageId: message.parsedMessage.headers["message-id"] || "",
-    references: message.parsedMessage.headers.references,
+    headerMessageId: message.headers["message-id"] || "",
+    references: message.headers.references,
   };
+
   return email;
 }
 
@@ -111,13 +107,14 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     if (pendingArchive) archiveEmails(pendingArchive, () => {});
 
     const pendingMarkRead = getPendingEmails("markReadQueue");
-    if (pendingMarkRead) archiveEmails(pendingMarkRead, () => {});
+    if (pendingMarkRead) markReadThreads(pendingMarkRead, () => {});
 
     const pendingDelete = getPendingEmails("deleteQueue");
-    if (pendingDelete) archiveEmails(pendingDelete, () => {});
+    if (pendingDelete) deleteEmails(pendingDelete, () => {});
 
-    const pendingAi = getPendingEmails("aiRuleQueue");
-    if (pendingAi) archiveEmails(pendingAi, () => {});
+    // TODO revisit this to make it's working as intended
+    // const pendingAi = getPendingEmails("aiRuleQueue");
+    // if (pendingAi) runAiRules(pendingAi);
   }, []);
 
   return <>{children}</>;
@@ -143,27 +140,27 @@ function updateQueueStorage(
 }
 
 // Copy and paste of the above. Might be able to refactor to use a generic
-function updateRunAiQueueStorage(
-  threads: ActBodyWithHtml["email"][],
-  state: "pending" | "complete",
-) {
-  const name: QueueNameLocalStorage = "aiRuleQueue";
-  const currentStateString = localStorage.getItem(name);
+// function updateRunAiQueueStorage(
+//   threads: EmailForAction[],
+//   state: "pending" | "complete",
+// ) {
+//   const name: QueueNameLocalStorage = "aiRuleQueue";
+//   const currentStateString = localStorage.getItem(name);
 
-  if (currentStateString) {
-    const currentState: ActBodyWithHtml["email"][] =
-      JSON.parse(currentStateString);
-    const updatedState: ActBodyWithHtml["email"][] =
-      state === "pending"
-        ? uniqBy([...currentState, ...threads], (t) => t.threadId)
-        : currentState.filter(
-            ({ threadId }) => !threads.find((t) => t.threadId === threadId),
-          );
-    localStorage.setItem(name, JSON.stringify(updatedState));
-  } else {
-    return localStorage.setItem(name, JSON.stringify(threads));
-  }
-}
+//   if (currentStateString) {
+//     const currentState: EmailForAction[] =
+//       JSON.parse(currentStateString);
+//     const updatedState: EmailForAction[] =
+//       state === "pending"
+//         ? uniqBy([...currentState, ...threads], (t) => t.threadId)
+//         : currentState.filter(
+//             ({ threadId }) => !threads.find((t) => t.threadId === threadId),
+//           );
+//     localStorage.setItem(name, JSON.stringify(updatedState));
+//   } else {
+//     return localStorage.setItem(name, JSON.stringify(threads));
+//   }
+// }
 
 function getPendingEmails(name: QueueNameLocalStorage) {
   const currentStateString = localStorage.getItem(name);

@@ -1,18 +1,46 @@
 import { type gmail_v1 } from "googleapis";
-import { draftEmail, sendEmail } from "@/utils/gmail/mail";
-import { ActionType } from "@prisma/client";
+import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
+import { ActionType, ExecutedAction } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
 import { labelThread } from "@/utils/gmail/label";
 import { getUserLabel } from "@/utils/label";
 import { markSpam } from "@/utils/gmail/spam";
+import { Attachment } from "@/utils/types/mail";
 
-type ActionFunction = (
+export type EmailForAction = {
+  threadId: string;
+  messageId: string;
+  references?: string;
+  headerMessageId: string;
+  subject: string;
+  from: string;
+  replyTo?: string;
+};
+
+export type ActionItem = {
+  type: ExecutedAction["type"];
+  label?: ExecutedAction["label"];
+  subject?: ExecutedAction["subject"];
+  content?: ExecutedAction["content"];
+  to?: ExecutedAction["to"];
+  cc?: ExecutedAction["cc"];
+  bcc?: ExecutedAction["bcc"];
+};
+
+type ActionFunction<T extends Omit<ActionItem, "type">> = (
   gmail: gmail_v1.Gmail,
-  email: ActBodyWithHtml["email"],
-  args: any,
+  email: EmailForAction,
+  args: T,
   userEmail: string,
 ) => Promise<any>;
+
+export type Properties = PartialRecord<
+  "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
+  {
+    type: string;
+    description: string;
+  }
+>;
 
 type ActionFunctionDef = {
   name: string;
@@ -20,13 +48,7 @@ type ActionFunctionDef = {
   parameters:
     | {
         type: string;
-        properties: PartialRecord<
-          "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
-          {
-            type: string;
-            description: string;
-          }
-        >;
+        properties: Properties;
         required: string[];
       }
     | { type: string; properties?: undefined; required: string[] };
@@ -194,30 +216,6 @@ const MARK_SPAM: ActionFunctionDef = {
   action: ActionType.MARK_SPAM,
 };
 
-// const ASK_FOR_MORE_INFORMATION: ActionFunctionDef = {
-//   name: "ask_for_more_information",
-//   description: "Ask for more information on how to handle the email.",
-//   parameters: {
-//     type: "object",
-//     properties: {
-//       from: {
-//         type: "string",
-//         description: "The email address of the sender.",
-//       },
-//       subject: {
-//         type: "string",
-//         description: "The subject of the email.",
-//       },
-//       content: {
-//         type: "string",
-//         description: "The content of the email.",
-//       },
-//     },
-//     required: [],
-//   },
-//   action: null,
-// };
-
 export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.ARCHIVE]: ARCHIVE,
   [ActionType.LABEL]: LABEL,
@@ -226,22 +224,9 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.SEND_EMAIL]: SEND_EMAIL,
   [ActionType.FORWARD]: FORWARD_EMAIL,
   [ActionType.MARK_SPAM]: MARK_SPAM,
-  // [ActionType.ADD_TO_DO]: ADD_TO_DO,
-  // [ActionType.CALL_WEBHOOK]: CALL_WEBHOOK,
-  // ASK_FOR_MORE_INFORMATION
 };
 
-export const actionFunctions: ActionFunctionDef[] = [
-  // ASK_FOR_MORE_INFORMATION,
-  ARCHIVE,
-  LABEL,
-  DRAFT_EMAIL,
-  REPLY_TO_EMAIL,
-  SEND_EMAIL,
-  FORWARD_EMAIL,
-];
-
-const archive: ActionFunction = async (gmail, email) => {
+const archive: ActionFunction<{}> = async (gmail, email) => {
   await gmail.users.threads.modify({
     userId: "me",
     id: email.threadId,
@@ -251,10 +236,10 @@ const archive: ActionFunction = async (gmail, email) => {
   });
 };
 
-const label: ActionFunction = async (
+const label: ActionFunction<{ label: string } | any> = async (
   gmail,
   email,
-  args: { label: string },
+  args,
   userEmail,
 ) => {
   const label = await getUserLabel({
@@ -272,13 +257,14 @@ const label: ActionFunction = async (
   });
 };
 
-const draft: ActionFunction = async (
+const draft: ActionFunction<any> = async (
   gmail,
   email,
   args: {
     to: string;
     subject: string;
     content: string;
+    attachments?: Attachment[];
   },
 ) => {
   await draftEmail(gmail, {
@@ -290,10 +276,11 @@ const draft: ActionFunction = async (
       references: email.references,
       headerMessageId: email.headerMessageId,
     },
+    attachments: args.attachments,
   });
 };
 
-const send_email: ActionFunction = async (
+const send_email: ActionFunction<any> = async (
   gmail,
   _email,
   args: {
@@ -302,6 +289,7 @@ const send_email: ActionFunction = async (
     content: string;
     cc: string;
     bcc: string;
+    attachments?: Attachment[];
   },
 ) => {
   await sendEmail(gmail, {
@@ -310,16 +298,18 @@ const send_email: ActionFunction = async (
     bcc: args.bcc,
     subject: args.subject,
     messageText: args.content,
+    attachments: args.attachments,
   });
 };
 
-const reply: ActionFunction = async (
+const reply: ActionFunction<any> = async (
   gmail,
   email,
   args: {
     content: string;
     cc: string; // TODO - do we allow the ai to adjust this?
     bcc: string;
+    attachments?: Attachment[];
   },
 ) => {
   await sendEmail(gmail, {
@@ -333,10 +323,11 @@ const reply: ActionFunction = async (
     bcc: args.bcc,
     subject: email.subject,
     messageText: args.content,
+    attachments: args.attachments,
   });
 };
 
-const forward: ActionFunction = async (
+const forward: ActionFunction<any> = async (
   gmail,
   email,
   args: {
@@ -347,64 +338,30 @@ const forward: ActionFunction = async (
   },
 ) => {
   // We may need to make sure the AI isn't adding the extra forward content on its own
-  // TODO handle HTML emails
-  // TODO handle attachments
-  await sendEmail(gmail, {
+  await forwardEmail(gmail, {
+    messageId: email.messageId,
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
-    replyToEmail: {
-      threadId: email.threadId,
-      references: "",
-      headerMessageId: "",
-    },
-    subject: `Fwd: ${email.subject}`,
-    messageText: `${args.content ?? ""}
-
----------- Forwarded message ----------
-
-From: ${email.from}
-
-Date: ${email.date}
-
-Subject: ${email.subject}
-
-To: ${email.to}
-
-${email.textHtml || email.textPlain}`,
+    content: args.content,
   });
 };
 
-const mark_spam: ActionFunction = async (
+const mark_spam: ActionFunction<any> = async (
   gmail: gmail_v1.Gmail,
-  email: ActBodyWithHtml["email"],
+  email: EmailForAction,
 ) => {
   return await markSpam({ gmail, threadId: email.threadId });
 };
 
-// const add_to_do: ActionFunction = async (_gmail: gmail_v1.Gmail, args: { email_id: string, title: string }) => {};
-
-// const call_webhook: ActionFunction = async (_gmail: gmail_v1.Gmail, args: { url: string, content: string }) => {};
-
-export const ACTION_PROPERTIES = [
-  "label",
-  "to",
-  "cc",
-  "bcc",
-  "subject",
-  "content",
-] as const;
-
-export type ActionProperty = (typeof ACTION_PROPERTIES)[number];
-
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
-  email: ActBodyWithHtml["email"],
-  action: ActionType,
-  args: PartialRecord<ActionProperty, string>,
+  email: EmailForAction,
+  action: ActionItem,
   userEmail: string,
-): Promise<any> => {
-  switch (action) {
+) => {
+  const { type, ...args } = action;
+  switch (type) {
     case ActionType.ARCHIVE:
       return archive(gmail, email, args, userEmail);
     case ActionType.LABEL:
@@ -419,12 +376,6 @@ export const runActionFunction = async (
       return forward(gmail, email, args, userEmail);
     case ActionType.MARK_SPAM:
       return mark_spam(gmail, email, args, userEmail);
-    // case "ask_for_more_information":
-    //   return;
-    // case "add_to_do":
-    //   return add_to_do;
-    // case "call_webhook":
-    //   return call_webhook;
     default:
       throw new Error(`Unknown action: ${action}`);
   }

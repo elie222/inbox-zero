@@ -17,7 +17,7 @@ import {
 import { usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
-import { onAutoArchive, onDeleteFilter } from "@/utils/actions-client";
+import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -28,16 +28,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LabelsResponse } from "@/app/api/google/labels/route";
-import {
-  decrementUnsubscribeCredit,
-  setNewsletterStatus,
-} from "@/utils/actions";
+import { setNewsletterStatus } from "@/utils/actions/unsubscriber";
+import { decrementUnsubscribeCredit } from "@/utils/actions/premium";
 import {
   PremiumTooltip,
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 
 export type Row = {
   name: string;
@@ -84,6 +83,7 @@ export function ActionCell<T extends Row>(props: {
   setOpenedNewsletter: React.Dispatch<React.SetStateAction<T | undefined>>;
   selected: boolean;
   gmailLabels: LabelsResponse["labels"];
+  openPremiumModal: () => void;
 }) {
   const {
     item,
@@ -102,16 +102,18 @@ export function ActionCell<T extends Row>(props: {
 
   const userGmailLabels = useMemo(
     () =>
-      gmailLabels?.filter(
-        (l) =>
-          l.id && l.type === "user" && l.labelListVisibility === "labelShow",
-      ),
+      gmailLabels
+        ?.filter((l) => l.id && l.type === "user")
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
     [gmailLabels],
   );
 
   return (
     <>
-      <PremiumTooltip showTooltip={!hasUnsubscribeAccess}>
+      <PremiumTooltip
+        showTooltip={!hasUnsubscribeAccess}
+        openModal={props.openPremiumModal}
+      >
         <Button
           size="sm"
           variant={
@@ -126,7 +128,11 @@ export function ActionCell<T extends Row>(props: {
                 ? undefined
                 : "pointer-events-none opacity-50"
             }
-            href={hasUnsubscribeAccess ? item.lastUnsubscribeLink ?? "#" : "#"}
+            href={
+              hasUnsubscribeAccess
+                ? cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#")
+                : "#"
+            }
             target="_blank"
             onClick={async () => {
               if (!hasUnsubscribeAccess) return;
@@ -161,7 +167,9 @@ export function ActionCell<T extends Row>(props: {
       </PremiumTooltip>
       <Tooltip
         contentComponent={
-          !hasUnsubscribeAccess ? <PremiumTooltipContent /> : undefined
+          !hasUnsubscribeAccess ? (
+            <PremiumTooltipContent openModal={props.openPremiumModal} />
+          ) : undefined
         }
         content={
           hasUnsubscribeAccess
@@ -303,7 +311,9 @@ export function ActionCell<T extends Row>(props: {
       </Tooltip>
       <Tooltip
         contentComponent={
-          !hasUnsubscribeAccess ? <PremiumTooltipContent /> : undefined
+          !hasUnsubscribeAccess ? (
+            <PremiumTooltipContent openModal={props.openPremiumModal} />
+          ) : undefined
         }
         content={
           hasUnsubscribeAccess
@@ -404,6 +414,9 @@ export function useNewsletterShortcuts<T extends Row>({
       const item = selectedRow;
       if (!item) return;
 
+      // to prevent when typing in an input such as Crisp support
+      if (document?.activeElement?.tagName !== "BODY") return;
+
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         const index = newsletters?.findIndex((n) => n.name === item.name);
@@ -438,7 +451,7 @@ export function useNewsletterShortcuts<T extends Row>({
         // unsubscribe
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
-        window.open(item.lastUnsubscribeLink, "_blank");
+        window.open(cleanUnsubscribeLink(item.lastUnsubscribeLink), "_blank");
         await setNewsletterStatus({
           newsletterEmail: item.name,
           status: NewsletterStatus.UNSUBSCRIBED,

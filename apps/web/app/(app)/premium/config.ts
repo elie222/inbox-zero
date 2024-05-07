@@ -11,7 +11,7 @@ export const pricing: Record<PremiumTier, string> = {
   [PremiumTier.PRO_ANNUALLY]: "$99",
   [PremiumTier.BUSINESS_MONTHLY]: "$19",
   [PremiumTier.BUSINESS_ANNUALLY]: "$159",
-  [PremiumTier.LIFETIME]: "$249",
+  [PremiumTier.LIFETIME]: "$299",
 };
 
 export const pricingAdditonalEmail: Record<PremiumTier, string> = {
@@ -29,11 +29,9 @@ export const tiers = [
     price: { monthly: "$0", annually: "$0" },
     description: "Try Inbox Zero for free.",
     features: [
+      "Bulk email unsubscriber",
       `Unsubscribe from ${env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS} emails per month`,
       "Email analytics",
-      "Newsletter cleaner",
-      "New senders",
-      "Inbox view",
     ],
     cta: "Get Started",
   },
@@ -53,13 +51,13 @@ export const tiers = [
       monthly: pricingAdditonalEmail.PRO_MONTHLY,
       annually: pricingAdditonalEmail.PRO_ANNUALLY,
     },
-    description: "Unlock full newsletter cleaner access.",
+    description:
+      "Unlimited unsubscribe credits. Unlock AI features when using your own OpenAI key",
     features: [
       "Everything in free",
       "Unlimited unsubscribes",
-      "Cold email blocker with personal OpenAI key",
-      "AI with personal OpenAI key",
-      "Priority support",
+      "AI automation when using your own OpenAI API key",
+      "Cold email blocker when using your own OpenAI API key",
     ],
     cta: "Upgrade",
     mostPopular: false,
@@ -83,13 +81,14 @@ export const tiers = [
       monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
       annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
     },
-    description: "Unlock full platform access.",
+    description: "Unlock full AI-powered email management",
     features: [
       "Everything in pro",
+      "AI automation",
       "Cold email blocker",
-      "AI automations",
       "AI categorization",
-      "AI planning mode",
+      "No need to provide your own OpenAI API key",
+      "Priority support",
     ],
     cta: "Upgrade",
     mostPopular: true,

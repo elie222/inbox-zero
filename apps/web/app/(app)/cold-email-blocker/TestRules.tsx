@@ -83,9 +83,8 @@ function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [isColdEmail, setIsColdEmail] = useState<boolean | null | undefined>(
-    null,
-  );
+  const [coldEmailResponse, setColdEmailResponse] =
+    useState<ColdEmailBlockerResponse | null>(null);
 
   const {
     register,
@@ -112,9 +111,12 @@ const TestRulesForm = () => {
 
     if (isError(res)) {
       console.error(res);
-      toastError({ description: `Error checking if cold email.` });
+      toastError({
+        title: "Error checking if cold email.",
+        description: res.error,
+      });
     } else {
-      setIsColdEmail(res.isColdEmail);
+      setColdEmailResponse(res);
     }
   }, []);
 
@@ -136,9 +138,9 @@ const TestRulesForm = () => {
           Test
         </Button>
       </form>
-      {typeof isColdEmail === "boolean" && (
+      {coldEmailResponse && (
         <div className="mt-4">
-          <Result isColdEmail={isColdEmail} />
+          <Result coldEmailResponse={coldEmailResponse} />
         </div>
       )}
     </div>
@@ -152,14 +154,15 @@ function TestRulesContentRow(props: {
   const { message } = props;
 
   const [loading, setLoading] = useState(false);
-  const [isColdEmail, setIsColdEmail] = useState<boolean | null | undefined>();
+  const [coldEmailResponse, setColdEmailResponse] =
+    useState<ColdEmailBlockerResponse | null>(null);
 
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
         <TestRulesMessage
-          from={message.parsedMessage.headers.from}
-          subject={message.parsedMessage.headers.subject}
+          from={message.headers.from}
+          subject={message.headers.subject}
           snippet={message.snippet?.trim() || ""}
           userEmail={props.userEmail}
         />
@@ -170,7 +173,7 @@ function TestRulesContentRow(props: {
             onClick={async () => {
               setLoading(true);
 
-              const text = message.snippet || message.parsedMessage.textPlain;
+              const text = message.snippet || message.textPlain;
 
               if (!text) {
                 toastError({
@@ -186,20 +189,21 @@ function TestRulesContentRow(props: {
                 ColdEmailBlockerBody
               >("/api/ai/cold-email", {
                 email: {
-                  from: message.parsedMessage.headers.from,
-                  subject: message.parsedMessage.headers.subject,
+                  from: message.headers.from,
+                  subject: message.headers.subject,
                   body: text,
-                  textHtml: message.parsedMessage.textHtml,
+                  textHtml: message.textHtml,
                 },
               });
 
               if (isError(res)) {
                 console.error(res);
                 toastError({
-                  description: `There was an error checking whether it's a cold email.`,
+                  title: "Error checking whether it's a cold email.",
+                  description: res.error,
                 });
               } else {
-                setIsColdEmail(res.isColdEmail);
+                setColdEmailResponse(res);
               }
               setLoading(false);
             }}
@@ -210,18 +214,18 @@ function TestRulesContentRow(props: {
         </div>
       </div>
       <div className="pb-4">
-        <Result isColdEmail={isColdEmail} />
+        <Result coldEmailResponse={coldEmailResponse} />
       </div>
     </div>
   );
 }
 
-function Result(props: ColdEmailBlockerResponse) {
-  const { isColdEmail } = props;
+function Result(props: { coldEmailResponse: ColdEmailBlockerResponse | null }) {
+  const { coldEmailResponse } = props;
 
-  if (isColdEmail === null || isColdEmail === undefined) return null;
+  if (!coldEmailResponse) return null;
 
-  if (isColdEmail)
+  if (coldEmailResponse.isColdEmail) {
     return (
       <AlertBasic
         variant="destructive"
@@ -229,12 +233,19 @@ function Result(props: ColdEmailBlockerResponse) {
         description=""
       />
     );
-  else
+  } else {
     return (
       <AlertBasic
         variant="success"
-        title="Email is not a cold email!"
+        title={
+          coldEmailResponse.reason === "unsubscribeLink"
+            ? "The email contains an unsubscribe link. This is not a cold email!"
+            : coldEmailResponse.reason === "hasPreviousEmail"
+              ? "This person has previously emailed you. This is not a cold email!"
+              : "Our AI determined this is not a cold email!"
+        }
         description=""
       />
     );
+  }
 }

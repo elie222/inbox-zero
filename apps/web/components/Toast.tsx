@@ -9,6 +9,7 @@ export function toastSuccess(options: { title?: string; description: string }) {
 export function toastError(options: { title?: string; description: string }) {
   return toast.error(options.title || "Error", {
     description: options.description,
+    duration: 10_000,
   });
 }
 

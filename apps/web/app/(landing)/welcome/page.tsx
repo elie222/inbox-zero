@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { redirect } from "next/navigation";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Card } from "@/components/Card";
 import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
@@ -9,6 +9,8 @@ import { env } from "@/env.mjs";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
+import { appHomePath } from "@/utils/config";
+import { UTMs } from "@/app/(landing)/welcome/utms";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -24,15 +26,13 @@ export default async function WelcomePage({
   const session = await auth();
 
   if (!session?.user.email) redirect("/login");
-  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)
-    redirect("/bulk-unsubscribe");
+  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) redirect(appHomePath);
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
-    select: { completedOnboarding: true },
+    select: { completedOnboarding: true, utms: true },
   });
-  if (!searchParams.force && user.completedOnboarding)
-    redirect("/bulk-unsubscribe");
+  if (!searchParams.force && user.completedOnboarding) redirect(appHomePath);
 
   const questionIndex = searchParams.question
     ? parseInt(searchParams.question)
@@ -53,7 +53,14 @@ export default async function WelcomePage({
           </div>
         </div>
       </Card>
-      <LoadStats loadBefore showToast={false} />
+      <Suspense>
+        <LoadStats loadBefore showToast={false} />
+      </Suspense>
+      {!user.utms && (
+        <Suspense>
+          <UTMs userId={session.user.id} />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect } from "react";
 import useSWR from "swr";
-import { useLocalStorage } from "usehooks-ts";
 import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Banner } from "@/components/Banner";
 import { type ThreadsQuery } from "@/app/api/google/threads/validation";
 import { type ThreadsResponse } from "@/app/api/google/threads/controller";
 import { refetchEmailListAtom } from "@/store/email";
+import { BetaBanner } from "@/app/(app)/mail/BetaBanner";
+import { ClientOnly } from "@/components/ClientOnly";
 
 export default function Mail({
   searchParams,
@@ -68,19 +68,11 @@ export default function Mail({
     setRefetchEmailList({ refetch });
   }, [refetch, setRefetchEmailList]);
 
-  const [bannerVisible, setBannerVisible] = useLocalStorage<
-    boolean | undefined
-  >("mailBetaBannerVisibile", true);
-
   return (
     <>
-      {bannerVisible && typeof window !== "undefined" && (
-        <Banner
-          title="Beta"
-          description="Mail is currently in beta. It is not intended to be a full replacement for your email client yet."
-          onClose={() => setBannerVisible(false)}
-        />
-      )}
+      <ClientOnly>
+        <BetaBanner />
+      </ClientOnly>
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <List

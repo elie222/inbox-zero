@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
-// import { MessageWithPayload } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import { withError } from "@/utils/middleware";
 
@@ -22,12 +21,8 @@ async function getMessages() {
 
   const fullMessages = await Promise.all(
     (messages.data.messages || []).map(async (m) => {
-      const res = await getMessage(m.id!, gmail);
-
-      return {
-        ...res,
-        parsedMessage: parseMessage(res),
-      };
+      const message = await getMessage(m.id!, gmail);
+      return parseMessage(message);
     }),
   );
 

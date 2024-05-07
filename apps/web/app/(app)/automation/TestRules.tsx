@@ -13,23 +13,32 @@ import {
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
-import { postRequest } from "@/utils/api";
-import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { ActBodyWithHtml } from "@/app/api/ai/act/validation";
-import { ActResponse } from "@/app/api/ai/act/controller";
 import { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
+import {
+  TestAiActionResponse,
+  testAiAction,
+  testAiCustomContentAction,
+} from "@/utils/actions/ai-rule";
+import { RuleType } from "@prisma/client";
+import { RulesResponse } from "@/app/api/user/rules/route";
+import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { CardContent } from "@/components/ui/card";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
     <SlideOverSheet
       title="Test Rules"
       description="Test how your rules perform against real emails."
-      content={<TestRulesContent />}
+      content={
+        <div className="mt-4">
+          <TestRulesContent />
+        </div>
+      }
     >
       <Button color="white" disabled={props.disabled}>
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
@@ -39,7 +48,7 @@ export function TestRules(props: { disabled?: boolean }) {
   );
 }
 
-function TestRulesContent() {
+export function TestRulesContent() {
   const { data, isLoading, error } = useSWR<MessagesResponse>(
     "/api/google/messages",
     {
@@ -47,33 +56,38 @@ function TestRulesContent() {
       dedupingInterval: 1_000,
     },
   );
+  const { data: rules } = useSWR<RulesResponse>(`/api/user/rules`);
 
   const session = useSession();
   const email = session.data?.user.email;
 
   return (
     <div>
-      <div className="mt-4">
-        <TestRulesForm />
-      </div>
-
-      <div className="mt-4">
-        <Separator />
-      </div>
+      {/* only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users  */}
+      {rules?.some((rule) => rule.type === RuleType.AI) && (
+        <>
+          <CardContent>
+            <TestRulesForm />
+          </CardContent>
+          <Separator />
+        </>
+      )}
 
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <div>
-            {data.messages.map((message) => {
-              return (
-                <TestRulesContentRow
-                  key={message.id}
-                  message={message}
-                  userEmail={email!}
-                />
-              );
-            })}
-          </div>
+          <Table>
+            <TableBody>
+              {data.messages.map((message) => {
+                return (
+                  <TestRulesContentRow
+                    key={message.id}
+                    message={message}
+                    userEmail={email!}
+                  />
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </LoadingContent>
     </div>
@@ -83,7 +97,7 @@ function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [plan, setPlan] = useState<ActResponse>();
+  const [testResult, setTestResult] = useState<TestAiActionResponse>();
 
   const {
     register,
@@ -92,30 +106,17 @@ const TestRulesForm = () => {
   } = useForm<TestRulesInputs>();
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const res = await postRequest<ActResponse, ActBodyWithHtml>("/api/ai/act", {
-      email: {
-        from: "",
-        to: "",
-        date: "",
-        replyTo: "",
-        cc: "",
-        subject: "",
-        textPlain: data.message,
-        textHtml: "",
-        snippet: data.message,
-        threadId: "",
-        messageId: "",
-        headerMessageId: "",
-        references: "",
-      },
-      allowExecute: false,
-    });
-
-    if (isError(res)) {
-      console.error(res);
-      toastError({ description: `Error checking email.` });
-    } else {
-      setPlan(res);
+    try {
+      const testResult = await testAiCustomContentAction({
+        content: data.message,
+      });
+      setTestResult(testResult);
+    } catch (error) {
+      console.error(error);
+      toastError({
+        title: "Error checking email.",
+        description: (error as Error).message,
+      });
     }
   }, []);
 
@@ -127,8 +128,7 @@ const TestRulesForm = () => {
           as="textarea"
           rows={3}
           name="message"
-          label="Email to test against"
-          placeholder="Hey, I run a marketing agency, and would love to chat."
+          placeholder="Paste in email content or write your own. eg. Receipt from Stripe for $49"
           registerProps={register("message", { required: true })}
           error={errors.message}
         />
@@ -137,9 +137,9 @@ const TestRulesForm = () => {
           Test Rules
         </Button>
       </form>
-      {plan && (
+      {testResult && (
         <div className="mt-4">
-          <Plan plan={plan} />
+          <TestResult response={testResult} />
         </div>
       )}
     </div>
@@ -152,77 +152,61 @@ function TestRulesContentRow(props: {
 }) {
   const { message } = props;
 
-  const [planning, setPlanning] = useState(false);
-  const [plan, setPlan] = useState<ActResponse>();
+  const [checking, setChecking] = useState(false);
+  const [testResult, setTestResult] = useState<TestAiActionResponse>();
 
   return (
-    <div className="border-b border-gray-200">
-      <div className="flex items-center justify-between py-2">
-        <TestRulesMessage
-          from={message.parsedMessage.headers.from}
-          subject={message.parsedMessage.headers.subject}
-          snippet={message.snippet?.trim() || ""}
-          userEmail={props.userEmail}
-        />
-        <div className="ml-4">
-          <Button
-            color="white"
-            loading={planning}
-            onClick={async () => {
-              setPlanning(true);
+    <TableRow>
+      <TableCell>
+        <div className="flex items-center justify-between">
+          <TestRulesMessage
+            from={message.headers.from}
+            subject={message.headers.subject}
+            snippet={message.snippet?.trim() || ""}
+            userEmail={props.userEmail}
+          />
+          <div className="ml-4">
+            <Button
+              color="white"
+              loading={checking}
+              onClick={async () => {
+                setChecking(true);
 
-              const res = await postRequest<ActResponse, ActBodyWithHtml>(
-                "/api/ai/act",
-                {
-                  email: {
-                    from: message.parsedMessage.headers.from,
-                    to: message.parsedMessage.headers.to,
-                    date: message.parsedMessage.headers.date,
-                    replyTo: message.parsedMessage.headers["reply-to"],
-                    cc: message.parsedMessage.headers.cc,
-                    subject: message.parsedMessage.headers.subject,
-                    textPlain: message.parsedMessage.textPlain || null,
-                    textHtml: message.parsedMessage.textHtml || null,
-                    snippet: message.snippet || null,
-                    threadId: message.threadId || "",
-                    messageId: message.id || "",
-                    headerMessageId:
-                      message.parsedMessage.headers["message-id"] || "",
-                    references: message.parsedMessage.headers.references,
-                  },
-                  allowExecute: false,
-                },
-              );
-
-              if (isError(res)) {
-                console.error(res);
-                toastError({
-                  description: `There was an error planning the email.`,
-                });
-              } else {
-                setPlan(res);
-              }
-              setPlanning(false);
-            }}
-          >
-            <SparklesIcon className="mr-2 h-4 w-4" />
-            Test
-          </Button>
+                try {
+                  const testResult = await testAiAction({
+                    messageId: message.id,
+                    threadId: message.threadId,
+                  });
+                  setTestResult(testResult);
+                } catch (error) {
+                  console.error(error);
+                  toastError({
+                    title: "There was an error testing the email.",
+                    description: (error as Error).message,
+                  });
+                }
+                setChecking(false);
+              }}
+            >
+              <SparklesIcon className="mr-2 h-4 w-4" />
+              Test
+            </Button>
+          </div>
         </div>
-      </div>
-      <div className="pb-4">
-        <Plan plan={plan} />
-      </div>
-    </div>
+        {!!testResult && (
+          <div className="mt-4">
+            <TestResult response={testResult} />
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
   );
 }
 
-function Plan(props: { plan: ActResponse }) {
-  const { plan } = props;
+function TestResult({ response }: { response: TestAiActionResponse }) {
+  if (!response) return null;
 
-  if (!plan) return null;
-
-  if (!plan.rule) {
+  if (!response.rule) {
     return (
       <AlertBasic
         variant="destructive"
@@ -230,52 +214,62 @@ function Plan(props: { plan: ActResponse }) {
         description={
           <div className="space-y-2">
             <div>This email does not match any of the rules you have set.</div>
-            <div>
-              <strong>AI reason:</strong> {plan.reason}
-            </div>
+            {!!response.reason && (
+              <div>
+                <strong>AI reason:</strong> {response.reason}
+              </div>
+            )}
           </div>
         }
       />
     );
   }
 
-  if (plan.plannedAction?.actions) {
+  if (response.actionItems) {
     const MAX_LENGTH = 280;
 
-    const aiGeneratedContent = Object.entries(plan.plannedAction.args).map(
-      ([key, value]) => {
-        return (
-          <div key={key}>
-            <strong>{capitalCase(key)}: </strong>
-            {value}
-          </div>
-        );
-      },
-    );
+    const aiGeneratedContent = response.actionItems.map((action, i) => {
+      return (
+        <div key={i}>
+          <strong>{capitalCase(action.type)}</strong>
+          {Object.entries(action).map(([key, value]) => {
+            if (key === "type" || !value) return null;
+            return (
+              <div key={key}>
+                <strong>{capitalCase(key)}: </strong>
+                {value}
+              </div>
+            );
+          })}
+        </div>
+      );
+    });
 
     return (
       <AlertBasic
-        title={`Rule found: "${plan.rule.name}"`}
+        title={`Rule found: "${response.rule.name}"`}
         variant="blue"
         description={
           <div className="mt-4 space-y-4">
             {!!aiGeneratedContent.length && (
               <div>
-                <strong>AI generated content: </strong>
+                <strong>Content: </strong>
                 {aiGeneratedContent}
               </div>
             )}
-            {!!plan.reason && (
+            {!!response.reason && (
               <div>
                 <strong>AI reason: </strong>
-                {plan.reason}
+                {response.reason}
               </div>
             )}
-            <div>
-              <strong>Instructions: </strong>
-              {plan.rule.instructions.substring(0, MAX_LENGTH) +
-                (plan.rule.instructions.length < MAX_LENGTH ? "" : "...")}
-            </div>
+            {response.rule.type === RuleType.AI && (
+              <div>
+                <strong>Instructions: </strong>
+                {response.rule.instructions.substring(0, MAX_LENGTH) +
+                  (response.rule.instructions.length < MAX_LENGTH ? "" : "...")}
+              </div>
+            )}
           </div>
         }
         icon={<CheckCircle2Icon className="h-4 w-4" />}

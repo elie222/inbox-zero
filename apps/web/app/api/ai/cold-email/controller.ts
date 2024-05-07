@@ -1,43 +1,42 @@
 import { z } from "zod";
 import { type gmail_v1 } from "googleapis";
 import { parseJSON } from "@/utils/json";
-import { DEFAULT_AI_MODEL, UserAIFields, getOpenAI } from "@/utils/openai";
+import { getAiProviderAndModel } from "@/utils/llms";
+import { UserAIFields } from "@/utils/llms/types";
 import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/label";
 import { labelMessage } from "@/utils/gmail/label";
-import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
+import { ColdEmailSetting, ColdEmailStatus, User } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { saveAiUsage } from "@/utils/usage";
-import { jsonResponseFormat } from "@/utils/openai";
+import { chatCompletion } from "@/utils/llms";
 
 const aiResponseSchema = z.object({
   coldEmail: z.boolean().nullish(),
   expandEmail: z.boolean().nullish(),
 });
 
+type ColdEmailBlockerReason = "hasPreviousEmail" | "unsubscribeLink" | "ai";
+
 export async function isColdEmail(options: {
   hasPreviousEmail: boolean;
-  unsubscribeLink?: string;
   email: {
     from: string;
     subject: string;
     body: string;
   };
-  userOptions: UserAIFields & { coldEmailPrompt: string | null };
-  userEmail: string;
-}) {
-  if (options.hasPreviousEmail) return false;
-  // need to check how true this is in practice
-  if (options.unsubscribeLink) return false;
+  user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields;
+}): Promise<{
+  isColdEmail: boolean;
+  reason: ColdEmailBlockerReason;
+}> {
+  if (options.hasPreviousEmail)
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
 
   // otherwise run through ai to see if it's a cold email
-  const isColdEmail = await aiIsColdEmail(
-    options.email,
-    options.userOptions,
-    options.userEmail,
-  );
+  const isColdEmail = await aiIsColdEmail(options.email, options.user);
 
-  return isColdEmail;
+  return { isColdEmail: !!isColdEmail, reason: "ai" };
 }
 
 async function aiIsColdEmail(
@@ -46,14 +45,11 @@ async function aiIsColdEmail(
     subject: string;
     body: string;
   },
-  userOptions: UserAIFields & {
-    coldEmailPrompt: string | null;
-  },
-  userEmail: string,
+  user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields,
 ) {
   const message = `Determine if this email is a cold email or not.
 
-${userOptions.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
+${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
 
 Return a JSON object with a "coldEmail" and "expandEmail" field.
 
@@ -72,13 +68,15 @@ Subject: ${email.subject}
 Body: ${email.body}
 `;
 
-  const openai = getOpenAI(userOptions.openAIApiKey);
-
-  const model = userOptions.aiModel || DEFAULT_AI_MODEL;
-  const response = await openai.chat.completions.create({
+  const { model, provider } = getAiProviderAndModel(
+    user.aiProvider,
+    user.aiModel,
+  );
+  const response = await chatCompletion(
+    provider,
     model,
-    ...jsonResponseFormat(model),
-    messages: [
+    user.openAIApiKey,
+    [
       {
         role: "system",
         content:
@@ -89,18 +87,20 @@ Body: ${email.body}
         content: message,
       },
     ],
-  });
+    { jsonResponse: true },
+  );
 
   if (response.usage) {
     await saveAiUsage({
-      email: userEmail,
+      email: user.email || "",
       usage: response.usage,
+      provider: user.aiProvider,
       model,
       label: "Cold email check",
     });
   }
 
-  const content = response.choices[0].message.content;
+  const content = response.response;
 
   // this is an error
   if (!content) return false;
@@ -120,22 +120,19 @@ Body: ${email.body}
 
 export async function runColdEmailBlocker(options: {
   hasPreviousEmail: boolean;
-  unsubscribeLink?: string;
   email: {
     from: string;
     subject: string;
     body: string;
     messageId: string;
   };
-  userOptions: UserAIFields & { coldEmailPrompt: string | null };
   gmail: gmail_v1.Gmail;
-  coldEmailBlocker: ColdEmailSetting;
-  userId: string;
-  userEmail: string;
+  user: Pick<User, "id" | "email" | "coldEmailPrompt" | "coldEmailBlocker"> &
+    UserAIFields;
 }) {
-  const yes = await isColdEmail(options);
+  const response = await isColdEmail(options);
 
-  if (yes) {
+  if (response.isColdEmail) {
     console.log("Blocking cold email...");
 
     await blockColdEmail(options);
@@ -145,41 +142,40 @@ export async function runColdEmailBlocker(options: {
 async function blockColdEmail(options: {
   gmail: gmail_v1.Gmail;
   email: { from: string; messageId: string };
-  userId: string;
-  userEmail: string;
-  coldEmailBlocker: ColdEmailSetting;
+  user: Pick<User, "id" | "email" | "coldEmailBlocker">;
 }) {
-  const { gmail, email, userId, userEmail, coldEmailBlocker } = options;
+  const { gmail, email, user } = options;
 
   await prisma.newsletter.upsert({
-    where: { email_userId: { email: email.from, userId } },
+    where: { email_userId: { email: email.from, userId: user.id } },
     update: { coldEmail: ColdEmailStatus.COLD_EMAIL },
     create: {
       coldEmail: ColdEmailStatus.COLD_EMAIL,
       email: email.from,
-      userId,
+      userId: user.id,
     },
   });
 
   if (
-    coldEmailBlocker === ColdEmailSetting.LABEL ||
-    coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
+    user.coldEmailBlocker === ColdEmailSetting.LABEL ||
+    user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
   ) {
+    if (!user.email) throw new Error("User email is required");
     const gmailLabel = await getOrCreateInboxZeroLabel({
       gmail,
       labelKey: "cold_email",
-      email: userEmail,
+      email: user.email,
     });
 
     await labelMessage({
       gmail,
       messageId: email.messageId,
       addLabelIds:
-        coldEmailBlocker === ColdEmailSetting.LABEL && gmailLabel?.id
+        user.coldEmailBlocker === ColdEmailSetting.LABEL && gmailLabel?.id
           ? [gmailLabel.id]
           : undefined,
       removeLabelIds:
-        coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
+        user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
           ? [INBOX_LABEL_ID]
           : undefined,
     });

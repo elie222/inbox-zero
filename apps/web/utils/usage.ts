@@ -1,17 +1,18 @@
-import { OpenAIStream } from "ai";
+import { AnthropicStream, OpenAIStream } from "ai";
 import { TiktokenModel, encodingForModel } from "js-tiktoken";
-import { ChatCompletionChunk } from "openai/resources/index";
-import { Stream } from "openai/streaming";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
+import { ChatCompletionStreamResponse } from "@/utils/llms";
 
 export async function saveAiUsage({
   email,
+  provider,
   model,
   usage,
   label,
 }: {
   email: string;
+  provider: string | null;
   model: string;
   usage: {
     prompt_tokens: number;
@@ -25,7 +26,7 @@ export async function saveAiUsage({
   return Promise.all([
     publishAiCall({
       userId: email,
-      provider: "openai",
+      provider: provider || "openai",
       totalTokens: usage.total_tokens,
       completionTokens: usage.completion_tokens,
       promptTokens: usage.prompt_tokens,
@@ -39,6 +40,7 @@ export async function saveAiUsage({
 }
 
 export async function saveAiUsageStream({
+  provider,
   response,
   model,
   userEmail,
@@ -46,7 +48,8 @@ export async function saveAiUsageStream({
   label,
   onFinal,
 }: {
-  response: Stream<ChatCompletionChunk>;
+  provider: string | null;
+  response: ChatCompletionStreamResponse;
   model: string;
   userEmail: string;
   messages: { role: "system" | "user"; content: string }[];
@@ -56,9 +59,11 @@ export async function saveAiUsageStream({
   const enc = encodingForModel(model as TiktokenModel);
   let completionTokens = 0;
 
+  const llmStream = provider === "anthropic" ? AnthropicStream : OpenAIStream;
+
   // to count token usage:
   // https://www.linkedin.com/pulse/token-usage-openai-streams-peter-marton-7bgpc/
-  const stream = OpenAIStream(response, {
+  const stream = llmStream(response as any, {
     onToken: (content) => {
       // We call encode for every message as some experienced
       // regression when tiktoken called with the full completion
@@ -80,6 +85,7 @@ export async function saveAiUsageStream({
             completion_tokens: completionTokens,
             total_tokens: promptTokens + completionTokens,
           },
+          provider: provider || "openai",
           model,
           label,
         }),
@@ -102,7 +108,7 @@ const costs: Record<
     input: 0.001 / 1000,
     output: 0.002 / 1000,
   },
-  "gpt-4-turbo-preview": {
+  "gpt-4-turbo": {
     input: 0.01 / 1000,
     output: 0.03 / 1000,
   },

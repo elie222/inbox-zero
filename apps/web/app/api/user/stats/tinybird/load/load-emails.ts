@@ -7,10 +7,11 @@ import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail } from "@/utils/email";
 import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { env } from "@/env.mjs";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
-const MAX_PAGES = 25;
+const MAX_PAGES = 50;
 
 export async function loadTinybirdEmails(
   options: {
@@ -20,6 +21,8 @@ export async function loadTinybirdEmails(
   },
   body: LoadTinybirdEmailsBody,
 ) {
+  if (!env.TINYBIRD_TOKEN) return { pages: 0 };
+
   const { ownerEmail, gmail, accessToken } = options;
 
   let nextPageToken: string | undefined = undefined;
@@ -46,6 +49,7 @@ export async function loadTinybirdEmails(
         before: undefined,
       });
     } catch (error) {
+      // TODO save batch won't throw a rate limit error anymore. Just logs: `Error fetching message 429 Resource has been exhausted (e.g. check quota).`
       console.log(`Rate limited. Waiting ${PAUSE_AFTER_RATE_LIMIT} seconds...`);
       await sleep(PAUSE_AFTER_RATE_LIMIT);
       res = await saveBatch({
@@ -145,30 +149,27 @@ async function saveBatch(
     .map((m) => {
       if (!m.id || !m.threadId) return;
 
-      const parsedEmail = m.parsedMessage;
-
       const unsubscribeLink =
-        findUnsubscribeLink(parsedEmail.textHtml) ||
-        parsedEmail.headers["list-unsubscribe"];
+        findUnsubscribeLink(m.textHtml) || m.headers["list-unsubscribe"];
 
       const tinybirdEmail: TinybirdEmail = {
         ownerEmail,
         threadId: m.threadId,
         gmailMessageId: m.id,
-        from: parsedEmail.headers.from,
-        fromDomain: extractDomainFromEmail(parsedEmail.headers.from),
-        to: parsedEmail.headers.to || "Missing",
-        toDomain: parsedEmail.headers.to
-          ? extractDomainFromEmail(parsedEmail.headers.to)
+        from: m.headers.from,
+        fromDomain: extractDomainFromEmail(m.headers.from),
+        to: m.headers.to || "Missing",
+        toDomain: m.headers.to
+          ? extractDomainFromEmail(m.headers.to)
           : "Missing",
-        subject: parsedEmail.headers.subject,
-        timestamp: +new Date(parsedEmail.headers.date),
+        subject: m.headers.subject,
+        timestamp: +new Date(m.headers.date),
         unsubscribeLink,
-        read: !parsedEmail.labelIds?.includes("UNREAD"),
-        sent: !!parsedEmail.labelIds?.includes("SENT"),
-        draft: !!parsedEmail.labelIds?.includes("DRAFT"),
-        inbox: !!parsedEmail.labelIds?.includes("INBOX"),
-        sizeEstimate: m.sizeEstimate,
+        read: !m.labelIds?.includes("UNREAD"),
+        sent: !!m.labelIds?.includes("SENT"),
+        draft: !!m.labelIds?.includes("DRAFT"),
+        inbox: !!m.labelIds?.includes("INBOX"),
+        sizeEstimate: m.sizeEstimate ?? 0,
       };
 
       if (!tinybirdEmail.timestamp) {
@@ -176,7 +177,7 @@ async function saveBatch(
           "No timestamp for email",
           tinybirdEmail.ownerEmail,
           tinybirdEmail.gmailMessageId,
-          parsedEmail.headers.date,
+          m.headers.date,
         );
         return;
       }

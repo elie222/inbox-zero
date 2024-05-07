@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useAtomValue } from "jotai";
-import { ListTodoIcon } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { useModal, Modal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
 import { ThreadsResponse } from "@/app/api/google/threads/controller";
@@ -35,9 +34,8 @@ export function BulkRunRules() {
 
   return (
     <div>
-      <Button type="button" color="white" onClick={openModal}>
-        <ListTodoIcon className="mr-2 h-4 w-4" />
-        Run Rules On All Emails
+      <Button type="button" variant="outline" onClick={openModal}>
+        Bulk Run on Inbox
       </Button>
       <Modal
         isOpen={isModalOpen}
@@ -49,8 +47,8 @@ export function BulkRunRules() {
             <>
               <SectionDescription className="mt-2">
                 If you want to select individual emails instead, go to the{" "}
-                {`"Mail"`} tab, mark the emails you want to run rules on, and
-                click the {`"Run AI Rules"`} button.
+                {`"Early Access > Mail"`} page, mark the emails you want to run
+                rules on, and click the {`"Run AI Rules"`} button.
               </SectionDescription>
               <SectionDescription className="mt-2">
                 This will not run on emails that already have an AI plan set.
@@ -63,14 +61,14 @@ export function BulkRunRules() {
               )}
               <div className="mt-4">
                 <Button
-                  loading={started}
                   disabled={started}
                   onClick={() => {
                     setStarted(true);
                     onRun((count) => setTotalThreads((total) => total + count));
                   }}
                 >
-                  Run Rules On All Inbox Emails
+                  {started && <ButtonLoader />}
+                  Run AI On All Inbox Emails
                 </Button>
               </div>
             </>

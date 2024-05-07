@@ -10,18 +10,18 @@ export const env = createEnv({
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
+    ANTHROPIC_API_KEY: z.string().optional(),
     UPSTASH_REDIS_URL: z.string().min(1),
     UPSTASH_REDIS_TOKEN: z.string().min(1),
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
-    BASELIME_PROJECT_NAME: z.string().optional(),
-    BASELIME_KEY: z.string().optional(),
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
     SENTRY_AUTH_TOKEN: z.string().optional(),
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
     LEMON_SQUEEZY_API_KEY: z.string().optional(),
-    TINYBIRD_TOKEN: z.string().min(1),
+    TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
     ENCRYPT_SECRET: z.string().optional(),
     ENCRYPT_SALT: z.string().optional(),
@@ -56,6 +56,13 @@ export const env = createEnv({
     NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_VARIANT_ID: z.coerce.number().default(0),
 
+    // license
+    LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_3_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
+
     NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
     NEXT_PUBLIC_CALL_LINK: z
       .string()
@@ -71,6 +78,8 @@ export const env = createEnv({
       .optional()
       .default("elie@getinboxzero.com"),
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
+    NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
+    NEXT_PUBLIC_DISABLE_TINYBIRD: z.coerce.boolean().optional().default(false),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -117,5 +126,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
     NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
+    NEXT_PUBLIC_CRISP_WEBSITE_ID: process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID,
+    NEXT_PUBLIC_DISABLE_TINYBIRD: process.env.NEXT_PUBLIC_DISABLE_TINYBIRD,
   },
 });

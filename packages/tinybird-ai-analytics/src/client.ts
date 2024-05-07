@@ -1,7 +1,5 @@
 import { Tinybird } from "@chronark/zod-bird";
 
-if (!process.env.TINYBIRD_TOKEN) throw new Error("Missing TINYBIRD_TOKEN");
-
 let tb: Tinybird;
 
 export const getTinybird = () => {

@@ -6,7 +6,7 @@ export default function ComposePage() {
     <>
       <TopSection title="New Message" />
 
-      <div className="max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="content-container max-w-2xl py-6">
         <ComposeEmailFormLazy />
       </div>
     </>

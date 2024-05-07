@@ -5,7 +5,6 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
-import { UserAIFields } from "@/utils/openai";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -33,16 +32,13 @@ async function checkColdEmail(
   const user = await prisma.user.findUniqueOrThrow({
     where: { email: userEmail },
     select: {
+      email: true,
       coldEmailPrompt: true,
+      aiProvider: true,
       aiModel: true,
       openAIApiKey: true,
     },
   });
-
-  const unsubscribeLink = findUnsubscribeLink(
-    body.email.textHtml || body.email.body,
-  );
-  // || parsedMessage.headers["list-unsubscribe"];
 
   const hasPreviousEmail =
     body.email.date && body.email.threadId
@@ -53,19 +49,13 @@ async function checkColdEmail(
         })
       : false;
 
-  const yes = await isColdEmail({
+  const response = await isColdEmail({
     email: body.email,
-    userOptions: {
-      aiModel: user.aiModel as UserAIFields["aiModel"],
-      openAIApiKey: user.openAIApiKey,
-      coldEmailPrompt: user.coldEmailPrompt,
-    },
+    user,
     hasPreviousEmail,
-    unsubscribeLink,
-    userEmail,
   });
 
-  return { isColdEmail: yes };
+  return response;
 }
 
 export const POST = withError(async (request: Request) => {

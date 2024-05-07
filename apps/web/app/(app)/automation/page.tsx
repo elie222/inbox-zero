@@ -1,152 +1,75 @@
-"use client";
-
-import { useIsClient, useLocalStorage } from "usehooks-ts";
-import { useSearchParams } from "next/navigation";
-import useSWR from "swr";
-import { Tabs } from "@/components/Tabs";
-import { RulesSection } from "@/app/(app)/automation/RulesSection";
-import { SectionDescription, TextLink } from "@/components/Typography";
-import { TopSection } from "@/components/TopSection";
-import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
-import { Planned } from "@/app/(app)/automation/Planned";
-import { PlanHistory } from "@/app/(app)/automation/PlanHistory";
-import { Maximize2Icon, Minimize2Icon } from "lucide-react";
+import Link from "next/link";
+import { Suspense } from "react";
+import { SparklesIcon } from "lucide-react";
+import { History } from "@/app/(app)/automation/History";
+import { Pending } from "@/app/(app)/automation/Pending";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Button } from "@/components/ui/button";
-import { PremiumTier } from "@prisma/client";
-import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
-import { PlannedResponse } from "@/app/api/user/planned/route";
-import { OnboardingModal } from "@/components/OnboardingModal";
+import { Rules } from "@/app/(app)/automation/Rules";
+import { TestRulesContent } from "@/app/(app)/automation/TestRules";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
+import { Groups } from "@/app/(app)/automation/groups/Groups";
 
-export default function PlannedPage() {
-  const params = useSearchParams();
-  const selectedTab = params.get("tab") || "planned";
-
-  const { isPremium, isLoading, data } = usePremium();
-
-  const isProPlanWithoutApiKey =
-    (data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
-      data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
-    !data?.openAIApiKey;
-
-  const [expandRules, setExpandRules] = useLocalStorage(
-    "automationRulesExpanded",
-    true,
-  );
-  const toggleExpandRules = () => setExpandRules((prev) => !prev);
-
-  // could pass this data into tabs too
-  const { data: historyData } = useSWR<PlanHistoryResponse>(
-    "/api/user/planned/history",
-    {
-      keepPreviousData: true,
-    },
-  );
-  const { data: plannedData } = useSWR<PlannedResponse>("/api/user/planned", {
-    keepPreviousData: true,
-    dedupingInterval: 1_000,
-  });
-
-  // prevent hydration error from localStorage
-  const isClient = useIsClient();
-  if (!isClient) return null;
+export default async function AutomationPage() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Not logged in");
 
   return (
-    <div className="relative">
-      <>
-        {expandRules ? (
-          <>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleExpandRules}
-              className="absolute right-2 top-2"
-            >
-              <Minimize2Icon className="h-4 w-4" />
+    <Suspense>
+      <Tabs defaultValue="automations">
+        <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
+          <TabsList>
+            <TabsTrigger value="automations">Automations</TabsTrigger>
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="test">Test</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
+          </TabsList>
+
+          <div className="flex space-x-2">
+            <BulkRunRules />
+
+            <Button asChild>
+              <Link href="/automation/create">
+                <SparklesIcon className="mr-2 h-4 w-4" />
+                Create Automation
+              </Link>
             </Button>
-
-            <TopSection
-              title="AI Automation"
-              descriptionComponent={
-                <>
-                  <SectionDescription>
-                    Set rules for our AI to handle incoming emails
-                    automatically. Run in {`"Confirmation Mode"`} or{" "}
-                    {`"Automated Mode"`}.
-                  </SectionDescription>
-
-                  <div className="mt-3">
-                    <OnboardingModal
-                      title="Getting started with AI Automations"
-                      description={
-                        <>
-                          Learn how to set up your AI assistant to better handle
-                          your emails. You can read more in our{" "}
-                          <TextLink href="https://docs.getinboxzero.com/essentials/email-ai-automation">
-                            documentation
-                          </TextLink>
-                          .
-                        </>
-                      }
-                      videoId="gyVkFiv70a8"
-                    />
-                  </div>
-
-                  {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
-                    <div className="mt-4 max-w-prose">
-                      <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
-                    </div>
-                  )}
-                </>
-              }
-            />
-
-            <div className="border-b border-gray-200 bg-white shadow-sm">
-              <RulesSection />
-            </div>
-          </>
-        ) : (
-          <Button
-            variant="outline"
-            onClick={toggleExpandRules}
-            className="absolute right-2 top-2"
-          >
-            <Maximize2Icon className="mr-2 h-4 w-4" />
-            Set AI Rules
-          </Button>
-        )}
-      </>
-
-      <div className="mb-8">
-        <div className="mx-2 my-2 sm:mx-6">
-          <Tabs
-            selected={selectedTab}
-            tabs={[
-              {
-                label:
-                  "Planned" +
-                  (plannedData?.messages.length
-                    ? ` (${plannedData?.messages.length})`
-                    : ""),
-                value: "planned",
-                href: "/automation?tab=planned",
-              },
-              {
-                label:
-                  "History" +
-                  (historyData?.history.length
-                    ? ` (${historyData?.history.length})`
-                    : ""),
-                value: "history",
-                href: "/automation?tab=history",
-              },
-            ]}
-            breakpoint="xs"
-          />
+          </div>
         </div>
 
-        {selectedTab === "planned" && <Planned />}
-        {selectedTab === "history" && <PlanHistory />}
-      </div>
-    </div>
+        <TabsContent value="automations" className="content-container mb-10">
+          <Rules />
+        </TabsContent>
+        <TabsContent value="pending" className="content-container mb-10">
+          <Pending />
+        </TabsContent>
+        <TabsContent value="history" className="content-container mb-10">
+          <History />
+        </TabsContent>
+        <TabsContent value="test" className="content-container mb-10">
+          <Card>
+            <CardHeader>
+              <CardTitle>Test your rules</CardTitle>
+              <CardDescription>
+                Check how your rules perform against previous emails or custom
+                content.
+              </CardDescription>
+            </CardHeader>
+            <TestRulesContent />
+          </Card>
+        </TabsContent>
+        <TabsContent value="groups" className="content-container mb-10">
+          <Groups />
+        </TabsContent>
+      </Tabs>
+    </Suspense>
   );
 }

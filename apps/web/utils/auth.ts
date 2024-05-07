@@ -121,7 +121,7 @@ export const getAuthOptions: (options?: {
       if (isNewUser && user.email) {
         try {
           await Promise.allSettled([
-            createLoopsContact(user.email),
+            createLoopsContact(user.email, user.name?.split(" ")?.[0]),
             createResendContact({ email: user.email }),
           ]);
         } catch (error) {
@@ -147,10 +147,20 @@ export const authOptions = getAuthOptions();
 const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   const account = await prisma.account.findFirst({
     where: { userId: token.sub as string, provider: "google" },
+    select: {
+      userId: true,
+      refresh_token: true,
+      providerAccountId: true,
+    },
   });
 
+  if (!account) {
+    console.error("No account found in database for", token.sub);
+    return { error: "MissingAccountError" };
+  }
+
   if (!account?.refresh_token) {
-    console.error("No refresh token found in database for", account?.userId);
+    console.error("No refresh token found in database for", account.userId);
     return {
       ...token,
       error: "RefreshAccessTokenError",
@@ -264,6 +274,6 @@ declare module "@auth/core/jwt" {
     access_token?: string;
     expires_at?: number;
     refresh_token?: string;
-    error?: "RefreshAccessTokenError";
+    error?: "RefreshAccessTokenError" | "MissingAccountError";
   }
 }

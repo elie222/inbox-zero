@@ -56,7 +56,7 @@ export const survey = {
     {
       type: "open",
       question:
-        "If you had a magical AI assistant that helps you handle your email, what tasks would be most helpful for it to perform?",
+        "Last question! If you had a magic wand, what would you want to improve about your email experience?",
     },
   ],
 };

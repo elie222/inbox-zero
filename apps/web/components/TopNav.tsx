@@ -1,24 +1,47 @@
 import { Fragment } from "react";
+import Link from "next/link";
 import clsx from "clsx";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { Menu, Transition } from "@headlessui/react";
+import {
+  BarChartIcon,
+  ChevronDownIcon,
+  InboxIcon,
+  LogOutIcon,
+  MenuIcon,
+  Users2Icon,
+} from "lucide-react";
 import { Button } from "@/components/Button";
-import { ChevronDownIcon, MenuIcon } from "lucide-react";
 import { logOut } from "@/utils/user";
-// import { PromptBar } from "@/components/PromptBar";
+import { env } from "@/env.mjs";
 
 const userNavigation = [
-  { name: "Usage", href: "/usage" },
+  ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD
+    ? []
+    : [
+        {
+          name: "New Senders",
+          href: "/new-senders",
+          icon: Users2Icon,
+        },
+      ]),
+  {
+    name: "Mail (Alpha)",
+    href: "/mail",
+    icon: InboxIcon,
+  },
+  { name: "Usage", href: "/usage", icon: BarChartIcon },
   {
     name: "Sign out",
     href: "#",
+    icon: LogOutIcon,
     onClick: () => logOut(window.location.origin),
   },
 ];
 
 export function TopNav(props: { setSidebarOpen: (open: boolean) => void }) {
   return (
-    <div className="flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+    <div className="content-container flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white shadow-sm sm:gap-x-6">
       <button
         type="button"
         className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
@@ -32,22 +55,7 @@ export function TopNav(props: { setSidebarOpen: (open: boolean) => void }) {
       <div className="h-6 w-px bg-gray-900/10 lg:hidden" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-        {/* <PromptBar /> */}
-
         <div className="ml-auto flex items-center gap-x-4 lg:gap-x-6">
-          {/* <button
-            type="button"
-            className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
-          >
-            <span className="sr-only">View notifications</span>
-            <BellIcon className="h-6 w-6" aria-hidden="true" />
-          </button>
-
-          <div
-            className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-900/10"
-            aria-hidden="true"
-          /> */}
-
           <ProfileDropdown />
         </div>
       </div>
@@ -104,16 +112,17 @@ function ProfileDropdown() {
             {userNavigation.map((item) => (
               <Menu.Item key={item.name}>
                 {({ active }) => (
-                  <a
+                  <Link
                     href={item.href}
                     className={clsx(
                       active ? "bg-gray-50" : "",
-                      "block px-3 py-1 text-sm leading-6 text-gray-900",
+                      "flex items-center px-3 py-1 text-sm leading-6 text-gray-900",
                     )}
                     onClick={item.onClick}
                   >
+                    {item.icon && <item.icon className="mr-2 h-4 w-4" />}
                     {item.name}
-                  </a>
+                  </Link>
                 )}
               </Menu.Item>
             ))}

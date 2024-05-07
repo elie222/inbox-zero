@@ -10,7 +10,7 @@ import {
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
-import { onTrashThread } from "@/utils/actions-client";
+import { onTrashThread } from "@/utils/actions/client";
 
 export function ActionButtons(props: {
   threadId: string;

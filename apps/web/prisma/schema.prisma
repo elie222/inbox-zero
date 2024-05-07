@@ -56,8 +56,12 @@ model User {
   lastSyncedHistoryId       String?
   completedOnboarding       Boolean   @default(false)
   onboardingAnswers         Json?
+  behaviorProfile           Json?
+  lastLogin                 DateTime?
+  utms                      Json?
 
   // settings
+  aiProvider          String?
   aiModel             String?
   openAIApiKey        String?
   statsEmailFrequency Frequency         @default(WEEKLY)
@@ -74,6 +78,7 @@ model User {
   rules         Rule[]
   executedRules ExecutedRule[]
   newsletters   Newsletter[]
+  groups        Group[]
 }
 
 model Premium {
@@ -91,6 +96,8 @@ model Premium {
   lemonSqueezyOrderId            Int? // lifetime purchase is an order and not a subscription
   lemonSqueezyProductId          Int?
   lemonSqueezyVariantId          Int?
+  lemonLicenseKey                String?
+  lemonLicenseInstanceId         String?
 
   tier PremiumTier?
 
@@ -105,7 +112,7 @@ model Premium {
   unsubscribeMonth   Int? // 1-12
   unsubscribeCredits Int?
   aiMonth            Int? // 1-12
-  aiCredits          Int? // 100_00 = $100 of credits
+  aiCredits          Int?
 }
 
 // not in use as it's only used for passwordless login
@@ -150,9 +157,19 @@ model Rule {
   actions       Action[]
   automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
   runOnThreads  Boolean        @default(false) // if disabled only runs on individual emails
+  type          RuleType       @default(AI)
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules ExecutedRule[]
+  groupId       String?        @unique
+  group         Group?         @relation(fields: [groupId], references: [id])
+
+  // automatically apply this rule if it matches a filter
+  // supports regex
+  from    String?
+  to      String?
+  subject String?
+  body    String?
 
   @@unique([name, userId])
 }
@@ -174,23 +191,72 @@ model Action {
   bcc     String?
 }
 
+// Rule/Action models represent the rules and actions that the AI can take.
+// ExecutedRule/ExecutedAction models represent the rules/actions that have been planned or executed by the AI.
 model ExecutedRule {
-  id        String       @id @default(cuid())
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
   threadId  String
   messageId String
-  actions   ActionType[]
-  data      Json?
+  status    ExecutedRuleStatus @default(APPLIED) // if APPLIED then the rule was executed
   automated Boolean
+  reason    String?
 
   // may be null if the rule was deleted
   ruleId String?
-  rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  rule   Rule?   @relation(fields: [ruleId], references: [id])
 
   // storing user here in case rule was deleted
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  actionItems ExecutedAction[]
+
+  @@unique([userId, threadId, messageId], name: "unique_user_thread_message")
+}
+
+model ExecutedAction {
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  type           ActionType
+  executedRuleId String
+  executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+
+  // optional extra fields to be used with the action
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
+}
+
+model Group {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  name      String
+  prompt    String?
+  items     GroupItem[]
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rule      Rule?
+
+  @@unique([name, userId])
+}
+
+model GroupItem {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  groupId   String?
+  group     Group?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  type      GroupItemType
+  value     String // eg "@gmail.com", "matt@gmail.com", "Receipt from"
+
+  @@unique([groupId, type, value])
 }
 
 // Represents a sender (`email`) that a user can unsubscribe from,
@@ -262,4 +328,23 @@ enum FeatureAccess {
   UNLOCKED
   UNLOCKED_WITH_API_KEY
   LOCKED
+}
+
+enum ExecutedRuleStatus {
+  APPLIED
+  REJECTED
+  PENDING
+  SKIPPED
+}
+
+enum RuleType {
+  AI
+  STATIC
+  GROUP
+}
+
+enum GroupItemType {
+  FROM
+  SUBJECT
+  BODY
 }

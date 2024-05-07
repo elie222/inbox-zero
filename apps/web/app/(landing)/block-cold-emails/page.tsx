@@ -24,7 +24,9 @@ export default function BlockColdEmails() {
       <Testimonials />
       <FeaturesColdEmailBlocker />
       <Suspense>
-        <Pricing />
+        <div className="pb-32">
+          <Pricing />
+        </div>
       </Suspense>
       <FAQs />
       <CTA />

@@ -65,13 +65,15 @@ async function getNewslettersTinybird(
 ) {
   const types = getTypeFilters(options.types);
 
-  const newsletterCounts = await getNewsletterCounts({
-    ...options,
-    ...types,
-  });
-
-  const autoArchiveFilters = await getAutoArchiveFilters();
-  const userNewsletters = await findNewsletterStatus(options.userId);
+  const [newsletterCounts, autoArchiveFilters, userNewsletters] =
+    await Promise.all([
+      getNewsletterCounts({
+        ...options,
+        ...types,
+      }),
+      getAutoArchiveFilters(),
+      findNewsletterStatus(options.userId),
+    ]);
 
   const newsletters = newsletterCounts.data.map((email) => {
     return {

@@ -1,19 +1,11 @@
+import { useCallback, useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { LoadingMiniSpinner } from "@/components/Loading";
-import { type Executing, type Thread } from "@/components/email-list/types";
-import { useCallback, useState } from "react";
-import { postRequest } from "@/utils/api";
-import {
-  ExecutePlanBody,
-  ExecutePlanResponse,
-} from "@/app/api/user/planned/[id]/controller";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
-import {
-  RejectPlanBody,
-  RejectPlanResponse,
-} from "@/app/api/user/planned/reject/route";
+import { type Executing, type Thread } from "@/components/email-list/types";
 import { cn } from "@/utils";
+import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
@@ -28,31 +20,7 @@ export function useExecutePlan(refetch: () => void) {
       const lastMessage = thread.messages?.[thread.messages.length - 1];
 
       try {
-        await postRequest<ExecutePlanResponse, ExecutePlanBody>(
-          `/api/user/planned/${thread.plan.id}`,
-          {
-            email: {
-              subject: lastMessage.parsedMessage.headers.subject,
-              from: lastMessage.parsedMessage.headers.from,
-              to: lastMessage.parsedMessage.headers.to,
-              cc: lastMessage.parsedMessage.headers.cc,
-              replyTo: lastMessage.parsedMessage.headers["reply-to"],
-              references: lastMessage.parsedMessage.headers["references"],
-              date: lastMessage.parsedMessage.headers.date,
-              headerMessageId:
-                lastMessage.parsedMessage.headers["message-id"] || "",
-              textPlain: lastMessage.parsedMessage.textPlain || null,
-              textHtml: lastMessage.parsedMessage.textHtml || null,
-              snippet: lastMessage.snippet || null,
-              messageId: lastMessage.id || "",
-              threadId: lastMessage.threadId || "",
-            },
-            ruleId: thread.plan.rule.id,
-            actions: thread.plan.rule.actions,
-            args: thread.plan.functionArgs,
-          },
-        );
-
+        await approvePlanAction(thread.plan.id, lastMessage);
         toastSuccess({ description: "Executed!" });
       } catch (error) {
         console.error(error);
@@ -73,12 +41,12 @@ export function useExecutePlan(refetch: () => void) {
       setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
       try {
-        await postRequest<RejectPlanResponse, RejectPlanBody>(
-          `/api/user/planned/reject`,
-          { threadId: thread.id! },
-        );
-
-        toastSuccess({ description: "Plan rejected" });
+        if (thread.plan?.id) {
+          await rejectPlanAction(thread.plan.id);
+          toastSuccess({ description: "Plan rejected" });
+        } else {
+          toastError({ description: "Plan not found" });
+        }
       } catch (error) {
         console.error(error);
         toastError({
@@ -111,15 +79,26 @@ export function PlanActions(props: {
 }) {
   const { thread, executePlan, rejectPlan } = props;
 
-  const execute = useCallback(async () => {
-    executePlan(thread);
-  }, [executePlan, thread]);
-  const reject = useCallback(async () => {
-    rejectPlan(thread);
-  }, [rejectPlan, thread]);
+  const execute = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      executePlan(thread);
+    },
+    [executePlan, thread],
+  );
+  const reject = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      rejectPlan(thread);
+    },
+    [rejectPlan, thread],
+  );
 
   if (!thread.plan?.rule) return null;
-  if (thread.plan?.executed) return null;
+  if (thread.plan?.status === "APPLIED" || thread.plan?.status === "REJECTED")
+    return null;
 
   return (
     <div className={cn("flex items-center space-x-1", props.className)}>

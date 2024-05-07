@@ -1,26 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import { ExecutedRuleStatus } from "@prisma/client";
+import { getExecutedRules } from "@/app/api/user/planned/get-executed-rules";
 
 export const dynamic = "force-dynamic";
 
-export type PlanHistoryResponse = Awaited<ReturnType<typeof getPlanHistory>>;
+export type PlanHistoryResponse = Awaited<ReturnType<typeof getExecutedRules>>;
 
-async function getPlanHistory() {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const history = await prisma.executedRule.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    include: { rule: true },
-  });
-
-  return { history };
-}
-
-export const GET = withError(async () => {
-  const messages = await getPlanHistory();
+export const GET = withError(async (request) => {
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const messages = await getExecutedRules(ExecutedRuleStatus.APPLIED, page);
   return NextResponse.json(messages);
 });

@@ -77,5 +77,5 @@ export async function posthogCaptureEvent(
 
   const client = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY);
   client.capture({ distinctId: email, event, properties });
-  await client.shutdownAsync();
+  await client.shutdown();
 }

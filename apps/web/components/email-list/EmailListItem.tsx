@@ -20,6 +20,7 @@ import { decodeSnippet } from "@/utils/gmail/decode";
 import { createInAiQueueSelector } from "@/store/queue";
 import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const EmailListItem = forwardRef(
   (
@@ -74,142 +75,141 @@ export const EmailListItem = forwardRef(
 
     const decodedSnippet = decodeSnippet(thread.snippet || lastMessage.snippet);
 
-    const cta = findCtaLink(lastMessage.parsedMessage.textHtml);
+    const cta = findCtaLink(lastMessage.textHtml);
 
     return (
-      <li
-        ref={ref}
-        className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
-          "hover:bg-gray-50": !props.selected && !props.opened,
-          "bg-blue-50": props.selected,
-          "bg-blue-100": props.opened,
-          "bg-gray-100": !isUnread && !props.selected && !props.opened,
-        })}
-        onClick={props.onClick}
-      >
-        <div className="px-4">
-          <div className="mx-auto flex">
-            {/* left */}
-            <div
-              className={clsx(
-                "flex flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
-                {
-                  "font-semibold": isUnread,
-                },
-              )}
-            >
+      <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
+        <li
+          ref={ref}
+          className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
+            "hover:bg-gray-50": !props.selected && !props.opened,
+            "bg-blue-50": props.selected,
+            "bg-blue-100": props.opened,
+            "bg-gray-100": !isUnread && !props.selected && !props.opened,
+          })}
+          onClick={props.onClick}
+        >
+          <div className="px-4">
+            <div className="mx-auto flex">
+              {/* left */}
               <div
-                className="flex items-center pl-1"
-                onClick={preventPropagation}
+                className={clsx(
+                  "flex flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
+                  {
+                    "font-semibold": isUnread,
+                  },
+                )}
               >
-                <Checkbox checked={!!props.selected} onChange={onRowSelected} />
-              </div>
-
-              <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-gray-900">
-                {extractNameFromEmail(
-                  participant(
-                    lastMessage.parsedMessage,
-                    props.userEmailAddress,
-                  ),
-                )}{" "}
-                {thread.messages.length > 1 ? (
-                  <span className="font-normal">
-                    ({thread.messages.length})
-                  </span>
-                ) : null}
-              </div>
-              {!splitView && (
-                <>
-                  {cta && (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      className="ml-2"
-                      asChild
-                    >
-                      <Link href={cta.ctaLink} target="_blank">
-                        {cta.ctaText}
-                      </Link>
-                    </Button>
-                  )}
-                  <div className="ml-2 min-w-0 overflow-hidden text-gray-700">
-                    {lastMessage.parsedMessage.headers.subject}
-                  </div>
-                  <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
-                    {decodedSnippet}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* right */}
-            <div className="flex items-center justify-between">
-              <div className="relative flex items-center">
                 <div
-                  className="absolute right-0 z-20 hidden group-hover:block"
-                  // prevent email panel being opened when clicking on action buttons
+                  className="flex items-center pl-1"
                   onClick={preventPropagation}
                 >
-                  <ActionButtons
-                    threadId={thread.id!}
-                    shadow
-                    isPlanning={isPlanning}
-                    isCategorizing={props.isCategorizing}
-                    onPlanAiAction={() => props.onPlanAiAction(thread)}
-                    onAiCategorize={() => props.onAiCategorize(thread)}
-                    onArchive={() => {
-                      props.onArchive(thread);
-                      props.closePanel();
-                    }}
-                    refetch={props.refetch}
+                  <Checkbox
+                    checked={!!props.selected}
+                    onChange={onRowSelected}
                   />
                 </div>
-                <EmailDate
-                  date={new Date(+(lastMessage?.internalDate || ""))}
-                />
-              </div>
 
-              {!!(thread.category?.category || thread.plan) && (
-                <div className="ml-3 flex items-center whitespace-nowrap">
-                  {thread.category?.category ? (
-                    <CategoryBadge category={thread.category.category} />
+                <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-gray-900">
+                  {extractNameFromEmail(
+                    participant(lastMessage, props.userEmailAddress),
+                  )}{" "}
+                  {thread.messages.length > 1 ? (
+                    <span className="font-normal">
+                      ({thread.messages.length})
+                    </span>
                   ) : null}
-                  <div className="ml-3">
-                    <PlanBadge plan={thread.plan} />
-                  </div>
+                </div>
+                {!splitView && (
+                  <>
+                    {cta && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        className="ml-2"
+                        asChild
+                      >
+                        <Link href={cta.ctaLink} target="_blank">
+                          {cta.ctaText}
+                        </Link>
+                      </Button>
+                    )}
+                    <div className="ml-2 min-w-0 overflow-hidden text-gray-700">
+                      {lastMessage.headers.subject}
+                    </div>
+                    <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+                      {decodedSnippet}
+                    </div>
+                  </>
+                )}
+              </div>
 
-                  <PlanActions
-                    thread={thread}
-                    executePlan={props.executePlan}
-                    rejectPlan={props.rejectPlan}
-                    executingPlan={props.executingPlan}
-                    rejectingPlan={props.rejectingPlan}
-                    className={thread.plan?.rule ? "ml-3" : undefined}
+              {/* right */}
+              <div className="flex items-center justify-between">
+                <div className="relative flex items-center">
+                  <div
+                    className="absolute right-0 z-20 hidden group-hover:block"
+                    // prevent email panel being opened when clicking on action buttons
+                    onClick={preventPropagation}
+                  >
+                    <ActionButtons
+                      threadId={thread.id!}
+                      shadow
+                      isPlanning={isPlanning}
+                      isCategorizing={props.isCategorizing}
+                      onPlanAiAction={() => props.onPlanAiAction(thread)}
+                      onAiCategorize={() => props.onAiCategorize(thread)}
+                      onArchive={() => {
+                        props.onArchive(thread);
+                        props.closePanel();
+                      }}
+                      refetch={props.refetch}
+                    />
+                  </div>
+                  <EmailDate
+                    date={new Date(+(lastMessage?.internalDate || ""))}
                   />
                 </div>
-              )}
-            </div>
-          </div>
 
-          {splitView && (
-            <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
-              <div className="min-w-0 overflow-hidden font-medium text-gray-700">
-                {lastMessage.parsedMessage.headers.subject}
+                {!!(thread.category?.category || thread.plan) && (
+                  <div className="ml-3 flex items-center space-x-2 whitespace-nowrap">
+                    {thread.category?.category ? (
+                      <CategoryBadge category={thread.category.category} />
+                    ) : null}
+                    <PlanBadge plan={thread.plan} />
+
+                    <PlanActions
+                      thread={thread}
+                      executePlan={props.executePlan}
+                      rejectPlan={props.rejectPlan}
+                      executingPlan={props.executingPlan}
+                      rejectingPlan={props.rejectingPlan}
+                    />
+                  </div>
+                )}
               </div>
-              <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-gray-500">
-                {decodedSnippet}
-              </div>
-              {cta && (
-                <Button variant="outline" size="xs" className="mt-2" asChild>
-                  <Link href={cta.ctaLink} target="_blank">
-                    {cta.ctaText}
-                  </Link>
-                </Button>
-              )}
             </div>
-          )}
-        </div>
-      </li>
+
+            {splitView && (
+              <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
+                <div className="min-w-0 overflow-hidden font-medium text-gray-700">
+                  {lastMessage.headers.subject}
+                </div>
+                <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-gray-500">
+                  {decodedSnippet}
+                </div>
+                {cta && (
+                  <Button variant="outline" size="xs" className="mt-2" asChild>
+                    <Link href={cta.ctaLink} target="_blank">
+                      {cta.ctaText}
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </li>
+      </ErrorBoundary>
     );
   },
 );

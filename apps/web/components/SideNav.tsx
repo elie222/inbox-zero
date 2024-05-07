@@ -33,6 +33,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
+import { env } from "@/env.mjs";
 
 type NavItem = {
   name: string;
@@ -43,12 +44,9 @@ type NavItem = {
   hideInMail?: boolean;
 };
 
+const NEXT_PUBLIC_DISABLE_TINYBIRD = env.NEXT_PUBLIC_DISABLE_TINYBIRD;
+
 export const navigation: NavItem[] = [
-  {
-    name: "Bulk Unsubscribe",
-    href: "/bulk-unsubscribe",
-    icon: MailsIcon,
-  },
   {
     name: "AI Automation",
     href: "/automation",
@@ -59,21 +57,38 @@ export const navigation: NavItem[] = [
     href: "/cold-email-blocker",
     icon: ShieldCheckIcon,
   },
-  {
-    name: "Analytics",
-    href: "/stats",
-    icon: BarChartBigIcon,
-  },
-  {
-    name: "New Senders",
-    href: "/new-senders",
-    icon: Users2Icon,
-  },
-  {
-    name: "Mail (Beta)",
-    href: "/mail",
-    icon: InboxIcon,
-  },
+  ...(NEXT_PUBLIC_DISABLE_TINYBIRD
+    ? []
+    : [
+        {
+          name: "Bulk Unsubscribe",
+          href: "/bulk-unsubscribe",
+          icon: MailsIcon,
+        },
+      ]),
+  ...(NEXT_PUBLIC_DISABLE_TINYBIRD
+    ? []
+    : [
+        {
+          name: "Analytics",
+          href: "/stats",
+          icon: BarChartBigIcon,
+        },
+      ]),
+  // ...(NEXT_PUBLIC_DISABLE_TINYBIRD
+  //   ? []
+  //   : [
+  //       {
+  //         name: "New Senders",
+  //         href: "/new-senders",
+  //         icon: Users2Icon,
+  //       },
+  //     ]),
+  // {
+  //   name: "Mail (Alpha)",
+  //   href: "/mail",
+  //   icon: InboxIcon,
+  // },
   // {
   //   name: "Send Email",
   //   href: "/compose",

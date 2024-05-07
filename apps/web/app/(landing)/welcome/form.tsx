@@ -8,7 +8,11 @@ import { survey } from "@/app/(landing)/welcome/survey";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { env } from "@/env.mjs";
-import { completedOnboarding, saveOnboardingAnswers } from "@/utils/actions";
+import {
+  completedOnboarding,
+  saveOnboardingAnswers,
+} from "@/utils/actions/user";
+import { appHomePath } from "@/utils/config";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -35,6 +39,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       ? `$survey_response`
       : (`$survey_response_${questionIndex}` as const);
 
+  const isFinalQuestion = questionIndex === survey.questions.length - 1;
+
   const submitPosthog = useCallback(
     (responses: {}) => {
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
@@ -56,15 +62,15 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       });
 
       // submit on last question
-      if (questionIndex === survey.questions.length - 1) {
+      if (isFinalQuestion) {
         submitPosthog(responses);
         await completedOnboarding();
-        router.push("/bulk-unsubscribe");
+        router.push(appHomePath);
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
     },
-    [name, questionIndex, router, searchParams, submitPosthog],
+    [name, questionIndex, router, searchParams, submitPosthog, isFinalQuestion],
   );
 
   const question = survey.questions[questionIndex];
@@ -116,7 +122,11 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
               error={errors[name]}
               placeholder="Optional"
             />
-            <Button className="mt-4 w-full" type="submit">
+            <Button
+              className="mt-4 w-full"
+              type="submit"
+              disabled={isSubmitting}
+            >
               {isSubmitting && <ButtonLoader />}
               Get Started
             </Button>
@@ -129,22 +139,24 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
           </Button>
         )}
 
-        <div className="">
-          <Button
-            variant="ghost"
-            className="mt-8"
-            type="button"
-            onClick={async () => {
-              const responses = getResponses(searchParams);
-              submitPosthog(responses);
-              posthog.capture("survey dismissed", { $survey_id: surveyId });
-              await completedOnboarding();
-              router.push("/bulk-unsubscribe");
-            }}
-          >
-            Skip Onboarding
-          </Button>
-        </div>
+        {!isFinalQuestion && (
+          <div>
+            <Button
+              variant="ghost"
+              className="mt-8"
+              type="button"
+              onClick={async () => {
+                const responses = getResponses(searchParams);
+                submitPosthog(responses);
+                posthog.capture("survey dismissed", { $survey_id: surveyId });
+                await completedOnboarding();
+                router.push(appHomePath);
+              }}
+            >
+              Skip Onboarding
+            </Button>
+          </div>
+        )}
       </div>
     </form>
   );

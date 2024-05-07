@@ -26,7 +26,9 @@ export default function AiAutomation() {
       <Testimonials />
       <FeaturesAutomation />
       <Suspense>
-        <Pricing />
+        <div className="pb-32">
+          <Pricing />
+        </div>
       </Suspense>
       <FAQs />
       <CTA />

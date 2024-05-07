@@ -13,7 +13,6 @@ export interface ModalProps {
   title?: string;
   size?: "xl" | "2xl" | "4xl" | "6xl";
   padding?: "sm" | "none";
-  disableOverflowHidden?: boolean;
   backdropClass?: string;
 }
 
@@ -28,7 +27,7 @@ export function useModal() {
 export function Modal(props: ModalProps) {
   return (
     <Transition appear show={props.isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-30" onClose={props.hideModal}>
+      <Dialog as="div" className="relative z-50" onClose={props.hideModal}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -41,7 +40,7 @@ export function Modal(props: ModalProps) {
           <div
             className={cn(
               "fixed inset-0 bg-black bg-opacity-25",
-              props.backdropClass
+              props.backdropClass,
             )}
           />
         </Transition.Child>
@@ -72,8 +71,7 @@ export function Modal(props: ModalProps) {
                     "sm:w-full sm:max-w-6xl":
                       !props.fullWidth && props.size === "6xl",
                     "sm:w-full sm:max-w-full": props.fullWidth,
-                    "overflow-hidden": !props.disableOverflowHidden,
-                  }
+                  },
                 )}
               >
                 {props.title && (

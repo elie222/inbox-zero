@@ -3,7 +3,7 @@ import { ErrorMessage, captureException, isErrorMessage } from "@/utils/error";
 export async function postRequest<T, S = any>(
   url: string,
   data: S,
-  method?: "POST" | "DELETE",
+  method?: "POST" | "DELETE" | "PUT" | "PATCH",
 ): Promise<T | ErrorMessage> {
   try {
     const res = await fetch(url, {

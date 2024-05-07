@@ -19,6 +19,8 @@ const navigation = {
       target: "_blank",
     },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
+    { name: "Changelog", href: "/changelog", target: "_blank" },
+    { name: "Roadmap", href: "/roadmap", target: "_blank" },
   ],
   company: [
     { name: "Blog", href: "/blog" },

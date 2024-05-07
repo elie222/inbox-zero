@@ -40,6 +40,7 @@ import {
 } from "@/app/(app)/bulk-unsubscribe/common";
 import NewsletterSummary from "@/app/(app)/bulk-unsubscribe/NewsletterSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -91,6 +92,8 @@ export function NewsletterStats(props: {
   });
 
   const { isLoading: isStatsLoading } = useStatLoader();
+
+  const { PremiumModal, openModal } = usePremiumModal();
 
   return (
     <>
@@ -182,8 +185,10 @@ export function NewsletterStats(props: {
                       onSelectRow={() => {
                         setSelectedRow(item);
                       }}
+                      onDoubleClick={() => setOpenedNewsletter(item)}
                       hasUnsubscribeAccess={hasUnsubscribeAccess}
                       refetchPremium={refetchPremium}
+                      openPremiumModal={openModal}
                     />
                   ))}
               />
@@ -197,6 +202,7 @@ export function NewsletterStats(props: {
         onClose={() => setOpenedNewsletter(undefined)}
         refreshInterval={props.refreshInterval}
       />
+      <PremiumModal />
     </>
   );
 }
@@ -256,8 +262,10 @@ function NewsletterRow(props: {
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;
+  onDoubleClick: () => void;
   hasUnsubscribeAccess: boolean;
   refetchPremium: () => Promise<any>;
+  openPremiumModal: () => void;
 }) {
   const { item, refetchPremium } = props;
   const readPercentage = (item.readEmails / item.value) * 100;
@@ -271,6 +279,7 @@ function NewsletterRow(props: {
       aria-selected={props.selected || undefined}
       data-selected={props.selected || undefined}
       onMouseEnter={props.onSelectRow}
+      onDoubleClick={props.onDoubleClick}
     >
       <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-none">
         {item.name}
@@ -311,6 +320,7 @@ function NewsletterRow(props: {
           setOpenedNewsletter={props.setOpenedNewsletter}
           selected={props.selected}
           gmailLabels={props.gmailLabels}
+          openPremiumModal={props.openPremiumModal}
         />
       </TableCell>
     </TableRow>

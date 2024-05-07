@@ -7,6 +7,7 @@ import {
   type MessageWithPayload,
   type ParsedMessage,
 } from "@/utils/types";
+import { truncate } from "@/utils/string";
 
 export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
@@ -21,20 +22,7 @@ export function parseReply(content: string) {
 export function parseMessages(thread: ThreadWithPayloadMessages) {
   const messages =
     thread.messages?.map((message: MessageWithPayload) => {
-      const parsedMessage = parseMessage(message);
-      return {
-        // ...message,
-        id: message.id,
-        threadId: message.threadId,
-        labelIds: message.labelIds,
-        snippet: message.snippet,
-        internalDate: message.internalDate,
-        parsedMessage,
-        // parsedReply: parseReply(
-        //   parsedMessage.textPlain || parsedMessage.textHtml
-        // ),
-        // text: message.payload?.parts?.[0]?.body?.data ? decodeMessage(message.payload?.parts?.[0]?.body?.data) : ''
-      };
+      return parseMessage(message);
     }) || [];
 
   return messages;
@@ -58,13 +46,9 @@ function htmlToText(html: string, removeLinks = true, removeImages = true) {
   return text;
 }
 
-export function truncate(str: string, length: number) {
-  return str.length > length ? str.slice(0, length) + "..." : str;
-}
-
 // extract replies can sometimes return no content.
 // as we don't run ai on threads with multiple messages, 'extractReply' can be disabled for now
-export function parseEmail(
+function parseEmail(
   html: string,
   extractReply = false,
   maxLength: number | null = 2000,
@@ -77,4 +61,27 @@ export function parseEmail(
   const truncatedText = maxLength === null ? text : truncate(text, maxLength);
 
   return truncatedText;
+}
+
+export function getEmailClient(messageId: string) {
+  if (messageId.includes("mail.gmail.com")) return "gmail";
+  if (messageId.includes("we.are.superhuman.com")) return "superhuman";
+  if (messageId.includes("mail.shortwave.com")) return "shortwave";
+
+  // take part after @ and remove final >
+  const emailClient = messageId.split("@")[1].split(">")[0];
+  return emailClient;
+}
+
+export function emailToContent(email: {
+  textHtml: string | null;
+  textPlain: string | null;
+  snippet: string | null;
+}): string {
+  const content =
+    (email.textHtml && parseEmail(email.textHtml, false, null)) ||
+    email.textPlain ||
+    email.snippet;
+
+  return content || "";
 }

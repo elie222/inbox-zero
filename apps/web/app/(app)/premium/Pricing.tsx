@@ -60,7 +60,7 @@ export function Pricing() {
     <LoadingContent loading={isLoading} error={error}>
       <div
         id="pricing"
-        className="relative isolate mx-auto max-w-7xl bg-white px-6 pb-32 pt-10 lg:px-8"
+        className="relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8"
       >
         <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
           <h2 className="font-cal text-base leading-7 text-blue-600">
@@ -198,7 +198,7 @@ export function Pricing() {
                   {tier.priceAdditional ? (
                     <p className="mt-3 text-sm leading-6 text-gray-500">
                       +{tier.priceAdditional[frequency.value]} for each
-                      additional email
+                      additional email account
                     </p>
                   ) : (
                     <div className="mt-16" />
@@ -242,11 +242,11 @@ export function Pricing() {
           })}
         </div>
 
-        <LifetimePricing
+        {/* <LifetimePricing
           user={session.data?.user}
           affiliateCode={affiliateCode}
           premiumTier={premiumTier}
-        />
+        /> */}
       </div>
     </LoadingContent>
   );
@@ -267,7 +267,7 @@ function LifetimePricing(props: {
           <h3 className="flex items-center font-cal text-2xl text-gray-900">
             Lifetime access
             <div className="ml-4">
-              <Tag color="green">Limited Time Offer</Tag>
+              <Tag variant="green">Limited Time Offer</Tag>
             </div>
           </h3>
           <p className="mt-6 text-base leading-7 text-gray-600">

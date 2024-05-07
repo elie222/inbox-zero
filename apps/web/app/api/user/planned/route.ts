@@ -1,95 +1,16 @@
 import { NextResponse } from "next/server";
-import sortBy from "lodash/sortBy";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailClient } from "@/utils/gmail/client";
-import { getFilteredPlans } from "@/utils/redis/plan";
-import { getCategory } from "@/utils/redis/category";
-import { parseMessage } from "@/utils/mail";
-import { isDefined } from "@/utils/types";
-import { getMessage } from "@/utils/gmail/message";
-import { Thread } from "@/components/email-list/types";
-import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { decodeSnippet } from "@/utils/gmail/decode";
+import { ExecutedRuleStatus } from "@prisma/client";
+import { getExecutedRules } from "@/app/api/user/planned/get-executed-rules";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30; // TODO not great if this is taking more than 15s
 
-const LIMIT = 50;
+export type PendingExecutedRules = Awaited<ReturnType<typeof getExecutedRules>>;
 
-export type PlannedResponse = Awaited<ReturnType<typeof getPlanned>>;
-
-// overlapping code with apps/web/app/api/google/threads/route.ts
-async function getPlanned(): Promise<{ messages: Thread[] }> {
-  const session = await auth();
-  if (!session?.user.email) throw new Error("Not authenticated");
-
-  const allPlans = await getFilteredPlans({
-    userId: session.user.id,
-    filter: (plan) => !plan.executed,
-  });
-  console.log(`Fetched ${allPlans.length} plans`);
-  const plans = take(allPlans, LIMIT);
-
-  const gmail = getGmailClient(session);
-
-  const rules = await prisma.rule.findMany({
-    where: { userId: session.user.id },
-  });
-
-  // should we fetch threads instead here?
-  const messages = await Promise.all(
-    plans.map(async (plan) => {
-      if (!plan.rule) return;
-      try {
-        const [message, category] = await Promise.all([
-          getMessage(plan.messageId, gmail),
-          getCategory({
-            email: session.user.email!,
-            threadId: plan.threadId,
-          }),
-        ]);
-
-        const threadId = message.threadId;
-        if (!threadId) return;
-
-        const rule = plan
-          ? rules.find((r) => r.id === plan?.rule?.id)
-          : undefined;
-
-        const thread: Thread = {
-          id: threadId,
-          historyId: message.historyId,
-          snippet: decodeSnippet(message.snippet),
-          messages: [
-            {
-              id: message.id,
-              threadId,
-              labelIds: message.labelIds,
-              snippet: message.snippet,
-              internalDate: message.internalDate,
-              parsedMessage: parseMessage(message),
-            },
-          ],
-          plan: plan ? { ...plan, databaseRule: rule } : undefined,
-          category,
-        };
-
-        return thread;
-      } catch (error) {
-        console.error("getPlanned: error getting message", error);
-      }
-    }),
-  );
-
-  return { messages: messages.filter(isDefined) };
-}
-
-function take<T extends { createdAt: Date }>(array: T[], count: number) {
-  return sortBy(array, (x) => -new Date(x.createdAt)).slice(0, count);
-}
-
-export const GET = withError(async () => {
-  const messages = await getPlanned();
+export const GET = withError(async (request) => {
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const messages = await getExecutedRules(ExecutedRuleStatus.PENDING, page);
   return NextResponse.json(messages);
 });

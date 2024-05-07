@@ -46,7 +46,9 @@ export default function Home() {
       <FeaturesColdEmailBlocker />
       <FeaturesStats />
       <Suspense>
-        <Pricing />
+        <div className="pb-32">
+          <Pricing />
+        </div>
       </Suspense>
       <FAQs />
       <CTA />

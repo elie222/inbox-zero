@@ -1,4 +1,4 @@
-import { zodAIModel } from "@/utils/openai";
+import { zodAIModel } from "@/utils/llms/openai";
 import { z } from "zod";
 
 export const saveSettingsBody = z
@@ -14,9 +14,9 @@ export const saveSettingsBody = z
       .refine((val) => !val || val.startsWith("sk-"), {
         message: "API key must start with 'sk-'.",
       })
-      .refine((val) => !val || val.length === 51, {
-        message: "API key must be 51 characters long.",
-      })
+      // .refine((val) => !val || val.length === 51 || val.length === 56, {
+      //   message: "API key must be 51 or 56 characters long.",
+      // })
       .optional(),
   })
   .superRefine((val) => {

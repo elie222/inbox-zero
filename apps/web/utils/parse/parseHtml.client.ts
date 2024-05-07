@@ -37,7 +37,7 @@ export function findUnsubscribeLink(html?: string | null): string | undefined {
     }
   }
 
-  return unsubscribeLink;
+  return cleanUnsubscribeLink(unsubscribeLink);
 }
 
 export function findCtaLink(
@@ -64,7 +64,8 @@ export function findCtaLink(
     }
   });
 
-  if (ctaLink && !ctaLink.startsWith("http")) ctaLink = `https://${ctaLink}`;
+  if (ctaLink && !ctaLink.startsWith("http") && !ctaLink.startsWith("mailto:"))
+    ctaLink = `https://${ctaLink}`;
 
   return ctaText && ctaLink ? { ctaText, ctaLink } : undefined;
 }
@@ -95,4 +96,14 @@ export function isMarketingEmail(html: string) {
       return true;
     }
   }
+}
+
+export function cleanUnsubscribeLink(unsubscribeLink?: string) {
+  // remove < > from start and end of unsubscribeLink
+  if (unsubscribeLink?.startsWith("<"))
+    unsubscribeLink = unsubscribeLink.slice(1);
+  if (unsubscribeLink?.endsWith(">"))
+    unsubscribeLink = unsubscribeLink.slice(0, -1);
+
+  return unsubscribeLink;
 }

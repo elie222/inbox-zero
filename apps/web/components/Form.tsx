@@ -14,7 +14,7 @@ export function FormSection(props: {
     <div
       id={props.id}
       className={cn(
-        "grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8",
+        "content-container grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 py-16 md:grid-cols-3",
         props.className,
       )}
     >

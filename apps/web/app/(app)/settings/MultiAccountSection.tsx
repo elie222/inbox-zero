@@ -16,7 +16,7 @@ import {
   saveMultiAccountPremiumBody,
   SaveMultiAccountPremiumBody,
 } from "@/app/api/user/settings/multi-account/validation";
-import { updateMultiAccountPremium } from "@/utils/actions";
+import { updateMultiAccountPremium } from "@/utils/actions/premium";
 import { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
@@ -25,6 +25,7 @@ import { PremiumTier } from "@prisma/client";
 import { env } from "@/env.mjs";
 import { getUserTier } from "@/utils/premium";
 import { captureException } from "@/utils/error";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function MultiAccountSection() {
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
@@ -39,6 +40,8 @@ export function MultiAccountSection() {
 
   const premiumTier = getUserTier(dataPremium?.premium);
 
+  const { openModal, PremiumModal } = usePremiumModal();
+
   return (
     <FormSection id="manage-users">
       <FormSectionLeft
@@ -52,14 +55,12 @@ export function MultiAccountSection() {
             {data && (
               <div>
                 {premiumTier && (
-                  <AlertBasic
-                    title="Extra email price"
-                    description={`You are on the ${capitalCase(
-                      premiumTier,
-                    )} plan. You will be billed ${
-                      pricingAdditonalEmail[premiumTier]
-                    } for each extra email you add to your account.`}
-                    icon={<CrownIcon className="h-4 w-4" />}
+                  <ExtraSeatsAlert
+                    premiumTier={premiumTier}
+                    emailAccountsAccess={
+                      dataPremium?.premium?.emailAccountsAccess || 0
+                    }
+                    seatsUsed={data.users.length}
                   />
                 )}
 
@@ -83,8 +84,9 @@ export function MultiAccountSection() {
               title="Upgrade"
               description="Upgrade to premium to share premium with other email addresses."
               icon={<CrownIcon className="h-4 w-4" />}
-              button={<Button link={{ href: "/premium" }}>Upgrade</Button>}
+              button={<Button onClick={openModal}>Upgrade</Button>}
             />
+            <PremiumModal />
           </div>
         )}
       </LoadingContent>
@@ -189,5 +191,37 @@ function MultiAccountForm({
         </Button>
       )}
     </form>
+  );
+}
+
+function ExtraSeatsAlert({
+  emailAccountsAccess,
+  premiumTier,
+  seatsUsed,
+}: {
+  emailAccountsAccess: number;
+  premiumTier: PremiumTier;
+  seatsUsed: number;
+}) {
+  if (emailAccountsAccess > seatsUsed) {
+    return (
+      <AlertBasic
+        title="Seats"
+        description={`You have access to ${emailAccountsAccess} seats.`}
+        icon={<CrownIcon className="h-4 w-4" />}
+      />
+    );
+  }
+
+  return (
+    <AlertBasic
+      title="Extra email price"
+      description={`You are on the ${capitalCase(
+        premiumTier,
+      )} plan. You will be billed ${
+        pricingAdditonalEmail[premiumTier]
+      } for each extra email you add to your account.`}
+      icon={<CrownIcon className="h-4 w-4" />}
+    />
   );
 }

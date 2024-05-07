@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { type gmail_v1 } from "googleapis";
 import MailComposer from "nodemailer/lib/mail-composer";
-import Mail from "nodemailer/lib/mailer";
+import Mail, { Attachment } from "nodemailer/lib/mailer";
+import { zodAttachment } from "@/utils/types/mail";
+import { parseMessage } from "@/utils/mail";
+import { getMessage } from "@/utils/gmail/message";
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -18,6 +21,7 @@ export const sendEmailBody = z.object({
   subject: z.string(),
   messageText: z.string(),
   messageHtml: z.string().optional(),
+  attachments: z.array(zodAttachment).optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
 export type SendEmailResponse = Awaited<ReturnType<typeof sendEmail>>;
@@ -36,7 +40,9 @@ const createMail = async (options: Mail.Options) => {
   return encodeMessage(message);
 };
 
-const createRawMailMessage = async (body: SendEmailBody) => {
+const createRawMailMessage = async (
+  body: Omit<SendEmailBody, "attachments"> & { attachments?: Attachment[] },
+) => {
   return await createMail({
     to: body.to,
     cc: body.cc,
@@ -53,7 +59,7 @@ const createRawMailMessage = async (body: SendEmailBody) => {
           body.messageHtml || convertTextToHtmlParagraphs(body.messageText),
       },
     ],
-    // attachments: fileAttachments,
+    attachments: body.attachments,
     // https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
     references: body.replyToEmail
       ? `${body.replyToEmail.references || ""} ${
@@ -76,6 +82,82 @@ export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
     userId: "me",
     requestBody: {
       threadId: body.replyToEmail ? body.replyToEmail.threadId : undefined,
+      raw,
+    },
+  });
+
+  return result;
+}
+
+export async function forwardEmail(
+  gmail: gmail_v1.Gmail,
+  options: {
+    messageId: string;
+    to: string;
+    cc?: string;
+    bcc?: string;
+    content?: string;
+  },
+) {
+  const m = await getMessage(options.messageId, gmail);
+
+  const messageId = m.id;
+  if (!messageId) throw new Error("Message not found");
+
+  const message = parseMessage(m);
+
+  const attachments = await Promise.all(
+    message.attachments?.map(async (attachment) => {
+      const attachmentData = await gmail.users.messages.attachments.get({
+        userId: "me",
+        messageId,
+        id: attachment.attachmentId,
+      });
+      return {
+        content: Buffer.from(attachmentData.data.data || "", "base64"),
+        contentType: attachment.mimeType,
+        filename: attachment.filename,
+      };
+    }) || [],
+  );
+
+  const raw = await createRawMailMessage({
+    to: options.to,
+    cc: options.cc,
+    bcc: options.bcc,
+    subject: `Fwd: ${message.headers.subject}`,
+    messageText: `${options.content ?? ""}
+        
+---------- Forwarded message ----------
+From: ${message.headers.from}
+Date: ${message.headers.date}
+Subject: ${message.headers.subject}
+To: <${message.headers.to}>
+
+${message.textPlain}`,
+    messageHtml: `<div>${options.content ?? ""}</div>
+
+<div>---------- Forwarded message ----------</div>
+<div>From: ${message.headers.from}</div>
+<div>Date: ${message.headers.date}</div>
+<div>Subject: ${message.headers.subject}</div>
+<div>To: <${message.headers.to}></div>
+
+<br>
+
+${message.textHtml}`,
+    replyToEmail: {
+      threadId: message.threadId || "",
+      references: "",
+      headerMessageId: "",
+    },
+    attachments,
+  });
+
+  const result = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      threadId: message.threadId,
       raw,
     },
   });

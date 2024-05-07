@@ -27,7 +27,7 @@ const tinybirdEmail = z.object({
   sent: z.boolean(),
   draft: z.boolean(),
   inbox: z.boolean(),
-  sizeEstimate: z.number().nullish(), // Estimated size in bytes
+  sizeEstimate: z.number().default(0), // Estimated size in bytes
 });
 export type TinybirdEmail = z.infer<typeof tinybirdEmail>;
 

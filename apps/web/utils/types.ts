@@ -1,5 +1,5 @@
+import { gmail_v1 } from "googleapis";
 import { Action, Rule } from "@prisma/client";
-import { type gmail_v1 } from "googleapis";
 
 // https://stackoverflow.com/a/53276873/2602771
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
@@ -11,30 +11,20 @@ export function isDefined<T>(value: T | undefined | null): value is T {
 
 export type RuleWithActions = Rule & { actions: Action[] };
 
-// export type ChatCompletionResponse = {
-//   choices: { message: Message }[];
-//   usage: {
-//     prompt_tokens: number;
-//     completion_tokens: number;
-//     total_tokens: number;
-//   };
-// };
+export type BatchError = {
+  error: {
+    code: number;
+    message: string;
+    errors: any[][];
+    status: string;
+  };
+};
 
-// export type ChatCompletionError = {
-//   error: {
-//     message: string;
-//     type: "tokens" | "invalid_request_error"; // add more as needed
-//     param: string;
-//     code: "context_length_exceeded"; // add more as needed
-//   };
-// };
-
-// // typeguard to check if the response is an error
-// export function isChatCompletionError(
-//   response: ChatCompletionResponse | ChatCompletionError
-// ): response is ChatCompletionError {
-//   return !!(response as ChatCompletionError).error;
-// }
+export function isBatchError(
+  message: MessageWithPayload | BatchError,
+): message is BatchError {
+  return (message as BatchError).error !== undefined;
+}
 
 export type MessageWithPayload = gmail_v1.Schema$Message & {
   payload: gmail_v1.Schema$MessagePart;
@@ -44,14 +34,13 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
   messages: MessageWithPayload[];
 };
 
-export interface ParsedMessage {
+export interface ParsedMessage extends gmail_v1.Schema$Message {
   id: string;
   threadId: string;
-  labelIds: string[];
+  labelIds?: string[];
   snippet: string;
   historyId: string;
-  internalDate: number;
-  attachments: Attachment[];
+  attachments?: Attachment[];
   inline: Inline[];
   headers: ParsedMessageHeaders;
   textPlain?: string;

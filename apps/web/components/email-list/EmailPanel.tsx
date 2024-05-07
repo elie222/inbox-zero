@@ -1,19 +1,18 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import { useAtomValue } from "jotai";
-import { capitalCase } from "capital-case";
-import { ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
+import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
-import { Badge } from "@/components/Badge";
 import { type Thread } from "@/components/email-list/types";
-import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
-import { PlanBadge, getActionColor } from "@/components/PlanBadge";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { createInAiQueueSelector } from "@/store/queue";
+import { Card } from "@/components/Card";
+import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -47,10 +46,10 @@ export function EmailPanel(props: {
             id="message-heading"
             className="text-lg font-medium text-gray-900"
           >
-            {lastMessage.parsedMessage.headers.subject}
+            {lastMessage.headers.subject}
           </h1>
           <p className="mt-1 truncate text-sm text-gray-500">
-            {lastMessage.parsedMessage.headers.from}
+            {lastMessage.headers.from}
           </p>
         </div>
 
@@ -131,15 +130,15 @@ function EmailMessage(props: {
       <div className="sm:flex sm:items-baseline sm:justify-between">
         <h3 className="text-base font-medium">
           <span className="text-gray-900">
-            {extractNameFromEmail(message.parsedMessage.headers.from)}
+            {extractNameFromEmail(message.headers.from)}
           </span>{" "}
           <span className="text-gray-600">wrote</span>
         </h3>
 
         <div className="flex items-center space-x-2">
           <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
-            <time dateTime={message.parsedMessage.headers.date}>
-              {formatShortDate(new Date(message.parsedMessage.headers.date))}
+            <time dateTime={message.headers.date}>
+              {formatShortDate(new Date(message.headers.date))}
             </time>
           </p>
           <div className="flex items-center">
@@ -174,12 +173,38 @@ function EmailMessage(props: {
         </div>
       </div>
       <div className="mt-4">
-        {message.parsedMessage.textHtml ? (
-          <HtmlEmail html={message.parsedMessage.textHtml} />
+        {message.textHtml ? (
+          <HtmlEmail html={message.textHtml} />
         ) : (
-          <PlainEmail text={message.parsedMessage.textPlain || ""} />
+          <PlainEmail text={message.textPlain || ""} />
         )}
       </div>
+      {message.attachments && (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {message.attachments.map((attachment) => {
+            const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
+
+            return (
+              <Card key={attachment.filename}>
+                <div className="text-gray-600">{attachment.filename}</div>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-gray-600">
+                    {mimeTypeToString(attachment.mimeType)}
+                  </div>
+                  <Button variant="outline" asChild>
+                    <Link href={url} target="_blank">
+                      <>
+                        <DownloadIcon className="mr-2 h-4 w-4" />
+                        Download
+                      </>
+                    </Link>
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {(showReply || showForward) && (
         <>
@@ -190,17 +215,16 @@ function EmailMessage(props: {
               replyingToEmail={
                 showReply
                   ? {
-                      to: message.parsedMessage.headers.from,
-                      subject: `Re: ${message.parsedMessage.headers.subject}`,
-                      headerMessageId:
-                        message.parsedMessage.headers["message-id"]!,
+                      to: message.headers.from,
+                      subject: `Re: ${message.headers.subject}`,
+                      headerMessageId: message.headers["message-id"]!,
                       threadId: message.threadId!,
-                      cc: message.parsedMessage.headers.cc,
-                      references: message.parsedMessage.headers.references,
+                      cc: message.headers.cc,
+                      references: message.headers.references,
                     }
                   : {
                       to: "",
-                      subject: `Fwd: ${message.parsedMessage.headers.subject}`,
+                      subject: `Fwd: ${message.headers.subject}`,
                       headerMessageId: "",
                       threadId: message.threadId!,
                       cc: "",
@@ -269,60 +293,30 @@ function getIframeHtml(html: string) {
   return htmlWithHead;
 }
 
-function PlanExplanation(props: {
-  thread: Thread;
-  executingPlan: boolean;
-  rejectingPlan: boolean;
-  executePlan: (thread: Thread) => Promise<void>;
-  rejectPlan: (thread: Thread) => Promise<void>;
-}) {
-  const { thread } = props;
-
-  if (!thread) return null;
-
-  const { plan } = thread;
-
-  if (!plan?.rule) return null;
-
-  return (
-    <div className="max-h-48 overflow-auto border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
-      <div className="flex">
-        <div className="flex-shrink-0">
-          <PlanBadge plan={plan} />
-        </div>
-        <div className="ml-2">{plan.databaseRule?.instructions}</div>
-      </div>
-      <div className="mt-4 flex space-x-1">
-        {plan.rule.actions?.map((action, i) => {
-          return (
-            <div key={i}>
-              <Badge color={getActionColor(action.type)}>
-                {capitalCase(action.type)}
-              </Badge>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-3">
-        {Object.entries(plan.functionArgs).map(([key, value]) => {
-          return (
-            <div key={key}>
-              <strong>{capitalCase(key)}: </strong>
-              <span className="whitespace-pre-wrap">{value as string}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-2">
-        <PlanActions
-          thread={thread}
-          executePlan={props.executePlan}
-          rejectPlan={props.rejectPlan}
-          executingPlan={props.executingPlan}
-          rejectingPlan={props.rejectingPlan}
-        />
-      </div>
-    </div>
-  );
+function mimeTypeToString(mimeType: string): string {
+  switch (mimeType) {
+    case "application/pdf":
+      return "PDF";
+    case "application/zip":
+      return "ZIP";
+    case "image/png":
+      return "PNG";
+    case "image/jpeg":
+      return "JPEG";
+    // LLM generated. Need to check they're actually needed
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      return "DOCX";
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+      return "XLSX";
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      return "PPTX";
+    case "application/vnd.ms-excel":
+      return "XLS";
+    case "application/vnd.ms-powerpoint":
+      return "PPT";
+    case "application/vnd.ms-word":
+      return "DOC";
+    default:
+      return mimeType;
+  }
 }
