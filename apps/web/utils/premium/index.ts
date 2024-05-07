@@ -31,6 +31,16 @@ export const getUserTier = (
   return premium?.tier || getUserPlan(premium?.lemonSqueezyRenewsAt);
 };
 
+export const isAdminForPremium = (
+  premiumAdmins: { id: string }[],
+  userId?: string,
+) => {
+  if (!userId) return false;
+  // if no admins are set, then we skip the check
+  if (!premiumAdmins.length) return true;
+  return premiumAdmins.some((admin) => admin.id === userId);
+};
+
 export const hasUnsubscribeAccess = (
   unsubscribeCredits?: number | null,
 ): boolean => {

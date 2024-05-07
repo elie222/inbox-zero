@@ -48,6 +48,7 @@ export async function upgradeToPremium(options: {
     return await prisma.premium.create({
       data: {
         users: { connect: { id: options.userId } },
+        admins: { connect: { id: options.userId } },
         ...data,
       },
       select: { users: { select: { email: true } } },

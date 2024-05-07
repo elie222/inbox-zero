@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
+import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
@@ -23,11 +24,12 @@ import { usePremium } from "@/components/PremiumAlert";
 import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { env } from "@/env.mjs";
-import { getUserTier } from "@/utils/premium";
+import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { captureException } from "@/utils/error";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function MultiAccountSection() {
+  const { data: session } = useSession();
   const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
     "/api/user/settings/multi-account",
   );
@@ -41,6 +43,8 @@ export function MultiAccountSection() {
   const premiumTier = getUserTier(dataPremium?.premium);
 
   const { openModal, PremiumModal } = usePremiumModal();
+
+  if (!isAdminForPremium(data?.admins || [], session?.user.id)) return null;
 
   return (
     <FormSection id="manage-users">

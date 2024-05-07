@@ -70,8 +70,11 @@ model User {
   coldEmailPrompt     String?
 
   // premium can be shared among multiple users
-  premiumId String?
-  premium   Premium? @relation(fields: [premiumId], references: [id])
+  premiumId      String?
+  premium        Premium? @relation(name: "userPremium", fields: [premiumId], references: [id])
+  // only admin users can manage premium
+  premiumAdminId String?
+  premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
   promptHistory PromptHistory[]
   labels        Label[]
@@ -86,7 +89,8 @@ model Premium {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users  User[] @relation(name: "userPremium")
+  admins User[]
 
   // lemon squeezy
   lemonSqueezyRenewsAt           DateTime?

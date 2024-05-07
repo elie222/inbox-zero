@@ -5,7 +5,7 @@ import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { env } from "@/env.mjs";
-import { isOnHigherTier, isPremium } from "@/utils/premium";
+import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 import {
@@ -91,10 +91,14 @@ export async function updateMultiAccountPremium(
               tier: true,
               lemonSqueezySubscriptionItemId: true,
               emailAccountsAccess: true,
+              admins: { select: { id: true } },
             },
           },
         },
       });
+
+      if (!isAdminForPremium(user.premium?.admins || [], session.user.id))
+        return { error: "Not admin" };
 
       // check all users exist
       const uniqueEmails = uniq(emails);
@@ -161,7 +165,10 @@ export async function updateMultiAccountPremium(
 
 async function createPremiumForUser(userId: string) {
   return await prisma.premium.create({
-    data: { users: { connect: { id: userId } } },
+    data: {
+      users: { connect: { id: userId } },
+      admins: { connect: { id: userId } },
+    },
   });
 }
 
