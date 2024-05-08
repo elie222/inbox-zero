@@ -74,6 +74,7 @@ export async function runRulesOnMessage({
     rules: aiRules,
     gmail,
     user,
+    isTest: false,
   });
 
   if (aiResponse.handled) return { handled: true };
@@ -209,6 +210,7 @@ export async function testRulesOnMessage({
     rules: aiRules,
     gmail,
     user,
+    isTest: true,
   });
 
   return plan;

@@ -25,11 +25,11 @@ export function findMatchingGroupItem(
   const { from, subject } = headers;
 
   return groupItems.find((item) => {
-    if (item.type === GroupItemType.FROM) {
+    if (item.type === GroupItemType.FROM && from) {
       return item.value.includes(from) || from.includes(item.value);
     }
 
-    if (item.type === GroupItemType.SUBJECT) {
+    if (item.type === GroupItemType.SUBJECT && subject) {
       const subjectWithoutNumbers = removeNumbersFromSubject(subject);
       const valueWithoutNumbers = removeNumbersFromSubject(item.value);
 
@@ -42,7 +42,7 @@ export function findMatchingGroupItem(
     }
 
     // TODO
-    // if (item.type === GroupItemType.BODY) {
+    // if (item.type === GroupItemType.BODY && body) {
     //   return item.value.includes(body)
     // }
 
