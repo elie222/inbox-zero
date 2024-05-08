@@ -54,7 +54,7 @@ export function Rules() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Instructions</TableHead>
+                <TableHead>Conditions</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Actions</TableHead>
                 <TableHead className="text-center">Automated</TableHead>
@@ -75,12 +75,9 @@ export function Rules() {
                     </Link>
                   </TableCell>
                   <TableCell className="whitespace-pre-wrap">
-                    {rule.instructions}
+                    {getInstructions(rule)}
                   </TableCell>
-                  <TableCell>
-                    {ruleTypeToString(rule.type)}
-                    {rule.group?.name ? `: ${rule.group.name}` : ""}
-                  </TableCell>
+                  <TableCell>{ruleTypeToString(rule.type)}</TableCell>
                   <TableCell>
                     <Actions actions={rule.actions} />
                   </TableCell>
@@ -184,4 +181,18 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
       })}
     </div>
   );
+}
+
+function getInstructions(rule: RulesResponse[number]) {
+  switch (rule.type) {
+    case RuleType.AI:
+      return rule.instructions;
+    case RuleType.STATIC:
+      let from = rule.from ? `From: ${rule.from}` : "";
+      let subject = rule.subject ? `Subject: ${rule.subject}` : "";
+      // let body = rule.body ? `Body: ${rule.body}` : "";
+      return `${from} ${subject}`.trim();
+    case RuleType.GROUP:
+      return `Group: ${rule.group?.name || "MISSING"}`;
+  }
 }
