@@ -75,7 +75,7 @@ export function UpdateRuleForm(props: {
         ? await updateRuleAction({ ...body, id: body.id })
         : await createRuleAction(body);
 
-      toastSuccess({ description: `Saved!` });
+      toastSuccess({ description: body.id ? `Saved!` : `Created!` });
       router.replace(`/automation/rule/${res.rule.id}`);
     } catch (error) {
       console.error(error);
