@@ -16,7 +16,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateGroupBody, createGroupBody } from "@/utils/actions/validation";
 import { AlertBasic } from "@/components/Alert";
 
-export function CreateGroupModalButton(props: { existingGroups: string[] }) {
+export function CreateGroupModalButton(props: {
+  existingGroups: string[];
+  buttonVariant?: "white";
+}) {
   const { isModalOpen, openModal, closeModal } = useModal();
   const { mutate } = useSWRConfig();
 
@@ -34,7 +37,9 @@ export function CreateGroupModalButton(props: { existingGroups: string[] }) {
 
   return (
     <>
-      <Button onClick={openModal}>Create group</Button>
+      <Button color={props.buttonVariant} onClick={openModal}>
+        Create group
+      </Button>
       <Modal isOpen={isModalOpen} hideModal={closeModal} title="Create Group">
         <div className="mt-4">
           <div className="space-x-2">

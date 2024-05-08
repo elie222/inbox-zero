@@ -4,14 +4,7 @@ import { useCallback } from "react";
 import Link from "next/link";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import {
-  ForwardIcon,
-  ShieldAlertIcon,
-  MailQuestionIcon,
-  NewspaperIcon,
-  ArrowLeftIcon,
-  PenLineIcon,
-} from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import { AlertBasic } from "@/components/Alert";
 import { Input } from "@/components/Input";
 import {
@@ -23,37 +16,7 @@ import { Button, ButtonLoader } from "@/components/ui/button";
 import { createAutomationAction } from "@/utils/actions/ai-rule";
 import { captureException } from "@/utils/error";
 import { toastError, toastInfo } from "@/components/Toast";
-
-const examples = [
-  {
-    title: "Forward receipts",
-    description: "Forward receipts to alice@accountant.com.",
-    icon: <ForwardIcon className="h-4 w-4" />,
-  },
-  {
-    title: "Archive and label newsletters",
-    description: `Archive newsletters and label them as "Newsletter".`,
-    icon: <NewspaperIcon className="h-4 w-4" />,
-  },
-  {
-    title: "Label high priority emails",
-    description: `Mark high priority emails as "High Priority". Examples include:
-* Customer wants to cancel their plan
-* Customer wants to purchase
-* Customer complaint`,
-    icon: <ShieldAlertIcon className="h-4 w-4" />,
-  },
-  {
-    title: "Respond to question",
-    description: `If someone asks how much the premium plan is, respond: "Our premium plan is $10 per month."`,
-    icon: <MailQuestionIcon className="h-4 w-4" />,
-  },
-  {
-    title: "Custom rule",
-    description: "",
-    icon: <PenLineIcon className="h-4 w-4" />,
-  },
-];
+import { examples } from "@/app/(app)/automation/create/examples";
 
 type Inputs = { prompt?: string };
 
@@ -152,14 +115,25 @@ export default function AutomationSettingsPage() {
               <TypographyH3>Start from an example</TypographyH3>
 
               <div className="mt-2 space-y-1 text-sm leading-6 text-gray-700">
-                {examples.map((example) => {
+                {examples.map((example, i) => {
+                  const Component = example.rule ? Link : "button";
+
                   return (
-                    <button
+                    <Component
                       key={example.title}
-                      className="w-full text-left"
-                      onClick={() => {
-                        setValue("prompt", example.description);
-                      }}
+                      className="block w-full text-left"
+                      href={
+                        example.rule
+                          ? `/automation/rule/create?example=${i}`
+                          : ""
+                      }
+                      onClick={
+                        example.rule
+                          ? undefined
+                          : () => {
+                              setValue("prompt", example.description);
+                            }
+                      }
                     >
                       <AlertBasic
                         title={example.title}
@@ -167,7 +141,7 @@ export default function AutomationSettingsPage() {
                         icon={example.icon}
                         className="cursor-pointer hover:bg-gray-100"
                       />
-                    </button>
+                    </Component>
                   );
                 })}
               </div>

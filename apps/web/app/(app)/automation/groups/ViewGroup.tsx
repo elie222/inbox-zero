@@ -57,14 +57,20 @@ export function ViewGroupButton({
         size="4xl"
       >
         <div className="mt-4">
-          <ViewGroup groupId={groupId} />
+          <ViewGroup groupId={groupId} onDelete={closeModal} />
         </div>
       </Modal>
     </>
   );
 }
 
-function ViewGroup({ groupId }: { groupId: string }) {
+function ViewGroup({
+  groupId,
+  onDelete,
+}: {
+  groupId: string;
+  onDelete: () => void;
+}) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );
@@ -88,6 +94,7 @@ function ViewGroup({ groupId }: { groupId: string }) {
                 if (confirm("Are you sure you want to delete this group?")) {
                   await deleteGroupAction(groupId);
                   mutate();
+                  onDelete();
                 }
               }}
             >

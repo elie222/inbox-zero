@@ -28,6 +28,12 @@ export async function createNewsletterGroupAction(body: CreateGroupBody) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
+  const existingGroup = await prisma.group.findFirst({
+    where: { name, userId: session.user.id },
+    select: { id: true },
+  });
+  if (existingGroup) return { id: existingGroup.id };
+
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
   const newsletters = await findNewsletters(gmail, token.token!);
@@ -51,6 +57,12 @@ export async function createNewsletterGroupAction(body: CreateGroupBody) {
 export async function createReceiptGroupAction({ name }: CreateGroupBody) {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
+
+  const existingGroup = await prisma.group.findFirst({
+    where: { name, userId: session.user.id },
+    select: { id: true },
+  });
+  if (existingGroup) return { id: existingGroup.id };
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);

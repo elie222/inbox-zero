@@ -1,23 +1,28 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   FieldError,
   FieldErrors,
   SubmitHandler,
   UseFormRegisterReturn,
+  UseFormSetValue,
   useFieldArray,
   useForm,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
-import { HelpCircleIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, TypographyH3 } from "@/components/Typography";
+import {
+  MessageText,
+  SectionDescription,
+  TypographyH3,
+} from "@/components/Typography";
 import { ActionType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import { CreateRuleBody, createRuleBody } from "@/utils/actions/validation";
@@ -32,6 +37,15 @@ import { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
+import { CreateGroupModalButton } from "@/app/(app)/automation/groups/CreateGroupModal";
+import {
+  createNewsletterGroupAction,
+  createReceiptGroupAction,
+} from "@/utils/actions/group";
+import {
+  NEWSLETTER_GROUP_ID,
+  RECEIPT_GROUP_ID,
+} from "@/app/(app)/automation/create/examples";
 
 export function UpdateRuleForm(props: {
   rule: CreateRuleBody & { id?: string };
@@ -154,6 +168,7 @@ export function UpdateRuleForm(props: {
         <TabsContent value={RuleType.GROUP}>
           <GroupsTab
             registerProps={register("groupId")}
+            setValue={setValue}
             errors={errors}
             groupId={watch("groupId")}
           />
@@ -334,10 +349,38 @@ export function UpdateRuleForm(props: {
 
 function GroupsTab(props: {
   registerProps: UseFormRegisterReturn<"groupId">;
+  setValue: UseFormSetValue<CreateRuleBody>;
   errors: FieldErrors<CreateRuleBody>;
   groupId?: string | null;
 }) {
-  const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
+  const { setValue } = props;
+  const { data, isLoading, error, mutate } =
+    useSWR<GroupsResponse>(`/api/user/group`);
+  const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
+
+  useEffect(() => {
+    async function createGroup() {
+      setLoadingCreateGroup(true);
+      let created: { id: string } | null = null;
+      if (props.groupId === NEWSLETTER_GROUP_ID) {
+        created = await createNewsletterGroupAction({ name: "Newsletter" });
+      } else if (props.groupId === RECEIPT_GROUP_ID) {
+        created = await createReceiptGroupAction({ name: "Receipts" });
+      }
+      if (created) {
+        mutate();
+        setValue("groupId", created.id);
+      }
+      setLoadingCreateGroup(false);
+    }
+
+    if (
+      props.groupId === NEWSLETTER_GROUP_ID ||
+      props.groupId === RECEIPT_GROUP_ID
+    ) {
+      createGroup();
+    }
+  }, [props.groupId]);
 
   return (
     <div className="mt-4">
@@ -346,7 +389,13 @@ function GroupsTab(props: {
         could be all receipts or all newsletters.
       </SectionDescription>
 
-      <LoadingContent loading={isLoading} error={error}>
+      {loadingCreateGroup && (
+        <MessageText className="my-4 text-center">
+          Creating group... This will take a few seconds.
+        </MessageText>
+      )}
+
+      <LoadingContent loading={isLoading || loadingCreateGroup} error={error}>
         <div className="mt-2 flex items-center space-x-2">
           {data?.groups && data?.groups.length > 0 && (
             <div className="min-w-[250px]">
@@ -374,14 +423,10 @@ function GroupsTab(props: {
               )}
             />
           )}
-
-          <Button
-            color="white"
-            link={{ href: "/automation?tab=groups", target: "_blank" }}
-          >
-            <SettingsIcon className="mr-2 h-4 w-4" />
-            {data?.groups.length ? "Manage groups" : "Create group"}
-          </Button>
+          <CreateGroupModalButton
+            existingGroups={data?.groups.map((group) => group.name) || []}
+            buttonVariant="white"
+          />
         </div>
       </LoadingContent>
     </div>
