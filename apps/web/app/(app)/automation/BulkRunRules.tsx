@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { useAtomValue } from "jotai";
 import { Button, ButtonLoader } from "@/components/ui/button";
@@ -15,22 +15,15 @@ import { sleep } from "@/utils/sleep";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
-
-  const [started, setStarted] = useState(false);
   const [totalThreads, setTotalThreads] = useState(0);
-
-  const queue = useAtomValue(aiQueueAtom);
 
   const query: ThreadsQuery = { type: "inbox" };
   const { data, isLoading, error } = useSWR<ThreadsResponse>(
     `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
   );
 
-  useEffect(() => {
-    if (queue.size === 0 && started) {
-      setStarted(false);
-    }
-  }, [queue, started]);
+  const queue = useAtomValue(aiQueueAtom);
+  const started = queue.size > 0;
 
   return (
     <div>
@@ -63,7 +56,6 @@ export function BulkRunRules() {
                 <Button
                   disabled={started}
                   onClick={() => {
-                    setStarted(true);
                     onRun((count) => setTotalThreads((total) => total + count));
                   }}
                 >
