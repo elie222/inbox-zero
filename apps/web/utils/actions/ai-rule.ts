@@ -177,123 +177,131 @@ export async function testAiCustomContentAction({
 }
 
 export async function createAutomationAction(prompt: string) {
-  const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  return await withServerActionInstrumentation(
+    "createAutomationAction",
+    {
+      recordResponse: true,
+    },
+    async () => {
+      const session = await auth();
+      if (!session?.user.email) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { aiProvider: true, aiModel: true, openAIApiKey: true },
-  });
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: session.user.id },
+        select: { aiProvider: true, aiModel: true, openAIApiKey: true },
+      });
 
-  const result = await aiCreateRule(prompt, user, session.user.email);
+      const result = await aiCreateRule(prompt, user, session.user.email);
 
-  if (!result) throw new Error("No result");
+      if (!result) return { error: "AI error creating rule." };
 
-  let groupId: string | null = null;
+      let groupId: string | null = null;
 
-  if (result.group) {
-    const groups = await prisma.group.findMany({
-      where: { userId: session.user.id },
-      select: { id: true, name: true, rule: true },
-    });
-
-    if (result.group === "Newsletters") {
-      const newsletterGroup = groups.find((g) =>
-        g.name.toLowerCase().includes("newsletter"),
-      );
-      if (newsletterGroup) {
-        if (newsletterGroup.rule) {
-          return {
-            error: "Newsletter group already has a rule",
-            existingRuleId: newsletterGroup.rule.id,
-          };
-        }
-
-        groupId = newsletterGroup.id;
-      } else {
-        const group = await createNewsletterGroupAction({
-          name: "Newsletters",
+      if (result.group) {
+        const groups = await prisma.group.findMany({
+          where: { userId: session.user.id },
+          select: { id: true, name: true, rule: true },
         });
-        groupId = group.id;
-      }
-    } else if (result.group === "Receipts") {
-      const receiptsGroup = groups.find((g) =>
-        g.name.toLowerCase().includes("receipt"),
-      );
 
-      if (receiptsGroup) {
-        groupId = receiptsGroup.id;
+        if (result.group === "Newsletters") {
+          const newsletterGroup = groups.find((g) =>
+            g.name.toLowerCase().includes("newsletter"),
+          );
+          if (newsletterGroup) {
+            if (newsletterGroup.rule) {
+              return {
+                error: "Newsletter group already has a rule",
+                existingRuleId: newsletterGroup.rule.id,
+              };
+            }
 
-        if (receiptsGroup.rule) {
-          return {
-            error: "Receipt group already has a rule",
-            existingRuleId: receiptsGroup.rule.id,
-          };
+            groupId = newsletterGroup.id;
+          } else {
+            const group = await createNewsletterGroupAction({
+              name: "Newsletters",
+            });
+            groupId = group.id;
+          }
+        } else if (result.group === "Receipts") {
+          const receiptsGroup = groups.find((g) =>
+            g.name.toLowerCase().includes("receipt"),
+          );
+
+          if (receiptsGroup) {
+            groupId = receiptsGroup.id;
+
+            if (receiptsGroup.rule) {
+              return {
+                error: "Receipt group already has a rule",
+                existingRuleId: receiptsGroup.rule.id,
+              };
+            }
+          } else {
+            const group = await createReceiptGroupAction({ name: "Receipts" });
+            groupId = group.id;
+          }
         }
-      } else {
-        const group = await createReceiptGroupAction({ name: "Receipts" });
-        groupId = group.id;
       }
-    }
-  }
 
-  function getRuleType() {
-    // prioritise group rules
-    if (result?.group) return RuleType.GROUP;
-    if (
-      result?.staticConditions?.from ||
-      result?.staticConditions?.to ||
-      result?.staticConditions?.subject
-    )
-      return RuleType.STATIC;
-    return RuleType.AI;
-  }
+      function getRuleType() {
+        // prioritise group rules
+        if (result?.group) return RuleType.GROUP;
+        if (
+          result?.staticConditions?.from ||
+          result?.staticConditions?.to ||
+          result?.staticConditions?.subject
+        )
+          return RuleType.STATIC;
+        return RuleType.AI;
+      }
 
-  async function createRule(
-    result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
-    userId: string,
-  ) {
-    const rule = await prisma.rule.create({
-      data: {
-        name: result.name,
-        instructions: prompt,
-        userId,
-        type: getRuleType(), // TODO might want to set this to AI if "requiresAI" is true
-        actions: {
-          createMany: {
-            data: result.actions,
-          },
-        },
-        automate: false,
-        runOnThreads: false,
-        from: result.staticConditions?.from,
-        to: result.staticConditions?.to,
-        subject: result.staticConditions?.subject,
-        groupId,
-      },
-    });
-    return rule;
-  }
-
-  try {
-    const rule = await createRule(result, session.user.id);
-    return { id: rule.id };
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (
-        error.code === "P2002" &&
-        (error.meta?.target as string[])?.includes?.("name")
+      async function createRule(
+        result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+        userId: string,
       ) {
-        // if rule name already exists, create a new rule with a unique name
-        const rule = await createRule(
-          { ...result, name: result.name + " - " + Date.now() },
-          session.user.id,
-        );
-        return { id: rule.id };
+        const rule = await prisma.rule.create({
+          data: {
+            name: result.name,
+            instructions: prompt,
+            userId,
+            type: getRuleType(), // TODO might want to set this to AI if "requiresAI" is true
+            actions: {
+              createMany: {
+                data: result.actions,
+              },
+            },
+            automate: false,
+            runOnThreads: false,
+            from: result.staticConditions?.from,
+            to: result.staticConditions?.to,
+            subject: result.staticConditions?.subject,
+            groupId,
+          },
+        });
+        return rule;
       }
-    }
-    throw error;
-  }
+
+      try {
+        const rule = await createRule(result, session.user.id);
+        return { id: rule.id };
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          if (
+            error.code === "P2002" &&
+            (error.meta?.target as string[])?.includes?.("name")
+          ) {
+            // if rule name already exists, create a new rule with a unique name
+            const rule = await createRule(
+              { ...result, name: result.name + " - " + Date.now() },
+              session.user.id,
+            );
+            return { id: rule.id };
+          }
+        }
+        return { error: "Error creating rule." };
+      }
+    },
+  );
 }
 
 export async function deleteRuleAction(ruleId: string) {

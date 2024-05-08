@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import { Modal, useModal } from "@/components/Modal";
-import { Button } from "@/components/Button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {
@@ -18,7 +18,7 @@ import { AlertBasic } from "@/components/Alert";
 
 export function CreateGroupModalButton(props: {
   existingGroups: string[];
-  buttonVariant?: "white";
+  buttonVariant?: "outline";
 }) {
   const { isModalOpen, openModal, closeModal } = useModal();
   const { mutate } = useSWRConfig();
@@ -37,15 +37,16 @@ export function CreateGroupModalButton(props: {
 
   return (
     <>
-      <Button color={props.buttonVariant} onClick={openModal}>
+      <Button variant={props.buttonVariant} onClick={openModal}>
         Create group
       </Button>
       <Modal isOpen={isModalOpen} hideModal={closeModal} title="Create Group">
         <div className="mt-4">
-          <div className="space-x-2">
+          <div className="flex items-center space-x-2">
             {showNewsletter && (
               <Button
-                loading={newsletterLoading}
+                variant="outline"
+                disabled={newsletterLoading}
                 onClick={async () => {
                   setNewsletterLoading(true);
                   try {
@@ -60,15 +61,15 @@ export function CreateGroupModalButton(props: {
                   setNewsletterLoading(false);
                   mutate("/api/user/group");
                 }}
-                color="white"
               >
+                {newsletterLoading && <ButtonLoader />}
                 Newsletter
               </Button>
             )}
             {showReceipts && (
               <Button
-                color="white"
-                loading={receiptsLoading}
+                variant="outline"
+                disabled={receiptsLoading}
                 onClick={async () => {
                   setReceiptsLoading(true);
                   try {
@@ -84,11 +85,12 @@ export function CreateGroupModalButton(props: {
                   mutate("/api/user/group");
                 }}
               >
+                {receiptsLoading && <ButtonLoader />}
                 Receipt
               </Button>
             )}
             {!showForm && (
-              <Button color="white" onClick={() => setShowCustomForm(true)}>
+              <Button variant="outline" onClick={() => setShowCustomForm(true)}>
                 Custom
               </Button>
             )}
@@ -160,7 +162,8 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         registerProps={register("prompt", { required: true })}
         error={errors.prompt}
       />
-      <Button type="submit" loading={isSubmitting}>
+      <Button type="submit">
+        {isSubmitting && <ButtonLoader />}
         Create
       </Button>
     </form>

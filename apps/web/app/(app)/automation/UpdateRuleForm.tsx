@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   FieldError,
   FieldErrors,
@@ -15,7 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { capitalCase } from "capital-case";
 import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
-import { Button } from "@/components/Button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import {
@@ -197,8 +198,9 @@ export function UpdateRuleForm(props: {
                   />
 
                   <Button
+                    type="button"
+                    variant="ghost"
                     className="mt-2"
-                    color="transparent"
                     onClick={() => remove(i)}
                   >
                     Remove
@@ -275,8 +277,9 @@ export function UpdateRuleForm(props: {
 
       <div className="mt-4">
         <Button
-          color="white"
-          full
+          type="button"
+          variant="outline"
+          className="w-full"
           onClick={() => append({ type: ActionType.LABEL })}
         >
           <PlusIcon className="mr-2 h-4 w-4" />
@@ -318,14 +321,14 @@ export function UpdateRuleForm(props: {
         {props.rule.id ? (
           <>
             {props.rule.type !== RuleType.AI && (
-              <Button
-                color="white"
-                link={{ href: `/automation/rule/${props.rule.id}/examples` }}
-              >
-                View Examples
+              <Button variant="outline" asChild>
+                <Link href={`/automation/rule/${props.rule.id}/examples`}>
+                  View Examples
+                </Link>
               </Button>
             )}
-            <Button type="submit" color="white" loading={isSubmitting}>
+            <Button type="submit" variant="outline">
+              {isSubmitting && <ButtonLoader />}
               Save
             </Button>
             <Button
@@ -338,7 +341,13 @@ export function UpdateRuleForm(props: {
             </Button>
           </>
         ) : (
-          <Button type="submit" loading={isSubmitting}>
+          <Button
+            onClick={async () => {
+              await handleSubmit(onSubmit)();
+              router.push("/automation?tab=automations");
+            }}
+          >
+            {isSubmitting && <ButtonLoader />}
             Create
           </Button>
         )}
@@ -391,7 +400,7 @@ function GroupsTab(props: {
 
       {loadingCreateGroup && (
         <MessageText className="my-4 text-center">
-          Creating group... This will take a few seconds.
+          Creating group with AI... This will take up to 30 seconds.
         </MessageText>
       )}
 
@@ -417,7 +426,7 @@ function GroupsTab(props: {
               groupId={props.groupId}
               name="View group"
               ButtonComponent={({ onClick }) => (
-                <Button color="white" onClick={onClick}>
+                <Button variant="outline" onClick={onClick}>
                   View group
                 </Button>
               )}
@@ -425,7 +434,7 @@ function GroupsTab(props: {
           )}
           <CreateGroupModalButton
             existingGroups={data?.groups.map((group) => group.name) || []}
-            buttonVariant="white"
+            buttonVariant="outline"
           />
         </div>
       </LoadingContent>
