@@ -71,7 +71,7 @@ export function Pricing() {
           </p>
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
-          Clean your email and reach inbox zero fast with AI assistance.
+          No hidden fees. Cancel anytime.
         </p>
 
         {isPremium && (
@@ -108,7 +108,7 @@ export function Pricing() {
           </div>
         )}
 
-        <div className="mt-16 flex justify-center">
+        <div className="mt-16 flex items-center justify-center">
           <RadioGroup
             value={frequency}
             onChange={setFrequency}
@@ -132,6 +132,10 @@ export function Pricing() {
               </RadioGroup.Option>
             ))}
           </RadioGroup>
+
+          <div className="ml-1">
+            <Badge>SAVE up to 36%!</Badge>
+          </div>
         </div>
 
         <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
@@ -199,8 +203,8 @@ export function Pricing() {
                   </p>
                   {tier.priceAdditional ? (
                     <p className="mt-3 text-sm leading-6 text-gray-500">
-                      +{tier.priceAdditional[frequency.value]} for each
-                      additional email account
+                      +${formatPrice(tier.priceAdditional[frequency.value])} for
+                      each additional email account
                     </p>
                   ) : (
                     <div className="mt-16" />
@@ -358,4 +362,11 @@ function Badge({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   );
+}
+
+// $3 => $3
+// $3.5 => $3.50
+function formatPrice(price: number) {
+  if (price - Math.floor(price) > 0) return price.toFixed(2);
+  return price;
 }

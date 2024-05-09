@@ -246,7 +246,7 @@ function ExtraSeatsAlert({
       title="Extra email price"
       description={`You are on the ${capitalCase(
         premiumTier,
-      )} plan. You will be billed ${
+      )} plan. You will be billed $${
         pricingAdditonalEmail[premiumTier]
       } for each extra email you add to your account.`}
       icon={<CrownIcon className="h-4 w-4" />}
