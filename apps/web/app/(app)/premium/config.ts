@@ -30,7 +30,7 @@ export const tiers = [
   {
     name: "Free",
     href: { monthly: "/welcome", annually: "/welcome" },
-    price: { monthly: "$0", annually: "$0" },
+    price: { monthly: 0, annually: 0 },
     description: "Try Inbox Zero for free.",
     features: [
       "Bulk email unsubscriber",
