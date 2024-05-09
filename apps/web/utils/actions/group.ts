@@ -23,11 +23,11 @@ export async function createGroupAction(body: CreateGroupBody) {
   });
 }
 
-export async function createNewsletterGroupAction(body: CreateGroupBody) {
-  const { name } = createGroupBody.parse(body);
+export async function createNewsletterGroupAction() {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
+  const name = "Newsletters";
   const existingGroup = await prisma.group.findFirst({
     where: { name, userId: session.user.id },
     select: { id: true },
@@ -54,10 +54,11 @@ export async function createNewsletterGroupAction(body: CreateGroupBody) {
   return { id: group.id };
 }
 
-export async function createReceiptGroupAction({ name }: CreateGroupBody) {
+export async function createReceiptGroupAction() {
   const session = await auth();
   if (!session?.user.id) throw new Error("Not logged in");
 
+  const name = "Receipts";
   const existingGroup = await prisma.group.findFirst({
     where: { name, userId: session.user.id },
     select: { id: true },

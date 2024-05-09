@@ -217,9 +217,7 @@ export async function createAutomationAction(prompt: string) {
 
             groupId = newsletterGroup.id;
           } else {
-            const group = await createNewsletterGroupAction({
-              name: "Newsletters",
-            });
+            const group = await createNewsletterGroupAction();
             groupId = group.id;
           }
         } else if (result.group === "Receipts") {
@@ -237,7 +235,7 @@ export async function createAutomationAction(prompt: string) {
               };
             }
           } else {
-            const group = await createReceiptGroupAction({ name: "Receipts" });
+            const group = await createReceiptGroupAction();
             groupId = group.id;
           }
         }

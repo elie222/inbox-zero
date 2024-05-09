@@ -50,7 +50,7 @@ export function CreateGroupModalButton(props: {
                 onClick={async () => {
                   setNewsletterLoading(true);
                   try {
-                    await createNewsletterGroupAction({ name: "Newsletter" });
+                    await createNewsletterGroupAction();
                     toastSuccess({ description: `Group created!` });
                     closeModal();
                   } catch (error) {
@@ -73,7 +73,7 @@ export function CreateGroupModalButton(props: {
                 onClick={async () => {
                   setReceiptsLoading(true);
                   try {
-                    await createReceiptGroupAction({ name: "Receipt" });
+                    await createReceiptGroupAction();
                     toastSuccess({ description: `Group created!` });
                     closeModal();
                   } catch (error) {

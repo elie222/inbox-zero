@@ -377,9 +377,9 @@ function GroupsTab(props: {
       setLoadingCreateGroup(true);
       let created: { id: string } | null = null;
       if (props.groupId === NEWSLETTER_GROUP_ID) {
-        created = await createNewsletterGroupAction({ name: "Newsletter" });
+        created = await createNewsletterGroupAction();
       } else if (props.groupId === RECEIPT_GROUP_ID) {
-        created = await createReceiptGroupAction({ name: "Receipts" });
+        created = await createReceiptGroupAction();
       }
       if (created) {
         mutate();
