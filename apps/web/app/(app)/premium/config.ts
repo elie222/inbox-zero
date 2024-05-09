@@ -3,22 +3,22 @@ import { PremiumTier } from "@prisma/client";
 
 export const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
-  { value: "annually" as const, label: "Annually", priceSuffix: "/year" },
+  { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
 ];
 
 export const pricing: Record<PremiumTier, string> = {
-  [PremiumTier.PRO_MONTHLY]: "$10",
-  [PremiumTier.PRO_ANNUALLY]: "$99",
-  [PremiumTier.BUSINESS_MONTHLY]: "$19",
-  [PremiumTier.BUSINESS_ANNUALLY]: "$159",
+  [PremiumTier.PRO_MONTHLY]: "$14",
+  [PremiumTier.PRO_ANNUALLY]: "$9",
+  [PremiumTier.BUSINESS_MONTHLY]: "$22",
+  [PremiumTier.BUSINESS_ANNUALLY]: "$15",
   [PremiumTier.LIFETIME]: "$299",
 };
 
 export const pricingAdditonalEmail: Record<PremiumTier, string> = {
-  [PremiumTier.PRO_MONTHLY]: "$2",
-  [PremiumTier.PRO_ANNUALLY]: "$19",
-  [PremiumTier.BUSINESS_MONTHLY]: "$3",
-  [PremiumTier.BUSINESS_ANNUALLY]: "$29",
+  [PremiumTier.PRO_MONTHLY]: "$3",
+  [PremiumTier.PRO_ANNUALLY]: "$2.50",
+  [PremiumTier.BUSINESS_MONTHLY]: "$3.50",
+  [PremiumTier.BUSINESS_ANNUALLY]: "$3",
   [PremiumTier.LIFETIME]: "$59",
 };
 

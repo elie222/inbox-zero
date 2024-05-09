@@ -51,7 +51,7 @@ export function Pricing() {
   const { isPremium, data, isLoading, error } = usePremium();
   const session = useSession();
 
-  const [frequency, setFrequency] = useState(frequencies[0]);
+  const [frequency, setFrequency] = useState(frequencies[1]);
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(data?.premium);
