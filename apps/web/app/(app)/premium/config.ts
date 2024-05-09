@@ -6,21 +6,25 @@ export const frequencies = [
   { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
 ];
 
-export const pricing: Record<PremiumTier, string> = {
-  [PremiumTier.PRO_MONTHLY]: "$14",
-  [PremiumTier.PRO_ANNUALLY]: "$9",
-  [PremiumTier.BUSINESS_MONTHLY]: "$22",
-  [PremiumTier.BUSINESS_ANNUALLY]: "$15",
-  [PremiumTier.LIFETIME]: "$299",
+export const pricing: Record<PremiumTier, number> = {
+  [PremiumTier.PRO_MONTHLY]: 14,
+  [PremiumTier.PRO_ANNUALLY]: 9,
+  [PremiumTier.BUSINESS_MONTHLY]: 22,
+  [PremiumTier.BUSINESS_ANNUALLY]: 15,
+  [PremiumTier.LIFETIME]: 299,
 };
 
-export const pricingAdditonalEmail: Record<PremiumTier, string> = {
-  [PremiumTier.PRO_MONTHLY]: "$3",
-  [PremiumTier.PRO_ANNUALLY]: "$2.50",
-  [PremiumTier.BUSINESS_MONTHLY]: "$3.50",
-  [PremiumTier.BUSINESS_ANNUALLY]: "$3",
-  [PremiumTier.LIFETIME]: "$59",
+export const pricingAdditonalEmail: Record<PremiumTier, number> = {
+  [PremiumTier.PRO_MONTHLY]: 3,
+  [PremiumTier.PRO_ANNUALLY]: 2.5,
+  [PremiumTier.BUSINESS_MONTHLY]: 3.5,
+  [PremiumTier.BUSINESS_ANNUALLY]: 3,
+  [PremiumTier.LIFETIME]: 59,
 };
+
+function discount(monthly: number, annually: number) {
+  return ((monthly - annually) / monthly) * 100;
+}
 
 export const tiers = [
   {
@@ -51,6 +55,10 @@ export const tiers = [
       monthly: pricingAdditonalEmail.PRO_MONTHLY,
       annually: pricingAdditonalEmail.PRO_ANNUALLY,
     },
+    discount: {
+      monthly: 0,
+      annually: discount(pricing.PRO_MONTHLY, pricing.PRO_ANNUALLY),
+    },
     description:
       "Unlimited unsubscribe credits. Unlock AI features when using your own OpenAI key",
     features: [
@@ -80,6 +88,10 @@ export const tiers = [
     priceAdditional: {
       monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
       annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
+    },
+    discount: {
+      monthly: 0,
+      annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
     },
     description: "Unlock full AI-powered email management",
     features: [

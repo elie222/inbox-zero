@@ -176,23 +176,25 @@ export function Pricing() {
                     >
                       {tier.name}
                     </h3>
-                    {tier.mostPopular ? (
-                      <p className="rounded-full bg-blue-600/10 px-2.5 py-1 font-cal text-xs leading-5 text-blue-600">
-                        Most popular
-                      </p>
-                    ) : null}
+                    {tier.mostPopular ? <Badge>Most popular</Badge> : null}
                   </div>
                   <p className="mt-4 text-sm leading-6 text-gray-600">
                     {tier.description}
                   </p>
                   <p className="mt-6 flex items-baseline gap-x-1">
                     <span className="text-4xl font-bold tracking-tight text-gray-900">
-                      {tier.price[frequency.value]}
+                      ${tier.price[frequency.value]}
                     </span>
                     {!tier.hideFrequency && (
                       <span className="text-sm font-semibold leading-6 text-gray-600">
                         {frequency.priceSuffix}
                       </span>
+                    )}
+
+                    {!!tier.discount?.[frequency.value] && (
+                      <Badge>
+                        SAVE {tier.discount[frequency.value].toFixed(0)}%
+                      </Badge>
                     )}
                   </p>
                   {tier.priceAdditional ? (
@@ -347,5 +349,13 @@ function LifetimePricing(props: {
         </div>
       </div>
     </div>
+  );
+}
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-bold leading-5 text-blue-600">
+      {children}
+    </p>
   );
 }
