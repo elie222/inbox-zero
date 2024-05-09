@@ -18,7 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -119,9 +118,6 @@ export function Rules() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/automation/rule/${rule.id}`}>View</Link>
-                        </DropdownMenuItem>
                         {rule.type !== RuleType.AI && (
                           <DropdownMenuItem asChild>
                             <Link href={`/automation/rule/${rule.id}/examples`}>
@@ -129,7 +125,6 @@ export function Rules() {
                             </Link>
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem asChild>
                           <Link href={`/automation/rule/${rule.id}`}>Edit</Link>
                         </DropdownMenuItem>
