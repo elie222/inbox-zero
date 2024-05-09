@@ -1,4 +1,4 @@
-import { UpdateRuleForm } from "@/app/(app)/automation/UpdateRuleForm";
+import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { examples } from "@/app/(app)/automation/create/examples";
 
 export default function CreateRulePage({
@@ -11,7 +11,7 @@ export default function CreateRulePage({
 
   return (
     <div className="content-container mx-auto w-full max-w-3xl">
-      <UpdateRuleForm
+      <RuleForm
         rule={
           rule || {
             name: "",

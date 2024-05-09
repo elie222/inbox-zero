@@ -49,9 +49,7 @@ import {
 } from "@/app/(app)/automation/create/examples";
 import { isErrorMessage } from "@/utils/error";
 
-export function UpdateRuleForm(props: {
-  rule: CreateRuleBody & { id?: string };
-}) {
+export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
   const {
     register,
     handleSubmit,

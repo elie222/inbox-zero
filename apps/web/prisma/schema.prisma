@@ -159,8 +159,8 @@ model Rule {
   name          String
   instructions  String
   actions       Action[]
-  automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
-  runOnThreads  Boolean        @default(false) // if disabled only runs on individual emails
+  automate      Boolean        @default(false) // if disabled, user must approve to execute
+  runOnThreads  Boolean        @default(false) // if disabled, only runs on individual emails
   type          RuleType       @default(AI)
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)

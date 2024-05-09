@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { UpdateRuleForm } from "@/app/(app)/automation/UpdateRuleForm";
+import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { TopSection } from "@/components/TopSection";
 
 export default async function RulePage({
@@ -39,7 +39,7 @@ export default async function RulePage({
         />
       )}
       <div className="content-container mx-auto w-full max-w-3xl">
-        <UpdateRuleForm rule={rule} />
+        <RuleForm rule={rule} />
       </div>
     </div>
   );
