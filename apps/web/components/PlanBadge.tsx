@@ -91,21 +91,21 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
     case ActionType.SEND_EMAIL:
       return (
         <div>
-          <Badge color="indigo">Send email to {action.to}</Badge>
+          <Badge color="indigo">Send email</Badge>
           <ActionContent action={action} />
         </div>
       );
     case ActionType.FORWARD:
       return (
         <div>
-          <Badge color="indigo">Forward email to {action.to}</Badge>
+          <Badge color="indigo">Forward email</Badge>
           <ActionContent action={action} />
         </div>
       );
     case ActionType.DRAFT_EMAIL:
       return (
         <div>
-          <Badge color="pink">Draft email to {action.to}</Badge>
+          <Badge color="pink">Draft email</Badge>
           <ActionContent action={action} />
         </div>
       );

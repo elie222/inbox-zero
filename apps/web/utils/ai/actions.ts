@@ -14,6 +14,8 @@ export type EmailForAction = {
   headerMessageId: string;
   subject: string;
   from: string;
+  cc?: string;
+  bcc?: string;
   replyTo?: string;
 };
 
@@ -268,14 +270,16 @@ const draft: ActionFunction<any> = async (
   },
 ) => {
   await draftEmail(gmail, {
-    subject: args.subject,
-    messageText: args.content,
-    to: args.to,
     replyToEmail: {
       threadId: email.threadId,
       references: email.references,
       headerMessageId: email.headerMessageId,
     },
+    to: args.to || email.replyTo || email.from,
+    cc: email.cc,
+    bcc: email.bcc,
+    subject: email.subject,
+    messageText: args.content,
     attachments: args.attachments,
   });
 };
