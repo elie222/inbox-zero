@@ -178,7 +178,12 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
   );
 }
 
-function getInstructions(rule: RulesResponse[number]) {
+export function getInstructions(
+  rule: Pick<
+    RulesResponse[number],
+    "type" | "instructions" | "from" | "subject" | "body" | "group"
+  >,
+) {
   switch (rule.type) {
     case RuleType.AI:
       return rule.instructions;

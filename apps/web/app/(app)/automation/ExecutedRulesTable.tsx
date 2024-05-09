@@ -17,6 +17,10 @@ import {
   PaginationLink,
   PaginationNext,
 } from "@/components/ui/pagination";
+import { HoverCard } from "@/components/HoverCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { getInstructions } from "@/app/(app)/automation/Rules";
 
 export function EmailCell({
   from,
@@ -59,7 +63,27 @@ export function RuleCell({
   rule: PendingExecutedRules["executedRules"][number]["rule"];
 }) {
   if (!rule) return null;
-  return <Link href={`/automation/rule/${rule.id}`}>{rule.name}</Link>;
+
+  return (
+    <HoverCard
+      content={
+        <div>
+          <div className="flex justify-between font-medium">
+            {rule.name}
+            <Badge>{rule.type}</Badge>
+          </div>
+          <div className="mt-2">{getInstructions(rule)}</div>
+          <div className="mt-2">
+            <Button variant="outline" size="sm">
+              View
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <Link href={`/automation/rule/${rule.id}`}>{rule.name}</Link>
+    </HoverCard>
+  );
 }
 
 export function ActionItemsCell({
