@@ -47,6 +47,7 @@ import {
   NEWSLETTER_GROUP_ID,
   RECEIPT_GROUP_ID,
 } from "@/app/(app)/automation/create/examples";
+import { isErrorMessage } from "@/utils/error";
 
 export function UpdateRuleForm(props: {
   rule: CreateRuleBody & { id?: string };
@@ -70,20 +71,39 @@ export function UpdateRuleForm(props: {
     const tab = searchParams.get("tab") || props.rule.type;
     const body = cleanRule(data, tab as RuleType);
 
-    try {
-      const res = body.id
-        ? await updateRuleAction({ ...body, id: body.id })
-        : await createRuleAction(body);
+    if (body.id) {
+      const res = await updateRuleAction({ ...body, id: body.id });
 
-      toastSuccess({ description: body.id ? `Saved!` : `Created!` });
-      router.replace(`/automation/rule/${res.rule.id}`);
-    } catch (error) {
-      console.error(error);
-      toastError({
-        description: `There was an error updating the rule. ${
-          (error as Error).message
-        }`,
-      });
+      if (isErrorMessage(res)) {
+        console.error(res);
+        toastError({
+          description: res.error,
+        });
+      } else if (!res.rule) {
+        toastError({
+          description: `There was an error updating the rule.`,
+        });
+      } else {
+        toastSuccess({ description: `Saved!` });
+        router.push(`/automation`);
+      }
+    } else {
+      const res = await createRuleAction(body);
+
+      if (isErrorMessage(res)) {
+        console.error(res);
+        toastError({
+          description: res.error,
+        });
+      } else if (!res.rule) {
+        toastError({
+          description: `There was an error creating the rule.`,
+        });
+      } else {
+        toastSuccess({ description: `Created!` });
+        router.replace(`/automation/rule/${res.rule.id}`);
+        router.push(`/automation`);
+      }
     }
   }, []);
 
@@ -327,26 +347,13 @@ export function UpdateRuleForm(props: {
                 </Link>
               </Button>
             )}
-            <Button type="submit" variant="outline">
+            <Button type="submit">
               {isSubmitting && <ButtonLoader />}
               Save
             </Button>
-            <Button
-              onClick={async () => {
-                await handleSubmit(onSubmit)();
-                router.push("/automation?tab=automations");
-              }}
-            >
-              Continue
-            </Button>
           </>
         ) : (
-          <Button
-            onClick={async () => {
-              await handleSubmit(onSubmit)();
-              router.push("/automation?tab=automations");
-            }}
-          >
+          <Button type="submit">
             {isSubmitting && <ButtonLoader />}
             Create
           </Button>

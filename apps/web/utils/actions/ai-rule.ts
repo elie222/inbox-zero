@@ -2,7 +2,7 @@
 
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma from "@/utils/prisma";
+import prisma, { isDuplicateError } from "@/utils/prisma";
 import { RuleType, Prisma, ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { isError } from "@/utils/error";
@@ -285,19 +285,15 @@ export async function createAutomationAction(prompt: string) {
         const rule = await createRule(result, session.user.id);
         return { id: rule.id };
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-          if (
-            error.code === "P2002" &&
-            (error.meta?.target as string[])?.includes?.("name")
-          ) {
-            // if rule name already exists, create a new rule with a unique name
-            const rule = await createRule(
-              { ...result, name: result.name + " - " + Date.now() },
-              session.user.id,
-            );
-            return { id: rule.id };
-          }
+        if (isDuplicateError(error, "name")) {
+          // if rule name already exists, create a new rule with a unique name
+          const rule = await createRule(
+            { ...result, name: result.name + " - " + Date.now() },
+            session.user.id,
+          );
+          return { id: rule.id };
         }
+
         return { error: "Error creating rule." };
       }
     },
