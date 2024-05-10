@@ -21,6 +21,7 @@ import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getInstructions } from "@/app/(app)/automation/Rules";
+import { MessageText } from "@/components/Typography";
 
 export function EmailCell({
   from,
@@ -59,8 +60,10 @@ export function EmailCell({
 
 export function RuleCell({
   rule,
+  reason,
 }: {
   rule: PendingExecutedRules["executedRules"][number]["rule"];
+  reason?: string | null;
 }) {
   if (!rule) return null;
 
@@ -78,6 +81,14 @@ export function RuleCell({
               View
             </Button>
           </div>
+          {!!reason && (
+            <div className="mt-4 space-y-2">
+              <div className="font-medium">
+                AI reason for choosing this rule:
+              </div>
+              <MessageText>{reason}</MessageText>
+            </div>
+          )}
         </div>
       }
     >

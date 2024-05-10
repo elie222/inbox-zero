@@ -86,7 +86,7 @@ function HistoryTable({
                 />
               </TableCell>
               <TableCell>
-                <RuleCell rule={p.rule} />
+                <RuleCell rule={p.rule} reason={p.reason} />
               </TableCell>
               <TableCell>
                 <ActionItemsCell actionItems={p.actionItems} />
