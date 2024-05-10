@@ -24,6 +24,7 @@ const newsletterStatsQuery = z.object({
     )
     .optional()
     .transform((arr) => arr?.filter(Boolean)),
+  includeMissingUnsubscribe: z.boolean().optional(),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
@@ -107,6 +108,8 @@ export const GET = withError(async (request) => {
     orderBy: searchParams.get("orderBy"),
     types: searchParams.get("types")?.split(",") || [],
     filters: searchParams.get("filters")?.split(",") || [],
+    includeMissingUnsubscribe:
+      searchParams.get("includeMissingUnsubscribe") === "true",
   });
 
   const result = await getNewslettersTinybird({

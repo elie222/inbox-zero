@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/utils";
 
 type Checked = DropdownMenuCheckboxItemProps["checked"];
 
@@ -21,8 +22,9 @@ export function DetailedStatsFilter(props: {
     setChecked: (value: Checked) => void;
   }[];
   keepOpenOnSelect?: boolean;
+  className?: string;
 }) {
-  const { keepOpenOnSelect } = props;
+  const { keepOpenOnSelect, className } = props;
   const [isOpen, setIsOpen] = React.useState(false);
 
   return (
@@ -40,7 +42,7 @@ export function DetailedStatsFilter(props: {
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-10 whitespace-nowrap"
+          className={cn("ml-auto h-10 whitespace-nowrap", className)}
         >
           {props.icon}
           {props.label}

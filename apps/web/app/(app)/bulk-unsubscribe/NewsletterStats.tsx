@@ -41,6 +41,7 @@ import {
 import NewsletterSummary from "@/app/(app)/bulk-unsubscribe/NewsletterSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { Toggle } from "@/components/Toggle";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -54,12 +55,15 @@ export function NewsletterStats(props: {
 
   const { typesArray, types, setTypes } = useEmailsToIncludeFilter();
   const { filtersArray, filters, setFilters } = useNewsletterFilter();
+  const [includeMissingUnsubscribe, setIncludeMissingUnsubscribe] =
+    useState(false);
 
   const params: NewsletterStatsQuery = {
     types: typesArray,
     filters: filtersArray,
     orderBy: sortColumn,
     limit: 100,
+    includeMissingUnsubscribe,
     ...getDateRangeParams(props.dateRange),
   };
   const urlParams = new URLSearchParams(params as any);
@@ -104,9 +108,20 @@ export function NewsletterStats(props: {
             title="Which newsletters and marketing emails do you get the most?"
             description="A list of all your email subscriptions. Quickly unsubscribe or view the emails in more detail."
           />
-          <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
-            <div className="hidden md:block">
+          <div className="ml-0 mt-3 flex justify-end sm:ml-4 sm:flex-row sm:space-y-0 md:mt-0">
+            <div className="hidden md:mr-2 md:block">
               <ShortcutTooltip />
+            </div>
+
+            <div className="mr-1 flex items-center sm:mr-2">
+              <Toggle
+                label="Missing unsubscribe"
+                name="missing-unsubscribe"
+                enabled={includeMissingUnsubscribe}
+                onChange={() => {
+                  setIncludeMissingUnsubscribe(!includeMissingUnsubscribe);
+                }}
+              />
             </div>
 
             <DetailedStatsFilter
@@ -148,6 +163,7 @@ export function NewsletterStats(props: {
                     setFilters({ ...filters, ["approved"]: !filters.approved }),
                 },
               ]}
+              className="mr-1"
             />
 
             <EmailsToIncludeFilter types={types} setTypes={setTypes} />
