@@ -109,7 +109,7 @@ function PendingTable({
 
   return (
     <div>
-      {selected.size > 0 && (
+      {Array.from(selected.values()).filter(Boolean).length > 0 && (
         <div className="m-2 flex items-center space-x-1.5">
           <div>
             <Button
