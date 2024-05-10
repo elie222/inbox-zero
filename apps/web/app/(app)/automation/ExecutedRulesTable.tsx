@@ -190,7 +190,7 @@ export function useToggleSelect(
     executedRules.forEach((p) => {
       setSelected((prev) => new Map(prev).set(p.id, !prev.get(p.id)));
     });
-  }, [pending]);
+  }, [executedRules]);
 
   return { selected, isAllSelected, onToggleSelect, onToggleSelectAll };
 }
