@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -24,9 +24,12 @@ import {
   EmailCell,
   RuleCell,
   TablePagination,
+  useToggleSelect,
   // DateCell,
 } from "@/app/(app)/automation/ExecutedRulesTable";
 import { useSearchParams } from "next/navigation";
+import { Checkbox } from "@/components/Checkbox";
+import { Loader2Icon } from "lucide-react";
 
 export function Pending() {
   const searchParams = useSearchParams();
@@ -69,11 +72,76 @@ function PendingTable({
   userEmail: string;
   mutate: () => void;
 }) {
+  const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
+    useToggleSelect(pending);
+
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const approveSelected = useCallback(async () => {
+    setIsApproving(true);
+    for (const id of Array.from(selected.keys())) {
+      const p = pending.find((p) => p.id === id);
+      if (!p) continue;
+      try {
+        await approvePlanAction(id, p.message);
+      } catch (error) {
+        console.error(error);
+      }
+      mutate();
+    }
+    setIsApproving(false);
+  }, [selected, pending]);
+  const rejectSelected = useCallback(async () => {
+    setIsRejecting(true);
+    for (const id of Array.from(selected.keys())) {
+      const p = pending.find((p) => p.id === id);
+      if (!p) continue;
+      try {
+        await rejectPlanAction(id);
+      } catch (error) {
+        console.error(error);
+      }
+      mutate();
+    }
+    setIsRejecting(false);
+  }, [selected, pending]);
+
   return (
     <div>
+      {selected.size > 0 && (
+        <div className="m-2 flex items-center space-x-1.5">
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={approveSelected}
+              disabled={isApproving || isRejecting}
+            >
+              {isApproving && <ButtonLoader />}
+              Approve
+            </Button>
+          </div>
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={rejectSelected}
+              disabled={isApproving || isRejecting}
+            >
+              {isRejecting && <ButtonLoader />}
+              Reject
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>
+              <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+            </TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Rule</TableHead>
             <TableHead>Action items</TableHead>
@@ -84,6 +152,16 @@ function PendingTable({
         <TableBody>
           {pending.map((p) => (
             <TableRow key={p.id}>
+              <TableCell>
+                {(isApproving || isRejecting) && selected.get(p.id) ? (
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Checkbox
+                    checked={selected.get(p.id) || false}
+                    onChange={() => onToggleSelect(p.id)}
+                  />
+                )}
+              </TableCell>
               <TableCell>
                 <EmailCell
                   from={p.message.headers.from}
