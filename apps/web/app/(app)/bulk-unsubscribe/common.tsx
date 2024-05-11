@@ -50,7 +50,9 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
-import { toastSuccess } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { createFilterAction } from "@/utils/actions/mail";
+import { isErrorMessage } from "@/utils/error";
 
 export type Row = {
   name: string;
@@ -401,7 +403,7 @@ export function ActionCell<T extends Row>(props: {
               <span>Add to label</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
-              <LabelsSubMenu />
+              <LabelsSubMenu sender={item.name} />
             </DropdownMenuPortal>
           </DropdownMenuSub>
 
@@ -606,7 +608,7 @@ function GroupsSubMenu({ sender }: { sender: string }) {
   );
 }
 
-function LabelsSubMenu() {
+function LabelsSubMenu({ sender }: { sender: string }) {
   const { data, isLoading, error } =
     useSWR<LabelsResponse>("/api/google/labels");
 
@@ -619,7 +621,30 @@ function LabelsSubMenu() {
               .filter((label) => label.type !== "system")
               .map((label) => {
                 return (
-                  <DropdownMenuItem key={label.id}>
+                  <DropdownMenuItem
+                    key={label.id}
+                    onClick={async () => {
+                      if (label.id) {
+                        const res = await createFilterAction(sender, label.id);
+                        if (isErrorMessage(res)) {
+                          toastError({
+                            title: "Error",
+                            description: `Failed to add ${sender} to ${label.name}. ${res.error}`,
+                          });
+                        } else {
+                          toastSuccess({
+                            title: "Success!",
+                            description: `Added ${sender} to ${label.name}`,
+                          });
+                        }
+                      } else {
+                        toastError({
+                          title: "Error",
+                          description: `Failed to add ${sender} to ${label.name}`,
+                        });
+                      }
+                    }}
+                  >
                     {label.name}
                   </DropdownMenuItem>
                 );
