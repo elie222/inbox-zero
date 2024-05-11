@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
+import { type gmail_v1 } from "googleapis";
 import { Title, Text } from "@tremor/react";
 import {
   ArchiveIcon,
@@ -403,15 +404,25 @@ export function ActionCell<T extends Row>(props: {
               <span>Add to label</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
-              <LabelsSubMenu sender={item.name} />
+              <LabelsSubMenu sender={item.name} labels={userGmailLabels} />
             </DropdownMenuPortal>
           </DropdownMenuSub>
 
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              // 1. search gmail for messages from sender
+              // 2. archive messages
+            }}
+          >
             <ArchiveIcon className="mr-2 h-4 w-4" />
             <span>Archive all from sender</span>
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              // 1. search gmail for messages from sender
+              // 2. delete messages
+            }}
+          >
             <TrashIcon className="mr-2 h-4 w-4" />
             <span>Delete all from sender</span>
           </DropdownMenuItem>
@@ -608,54 +619,49 @@ function GroupsSubMenu({ sender }: { sender: string }) {
   );
 }
 
-function LabelsSubMenu({ sender }: { sender: string }) {
-  const { data, isLoading, error } =
-    useSWR<LabelsResponse>("/api/google/labels");
-
+function LabelsSubMenu({
+  sender,
+  labels,
+}: {
+  sender: string;
+  labels: gmail_v1.Schema$Label[] | undefined;
+}) {
   return (
     <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
-      {data && (
-        <>
-          {data.labels?.length ? (
-            data?.labels
-              .filter((label) => label.type !== "system")
-              .map((label) => {
-                return (
-                  <DropdownMenuItem
-                    key={label.id}
-                    onClick={async () => {
-                      if (label.id) {
-                        const res = await createFilterAction(sender, label.id);
-                        if (isErrorMessage(res)) {
-                          toastError({
-                            title: "Error",
-                            description: `Failed to add ${sender} to ${label.name}. ${res.error}`,
-                          });
-                        } else {
-                          toastSuccess({
-                            title: "Success!",
-                            description: `Added ${sender} to ${label.name}`,
-                          });
-                        }
-                      } else {
-                        toastError({
-                          title: "Error",
-                          description: `Failed to add ${sender} to ${label.name}`,
-                        });
-                      }
-                    }}
-                  >
-                    {label.name}
-                  </DropdownMenuItem>
-                );
-              })
-          ) : (
-            <DropdownMenuItem>You don't have any labels yet.</DropdownMenuItem>
-          )}
-        </>
+      {labels?.length ? (
+        labels.map((label) => {
+          return (
+            <DropdownMenuItem
+              key={label.id}
+              onClick={async () => {
+                if (label.id) {
+                  const res = await createFilterAction(sender, label.id);
+                  if (isErrorMessage(res)) {
+                    toastError({
+                      title: "Error",
+                      description: `Failed to add ${sender} to ${label.name}. ${res.error}`,
+                    });
+                  } else {
+                    toastSuccess({
+                      title: "Success!",
+                      description: `Added ${sender} to ${label.name}`,
+                    });
+                  }
+                } else {
+                  toastError({
+                    title: "Error",
+                    description: `Failed to add ${sender} to ${label.name}`,
+                  });
+                }
+              }}
+            >
+              {label.name}
+            </DropdownMenuItem>
+          );
+        })
+      ) : (
+        <DropdownMenuItem>You don't have any labels yet.</DropdownMenuItem>
       )}
-      {isLoading && <DropdownMenuItem>Loading...</DropdownMenuItem>}
-      {error && <DropdownMenuItem>Error loading labels</DropdownMenuItem>}
     </DropdownMenuSubContent>
   );
 }
