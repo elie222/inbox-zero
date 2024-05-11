@@ -2,6 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 import clsx from "clsx";
+import Link from "next/link";
+import useSWR from "swr";
 import { Title, Text } from "@tremor/react";
 import {
   ArchiveIcon,
@@ -11,7 +13,12 @@ import {
   ChevronDownIcon,
   ChevronsUpDownIcon,
   ExpandIcon,
+  MoreHorizontalIcon,
+  PlusCircle,
   SquareSlashIcon,
+  TagIcon,
+  TrashIcon,
+  UserPlus,
   UserRoundMinusIcon,
 } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
@@ -24,7 +31,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LabelsResponse } from "@/app/api/google/labels/route";
@@ -37,6 +48,9 @@ import {
 import { NewsletterStatus } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
+import { GroupsResponse } from "@/app/api/user/group/route";
+import { addGroupItemAction } from "@/utils/actions/group";
+import { toastSuccess } from "@/components/Toast";
 
 export type Row = {
   name: string;
@@ -353,16 +367,54 @@ export function ActionCell<T extends Row>(props: {
           )}
         </Button>
       </Tooltip>
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={() => {
-          setOpenedNewsletter(item);
-          posthog.capture("Clicked Expand Sender");
-        }}
-      >
-        <ExpandIcon className="h-4 w-4" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button aria-haspopup="true" size="icon" variant="ghost">
+            <MoreHorizontalIcon className="h-4 w-4" />
+            <span className="sr-only">Toggle menu</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => {
+              setOpenedNewsletter(item);
+              posthog.capture("Clicked Expand Sender");
+            }}
+          >
+            <ExpandIcon className="mr-2 h-4 w-4" />
+            <span>View stats</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <UserPlus className="mr-2 h-4 w-4" />
+              <span>Add to group</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <GroupsSubMenu sender={item.name} />
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <TagIcon className="mr-2 h-4 w-4" />
+              <span>Add to label</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <LabelsSubMenu />
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
+          <DropdownMenuItem>
+            <ArchiveIcon className="mr-2 h-4 w-4" />
+            <span>Archive all from sender</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <TrashIcon className="mr-2 h-4 w-4" />
+            <span>Delete all from sender</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </>
   );
 }
@@ -506,4 +558,79 @@ export function useNewsletterFilter() {
     )[],
     setFilters,
   };
+}
+
+function GroupsSubMenu({ sender }: { sender: string }) {
+  const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
+
+  return (
+    <DropdownMenuSubContent>
+      {data && (
+        <>
+          {data.groups.length ? (
+            data?.groups.map((group) => {
+              return (
+                <DropdownMenuItem
+                  key={group.id}
+                  onClick={async () => {
+                    await addGroupItemAction({
+                      groupId: group.id,
+                      type: "FROM",
+                      value: sender,
+                    });
+                    toastSuccess({
+                      title: "Success!",
+                      description: `Added ${sender} to ${group.name}`,
+                    });
+                  }}
+                >
+                  {group.name}
+                </DropdownMenuItem>
+              );
+            })
+          ) : (
+            <DropdownMenuItem>You don't have any groups yet.</DropdownMenuItem>
+          )}
+        </>
+      )}
+      {isLoading && <DropdownMenuItem>Loading...</DropdownMenuItem>}
+      {error && <DropdownMenuItem>Error loading groups</DropdownMenuItem>}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem asChild>
+        <Link href="/automation?tab=groups" target="_blank">
+          <PlusCircle className="mr-2 h-4 w-4" />
+          <span>New Group</span>
+        </Link>
+      </DropdownMenuItem>
+    </DropdownMenuSubContent>
+  );
+}
+
+function LabelsSubMenu() {
+  const { data, isLoading, error } =
+    useSWR<LabelsResponse>("/api/google/labels");
+
+  return (
+    <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
+      {data && (
+        <>
+          {data.labels?.length ? (
+            data?.labels
+              .filter((label) => label.type !== "system")
+              .map((label) => {
+                return (
+                  <DropdownMenuItem key={label.id}>
+                    {label.name}
+                  </DropdownMenuItem>
+                );
+              })
+          ) : (
+            <DropdownMenuItem>You don't have any labels yet.</DropdownMenuItem>
+          )}
+        </>
+      )}
+      {isLoading && <DropdownMenuItem>Loading...</DropdownMenuItem>}
+      {error && <DropdownMenuItem>Error loading labels</DropdownMenuItem>}
+    </DropdownMenuSubContent>
+  );
 }
