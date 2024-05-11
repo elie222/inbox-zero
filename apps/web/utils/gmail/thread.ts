@@ -6,6 +6,15 @@ export async function getThread(threadId: string, gmail: gmail_v1.Gmail) {
   return thread.data;
 }
 
+export async function getThreads(
+  q: string,
+  labelIds: string[],
+  gmail: gmail_v1.Gmail,
+) {
+  const threads = await gmail.users.threads.list({ userId: "me", q, labelIds });
+  return threads.data;
+}
+
 export async function getThreadsBatch(
   threadIds: string[],
   accessToken: string,

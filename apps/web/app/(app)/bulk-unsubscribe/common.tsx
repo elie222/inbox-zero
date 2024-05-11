@@ -5,6 +5,7 @@ import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
 import { type gmail_v1 } from "googleapis";
+import { toast } from "sonner";
 import { Title, Text } from "@tremor/react";
 import {
   ArchiveIcon,
@@ -14,6 +15,7 @@ import {
   ChevronDownIcon,
   ChevronsUpDownIcon,
   ExpandIcon,
+  MailIcon,
   MoreHorizontalIcon,
   PlusCircle,
   SquareSlashIcon,
@@ -54,6 +56,10 @@ import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { isErrorMessage } from "@/utils/error";
+import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
+import { isDefined } from "@/utils/types";
+import { getGmailSearchUrl } from "@/utils/url";
 
 export type Row = {
   name: string;
@@ -101,6 +107,7 @@ export function ActionCell<T extends Row>(props: {
   selected: boolean;
   gmailLabels: LabelsResponse["labels"];
   openPremiumModal: () => void;
+  userEmail: string;
 }) {
   const {
     item,
@@ -109,6 +116,7 @@ export function ActionCell<T extends Row>(props: {
     mutate,
     refetchPremium,
     gmailLabels,
+    userEmail,
   } = props;
 
   const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
@@ -387,6 +395,15 @@ export function ActionCell<T extends Row>(props: {
             <ExpandIcon className="mr-2 h-4 w-4" />
             <span>View stats</span>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link
+              href={getGmailSearchUrl(item.name, userEmail)}
+              target="_blank"
+            >
+              <MailIcon className="mr-2 h-4 w-4" />
+              <span>View in Gmail</span>
+            </Link>
+          </DropdownMenuItem>
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
@@ -410,22 +427,78 @@ export function ActionCell<T extends Row>(props: {
 
           <DropdownMenuItem
             onClick={() => {
-              // 1. search gmail for messages from sender
-              // 2. archive messages
+              toast.promise(
+                async () => {
+                  // 1. search gmail for messages from sender
+                  const res = await fetch(
+                    `/api/google/threads/basic?from=${item.name}&labelId=INBOX`,
+                  );
+                  const data: GetThreadsResponse = await res.json();
+
+                  // 2. archive messages
+                  if (data?.length) {
+                    archiveEmails(
+                      data.map((t) => t.id).filter(isDefined),
+                      () => {},
+                    );
+                  }
+
+                  return data.length;
+                },
+                {
+                  loading: `Archiving all emails from ${item.name}`,
+                  success: (data) =>
+                    data
+                      ? `Archiving ${data} emails from ${item.name}`
+                      : `No emails to archive from ${item.name}`,
+                  error: `There was an error archiving the emails from ${item.name} :(`,
+                },
+              );
             }}
           >
             <ArchiveIcon className="mr-2 h-4 w-4" />
             <span>Archive all from sender</span>
           </DropdownMenuItem>
-          <DropdownMenuItem
+          {/* <DropdownMenuItem
             onClick={() => {
-              // 1. search gmail for messages from sender
-              // 2. delete messages
+              const yes = confirm(
+                `Are you sure you want to delete all emails from ${item.name}?`,
+              );
+              if (!yes) return;
+
+              toast.promise(
+                async () => {
+                  // 1. search gmail for messages from sender
+                  const res = await fetch(
+                    `/api/google/threads/basic?from=${item.name}`,
+                  );
+                  const data: GetThreadsResponse = await res.json();
+                  console.log("🚀 ~ data:", data)
+
+                  // 2. delete messages
+                  // if (data?.length) {
+                  //   deleteEmails(
+                  //     data.map((t) => t.id).filter(isDefined),
+                  //     () => {},
+                  //   );
+                  // }
+
+                  return data.length;
+                },
+                {
+                  loading: `Deleting all emails from ${item.name}`,
+                  success: (data) =>
+                    data
+                      ? `Deleting ${data} emails from ${item.name}`
+                      : `No emails to delete from ${item.name}`,
+                  error: `There was an error deleting the emails from ${item.name} :(`,
+                },
+              );
             }}
           >
             <TrashIcon className="mr-2 h-4 w-4" />
             <span>Delete all from sender</span>
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
         </DropdownMenuContent>
       </DropdownMenu>
     </>
