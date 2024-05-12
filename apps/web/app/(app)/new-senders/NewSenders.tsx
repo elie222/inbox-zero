@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import {
   Card,
   Table,
@@ -43,6 +44,9 @@ export function NewSenders(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
+  const session = useSession();
+  const userEmail = session.data?.user.email || "";
+
   const [sortColumn, setSortColumn] = useState<
     "subject" | "date" | "numberOfEmails"
   >("numberOfEmails");
@@ -188,6 +192,7 @@ export function NewSenders(props: {
                     <NewSenderRow
                       key={item.name}
                       item={item}
+                      userEmail={userEmail}
                       firstEmail={item.firstEmail}
                       numberOfEmails={item.numberOfEmails}
                       setOpenedNewsletter={setOpenedNewsletter}
@@ -267,6 +272,7 @@ function NewSendersTable(props: {
 function NewSenderRow(props: {
   item: Row;
   firstEmail: { from: string; subject: string; timestamp: number };
+  userEmail: string;
   numberOfEmails: number;
   setOpenedNewsletter: React.Dispatch<React.SetStateAction<Row | undefined>>;
   gmailLabels: LabelsResponse["labels"];
@@ -299,6 +305,7 @@ function NewSenderRow(props: {
       <TableCell className="flex justify-end space-x-2 p-2">
         <ActionCell
           item={item}
+          userEmail={props.userEmail}
           hasUnsubscribeAccess={props.hasUnsubscribeAccess}
           mutate={props.mutate}
           refetchPremium={refetchPremium}

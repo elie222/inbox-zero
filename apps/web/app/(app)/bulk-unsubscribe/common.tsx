@@ -2,6 +2,10 @@
 
 import React, { useMemo, useState } from "react";
 import clsx from "clsx";
+import Link from "next/link";
+import useSWR from "swr";
+import { type gmail_v1 } from "googleapis";
+import { toast } from "sonner";
 import { Title, Text } from "@tremor/react";
 import {
   ArchiveIcon,
@@ -11,10 +15,16 @@ import {
   ChevronDownIcon,
   ChevronsUpDownIcon,
   ExpandIcon,
+  ExternalLinkIcon,
+  MoreHorizontalIcon,
+  PlusCircle,
   SquareSlashIcon,
+  TagIcon,
+  TrashIcon,
+  UserPlus,
   UserRoundMinusIcon,
 } from "lucide-react";
-import { usePostHog } from "posthog-js/react";
+import { type PostHog, usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
@@ -24,7 +34,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LabelsResponse } from "@/app/api/google/labels/route";
@@ -37,6 +51,15 @@ import {
 import { NewsletterStatus } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
+import { GroupsResponse } from "@/app/api/user/group/route";
+import { addGroupItemAction } from "@/utils/actions/group";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { createFilterAction } from "@/utils/actions/mail";
+import { isErrorMessage } from "@/utils/error";
+import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
+import { isDefined } from "@/utils/types";
+import { getGmailSearchUrl } from "@/utils/url";
 
 export type Row = {
   name: string;
@@ -75,7 +98,16 @@ export function ShortcutTooltip() {
   );
 }
 
-export function ActionCell<T extends Row>(props: {
+export function ActionCell<T extends Row>({
+  item,
+  hasUnsubscribeAccess,
+  mutate,
+  refetchPremium,
+  setOpenedNewsletter,
+  gmailLabels,
+  openPremiumModal,
+  userEmail,
+}: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
@@ -84,16 +116,8 @@ export function ActionCell<T extends Row>(props: {
   selected: boolean;
   gmailLabels: LabelsResponse["labels"];
   openPremiumModal: () => void;
+  userEmail: string;
 }) {
-  const {
-    item,
-    hasUnsubscribeAccess,
-    setOpenedNewsletter,
-    mutate,
-    refetchPremium,
-    gmailLabels,
-  } = props;
-
   const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
   const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
   const [approveLoading, setApproveLoading] = React.useState(false);
@@ -112,7 +136,7 @@ export function ActionCell<T extends Row>(props: {
     <>
       <PremiumTooltip
         showTooltip={!hasUnsubscribeAccess}
-        openModal={props.openPremiumModal}
+        openModal={openPremiumModal}
       >
         <Button
           size="sm"
@@ -168,7 +192,7 @@ export function ActionCell<T extends Row>(props: {
       <Tooltip
         contentComponent={
           !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={props.openPremiumModal} />
+            <PremiumTooltipContent openModal={openPremiumModal} />
           ) : undefined
         }
         content={
@@ -312,7 +336,7 @@ export function ActionCell<T extends Row>(props: {
       <Tooltip
         contentComponent={
           !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={props.openPremiumModal} />
+            <PremiumTooltipContent openModal={openPremiumModal} />
           ) : undefined
         }
         content={
@@ -353,17 +377,152 @@ export function ActionCell<T extends Row>(props: {
           )}
         </Button>
       </Tooltip>
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={() => {
-          setOpenedNewsletter(item);
-          posthog.capture("Clicked Expand Sender");
-        }}
-      >
-        <ExpandIcon className="h-4 w-4" />
-      </Button>
+      <MoreDropdown
+        setOpenedNewsletter={setOpenedNewsletter}
+        item={item}
+        userEmail={userEmail}
+        userGmailLabels={userGmailLabels}
+        posthog={posthog}
+      />
     </>
+  );
+}
+
+export function MoreDropdown<T extends Row>({
+  setOpenedNewsletter,
+  item,
+  userEmail,
+  userGmailLabels,
+  posthog,
+}: {
+  setOpenedNewsletter?: (row: T) => void;
+  item: T;
+  userEmail: string;
+  userGmailLabels: LabelsResponse["labels"];
+  posthog?: PostHog;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button aria-haspopup="true" size="icon" variant="ghost">
+          <MoreHorizontalIcon className="h-4 w-4" />
+          <span className="sr-only">Toggle menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {!!setOpenedNewsletter && (
+          <DropdownMenuItem
+            onClick={() => {
+              setOpenedNewsletter(item);
+              posthog?.capture("Clicked Expand Sender");
+            }}
+          >
+            <ExpandIcon className="mr-2 h-4 w-4" />
+            <span>View stats</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem asChild>
+          <Link href={getGmailSearchUrl(item.name, userEmail)} target="_blank">
+            <ExternalLinkIcon className="mr-2 h-4 w-4" />
+            <span>View in Gmail</span>
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <UserPlus className="mr-2 h-4 w-4" />
+            <span>Add sender to group</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <GroupsSubMenu sender={item.name} />
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <TagIcon className="mr-2 h-4 w-4" />
+            <span>Label sender</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <LabelsSubMenu sender={item.name} labels={userGmailLabels} />
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+
+        <DropdownMenuItem
+          onClick={() => {
+            toast.promise(
+              async () => {
+                // 1. search gmail for messages from sender
+                const res = await fetch(
+                  `/api/google/threads/basic?from=${item.name}&labelId=INBOX`,
+                );
+                const data: GetThreadsResponse = await res.json();
+
+                // 2. archive messages
+                if (data?.length) {
+                  archiveEmails(
+                    data.map((t) => t.id).filter(isDefined),
+                    () => {},
+                  );
+                }
+
+                return data.length;
+              },
+              {
+                loading: `Archiving all emails from ${item.name}`,
+                success: (data) =>
+                  data
+                    ? `Archiving ${data} emails from ${item.name}...`
+                    : `No emails to archive from ${item.name}`,
+                error: `There was an error archiving the emails from ${item.name} :(`,
+              },
+            );
+          }}
+        >
+          <ArchiveIcon className="mr-2 h-4 w-4" />
+          <span>Archive all from sender</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            const yes = confirm(
+              `Are you sure you want to delete all emails from ${item.name}?`,
+            );
+            if (!yes) return;
+
+            toast.promise(
+              async () => {
+                // 1. search gmail for messages from sender
+                const res = await fetch(
+                  `/api/google/threads/basic?from=${item.name}`,
+                );
+                const data: GetThreadsResponse = await res.json();
+
+                // 2. delete messages
+                if (data?.length) {
+                  deleteEmails(
+                    data.map((t) => t.id).filter(isDefined),
+                    () => {},
+                  );
+                }
+
+                return data.length;
+              },
+              {
+                loading: `Deleting all emails from ${item.name}`,
+                success: (data) =>
+                  data
+                    ? `Deleting ${data} emails from ${item.name}...`
+                    : `No emails to delete from ${item.name}`,
+                error: `There was an error deleting the emails from ${item.name} :(`,
+              },
+            );
+          }}
+        >
+          <TrashIcon className="mr-2 h-4 w-4" />
+          <span>Delete all from sender</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -506,4 +665,97 @@ export function useNewsletterFilter() {
     )[],
     setFilters,
   };
+}
+
+function GroupsSubMenu({ sender }: { sender: string }) {
+  const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
+
+  return (
+    <DropdownMenuSubContent>
+      {data && (
+        <>
+          {data.groups.length ? (
+            data?.groups.map((group) => {
+              return (
+                <DropdownMenuItem
+                  key={group.id}
+                  onClick={async () => {
+                    await addGroupItemAction({
+                      groupId: group.id,
+                      type: "FROM",
+                      value: sender,
+                    });
+                    toastSuccess({
+                      title: "Success!",
+                      description: `Added ${sender} to ${group.name}`,
+                    });
+                  }}
+                >
+                  {group.name}
+                </DropdownMenuItem>
+              );
+            })
+          ) : (
+            <DropdownMenuItem>You don't have any groups yet.</DropdownMenuItem>
+          )}
+        </>
+      )}
+      {isLoading && <DropdownMenuItem>Loading...</DropdownMenuItem>}
+      {error && <DropdownMenuItem>Error loading groups</DropdownMenuItem>}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem asChild>
+        <Link href="/automation?tab=groups" target="_blank">
+          <PlusCircle className="mr-2 h-4 w-4" />
+          <span>New Group</span>
+        </Link>
+      </DropdownMenuItem>
+    </DropdownMenuSubContent>
+  );
+}
+
+function LabelsSubMenu({
+  sender,
+  labels,
+}: {
+  sender: string;
+  labels: gmail_v1.Schema$Label[] | undefined;
+}) {
+  return (
+    <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
+      {labels?.length ? (
+        labels.map((label) => {
+          return (
+            <DropdownMenuItem
+              key={label.id}
+              onClick={async () => {
+                if (label.id) {
+                  const res = await createFilterAction(sender, label.id);
+                  if (isErrorMessage(res)) {
+                    toastError({
+                      title: "Error",
+                      description: `Failed to add ${sender} to ${label.name}. ${res.error}`,
+                    });
+                  } else {
+                    toastSuccess({
+                      title: "Success!",
+                      description: `Added ${sender} to ${label.name}`,
+                    });
+                  }
+                } else {
+                  toastError({
+                    title: "Error",
+                    description: `Failed to add ${sender} to ${label.name}`,
+                  });
+                }
+              }}
+            >
+              {label.name}
+            </DropdownMenuItem>
+          );
+        })
+      ) : (
+        <DropdownMenuItem>You don't have any labels yet.</DropdownMenuItem>
+      )}
+    </DropdownMenuSubContent>
+  );
 }

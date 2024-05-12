@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import {
   Card,
@@ -49,6 +50,9 @@ export function NewsletterStats(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
+  const { data: session } = useSession();
+  const userEmail = session?.user?.email || "";
+
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
@@ -194,6 +198,7 @@ export function NewsletterStats(props: {
                     <NewsletterRow
                       key={item.name}
                       item={item}
+                      userEmail={userEmail}
                       setOpenedNewsletter={setOpenedNewsletter}
                       gmailLabels={gmailLabels?.labels || []}
                       mutate={mutate}
@@ -275,6 +280,7 @@ function NewsletterRow(props: {
     React.SetStateAction<Newsletter | undefined>
   >;
   gmailLabels: LabelsResponse["labels"];
+  userEmail: string;
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;
@@ -337,6 +343,7 @@ function NewsletterRow(props: {
           selected={props.selected}
           gmailLabels={props.gmailLabels}
           openPremiumModal={props.openPremiumModal}
+          userEmail={props.userEmail}
         />
       </TableCell>
     </TableRow>

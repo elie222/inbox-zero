@@ -1,6 +1,6 @@
 import { type gmail_v1 } from "googleapis";
 
-async function createFilter(options: {
+export async function createFilter(options: {
   gmail: gmail_v1.Gmail;
   from: string;
   addLabelIds?: string[];
