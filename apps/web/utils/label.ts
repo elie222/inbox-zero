@@ -161,8 +161,8 @@ export async function getOrCreateInboxZeroLabel(options: {
 }): Promise<RedisLabel | undefined> {
   const { gmail, labelKey, email } = options;
 
-  const redisLabel = await getInboxZeroLabels({ email });
-  if (redisLabel) return redisLabel[labelKey];
+  const redisLabels = await getInboxZeroLabels({ email });
+  if (redisLabels?.[labelKey]) return redisLabels[labelKey];
 
   const gmailLabels = await getGmailLabels(gmail);
 
