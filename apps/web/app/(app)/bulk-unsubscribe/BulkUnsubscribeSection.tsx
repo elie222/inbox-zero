@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import {
@@ -103,6 +103,14 @@ export function BulkUnsubscribeSection(props: {
 
   const { PremiumModal, openModal } = usePremiumModal();
 
+  const userGmailLabels = useMemo(
+    () =>
+      gmailLabels?.labels
+        ?.filter((l) => l.id && l.type === "user")
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    [gmailLabels],
+  );
+
   return (
     <>
       <BulkUnsubscribeSummary />
@@ -200,7 +208,7 @@ export function BulkUnsubscribeSection(props: {
                       item={item}
                       userEmail={userEmail}
                       setOpenedNewsletter={setOpenedNewsletter}
-                      gmailLabels={gmailLabels?.labels || []}
+                      userGmailLabels={userGmailLabels}
                       mutate={mutate}
                       selected={selectedRow?.name === item.name}
                       onSelectRow={() => {
@@ -279,7 +287,7 @@ function BulkUnsubscribeRow(props: {
   setOpenedNewsletter: React.Dispatch<
     React.SetStateAction<Newsletter | undefined>
   >;
-  gmailLabels: LabelsResponse["labels"];
+  userGmailLabels: LabelsResponse["labels"];
   userEmail: string;
   mutate: () => Promise<any>;
   selected: boolean;
@@ -341,7 +349,7 @@ function BulkUnsubscribeRow(props: {
           refetchPremium={refetchPremium}
           setOpenedNewsletter={props.setOpenedNewsletter}
           selected={props.selected}
-          gmailLabels={props.gmailLabels}
+          userGmailLabels={props.userGmailLabels}
           openPremiumModal={props.openPremiumModal}
           userEmail={props.userEmail}
         />

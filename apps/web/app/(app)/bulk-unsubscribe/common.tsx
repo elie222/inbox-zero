@@ -104,7 +104,7 @@ export function ActionCell<T extends Row>({
   mutate,
   refetchPremium,
   setOpenedNewsletter,
-  gmailLabels,
+  userGmailLabels,
   openPremiumModal,
   userEmail,
 }: {
@@ -114,7 +114,7 @@ export function ActionCell<T extends Row>({
   refetchPremium: () => Promise<any>;
   setOpenedNewsletter: React.Dispatch<React.SetStateAction<T | undefined>>;
   selected: boolean;
-  gmailLabels: LabelsResponse["labels"];
+  userGmailLabels: LabelsResponse["labels"];
   openPremiumModal: () => void;
   userEmail: string;
 }) {
@@ -123,14 +123,6 @@ export function ActionCell<T extends Row>({
   const [approveLoading, setApproveLoading] = React.useState(false);
 
   const posthog = usePostHog();
-
-  const userGmailLabels = useMemo(
-    () =>
-      gmailLabels
-        ?.filter((l) => l.id && l.type === "user")
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [gmailLabels],
-  );
 
   return (
     <>

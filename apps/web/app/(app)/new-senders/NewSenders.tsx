@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import {
@@ -102,6 +102,14 @@ export function NewSenders(props: {
 
   const { openModal, PremiumModal } = usePremiumModal();
 
+  const userGmailLabels = useMemo(
+    () =>
+      gmailLabels?.labels
+        ?.filter((l) => l.id && l.type === "user")
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    [gmailLabels],
+  );
+
   return (
     <>
       <LoadingContent
@@ -196,7 +204,7 @@ export function NewSenders(props: {
                       firstEmail={item.firstEmail}
                       numberOfEmails={item.numberOfEmails}
                       setOpenedNewsletter={setOpenedNewsletter}
-                      gmailLabels={gmailLabels?.labels || []}
+                      userGmailLabels={userGmailLabels}
                       mutate={mutate}
                       selected={selectedRow?.name === item.name}
                       onSelectRow={() => {
@@ -275,7 +283,7 @@ function NewSenderRow(props: {
   userEmail: string;
   numberOfEmails: number;
   setOpenedNewsletter: React.Dispatch<React.SetStateAction<Row | undefined>>;
-  gmailLabels: LabelsResponse["labels"];
+  userGmailLabels: LabelsResponse["labels"];
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;
@@ -311,7 +319,7 @@ function NewSenderRow(props: {
           refetchPremium={refetchPremium}
           setOpenedNewsletter={props.setOpenedNewsletter}
           selected={props.selected}
-          gmailLabels={props.gmailLabels}
+          userGmailLabels={props.userGmailLabels}
           openPremiumModal={openPremiumModal}
         />
       </TableCell>
