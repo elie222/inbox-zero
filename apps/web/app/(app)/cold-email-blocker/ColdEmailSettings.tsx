@@ -97,7 +97,7 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
   const onSubmitForm = handleSubmit(onSubmit);
 
   return (
-    <form onSubmit={onSubmitForm} className="max-w-sm space-y-2">
+    <form onSubmit={onSubmitForm} className="flex max-w-sm items-end space-x-2">
       <Select
         name="coldEmailBlocker"
         label="How should we handle cold emails?"
@@ -106,9 +106,11 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
         error={errors.coldEmailBlocker}
       />
 
-      <Button type="submit" loading={isSubmitting}>
-        Save
-      </Button>
+      <div className="">
+        <Button type="submit" loading={isSubmitting}>
+          Save
+        </Button>
+      </div>
     </form>
   );
 }

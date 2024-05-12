@@ -16,7 +16,7 @@ export function ColdEmailList() {
         <EmailList
           threads={data.threads || []}
           emptyMessage={
-            <div className="px-2">
+            <div className="content-container">
               <AlertBasic
                 title="No cold emails!"
                 description={`We haven't marked any of your emails as cold emails yet!`}
