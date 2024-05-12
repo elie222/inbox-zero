@@ -33,20 +33,20 @@ import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { usePremium } from "@/components/PremiumAlert";
 import {
   useNewsletterFilter,
-  useNewsletterShortcuts,
+  useBulkUnsubscribeShortcuts,
   ShortcutTooltip,
   SectionHeader,
   ActionCell,
   HeaderButton,
 } from "@/app/(app)/bulk-unsubscribe/common";
-import NewsletterSummary from "@/app/(app)/bulk-unsubscribe/NewsletterSummary";
+import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
-export function NewsletterStats(props: {
+export function BulkUnsubscribeSection(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
@@ -89,7 +89,7 @@ export function NewsletterStats(props: {
     Newsletter | undefined
   >();
 
-  useNewsletterShortcuts({
+  useBulkUnsubscribeShortcuts({
     newsletters: data?.newsletters,
     selectedRow,
     setOpenedNewsletter,
@@ -105,7 +105,7 @@ export function NewsletterStats(props: {
 
   return (
     <>
-      <NewsletterSummary />
+      <BulkUnsubscribeSummary />
       <Card className="mt-4 p-0">
         <div className="items-center justify-between px-6 pt-6 md:flex">
           <SectionHeader
@@ -189,13 +189,13 @@ export function NewsletterStats(props: {
             }
           >
             {data && (
-              <NewsletterTable
+              <BulkUnsubscribeTable
                 sortColumn={sortColumn}
                 setSortColumn={setSortColumn}
                 tableRows={data.newsletters
                   .slice(0, expanded ? undefined : 50)
                   .map((item) => (
-                    <NewsletterRow
+                    <BulkUnsubscribeRow
                       key={item.name}
                       item={item}
                       userEmail={userEmail}
@@ -228,7 +228,7 @@ export function NewsletterStats(props: {
   );
 }
 
-function NewsletterTable(props: {
+function BulkUnsubscribeTable(props: {
   tableRows?: React.ReactNode;
   sortColumn: "emails" | "unread" | "unarchived";
   setSortColumn: (sortColumn: "emails" | "unread" | "unarchived") => void;
@@ -274,7 +274,7 @@ function NewsletterTable(props: {
   );
 }
 
-function NewsletterRow(props: {
+function BulkUnsubscribeRow(props: {
   item: Newsletter;
   setOpenedNewsletter: React.Dispatch<
     React.SetStateAction<Newsletter | undefined>

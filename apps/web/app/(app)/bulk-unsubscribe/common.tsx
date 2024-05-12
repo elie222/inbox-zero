@@ -548,7 +548,7 @@ export function HeaderButton(props: {
   );
 }
 
-export function useNewsletterShortcuts<T extends Row>({
+export function useBulkUnsubscribeShortcuts<T extends Row>({
   newsletters,
   selectedRow,
   setOpenedNewsletter,

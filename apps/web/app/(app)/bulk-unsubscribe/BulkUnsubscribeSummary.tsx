@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NewsletterSummaryResponse } from "@/app/api/user/stats/newsletters/summary/route";
 import { NewsletterStatus } from "@prisma/client";
 
-export default function NewsletterSummary() {
+export default function BulkUnsubscribeSummary() {
   const { data, isLoading, error } = useSWR<
     NewsletterSummaryResponse,
     { error: string }

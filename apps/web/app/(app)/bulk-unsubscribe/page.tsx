@@ -3,7 +3,7 @@
 import { subDays } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
-import { NewsletterStats } from "@/app/(app)/bulk-unsubscribe/NewsletterStats";
+import { BulkUnsubscribeSection } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSection";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
@@ -79,7 +79,7 @@ export default function BulkUnsubscribePage() {
       </div>
 
       <div className="m-4">
-        <NewsletterStats
+        <BulkUnsubscribeSection
           dateRange={dateRange}
           refreshInterval={refreshInterval}
         />

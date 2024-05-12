@@ -27,7 +27,7 @@ import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
 import {
   useNewsletterFilter,
-  useNewsletterShortcuts,
+  useBulkUnsubscribeShortcuts,
   ShortcutTooltip,
   SectionHeader,
   ActionCell,
@@ -90,7 +90,7 @@ export function NewSenders(props: {
     };
   });
 
-  useNewsletterShortcuts({
+  useBulkUnsubscribeShortcuts({
     newsletters: rows,
     selectedRow,
     setOpenedNewsletter,
