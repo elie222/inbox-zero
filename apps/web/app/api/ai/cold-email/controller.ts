@@ -10,62 +10,57 @@ import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { saveAiUsage } from "@/utils/usage";
 import { chatCompletion } from "@/utils/llms";
+import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 
 const aiResponseSchema = z.object({
   coldEmail: z.boolean().nullish(),
-  expandEmail: z.boolean().nullish(),
+  reason: z.string().nullish(),
 });
 
-type ColdEmailBlockerReason = "hasPreviousEmail" | "unsubscribeLink" | "ai";
+type ColdEmailBlockerReason = "hasPreviousEmail" | "ai";
 
 export async function isColdEmail(options: {
   hasPreviousEmail: boolean;
-  email: {
-    from: string;
-    subject: string;
-    body: string;
-  };
+  email: { from: string; subject: string; content: string };
   user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
+  aiReason?: string | null;
 }> {
   if (options.hasPreviousEmail)
     return { isColdEmail: false, reason: "hasPreviousEmail" };
 
   // otherwise run through ai to see if it's a cold email
-  const isColdEmail = await aiIsColdEmail(options.email, options.user);
+  const res = await aiIsColdEmail(options.email, options.user);
 
-  return { isColdEmail: !!isColdEmail, reason: "ai" };
+  return {
+    isColdEmail: !!res.coldEmail,
+    reason: "ai",
+    aiReason: res.reason,
+  };
 }
 
 async function aiIsColdEmail(
-  email: {
-    from: string;
-    subject: string;
-    body: string;
-  },
+  email: { from: string; subject: string; content: string },
   user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields,
 ) {
   const message = `Determine if this email is a cold email or not.
 
 ${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
 
-Return a JSON object with a "coldEmail" and "expandEmail" field.
+Return a JSON object with a "coldEmail" and "reason" field.
+The "reason" should be a string that explains why the email is or isn't considered a cold email.
 
 An example response is:
 {
   "coldEmail": true,
-  "expandEmail": false
+  "reason": "This is someone trying to sell you services."
 }
 
-Set "expandEmail" to true if want to read more of the email before deciding whether this is a cold email.
+The email:
 
-## Email
-
-From: ${email.from}
-Subject: ${email.subject}
-Body: ${email.body}
+${stringifyEmail(email, 500)}
 `;
 
   const { model, provider } = getAiProviderAndModel(
@@ -103,18 +98,16 @@ Body: ${email.body}
   const content = response.response;
 
   // this is an error
-  if (!content) return false;
+  if (!content) return { coldEmail: false, reason: null };
 
   try {
     const res = parseJSON(content);
     const parsedResponse = aiResponseSchema.parse(res);
 
-    // TODO expand email if parsedResponse.expandEmail is true
-
-    return parsedResponse.coldEmail;
+    return parsedResponse;
   } catch (error) {
     console.error("Error parsing json:", content);
-    return false;
+    return { coldEmail: false, reason: null };
   }
 }
 
@@ -123,7 +116,7 @@ export async function runColdEmailBlocker(options: {
   email: {
     from: string;
     subject: string;
-    body: string;
+    content: string;
     messageId: string;
   };
   gmail: gmail_v1.Gmail;
@@ -131,12 +124,7 @@ export async function runColdEmailBlocker(options: {
     UserAIFields;
 }) {
   const response = await isColdEmail(options);
-
-  if (response.isColdEmail) {
-    console.log("Blocking cold email...");
-
-    await blockColdEmail(options);
-  }
+  if (response.isColdEmail) await blockColdEmail(options);
 }
 
 async function blockColdEmail(options: {

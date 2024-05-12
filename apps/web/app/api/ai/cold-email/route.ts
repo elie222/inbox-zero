@@ -7,13 +7,15 @@ import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
+import { emailToContent } from "@/utils/mail";
 
 const coldEmailBlockerBody = z.object({
   email: z.object({
     from: z.string(),
     subject: z.string(),
-    body: z.string(),
-    textHtml: z.string().optional(),
+    textHtml: z.string().nullable(),
+    textPlain: z.string().nullable(),
+    snippet: z.string().nullable(),
     date: z.string().optional(),
     threadId: z.string().nullable(),
   }),
@@ -48,8 +50,18 @@ async function checkColdEmail(
         })
       : false;
 
+  const content = emailToContent({
+    textHtml: body.email.textHtml || null,
+    textPlain: body.email.textPlain || null,
+    snippet: body.email.snippet,
+  });
+
   const response = await isColdEmail({
-    email: body.email,
+    email: {
+      from: body.email.from,
+      subject: body.email.subject,
+      content,
+    },
     user,
     hasPreviousEmail,
   });

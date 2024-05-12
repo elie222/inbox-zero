@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { type gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
-import { parseMessage } from "@/utils/mail";
+import { emailToContent, parseMessage } from "@/utils/mail";
 import { DRAFT_LABEL_ID, INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
@@ -378,12 +378,18 @@ async function processHistoryItem(
         threadId,
       });
 
+      const content = emailToContent({
+        textHtml: message.textHtml || null,
+        textPlain: message.textPlain || null,
+        snippet: message.snippet,
+      });
+
       await runColdEmailBlocker({
         hasPreviousEmail,
         email: {
           from: message.headers.from,
           subject: message.headers.subject,
-          body: message.snippet,
+          content,
           messageId,
         },
         gmail,
