@@ -9,7 +9,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 export type GetThreadsResponse = Awaited<ReturnType<typeof getGetThreads>>;
 const getThreadsQuery = z.object({
   from: z.string(),
-  labelId: z.string(),
+  labelId: z.string().nullish(),
 });
 type GetThreadsQuery = z.infer<typeof getThreadsQuery>;
 
@@ -17,7 +17,11 @@ async function getGetThreads(
   { from, labelId }: GetThreadsQuery,
   gmail: gmail_v1.Gmail,
 ) {
-  const threads = await getThreads(`from:${from}`, [labelId], gmail);
+  const threads = await getThreads(
+    `from:${from}`,
+    labelId ? [labelId] : [],
+    gmail,
+  );
   return threads.threads || [];
 }
 

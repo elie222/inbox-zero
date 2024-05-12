@@ -449,7 +449,7 @@ export function ActionCell<T extends Row>(props: {
                   loading: `Archiving all emails from ${item.name}`,
                   success: (data) =>
                     data
-                      ? `Archiving ${data} emails from ${item.name}`
+                      ? `Archiving ${data} emails from ${item.name}...`
                       : `No emails to archive from ${item.name}`,
                   error: `There was an error archiving the emails from ${item.name} :(`,
                 },
@@ -459,7 +459,7 @@ export function ActionCell<T extends Row>(props: {
             <ArchiveIcon className="mr-2 h-4 w-4" />
             <span>Archive all from sender</span>
           </DropdownMenuItem>
-          {/* <DropdownMenuItem
+          <DropdownMenuItem
             onClick={() => {
               const yes = confirm(
                 `Are you sure you want to delete all emails from ${item.name}?`,
@@ -473,15 +473,15 @@ export function ActionCell<T extends Row>(props: {
                     `/api/google/threads/basic?from=${item.name}`,
                   );
                   const data: GetThreadsResponse = await res.json();
-                  console.log("🚀 ~ data:", data)
+                  console.log("🚀 ~ data:", data);
 
                   // 2. delete messages
-                  // if (data?.length) {
-                  //   deleteEmails(
-                  //     data.map((t) => t.id).filter(isDefined),
-                  //     () => {},
-                  //   );
-                  // }
+                  if (data?.length) {
+                    deleteEmails(
+                      data.map((t) => t.id).filter(isDefined),
+                      () => {},
+                    );
+                  }
 
                   return data.length;
                 },
@@ -489,7 +489,7 @@ export function ActionCell<T extends Row>(props: {
                   loading: `Deleting all emails from ${item.name}`,
                   success: (data) =>
                     data
-                      ? `Deleting ${data} emails from ${item.name}`
+                      ? `Deleting ${data} emails from ${item.name}...`
                       : `No emails to delete from ${item.name}`,
                   error: `There was an error deleting the emails from ${item.name} :(`,
                 },
@@ -498,7 +498,7 @@ export function ActionCell<T extends Row>(props: {
           >
             <TrashIcon className="mr-2 h-4 w-4" />
             <span>Delete all from sender</span>
-          </DropdownMenuItem> */}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </>
