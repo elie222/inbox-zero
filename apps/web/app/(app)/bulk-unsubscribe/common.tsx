@@ -431,7 +431,7 @@ export function MoreDropdown<T extends Row>({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <UserPlus className="mr-2 h-4 w-4" />
-            <span>Add to group</span>
+            <span>Add sender to group</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <GroupsSubMenu sender={item.name} />
@@ -441,7 +441,7 @@ export function MoreDropdown<T extends Row>({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <TagIcon className="mr-2 h-4 w-4" />
-            <span>Add to label</span>
+            <span>Label sender</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <LabelsSubMenu sender={item.name} labels={userGmailLabels} />
@@ -480,7 +480,7 @@ export function MoreDropdown<T extends Row>({
           }}
         >
           <ArchiveIcon className="mr-2 h-4 w-4" />
-          <span>Archive all</span>
+          <span>Archive all from sender</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
