@@ -15,7 +15,7 @@ import {
   ChevronDownIcon,
   ChevronsUpDownIcon,
   ExpandIcon,
-  MailIcon,
+  ExternalLinkIcon,
   MoreHorizontalIcon,
   PlusCircle,
   SquareSlashIcon,
@@ -24,7 +24,7 @@ import {
   UserPlus,
   UserRoundMinusIcon,
 } from "lucide-react";
-import { usePostHog } from "posthog-js/react";
+import { type PostHog, usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
@@ -98,7 +98,16 @@ export function ShortcutTooltip() {
   );
 }
 
-export function ActionCell<T extends Row>(props: {
+export function ActionCell<T extends Row>({
+  item,
+  hasUnsubscribeAccess,
+  mutate,
+  refetchPremium,
+  setOpenedNewsletter,
+  gmailLabels,
+  openPremiumModal,
+  userEmail,
+}: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
@@ -109,16 +118,6 @@ export function ActionCell<T extends Row>(props: {
   openPremiumModal: () => void;
   userEmail: string;
 }) {
-  const {
-    item,
-    hasUnsubscribeAccess,
-    setOpenedNewsletter,
-    mutate,
-    refetchPremium,
-    gmailLabels,
-    userEmail,
-  } = props;
-
   const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
   const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
   const [approveLoading, setApproveLoading] = React.useState(false);
@@ -137,7 +136,7 @@ export function ActionCell<T extends Row>(props: {
     <>
       <PremiumTooltip
         showTooltip={!hasUnsubscribeAccess}
-        openModal={props.openPremiumModal}
+        openModal={openPremiumModal}
       >
         <Button
           size="sm"
@@ -193,7 +192,7 @@ export function ActionCell<T extends Row>(props: {
       <Tooltip
         contentComponent={
           !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={props.openPremiumModal} />
+            <PremiumTooltipContent openModal={openPremiumModal} />
           ) : undefined
         }
         content={
@@ -337,7 +336,7 @@ export function ActionCell<T extends Row>(props: {
       <Tooltip
         contentComponent={
           !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={props.openPremiumModal} />
+            <PremiumTooltipContent openModal={openPremiumModal} />
           ) : undefined
         }
         content={
@@ -378,130 +377,152 @@ export function ActionCell<T extends Row>(props: {
           )}
         </Button>
       </Tooltip>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button aria-haspopup="true" size="icon" variant="ghost">
-            <MoreHorizontalIcon className="h-4 w-4" />
-            <span className="sr-only">Toggle menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+      <MoreDropdown
+        setOpenedNewsletter={setOpenedNewsletter}
+        item={item}
+        userEmail={userEmail}
+        userGmailLabels={userGmailLabels}
+        posthog={posthog}
+      />
+    </>
+  );
+}
+
+export function MoreDropdown<T extends Row>({
+  setOpenedNewsletter,
+  item,
+  userEmail,
+  userGmailLabels,
+  posthog,
+}: {
+  setOpenedNewsletter?: (row: T) => void;
+  item: T;
+  userEmail: string;
+  userGmailLabels: LabelsResponse["labels"];
+  posthog?: PostHog;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button aria-haspopup="true" size="icon" variant="ghost">
+          <MoreHorizontalIcon className="h-4 w-4" />
+          <span className="sr-only">Toggle menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {!!setOpenedNewsletter && (
           <DropdownMenuItem
             onClick={() => {
               setOpenedNewsletter(item);
-              posthog.capture("Clicked Expand Sender");
+              posthog?.capture("Clicked Expand Sender");
             }}
           >
             <ExpandIcon className="mr-2 h-4 w-4" />
             <span>View stats</span>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link
-              href={getGmailSearchUrl(item.name, userEmail)}
-              target="_blank"
-            >
-              <MailIcon className="mr-2 h-4 w-4" />
-              <span>View in Gmail</span>
-            </Link>
-          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem asChild>
+          <Link href={getGmailSearchUrl(item.name, userEmail)} target="_blank">
+            <ExternalLinkIcon className="mr-2 h-4 w-4" />
+            <span>View in Gmail</span>
+          </Link>
+        </DropdownMenuItem>
 
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <UserPlus className="mr-2 h-4 w-4" />
-              <span>Add to group</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <GroupsSubMenu sender={item.name} />
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <UserPlus className="mr-2 h-4 w-4" />
+            <span>Add to group</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <GroupsSubMenu sender={item.name} />
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
 
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <TagIcon className="mr-2 h-4 w-4" />
-              <span>Add to label</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <LabelsSubMenu sender={item.name} labels={userGmailLabels} />
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <TagIcon className="mr-2 h-4 w-4" />
+            <span>Add to label</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <LabelsSubMenu sender={item.name} labels={userGmailLabels} />
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
 
-          <DropdownMenuItem
-            onClick={() => {
-              toast.promise(
-                async () => {
-                  // 1. search gmail for messages from sender
-                  const res = await fetch(
-                    `/api/google/threads/basic?from=${item.name}&labelId=INBOX`,
+        <DropdownMenuItem
+          onClick={() => {
+            toast.promise(
+              async () => {
+                // 1. search gmail for messages from sender
+                const res = await fetch(
+                  `/api/google/threads/basic?from=${item.name}&labelId=INBOX`,
+                );
+                const data: GetThreadsResponse = await res.json();
+
+                // 2. archive messages
+                if (data?.length) {
+                  archiveEmails(
+                    data.map((t) => t.id).filter(isDefined),
+                    () => {},
                   );
-                  const data: GetThreadsResponse = await res.json();
+                }
 
-                  // 2. archive messages
-                  if (data?.length) {
-                    archiveEmails(
-                      data.map((t) => t.id).filter(isDefined),
-                      () => {},
-                    );
-                  }
+                return data.length;
+              },
+              {
+                loading: `Archiving all emails from ${item.name}`,
+                success: (data) =>
+                  data
+                    ? `Archiving ${data} emails from ${item.name}...`
+                    : `No emails to archive from ${item.name}`,
+                error: `There was an error archiving the emails from ${item.name} :(`,
+              },
+            );
+          }}
+        >
+          <ArchiveIcon className="mr-2 h-4 w-4" />
+          <span>Archive all</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            const yes = confirm(
+              `Are you sure you want to delete all emails from ${item.name}?`,
+            );
+            if (!yes) return;
 
-                  return data.length;
-                },
-                {
-                  loading: `Archiving all emails from ${item.name}`,
-                  success: (data) =>
-                    data
-                      ? `Archiving ${data} emails from ${item.name}...`
-                      : `No emails to archive from ${item.name}`,
-                  error: `There was an error archiving the emails from ${item.name} :(`,
-                },
-              );
-            }}
-          >
-            <ArchiveIcon className="mr-2 h-4 w-4" />
-            <span>Archive all from sender</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              const yes = confirm(
-                `Are you sure you want to delete all emails from ${item.name}?`,
-              );
-              if (!yes) return;
+            toast.promise(
+              async () => {
+                // 1. search gmail for messages from sender
+                const res = await fetch(
+                  `/api/google/threads/basic?from=${item.name}`,
+                );
+                const data: GetThreadsResponse = await res.json();
 
-              toast.promise(
-                async () => {
-                  // 1. search gmail for messages from sender
-                  const res = await fetch(
-                    `/api/google/threads/basic?from=${item.name}`,
+                // 2. delete messages
+                if (data?.length) {
+                  deleteEmails(
+                    data.map((t) => t.id).filter(isDefined),
+                    () => {},
                   );
-                  const data: GetThreadsResponse = await res.json();
-                  console.log("🚀 ~ data:", data);
+                }
 
-                  // 2. delete messages
-                  if (data?.length) {
-                    deleteEmails(
-                      data.map((t) => t.id).filter(isDefined),
-                      () => {},
-                    );
-                  }
-
-                  return data.length;
-                },
-                {
-                  loading: `Deleting all emails from ${item.name}`,
-                  success: (data) =>
-                    data
-                      ? `Deleting ${data} emails from ${item.name}...`
-                      : `No emails to delete from ${item.name}`,
-                  error: `There was an error deleting the emails from ${item.name} :(`,
-                },
-              );
-            }}
-          >
-            <TrashIcon className="mr-2 h-4 w-4" />
-            <span>Delete all from sender</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+                return data.length;
+              },
+              {
+                loading: `Deleting all emails from ${item.name}`,
+                success: (data) =>
+                  data
+                    ? `Deleting ${data} emails from ${item.name}...`
+                    : `No emails to delete from ${item.name}`,
+                error: `There was an error deleting the emails from ${item.name} :(`,
+              },
+            );
+          }}
+        >
+          <TrashIcon className="mr-2 h-4 w-4" />
+          <span>Delete all from sender</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
