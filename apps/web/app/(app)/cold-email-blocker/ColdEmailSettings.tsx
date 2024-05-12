@@ -75,20 +75,20 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
   const options: { label: string; value: ColdEmailSetting }[] = useMemo(
     () => [
       {
-        label: "Off",
-        value: ColdEmailSetting.DISABLED,
+        label: 'Archive and label as "Cold Email"',
+        value: ColdEmailSetting.ARCHIVE_AND_LABEL,
       },
       {
-        label: "List here",
-        value: ColdEmailSetting.LIST,
-      },
-      {
-        label: 'Auto label as "Cold Email"',
+        label: 'Label as "Cold Email"',
         value: ColdEmailSetting.LABEL,
       },
       {
-        label: 'Auto archive and label as "Cold Email"',
-        value: ColdEmailSetting.ARCHIVE_AND_LABEL,
+        label: "Only list here",
+        value: ColdEmailSetting.LIST,
+      },
+      {
+        label: "Disabled",
+        value: ColdEmailSetting.DISABLED,
       },
     ],
     [],
