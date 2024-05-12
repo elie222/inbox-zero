@@ -41,8 +41,8 @@ export default function Home() {
       />
       <Testimonials />
       <Features />
-      <FeaturesUnsubscribe />
       <FeaturesAutomation />
+      <FeaturesUnsubscribe />
       <FeaturesColdEmailBlocker />
       <FeaturesStats />
       <Suspense>

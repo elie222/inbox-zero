@@ -41,13 +41,13 @@ export function Hero(props: {
           <div className="mx-auto max-w-xl text-center">
             {/* <HeroText>{props.title || <HeroHeadingAB />}</HeroText> */}
             <HeroText>
-              {props.title || "Clean Up Your Inbox In Minutes"}
+              {props.title || "Your AI personal assistant for email"}
             </HeroText>
             <HeroSubtitle>
               {props.subtitle || (
                 <>
-                  Bulk unsubscribe from newsletters, automate your emails with
-                  AI, block cold emails, and view your analytics. Fully
+                  Automate your email with AI, bulk unsubscribe from
+                  newsletters, block cold emails, and analytics. Fully
                   open-source.
                 </>
               )}

@@ -203,7 +203,7 @@ const featuresAutomations = [
 export function FeaturesAutomation() {
   return (
     <FeaturesWithImage
-      imageSide="right"
+      imageSide="left"
       title="Automate your inbox"
       subtitle="Your AI assistant for email"
       description="Keep getting emails that require the same response? Let Inbox Zero handle it."
@@ -305,7 +305,7 @@ const featuresUnsubscribe = [
 export function FeaturesUnsubscribe() {
   return (
     <FeaturesWithImage
-      imageSide="left"
+      imageSide="right"
       title="Newsletter Cleaner"
       subtitle="Clean up your subscriptions"
       description="See all newsletter and marketing subscriptions in one place. Unsubscribe in a click."
