@@ -23,6 +23,7 @@ import {
   ColdEmailBlockerResponse,
 } from "@/app/api/ai/cold-email/route";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 export function TestRules() {
   return (
@@ -166,7 +167,7 @@ function TestRulesContentRow(props: {
         <TestRulesMessage
           from={message.headers.from}
           subject={message.headers.subject}
-          snippet={message.snippet?.trim() || ""}
+          snippet={decodeSnippet(message.snippet)}
           userEmail={props.userEmail}
         />
         <div className="ml-4">
