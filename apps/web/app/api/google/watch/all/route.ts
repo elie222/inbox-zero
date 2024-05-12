@@ -6,7 +6,7 @@ import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
-import { hasFeatureAccess } from "@/utils/premium";
+import { hasAiAccess, hasColdEmailAccess } from "@/utils/premium";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -49,11 +49,16 @@ async function watchAllEmails() {
     try {
       console.log(`Watching emails for ${user.email}`);
 
-      const { hasAiOrColdEmailAccess } = hasFeatureAccess(
-        user.premium,
+      const userHasAiAccess = hasAiAccess(
+        user.premium.coldEmailBlockerAccess,
         user.openAIApiKey,
       );
-      if (!hasAiOrColdEmailAccess) {
+      const userHasColdEmailAccess = hasColdEmailAccess(
+        user.premium.coldEmailBlockerAccess,
+        user.openAIApiKey,
+      );
+
+      if (!userHasAiAccess && !userHasColdEmailAccess) {
         console.log(
           `User ${user.email} does not have access to AI or cold email`,
         );

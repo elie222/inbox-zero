@@ -47,27 +47,29 @@ export const hasUnsubscribeAccess = (
   return unsubscribeCredits !== 0;
 };
 
-export const hasFeatureAccess = (
-  premium: Pick<Premium, "coldEmailBlockerAccess" | "aiAutomationAccess">,
-  openAIApiKey: string | null,
+export const hasAiAccess = (
+  aiAutomationAccess?: Premium["aiAutomationAccess"],
+  openAIApiKey?: string | null,
 ) => {
-  const coldEmailBlockerAccess = premium.coldEmailBlockerAccess;
-  const aiAutomationAccess = premium.aiAutomationAccess;
+  const hasAiAccess = !!(
+    aiAutomationAccess === FeatureAccess.UNLOCKED ||
+    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && openAIApiKey)
+  );
 
+  return hasAiAccess;
+};
+
+export const hasColdEmailAccess = (
+  coldEmailBlockerAccess?: Premium["coldEmailBlockerAccess"],
+  openAIApiKey?: string | null,
+) => {
   const hasColdEmailAccess = !!(
     coldEmailBlockerAccess === FeatureAccess.UNLOCKED ||
     (coldEmailBlockerAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
       openAIApiKey)
   );
 
-  const hasAiAccess = !!(
-    aiAutomationAccess === FeatureAccess.UNLOCKED ||
-    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && openAIApiKey)
-  );
-
-  const hasAiOrColdEmailAccess = hasColdEmailAccess || hasAiAccess;
-
-  return { hasAiOrColdEmailAccess, hasColdEmailAccess, hasAiAccess };
+  return hasColdEmailAccess;
 };
 
 export function isOnHigherTier(

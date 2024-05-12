@@ -10,11 +10,10 @@ import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { UserAIFields } from "@/utils/llms/types";
-import { hasFeatureAccess, isPremium } from "@/utils/premium";
+import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting, User } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
-import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { getAiProviderAndModel } from "@/utils/llms";
 import { env } from "@/env.mjs";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
@@ -122,10 +121,16 @@ export async function processHistoryForUser(
     return NextResponse.json({ ok: true });
   }
 
-  const { hasAiOrColdEmailAccess, hasColdEmailAccess, hasAiAccess } =
-    hasFeatureAccess(premium, account.user.openAIApiKey);
+  const userHasAiAccess = hasAiAccess(
+    premium.aiAutomationAccess,
+    account.user.openAIApiKey,
+  );
+  const userHasColdEmailAccess = hasColdEmailAccess(
+    premium.coldEmailBlockerAccess,
+    account.user.openAIApiKey,
+  );
 
-  if (!hasAiOrColdEmailAccess) {
+  if (!userHasAiAccess && !userHasColdEmailAccess) {
     console.debug(
       "Google webhook: does not have hasAiOrColdEmailAccess",
       email,
@@ -215,8 +220,8 @@ export async function processHistoryForUser(
         gmail,
         hasAutomationRules,
         rules: account.user.rules,
-        hasColdEmailAccess: hasColdEmailAccess,
-        hasAiAutomationAccess: hasAiAccess,
+        hasColdEmailAccess: userHasColdEmailAccess,
+        hasAiAutomationAccess: userHasAiAccess,
         user: {
           id: account.userId,
           email: account.user.email,

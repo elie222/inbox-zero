@@ -22,6 +22,8 @@ async function getUser(userId: string) {
           lemonSqueezySubscriptionId: true,
           lemonSqueezyRenewsAt: true,
           unsubscribeCredits: true,
+          aiAutomationAccess: true,
+          coldEmailBlockerAccess: true,
           tier: true,
           emailAccountsAccess: true,
           lemonLicenseKey: true,

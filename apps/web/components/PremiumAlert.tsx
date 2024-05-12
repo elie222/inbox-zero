@@ -6,7 +6,12 @@ import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { UserResponse } from "@/app/api/user/me/route";
-import { hasUnsubscribeAccess, isPremium } from "@/utils/premium";
+import {
+  hasAiAccess,
+  hasColdEmailAccess,
+  hasUnsubscribeAccess,
+  isPremium,
+} from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { PremiumTier } from "@prisma/client";
@@ -30,6 +35,14 @@ export function usePremium() {
     hasUnsubscribeAccess:
       premium ||
       hasUnsubscribeAccess(swrResponse.data?.premium?.unsubscribeCredits),
+    hasAiAccess: hasAiAccess(
+      swrResponse.data?.premium?.aiAutomationAccess,
+      swrResponse.data?.openAIApiKey,
+    ),
+    hasColdEmailAccess: hasColdEmailAccess(
+      swrResponse.data?.premium?.coldEmailBlockerAccess,
+      swrResponse.data?.openAIApiKey,
+    ),
     isProPlanWithoutApiKey,
   };
 }

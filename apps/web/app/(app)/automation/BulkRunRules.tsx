@@ -27,7 +27,7 @@ export function BulkRunRules() {
   const started = queue.size > 0;
 
   const {
-    isPremium,
+    hasAiAccess,
     isLoading: isLoadingPremium,
     isProPlanWithoutApiKey,
   } = usePremium();
@@ -61,7 +61,7 @@ export function BulkRunRules() {
               )}
               <div className="mt-4">
                 <LoadingContent loading={isLoadingPremium}>
-                  {isPremium ? (
+                  {!hasAiAccess ? (
                     <Button
                       disabled={started}
                       onClick={() => {
