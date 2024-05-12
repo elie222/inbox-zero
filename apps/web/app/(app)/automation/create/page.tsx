@@ -109,24 +109,11 @@ export default function AutomationSettingsPage() {
 
               <div className="mt-2 space-y-1 text-sm leading-6 text-gray-700">
                 {examples.map((example, i) => {
-                  const Component = example.rule ? Link : "button";
-
                   return (
-                    <Component
+                    <Link
                       key={example.title}
                       className="block w-full text-left"
-                      href={
-                        example.rule
-                          ? `/automation/rule/create?example=${i}`
-                          : ""
-                      }
-                      onClick={
-                        example.rule
-                          ? undefined
-                          : () => {
-                              setValue("prompt", example.description);
-                            }
-                      }
+                      href={`/automation/rule/create?example=${i}`}
                     >
                       <AlertBasic
                         title={example.title}
@@ -134,7 +121,7 @@ export default function AutomationSettingsPage() {
                         icon={example.icon}
                         className="cursor-pointer hover:bg-gray-100"
                       />
-                    </Component>
+                    </Link>
                   );
                 })}
               </div>
@@ -142,9 +129,19 @@ export default function AutomationSettingsPage() {
               <TypographyH3 className="pt-8">
                 Or set up a rule yourself
               </TypographyH3>
-              <Button variant="outline" asChild>
-                <Link href="/automation/rule/create">Create rule</Link>
-              </Button>
+              <div className="flex space-x-2">
+                <Button variant="outline" asChild>
+                  <Link href="/automation/rule/create">Create rule</Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setValue("prompt", "");
+                  }}
+                >
+                  Generate rule with AI
+                </Button>
+              </div>
             </>
           )}
         </form>

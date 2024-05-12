@@ -4,7 +4,6 @@ import {
   ShieldAlertIcon,
   MailQuestionIcon,
   NewspaperIcon,
-  PenLineIcon,
 } from "lucide-react";
 
 export const RECEIPT_GROUP_ID = "RECEIPT";
@@ -14,7 +13,7 @@ export const examples: {
   title: string;
   description: string;
   icon: React.ReactNode;
-  rule?: CreateRuleBody;
+  rule: CreateRuleBody;
 }[] = [
   {
     title: "Forward receipts",
@@ -67,10 +66,5 @@ export const examples: {
         "If someone asks how much the premium plan is, respond: 'Our premium plan is $10 per month.'",
       type: "AI",
     },
-  },
-  {
-    title: "Generate a rule with AI",
-    description: "",
-    icon: <PenLineIcon className="h-4 w-4" />,
   },
 ];
