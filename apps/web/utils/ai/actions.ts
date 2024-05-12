@@ -2,7 +2,7 @@ import { type gmail_v1 } from "googleapis";
 import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType, ExecutedAction } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
-import { labelThread } from "@/utils/gmail/label";
+import { archiveThread, labelThread } from "@/utils/gmail/label";
 import { getUserLabel } from "@/utils/label";
 import { markSpam } from "@/utils/gmail/spam";
 import { Attachment } from "@/utils/types/mail";
@@ -229,13 +229,7 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
 };
 
 const archive: ActionFunction<{}> = async (gmail, email) => {
-  await gmail.users.threads.modify({
-    userId: "me",
-    id: email.threadId,
-    requestBody: {
-      removeLabelIds: ["INBOX"],
-    },
-  });
+  await archiveThread({ gmail, threadId: email.threadId });
 };
 
 const label: ActionFunction<{ label: string } | any> = async (

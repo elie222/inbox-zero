@@ -8,6 +8,12 @@ import { extractDomainFromEmail } from "@/utils/email";
 import { TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { env } from "@/env.mjs";
+import {
+  DRAFT_LABEL_ID,
+  INBOX_LABEL_ID,
+  SENT_LABEL_ID,
+  UNREAD_LABEL_ID,
+} from "@/utils/label";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
@@ -165,10 +171,10 @@ async function saveBatch(
         subject: m.headers.subject,
         timestamp: +new Date(m.headers.date),
         unsubscribeLink,
-        read: !m.labelIds?.includes("UNREAD"),
-        sent: !!m.labelIds?.includes("SENT"),
-        draft: !!m.labelIds?.includes("DRAFT"),
-        inbox: !!m.labelIds?.includes("INBOX"),
+        read: !m.labelIds?.includes(UNREAD_LABEL_ID),
+        sent: !!m.labelIds?.includes(SENT_LABEL_ID),
+        draft: !!m.labelIds?.includes(DRAFT_LABEL_ID),
+        inbox: !!m.labelIds?.includes(INBOX_LABEL_ID),
         sizeEstimate: m.sizeEstimate ?? 0,
       };
 
