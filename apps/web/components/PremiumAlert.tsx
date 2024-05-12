@@ -9,6 +9,7 @@ import { UserResponse } from "@/app/api/user/me/route";
 import { hasUnsubscribeAccess, isPremium } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { PremiumTier } from "@prisma/client";
 
 export function usePremium() {
   const swrResponse = useSWR<UserResponse>("/api/user/me");
@@ -18,12 +19,18 @@ export function usePremium() {
     isPremium(swrResponse.data.premium.lemonSqueezyRenewsAt)
   );
 
+  const isProPlanWithoutApiKey =
+    (swrResponse.data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
+      swrResponse.data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    !swrResponse.data?.openAIApiKey;
+
   return {
     ...swrResponse,
     isPremium: premium,
     hasUnsubscribeAccess:
       premium ||
       hasUnsubscribeAccess(swrResponse.data?.premium?.unsubscribeCredits),
+    isProPlanWithoutApiKey,
   };
 }
 

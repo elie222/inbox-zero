@@ -7,12 +7,7 @@ import { TopSection } from "@/components/TopSection";
 import { PremiumTier } from "@prisma/client";
 
 export default function ColdEmailBlockerPage() {
-  const { isPremium, isLoading, data } = usePremium();
-
-  const isProPlanWithoutApiKey =
-    (data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
-      data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
-    !data?.openAIApiKey;
+  const { isPremium, isLoading, isProPlanWithoutApiKey } = usePremium();
 
   return (
     <div>

@@ -12,6 +12,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/providers/QueueProvider";
 import { aiQueueAtom } from "@/store/queue";
 import { sleep } from "@/utils/sleep";
+import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -24,6 +25,12 @@ export function BulkRunRules() {
 
   const queue = useAtomValue(aiQueueAtom);
   const started = queue.size > 0;
+
+  const {
+    isPremium,
+    isLoading: isLoadingPremium,
+    isProPlanWithoutApiKey,
+  } = usePremium();
 
   return (
     <div>
@@ -53,15 +60,23 @@ export function BulkRunRules() {
                 </SectionDescription>
               )}
               <div className="mt-4">
-                <Button
-                  disabled={started}
-                  onClick={() => {
-                    onRun((count) => setTotalThreads((total) => total + count));
-                  }}
-                >
-                  {started && <ButtonLoader />}
-                  Run AI On All Inbox Emails
-                </Button>
+                <LoadingContent loading={isLoadingPremium}>
+                  {isPremium ? (
+                    <Button
+                      disabled={started}
+                      onClick={() => {
+                        onRun((count) =>
+                          setTotalThreads((total) => total + count),
+                        );
+                      }}
+                    >
+                      {started && <ButtonLoader />}
+                      Run AI On All Inbox Emails
+                    </Button>
+                  ) : (
+                    <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
+                  )}
+                </LoadingContent>
               </div>
             </>
           )}
