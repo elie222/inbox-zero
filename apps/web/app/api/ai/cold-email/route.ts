@@ -5,7 +5,6 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
-import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
 
@@ -16,7 +15,7 @@ const coldEmailBlockerBody = z.object({
     body: z.string(),
     textHtml: z.string().optional(),
     date: z.string().optional(),
-    threadId: z.string().optional(),
+    threadId: z.string().nullable(),
   }),
 });
 export type ColdEmailBlockerBody = z.infer<typeof coldEmailBlockerBody>;

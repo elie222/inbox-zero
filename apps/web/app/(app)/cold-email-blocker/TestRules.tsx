@@ -106,6 +106,7 @@ const TestRulesForm = () => {
         from: "",
         subject: "",
         body: data.message,
+        threadId: null,
       },
     });
 
@@ -193,6 +194,7 @@ function TestRulesContentRow(props: {
                   subject: message.headers.subject,
                   body: text,
                   textHtml: message.textHtml,
+                  threadId: message.threadId,
                 },
               });
 
