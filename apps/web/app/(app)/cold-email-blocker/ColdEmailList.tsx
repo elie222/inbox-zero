@@ -21,7 +21,7 @@ import {
 } from "@/app/(app)/automation/ExecutedRulesTable";
 import { AlertBasic } from "@/components/Alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getGmailBasicSearchUrl } from "@/utils/url";
+import { getGmailSearchUrl } from "@/utils/url";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
@@ -159,7 +159,7 @@ function OpenInGmailButton({
     <button
       className="ml-2 text-gray-700 hover:text-gray-900"
       onClick={() => {
-        window.open(getGmailBasicSearchUrl(from, userEmail), "_blank");
+        window.open(getGmailSearchUrl(from, userEmail), "_blank");
       }}
     >
       <ExternalLinkIcon className="h-4 w-4" />
