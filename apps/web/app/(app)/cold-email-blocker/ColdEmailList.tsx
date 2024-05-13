@@ -42,7 +42,8 @@ export function ColdEmailList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Email</TableHead>
+                <TableHead>Sender</TableHead>
+                <TableHead>Reason</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -55,6 +56,7 @@ export function ColdEmailList() {
                   <TableCell>
                     <SenderCell from={t.email} userEmail={userEmail} />
                   </TableCell>
+                  <TableCell>{t.coldEmailReason || "-"}</TableCell>
                   <TableCell>
                     <DateCell createdAt={t.createdAt} />
                   </TableCell>
@@ -65,7 +67,6 @@ export function ColdEmailList() {
                       </Button>
                       <Button variant="outline">Not cold email</Button>
                     </div>
-                    {/* <ActionItemsCell actionItems={p.actionItems} /> */}
                   </TableCell>
                 </TableRow>
               ))}

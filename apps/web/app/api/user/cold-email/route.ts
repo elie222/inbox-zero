@@ -27,6 +27,7 @@ async function getColdEmails(
       email: true,
       status: true,
       createdAt: true,
+      coldEmailReason: true,
     },
   });
 

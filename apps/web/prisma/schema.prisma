@@ -267,17 +267,20 @@ model GroupItem {
 // or that our AI can mark as a cold email.
 // `Newsletter` is a bad name for this. Will rename this model in the future.
 model Newsletter {
-  id        String            @id @default(cuid())
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  email     String
-  status    NewsletterStatus?
-  coldEmail ColdEmailStatus?
+  id              String            @id @default(cuid())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  email           String
+  status          NewsletterStatus?
+  coldEmail       ColdEmailStatus?
+  coldEmailReason String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([email, userId])
+  @@index([email, coldEmail])
+  @@index([email, status])
 }
 
 enum ActionType {
