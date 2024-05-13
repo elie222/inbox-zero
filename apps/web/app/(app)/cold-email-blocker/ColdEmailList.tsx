@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
@@ -28,6 +28,8 @@ import { useSearchParams } from "next/navigation";
 import { markNotColdEmail } from "@/utils/actions/cold-email";
 import { SectionDescription } from "@/components/Typography";
 import { UserResponse } from "@/app/api/user/me/route";
+import { Checkbox } from "@/components/Checkbox";
+import { useToggleSelect } from "@/hooks/useToggleSelect";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -43,13 +45,81 @@ export function ColdEmailList() {
     ColdEmailsResponse["coldEmails"][number] | undefined
   >(undefined);
 
+  const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
+    useToggleSelect(data?.coldEmails || []);
+
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  // const approveSelected = useCallback(async () => {
+  //   setIsApproving(true);
+  //   for (const id of Array.from(selected.keys())) {
+  //     const p = pending.find((p) => p.id === id);
+  //     if (!p) continue;
+  //     try {
+  //       await approvePlanAction(id, p.message);
+  //     } catch (error) {
+  //       console.error(error);
+  //     }
+  //     mutate();
+  //   }
+  //   setIsApproving(false);
+  // }, [selected, pending]);
+  const markNotColdEmailSelected = useCallback(async () => {
+    setIsRejecting(true);
+    for (const id of Array.from(selected.keys())) {
+      const c = data?.coldEmails.find((c) => c.id === id);
+      if (!c) continue;
+      try {
+        await markNotColdEmail({ sender: c.email });
+      } catch (error) {
+        console.error(error);
+      }
+      mutate();
+    }
+    setIsRejecting(false);
+  }, [selected, data?.coldEmails]);
+
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data?.coldEmails.length ? (
         <div>
+          {Array.from(selected.values()).filter(Boolean).length > 0 && (
+            <div className="m-2 flex items-center space-x-1.5">
+              {/* <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={approveSelected}
+                  disabled={isApproving || isRejecting}
+                >
+                  {isApproving && <ButtonLoader />}
+                  Approve
+                </Button>
+              </div> */}
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={markNotColdEmailSelected}
+                  disabled={isApproving || isRejecting}
+                >
+                  {isRejecting && <ButtonLoader />}
+                  Mark Not Cold Email
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="text-center">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onChange={onToggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>Sender</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Date</TableHead>
@@ -66,6 +136,8 @@ export function ColdEmailList() {
                   userEmail={userEmail}
                   mutate={mutate}
                   setOpenedRow={setOpenedRow}
+                  selected={selected}
+                  onToggleSelect={onToggleSelect}
                 />
               ))}
             </TableBody>
@@ -90,16 +162,26 @@ function Row({
   userEmail,
   mutate,
   setOpenedRow,
+  selected,
+  onToggleSelect,
 }: {
   row: ColdEmailsResponse["coldEmails"][number];
   userEmail: string;
   mutate: () => void;
   setOpenedRow: (row: ColdEmailsResponse["coldEmails"][number]) => void;
+  selected: Map<string, boolean>;
+  onToggleSelect: (id: string) => void;
 }) {
   const [isMarkingColdEmail, setIsMarkingColdEmail] = useState(false);
 
   return (
     <TableRow key={row.id}>
+      <TableCell className="text-center">
+        <Checkbox
+          checked={selected.get(row.id) || false}
+          onChange={() => onToggleSelect(row.id)}
+        />
+      </TableCell>
       <TableCell>
         <SenderCell from={row.email} userEmail={userEmail} />
       </TableCell>

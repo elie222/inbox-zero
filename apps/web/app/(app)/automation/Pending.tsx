@@ -24,12 +24,12 @@ import {
   EmailCell,
   RuleCell,
   TablePagination,
-  useToggleSelect,
   // DateCell,
 } from "@/app/(app)/automation/ExecutedRulesTable";
 import { useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/Checkbox";
 import { Loader2Icon } from "lucide-react";
+import { useToggleSelect } from "@/hooks/useToggleSelect";
 
 export function Pending() {
   const searchParams = useSearchParams();

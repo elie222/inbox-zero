@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
@@ -176,21 +176,4 @@ export function TablePagination({ totalPages }: { totalPages: number }) {
       </Pagination>
     </div>
   );
-}
-
-export function useToggleSelect(
-  executedRules: PendingExecutedRules["executedRules"],
-) {
-  const [selected, setSelected] = useState<Map<string, boolean>>(new Map());
-  const isAllSelected = executedRules.every((p) => selected.get(p.id));
-  const onToggleSelect = (id: string) => {
-    setSelected((prev) => new Map(prev).set(id, !prev.get(id)));
-  };
-  const onToggleSelectAll = useCallback(() => {
-    executedRules.forEach((p) => {
-      setSelected((prev) => new Map(prev).set(p.id, !prev.get(p.id)));
-    });
-  }, [executedRules]);
-
-  return { selected, isAllSelected, onToggleSelect, onToggleSelectAll };
 }
