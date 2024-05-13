@@ -6,7 +6,7 @@ import {
   ChatCompletionTool,
 } from "openai/resources/index";
 
-export const DEFAULT_OPENAI_MODEL = "gpt-4-turbo";
+export const DEFAULT_OPENAI_MODEL = "gpt-4o";
 
 const openAIs: Record<string, OpenAI> = {};
 
@@ -20,7 +20,7 @@ export function getOpenAI(apiKey: string | null) {
   return openAIs[key];
 }
 
-export const zodAIModel = z.enum(["gpt-3.5-turbo-1106", "gpt-4-turbo"]);
+export const zodAIModel = z.enum(["gpt-3.5-turbo-0125", "gpt-4o"]);
 // export type AIModel = z.infer<typeof zodAIModel>;
 
 function jsonResponseFormat(model: string): {
@@ -35,6 +35,7 @@ function jsonResponseFormat(model: string): {
     "gpt-4-turbo-preview",
     "gpt-4-turbo-2024-04-09",
     "gpt-4-turbo",
+    "gpt-4o",
   ];
 
   if (supportJsonResponse.includes(model))

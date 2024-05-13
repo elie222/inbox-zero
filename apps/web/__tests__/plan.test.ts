@@ -8,7 +8,7 @@
 // // This test suite makes it easier to test different models and parameters.
 
 // const TIMEOUT = 15_000;
-// const MODEL = "gpt-4-turbo" as const;
+// const MODEL = "gpt-4o" as const;
 
 // const functions: ChatCompletionCreateParams.Function[] = [
 //   {
