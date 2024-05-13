@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -25,6 +26,8 @@ import { Button, ButtonLoader } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
 import { markNotColdEmail } from "@/utils/actions/cold-email";
+import { SectionDescription } from "@/components/Typography";
+import { UserResponse } from "@/app/api/user/me/route";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -76,12 +79,7 @@ export function ColdEmailList() {
           />
         </div>
       ) : (
-        <div className="p-2">
-          <AlertBasic
-            title="No cold emails!"
-            description={`We haven't marked any of your emails as cold emails yet!`}
-          />
-        </div>
+        <NoColdEmails />
       )}
     </LoadingContent>
   );
@@ -166,5 +164,34 @@ function OpenInGmailButton({
     >
       <ExternalLinkIcon className="h-4 w-4" />
     </button>
+  );
+}
+
+function NoColdEmails() {
+  const { data } = useSWR<UserResponse>("/api/user/me");
+
+  if (!data?.coldEmailBlocker || data?.coldEmailBlocker === "DISABLED") {
+    return (
+      <div className="mx-auto my-8 px-4 text-center">
+        <SectionDescription>
+          Cold email blocker is disabled. Enable it to start blocking cold
+          emails.
+        </SectionDescription>
+        <Button className="mt-4" asChild>
+          <Link href="/cold-email-blocker?tab=settings">
+            Enable Cold Email Blocker
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-2">
+      <AlertBasic
+        title="No cold emails!"
+        description={`We haven't marked any of your emails as cold emails yet!`}
+      />
+    </div>
   );
 }
