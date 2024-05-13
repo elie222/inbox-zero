@@ -30,8 +30,8 @@ export async function executeAct(options: {
 
     return labelThread({
       gmail,
-      labelId: label.id,
       threadId: executedRule.threadId,
+      addLabelIds: [label.id],
     });
   }
 

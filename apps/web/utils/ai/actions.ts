@@ -249,7 +249,7 @@ const label: ActionFunction<{ label: string } | any> = async (
   await labelThread({
     gmail,
     threadId: email.threadId,
-    labelId: label.id,
+    addLabelIds: [label.id],
   });
 };
 

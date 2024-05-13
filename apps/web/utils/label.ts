@@ -104,6 +104,16 @@ export async function getUserLabel(options: {
   return gmailLabel;
 }
 
+export async function getGmailLabel(options: {
+  labelName: string;
+  gmail: gmail_v1.Gmail;
+}) {
+  const { labelName, gmail } = options;
+  const gmailLabels = await getGmailLabels(gmail);
+  const gmailLabel = gmailLabels?.find((l) => l.name === labelName);
+  return gmailLabel;
+}
+
 export async function getOrCreateInboxZeroLabels(
   email: string,
   gmail: gmail_v1.Gmail,
