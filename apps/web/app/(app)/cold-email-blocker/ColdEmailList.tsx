@@ -23,21 +23,25 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { Button } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
+import { useSearchParams } from "next/navigation";
 
 export function ColdEmailList() {
-  const { data, isLoading, error, mutate } =
-    useSWR<ColdEmailsResponse>(`/api/user/cold-email`);
+  const searchParams = useSearchParams();
+  const page = searchParams.get("page") || "1";
+  const { data, isLoading, error, mutate } = useSWR<ColdEmailsResponse>(
+    `/api/user/cold-email?page=${page}`,
+  );
 
   const session = useSession();
   const userEmail = session.data?.user?.email || "";
 
   const [openedRow, setOpenedRow] = useState<
-    ColdEmailsResponse[number] | undefined
+    ColdEmailsResponse["coldEmails"][number] | undefined
   >(undefined);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data?.length ? (
+      {data?.coldEmails.length ? (
         <div>
           <Table>
             <TableHeader>
@@ -51,7 +55,7 @@ export function ColdEmailList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.map((t) => (
+              {data.coldEmails.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell>
                     <SenderCell from={t.email} userEmail={userEmail} />
@@ -73,8 +77,7 @@ export function ColdEmailList() {
             </TableBody>
           </Table>
 
-          {/* TODO: fix this */}
-          <TablePagination totalPages={10} />
+          <TablePagination totalPages={data.totalPages} />
 
           <NewsletterModal
             newsletter={openedRow ? { name: openedRow.email || "" } : undefined}

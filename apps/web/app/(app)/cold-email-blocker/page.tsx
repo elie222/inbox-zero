@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 export default function ColdEmailBlockerPage() {
   return (
     <Suspense>
-      <Tabs defaultValue="automations">
+      <Tabs defaultValue="cold-emails">
         <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
           <TabsList>
             <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
