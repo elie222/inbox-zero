@@ -17,7 +17,7 @@ async function getColdEmails(
   gmail: gmail_v1.Gmail,
   accessToken: string,
 ) {
-  const result = await prisma.newsletter.findMany({
+  const coldEmails = await prisma.newsletter.findMany({
     where: {
       userId: options.userId,
       coldEmail: ColdEmailStatus.COLD_EMAIL,
@@ -30,32 +30,34 @@ async function getColdEmails(
     },
   });
 
-  const gmailThreads = await getThreadsFromSenders(
-    gmail,
-    result.map((item) => item.email),
-  );
+  return coldEmails;
 
-  const threads = await getThreadsBatch(
-    gmailThreads?.map((thread) => thread.id!) || [],
-    accessToken,
-  );
+  // const gmailThreads = await getThreadsFromSenders(
+  //   gmail,
+  //   result.map((item) => item.email),
+  // );
 
-  const threadsWithMessages = await Promise.all(
-    threads.map(async (thread) => {
-      const id = thread.id!;
-      const messages = parseMessages(thread as ThreadWithPayloadMessages);
+  // const threads = await getThreadsBatch(
+  //   gmailThreads?.map((thread) => thread.id!) || [],
+  //   accessToken,
+  // );
 
-      return {
-        id,
-        messages,
-        snippet: decodeSnippet(thread.snippet),
-        plan: undefined,
-        category: null,
-      };
-    }) || [],
-  );
+  // const threadsWithMessages = await Promise.all(
+  //   threads.map(async (thread) => {
+  //     const id = thread.id!;
+  //     const messages = parseMessages(thread as ThreadWithPayloadMessages);
 
-  return { threads: threadsWithMessages };
+  //     return {
+  //       id,
+  //       messages,
+  //       snippet: decodeSnippet(thread.snippet),
+  //       plan: undefined,
+  //       category: null,
+  //     };
+  //   }) || [],
+  // );
+
+  // return { threads: threadsWithMessages };
 }
 
 export const GET = withError(async () => {
