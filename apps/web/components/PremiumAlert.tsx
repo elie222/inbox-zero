@@ -47,7 +47,7 @@ export function usePremium() {
   };
 }
 
-export function PremiumAlert({
+function PremiumAlert({
   plan = "Inbox Zero Business",
   showSetApiKey,
 }: {
@@ -87,6 +87,19 @@ export function PremiumAlert({
       <PremiumModal />
     </>
   );
+}
+
+export function PremiumAlertWithData() {
+  const {
+    hasAiAccess,
+    isLoading: isLoadingPremium,
+    isProPlanWithoutApiKey,
+  } = usePremium();
+
+  if (!isLoadingPremium && !hasAiAccess)
+    return <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />;
+
+  return null;
 }
 
 export function PremiumTooltip(props: {

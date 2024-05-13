@@ -147,7 +147,7 @@ function Emails(props: { fromEmail: string; refreshInterval?: number }) {
   return (
     <>
       <SectionHeader>Emails</SectionHeader>
-      <Tabs defaultValue="unarchived" className="mt-2">
+      <Tabs defaultValue="unarchived" className="mt-2" searchParam="modal-tab">
         <TabsList>
           <TabsTrigger value="unarchived">Unarchived</TabsTrigger>
           <TabsTrigger value="all">All</TabsTrigger>

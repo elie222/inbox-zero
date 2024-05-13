@@ -3,7 +3,7 @@
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
-import { RuleType, Prisma, ExecutedRuleStatus } from "@prisma/client";
+import { RuleType, ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { isError } from "@/utils/error";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";

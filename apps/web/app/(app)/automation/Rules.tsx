@@ -38,7 +38,7 @@ import { Toggle } from "@/components/Toggle";
 import { ruleTypeToString } from "@/utils/rule";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
-import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -46,18 +46,12 @@ export function Rules() {
     { error: string }
   >(`/api/user/rules`);
 
-  const {
-    hasAiAccess,
-    isLoading: isLoadingPremium,
-    isProPlanWithoutApiKey,
-  } = usePremium();
-
   return (
     <div>
       {/* only show once a rule has been created */}
-      {!isLoadingPremium && !hasAiAccess && data && data.length > 0 && (
+      {data && data.length > 0 && (
         <div className="my-2">
-          <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
+          <PremiumAlertWithData />
         </div>
       )}
 

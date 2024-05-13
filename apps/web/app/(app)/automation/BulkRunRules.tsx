@@ -12,7 +12,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/providers/QueueProvider";
 import { aiQueueAtom } from "@/store/queue";
 import { sleep } from "@/utils/sleep";
-import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
+import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -26,11 +26,7 @@ export function BulkRunRules() {
   const queue = useAtomValue(aiQueueAtom);
   const started = queue.size > 0;
 
-  const {
-    hasAiAccess,
-    isLoading: isLoadingPremium,
-    isProPlanWithoutApiKey,
-  } = usePremium();
+  const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
 
   return (
     <div>
@@ -74,7 +70,7 @@ export function BulkRunRules() {
                       Run AI On All Inbox Emails
                     </Button>
                   ) : (
-                    <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
+                    <PremiumAlertWithData />
                   )}
                 </LoadingContent>
               </div>
