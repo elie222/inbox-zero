@@ -21,9 +21,10 @@ import {
 import { AlertBasic } from "@/components/Alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGmailBasicSearchUrl } from "@/utils/url";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
+import { markNotColdEmail } from "@/utils/actions/cold-email";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -55,24 +56,14 @@ export function ColdEmailList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.coldEmails.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell>
-                    <SenderCell from={t.email} userEmail={userEmail} />
-                  </TableCell>
-                  <TableCell>{t.coldEmailReason || "-"}</TableCell>
-                  <TableCell>
-                    <DateCell createdAt={t.createdAt} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end space-x-2">
-                      <Button variant="outline" onClick={() => setOpenedRow(t)}>
-                        View
-                      </Button>
-                      <Button variant="outline">Not cold email</Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+              {data.coldEmails.map((coldEmail) => (
+                <Row
+                  key={coldEmail.id}
+                  row={coldEmail}
+                  userEmail={userEmail}
+                  mutate={mutate}
+                  setOpenedRow={setOpenedRow}
+                />
               ))}
             </TableBody>
           </Table>
@@ -93,6 +84,52 @@ export function ColdEmailList() {
         </div>
       )}
     </LoadingContent>
+  );
+}
+
+function Row({
+  row,
+  userEmail,
+  mutate,
+  setOpenedRow,
+}: {
+  row: ColdEmailsResponse["coldEmails"][number];
+  userEmail: string;
+  mutate: () => void;
+  setOpenedRow: (row: ColdEmailsResponse["coldEmails"][number]) => void;
+}) {
+  const [isMarkingColdEmail, setIsMarkingColdEmail] = useState(false);
+
+  return (
+    <TableRow key={row.id}>
+      <TableCell>
+        <SenderCell from={row.email} userEmail={userEmail} />
+      </TableCell>
+      <TableCell>{row.coldEmailReason || "-"}</TableCell>
+      <TableCell>
+        <DateCell createdAt={row.createdAt} />
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center justify-end space-x-2">
+          <Button variant="outline" onClick={() => setOpenedRow(row)}>
+            View
+          </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              setIsMarkingColdEmail(true);
+              await markNotColdEmail({ sender: row.email });
+              mutate();
+              setIsMarkingColdEmail(false);
+            }}
+            disabled={isMarkingColdEmail}
+          >
+            {isMarkingColdEmail && <ButtonLoader />}
+            Not cold email
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 

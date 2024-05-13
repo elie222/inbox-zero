@@ -314,6 +314,7 @@ enum NewsletterStatus {
 
 enum ColdEmailStatus {
   COLD_EMAIL
+  NOT_COLD_EMAIL
 }
 
 enum ColdEmailSetting {
