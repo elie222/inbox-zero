@@ -57,7 +57,7 @@ export function BulkRunRules() {
               )}
               <div className="mt-4">
                 <LoadingContent loading={isLoadingPremium}>
-                  {!hasAiAccess ? (
+                  {hasAiAccess ? (
                     <Button
                       disabled={started}
                       onClick={() => {
