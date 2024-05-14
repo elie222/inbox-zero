@@ -16,8 +16,8 @@ export async function summarise(
     {
       role: "system" as const,
       content: `You are an email assistant. You summarise emails.
-  Summarise each email in a short sentence ~5 word sentence.
-  If you need to summarise a longer email, you can bullet points. Each bullet should be ~5 words.`,
+  Summarise each email in a short ~5 word sentence.
+  If you need to summarise a longer email, you can use bullet points. Each bullet should be ~5 words.`,
     },
     {
       role: "user" as const,
