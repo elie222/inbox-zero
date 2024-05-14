@@ -21,6 +21,7 @@ async function getGetThreads(
     `from:${from}`,
     labelId ? [labelId] : [],
     gmail,
+    500,
   );
   return threads.threads || [];
 }

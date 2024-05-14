@@ -10,8 +10,14 @@ export async function getThreads(
   q: string,
   labelIds: string[],
   gmail: gmail_v1.Gmail,
+  maxResults = 100,
 ) {
-  const threads = await gmail.users.threads.list({ userId: "me", q, labelIds });
+  const threads = await gmail.users.threads.list({
+    userId: "me",
+    q,
+    labelIds,
+    maxResults,
+  });
   return threads.data;
 }
 
