@@ -4,6 +4,7 @@ import { type gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
+import { dateToSeconds } from "@/utils/date";
 
 const statsByDayQuery = z.object({
   type: z.enum(["inbox", "sent", "archived"]),
@@ -65,7 +66,7 @@ async function getPastSevenDayStats(
 }
 
 function getQuery(type: StatsByDayQuery["type"], date: Date) {
-  const startOfDayInSeconds = Math.floor(date.getTime() / 1000);
+  const startOfDayInSeconds = dateToSeconds(date);
   const endOfDayInSeconds = startOfDayInSeconds + 86400;
 
   const dateRange = `after:${startOfDayInSeconds} before:${endOfDayInSeconds}`;

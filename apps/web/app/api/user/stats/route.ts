@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
+import { dateToSeconds } from "@/utils/date";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
 
@@ -21,10 +22,8 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
     now.getDate() - 7,
   );
 
-  const twentyFourHoursAgoInSeconds = Math.floor(
-    twentyFourHoursAgo.getTime() / 1000,
-  );
-  const sevenDaysAgoInSeconds = Math.floor(sevenDaysAgo.getTime() / 1000);
+  const twentyFourHoursAgoInSeconds = dateToSeconds(twentyFourHoursAgo);
+  const sevenDaysAgoInSeconds = dateToSeconds(sevenDaysAgo);
 
   const [
     emailsReceived24hrs,

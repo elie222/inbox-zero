@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 import { useAtomValue } from "jotai";
 import { Button, ButtonLoader } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { runAiRules } from "@/providers/QueueProvider";
 import { aiQueueAtom } from "@/store/queue";
 import { sleep } from "@/utils/sleep";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
+import { SetDateDropdown } from "@/app/(app)/automation/SetDateDropdown";
+import { dateToSeconds } from "@/utils/date";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -28,6 +30,11 @@ export function BulkRunRules() {
   const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
 
   const [running, setRunning] = useState(false);
+
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+
+  const abortRef = useRef<() => void>();
 
   return (
     <div>
@@ -59,19 +66,48 @@ export function BulkRunRules() {
               <div className="mt-4">
                 <LoadingContent loading={isLoadingPremium}>
                   {hasAiAccess ? (
-                    <Button
-                      disabled={running}
-                      onClick={async () => {
-                        setRunning(true);
-                        await onRun((count) =>
-                          setTotalThreads((total) => total + count),
-                        );
-                        setRunning(false);
-                      }}
-                    >
-                      {running && <ButtonLoader />}
-                      Run AI On All Inbox Emails
-                    </Button>
+                    <div className="flex flex-col space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <SetDateDropdown
+                          onChange={setStartDate}
+                          value={startDate}
+                          placeholder="Set start date"
+                          disabled={running}
+                        />
+                        <SetDateDropdown
+                          onChange={setEndDate}
+                          value={endDate}
+                          placeholder="Set end date (optional)"
+                          disabled={running}
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        disabled={running || !startDate}
+                        onClick={async () => {
+                          if (!startDate) return;
+                          setRunning(true);
+                          abortRef.current = await onRun(
+                            { startDate, endDate },
+                            (count) =>
+                              setTotalThreads((total) => total + count),
+                            () => setRunning(false),
+                          );
+                        }}
+                      >
+                        {running && <ButtonLoader />}
+                        Run AI On All Inbox Emails
+                      </Button>
+                      {running && (
+                        <Button
+                          variant="outline"
+                          onClick={() => abortRef.current?.()}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     <PremiumAlertWithData />
                   )}
@@ -86,29 +122,58 @@ export function BulkRunRules() {
 }
 
 // fetch batches of messages and add them to the ai queue
-async function onRun(incrementThreadsQueued: (count: number) => void) {
+async function onRun(
+  { startDate, endDate }: { startDate: Date; endDate?: Date },
+  incrementThreadsQueued: (count: number) => void,
+  onComplete: () => void,
+) {
   let nextPageToken = "";
   const LIMIT = 25;
 
-  for (let i = 0; i < 100; i++) {
-    const query: ThreadsQuery = { type: "inbox", nextPageToken, limit: LIMIT };
-    const res = await fetch(
-      `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
-    );
-    const data: ThreadsResponse = await res.json();
+  const startDateInSeconds = dateToSeconds(startDate);
+  const endDateInSeconds = endDate ? dateToSeconds(endDate) : "";
+  const q = `after:${startDateInSeconds} ${
+    endDate ? `before:${endDateInSeconds}` : ""
+  }`;
 
-    nextPageToken = data.nextPageToken || "";
+  let aborted = false;
 
-    const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
-
-    incrementThreadsQueued(threadsWithoutPlan.length);
-
-    runAiRules(threadsWithoutPlan);
-
-    if (!nextPageToken) break;
-
-    // avoid gmail api rate limits
-    // ai takes longer anyway
-    await sleep(threadsWithoutPlan.length ? 5_000 : 2_000);
+  function abort() {
+    aborted = true;
   }
+
+  async function run() {
+    for (let i = 0; i < 100; i++) {
+      const query: ThreadsQuery = {
+        type: "inbox",
+        nextPageToken,
+        limit: LIMIT,
+        q,
+      };
+      const res = await fetch(
+        `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
+      );
+      const data: ThreadsResponse = await res.json();
+
+      nextPageToken = data.nextPageToken || "";
+
+      const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
+
+      incrementThreadsQueued(threadsWithoutPlan.length);
+
+      runAiRules(threadsWithoutPlan);
+
+      if (!nextPageToken || aborted) break;
+
+      // avoid gmail api rate limits
+      // ai takes longer anyway
+      await sleep(threadsWithoutPlan.length ? 5_000 : 2_000);
+    }
+
+    onComplete();
+  }
+
+  run();
+
+  return abort;
 }
