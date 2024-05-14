@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
-import { onAutoArchive } from "@/utils/actions/client";
+import { onAutoArchive, onArchiveAll } from "@/utils/actions/client";
 import { Row } from "@/app/(app)/bulk-unsubscribe/common";
 
 export function NewsletterModal(props: {
@@ -75,6 +75,17 @@ export function NewsletterModal(props: {
                   <ExternalLinkIcon className="mr-2 h-4 w-4" />
                   View emails in Gmail
                 </Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  //threadsAdded for unique threads added
+                  const threadsAdded: Set<string> = new Set();
+                  onArchiveAll(newsletter.name, threadsAdded);
+                }}
+              >
+                Archive All
               </Button>
               {newsletter.autoArchived && (
                 <Button asChild size="sm" variant="secondary">
