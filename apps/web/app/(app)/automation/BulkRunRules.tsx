@@ -24,9 +24,10 @@ export function BulkRunRules() {
   );
 
   const queue = useAtomValue(aiQueueAtom);
-  const started = queue.size > 0;
 
   const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
+
+  const [running, setRunning] = useState(false);
 
   return (
     <div>
@@ -59,14 +60,16 @@ export function BulkRunRules() {
                 <LoadingContent loading={isLoadingPremium}>
                   {hasAiAccess ? (
                     <Button
-                      disabled={started}
-                      onClick={() => {
-                        onRun((count) =>
+                      disabled={running}
+                      onClick={async () => {
+                        setRunning(true);
+                        await onRun((count) =>
                           setTotalThreads((total) => total + count),
                         );
+                        setRunning(false);
                       }}
                     >
-                      {started && <ButtonLoader />}
+                      {running && <ButtonLoader />}
                       Run AI On All Inbox Emails
                     </Button>
                   ) : (
@@ -85,7 +88,7 @@ export function BulkRunRules() {
 // fetch batches of messages and add them to the ai queue
 async function onRun(incrementThreadsQueued: (count: number) => void) {
   let nextPageToken = "";
-  const LIMIT = 50;
+  const LIMIT = 25;
 
   for (let i = 0; i < 100; i++) {
     const query: ThreadsQuery = { type: "inbox", nextPageToken, limit: LIMIT };
@@ -102,10 +105,10 @@ async function onRun(incrementThreadsQueued: (count: number) => void) {
 
     runAiRules(threadsWithoutPlan);
 
-    if (!nextPageToken || data.threads.length < LIMIT) break;
+    if (!nextPageToken) break;
 
     // avoid gmail api rate limits
     // ai takes longer anyway
-    sleep(5_000);
+    await sleep(threadsWithoutPlan.length ? 5_000 : 2_000);
   }
 }
