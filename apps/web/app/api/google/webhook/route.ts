@@ -7,7 +7,7 @@ import { emailToContent, parseMessage } from "@/utils/mail";
 import { DRAFT_LABEL_ID, INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
-import { getMessage, hasPreviousEmailsFromSender } from "@/utils/gmail/message";
+import { getMessage, hasPreviousEmailsFromDomain } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
@@ -372,7 +372,7 @@ async function processHistoryItem(
         isThread,
       )
     ) {
-      const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
+      const hasPreviousEmail = await hasPreviousEmailsFromDomain(gmail, {
         from: message.headers.from,
         date: message.headers.date,
         threadId,
