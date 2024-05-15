@@ -39,6 +39,7 @@ import { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";
 import { DateRange } from "react-day-picker";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { useLabels } from "@/hooks/useLabels";
 
 export function NewSenders(props: {
   dateRange?: DateRange | undefined;
@@ -67,7 +68,7 @@ export function NewSenders(props: {
   const newSenders = Object.entries(groupedSenders);
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
-  const { data: gmailLabels } = useSWR<LabelsResponse>("/api/google/labels");
+  const { userLabels } = useLabels();
 
   const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = React.useState<Row>();
@@ -101,14 +102,6 @@ export function NewSenders(props: {
   });
 
   const { openModal, PremiumModal } = usePremiumModal();
-
-  const userGmailLabels = useMemo(
-    () =>
-      gmailLabels?.labels
-        ?.filter((l) => l.id && l.type === "user")
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [gmailLabels],
-  );
 
   return (
     <>
@@ -204,7 +197,7 @@ export function NewSenders(props: {
                       firstEmail={item.firstEmail}
                       numberOfEmails={item.numberOfEmails}
                       setOpenedNewsletter={setOpenedNewsletter}
-                      userGmailLabels={userGmailLabels}
+                      userGmailLabels={userLabels}
                       mutate={mutate}
                       selected={selectedRow?.name === item.name}
                       onSelectRow={() => {

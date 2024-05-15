@@ -43,6 +43,7 @@ import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribe
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
+import { useLabels } from "@/hooks/useLabels";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -80,7 +81,7 @@ export function BulkUnsubscribeSection(props: {
   });
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
-  const { data: gmailLabels } = useSWR<LabelsResponse>("/api/google/labels");
+  const { userLabels } = useLabels();
 
   const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = React.useState<Newsletter>();
@@ -102,14 +103,6 @@ export function BulkUnsubscribeSection(props: {
   const { isLoading: isStatsLoading } = useStatLoader();
 
   const { PremiumModal, openModal } = usePremiumModal();
-
-  const userGmailLabels = useMemo(
-    () =>
-      gmailLabels?.labels
-        ?.filter((l) => l.id && l.type === "user")
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [gmailLabels],
-  );
 
   return (
     <>
@@ -208,7 +201,7 @@ export function BulkUnsubscribeSection(props: {
                       item={item}
                       userEmail={userEmail}
                       setOpenedNewsletter={setOpenedNewsletter}
-                      userGmailLabels={userGmailLabels}
+                      userGmailLabels={userLabels}
                       mutate={mutate}
                       selected={selectedRow?.name === item.name}
                       onSelectRow={() => {

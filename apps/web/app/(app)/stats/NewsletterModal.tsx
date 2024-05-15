@@ -28,7 +28,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions/client";
 import { MoreDropdown, Row } from "@/app/(app)/bulk-unsubscribe/common";
-import { LabelsResponse } from "@/app/api/google/labels/route";
+import { useLabels } from "@/hooks/useLabels";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
@@ -40,14 +40,7 @@ export function NewsletterModal(props: {
   const session = useSession();
   const email = session.data?.user.email;
 
-  const { data: gmailLabels } = useSWR<LabelsResponse>("/api/google/labels");
-  const userGmailLabels = useMemo(
-    () =>
-      gmailLabels?.labels
-        ?.filter((l) => l.id && l.type === "user")
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [gmailLabels],
-  );
+  const { userLabels } = useLabels();
 
   return (
     <Dialog open={!!newsletter} onOpenChange={onClose}>
@@ -87,7 +80,7 @@ export function NewsletterModal(props: {
               <MoreDropdown
                 item={newsletter}
                 userEmail={email || ""}
-                userGmailLabels={userGmailLabels}
+                userGmailLabels={userLabels}
               />
             </div>
 

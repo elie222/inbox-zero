@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Loader2 } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 
 import { cn } from "@/utils";
 
@@ -63,6 +63,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
-const ButtonLoader = () => <Loader2 className="mr-2 h-4 w-4 animate-spin" />;
+const ButtonLoader = () => (
+  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+);
 
 export { Button, buttonVariants, ButtonLoader };

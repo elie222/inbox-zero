@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { CommandLoading } from "cmdk";
+import { Check, ChevronsUpDown, Loader2Icon } from "lucide-react";
 
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -25,11 +26,9 @@ export function Combobox(props: {
   emptyText: string;
   value?: string;
   onChangeValue: (value: string) => void;
-  search: string;
-  onSearch: (value: string) => void;
+  loading: boolean;
 }) {
-  const { value, onChangeValue, search, onSearch, placeholder, emptyText } =
-    props;
+  const { value, onChangeValue, placeholder, emptyText, loading } = props;
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -41,20 +40,23 @@ export function Combobox(props: {
           aria-expanded={open}
           className="w-[500px] justify-between"
         >
-          {value
-            ? props.options.find((option) => option.value === value)?.label
-            : placeholder}
+          {(value &&
+            props.options.find((option) => option.value === value)?.label) ||
+            placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[500px] p-0">
         <Command>
-          <CommandInput
-            placeholder="Search..."
-            value={search}
-            onValueChange={onSearch}
-          />
+          <CommandInput placeholder="Search..." />
           <CommandList>
+            {loading && (
+              <CommandLoading>
+                <div className="flex items-center justify-center">
+                  <Loader2Icon className="m-4 h-4 w-4 animate-spin" />
+                </div>
+              </CommandLoading>
+            )}
             <CommandEmpty>{emptyText}</CommandEmpty>
             {props.options.length ? (
               <CommandGroup>

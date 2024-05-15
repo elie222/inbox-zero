@@ -1,8 +1,7 @@
 "use client";
 
-import { LabelsResponse } from "@/app/api/google/labels/route";
 import { createContext, useContext, useMemo } from "react";
-import useSWR from "swr";
+import { useLabels } from "@/hooks/useLabels";
 
 export type GmailLabel = {
   id: string;
@@ -31,7 +30,7 @@ const GmailContext = createContext<Context>({
 export const useGmail = () => useContext<Context>(GmailContext);
 
 export function GmailProvider(props: { children: React.ReactNode }) {
-  const { data, isLoading } = useSWR<LabelsResponse>("/api/google/labels");
+  const { data, isLoading } = useLabels();
 
   const labels = useMemo(() => {
     return (
@@ -55,7 +54,7 @@ export function GmailProvider(props: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({ labels, labelsArray, labelsIsLoading: isLoading }),
-    [labels, labelsArray, isLoading]
+    [labels, labelsArray, isLoading],
   );
 
   return (
