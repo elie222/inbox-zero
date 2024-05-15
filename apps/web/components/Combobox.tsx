@@ -11,6 +11,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -22,7 +23,7 @@ export function Combobox(props: {
   options: { value: string; label: string }[];
   placeholder: string;
   emptyText: string;
-  value: string;
+  value?: string;
   onChangeValue: (value: string) => void;
   search: string;
   onSearch: (value: string) => void;
@@ -53,29 +54,31 @@ export function Combobox(props: {
             value={search}
             onValueChange={onSearch}
           />
-          <CommandEmpty>{emptyText}</CommandEmpty>
-          {props.options.length ? (
-            <CommandGroup>
-              {props.options.map((options) => (
-                <CommandItem
-                  key={options.value}
-                  value={options.value}
-                  onSelect={(currentValue) => {
-                    onChangeValue(currentValue === value ? "" : currentValue);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === options.value ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  {options.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ) : null}
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            {props.options.length ? (
+              <CommandGroup>
+                {props.options.map((options) => (
+                  <CommandItem
+                    key={options.value}
+                    value={options.value}
+                    onSelect={(currentValue) => {
+                      onChangeValue(currentValue === value ? "" : currentValue);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === options.value ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    {options.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
