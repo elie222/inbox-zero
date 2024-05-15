@@ -52,6 +52,7 @@ import { isErrorMessage } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
+import { LabelsResponse } from "@/app/api/google/labels/route";
 
 export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -68,46 +69,63 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
-  const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(async (data) => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const tab = searchParams.get("tab") || props.rule.type;
-    const body = cleanRule(data, tab as RuleType);
+  const { userLabels, data: gmailLabelsData, isLoading, mutate } = useLabels();
 
-    if (body.id) {
-      const res = await updateRuleAction({ ...body, id: body.id });
+  const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
+    async (data) => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tab = searchParams.get("tab") || props.rule.type;
+      const body = cleanRule(data, tab as RuleType);
 
-      if (isErrorMessage(res)) {
-        console.error(res);
-        toastError({
-          description: res.error,
-        });
-      } else if (!res.rule) {
-        toastError({
-          description: `There was an error updating the rule.`,
-        });
-      } else {
-        toastSuccess({ description: `Saved!` });
-        router.push(`/automation`);
+      // create labels that don't exist
+      for (const action of body.actions) {
+        if (action.type === ActionType.LABEL) {
+          const hasLabel = gmailLabelsData?.labels?.some(
+            (label) => label.name === action.label,
+          );
+          if (!hasLabel && action.label) {
+            await createLabelAction({ name: action.label });
+          }
+        }
       }
-    } else {
-      const res = await createRuleAction(body);
 
-      if (isErrorMessage(res)) {
-        console.error(res);
-        toastError({
-          description: res.error,
-        });
-      } else if (!res.rule) {
-        toastError({
-          description: `There was an error creating the rule.`,
-        });
+      if (body.id) {
+        const res = await updateRuleAction({ ...body, id: body.id });
+
+        if (isErrorMessage(res)) {
+          console.error(res);
+          toastError({
+            description: res.error,
+          });
+        } else if (!res.rule) {
+          toastError({
+            description: `There was an error updating the rule.`,
+          });
+        } else {
+          toastSuccess({ description: `Saved!` });
+          router.push(`/automation`);
+        }
       } else {
-        toastSuccess({ description: `Created!` });
-        router.replace(`/automation/rule/${res.rule.id}`);
-        router.push(`/automation`);
+        const res = await createRuleAction(body);
+
+        if (isErrorMessage(res)) {
+          console.error(res);
+          toastError({
+            description: res.error,
+          });
+        } else if (!res.rule) {
+          toastError({
+            description: `There was an error creating the rule.`,
+          });
+        } else {
+          toastSuccess({ description: `Created!` });
+          router.replace(`/automation/rule/${res.rule.id}`);
+          router.push(`/automation`);
+        }
       }
-    }
-  }, []);
+    },
+    [gmailLabelsData],
+  );
 
   const router = useRouter();
 
@@ -267,6 +285,9 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
                               {field.name === "label" ? (
                                 <div className="mt-2">
                                   <LabelCombobox
+                                    userLabels={userLabels}
+                                    isLoading={isLoading}
+                                    mutate={mutate}
                                     value={
                                       watch(`actions.${i}.${field.name}`) || ""
                                     }
@@ -468,11 +489,16 @@ function GroupsTab(props: {
 function LabelCombobox({
   value,
   onChangeValue,
+  userLabels,
+  isLoading,
+  mutate,
 }: {
   value: string;
   onChangeValue: (value: string) => void;
+  userLabels: NonNullable<LabelsResponse["labels"]>;
+  isLoading: boolean;
+  mutate: () => void;
 }) {
-  const { userLabels, isLoading, mutate } = useLabels();
   const [search, setSearch] = useState("");
 
   return (

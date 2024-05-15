@@ -132,7 +132,7 @@ export function Rules() {
                               <Link
                                 href={`/automation/rule/${rule.id}/examples`}
                               >
-                                Examples
+                                View Examples
                               </Link>
                             </DropdownMenuItem>
                           )}
