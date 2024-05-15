@@ -475,7 +475,7 @@ function LabelCombobox({
   return (
     <Combobox
       options={userLabels.map((label) => ({
-        value: label.id || "",
+        value: label.name || "",
         label: label.name || "",
       }))}
       value={value}
