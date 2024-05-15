@@ -1,5 +1,5 @@
 import { type gmail_v1 } from "googleapis";
-import { INBOX_LABEL_ID } from "@/utils/label";
+import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 
 export async function createFilter(options: {
   gmail: gmail_v1.Gmail;

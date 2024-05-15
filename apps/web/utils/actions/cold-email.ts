@@ -6,8 +6,9 @@ import { type gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ColdEmailStatus } from "@prisma/client";
-import { labelThread } from "@/utils/gmail/label";
-import { INBOX_LABEL_ID, getGmailLabel, inboxZeroLabels } from "@/utils/label";
+import { getLabel, labelThread } from "@/utils/gmail/label";
+import { inboxZeroLabels } from "@/utils/label";
+import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getThreads } from "@/utils/gmail/thread";
 
@@ -53,10 +54,7 @@ async function removeColdEmailLabelFromSender(
   // 2. find emails from sender
   // 3. remove cold email label from emails
 
-  const label = await getGmailLabel({
-    gmail,
-    labelName: inboxZeroLabels.cold_email,
-  });
+  const label = await getLabel({ gmail, name: inboxZeroLabels.cold_email });
   if (!label?.id) return;
 
   const threads = await getThreads(`from:${sender}`, [label.id], gmail);

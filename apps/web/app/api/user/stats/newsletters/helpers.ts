@@ -5,7 +5,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { getFiltersList } from "@/utils/gmail/filter";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
-import { INBOX_LABEL_ID, TRASH_LABEL_ID } from "@/utils/label";
+import { INBOX_LABEL_ID, TRASH_LABEL_ID } from "@/utils/gmail/label";
 
 export async function getAutoArchiveFilters() {
   const session = await auth();

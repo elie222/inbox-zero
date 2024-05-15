@@ -3,19 +3,16 @@ import { NextResponse } from "next/server";
 import { type gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
-import { INBOX_LABEL_ID, getOrCreateInboxZeroLabels } from "@/utils/label";
+import { INBOX_LABEL_ID, getOrCreateLabel } from "@/utils/gmail/label";
 import { sleep } from "@/utils/sleep";
 import { withError } from "@/utils/middleware";
+import { inboxZeroLabels } from "@/utils/label";
 
 const bulkArchiveBody = z.object({ daysAgo: z.string() });
 export type BulkArchiveBody = z.infer<typeof bulkArchiveBody>;
 export type BulkArchiveResponse = Awaited<ReturnType<typeof bulkArchive>>;
 
-async function bulkArchive(
-  body: BulkArchiveBody,
-  gmail: gmail_v1.Gmail,
-  email: string,
-) {
+async function bulkArchive(body: BulkArchiveBody, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.threads.list({
     userId: "me",
     maxResults: 500,
@@ -25,14 +22,20 @@ async function bulkArchive(
 
   console.log(`Archiving ${res.data.threads?.length} threads`);
 
-  const izLabels = await getOrCreateInboxZeroLabels(email, gmail);
+  const archivedLabel = await getOrCreateLabel({
+    gmail,
+    name: inboxZeroLabels.archived,
+  });
+
+  if (!archivedLabel.id)
+    throw new Error("Failed to get or create archived label");
 
   for (const thread of res.data.threads || []) {
     await gmail.users.threads.modify({
       userId: "me",
       id: thread.id!,
       requestBody: {
-        addLabelIds: [izLabels["archived"].id],
+        addLabelIds: [archivedLabel.id],
         removeLabelIds: [INBOX_LABEL_ID],
       },
     });
@@ -55,7 +58,7 @@ export const POST = withError(async (request: Request) => {
 
   const gmail = getGmailClient(session);
 
-  const result = await bulkArchive(body, gmail, session.user.email);
+  const result = await bulkArchive(body, gmail);
 
   return NextResponse.json(result);
 });

@@ -1,7 +1,6 @@
 "use server";
 
 import { createLabel } from "@/app/api/google/labels/create/controller";
-import { labelThread } from "@/app/api/google/threads/label/controller";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { type Label } from "@prisma/client";
@@ -10,6 +9,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { trashMessage, trashThread } from "@/utils/gmail/trash";
 import {
   archiveThread,
+  labelThread,
   markImportantMessage,
   markReadThread,
 } from "@/utils/gmail/label";
@@ -31,22 +31,6 @@ export async function createLabelAction(options: {
   } catch (error: any) {
     return { error: error.message };
   }
-}
-
-export async function labelThreadsAction(options: {
-  labelId: string;
-  threadIds: string[];
-  archive: boolean;
-}) {
-  return await Promise.all(
-    options.threadIds.map((threadId) => {
-      labelThread({
-        labelId: options.labelId,
-        threadId,
-        archive: options.archive,
-      });
-    }),
-  );
 }
 
 export async function updateLabels(

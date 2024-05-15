@@ -2,8 +2,8 @@ import { type gmail_v1 } from "googleapis";
 import { EmailForAction, runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
-import { getOrCreateInboxZeroLabel } from "@/utils/label";
-import { labelThread } from "@/utils/gmail/label";
+import { inboxZeroLabels } from "@/utils/label";
+import { getOrCreateLabel, labelThread } from "@/utils/gmail/label";
 import { ExecutedRuleStatus } from "@prisma/client";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
@@ -20,13 +20,12 @@ export async function executeAct(options: {
   console.log("Executing act:", executedRule.id);
 
   async function labelActed() {
-    const label = await getOrCreateInboxZeroLabel({
+    const label = await getOrCreateLabel({
       gmail,
-      email: userEmail,
-      labelKey: "acted",
+      name: inboxZeroLabels.acted,
     });
 
-    if (!label) return;
+    if (!label.id) return;
 
     return labelThread({
       gmail,

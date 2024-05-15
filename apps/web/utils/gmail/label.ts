@@ -1,9 +1,13 @@
-import {
-  IMPORTANT_LABEL_ID,
-  INBOX_LABEL_ID,
-  UNREAD_LABEL_ID,
-} from "@/utils/label";
 import { type gmail_v1 } from "googleapis";
+
+export const INBOX_LABEL_ID = "INBOX";
+export const SENT_LABEL_ID = "SENT";
+export const UNREAD_LABEL_ID = "UNREAD";
+export const STARRED_LABEL_ID = "STARRED";
+export const IMPORTANT_LABEL_ID = "IMPORTANT";
+export const SPAM_LABEL_ID = "SPAM";
+export const TRASH_LABEL_ID = "TRASH";
+export const DRAFT_LABEL_ID = "DRAFT";
 
 export async function labelThread(options: {
   gmail: gmail_v1.Gmail;
@@ -91,4 +95,39 @@ export async function markImportantMessage(options: {
           removeLabelIds: [IMPORTANT_LABEL_ID],
         },
   });
+}
+
+export async function createLabel(options: {
+  gmail: gmail_v1.Gmail;
+  name: string;
+}) {
+  const { gmail, name } = options;
+  return gmail.users.labels.create({
+    userId: "me",
+    requestBody: { name },
+  });
+}
+
+export async function getLabels(gmail: gmail_v1.Gmail) {
+  return (await gmail.users.labels.list({ userId: "me" })).data.labels;
+}
+
+export async function getLabel(options: {
+  gmail: gmail_v1.Gmail;
+  name: string;
+}) {
+  const { gmail, name } = options;
+  const labels = await getLabels(gmail);
+  return labels?.find((label) => label.name === name);
+}
+
+export async function getOrCreateLabel(options: {
+  gmail: gmail_v1.Gmail;
+  name: string;
+}) {
+  const { gmail, name } = options;
+  const label = await getLabel({ gmail, name });
+  if (label) return label;
+  const createdLabel = await createLabel({ gmail, name });
+  return createdLabel.data;
 }

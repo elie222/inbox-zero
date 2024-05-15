@@ -9,7 +9,11 @@ import { queryBatchMessages } from "@/utils/gmail/message";
 import { getEmailClient } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
-import { INBOX_LABEL_ID, SENT_LABEL_ID, UNREAD_LABEL_ID } from "@/utils/label";
+import {
+  INBOX_LABEL_ID,
+  SENT_LABEL_ID,
+  UNREAD_LABEL_ID,
+} from "@/utils/gmail/label";
 
 export type AssessUserResponse = Awaited<ReturnType<typeof assessUser>>;
 

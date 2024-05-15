@@ -1,6 +1,6 @@
 import { type gmail_v1 } from "googleapis";
 import prisma from "@/utils/prisma";
-import { INBOX_LABEL_ID } from "@/utils/label";
+import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { env } from "@/env.mjs";
 
 export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {

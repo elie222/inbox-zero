@@ -3,8 +3,9 @@ import { type gmail_v1 } from "googleapis";
 import { parseJSON } from "@/utils/json";
 import { getAiProviderAndModel } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
-import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/label";
-import { labelMessage } from "@/utils/gmail/label";
+import { inboxZeroLabels } from "@/utils/label";
+import { INBOX_LABEL_ID } from "@/utils/gmail/label";
+import { getOrCreateLabel, labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus, User } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
@@ -152,10 +153,9 @@ async function blockColdEmail(options: {
     user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
   ) {
     if (!user.email) throw new Error("User email is required");
-    const gmailLabel = await getOrCreateInboxZeroLabel({
+    const gmailLabel = await getOrCreateLabel({
       gmail,
-      labelKey: "cold_email",
-      email: user.email,
+      name: inboxZeroLabels.cold_email,
     });
 
     await labelMessage({

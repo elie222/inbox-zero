@@ -10,7 +10,7 @@ import {
   STARRED_LABEL_ID,
   TRASH_LABEL_ID,
   UNREAD_LABEL_ID,
-} from "@/utils/label";
+} from "@/utils/gmail/label";
 import { ThreadWithPayloadMessages, isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";

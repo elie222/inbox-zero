@@ -13,7 +13,7 @@ import {
   INBOX_LABEL_ID,
   SENT_LABEL_ID,
   UNREAD_LABEL_ID,
-} from "@/utils/label";
+} from "@/utils/gmail/label";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 const PAUSE_AFTER_RATE_LIMIT = 10_000;

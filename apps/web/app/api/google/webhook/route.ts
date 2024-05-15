@@ -4,7 +4,11 @@ import { type gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
-import { DRAFT_LABEL_ID, INBOX_LABEL_ID, SENT_LABEL_ID } from "@/utils/label";
+import {
+  DRAFT_LABEL_ID,
+  INBOX_LABEL_ID,
+  SENT_LABEL_ID,
+} from "@/utils/gmail/label";
 import { type RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromDomain } from "@/utils/gmail/message";

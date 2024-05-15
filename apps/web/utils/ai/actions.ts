@@ -2,8 +2,11 @@ import { type gmail_v1 } from "googleapis";
 import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType, ExecutedAction } from "@prisma/client";
 import { PartialRecord } from "@/utils/types";
-import { archiveThread, labelThread } from "@/utils/gmail/label";
-import { getUserLabel } from "@/utils/label";
+import {
+  archiveThread,
+  getOrCreateLabel,
+  labelThread,
+} from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
 import { Attachment } from "@/utils/types/mail";
 
@@ -236,15 +239,13 @@ const label: ActionFunction<{ label: string } | any> = async (
   gmail,
   email,
   args,
-  userEmail,
 ) => {
-  const label = await getUserLabel({
+  const label = await getOrCreateLabel({
     gmail,
-    email: userEmail,
-    labelName: args.label,
+    name: args.label,
   });
 
-  if (!label?.id) return;
+  if (!label.id) throw new Error("Label not found and unable to create label");
 
   await labelThread({
     gmail,
