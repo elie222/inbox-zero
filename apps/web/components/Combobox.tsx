@@ -23,10 +23,12 @@ import {
 export function Combobox(props: {
   options: { value: string; label: string }[];
   placeholder: string;
-  emptyText: string;
+  emptyText: React.ReactNode;
   value?: string;
   onChangeValue: (value: string) => void;
   loading: boolean;
+  search?: string;
+  onSearch?: (value: string) => void;
 }) {
   const { value, onChangeValue, placeholder, emptyText, loading } = props;
   const [open, setOpen] = React.useState(false);
@@ -48,7 +50,11 @@ export function Combobox(props: {
       </PopoverTrigger>
       <PopoverContent className="w-[500px] p-0">
         <Command>
-          <CommandInput placeholder="Search..." />
+          <CommandInput
+            placeholder="Search..."
+            value={props.onSearch ? props.search : undefined}
+            onValueChange={props.onSearch}
+          />
           <CommandList>
             {loading && (
               <CommandLoading>

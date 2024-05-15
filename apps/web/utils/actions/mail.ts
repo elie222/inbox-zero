@@ -25,7 +25,12 @@ export async function createLabelAction(options: {
   name: string;
   description?: string;
 }) {
-  await createLabel(options);
+  try {
+    const label = await createLabel(options);
+    return label;
+  } catch (error: any) {
+    return { error: error.message };
+  }
 }
 
 export async function labelThreadsAction(options: {

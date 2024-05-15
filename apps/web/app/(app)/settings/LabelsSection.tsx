@@ -33,6 +33,7 @@ import {
 } from "@/app/api/google/labels/create/controller";
 import { UserLabelsResponse } from "@/app/api/user/labels/route";
 import { PlusIcon } from "lucide-react";
+import { isErrorMessage } from "@/utils/error";
 
 const recommendedLabels = ["Newsletter", "Receipt", "Calendar"];
 
@@ -218,14 +219,15 @@ function LabelsSectionFormInner(props: {
                       key={label}
                       className="group"
                       onClick={async () => {
-                        try {
-                          await createLabelAction({ name: label });
+                        const res = await createLabelAction({ name: label });
+                        if (isErrorMessage(res)) {
+                          toastError({
+                            title: `Failed to create label "${label}"`,
+                            description: res.error,
+                          });
+                        } else {
                           toastSuccess({
                             description: `Label "${label}" created!`,
-                          });
-                        } catch (error) {
-                          toastError({
-                            description: `Failed to create label "${label}"`,
                           });
                         }
                       }}

@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 
 export function useLabels() {
-  const { data, isLoading, error } =
+  const { data, isLoading, error, mutate } =
     useSWR<LabelsResponse>("/api/google/labels");
 
   const userLabels = useMemo(
@@ -23,5 +23,5 @@ export function useLabels() {
     [data?.labels],
   );
 
-  return { userLabels, data, isLoading, error };
+  return { userLabels, data, isLoading, error, mutate };
 }

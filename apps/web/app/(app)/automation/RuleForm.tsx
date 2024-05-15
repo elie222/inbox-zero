@@ -13,6 +13,7 @@ import {
   useForm,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { capitalCase } from "capital-case";
 import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
@@ -50,6 +51,7 @@ import {
 import { isErrorMessage } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
+import { createLabelAction } from "@/utils/actions/mail";
 
 export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -470,7 +472,8 @@ function LabelCombobox({
   value: string;
   onChangeValue: (value: string) => void;
 }) {
-  const { userLabels, isLoading } = useLabels();
+  const { userLabels, isLoading, mutate } = useLabels();
+  const [search, setSearch] = useState("");
 
   return (
     <Combobox
@@ -480,8 +483,37 @@ function LabelCombobox({
       }))}
       value={value}
       onChangeValue={onChangeValue}
+      search={search}
+      onSearch={setSearch}
       placeholder="Select a label"
-      emptyText="No labels"
+      emptyText={
+        <div>
+          <div>No labels</div>
+          {search && (
+            <Button
+              className="mt-2"
+              variant="outline"
+              onClick={() => {
+                toast.promise(
+                  async () => {
+                    const res = await createLabelAction({ name: search });
+                    mutate();
+                    if (isErrorMessage(res)) throw new Error(res.error);
+                  },
+                  {
+                    loading: `Creating label "${search}"...`,
+                    success: `Created label "${search}"`,
+                    error: (errorMessage) =>
+                      `Error creating label "${search}": ${errorMessage}`,
+                  },
+                );
+              }}
+            >
+              Create "{search}" label
+            </Button>
+          )}
+        </div>
+      }
       loading={isLoading}
     />
   );
