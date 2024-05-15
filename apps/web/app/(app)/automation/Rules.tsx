@@ -143,8 +143,13 @@ export function Rules() {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={async () => {
-                              await deleteRuleAction(rule.id);
-                              mutate();
+                              const yes = confirm(
+                                "Are you sure you want to delete this rule?",
+                              );
+                              if (yes) {
+                                await deleteRuleAction(rule.id);
+                                mutate();
+                              }
                             }}
                           >
                             Delete
