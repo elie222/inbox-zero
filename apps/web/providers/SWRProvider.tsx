@@ -1,5 +1,6 @@
 "use client";
 
+import { captureException } from "@/utils/error";
 import {
   useCallback,
   useState,
@@ -17,11 +18,16 @@ export const fetcher = async (url: string, init?: RequestInit | undefined) => {
   // we still try to parse and throw it.
   if (!res.ok) {
     const error: Error & { info?: any; status?: number } = new Error(
-      "An error occurred while fetching the data."
+      "An error occurred while fetching the data.",
     );
     // Attach extra info to the error object.
     error.info = await res.json();
     error.status = res.status;
+
+    captureException(error, {
+      extra: { url, extraMessage: "SWR fetch error" },
+    });
+
     throw error;
   }
 

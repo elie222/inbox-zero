@@ -10,6 +10,9 @@ import {
   getAutoArchiveFilters,
 } from "@/app/api/user/stats/newsletters/helpers";
 
+// not sure why this is slow sometimes
+export const maxDuration = 30;
+
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
   fromDate: z.coerce.number().nullish(),
