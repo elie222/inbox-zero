@@ -48,6 +48,8 @@ import {
   RECEIPT_GROUP_ID,
 } from "@/app/(app)/automation/create/examples";
 import { isErrorMessage } from "@/utils/error";
+import { Combobox } from "@/components/Combobox";
+import { useLabels } from "@/hooks/useLabels";
 
 export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -260,7 +262,21 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
                             />
                           ) : (
                             <>
-                              {field.textArea ? (
+                              {field.name === "label" ? (
+                                <div className="mt-2">
+                                  <LabelCombobox
+                                    value={
+                                      watch(`actions.${i}.${field.name}`) || ""
+                                    }
+                                    onChangeValue={(value) => {
+                                      setValue(
+                                        `actions.${i}.${field.name}`,
+                                        value,
+                                      );
+                                    }}
+                                  />
+                                </div>
+                              ) : field.textArea ? (
                                 <textarea
                                   className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
                                   rows={3}
@@ -444,6 +460,30 @@ function GroupsTab(props: {
         </div>
       </LoadingContent>
     </div>
+  );
+}
+
+function LabelCombobox({
+  value,
+  onChangeValue,
+}: {
+  value: string;
+  onChangeValue: (value: string) => void;
+}) {
+  const { userLabels, isLoading } = useLabels();
+
+  return (
+    <Combobox
+      options={userLabels.map((label) => ({
+        value: label.id || "",
+        label: label.name || "",
+      }))}
+      value={value}
+      onChangeValue={onChangeValue}
+      placeholder="Select a label"
+      emptyText="No labels"
+      loading={isLoading}
+    />
   );
 }
 
