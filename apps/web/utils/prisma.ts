@@ -8,6 +8,7 @@ import { withOptimize } from "@prisma/extension-optimize";
 
 declare global {
   var prisma:
+    | PrismaClient
     | DynamicClientExtensionThis<
         Prisma.TypeMap<
           InternalArgs & {
@@ -28,7 +29,11 @@ declare global {
     | undefined;
 }
 
-const prisma = global.prisma || new PrismaClient().$extends(withOptimize());
+const prisma =
+  global.prisma ||
+  (env.NODE_ENV === "development"
+    ? new PrismaClient().$extends(withOptimize())
+    : new PrismaClient());
 
 if (env.NODE_ENV === "development") global.prisma = prisma;
 
