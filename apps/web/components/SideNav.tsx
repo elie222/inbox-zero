@@ -3,7 +3,12 @@
 import { Fragment } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Dialog, Transition } from "@headlessui/react";
+import {
+  Dialog,
+  DialogPanel,
+  Transition,
+  TransitionChild,
+} from "@headlessui/react";
 import clsx from "clsx";
 import {
   AlertCircleIcon,
@@ -217,14 +222,14 @@ export function SideNav(props: {
 }) {
   return (
     <div className="h-full">
-      <Transition.Root show={props.sidebarOpen} as={Fragment}>
+      <Transition show={props.sidebarOpen} as="div">
         <Dialog
           as="div"
           className="relative z-50 lg:hidden"
           onClose={props.setSidebarOpen}
         >
-          <Transition.Child
-            as={Fragment}
+          <TransitionChild
+            as="div"
             enter="transition-opacity ease-linear duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -233,11 +238,11 @@ export function SideNav(props: {
             leaveTo="opacity-0"
           >
             <div className="fixed inset-0 bg-black/80" />
-          </Transition.Child>
+          </TransitionChild>
 
           <div className="fixed inset-0 flex">
-            <Transition.Child
-              as={Fragment}
+            <TransitionChild
+              as="div"
               enter="transition ease-in-out duration-300 transform"
               enterFrom="-translate-x-full"
               enterTo="translate-x-0"
@@ -245,9 +250,9 @@ export function SideNav(props: {
               leaveFrom="translate-x-0"
               leaveTo="-translate-x-full"
             >
-              <Dialog.Panel className="relative mr-16 flex w-full max-w-64 flex-1">
-                <Transition.Child
-                  as={Fragment}
+              <DialogPanel className="relative mr-16 flex w-full max-w-64 flex-1">
+                <TransitionChild
+                  as="div"
                   enter="ease-in-out duration-300"
                   enterFrom="opacity-0"
                   enterTo="opacity-100"
@@ -268,14 +273,14 @@ export function SideNav(props: {
                       />
                     </button>
                   </div>
-                </Transition.Child>
+                </TransitionChild>
 
                 <Sidebar isMobile />
-              </Dialog.Panel>
-            </Transition.Child>
+              </DialogPanel>
+            </TransitionChild>
           </div>
         </Dialog>
-      </Transition.Root>
+      </Transition>
 
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col 2xl:w-64">
         <Sidebar isMobile={false} />
@@ -313,6 +318,7 @@ function Sidebar(props: { isMobile: boolean }) {
       <nav className="flex flex-1 flex-col">
         <ul role="list" className="flex flex-1 flex-col">
           <Transition
+            as="div"
             show={showMailNav}
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"
@@ -335,7 +341,9 @@ function Sidebar(props: { isMobile: boolean }) {
               </div>
             </div>
           </Transition>
+
           <Transition
+            as="div"
             show={!showMailNav}
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"

@@ -1,7 +1,13 @@
 "use client";
 
 import React, { Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
+import {
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  Transition,
+  TransitionChild,
+} from "@headlessui/react";
 import clsx from "clsx";
 import { cn } from "@/utils";
 
@@ -26,10 +32,10 @@ export function useModal() {
 
 export function Modal(props: ModalProps) {
   return (
-    <Transition appear show={props.isOpen} as={Fragment}>
+    <Transition appear show={props.isOpen} as="div">
       <Dialog as="div" className="relative z-50" onClose={props.hideModal}>
-        <Transition.Child
-          as={Fragment}
+        <TransitionChild
+          as="div"
           enter="ease-out duration-300"
           enterFrom="opacity-0"
           enterTo="opacity-100"
@@ -43,12 +49,12 @@ export function Modal(props: ModalProps) {
               props.backdropClass,
             )}
           />
-        </Transition.Child>
+        </TransitionChild>
 
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child
-              as={Fragment}
+            <TransitionChild
+              as="div"
               enter="ease-out duration-300"
               enterFrom="opacity-0 scale-95"
               enterTo="opacity-100 scale-100"
@@ -56,7 +62,7 @@ export function Modal(props: ModalProps) {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel
+              <DialogPanel
                 className={clsx(
                   "w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all",
                   {
@@ -75,13 +81,13 @@ export function Modal(props: ModalProps) {
                 )}
               >
                 {props.title && (
-                  <Dialog.Title as="h3" className="font-cal text-xl leading-6">
+                  <DialogTitle as="h3" className="font-cal text-xl leading-6">
                     {props.title}
-                  </Dialog.Title>
+                  </DialogTitle>
                 )}
                 {props.children}
-              </Dialog.Panel>
-            </Transition.Child>
+              </DialogPanel>
+            </TransitionChild>
           </div>
         </div>
       </Dialog>

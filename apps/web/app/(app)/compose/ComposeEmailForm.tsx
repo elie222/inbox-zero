@@ -1,6 +1,6 @@
 "use client";
 
-import { Combobox } from "@headlessui/react";
+import { Combobox, ComboboxOption, ComboboxOptions } from "@headlessui/react";
 import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
 import {
   EditorBubble,
@@ -194,12 +194,12 @@ export const ComposeEmailForm = (props: {
                     />
 
                     {!!data?.result?.length && (
-                      <Combobox.Options
+                      <ComboboxOptions
                         className={
                           "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
                         }
                       >
-                        <Combobox.Option
+                        <ComboboxOption
                           className="h-0 w-0 overflow-hidden"
                           value={searchQuery}
                         />
@@ -212,10 +212,10 @@ export const ComposeEmailForm = (props: {
                           };
 
                           return (
-                            <Combobox.Option
-                              className={({ active }) =>
+                            <ComboboxOption
+                              className={({ focus }) =>
                                 `cursor-default select-none px-4 py-1 text-gray-900 ${
-                                  active && "bg-gray-50"
+                                  focus && "bg-gray-50"
                                 }`
                               }
                               key={person.emailAddress}
@@ -249,10 +249,10 @@ export const ComposeEmailForm = (props: {
                                   </div>
                                 </div>
                               )}
-                            </Combobox.Option>
+                            </ComboboxOption>
                           );
                         })}
-                      </Combobox.Options>
+                      </ComboboxOptions>
                     )}
                   </div>
                 </div>

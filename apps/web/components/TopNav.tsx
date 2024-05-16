@@ -1,8 +1,13 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { useSession, signIn } from "next-auth/react";
-import { Menu, Transition } from "@headlessui/react";
+import {
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuItems,
+  Transition,
+} from "@headlessui/react";
 import {
   BarChartIcon,
   ChevronDownIcon,
@@ -68,8 +73,8 @@ function ProfileDropdown() {
 
   if (session?.user) {
     return (
-      <Menu as="div" className="relative">
-        <Menu.Button className="-m-1.5 flex items-center p-1.5">
+      <Menu as="div" className="relative z-50">
+        <MenuButton className="-m-1.5 flex items-center p-1.5">
           <span className="sr-only">Open user menu</span>
           {session.user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -93,9 +98,9 @@ function ProfileDropdown() {
               aria-hidden="true"
             />
           </span>
-        </Menu.Button>
+        </MenuButton>
         <Transition
-          as={Fragment}
+          as="div"
           enter="transition ease-out duration-100"
           enterFrom="transform opacity-0 scale-95"
           enterTo="transform opacity-100 scale-100"
@@ -103,19 +108,19 @@ function ProfileDropdown() {
           leaveFrom="transform opacity-100 scale-100"
           leaveTo="transform opacity-0 scale-95"
         >
-          <Menu.Items className="absolute right-0 z-20 mt-2.5 w-52 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
-            <Menu.Item>
+          <MenuItems className="absolute right-0 z-20 mt-2.5 w-52 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
+            <MenuItem>
               <div className="truncate border-b border-gray-200 px-3 pb-2 text-sm">
                 {session.user.email}
               </div>
-            </Menu.Item>
+            </MenuItem>
             {userNavigation.map((item) => (
-              <Menu.Item key={item.name}>
-                {({ active }) => (
+              <MenuItem key={item.name}>
+                {({ focus }) => (
                   <Link
                     href={item.href}
                     className={clsx(
-                      active ? "bg-gray-50" : "",
+                      focus ? "bg-gray-50" : "",
                       "flex items-center px-3 py-1 text-sm leading-6 text-gray-900",
                     )}
                     onClick={item.onClick}
@@ -124,9 +129,9 @@ function ProfileDropdown() {
                     {item.name}
                   </Link>
                 )}
-              </Menu.Item>
+              </MenuItem>
             ))}
-          </Menu.Items>
+          </MenuItems>
         </Transition>
       </Menu>
     );
