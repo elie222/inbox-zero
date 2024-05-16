@@ -1,39 +1,11 @@
 import { env } from "@/env.mjs";
 import { Prisma, PrismaClient } from "@prisma/client";
-import {
-  DynamicClientExtensionThis,
-  InternalArgs,
-} from "@prisma/client/runtime/library";
-import { withOptimize } from "@prisma/extension-optimize";
 
 declare global {
-  var prisma:
-    | PrismaClient
-    | DynamicClientExtensionThis<
-        Prisma.TypeMap<
-          InternalArgs & {
-            result: {};
-            model: {};
-            query: {};
-            client: {};
-          }
-        >,
-        Prisma.TypeMapCb,
-        {
-          result: {};
-          model: {};
-          query: {};
-          client: {};
-        }
-      >
-    | undefined;
+  var prisma: PrismaClient | undefined;
 }
 
-const prisma =
-  global.prisma ||
-  (env.NODE_ENV === "development"
-    ? new PrismaClient().$extends(withOptimize())
-    : new PrismaClient());
+const prisma = global.prisma || new PrismaClient();
 
 if (env.NODE_ENV === "development") global.prisma = prisma;
 
