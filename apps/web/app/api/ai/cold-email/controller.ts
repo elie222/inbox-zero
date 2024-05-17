@@ -119,6 +119,7 @@ export async function runColdEmailBlocker(options: {
     subject: string;
     content: string;
     messageId: string;
+    threadId: string;
   };
   gmail: gmail_v1.Gmail;
   user: Pick<User, "id" | "email" | "coldEmailPrompt" | "coldEmailBlocker"> &
@@ -131,20 +132,22 @@ export async function runColdEmailBlocker(options: {
 
 async function blockColdEmail(options: {
   gmail: gmail_v1.Gmail;
-  email: { from: string; messageId: string };
+  email: { from: string; messageId: string; threadId: string };
   user: Pick<User, "id" | "email" | "coldEmailBlocker">;
   aiReason: string | null;
 }) {
   const { gmail, email, user, aiReason } = options;
 
-  await prisma.newsletter.upsert({
-    where: { email_userId: { email: email.from, userId: user.id } },
-    update: { coldEmail: ColdEmailStatus.COLD_EMAIL },
+  await prisma.coldEmail.upsert({
+    where: { userId_fromEmail: { userId: user.id, fromEmail: email.from } },
+    update: { status: ColdEmailStatus.AI_LABELED_COLD },
     create: {
-      coldEmail: ColdEmailStatus.COLD_EMAIL,
-      email: email.from,
+      status: ColdEmailStatus.AI_LABELED_COLD,
+      fromEmail: email.from,
       userId: user.id,
-      coldEmailReason: aiReason,
+      reason: aiReason,
+      messageId: email.messageId,
+      threadId: email.threadId,
     },
   });
 

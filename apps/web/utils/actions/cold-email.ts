@@ -32,10 +32,12 @@ export async function markNotColdEmail(body: { sender: string }) {
       const gmail = getGmailClient(session);
 
       await Promise.all([
-        prisma.newsletter.update({
-          where: { email_userId: { email: sender, userId: session.user.id } },
+        prisma.coldEmail.update({
+          where: {
+            userId_fromEmail: { userId: session.user.id, fromEmail: sender },
+          },
           data: {
-            coldEmail: ColdEmailStatus.NOT_COLD_EMAIL,
+            status: ColdEmailStatus.USER_REJECTED_COLD,
           },
         }),
         removeColdEmailLabelFromSender(gmail, sender),

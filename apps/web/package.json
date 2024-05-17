@@ -107,7 +107,6 @@
   },
   "devDependencies": {
     "@headlessui/tailwindcss": "^0.2.0",
-    "@prisma/extension-optimize": "^0.7.1",
     "@testing-library/jest-dom": "^6.4.5",
     "@testing-library/react": "^15.0.7",
     "@types/he": "^1.2.3",
