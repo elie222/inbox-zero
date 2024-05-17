@@ -369,13 +369,13 @@ async function processHistoryItem(
       });
     }
 
-    if (
-      shouldRunColdEmailBlocker(
-        user.coldEmailBlocker,
-        hasColdEmailAccess,
-        isThread,
-      )
-    ) {
+    const shouldRunBlocker = shouldRunColdEmailBlocker(
+      user.coldEmailBlocker,
+      hasColdEmailAccess,
+      isThread,
+    );
+
+    if (shouldRunBlocker) {
       const hasPreviousEmail = await hasPreviousEmailsFromDomain(gmail, {
         from: message.headers.from,
         date: message.headers.date,

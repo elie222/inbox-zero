@@ -160,18 +160,16 @@ async function blockColdEmail(options: {
       gmail,
       name: inboxZeroLabels.cold_email,
     });
+    if (!gmailLabel?.id) throw new Error("No gmail label id");
+
+    const shouldArchive =
+      user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL;
 
     await labelMessage({
       gmail,
       messageId: email.messageId,
-      addLabelIds:
-        user.coldEmailBlocker === ColdEmailSetting.LABEL && gmailLabel?.id
-          ? [gmailLabel.id]
-          : undefined,
-      removeLabelIds:
-        user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
-          ? [INBOX_LABEL_ID]
-          : undefined,
+      addLabelIds: [gmailLabel.id],
+      removeLabelIds: shouldArchive ? [INBOX_LABEL_ID] : undefined,
     });
   }
 }
