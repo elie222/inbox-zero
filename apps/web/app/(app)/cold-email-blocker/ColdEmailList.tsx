@@ -71,7 +71,7 @@ export function ColdEmailList() {
       const c = data?.coldEmails.find((c) => c.id === id);
       if (!c) continue;
       try {
-        await markNotColdEmail({ sender: c.email });
+        await markNotColdEmail({ sender: c.fromEmail });
       } catch (error) {
         console.error(error);
       }
@@ -146,7 +146,9 @@ export function ColdEmailList() {
           <TablePagination totalPages={data.totalPages} />
 
           <NewsletterModal
-            newsletter={openedRow ? { name: openedRow.email || "" } : undefined}
+            newsletter={
+              openedRow ? { name: openedRow.fromEmail || "" } : undefined
+            }
             onClose={() => setOpenedRow(undefined)}
           />
         </div>
@@ -183,9 +185,9 @@ function Row({
         />
       </TableCell>
       <TableCell>
-        <SenderCell from={row.email} userEmail={userEmail} />
+        <SenderCell from={row.fromEmail} userEmail={userEmail} />
       </TableCell>
-      <TableCell>{row.coldEmailReason || "-"}</TableCell>
+      <TableCell>{row.reason || "-"}</TableCell>
       <TableCell>
         <DateCell createdAt={row.createdAt} />
       </TableCell>
@@ -198,7 +200,7 @@ function Row({
             variant="outline"
             onClick={async () => {
               setIsMarkingColdEmail(true);
-              await markNotColdEmail({ sender: row.email });
+              await markNotColdEmail({ sender: row.fromEmail });
               mutate();
               setIsMarkingColdEmail(false);
             }}

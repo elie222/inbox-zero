@@ -7,9 +7,9 @@ export type NewsletterSummaryResponse = Awaited<
   ReturnType<typeof getNewsletterSummary>
 >;
 
-async function getNewsletterSummary(options: { userId: string }) {
+async function getNewsletterSummary({ userId }: { userId: string }) {
   const result = await prisma.newsletter.groupBy({
-    where: { userId: options.userId },
+    where: { userId },
     by: ["status"],
     _count: true,
   });

@@ -10,24 +10,27 @@ export type ColdEmailsResponse = Awaited<ReturnType<typeof getColdEmails>>;
 
 async function getColdEmails(options: { userId: string }, page: number) {
   const [coldEmails, count] = await Promise.all([
-    prisma.newsletter.findMany({
+    prisma.coldEmail.findMany({
       where: {
         userId: options.userId,
-        coldEmail: ColdEmailStatus.COLD_EMAIL,
+        status: ColdEmailStatus.AI_LABELED_COLD,
       },
       take: LIMIT,
       skip: (page - 1) * LIMIT,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
-        email: true,
+        fromEmail: true,
         status: true,
         createdAt: true,
-        coldEmailReason: true,
+        reason: true,
       },
     }),
-    prisma.newsletter.count({
-      where: { userId: options.userId, coldEmail: ColdEmailStatus.COLD_EMAIL },
+    prisma.coldEmail.count({
+      where: {
+        userId: options.userId,
+        status: ColdEmailStatus.AI_LABELED_COLD,
+      },
     }),
   ]);
 

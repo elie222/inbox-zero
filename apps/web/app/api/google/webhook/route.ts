@@ -395,6 +395,7 @@ async function processHistoryItem(
           subject: message.headers.subject,
           content,
           messageId,
+          threadId,
         },
         gmail,
         user,
