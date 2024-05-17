@@ -121,7 +121,7 @@ export function ColdEmailList() {
                   />
                 </TableHead>
                 <TableHead>Sender</TableHead>
-                <TableHead>Reason</TableHead>
+                <TableHead>AI Reason</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -215,7 +215,13 @@ function Row({
   );
 }
 
-function SenderCell({ from, userEmail }: { from: string; userEmail: string }) {
+export function SenderCell({
+  from,
+  userEmail,
+}: {
+  from: string;
+  userEmail: string;
+}) {
   // use regex to find first letter
   const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
 

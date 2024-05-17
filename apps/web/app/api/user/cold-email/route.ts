@@ -8,13 +8,18 @@ const LIMIT = 50;
 
 export type ColdEmailsResponse = Awaited<ReturnType<typeof getColdEmails>>;
 
-async function getColdEmails(options: { userId: string }, page: number) {
+async function getColdEmails(
+  { userId, status }: { userId: string; status: ColdEmailStatus },
+  page: number,
+) {
+  const where = {
+    userId,
+    status,
+  };
+
   const [coldEmails, count] = await Promise.all([
     prisma.coldEmail.findMany({
-      where: {
-        userId: options.userId,
-        status: ColdEmailStatus.AI_LABELED_COLD,
-      },
+      where,
       take: LIMIT,
       skip: (page - 1) * LIMIT,
       orderBy: { createdAt: "desc" },
@@ -26,12 +31,7 @@ async function getColdEmails(options: { userId: string }, page: number) {
         reason: true,
       },
     }),
-    prisma.coldEmail.count({
-      where: {
-        userId: options.userId,
-        status: ColdEmailStatus.AI_LABELED_COLD,
-      },
-    }),
+    prisma.coldEmail.count({ where }),
   ]);
 
   return { coldEmails, totalPages: Math.ceil(count / LIMIT) };
@@ -43,8 +43,11 @@ export const GET = withError(async (request) => {
 
   const url = new URL(request.url);
   const page = parseInt(url.searchParams.get("page") || "1");
+  const status =
+    (url.searchParams.get("status") as ColdEmailStatus | undefined) ||
+    ColdEmailStatus.AI_LABELED_COLD;
 
-  const result = await getColdEmails({ userId: session.user.id }, page);
+  const result = await getColdEmails({ userId: session.user.id, status }, page);
 
   return NextResponse.json(result);
 });
