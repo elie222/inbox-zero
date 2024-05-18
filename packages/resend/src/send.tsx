@@ -2,6 +2,9 @@ import { JSXElementConstructor, ReactElement } from "react";
 import { nanoid } from "nanoid";
 import StatsUpdateEmail, { StatsUpdateEmailProps } from "../emails/stats";
 import { resend } from "./client";
+import ActivityUpdateEmail, {
+  type ActivityUpdateEmailProps,
+} from "../emails/activity-update";
 
 const sendEmail = async ({
   to,
@@ -63,6 +66,29 @@ export const sendStatsEmail = async ({
       {
         name: "category",
         value: "stats",
+      },
+    ],
+  });
+};
+
+export const sendActivityUpdateEmail = async ({
+  to,
+  test,
+  emailProps,
+}: {
+  to: string;
+  test?: boolean;
+  emailProps: ActivityUpdateEmailProps;
+}) => {
+  sendEmail({
+    to,
+    subject: "Your weekly email activity update",
+    react: <ActivityUpdateEmail {...emailProps} />,
+    test,
+    tags: [
+      {
+        name: "category",
+        value: "activity-update",
       },
     ],
   });
