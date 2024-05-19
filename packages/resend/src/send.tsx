@@ -2,9 +2,7 @@ import { JSXElementConstructor, ReactElement } from "react";
 import { nanoid } from "nanoid";
 import StatsUpdateEmail, { StatsUpdateEmailProps } from "../emails/stats";
 import { resend } from "./client";
-import ActivityUpdateEmail, {
-  type ActivityUpdateEmailProps,
-} from "../emails/activity-update";
+import SummaryEmail, { type SummaryEmailProps } from "../emails/summary";
 
 const sendEmail = async ({
   to,
@@ -28,7 +26,8 @@ const sendEmail = async ({
     );
     return Promise.resolve();
   }
-  return resend.emails.send({
+
+  const result = await resend.emails.send({
     from: "Inbox Zero <elie@getinboxzero.com>",
     to: test ? "delivered@resend.dev" : to,
     subject,
@@ -46,6 +45,13 @@ const sendEmail = async ({
     },
     tags,
   });
+
+  if (result.error) {
+    console.error("Error sending email", result.error);
+    throw new Error(`Error sending email: ${result.error.message}`);
+  }
+
+  return result;
 };
 
 export const sendStatsEmail = async ({
@@ -71,19 +77,20 @@ export const sendStatsEmail = async ({
   });
 };
 
-export const sendActivityUpdateEmail = async ({
+export const sendSummaryEmail = async ({
   to,
   test,
   emailProps,
 }: {
   to: string;
   test?: boolean;
-  emailProps: ActivityUpdateEmailProps;
+  emailProps: SummaryEmailProps;
 }) => {
+  console.log("sending summary email to", to);
   sendEmail({
     to,
-    subject: "Your weekly email activity update",
-    react: <ActivityUpdateEmail {...emailProps} />,
+    subject: "Your weekly email summary",
+    react: <SummaryEmail {...emailProps} />,
     test,
     tags: [
       {

@@ -12,10 +12,6 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { loadTinybirdEmails } from "@/app/api/user/stats/tinybird/load/load-emails";
 
 const sendWeeklyStatsBody = z.object({ email: z.string() });
-export type SendWeeklyStatsBody = z.infer<typeof sendWeeklyStatsBody>;
-export type SendWeeklyStatsResponse = Awaited<
-  ReturnType<typeof sendWeeklyStats>
->;
 
 async function sendWeeklyStats(options: { email: string }) {
   const { email } = options;

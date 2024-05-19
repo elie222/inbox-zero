@@ -12,27 +12,15 @@ import {
   Img,
 } from "@react-email/components";
 
-export interface ActivityUpdateEmailProps {
+export interface SummaryEmailProps {
   baseUrl: string;
-  pending: { from: string; subject: string; rule: string }[];
+  pendingCount: number;
   coldEmailers: { from: string; subject: string }[];
 }
 
-export default function ActivityUpdateEmail(props: ActivityUpdateEmailProps) {
+export default function SummaryEmail(props: SummaryEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
-    pending = [
-      {
-        from: "James <james@example.com>",
-        subject: "Quick catchup",
-        rule: "Inbox Zero",
-      },
-      {
-        from: "Matt <matt@example.com>",
-        subject: "How are you?",
-        rule: "Inbox Zero",
-      },
-    ],
     coldEmailers = [
       {
         from: "James <james@example.com>",
@@ -47,6 +35,19 @@ export default function ActivityUpdateEmail(props: ActivityUpdateEmailProps) {
         subject: "How are you?",
       },
     ],
+    // pending = [
+    //   {
+    //     from: "James <james@example.com>",
+    //     subject: "Quick catchup",
+    //     rule: "Inbox Zero",
+    //   },
+    //   {
+    //     from: "Matt <matt@example.com>",
+    //     subject: "How are you?",
+    //     rule: "Inbox Zero",
+    //   },
+    // ],
+    pendingCount = 23,
   } = props;
 
   return (
@@ -74,27 +75,49 @@ export default function ActivityUpdateEmail(props: ActivityUpdateEmailProps) {
               </Text>
 
               <Text style={paragraph}>
-                You have {pending.length} {pluralize(pending.length, "email")}{" "}
-                from your AI assistant pending approval:
+                You have {pendingCount} {pluralize(pendingCount, "email")} from
+                your AI assistant pending approval:
               </Text>
 
-              <ul>
-                {pending.map((email) => (
-                  <li key={email.from + email.subject}>
-                    <Text style={paragraph}>
-                      <Text style={paragraph}>
-                        <strong>{email.from}</strong>
-                      </Text>
-                      <Text>{email.subject}</Text>
-                      <Text>Rule: {email.rule}</Text>
-                    </Text>
-                  </li>
-                ))}
-              </ul>
+              {pendingCount > 0 && (
+                <Section className="text-center mt-[32px] mb-[32px]">
+                  <Button
+                    href={`${baseUrl}/automation?tab=pending`}
+                    style={{
+                      background: "#000",
+                      color: "#fff",
+                      padding: "12px 20px",
+                      borderRadius: "5px",
+                    }}
+                  >
+                    View Pending Emails
+                  </Button>
+                </Section>
+              )}
 
+              <Text style={paragraph}>
+                You received {coldEmailers.length}{" "}
+                {pluralize(coldEmailers.length, "cold email")} this week:
+              </Text>
+
+              {coldEmailers.length > 0 && (
+                <ul>
+                  {coldEmailers.map((coldEmailer) => (
+                    <li key={coldEmailer.from + coldEmailer.subject}>
+                      <Text style={paragraph}>
+                        <strong>{coldEmailer.from}</strong>
+                      </Text>
+                      <Text>{coldEmailer.subject}</Text>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            {coldEmailers.length > 0 && (
               <Section className="text-center mt-[32px] mb-[32px]">
                 <Button
-                  href={`${baseUrl}/automation?tab=pending`}
+                  href={`${baseUrl}/cold-email-blocker`}
                   style={{
                     background: "#000",
                     color: "#fff",
@@ -102,40 +125,10 @@ export default function ActivityUpdateEmail(props: ActivityUpdateEmailProps) {
                     borderRadius: "5px",
                   }}
                 >
-                  View Pending Emails
+                  View Cold Emails
                 </Button>
               </Section>
-
-              <Text style={paragraph}>
-                You received {coldEmailers.length}{" "}
-                {pluralize(coldEmailers.length, "cold email")} this week:
-              </Text>
-
-              <ul>
-                {coldEmailers.map((coldEmailer) => (
-                  <li key={coldEmailer.from + coldEmailer.subject}>
-                    <Text style={paragraph}>
-                      <strong>{coldEmailer.from}</strong>
-                    </Text>
-                    <Text>{coldEmailer.subject}</Text>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-
-            <Section className="text-center mt-[32px] mb-[32px]">
-              <Button
-                href={`${baseUrl}/cold-email-blocker`}
-                style={{
-                  background: "#000",
-                  color: "#fff",
-                  padding: "12px 20px",
-                  borderRadius: "5px",
-                }}
-              >
-                View Cold Emails
-              </Button>
-            </Section>
+            )}
 
             <Section>
               <Text>
