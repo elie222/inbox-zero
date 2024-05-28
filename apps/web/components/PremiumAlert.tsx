@@ -18,30 +18,31 @@ import { PremiumTier } from "@prisma/client";
 
 export function usePremium() {
   const swrResponse = useSWR<UserResponse>("/api/user/me");
+  const { data } = swrResponse;
 
-  const premium = !!(
-    swrResponse.data?.premium &&
-    isPremium(swrResponse.data.premium.lemonSqueezyRenewsAt)
-  );
+  const premium = data?.premium;
+  const openAIApiKey = data?.openAIApiKey;
+
+  const isUserPremium = !!(premium && isPremium(premium.lemonSqueezyRenewsAt));
 
   const isProPlanWithoutApiKey =
-    (swrResponse.data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
-      swrResponse.data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
-    !swrResponse.data?.openAIApiKey;
+    (premium?.tier === PremiumTier.PRO_MONTHLY ||
+      premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    !openAIApiKey;
 
   return {
     ...swrResponse,
-    isPremium: premium,
+    isPremium: isUserPremium,
     hasUnsubscribeAccess:
-      premium ||
-      hasUnsubscribeAccess(swrResponse.data?.premium?.unsubscribeCredits),
-    hasAiAccess: hasAiAccess(
-      swrResponse.data?.premium?.aiAutomationAccess,
-      swrResponse.data?.openAIApiKey,
-    ),
+      isUserPremium ||
+      hasUnsubscribeAccess(
+        premium?.bulkUnsubscribeAccess,
+        premium?.unsubscribeCredits,
+      ),
+    hasAiAccess: hasAiAccess(premium?.aiAutomationAccess, openAIApiKey),
     hasColdEmailAccess: hasColdEmailAccess(
-      swrResponse.data?.premium?.coldEmailBlockerAccess,
-      swrResponse.data?.openAIApiKey,
+      premium?.coldEmailBlockerAccess,
+      openAIApiKey,
     ),
     isProPlanWithoutApiKey,
   };

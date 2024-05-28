@@ -51,7 +51,7 @@ export async function decrementUnsubscribeCredit() {
       where: { id: premium.id },
       data: {
         // reset and use a credit
-        unsubscribeCredits: env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS - 1,
+        unsubscribeCredits: env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS - 1,
         unsubscribeMonth: currentMonth,
       },
     });

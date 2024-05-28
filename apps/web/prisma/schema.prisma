@@ -109,9 +109,10 @@ model Premium {
   tier PremiumTier?
 
   // feature access
+  bulkUnsubscribeAccess  FeatureAccess?
   coldEmailBlockerAccess FeatureAccess?
   aiAutomationAccess     FeatureAccess?
-  emailAccountsAccess    Int? // only used for lifetime
+  emailAccountsAccess    Int?
 
   // unsubscribe/ai credits
   // if `unsubscribeMonth` not set to this month, set to current month
@@ -342,6 +343,8 @@ enum ColdEmailSetting {
 }
 
 enum PremiumTier {
+  BASIC_MONTHLY
+  BASIC_ANNUALLY
   PRO_MONTHLY
   PRO_ANNUALLY
   BUSINESS_MONTHLY

@@ -42,13 +42,21 @@ export const isAdminForPremium = (
 };
 
 export const hasUnsubscribeAccess = (
+  bulkUnsubscribeAccess?: FeatureAccess | null,
   unsubscribeCredits?: number | null,
 ): boolean => {
+  if (
+    bulkUnsubscribeAccess === FeatureAccess.UNLOCKED ||
+    bulkUnsubscribeAccess === FeatureAccess.UNLOCKED_WITH_API_KEY
+  ) {
+    return true;
+  }
+
   return unsubscribeCredits !== 0;
 };
 
 export const hasAiAccess = (
-  aiAutomationAccess?: Premium["aiAutomationAccess"],
+  aiAutomationAccess?: FeatureAccess | null,
   openAIApiKey?: string | null,
 ) => {
   const hasAiAccess = !!(
@@ -60,7 +68,7 @@ export const hasAiAccess = (
 };
 
 export const hasColdEmailAccess = (
-  coldEmailBlockerAccess?: Premium["coldEmailBlockerAccess"],
+  coldEmailBlockerAccess?: FeatureAccess | null,
   openAIApiKey?: string | null,
 ) => {
   const hasColdEmailAccess = !!(
@@ -77,11 +85,13 @@ export function isOnHigherTier(
   tier2?: PremiumTier | null,
 ) {
   const tierRanking = {
-    [PremiumTier.PRO_MONTHLY]: 1,
-    [PremiumTier.PRO_ANNUALLY]: 2,
-    [PremiumTier.BUSINESS_MONTHLY]: 3,
-    [PremiumTier.BUSINESS_ANNUALLY]: 4,
-    [PremiumTier.LIFETIME]: 5,
+    [PremiumTier.BASIC_MONTHLY]: 1,
+    [PremiumTier.BASIC_ANNUALLY]: 2,
+    [PremiumTier.PRO_MONTHLY]: 3,
+    [PremiumTier.PRO_ANNUALLY]: 4,
+    [PremiumTier.BUSINESS_MONTHLY]: 5,
+    [PremiumTier.BUSINESS_ANNUALLY]: 6,
+    [PremiumTier.LIFETIME]: 7,
   };
 
   const tier1Rank = tier1 ? tierRanking[tier1] : 0;
