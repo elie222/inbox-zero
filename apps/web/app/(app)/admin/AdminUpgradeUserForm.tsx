@@ -91,6 +91,14 @@ export const AdminUpgradeUserForm = () => {
             value: PremiumTier.PRO_MONTHLY,
           },
           {
+            label: PremiumTier.BASIC_ANNUALLY,
+            value: PremiumTier.BASIC_ANNUALLY,
+          },
+          {
+            label: PremiumTier.BASIC_MONTHLY,
+            value: PremiumTier.BASIC_MONTHLY,
+          },
+          {
             label: PremiumTier.LIFETIME,
             value: PremiumTier.LIFETIME,
           },

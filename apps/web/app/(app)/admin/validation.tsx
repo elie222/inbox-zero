@@ -12,6 +12,8 @@ export const changePremiumStatusSchema = z.object({
     .optional()
     .transform((v) => v || undefined),
   period: z.enum([
+    PremiumTier.BASIC_MONTHLY,
+    PremiumTier.BASIC_ANNUALLY,
     PremiumTier.PRO_MONTHLY,
     PremiumTier.PRO_ANNUALLY,
     PremiumTier.BUSINESS_MONTHLY,
