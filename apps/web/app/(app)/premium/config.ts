@@ -33,6 +33,10 @@ function discount(monthly: number, annually: number) {
 export const tiers = [
   {
     name: "Basic",
+    tiers: {
+      monthly: PremiumTier.BASIC_MONTHLY,
+      annually: PremiumTier.BASIC_ANNUALLY,
+    },
     href: {
       monthly: env.NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK,
       annually: env.NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK,
