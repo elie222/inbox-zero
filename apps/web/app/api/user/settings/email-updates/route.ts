@@ -19,6 +19,7 @@ async function saveEmailUpdateSettings(options: SaveEmailUpdateSettingsBody) {
     where: { email: session.user.email },
     data: {
       statsEmailFrequency: options.statsEmailFrequency,
+      summaryEmailFrequency: options.summaryEmailFrequency,
     },
   });
 }

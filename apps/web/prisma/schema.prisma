@@ -61,13 +61,15 @@ model User {
   utms                      Json?
 
   // settings
-  aiProvider          String?
-  aiModel             String?
-  openAIApiKey        String?
-  statsEmailFrequency Frequency         @default(WEEKLY)
-  categorizeEmails    Boolean           @default(true)
-  coldEmailBlocker    ColdEmailSetting?
-  coldEmailPrompt     String?
+  aiProvider            String?
+  aiModel               String?
+  openAIApiKey          String?
+  statsEmailFrequency   Frequency         @default(WEEKLY)
+  summaryEmailFrequency Frequency         @default(WEEKLY)
+  lastSummaryEmailAt    DateTime?
+  categorizeEmails      Boolean           @default(true)
+  coldEmailBlocker      ColdEmailSetting?
+  coldEmailPrompt       String?
 
   // premium can be shared among multiple users
   premiumId      String?

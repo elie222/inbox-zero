@@ -11,7 +11,7 @@ import {
 import { SWRConfig, mutate } from "swr";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
-export const fetcher = async (url: string, init?: RequestInit | undefined) => {
+const fetcher = async (url: string, init?: RequestInit | undefined) => {
   const res = await fetch(url, init);
 
   // If the status code is not in the range 200-299,
@@ -43,8 +43,6 @@ const defaultContextValue = {
 };
 
 const SWRContext = createContext<Context>(defaultContextValue);
-
-export const useSWRContext = () => useContext<Context>(SWRContext);
 
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());

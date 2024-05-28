@@ -14,6 +14,7 @@ async function getUser(userId: string) {
       aiModel: true,
       openAIApiKey: true,
       statsEmailFrequency: true,
+      summaryEmailFrequency: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
       premium: {
