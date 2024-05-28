@@ -146,13 +146,11 @@ export function Pricing() {
               ? isCurrentPlan
                 ? "#"
                 : buildLemonUrl(
-                    tier.checkout
-                      ? attachUserInfo(tier.href[frequency.value], {
-                          id: user.id,
-                          email: user.email!,
-                          name: user.name,
-                        })
-                      : tier.href[frequency.value],
+                    attachUserInfo(tier.href[frequency.value], {
+                      id: user.id,
+                      email: user.email!,
+                      name: user.name,
+                    }),
                     affiliateCode,
                   )
               : "/login?next=/premium";

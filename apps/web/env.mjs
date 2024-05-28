@@ -41,8 +41,8 @@ export const env = createEnv({
 
     // lemon plans
     // basic
-    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK: z.string().default(""),
-    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK: z.string(),
+    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK: z.string(),
     NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
     // pro
@@ -90,6 +90,15 @@ export const env = createEnv({
   experimental__runtimeEnv: {
     NEXT_PUBLIC_LEMON_STORE_ID: process.env.NEXT_PUBLIC_LEMON_STORE_ID,
 
+    // basic
+    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK,
+    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK,
+    NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID:
+      process.env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID,
+    NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID:
+      process.env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID,
     // pro
     NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK:
       process.env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,

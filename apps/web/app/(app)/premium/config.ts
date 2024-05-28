@@ -65,7 +65,6 @@ export const tiers = [
       monthly: env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,
       annually: env.NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK,
     },
-    checkout: true,
     price: { monthly: pricing.PRO_MONTHLY, annually: pricing.PRO_ANNUALLY },
     priceAdditional: {
       monthly: pricingAdditonalEmail.PRO_MONTHLY,
@@ -94,7 +93,6 @@ export const tiers = [
       monthly: env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
       annually: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
     },
-    checkout: true,
     price: {
       monthly: pricing.BUSINESS_MONTHLY,
       annually: pricing.BUSINESS_ANNUALLY,
