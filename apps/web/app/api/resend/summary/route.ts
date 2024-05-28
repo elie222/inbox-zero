@@ -47,9 +47,10 @@ async function sendEmail({ email }: { email: string }) {
     subject: "",
   }));
   const pendingCount = user._count.executedRules;
+  const shouldSendEmail = coldEmailers.length && pendingCount;
 
   await Promise.all([
-    coldEmailers.length && pendingCount
+    shouldSendEmail
       ? sendSummaryEmail({
           to: email,
           emailProps: {
