@@ -20,10 +20,10 @@ async function sendEmail({ email }: { email: string }) {
   const user = await prisma.user.findUnique({
     where: {
       email,
-      // OR: [
-      //   { lastSummaryEmailAt: { lt: cutOffDate } },
-      //   { lastSummaryEmailAt: null },
-      // ],
+      OR: [
+        { lastSummaryEmailAt: { lt: cutOffDate } },
+        { lastSummaryEmailAt: null },
+      ],
     },
     select: {
       coldEmails: { where: { createdAt: { gt: cutOffDate } } },
