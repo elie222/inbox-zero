@@ -7,6 +7,8 @@ export const frequencies = [
 ];
 
 export const pricing: Record<PremiumTier, number> = {
+  [PremiumTier.BASIC_MONTHLY]: 10,
+  [PremiumTier.BASIC_ANNUALLY]: 6,
   [PremiumTier.PRO_MONTHLY]: 14,
   [PremiumTier.PRO_ANNUALLY]: 9,
   [PremiumTier.BUSINESS_MONTHLY]: 22,
@@ -15,6 +17,8 @@ export const pricing: Record<PremiumTier, number> = {
 };
 
 export const pricingAdditonalEmail: Record<PremiumTier, number> = {
+  [PremiumTier.BASIC_MONTHLY]: 2,
+  [PremiumTier.BASIC_ANNUALLY]: 1.5,
   [PremiumTier.PRO_MONTHLY]: 3,
   [PremiumTier.PRO_ANNUALLY]: 2.5,
   [PremiumTier.BUSINESS_MONTHLY]: 3.5,
@@ -28,16 +32,28 @@ function discount(monthly: number, annually: number) {
 
 export const tiers = [
   {
-    name: "Free",
-    href: { monthly: "/welcome", annually: "/welcome" },
-    price: { monthly: 0, annually: 0 },
-    description: "Try Inbox Zero for free.",
+    name: "Basic",
+    href: {
+      monthly: env.NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK,
+      annually: env.NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK,
+    },
+    price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
+    priceAdditional: {
+      monthly: pricingAdditonalEmail.BASIC_MONTHLY,
+      annually: pricingAdditonalEmail.BASIC_ANNUALLY,
+    },
+    discount: {
+      monthly: 0,
+      annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
+    },
+    description: "Unlimited unsubscribe credits.",
     features: [
       "Bulk email unsubscriber",
-      `Unsubscribe from ${env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS} emails per month`,
+      "Unlimited unsubscribes",
+      "Unlimited archives",
       "Email analytics",
     ],
-    cta: "Get Started",
+    cta: "Upgrade",
   },
   {
     name: "Pro",
@@ -59,11 +75,9 @@ export const tiers = [
       monthly: 0,
       annually: discount(pricing.PRO_MONTHLY, pricing.PRO_ANNUALLY),
     },
-    description:
-      "Unlimited unsubscribe credits. Unlock AI features when using your own OpenAI key",
+    description: "Unlock AI features when using your own OpenAI key",
     features: [
       "Everything in free",
-      "Unlimited unsubscribes",
       "AI automation when using your own OpenAI API key",
       "Cold email blocker when using your own OpenAI API key",
     ],
@@ -96,9 +110,7 @@ export const tiers = [
     description: "Unlock full AI-powered email management",
     features: [
       "Everything in pro",
-      "AI automation",
-      "Cold email blocker",
-      "AI categorization",
+      "Unlimited AI credits",
       "No need to provide your own OpenAI API key",
       "Priority support",
     ],

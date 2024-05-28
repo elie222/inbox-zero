@@ -23,6 +23,7 @@ async function getUser(userId: string) {
           lemonSqueezySubscriptionId: true,
           lemonSqueezyRenewsAt: true,
           unsubscribeCredits: true,
+          bulkUnsubscribeAccess: true,
           aiAutomationAccess: true,
           coldEmailBlockerAccess: true,
           tier: true,

@@ -26,7 +26,7 @@ export function Usage(props: {
               ? "Unlimited"
               : formatStat(
                   data?.premium?.unsubscribeCredits ??
-                    env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
+                    env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
                 ),
             subvalue: "credits",
             icon: <CoinsIcon className="h-4 w-4" />,

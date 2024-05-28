@@ -132,7 +132,7 @@ export function Pricing() {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>SAVE up to 36%!</Badge>
+            <Badge>Save up to 40%!</Badge>
           </div>
         </div>
 
@@ -195,7 +195,9 @@ export function Pricing() {
 
                     {!!tier.discount?.[frequency.value] && (
                       <Badge>
-                        SAVE {tier.discount[frequency.value].toFixed(0)}%
+                        <span className="tracking-wide">
+                          SAVE {tier.discount[frequency.value].toFixed(0)}%
+                        </span>
                       </Badge>
                     )}
                   </p>
@@ -356,7 +358,7 @@ function LifetimePricing(props: {
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-bold leading-5 text-blue-600">
+    <p className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
       {children}
     </p>
   );

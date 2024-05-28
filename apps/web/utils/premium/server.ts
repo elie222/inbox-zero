@@ -29,13 +29,10 @@ export async function upgradeToPremium(options: {
     select: { premiumId: true },
   });
 
-  const accessLevel = getAccessLevelFromTier(options.tier);
-
   const data = {
     ...rest,
     lemonSqueezyRenewsAt,
-    aiAutomationAccess: accessLevel,
-    coldEmailBlockerAccess: accessLevel,
+    ...getTierAccess(options.tier),
   };
 
   if (user.premiumId) {
@@ -81,6 +78,7 @@ export async function cancelPremium(options: {
     where: { id: options.premiumId },
     data: {
       lemonSqueezyRenewsAt: options.lemonSqueezyEndsAt,
+      bulkUnsubscribeAccess: null,
       aiAutomationAccess: null,
       coldEmailBlockerAccess: null,
     },
@@ -113,15 +111,30 @@ export async function editEmailAccountsAccess(options: {
   });
 }
 
-function getAccessLevelFromTier(tier: PremiumTier): FeatureAccess {
+function getTierAccess(tier: PremiumTier) {
   switch (tier) {
+    case PremiumTier.BASIC_MONTHLY:
+    case PremiumTier.BASIC_ANNUALLY:
+      return {
+        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
+        aiAutomationAccess: FeatureAccess.LOCKED,
+        coldEmailBlockerAccess: FeatureAccess.LOCKED,
+      };
     case PremiumTier.PRO_MONTHLY:
     case PremiumTier.PRO_ANNUALLY:
-      return FeatureAccess.UNLOCKED_WITH_API_KEY;
+      return {
+        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
+        aiAutomationAccess: FeatureAccess.UNLOCKED_WITH_API_KEY,
+        coldEmailBlockerAccess: FeatureAccess.UNLOCKED_WITH_API_KEY,
+      };
     case PremiumTier.BUSINESS_MONTHLY:
     case PremiumTier.BUSINESS_ANNUALLY:
     case PremiumTier.LIFETIME:
-      return FeatureAccess.UNLOCKED;
+      return {
+        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
+        aiAutomationAccess: FeatureAccess.UNLOCKED,
+        coldEmailBlockerAccess: FeatureAccess.UNLOCKED,
+      };
     default:
       throw new Error(`Unknown premium tier: ${tier}`);
   }

@@ -40,6 +40,11 @@ export const env = createEnv({
     NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
 
     // lemon plans
+    // basic
+    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
+    NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
     // pro
     NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK: z.string().default(""),
@@ -63,7 +68,7 @@ export const env = createEnv({
     LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
 
-    NEXT_PUBLIC_UNSUBSCRIBE_CREDITS: z.number().default(5),
+    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.number().default(5),
     NEXT_PUBLIC_CALL_LINK: z
       .string()
       .default("https://cal.com/team/inbox-zero/feedback"),
@@ -121,8 +126,8 @@ export const env = createEnv({
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_LEMON_STORE_ID: process.env.NEXT_PUBLIC_LEMON_STORE_ID,
-    NEXT_PUBLIC_UNSUBSCRIBE_CREDITS:
-      process.env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
+    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
+      process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
     NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
