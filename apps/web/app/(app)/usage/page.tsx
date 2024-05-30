@@ -1,5 +1,3 @@
-"use server";
-
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getUsage } from "@/utils/redis/usage";
 import { TopSection } from "@/components/TopSection";

@@ -120,7 +120,9 @@ async function subscriptionCreated({
   if (!payload.data.attributes.first_subscription_item)
     throw new Error("No subscription item");
 
-  const tier = getTier({ variantId: payload.data.attributes.variant_id });
+  const tier = getSubscriptionTier({
+    variantId: payload.data.attributes.variant_id,
+  });
 
   const updatedPremium = await upgradeToPremium({
     userId,
@@ -272,12 +274,22 @@ function getEmailFromPremium(premium: {
   return premium.users?.[0]?.email;
 }
 
-function getTier({ variantId }: { variantId: number }): PremiumTier {
+function getSubscriptionTier({
+  variantId,
+}: {
+  variantId: number;
+}): PremiumTier {
   switch (variantId) {
+    case env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID:
+      return PremiumTier.BASIC_MONTHLY;
+    case env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID:
+      return PremiumTier.BASIC_ANNUALLY;
+
     case env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID:
       return PremiumTier.PRO_MONTHLY;
     case env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID:
       return PremiumTier.PRO_ANNUALLY;
+
     case env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID:
       return PremiumTier.BUSINESS_MONTHLY;
     case env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
