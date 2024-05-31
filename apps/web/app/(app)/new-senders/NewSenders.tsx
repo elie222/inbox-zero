@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import {
@@ -25,21 +25,21 @@ import {
 import { formatShortDate } from "@/utils/date";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
-import {
-  useNewsletterFilter,
-  useBulkUnsubscribeShortcuts,
-  ShortcutTooltip,
-  SectionHeader,
-  ActionCell,
-  Row,
-  HeaderButton,
-} from "@/app/(app)/bulk-unsubscribe/common";
+import { ActionCell } from "@/app/(app)/bulk-unsubscribe/ActionCell";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";
 import { DateRange } from "react-day-picker";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
+import { HeaderButton } from "@/app/(app)/bulk-unsubscribe/HeaderButton";
+import {
+  useNewsletterFilter,
+  useBulkUnsubscribeShortcuts,
+} from "@/app/(app)/bulk-unsubscribe/hooks";
+import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { SectionHeader } from "@/components/SectionHeader";
 
 export function NewSenders(props: {
   dateRange?: DateRange | undefined;
@@ -71,9 +71,9 @@ export function NewSenders(props: {
   const { userLabels } = useLabels();
 
   const { expanded, extra } = useExpanded();
-  const [openedNewsletter, setOpenedNewsletter] = React.useState<Row>();
+  const [openedNewsletter, setOpenedNewsletter] = useState<Row>();
 
-  const [selectedRow, setSelectedRow] = React.useState<Row | undefined>();
+  const [selectedRow, setSelectedRow] = useState<Row | undefined>();
 
   const rows: (Row & {
     firstEmail: {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import {
@@ -31,19 +31,19 @@ import {
 import { LabelsResponse } from "@/app/api/google/labels/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { usePremium } from "@/components/PremiumAlert";
-import {
-  useNewsletterFilter,
-  useBulkUnsubscribeShortcuts,
-  ShortcutTooltip,
-  SectionHeader,
-  ActionCell,
-  HeaderButton,
-} from "@/app/(app)/bulk-unsubscribe/common";
+import { ActionCell } from "@/app/(app)/bulk-unsubscribe/ActionCell";
 import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 import { useLabels } from "@/hooks/useLabels";
+import {
+  useBulkUnsubscribeShortcuts,
+  useNewsletterFilter,
+} from "@/app/(app)/bulk-unsubscribe/hooks";
+import { HeaderButton } from "@/app/(app)/bulk-unsubscribe/HeaderButton";
+import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import { SectionHeader } from "@/components/SectionHeader";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -84,11 +84,9 @@ export function BulkUnsubscribeSection(props: {
   const { userLabels } = useLabels();
 
   const { expanded, extra } = useExpanded();
-  const [openedNewsletter, setOpenedNewsletter] = React.useState<Newsletter>();
+  const [openedNewsletter, setOpenedNewsletter] = useState<Newsletter>();
 
-  const [selectedRow, setSelectedRow] = React.useState<
-    Newsletter | undefined
-  >();
+  const [selectedRow, setSelectedRow] = useState<Newsletter | undefined>();
 
   useBulkUnsubscribeShortcuts({
     newsletters: data?.newsletters,
