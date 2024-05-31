@@ -63,7 +63,7 @@
     "crisp-sdk-web": "^1.0.25",
     "date-fns": "^3.6.0",
     "encoding": "^0.1.13",
-    "eslint": "9.2.0",
+    "eslint": "^8.41.0",
     "eslint-config-next": "14.2.3",
     "gmail-api-parse-message": "^2.1.2",
     "google": "link:@next/third-parties/google",
