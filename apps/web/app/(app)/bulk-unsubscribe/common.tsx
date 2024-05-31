@@ -433,7 +433,7 @@ export function MoreDropdown<T extends Row>({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <TagIcon className="mr-2 h-4 w-4" />
-            <span>Label sender</span>
+            <span>Label emails from sender</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <LabelsSubMenu sender={item.name} labels={userGmailLabels} />

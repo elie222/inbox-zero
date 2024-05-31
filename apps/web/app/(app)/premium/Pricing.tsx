@@ -91,9 +91,11 @@ export function Pricing() {
                 <AlertWithButton
                   variant="blue"
                   title="Add extra users to your account!"
-                  description={`You can upgrade extra emails to ${capitalCase(
+                  description={`You can upgrade extra accounts to ${capitalCase(
                     premiumTier,
-                  )} for ${pricingAdditonalEmail[premiumTier]} per email!`}
+                  )} for $${
+                    pricingAdditonalEmail[premiumTier]
+                  } per email address!`}
                   icon={null}
                   button={
                     <div className="ml-4 whitespace-nowrap">
