@@ -78,7 +78,7 @@ export function ColdEmailList() {
       mutate();
     }
     setIsRejecting(false);
-  }, [selected, data?.coldEmails]);
+  }, [selected, data?.coldEmails, mutate]);
 
   return (
     <LoadingContent loading={isLoading} error={error}>

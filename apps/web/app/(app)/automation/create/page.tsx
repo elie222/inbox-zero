@@ -30,29 +30,32 @@ export default function AutomationSettingsPage() {
     watch,
   } = useForm<Inputs>();
 
-  const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
-    if (data.prompt) {
-      const rule = await createAutomationAction(data.prompt);
+  const onSubmit: SubmitHandler<Inputs> = useCallback(
+    async (data) => {
+      if (data.prompt) {
+        const rule = await createAutomationAction(data.prompt);
 
-      if (isError(rule)) {
-        toastError({
-          description:
-            "There was an error creating your automation. " + rule.error,
-        });
-        return;
-      } else {
-        if (rule.existingRuleId) {
-          toastInfo({
-            title: "Rule for group already exists",
-            description: "Edit the existing rule to create your automation.",
+        if (isError(rule)) {
+          toastError({
+            description:
+              "There was an error creating your automation. " + rule.error,
           });
-          router.push(`/automation/rule/${rule.existingRuleId}`);
+          return;
         } else {
-          router.push(`/automation/rule/${rule.id}?new=true`);
+          if (rule.existingRuleId) {
+            toastInfo({
+              title: "Rule for group already exists",
+              description: "Edit the existing rule to create your automation.",
+            });
+            router.push(`/automation/rule/${rule.existingRuleId}`);
+          } else {
+            router.push(`/automation/rule/${rule.id}?new=true`);
+          }
         }
       }
-    }
-  }, []);
+    },
+    [router],
+  );
 
   const prompt = watch("prompt");
 

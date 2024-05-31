@@ -71,6 +71,8 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
 
   const { userLabels, data: gmailLabelsData, isLoading, mutate } = useLabels();
 
+  const router = useRouter();
+
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
@@ -124,10 +126,8 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
         }
       }
     },
-    [gmailLabelsData],
+    [gmailLabelsData?.labels, props.rule.type, router],
   );
-
-  const router = useRouter();
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -433,7 +433,7 @@ function GroupsTab(props: {
     ) {
       createGroup();
     }
-  }, [props.groupId]);
+  }, [mutate, props.groupId, setValue]);
 
   return (
     <div className="mt-4">
@@ -535,7 +535,7 @@ function LabelCombobox({
                 );
               }}
             >
-              Create "{search}" label
+              {`Create "${search}" label`}
             </Button>
           )}
         </div>

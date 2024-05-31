@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
@@ -123,6 +123,41 @@ export function ActionCell<T extends Row>({
 
   const posthog = usePostHog();
 
+  const onUnsubscribe = useCallback(async () => {
+    if (!hasUnsubscribeAccess) return;
+
+    setUnsubscribeLoading(true);
+
+    await setNewsletterStatus({
+      newsletterEmail: item.name,
+      status: NewsletterStatus.UNSUBSCRIBED,
+    });
+    await mutate();
+    await decrementUnsubscribeCredit();
+    await refetchPremium();
+
+    posthog.capture("Clicked Unsubscribe");
+
+    setUnsubscribeLoading(false);
+  }, [hasUnsubscribeAccess, item.name, mutate, posthog, refetchPremium]);
+
+  const onAutoArchiveClick = useCallback(async () => {
+    setAutoArchiveLoading(true);
+
+    onAutoArchive(item.name);
+    await setNewsletterStatus({
+      newsletterEmail: item.name,
+      status: NewsletterStatus.AUTO_ARCHIVED,
+    });
+    await mutate();
+    await decrementUnsubscribeCredit();
+    await refetchPremium();
+
+    posthog.capture("Clicked Auto Archive");
+
+    setAutoArchiveLoading(false);
+  }, [item.name, mutate, posthog, refetchPremium]);
+
   return (
     <>
       <PremiumTooltip
@@ -149,23 +184,7 @@ export function ActionCell<T extends Row>({
                 : "#"
             }
             target="_blank"
-            onClick={async () => {
-              if (!hasUnsubscribeAccess) return;
-
-              setUnsubscribeLoading(true);
-
-              await setNewsletterStatus({
-                newsletterEmail: item.name,
-                status: NewsletterStatus.UNSUBSCRIBED,
-              });
-              await mutate();
-              await decrementUnsubscribeCredit();
-              await refetchPremium();
-
-              posthog.capture("Clicked Unsubscribe");
-
-              setUnsubscribeLoading(false);
-            }}
+            onClick={onUnsubscribe}
           >
             {unsubscribeLoading && <ButtonLoader />}
             <span className="hidden xl:block">Unsubscribe</span>
@@ -202,22 +221,7 @@ export function ActionCell<T extends Row>({
             }
             className="px-3 shadow-none"
             size="sm"
-            onClick={async () => {
-              setAutoArchiveLoading(true);
-
-              onAutoArchive(item.name);
-              await setNewsletterStatus({
-                newsletterEmail: item.name,
-                status: NewsletterStatus.AUTO_ARCHIVED,
-              });
-              await mutate();
-              await decrementUnsubscribeCredit();
-              await refetchPremium();
-
-              posthog.capture("Clicked Auto Archive");
-
-              setAutoArchiveLoading(false);
-            }}
+            onClick={onAutoArchiveClick}
             disabled={!hasUnsubscribeAccess}
           >
             {autoArchiveLoading && <ButtonLoader />}
@@ -672,7 +676,7 @@ function GroupsSubMenu({ sender }: { sender: string }) {
               );
             })
           ) : (
-            <DropdownMenuItem>You don't have any groups yet.</DropdownMenuItem>
+            <DropdownMenuItem>{`You don't have any groups yet.`}</DropdownMenuItem>
           )}
         </>
       )}
@@ -730,7 +734,7 @@ function LabelsSubMenu({
           );
         })
       ) : (
-        <DropdownMenuItem>You don't have any labels yet.</DropdownMenuItem>
+        <DropdownMenuItem>{`You don't have any labels yet.`}</DropdownMenuItem>
       )}
     </DropdownMenuSubContent>
   );

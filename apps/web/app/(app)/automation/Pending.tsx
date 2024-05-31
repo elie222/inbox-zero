@@ -91,7 +91,7 @@ function PendingTable({
       mutate();
     }
     setIsApproving(false);
-  }, [selected, pending]);
+  }, [selected, pending, mutate]);
   const rejectSelected = useCallback(async () => {
     setIsRejecting(true);
     for (const id of Array.from(selected.keys())) {
@@ -105,7 +105,7 @@ function PendingTable({
       mutate();
     }
     setIsRejecting(false);
-  }, [selected, pending]);
+  }, [selected, pending, mutate]);
 
   return (
     <div>

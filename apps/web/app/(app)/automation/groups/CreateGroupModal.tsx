@@ -132,7 +132,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
       }
       mutate("/api/user/group");
     },
-    [closeModal],
+    [closeModal, mutate],
   );
 
   return (
