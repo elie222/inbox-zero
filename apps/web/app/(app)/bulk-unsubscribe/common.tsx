@@ -25,7 +25,7 @@ import {
   UserRoundMinusIcon,
 } from "lucide-react";
 import { type PostHog, usePostHog } from "posthog-js/react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { Separator } from "@/components/ui/separator";
@@ -49,7 +49,6 @@ import {
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@prisma/client";
-import { LoadingMiniSpinner } from "@/components/Loading";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
@@ -168,16 +167,11 @@ export function ActionCell<T extends Row>({
               setUnsubscribeLoading(false);
             }}
           >
-            {unsubscribeLoading ? (
-              <LoadingMiniSpinner />
-            ) : (
-              <>
-                <span className="hidden xl:block">Unsubscribe</span>
-                <span className="block xl:hidden">
-                  <UserRoundMinusIcon className="h-4 w-4" />
-                </span>
-              </>
-            )}
+            {unsubscribeLoading && <ButtonLoader />}
+            <span className="hidden xl:block">Unsubscribe</span>
+            <span className="block xl:hidden">
+              <UserRoundMinusIcon className="h-4 w-4" />
+            </span>
           </a>
         </Button>
       </PremiumTooltip>
@@ -226,16 +220,11 @@ export function ActionCell<T extends Row>({
             }}
             disabled={!hasUnsubscribeAccess}
           >
-            {autoArchiveLoading ? (
-              <LoadingMiniSpinner />
-            ) : (
-              <>
-                <span className="hidden xl:block">Auto Archive</span>
-                <span className="block xl:hidden">
-                  <ArchiveIcon className="h-4 w-4" />
-                </span>
-              </>
-            )}
+            {autoArchiveLoading && <ButtonLoader />}
+            <span className="hidden xl:block">Auto Archive</span>
+            <span className="block xl:hidden">
+              <ArchiveIcon className="h-4 w-4" />
+            </span>
           </Button>
           <Separator orientation="vertical" className="h-[20px]" />
           <DropdownMenu>
@@ -357,16 +346,11 @@ export function ActionCell<T extends Row>({
           }}
           disabled={!hasUnsubscribeAccess}
         >
-          {approveLoading ? (
-            <LoadingMiniSpinner />
-          ) : (
-            <>
-              <span className="sr-only">Approve</span>
-              <span>
-                <BadgeCheckIcon className="h-4 w-4" />
-              </span>
-            </>
-          )}
+          {approveLoading && <ButtonLoader />}
+          <span className="sr-only">Approve</span>
+          <span>
+            <BadgeCheckIcon className="h-4 w-4" />
+          </span>
         </Button>
       </Tooltip>
       <MoreDropdown
