@@ -60,15 +60,15 @@ export default function AutomationSettingsPage() {
   const prompt = watch("prompt");
 
   return (
-    <div>
-      <PageHeading className="mt-10 text-center">
+    <div className="py-10">
+      <PageHeading className="text-center">
         Get started with AI Automation
       </PageHeading>
       <SectionDescription className="text-center">
         Automate your email with AI.
       </SectionDescription>
 
-      <div className="mx-auto mt-16 max-w-xl">
+      <div className="mx-auto mt-16 max-w-xl px-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {typeof prompt === "string" ? (
             <>

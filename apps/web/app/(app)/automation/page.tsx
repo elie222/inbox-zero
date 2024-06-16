@@ -38,7 +38,7 @@ export default async function AutomationPage() {
 
             <Button asChild>
               <Link href="/automation/create">
-                <SparklesIcon className="mr-2 h-4 w-4" />
+                <SparklesIcon className="mr-2 hidden h-4 w-4 md:block" />
                 Create Automation
               </Link>
             </Button>
