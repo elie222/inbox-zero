@@ -111,9 +111,9 @@ export function BulkUnsubscribeSection(props: {
         <div className="items-center justify-between px-6 pt-6 md:flex">
           <SectionHeader
             title="Which newsletters and marketing emails do you get the most?"
-            description="A list of all your email subscriptions. Quickly unsubscribe or view the emails in more detail."
+            description="Quickly unsubscribe or view them in more detail."
           />
-          <div className="ml-0 mt-3 flex justify-end sm:ml-4 sm:flex-row sm:space-y-0 md:mt-0">
+          <div className="ml-0 mt-3 grid justify-end gap-2 sm:ml-4 sm:flex sm:gap-0 sm:space-y-0 md:mt-0">
             <div className="hidden md:mr-2 md:block">
               <ShortcutTooltip />
             </div>
