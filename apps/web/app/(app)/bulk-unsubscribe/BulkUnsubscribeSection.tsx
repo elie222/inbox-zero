@@ -113,21 +113,19 @@ export function BulkUnsubscribeSection(props: {
             title="Which newsletters and marketing emails do you get the most?"
             description="Quickly unsubscribe or view them in more detail."
           />
-          <div className="ml-0 mt-3 grid justify-end gap-2 sm:ml-4 sm:flex sm:gap-0 sm:space-y-0 md:mt-0">
-            <div className="hidden md:mr-2 md:block">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 sm:gap-2 md:mt-0 lg:flex-nowrap">
+            <div className="hidden md:block">
               <ShortcutTooltip />
             </div>
 
-            <div className="mr-1 flex items-center sm:mr-2">
-              <Toggle
-                label="Missing unsubscribe"
-                name="missing-unsubscribe"
-                enabled={includeMissingUnsubscribe}
-                onChange={() => {
-                  setIncludeMissingUnsubscribe(!includeMissingUnsubscribe);
-                }}
-              />
-            </div>
+            <Toggle
+              label="Missing unsubscribe"
+              name="missing-unsubscribe"
+              enabled={includeMissingUnsubscribe}
+              onChange={() => {
+                setIncludeMissingUnsubscribe(!includeMissingUnsubscribe);
+              }}
+            />
 
             <DetailedStatsFilter
               label="Filter"
@@ -168,7 +166,6 @@ export function BulkUnsubscribeSection(props: {
                     setFilters({ ...filters, ["approved"]: !filters.approved }),
                 },
               ]}
-              className="mr-1"
             />
 
             <EmailsToIncludeFilter types={types} setTypes={setTypes} />

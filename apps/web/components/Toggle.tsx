@@ -19,7 +19,7 @@ export const Toggle = (props: ToggleProps) => {
     <div>
       <SwitchGroup as="div" className="flex items-center justify-center">
         {label && (
-          <span className="mr-3">
+          <span className="mr-3 text-nowrap">
             <Label name={props.name} label={label} />
           </span>
         )}
