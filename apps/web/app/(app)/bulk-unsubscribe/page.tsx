@@ -48,25 +48,23 @@ export default function BulkUnsubscribePage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 border-b bg-white px-4 py-2 shadow sm:flex sm:justify-between">
-        <div className="flex items-center">
-          <OnboardingModal
-            title="Getting started with Bulk Unsubscribe"
-            description={
-              <>
-                Learn how to quickly bulk unsubscribe from unwanted emails. You
-                can read more in our{" "}
-                <TextLink href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber">
-                  documentation
-                </TextLink>
-                .
-              </>
-            }
-            videoId="T1rnooV4OYc"
-          />
-        </div>
+      <div className="sticky top-0 z-10 flex flex-col justify-between gap-1 border-b bg-white px-4 py-2 shadow sm:flex-row">
+        <OnboardingModal
+          title="Getting started with Bulk Unsubscribe"
+          description={
+            <>
+              Learn how to quickly bulk unsubscribe from unwanted emails. You
+              can read more in our{" "}
+              <TextLink href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber">
+                documentation
+              </TextLink>
+              .
+            </>
+          }
+          videoId="T1rnooV4OYc"
+        />
 
-        <div className="mt-1 space-y-1 sm:mt-0 sm:flex sm:space-x-1 sm:space-y-0">
+        <div className="flex flex-wrap gap-1">
           <ActionBar
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}

@@ -42,7 +42,7 @@ export function DetailedStatsFilter(props: {
         <Button
           variant="outline"
           size="sm"
-          className={cn("ml-auto h-10 whitespace-nowrap", className)}
+          className={cn("h-10 whitespace-nowrap", className)}
         >
           {props.icon}
           {props.label}
