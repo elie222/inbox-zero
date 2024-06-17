@@ -12,17 +12,17 @@ const copy: {
   automate: {
     title: "Automate Your Email Inbox",
     subtitle:
-      "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Fully open-source.",
+      "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Open-source.",
   },
   autopilot: {
     title: "Autopilot For Your Email",
     subtitle:
-      "Automate your email with our AI assistant by telling it in plain English how to handle your emails. Fully open-source.",
+      "Automate your email with our AI assistant by telling it in plain English how to handle your emails. Open-source.",
   },
   clean: {
     title: "Clean Up Your Inbox In Minutes",
     subtitle:
-      "Bulk unsubscribe from newsletters, automate your emails with AI, block cold emails, and view your analytics. Fully open-source.",
+      "Bulk unsubscribe from newsletters, automate your emails with AI, block cold emails, and view your analytics. Open-source.",
   },
   control: {
     title: "Clean Up Your Inbox In Minutes",

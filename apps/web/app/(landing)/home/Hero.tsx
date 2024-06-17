@@ -47,7 +47,7 @@ export function Hero(props: {
               {props.subtitle || (
                 <>
                   Automate your email with AI, bulk unsubscribe from
-                  newsletters, and block cold emails. Fully open-source.
+                  newsletters, and block cold emails. Open-source.
                 </>
               )}
             </HeroSubtitle>

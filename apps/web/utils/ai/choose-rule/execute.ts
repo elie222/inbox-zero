@@ -9,14 +9,17 @@ import { ExecutedRuleStatus } from "@prisma/client";
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
 }>;
-export async function executeAct(options: {
+export async function executeAct({
+  gmail,
+  executedRule,
+  userEmail,
+  email,
+}: {
   gmail: gmail_v1.Gmail;
   executedRule: ExecutedRuleWithActionItems;
   email: EmailForAction;
   userEmail: string;
 }) {
-  const { gmail, executedRule, userEmail, email } = options;
-
   console.log("Executing act:", executedRule.id);
 
   async function labelActed() {
