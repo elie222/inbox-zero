@@ -23,7 +23,7 @@ import {
   GmailProvider,
   useGmail,
 } from "@/providers/GmailProvider";
-import { createLabelAction, updateLabels } from "@/utils/actions/mail";
+import { createLabelAction, updateLabelsAction } from "@/utils/actions/mail";
 import { useModal, Modal } from "@/components/Modal";
 import { type Label } from "@prisma/client";
 import { postRequest } from "@/utils/api";
@@ -155,7 +155,7 @@ function LabelsSectionFormInner(props: {
                 });
 
                 try {
-                  await updateLabels(formLabels);
+                  await updateLabelsAction(formLabels);
                   toastSuccess({ description: "Updated labels!" });
                 } catch (error) {
                   console.error(error);

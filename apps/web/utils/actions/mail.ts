@@ -21,10 +21,122 @@ import {
 } from "@/utils/gmail/filter";
 import { ServerActionResponse, captureException } from "@/utils/error";
 
+async function getSessionAndGmailClient() {
+  const session = await auth();
+  if (!session?.user.id) return { error: "Not logged in" };
+  const gmail = getGmailClient(session);
+  return { session, gmail };
+}
+
+function handleError(error: unknown, message: string) {
+  captureException(error);
+  return { error: message };
+}
+
+async function executeGmailAction(
+  action: (gmail: any) => Promise<any>,
+  errorMessage: string,
+): Promise<ServerActionResponse> {
+  const { gmail, error } = await getSessionAndGmailClient();
+  if (error) return { error };
+
+  try {
+    const res = await action(gmail);
+    return !isStatusOk(res.status) ? handleError(res, errorMessage) : undefined;
+  } catch (error) {
+    return handleError(error, errorMessage);
+  }
+}
+
+export async function archiveThreadAction(
+  threadId: string,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => archiveThread({ gmail, threadId }),
+    "Failed to archive thread",
+  );
+}
+
+export async function trashThreadAction(
+  threadId: string,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => trashThread({ gmail, threadId }),
+    "Failed to delete thread",
+  );
+}
+
+export async function trashMessageAction(
+  messageId: string,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => trashMessage({ gmail, messageId }),
+    "Failed to delete message",
+  );
+}
+
+export async function markReadThreadAction(
+  threadId: string,
+  read: boolean,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => markReadThread({ gmail, threadId, read }),
+    "Failed to mark thread as read",
+  );
+}
+
+export async function markImportantMessageAction(
+  messageId: string,
+  important: boolean,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => markImportantMessage({ gmail, messageId, important }),
+    "Failed to mark message as important",
+  );
+}
+
+export async function markSpamThreadAction(
+  threadId: string,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => markSpam({ gmail, threadId }),
+    "Failed to mark thread as spam",
+  );
+}
+
+export async function createAutoArchiveFilterAction(
+  from: string,
+  gmailLabelId?: string,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => createAutoArchiveFilter({ gmail, from, gmailLabelId }),
+    "Failed to create auto archive filter",
+  );
+}
+
+export async function createFilterAction(
+  from: string,
+  gmailLabelId: string,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => createFilter({ gmail, from, addLabelIds: [gmailLabelId] }),
+    "Failed to create filter",
+  );
+}
+
+export async function deleteFilterAction(
+  id: string,
+): Promise<ServerActionResponse> {
+  return executeGmailAction(
+    async (gmail) => deleteFilter({ gmail, id }),
+    "Failed to delete filter",
+  );
+}
+
 export async function createLabelAction(options: {
   name: string;
   description?: string;
-}) {
+}): Promise<ServerActionResponse> {
   try {
     const label = await createLabel(options);
     return label;
@@ -33,11 +145,11 @@ export async function createLabelAction(options: {
   }
 }
 
-export async function updateLabels(
+export async function updateLabelsAction(
   labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[],
-) {
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) return { error: "Not logged in" };
 
   const userId = session.user.id;
 
@@ -79,102 +191,4 @@ export async function updateLabels(
       id: l.gmailLabelId,
     })),
   });
-}
-
-export async function archiveThreadAction(threadId: string) {
-  const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await archiveThread({ gmail, threadId });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
-
-export async function trashThreadAction(threadId: string) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await trashThread({ gmail, threadId });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
-export async function trashMessageAction(messageId: string) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await trashMessage({ gmail, messageId });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
-
-export async function markReadThreadAction(threadId: string, read: boolean) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await markReadThread({ gmail, threadId, read });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
-
-export async function markImportantMessageAction(
-  messageId: string,
-  important: boolean,
-) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await markImportantMessage({ gmail, messageId, important });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
-
-export async function markSpamThreadAction(threadId: string) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await markSpam({ gmail, threadId });
-  return isStatusOk(res.status) ? { ok: true } : res;
-}
-
-export async function createAutoArchiveFilterAction(
-  from: string,
-  gmailLabelId?: string,
-): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
-  try {
-    const gmail = getGmailClient(session);
-    const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-
-    if (isStatusOk(res.status)) {
-      return { ok: true };
-    } else {
-      captureException(`Failed to create auto archive filter: ${res.status}`, {
-        extra: res,
-      });
-      return { error: "Failed to create auto archive filter" };
-    }
-  } catch (error) {
-    captureException(error);
-    return { error: "Failed to create auto archive filter" };
-  }
-}
-
-export async function createFilterAction(from: string, gmailLabelId: string) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  try {
-    const res = await createFilter({
-      gmail,
-      from,
-      addLabelIds: [gmailLabelId],
-    });
-    return isStatusOk(res.status) ? { ok: true } : res;
-  } catch (error: any) {
-    return { ok: false, error: error.message };
-  }
-}
-
-export async function deleteFilterAction(id: string) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await deleteFilter({ gmail, id });
-  return isStatusOk(res.status) ? { ok: true } : res;
 }
