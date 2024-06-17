@@ -236,7 +236,7 @@ export async function getFilteredPlans({
   count?: number;
 }): Promise<(Plan & { id: string })[]> {
   const key = `plans:${userId}`;
-  let cursor = 0;
+  let cursor = "0";
   let results: [string, Plan][] = [];
 
   do {
@@ -252,11 +252,11 @@ export async function getFilteredPlans({
 
       // Break if we have collected enough data
       if (results.length >= count) {
-        cursor = 0; // Reset cursor to end the loop
+        cursor = "0"; // Reset cursor to end the loop
         break;
       }
     }
-  } while (cursor !== 0);
+  } while (cursor !== "0");
 
   return results.map(([planId, plan]) => ({ ...plan, id: planId }));
 }
