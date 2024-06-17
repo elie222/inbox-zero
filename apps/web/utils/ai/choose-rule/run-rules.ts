@@ -9,6 +9,12 @@ import { emailToContent } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { ActionItem } from "@/utils/ai/actions";
 
+export type TestResult = {
+  rule?: Rule | null;
+  actionItems?: ActionItem[];
+  reason?: string | null;
+};
+
 export async function runRulesOnMessage({
   gmail,
   message,
@@ -145,11 +151,7 @@ export async function testRulesOnMessage({
   rules: RuleWithActions[];
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
-}): Promise<{
-  rule?: Rule | null;
-  actionItems?: ActionItem[];
-  reason?: string | null;
-}> {
+}): Promise<TestResult> {
   const applicableRules = isThread
     ? rules.filter((r) => r.runOnThreads)
     : rules;

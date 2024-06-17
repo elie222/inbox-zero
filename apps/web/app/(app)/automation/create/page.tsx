@@ -14,7 +14,7 @@ import {
 } from "@/components/Typography";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { createAutomationAction } from "@/utils/actions/ai-rule";
-import { isError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import { toastError, toastInfo } from "@/components/Toast";
 import { examples } from "@/app/(app)/automation/create/examples";
 
@@ -33,24 +33,23 @@ export default function AutomationSettingsPage() {
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {
       if (data.prompt) {
-        const rule = await createAutomationAction(data.prompt);
+        const result = await createAutomationAction(data.prompt);
 
-        if (isError(rule)) {
-          toastError({
-            description:
-              "There was an error creating your automation. " + rule.error,
-          });
-          return;
-        } else {
-          if (rule.existingRuleId) {
+        if (isActionError(result)) {
+          if (result.existingRuleId) {
             toastInfo({
               title: "Rule for group already exists",
               description: "Edit the existing rule to create your automation.",
             });
-            router.push(`/automation/rule/${rule.existingRuleId}`);
+            router.push(`/automation/rule/${result.existingRuleId}`);
           } else {
-            router.push(`/automation/rule/${rule.id}?new=true`);
+            toastError({
+              description:
+                "There was an error creating your automation. " + result.error,
+            });
           }
+        } else {
+          router.push(`/automation/rule/${result.id}?new=true`);
         }
       }
     },

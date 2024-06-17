@@ -30,6 +30,7 @@ import { useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/Checkbox";
 import { Loader2Icon } from "lucide-react";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
+import { isActionError } from "@/utils/error";
 
 export function Pending() {
   const searchParams = useSearchParams();
@@ -83,10 +84,11 @@ function PendingTable({
     for (const id of Array.from(selected.keys())) {
       const p = pending.find((p) => p.id === id);
       if (!p) continue;
-      try {
-        await approvePlanAction(id, p.message);
-      } catch (error) {
-        console.error(error);
+      const result = await approvePlanAction(id, p.message);
+      if (isActionError(result)) {
+        toastError({
+          description: "Unable to execute plan. " + result.error || "",
+        });
       }
       mutate();
     }
@@ -97,10 +99,11 @@ function PendingTable({
     for (const id of Array.from(selected.keys())) {
       const p = pending.find((p) => p.id === id);
       if (!p) continue;
-      try {
-        await rejectPlanAction(id);
-      } catch (error) {
-        console.error(error);
+      const result = await rejectPlanAction(id);
+      if (isActionError(result)) {
+        toastError({
+          description: "Error rejecting action. " + result.error || "",
+        });
       }
       mutate();
     }
@@ -210,17 +213,15 @@ function ExecuteButtons({
       <Button
         variant="default"
         onClick={async () => {
-          try {
-            setIsApproving(true);
-            await approvePlanAction(id, message);
-            mutate();
-          } catch (error) {
-            console.error(error);
+          setIsApproving(true);
+          const result = await approvePlanAction(id, message);
+          if (isActionError(result)) {
             toastError({
-              description:
-                "Error approving action: " + (error as Error).message,
+              description: "Error approving action. " + result.error || "",
             });
           }
+          mutate();
+
           setIsApproving(false);
         }}
         disabled={isApproving || isRejecting}
@@ -232,16 +233,13 @@ function ExecuteButtons({
         variant="outline"
         onClick={async () => {
           setIsRejecting(true);
-          try {
-            await rejectPlanAction(id);
-            mutate();
-          } catch (error) {
-            console.error(error);
+          const result = await rejectPlanAction(id);
+          if (isActionError(result)) {
             toastError({
-              description:
-                "Error rejecting action: " + (error as Error).message,
+              description: "Error rejecting action. " + result.error || "",
             });
           }
+          mutate();
           setIsRejecting(false);
         }}
         disabled={isApproving || isRejecting}

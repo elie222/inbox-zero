@@ -39,6 +39,8 @@ import { ruleTypeToString } from "@/utils/rule";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { toastError } from "@/components/Toast";
+import { isActionError } from "@/utils/error";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -94,7 +96,17 @@ export function Rules() {
                         enabled={rule.automate}
                         name="automate"
                         onChange={async () => {
-                          await setRuleAutomatedAction(rule.id, !rule.automate);
+                          const result = await setRuleAutomatedAction(
+                            rule.id,
+                            !rule.automate,
+                          );
+                          if (isActionError(result)) {
+                            toastError({
+                              description:
+                                "There was an error updating your rule. " +
+                                result.error,
+                            });
+                          }
                           mutate();
                         }}
                       />
@@ -104,10 +116,17 @@ export function Rules() {
                         enabled={rule.runOnThreads}
                         name="runOnThreads"
                         onChange={async () => {
-                          await setRuleRunOnThreadsAction(
+                          const result = await setRuleRunOnThreadsAction(
                             rule.id,
                             !rule.runOnThreads,
                           );
+                          if (isActionError(result)) {
+                            toastError({
+                              description:
+                                "There was an error updating your rule. " +
+                                result.error,
+                            });
+                          }
                           mutate();
                         }}
                       />
@@ -147,7 +166,16 @@ export function Rules() {
                                 "Are you sure you want to delete this rule?",
                               );
                               if (yes) {
-                                await deleteRuleAction(rule.id);
+                                const result = await deleteRuleAction(rule.id);
+
+                                if (isActionError(result)) {
+                                  toastError({
+                                    description:
+                                      "There was an error deleting your rule. " +
+                                      result.error,
+                                  });
+                                }
+
                                 mutate();
                               }
                             }}

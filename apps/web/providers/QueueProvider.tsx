@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import PQueue from "p-queue";
-import { runRules } from "@/utils/actions/ai-rule";
+import { runRulesAction } from "@/utils/actions/ai-rule";
 import {
   archiveThreadAction,
   markReadThreadAction,
@@ -71,7 +71,7 @@ export const runAiRules = async (
     threads.map((thread) => async () => {
       const message = threadToRunRulesEmail(thread);
       if (!message) return;
-      await runRules(message);
+      await runRulesAction(message);
       removeFromAiQueueAtom(thread.id);
       // updateRunAiQueueStorage([thread], "complete");
       // refetch();

@@ -5,7 +5,6 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { type Label } from "@prisma/client";
 import { saveUserLabels } from "@/utils/redis/label";
-import { getGmailClient } from "@/utils/gmail/client";
 import { trashMessage, trashThread } from "@/utils/gmail/trash";
 import {
   archiveThread,
@@ -13,40 +12,13 @@ import {
   markReadThread,
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import { isStatusOk } from "@/utils/actions/helpers";
 import {
   createAutoArchiveFilter,
   createFilter,
   deleteFilter,
 } from "@/utils/gmail/filter";
-import { ServerActionResponse, captureException } from "@/utils/error";
-
-async function getSessionAndGmailClient() {
-  const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
-  const gmail = getGmailClient(session);
-  return { session, gmail };
-}
-
-function handleError(error: unknown, message: string) {
-  captureException(error);
-  return { error: message };
-}
-
-async function executeGmailAction(
-  action: (gmail: any) => Promise<any>,
-  errorMessage: string,
-): Promise<ServerActionResponse> {
-  const { gmail, error } = await getSessionAndGmailClient();
-  if (error) return { error };
-
-  try {
-    const res = await action(gmail);
-    return !isStatusOk(res.status) ? handleError(res, errorMessage) : undefined;
-  } catch (error) {
-    return handleError(error, errorMessage);
-  }
-}
+import { ServerActionResponse } from "@/utils/error";
+import { executeGmailAction } from "@/utils/actions/helpers";
 
 export async function archiveThreadAction(
   threadId: string,
