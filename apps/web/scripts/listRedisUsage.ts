@@ -5,13 +5,13 @@ import "dotenv/config";
 import { redis } from "@/utils/redis";
 
 async function scanUsageKeys() {
-  let cursor = 0;
+  let cursor = "0";
   let keys: string[] = [];
   do {
     const reply = await redis.scan(cursor, { match: "usage:*", count: 100 });
     cursor = reply[0];
     keys = [...keys, ...reply[1]];
-  } while (cursor !== 0);
+  } while (cursor !== "0");
 
   const costs = await Promise.all(
     keys.map(async (key) => {
