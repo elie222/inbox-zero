@@ -1,7 +1,7 @@
+import { gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ServerActionResponse, captureException } from "@/utils/error";
 import { getGmailClient } from "@/utils/gmail/client";
-import { gmail_v1 } from "googleapis";
 
 // do not return functions to the client or we'll get an error
 export const isStatusOk = (status: number) => status >= 200 && status < 300;
