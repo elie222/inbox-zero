@@ -33,17 +33,3 @@ export async function executeGmailAction<T>(
     return handleError(error, errorMessage);
   }
 }
-
-export async function executeAction<T>(
-  action: (user: { id: string }) => Promise<T>,
-  errorMessage: string,
-): Promise<ServerActionResponse<T>> {
-  const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
-
-  try {
-    return await action(session.user);
-  } catch (error) {
-    return handleError(error, errorMessage);
-  }
-}

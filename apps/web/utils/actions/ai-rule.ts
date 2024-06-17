@@ -21,7 +21,7 @@ import {
 import { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ParsedMessage } from "@/utils/types";
-import { executeAction, executeGmailAction } from "@/utils/actions/helpers";
+import { executeGmailAction } from "@/utils/actions/helpers";
 import { ServerActionResponse } from "@/utils/error";
 
 export async function runRulesAction(
