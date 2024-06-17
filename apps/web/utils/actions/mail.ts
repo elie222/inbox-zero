@@ -9,7 +9,6 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { trashMessage, trashThread } from "@/utils/gmail/trash";
 import {
   archiveThread,
-  labelThread,
   markImportantMessage,
   markReadThread,
 } from "@/utils/gmail/label";
@@ -20,6 +19,7 @@ import {
   createFilter,
   deleteFilter,
 } from "@/utils/gmail/filter";
+import { ServerActionResponse, captureException } from "@/utils/error";
 
 export async function createLabelAction(options: {
   name: string;
@@ -134,12 +134,25 @@ export async function markSpamThreadAction(threadId: string) {
 export async function createAutoArchiveFilterAction(
   from: string,
   gmailLabelId?: string,
-) {
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
-  const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-  return isStatusOk(res.status) ? { ok: true } : res;
+  if (!session?.user.id) return { error: "Not logged in" };
+  try {
+    const gmail = getGmailClient(session);
+    const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
+
+    if (isStatusOk(res.status)) {
+      return { ok: true };
+    } else {
+      captureException(`Failed to create auto archive filter: ${res.status}`, {
+        extra: res,
+      });
+      return { error: "Failed to create auto archive filter" };
+    }
+  } catch (error) {
+    captureException(error);
+    return { error: "Failed to create auto archive filter" };
+  }
 }
 
 export async function createFilterAction(from: string, gmailLabelId: string) {
