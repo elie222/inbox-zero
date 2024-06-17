@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import {
   CreateRuleBody,
   createRuleBody,
@@ -11,7 +12,7 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 
 export async function createRuleAction(options: CreateRuleBody) {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   const { data: body, error } = createRuleBody.safeParse(options);
   if (error) return { error: error.message };
@@ -56,7 +57,7 @@ export async function createRuleAction(options: CreateRuleBody) {
 
 export async function updateRuleAction(options: UpdateRuleBody) {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   const { data: body, error } = updateRuleBody.safeParse(options);
   if (error) return { error: error.message };
@@ -137,6 +138,8 @@ export async function updateRuleAction(options: UpdateRuleBody) {
         : []),
     ]);
 
+    revalidatePath(`/automation/rule/${body.id}`);
+
     return { rule };
   } catch (error) {
     if (isDuplicateError(error, "name")) {
@@ -149,16 +152,4 @@ export async function updateRuleAction(options: UpdateRuleBody) {
     }
     return { error: "Error updating rule." };
   }
-}
-
-export async function deleteRuleAction(params: { id: string }) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-
-  return await prisma.rule.delete({
-    where: {
-      id: params.id,
-      userId: session.user.id,
-    },
-  });
 }

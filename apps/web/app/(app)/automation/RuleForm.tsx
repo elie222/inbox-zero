@@ -48,13 +48,13 @@ import {
   NEWSLETTER_GROUP_ID,
   RECEIPT_GROUP_ID,
 } from "@/app/(app)/automation/create/examples";
-import { isErrorMessage } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import { LabelsResponse } from "@/app/api/google/labels/route";
 
-export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
+export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
     register,
     handleSubmit,
@@ -64,7 +64,7 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
     formState: { errors, isSubmitting },
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
-    defaultValues: { ...props.rule, groupId: props.rule.groupId },
+    defaultValues: { ...rule, groupId: rule.groupId },
   });
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
@@ -76,7 +76,7 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
-      const tab = searchParams.get("tab") || props.rule.type;
+      const tab = searchParams.get("tab") || rule.type;
       const body = cleanRule(data, tab as RuleType);
 
       // create labels that don't exist
@@ -94,11 +94,9 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
       if (body.id) {
         const res = await updateRuleAction({ ...body, id: body.id });
 
-        if (isErrorMessage(res)) {
+        if (isActionError(res)) {
           console.error(res);
-          toastError({
-            description: res.error,
-          });
+          toastError({ description: res.error });
         } else if (!res.rule) {
           toastError({
             description: `There was an error updating the rule.`,
@@ -110,11 +108,9 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
       } else {
         const res = await createRuleAction(body);
 
-        if (isErrorMessage(res)) {
+        if (isActionError(res)) {
           console.error(res);
-          toastError({
-            description: res.error,
-          });
+          toastError({ description: res.error });
         } else if (!res.rule) {
           toastError({
             description: `There was an error creating the rule.`,
@@ -126,7 +122,7 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
         }
       }
     },
-    [gmailLabelsData?.labels, props.rule.type, router],
+    [gmailLabelsData?.labels, rule.type, router],
   );
 
   return (
@@ -144,7 +140,7 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
 
       <TypographyH3 className="mt-6">Conditions</TypographyH3>
 
-      <Tabs defaultValue={props.rule.type} className="mt-2">
+      <Tabs defaultValue={rule.type} className="mt-2">
         <TabsList>
           <TabsTrigger value={RuleType.AI}>AI</TabsTrigger>
           <TabsTrigger value={RuleType.STATIC}>Static</TabsTrigger>
@@ -375,11 +371,11 @@ export function RuleForm(props: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="flex justify-end space-x-2 py-6">
-        {props.rule.id ? (
+        {rule.id ? (
           <>
-            {props.rule.type !== RuleType.AI && (
+            {rule.type !== RuleType.AI && (
               <Button variant="outline" asChild>
-                <Link href={`/automation/rule/${props.rule.id}/examples`}>
+                <Link href={`/automation/rule/${rule.id}/examples`}>
                   View Examples
                 </Link>
               </Button>
@@ -524,7 +520,7 @@ function LabelCombobox({
                   async () => {
                     const res = await createLabelAction({ name: search });
                     mutate();
-                    if (isErrorMessage(res)) throw new Error(res.error);
+                    if (isActionError(res)) throw new Error(res.error);
                   },
                   {
                     loading: `Creating label "${search}"...`,
