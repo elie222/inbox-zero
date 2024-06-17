@@ -70,8 +70,6 @@ function ModelSectionForm(props: {
 
   const onSubmit: SubmitHandler<SaveSettingsBody> = useCallback(
     async (data) => {
-      if (!data.openAIApiKey) data.aiModel = "gpt-3.5-turbo-0125";
-
       const res = await postRequest<SaveSettingsResponse, SaveSettingsBody>(
         "/api/user/settings",
         data,
