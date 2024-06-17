@@ -70,7 +70,7 @@ export async function chatCompletion(
       messages.map((m) => ({ role: "user", content: m.content })),
     );
     return {
-      response: completion.content[0].text,
+      response: completion.response,
       usage: {
         completion_tokens: completion.usage.output_tokens,
         prompt_tokens: completion.usage.input_tokens,

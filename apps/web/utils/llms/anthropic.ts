@@ -27,12 +27,24 @@ export async function anthropicChatCompletion(
 ) {
   const anthropic = getAnthropic(apiKey);
 
-  return anthropic.messages.create({
+  const result = await anthropic.messages.create({
     model,
     temperature: 0,
     messages: fixMessages(messages),
     max_tokens: 2000, // TODO
   });
+
+  let response = "";
+  const content = result.content[0];
+  if (content.type === "text") {
+    response = content.text;
+  } else {
+    console.log("Tool use not supported", content);
+  }
+  return {
+    ...result,
+    response,
+  };
 }
 
 export async function anthropicChatCompletionStream(
