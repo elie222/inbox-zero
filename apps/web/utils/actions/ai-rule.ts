@@ -31,7 +31,7 @@ export async function runRulesAction(
   if (error) return { error };
   if (!gmail) return { error: "Could not load Gmail" };
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: u.id },
     select: {
       id: true,
@@ -43,8 +43,7 @@ export async function runRulesAction(
       rules: { include: { actions: true } },
     },
   });
-
-  if (!user.email) return { error: "User email not found" };
+  if (!user?.email) return { error: "User email not found" };
 
   const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
     getMessage(email.messageId, gmail, "full"),
@@ -89,7 +88,7 @@ export async function testAiAction({
   if (error) return { error };
   if (!gmail) return { error: "Could not load Gmail" };
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: u.id },
     select: {
       id: true,
@@ -101,6 +100,7 @@ export async function testAiAction({
       rules: { include: { actions: true } },
     },
   });
+  if (!user) return { error: "User not found" };
 
   const [gmailMessage, gmailThread] = await Promise.all([
     getMessage(messageId, gmail, "full"),
@@ -130,7 +130,7 @@ export async function testAiCustomContentAction({
   if (!session?.user.id) return { error: "Not logged in" };
   const gmail = getGmailClient(session);
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
       id: true,
@@ -142,6 +142,7 @@ export async function testAiCustomContentAction({
       rules: { include: { actions: true } },
     },
   });
+  if (!user) return { error: "User not found" };
 
   const result = await testRulesOnMessage({
     gmail,
@@ -173,7 +174,7 @@ export async function createAutomationAction(prompt: string) {
   const userId = session?.user.id;
   if (!userId) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       aiProvider: true,
@@ -182,6 +183,7 @@ export async function createAutomationAction(prompt: string) {
       email: true,
     },
   });
+  if (!user) return { error: "User not found" };
 
   const result = await aiCreateRule(prompt, user, user.email!);
 
@@ -334,10 +336,11 @@ export async function approvePlanAction(
 
   const gmail = getGmailClient(session);
 
-  const executedRule = await prisma.executedRule.findUniqueOrThrow({
+  const executedRule = await prisma.executedRule.findUnique({
     where: { id: executedRuleId },
     include: { actionItems: true },
   });
+  if (!executedRule) return { error: "Item not found" };
 
   await executeAct({
     gmail,
