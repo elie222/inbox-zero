@@ -21,64 +21,61 @@ import {
 import { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ParsedMessage } from "@/utils/types";
-import { executeGmailAction } from "@/utils/actions/helpers";
+import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { ServerActionResponse } from "@/utils/error";
 
 export async function runRulesAction(
   email: EmailForAction,
 ): Promise<ServerActionResponse> {
-  async function runRules(gmail: gmail_v1.Gmail, u: { id: string }) {
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { id: u.id },
-      select: {
-        id: true,
-        email: true,
-        about: true,
-        aiProvider: true,
-        aiModel: true,
-        openAIApiKey: true,
-        rules: { include: { actions: true } },
-      },
-    });
+  const { gmail, user: u, error } = await getSessionAndGmailClient();
+  if (error) return { error };
+  if (!gmail) return { error: "Could not load Gmail" };
 
-    if (!user.email) throw new Error("User email not found");
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: u.id },
+    select: {
+      id: true,
+      email: true,
+      about: true,
+      aiProvider: true,
+      aiModel: true,
+      openAIApiKey: true,
+      rules: { include: { actions: true } },
+    },
+  });
 
-    const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
-      getMessage(email.messageId, gmail, "full"),
-      getThread(email.threadId, gmail),
-      prisma.executedRule.findUnique({
-        where: {
-          unique_user_thread_message: {
-            userId: user.id,
-            threadId: email.threadId,
-            messageId: email.messageId,
-          },
+  if (!user.email) return { error: "User email not found" };
+
+  const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
+    getMessage(email.messageId, gmail, "full"),
+    getThread(email.threadId, gmail),
+    prisma.executedRule.findUnique({
+      where: {
+        unique_user_thread_message: {
+          userId: user.id,
+          threadId: email.threadId,
+          messageId: email.messageId,
         },
-        select: { id: true },
-      }),
-    ]);
+      },
+      select: { id: true },
+    }),
+  ]);
 
-    if (hasExistingRule) {
-      console.log("Skipping. Rule already exists.");
-      return;
-    }
-
-    const message = parseMessage(gmailMessage);
-    const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
-
-    await runRulesOnMessage({
-      gmail,
-      message,
-      rules: user.rules,
-      user: { ...user, email: user.email! },
-      isThread,
-    });
+  if (hasExistingRule) {
+    console.log("Skipping. Rule already exists.");
+    return;
   }
 
-  return executeGmailAction(
-    async (gmail, user) => runRules(gmail, user),
-    "Failed to run rules",
-  );
+  const message = parseMessage(gmailMessage);
+  const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
+
+  await runRulesOnMessage({
+    gmail,
+    message,
+    rules: user.rules,
+    user: { ...user, email: user.email! },
+    isThread,
+  });
 }
 
 export async function testAiAction({
@@ -88,43 +85,40 @@ export async function testAiAction({
   messageId: string;
   threadId: string;
 }): Promise<ServerActionResponse<TestResult>> {
-  async function testAi(gmail: gmail_v1.Gmail, u: { id: string }) {
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { id: u.id },
-      select: {
-        id: true,
-        email: true,
-        about: true,
-        aiProvider: true,
-        aiModel: true,
-        openAIApiKey: true,
-        rules: { include: { actions: true } },
-      },
-    });
+  const { gmail, user: u, error } = await getSessionAndGmailClient();
+  if (error) return { error };
+  if (!gmail) return { error: "Could not load Gmail" };
 
-    const [gmailMessage, gmailThread] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
-      getThread(threadId, gmail),
-    ]);
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: u.id },
+    select: {
+      id: true,
+      email: true,
+      about: true,
+      aiProvider: true,
+      aiModel: true,
+      openAIApiKey: true,
+      rules: { include: { actions: true } },
+    },
+  });
 
-    const message = parseMessage(gmailMessage);
-    const isThread = !!gmailThread?.messages && gmailThread.messages.length > 1;
+  const [gmailMessage, gmailThread] = await Promise.all([
+    getMessage(messageId, gmail, "full"),
+    getThread(threadId, gmail),
+  ]);
 
-    const result = await testRulesOnMessage({
-      gmail,
-      message,
-      rules: user.rules,
-      user: { ...user, email: user.email! },
-      isThread,
-    });
+  const message = parseMessage(gmailMessage);
+  const isThread = !!gmailThread?.messages && gmailThread.messages.length > 1;
 
-    return result;
-  }
+  const result = await testRulesOnMessage({
+    gmail,
+    message,
+    rules: user.rules,
+    user: { ...user, email: user.email! },
+    isThread,
+  });
 
-  return executeGmailAction(
-    async (gmail, user) => testAi(gmail, user),
-    "Failed to test rules",
-  );
+  return result;
 }
 
 export async function testAiCustomContentAction({

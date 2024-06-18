@@ -13,24 +13,8 @@ export async function getSessionAndGmailClient() {
   return { gmail, user: session.user };
 }
 
-function handleError(error: unknown, message: string) {
+export function handleError(error: unknown, message: string) {
   captureException(error);
   console.error(message, error);
   return { error: message };
-}
-
-export async function executeGmailAction<T>(
-  action: (gmail: gmail_v1.Gmail, user: { id: string }) => Promise<any>,
-  errorMessage: string,
-): Promise<ServerActionResponse<T>> {
-  const { gmail, user, error } = await getSessionAndGmailClient();
-  if (error) return { error };
-  if (!gmail) return { error: "Could not load Gmail" };
-
-  try {
-    const res = await action(gmail, user);
-    return !isStatusOk(res.status) ? handleError(res, errorMessage) : undefined;
-  } catch (error) {
-    return handleError(error, errorMessage);
-  }
 }

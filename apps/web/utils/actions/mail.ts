@@ -18,7 +18,28 @@ import {
   deleteFilter,
 } from "@/utils/gmail/filter";
 import { ServerActionResponse } from "@/utils/error";
-import { executeGmailAction } from "@/utils/actions/helpers";
+import { gmail_v1 } from "googleapis";
+import {
+  getSessionAndGmailClient,
+  isStatusOk,
+  handleError,
+} from "@/utils/actions/helpers";
+
+async function executeGmailAction<T>(
+  action: (gmail: gmail_v1.Gmail, user: { id: string }) => Promise<any>,
+  errorMessage: string,
+): Promise<ServerActionResponse<T>> {
+  const { gmail, user, error } = await getSessionAndGmailClient();
+  if (error) return { error };
+  if (!gmail) return { error: "Could not load Gmail" };
+
+  try {
+    const res = await action(gmail, user);
+    return !isStatusOk(res.status) ? handleError(res, errorMessage) : undefined;
+  } catch (error) {
+    return handleError(error, errorMessage);
+  }
+}
 
 export async function archiveThreadAction(
   threadId: string,
