@@ -15,6 +15,7 @@ export async function getSessionAndGmailClient() {
 
 function handleError(error: unknown, message: string) {
   captureException(error);
+  console.error(message, error);
   return { error: message };
 }
 
