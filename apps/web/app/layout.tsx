@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
+import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import "../styles/globals.css";
@@ -73,6 +74,7 @@ export default function RootLayout({
         </PostHogProvider>
         <SpeedInsights />
         <Analytics />
+        <AxiomWebVitals />
         <UTM />
         {env.NEXT_PUBLIC_GTM_ID ? (
           <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />

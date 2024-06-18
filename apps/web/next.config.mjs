@@ -1,5 +1,6 @@
-import { withSentryConfig } from "@sentry/nextjs";
 import { env } from "./env.mjs";
+import { withSentryConfig } from "@sentry/nextjs";
+import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
 
 const withMDX = nextMdx();
@@ -153,4 +154,4 @@ const exportConfig =
     ? withSentryConfig(mdxConfig, sentryOptions, sentryConfig)
     : mdxConfig;
 
-export default exportConfig;
+export default withAxiom(exportConfig);
