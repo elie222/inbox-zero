@@ -1,14 +1,8 @@
 "use client";
 
-import { captureException } from "@/utils/error";
-import {
-  useCallback,
-  useState,
-  createContext,
-  useContext,
-  useMemo,
-} from "react";
+import { useCallback, useState, createContext, useMemo } from "react";
 import { SWRConfig, mutate } from "swr";
+import { captureException } from "@/utils/error";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (url: string, init?: RequestInit | undefined) => {
