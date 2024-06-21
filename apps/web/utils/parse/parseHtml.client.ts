@@ -81,7 +81,7 @@ export function htmlToText(html: string): string {
 // `Content. On Wed, Feb 21, 2024 at 10:10 AM ABC <abc@gmail.com> wrote: XYZ.`
 // This function returns "Content."
 export function removeReplyFromTextPlain(text: string) {
-  return text.split(/(On.*?wrote:)/s)[0];
+  return text.split(/(On[\s\S]*?wrote:)/)[0];
 }
 
 export function isMarketingEmail(html: string) {
