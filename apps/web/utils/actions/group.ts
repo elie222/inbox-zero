@@ -12,20 +12,23 @@ import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
 import { GroupItemType } from "@prisma/client";
+import { ServerActionResponse } from "@/utils/error";
 
-export async function createGroupAction(body: CreateGroupBody) {
+export async function createGroupAction(
+  body: CreateGroupBody,
+): Promise<ServerActionResponse> {
   const { name, prompt } = createGroupBody.parse(body);
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.group.create({
     data: { name, prompt, userId: session.user.id },
   });
 }
 
-export async function createNewsletterGroupAction() {
+export async function createNewsletterGroupAction(): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   const name = "Newsletters";
   const existingGroup = await prisma.group.findFirst({
@@ -54,9 +57,9 @@ export async function createNewsletterGroupAction() {
   return { id: group.id };
 }
 
-export async function createReceiptGroupAction() {
+export async function createReceiptGroupAction(): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   const name = "Receipts";
   const existingGroup = await prisma.group.findFirst({
@@ -80,23 +83,36 @@ export async function createReceiptGroupAction() {
   return { id: group.id };
 }
 
-export async function deleteGroupAction(id: string) {
+export async function deleteGroupAction(
+  id: string,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.group.delete({ where: { id, userId: session.user.id } });
 }
 
-export async function addGroupItemAction(body: AddGroupItemBody) {
+export async function addGroupItemAction(
+  body: AddGroupItemBody,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
+
+  const group = await prisma.group.findUnique({
+    where: { id: body.groupId, userId: session.user.id },
+  });
+  if (!group) return { error: "Group not found" };
+  if (group.userId !== session.user.id)
+    return { error: "You don't have permission to add items to this group" };
 
   await prisma.groupItem.create({ data: addGroupItemBody.parse(body) });
 }
 
-export async function deleteGroupItemAction(id: string) {
+export async function deleteGroupItemAction(
+  id: string,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.groupItem.delete({
     where: { id, group: { userId: session.user.id } },
