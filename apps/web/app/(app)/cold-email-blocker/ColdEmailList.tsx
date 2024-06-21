@@ -205,7 +205,6 @@ function Row({
               setIsMarkingColdEmail(false);
             }}
             disabled={isMarkingColdEmail}
-            className="text-nowrap"
           >
             {isMarkingColdEmail && <ButtonLoader />}
             Not cold email
