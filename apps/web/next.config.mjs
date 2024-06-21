@@ -10,7 +10,8 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   experimental: {
-    serverComponentsExternalPackages: ['@sentry/nextjs', '@sentry/node'],
+    serverComponentsExternalPackages: ["@sentry/nextjs", "@sentry/node"],
+    instrumentationHook: true,
   },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {
@@ -37,18 +38,18 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: '/feedback',
-        destination: 'https://inboxzero.featurebase.app',
+        source: "/feedback",
+        destination: "https://inboxzero.featurebase.app",
         permanent: true,
       },
       {
-        source: '/roadmap',
-        destination: 'https://inboxzero.featurebase.app/roadmap',
+        source: "/roadmap",
+        destination: "https://inboxzero.featurebase.app/roadmap",
         permanent: true,
       },
       {
-        source: '/changelog',
-        destination: 'https://inboxzero.featurebase.app/changelog',
+        source: "/changelog",
+        destination: "https://inboxzero.featurebase.app/changelog",
         permanent: true,
       },
       {
@@ -151,7 +152,7 @@ const mdxConfig = withMDX(nextConfig);
 
 const exportConfig =
   env.NEXT_PUBLIC_SENTRY_DSN && env.SENTRY_ORGANIZATION && env.SENTRY_PROJECT
-    ? withSentryConfig(mdxConfig, sentryOptions, sentryConfig)
+    ? withSentryConfig(mdxConfig, { ...sentryOptions, ...sentryConfig })
     : mdxConfig;
 
 export default withAxiom(exportConfig);
