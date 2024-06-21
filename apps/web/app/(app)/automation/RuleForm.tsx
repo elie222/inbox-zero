@@ -40,10 +40,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
 import { CreateGroupModalButton } from "@/app/(app)/automation/groups/CreateGroupModal";
-import {
-  createNewsletterGroupAction,
-  createReceiptGroupAction,
-} from "@/utils/actions/group";
+import { createPredefinedGroupAction } from "@/utils/actions/group";
 import {
   NEWSLETTER_GROUP_ID,
   RECEIPT_GROUP_ID,
@@ -408,18 +405,20 @@ function GroupsTab(props: {
   const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
 
   useEffect(() => {
-    async function createGroup() {
+    async function createGroup(groupId: string) {
       setLoadingCreateGroup(true);
-      let created: { id: string } | null = null;
-      if (props.groupId === NEWSLETTER_GROUP_ID) {
-        created = await createNewsletterGroupAction();
-      } else if (props.groupId === RECEIPT_GROUP_ID) {
-        created = await createReceiptGroupAction();
-      }
-      if (created) {
+
+      const result = await createPredefinedGroupAction(groupId);
+
+      if (isActionError(result)) {
+        toastError({ description: result.error });
+      } else if (!result) {
+        toastError({ description: "Error creating group" });
+      } else {
         mutate();
-        setValue("groupId", created.id);
+        setValue("groupId", result.id);
       }
+
       setLoadingCreateGroup(false);
     }
 
@@ -427,7 +426,7 @@ function GroupsTab(props: {
       props.groupId === NEWSLETTER_GROUP_ID ||
       props.groupId === RECEIPT_GROUP_ID
     ) {
-      createGroup();
+      createGroup(props.groupId);
     }
   }, [mutate, props.groupId, setValue]);
 

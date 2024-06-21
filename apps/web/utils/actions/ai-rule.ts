@@ -22,7 +22,7 @@ import { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { ServerActionResponse } from "@/utils/error";
+import { ServerActionResponse, isActionError } from "@/utils/error";
 
 export async function runRulesAction(
   email: EmailForAction,
@@ -211,8 +211,14 @@ export async function createAutomationAction(prompt: string) {
 
         groupId = newsletterGroup.id;
       } else {
-        const group = await createNewsletterGroupAction();
-        groupId = group.id;
+        const result = await createNewsletterGroupAction();
+        if (isActionError(result)) {
+          return result;
+        } else if (!result) {
+          return { error: "Error creating newsletter group" };
+        } else {
+          groupId = result.id;
+        }
       }
     } else if (result.group === "Receipts") {
       const receiptsGroup = groups.find((g) =>
@@ -229,8 +235,14 @@ export async function createAutomationAction(prompt: string) {
           };
         }
       } else {
-        const group = await createReceiptGroupAction();
-        groupId = group.id;
+        const result = await createReceiptGroupAction();
+        if (isActionError(result)) {
+          return result;
+        } else if (!result) {
+          return { error: "Error creating receipt group" };
+        } else {
+          groupId = result.id;
+        }
       }
     }
   }

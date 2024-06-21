@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { deleteGroupItemAction } from "@/utils/actions/group";
 import { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
+import { isActionError } from "@/utils/error";
+import { toastError } from "@/components/Toast";
 
 export function ExampleList({
   groupedBySenders,
@@ -40,8 +42,14 @@ export function ExampleList({
               size="sm"
               className="mt-4"
               onClick={() => {
-                deleteGroupItemAction(matchingGroupItem.id);
-                setRemoved([...removed, firstThreadId]);
+                const result = deleteGroupItemAction(matchingGroupItem.id);
+                if (isActionError(result)) {
+                  toastError({
+                    description: `Failed to remove ${matchingGroupItem.value} from group. ${result.error}`,
+                  });
+                } else {
+                  setRemoved([...removed, firstThreadId]);
+                }
               }}
             >
               Remove {matchingGroupItem.type}: {matchingGroupItem.value}

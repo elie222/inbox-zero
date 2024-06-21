@@ -13,6 +13,10 @@ import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
 import { GroupItemType } from "@prisma/client";
 import { ServerActionResponse } from "@/utils/error";
+import {
+  NEWSLETTER_GROUP_ID,
+  RECEIPT_GROUP_ID,
+} from "@/app/(app)/automation/create/examples";
 
 export async function createGroupAction(
   body: CreateGroupBody,
@@ -21,12 +25,30 @@ export async function createGroupAction(
   const session = await auth();
   if (!session?.user.id) return { error: "Not logged in" };
 
-  await prisma.group.create({
-    data: { name, prompt, userId: session.user.id },
-  });
+  try {
+    await prisma.group.create({
+      data: { name, prompt, userId: session.user.id },
+    });
+  } catch (error) {
+    return { error: "Error creating group" };
+  }
 }
 
-export async function createNewsletterGroupAction(): Promise<ServerActionResponse> {
+export async function createPredefinedGroupAction(
+  groupId: string,
+): Promise<ServerActionResponse<{ id: string }>> {
+  if (groupId === NEWSLETTER_GROUP_ID) {
+    return await createNewsletterGroupAction();
+  } else if (groupId === RECEIPT_GROUP_ID) {
+    return await createReceiptGroupAction();
+  }
+
+  return { error: "Unknown group type" };
+}
+
+export async function createNewsletterGroupAction(): Promise<
+  ServerActionResponse<{ id: string }>
+> {
   const session = await auth();
   if (!session?.user.id) return { error: "Not logged in" };
 
@@ -57,7 +79,9 @@ export async function createNewsletterGroupAction(): Promise<ServerActionRespons
   return { id: group.id };
 }
 
-export async function createReceiptGroupAction(): Promise<ServerActionResponse> {
+export async function createReceiptGroupAction(): Promise<
+  ServerActionResponse<{ id: string }>
+> {
   const session = await auth();
   if (!session?.user.id) return { error: "Not logged in" };
 

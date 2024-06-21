@@ -29,6 +29,7 @@ import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AddGroupItemBody, addGroupItemBody } from "@/utils/actions/validation";
+import { isActionError } from "@/utils/error";
 
 export function ViewGroupButton({
   groupId,
@@ -92,9 +93,15 @@ function ViewGroup({
               variant="outline"
               onClick={async () => {
                 if (confirm("Are you sure you want to delete this group?")) {
-                  await deleteGroupAction(groupId);
+                  const result = await deleteGroupAction(groupId);
+                  if (isActionError(result)) {
+                    toastError({
+                      description: `Failed to delete group. ${result.error}`,
+                    });
+                  } else {
+                    onDelete();
+                  }
                   mutate();
-                  onDelete();
                 }
               }}
             >
@@ -134,8 +141,16 @@ function ViewGroup({
                               variant="outline"
                               size="icon"
                               onClick={async () => {
-                                await deleteGroupItemAction(item.id);
-                                mutate();
+                                const result = await deleteGroupItemAction(
+                                  item.id,
+                                );
+                                if (isActionError(result)) {
+                                  toastError({
+                                    description: `Failed to remove ${item.value} from group. ${result.error}`,
+                                  });
+                                } else {
+                                  mutate();
+                                }
                               }}
                             >
                               <TrashIcon className="h-4 w-4" />
@@ -177,12 +192,13 @@ const AddGroupItemForm = ({
 
   const onSubmit: SubmitHandler<AddGroupItemBody> = useCallback(
     async (data) => {
-      try {
-        await addGroupItemAction(data);
+      const result = await addGroupItemAction(data);
+      if (isActionError(result)) {
+        toastError({
+          description: `Failed to add ${data.value} to ${data.groupId}. ${result.error}`,
+        });
+      } else {
         toastSuccess({ description: `Item added to group!` });
-      } catch (error) {
-        console.error(error);
-        toastError({ description: `Error adding item to group!` });
       }
       mutate();
     },

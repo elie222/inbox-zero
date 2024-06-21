@@ -54,7 +54,7 @@ import { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
-import { isErrorMessage } from "@/utils/error";
+import { isActionError, isErrorMessage } from "@/utils/error";
 import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
 import { isDefined } from "@/utils/types";
@@ -660,15 +660,22 @@ function GroupsSubMenu({ sender }: { sender: string }) {
                 <DropdownMenuItem
                   key={group.id}
                   onClick={async () => {
-                    await addGroupItemAction({
+                    const result = await addGroupItemAction({
                       groupId: group.id,
                       type: "FROM",
                       value: sender,
                     });
-                    toastSuccess({
-                      title: "Success!",
-                      description: `Added ${sender} to ${group.name}`,
-                    });
+
+                    if (isActionError(result)) {
+                      toastError({
+                        description: `Failed to add ${sender} to ${group.name}. ${result.error}`,
+                      });
+                    } else {
+                      toastSuccess({
+                        title: "Success!",
+                        description: `Added ${sender} to ${group.name}`,
+                      });
+                    }
                   }}
                 >
                   {group.name}

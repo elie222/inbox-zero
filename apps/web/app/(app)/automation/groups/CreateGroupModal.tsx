@@ -15,6 +15,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateGroupBody, createGroupBody } from "@/utils/actions/validation";
 import { AlertBasic } from "@/components/Alert";
+import { isActionError } from "@/utils/error";
 
 export function CreateGroupModalButton(props: {
   existingGroups: string[];
@@ -49,14 +50,14 @@ export function CreateGroupModalButton(props: {
                 disabled={newsletterLoading}
                 onClick={async () => {
                   setNewsletterLoading(true);
-                  try {
-                    await createNewsletterGroupAction();
+                  const result = await createNewsletterGroupAction();
+                  if (isActionError(result)) {
+                    toastError({
+                      description: `There was an error creating the group. ${result.error}`,
+                    });
+                  } else {
                     toastSuccess({ description: `Group created!` });
                     closeModal();
-                  } catch (error) {
-                    toastError({
-                      description: `There was an error creating the group.`,
-                    });
                   }
                   setNewsletterLoading(false);
                   mutate("/api/user/group");
@@ -72,14 +73,14 @@ export function CreateGroupModalButton(props: {
                 disabled={receiptsLoading}
                 onClick={async () => {
                   setReceiptsLoading(true);
-                  try {
-                    await createReceiptGroupAction();
+                  const result = await createReceiptGroupAction();
+                  if (isActionError(result)) {
+                    toastError({
+                      description: `There was an error creating the group. ${result.error}`,
+                    });
+                  } else {
                     toastSuccess({ description: `Group created!` });
                     closeModal();
-                  } catch (error) {
-                    toastError({
-                      description: `There was an error creating the group.`,
-                    });
                   }
                   setReceiptsLoading(false);
                   mutate("/api/user/group");
@@ -119,17 +120,17 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
 
   const onSubmit: SubmitHandler<CreateGroupBody> = useCallback(
     async (data) => {
-      try {
-        await createGroupAction(data);
+      const result = await createGroupAction(data);
+
+      if (isActionError(result)) {
+        toastError({
+          description: `There was an error creating the group. ${result.error}`,
+        });
+      } else {
         toastSuccess({ description: `Group created!` });
         closeModal();
-      } catch (error) {
-        toastError({
-          description: `There was an error creating the group. ${
-            (error as Error).message
-          }`,
-        });
       }
+
       mutate("/api/user/group");
     },
     [closeModal, mutate],

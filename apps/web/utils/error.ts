@@ -20,9 +20,12 @@ export function captureException(
   sentryCaptureException(error, additionalInfo);
 }
 
-export type ActionError = { error: string };
-export type ServerActionResponse<T = {}> = ActionError | undefined | T;
+export type ActionError<T = {}> = { error: string } & T;
+export type ServerActionResponse<T = {}, S = {}> =
+  | ActionError<S>
+  | T
+  | undefined;
 
-export function isActionError(error: any): error is ActionError {
+export function isActionError<T = {}>(error: any): error is ActionError<T> {
   return error && "error" in error && error.error;
 }
