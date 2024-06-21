@@ -14,10 +14,10 @@
     "resend": "^3.3.0"
   },
   "devDependencies": {
-    "@types/node": "20.14.2",
+    "@types/node": "20.14.7",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "tsconfig": "workspace:*",
-    "typescript": "5.4.5"
+    "typescript": "5.5.2"
   }
 }
