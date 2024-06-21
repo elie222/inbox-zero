@@ -26,6 +26,6 @@ export type ServerActionResponse<T = {}, S = {}> =
   | T
   | undefined;
 
-export function isActionError<T = {}>(error: any): error is ActionError<T> {
+export function isActionError(error: any): error is ActionError {
   return error && "error" in error && error.error;
 }

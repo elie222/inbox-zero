@@ -35,13 +35,14 @@ export default function AutomationSettingsPage() {
       if (data.prompt) {
         const result = await createAutomationAction(data.prompt);
 
-        if (isActionError<{ existingRuleId?: string }>(result)) {
-          if (result.existingRuleId) {
+        if (isActionError(result)) {
+          const existingRuleId = result.existingRuleId;
+          if (existingRuleId) {
             toastInfo({
               title: "Rule for group already exists",
               description: "Edit the existing rule to create your automation.",
             });
-            router.push(`/automation/rule/${result.existingRuleId}`);
+            router.push(`/automation/rule/${existingRuleId}`);
           } else {
             toastError({
               description:

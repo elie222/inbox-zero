@@ -169,7 +169,9 @@ export async function testAiCustomContentAction({
   return result;
 }
 
-export async function createAutomationAction(prompt: string) {
+export async function createAutomationAction(
+  prompt: string,
+): Promise<ServerActionResponse<{ id: string }, { existingRuleId?: string }>> {
   const session = await auth();
   const userId = session?.user.id;
   if (!userId) return { error: "Not logged in" };
