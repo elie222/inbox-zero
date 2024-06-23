@@ -122,9 +122,7 @@ export async function addGroupItemAction(
   const session = await auth();
   if (!session?.user.id) return { error: "Not logged in" };
 
-  const group = await prisma.group.findUnique({
-    where: { id: body.groupId, userId: session.user.id },
-  });
+  const group = await prisma.group.findUnique({ where: { id: body.groupId } });
   if (!group) return { error: "Group not found" };
   if (group.userId !== session.user.id)
     return { error: "You don't have permission to add items to this group" };
