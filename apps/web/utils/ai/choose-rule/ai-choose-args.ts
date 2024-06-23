@@ -4,7 +4,6 @@ import { Action, ActionType, User } from "@prisma/client";
 import { Function } from "ai";
 import { parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
-import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
 import { REQUIRES_MORE_INFO } from "@/utils/ai/choose-rule/consts";
 import {
@@ -100,18 +99,18 @@ export function getActionItemsFromAiArgsResponse(
   response: AIGeneratedArgs | undefined,
   ruleActions: Action[],
 ) {
-  return ruleActions.map(({ type, label, subject, content, to, cc, bcc }) => {
+  return ruleActions.map((ra) => {
     // use prefilled values where we have them
-    const a = response?.[type] || ({} as any);
+    const a = response?.[ra.type] || ({} as any);
 
     return {
-      type,
-      label: label === AI_GENERATED_FIELD_VALUE ? a.label : label,
-      subject: subject === AI_GENERATED_FIELD_VALUE ? a.subject : subject,
-      content: content === AI_GENERATED_FIELD_VALUE ? a.content : content,
-      to: to === AI_GENERATED_FIELD_VALUE ? a.to : to,
-      cc: cc === AI_GENERATED_FIELD_VALUE ? a.cc : cc,
-      bcc: bcc === AI_GENERATED_FIELD_VALUE ? a.bcc : bcc,
+      type: ra.type,
+      label: ra.labelPrompt ? a.label : ra.label,
+      subject: ra.subjectPrompt ? a.subject : ra.subject,
+      content: ra.contentPrompt ? a.content : ra.content,
+      to: ra.toPrompt ? a.to : ra.to,
+      cc: ra.ccPrompt ? a.cc : ra.cc,
+      bcc: ra.bccPrompt ? a.bcc : ra.bcc,
     };
   });
 }

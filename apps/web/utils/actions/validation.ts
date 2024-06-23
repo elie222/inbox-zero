@@ -27,14 +27,21 @@ export const zodActionType = z.enum([
   ActionType.SEND_EMAIL,
 ]);
 
+const zodField = z
+  .object({
+    value: z.string().nullish(),
+    ai: z.boolean().nullish(),
+  })
+  .nullish();
+
 const zodAction = z.object({
   type: zodActionType,
-  label: z.string().nullish(),
-  subject: z.string().nullish(),
-  content: z.string().nullish(),
-  to: z.string().nullish(),
-  cc: z.string().nullish(),
-  bcc: z.string().nullish(),
+  label: zodField,
+  subject: zodField,
+  content: zodField,
+  to: zodField,
+  cc: zodField,
+  bcc: zodField,
 });
 
 export const zodRuleType = z.enum([

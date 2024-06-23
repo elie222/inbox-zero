@@ -31,7 +31,6 @@ import { CreateRuleBody, createRuleBody } from "@/utils/actions/validation";
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
-import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
 import { Tooltip } from "@/components/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import useSWR from "swr";
@@ -82,8 +81,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           const hasLabel = gmailLabelsData?.labels?.some(
             (label) => label.name === action.label,
           );
-          if (!hasLabel && action.label) {
-            await createLabelAction({ name: action.label });
+          if (!hasLabel && action.label?.value) {
+            await createLabelAction({ name: action.label.value });
           }
         }
       }
@@ -242,9 +241,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 <div className="col-span-3 space-y-4">
                   {actionInputs[watch(`actions.${i}.type`)].fields.map(
                     (field) => {
-                      const isAiGenerated =
-                        watch(`actions.${i}.${field.name}`) ===
-                        AI_GENERATED_FIELD_VALUE;
+                      const isAiGenerated = watch(
+                        `actions.${i}.${field.name}.ai`,
+                      );
 
                       return (
                         <div key={field.label}>
@@ -253,60 +252,53 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                             <div className="flex items-center space-x-2">
                               <TooltipExplanation text="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation." />
                               <Toggle
-                                name={`actions.${i}.${field.name}`}
+                                name={`actions.${i}.${field.name}.ai`}
                                 label="AI generated"
-                                enabled={isAiGenerated}
+                                enabled={isAiGenerated || false}
                                 onChange={(enabled) => {
                                   setValue(
                                     `actions.${i}.${field.name}`,
-                                    enabled ? AI_GENERATED_FIELD_VALUE : "",
+                                    enabled ? { value: "", ai: true } : null,
                                   );
                                 }}
                               />
                             </div>
                           </div>
-                          {isAiGenerated ? (
-                            <input
-                              className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
-                              type="text"
-                              disabled
-                              value=""
-                              placeholder="AI Generated"
+
+                          {field.name === "label" ? (
+                            <div className="mt-2">
+                              <LabelCombobox
+                                userLabels={userLabels}
+                                isLoading={isLoading}
+                                mutate={mutate}
+                                value={
+                                  watch(`actions.${i}.${field.name}.value`) ||
+                                  ""
+                                }
+                                onChangeValue={(value) => {
+                                  setValue(
+                                    `actions.${i}.${field.name}.value`,
+                                    value,
+                                  );
+                                }}
+                              />
+                            </div>
+                          ) : field.textArea ? (
+                            <textarea
+                              className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              rows={3}
+                              placeholder={isAiGenerated ? "AI prompt" : ""}
+                              {...register(`actions.${i}.${field.name}.value`)}
                             />
                           ) : (
-                            <>
-                              {field.name === "label" ? (
-                                <div className="mt-2">
-                                  <LabelCombobox
-                                    userLabels={userLabels}
-                                    isLoading={isLoading}
-                                    mutate={mutate}
-                                    value={
-                                      watch(`actions.${i}.${field.name}`) || ""
-                                    }
-                                    onChangeValue={(value) => {
-                                      setValue(
-                                        `actions.${i}.${field.name}`,
-                                        value,
-                                      );
-                                    }}
-                                  />
-                                </div>
-                              ) : field.textArea ? (
-                                <textarea
-                                  className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                                  rows={3}
-                                  {...register(`actions.${i}.${field.name}`)}
-                                />
-                              ) : (
-                                <input
-                                  className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                                  type="text"
-                                  {...register(`actions.${i}.${field.name}`)}
-                                />
-                              )}
-                            </>
+                            <input
+                              className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              type="text"
+                              placeholder={isAiGenerated ? "AI prompt" : ""}
+                              {...register(`actions.${i}.${field.name}.value`)}
+                            />
                           )}
+
                           {errors["actions"]?.[i]?.[field.name]?.message ? (
                             <ErrorMessage
                               message={
