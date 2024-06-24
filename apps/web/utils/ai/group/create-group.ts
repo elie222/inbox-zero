@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { chatCompletion, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
 import { saveAiUsage } from "@/utils/usage";
 import { Group, User } from "@prisma/client";
-import { parseJSON } from "@/utils/json";
 
 export async function aiCreateGroup(
   user: User,
@@ -14,10 +13,7 @@ export async function aiCreateGroup(
     user.aiModel,
   );
 
-  const messages = [
-    {
-      role: "user" as const,
-      content: `You are an assistant that helps people manage their emails.
+  const prompt = `You are an assistant that helps people manage their emails.
 You categorise emailers into groups.
 
 The user has created a new group called "${group.name}".
@@ -34,17 +30,18 @@ Return JSON with the following fields:
 Do not include explanations.
 
 JSON:
-`,
-    },
-  ];
+`;
 
-  const aiResponse = await chatCompletion(
+  const aiResponse = await chatCompletionObject({
     provider,
     model,
-    user.openAIApiKey,
-    messages,
-    { jsonResponse: true },
-  );
+    apiKey: user.openAIApiKey,
+    prompt,
+    schema: z.object({
+      senders: z.array(z.string()),
+      subjects: z.array(z.string()),
+    }),
+  });
 
   if (aiResponse.usage) {
     await saveAiUsage({
@@ -56,23 +53,5 @@ JSON:
     });
   }
 
-  const responseSchema = z.object({
-    senders: z.array(z.string()),
-    subjects: z.array(z.string()),
-  });
-
-  if (!aiResponse.response) return;
-
-  try {
-    const result = responseSchema.parse(parseJSON(aiResponse.response));
-    return result;
-  } catch (error) {
-    console.warn(
-      "Error parsing data.\nResponse:",
-      aiResponse?.response,
-      "\nError:",
-      error,
-    );
-    return;
-  }
+  return aiResponse.object;
 }

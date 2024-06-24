@@ -1,6 +1,5 @@
 "use server";
 
-import { gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { RuleType, ExecutedRuleStatus } from "@prisma/client";
@@ -72,7 +71,7 @@ export async function runRulesAction(
     gmail,
     message,
     rules: user.rules,
-    user: { ...user, email: user.email! },
+    user: { ...user, email: user.email },
     isThread,
   });
 }
@@ -114,7 +113,7 @@ export async function testAiAction({
     gmail,
     message,
     rules: user.rules,
-    user: { ...user, email: user.email! },
+    user: { ...user, email: user.email },
     isThread,
   });
 
@@ -162,7 +161,7 @@ export async function testAiCustomContentAction({
       internalDate: new Date().toISOString(),
     },
     rules: user.rules,
-    user: { ...user, email: user.email! },
+    user,
     isThread: false,
   });
 
@@ -186,8 +185,9 @@ export async function createAutomationAction(
     },
   });
   if (!user) return { error: "User not found" };
+  if (!user.email) return { error: "User email not found" };
 
-  const result = await aiCreateRule(prompt, user, user.email!);
+  const result = await aiCreateRule(prompt, user, user.email);
 
   if (!result) return { error: "AI error creating rule." };
 

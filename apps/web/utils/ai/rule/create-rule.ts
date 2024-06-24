@@ -1,6 +1,4 @@
 import { z } from "zod";
-import zodToJsonSchema from "zod-to-json-schema";
-import { parseJSON } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { ActionType } from "@prisma/client";
 import { UserAIFields } from "@/utils/llms/types";
@@ -80,33 +78,22 @@ export async function aiCreateRule(
     user.aiModel,
   );
 
-  const messages = [
-    {
-      role: "system" as const,
-      content: `You are an AI assistant that helps people manage their emails.`,
-    },
-    {
-      role: "user" as const,
-      content: `Generate a rule for these instructions:\n${instructions}`,
-    },
-  ];
+  const system = `You are an AI assistant that helps people manage their emails.`;
+  const prompt = `Generate a rule for these instructions:\n${instructions}`;
 
-  const aiResponse = await chatCompletionTools(
+  const aiResponse = await chatCompletionTools({
     provider,
     model,
-    user.openAIApiKey,
-    messages,
-    [
-      {
-        type: "function",
-        function: {
-          name: "categorizeRule",
-          description: "Generate a rule to handle the email",
-          parameters: zodToJsonSchema(createRuleSchema),
-        },
+    apiKey: user.openAIApiKey,
+    prompt,
+    system,
+    tools: {
+      categorize_rule: {
+        description: "Generate a rule to handle the email",
+        parameters: createRuleSchema,
       },
-    ],
-  );
+    },
+  });
 
   if (aiResponse.usage) {
     await saveAiUsage({
@@ -118,16 +105,5 @@ export async function aiCreateRule(
     });
   }
 
-  const contentString = aiResponse.functionCall?.arguments;
-
-  if (!contentString) return;
-
-  try {
-    const rule = createRuleSchema.parse(parseJSON(contentString));
-    return rule;
-  } catch (error) {
-    // TODO if there's an error ask the ai to fix it?
-    console.error(`Invalid response: ${error} ${contentString}`);
-    return;
-  }
+  return aiResponse.toolCalls[0].args as z.infer<typeof createRuleSchema>;
 }
