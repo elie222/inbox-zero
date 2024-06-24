@@ -199,6 +199,8 @@ model Action {
   bcc     String?
 
   // If using AI generated fields - the prompt for each field
+  // An empty string means the field is AI generated, but there's no specific prompt for the field
+  // NULL means there field is not AI generated
   labelPrompt   String?
   subjectPrompt String?
   contentPrompt String?

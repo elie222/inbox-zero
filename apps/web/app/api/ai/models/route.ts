@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { getOpenAI } from "@/utils/llms/openai";
 
 export type OpenAiModelsResponse = Awaited<ReturnType<typeof getOpenAiModels>>;
 
 async function getOpenAiModels({ apiKey }: { apiKey: string }) {
-  const openai = getOpenAI(apiKey);
+  const openai = new OpenAI({ apiKey });
 
   const models = await openai.models.list();
 

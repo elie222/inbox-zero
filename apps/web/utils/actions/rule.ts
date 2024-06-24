@@ -60,7 +60,7 @@ export async function createRuleAction(options: CreateRuleBody) {
         from: body.from || undefined,
         to: body.to || undefined,
         subject: body.subject || undefined,
-        body: body.body || undefined,
+        // body: body.body || undefined,
         groupId: body.groupId || undefined,
       },
     });
@@ -114,7 +114,7 @@ export async function updateRuleAction(options: UpdateRuleBody) {
           from: body.from,
           to: body.to,
           subject: body.subject,
-          body: body.body,
+          // body: body.body,
           groupId: body.groupId,
         },
       }),

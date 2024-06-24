@@ -2,7 +2,7 @@ import { AnthropicStream, OpenAIStream } from "ai";
 import { TiktokenModel, encodingForModel } from "js-tiktoken";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
-import { ChatCompletionStreamResponse } from "@/utils/llms";
+import { chatCompletionStream } from "@/utils/llms";
 
 export async function saveAiUsage({
   email,
@@ -15,9 +15,9 @@ export async function saveAiUsage({
   provider: string | null;
   model: string;
   usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
   };
   label: string;
 }) {
@@ -27,9 +27,9 @@ export async function saveAiUsage({
     publishAiCall({
       userId: email,
       provider: provider || "openai",
-      totalTokens: usage.total_tokens,
-      completionTokens: usage.completion_tokens,
-      promptTokens: usage.prompt_tokens,
+      totalTokens: usage.totalTokens,
+      completionTokens: usage.completionTokens,
+      promptTokens: usage.promptTokens,
       cost,
       model,
       timestamp: Date.now(),
@@ -39,6 +39,7 @@ export async function saveAiUsage({
   ]);
 }
 
+// TODO: fix
 export async function saveAiUsageStream({
   provider,
   response,
@@ -49,7 +50,7 @@ export async function saveAiUsageStream({
   onFinal,
 }: {
   provider: string | null;
-  response: ChatCompletionStreamResponse;
+  response: Awaited<ReturnType<typeof chatCompletionStream>>;
   model: string;
   userEmail: string;
   messages: { role: "system" | "user"; content: string }[];
@@ -81,9 +82,9 @@ export async function saveAiUsageStream({
         saveAiUsage({
           email: userEmail,
           usage: {
-            prompt_tokens: promptTokens,
-            completion_tokens: completionTokens,
-            total_tokens: promptTokens + completionTokens,
+            promptTokens,
+            completionTokens,
+            totalTokens: promptTokens + completionTokens,
           },
           provider: provider || "openai",
           model,
@@ -122,13 +123,13 @@ const costs: Record<
 function calcuateCost(
   model: string,
   usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
+    promptTokens: number;
+    completionTokens: number;
   },
 ): number {
   if (!costs[model]) return 0;
 
   const { input, output } = costs[model];
 
-  return usage.prompt_tokens * input + usage.completion_tokens * output;
+  return usage.promptTokens * input + usage.completionTokens * output;
 }

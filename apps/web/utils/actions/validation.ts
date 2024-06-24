@@ -57,12 +57,14 @@ export const createRuleBody = z.object({
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
   actions: z.array(zodAction),
-  groupId: z.string().nullish(),
+  type: zodRuleType,
+  // static conditions
   from: z.string().nullish(),
   to: z.string().nullish(),
   subject: z.string().nullish(),
-  body: z.string().nullish(),
-  type: zodRuleType,
+  // body: z.string().nullish(), // not in use atm
+  // group
+  groupId: z.string().nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 

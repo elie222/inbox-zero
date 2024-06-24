@@ -1,4 +1,3 @@
-import { zodAIModel } from "@/utils/llms/openai";
 import { z } from "zod";
 
 export const saveSettingsBody = z
@@ -20,8 +19,9 @@ export const saveSettingsBody = z
       .optional(),
   })
   .superRefine((val) => {
-    // if openai key is not set, model must be zodAIModel
-    if (!val.openAIApiKey) zodAIModel.parse(val.aiModel);
+    // if openai key is not set, model must be a valid model
+    if (!val.openAIApiKey)
+      z.enum(["gpt-3.5-turbo-0125", "gpt-4o"]).parse(val.aiModel);
     return true;
   });
 export type SaveSettingsBody = z.infer<typeof saveSettingsBody>;
