@@ -108,7 +108,7 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
 export async function categorise(
   body: CategoriseBody & { content: string } & UserAIFields,
   options: { email: string },
-) {
+): Promise<{ category: string } | undefined> {
   // 1. check redis cache
   const existingCategory = await getCategory({
     email: options.email,
@@ -129,5 +129,5 @@ export async function categorise(
     threadId: body.threadId,
     category: { category: category.object.category },
   });
-  return category;
+  return { category: category.object.category };
 }
