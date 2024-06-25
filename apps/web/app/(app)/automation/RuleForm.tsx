@@ -292,14 +292,18 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                             <textarea
                               className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
                               rows={3}
-                              placeholder={isAiGenerated ? "AI prompt" : ""}
+                              placeholder={
+                                isAiGenerated ? "AI prompt (optional)" : ""
+                              }
                               {...register(`actions.${i}.${field.name}.value`)}
                             />
                           ) : (
                             <input
                               className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
                               type="text"
-                              placeholder={isAiGenerated ? "AI prompt" : ""}
+                              placeholder={
+                                isAiGenerated ? "AI prompt (optional)" : ""
+                              }
                               {...register(`actions.${i}.${field.name}.value`)}
                             />
                           )}
