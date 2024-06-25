@@ -4,48 +4,57 @@ import { RuleType } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
 
-const email = {
-  from: "from@test.com",
-  subject: "test",
-  content: "test",
-};
-
-const user = {
-  aiModel: "gpt-4o",
-  aiProvider: "openai",
-  email: "user@test.com",
-  openAIApiKey: null,
-  about: null,
-};
-
 test("Should return no rule when no rules passed", async () => {
   const result = await chooseRule({
-    email,
     rules: [],
-    user,
+    email: getEmail(),
+    user: getUser(),
   });
 
   expect(result).toEqual({ reason: "No rules" });
 });
 
-test("Should return correct rule", async () => {
-  const rule = createRule();
+test("Should return correct rule when only one rule passed", async () => {
+  const rule = getRule(
+    "Match emails that have the word 'test' in the subject line",
+  );
 
   const result = await chooseRule({
-    email,
+    email: getEmail({ content: "test" }),
     rules: [rule],
-    user,
+    user: getUser(),
   });
 
   expect(result).toEqual({ rule, reason: expect.any(String), actionItems: [] });
 });
 
-function createRule() {
+test("Should return correct rule when multiple rules passed", async () => {
+  const rule1 = getRule(
+    "Match emails that have the word 'test' in the subject line",
+  );
+  const rule2 = getRule(
+    "Match emails that have the word 'remember' in the subject line",
+  );
+
+  const result = await chooseRule({
+    rules: [rule1, rule2],
+    email: getEmail({ content: "remember that call" }),
+    user: getUser(),
+  });
+
+  expect(result).toEqual({
+    rule: rule2,
+    reason: expect.any(String),
+    actionItems: [],
+  });
+});
+
+function getRule(instructions: string) {
   return {
-    instructions: "Match emails that have the word 'test' in the subject line",
-    name: "rule1",
+    instructions,
+    name: "name",
     actions: [],
-    id: "ruleId",
+    id: "id",
     userId: "userId",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -57,5 +66,27 @@ function createRule() {
     body: null,
     to: null,
     type: RuleType.AI,
+  };
+}
+
+function getEmail({
+  from = "from@test.com",
+  subject = "subject",
+  content = "content",
+}: { from?: string; subject?: string; content?: string } = {}) {
+  return {
+    from,
+    subject,
+    content,
+  };
+}
+
+function getUser() {
+  return {
+    aiModel: "gpt-4o",
+    aiProvider: "openai",
+    email: "user@test.com",
+    openAIApiKey: null,
+    about: null,
   };
 }
