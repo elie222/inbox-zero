@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
-  "pipeline": {
+  "tasks": {
     "build": {
       "env": [
         "DATABASE_URL",
@@ -25,15 +25,15 @@
         "NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK",
         "NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID",
         "NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID",
-        
+
         "NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK",
         "NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK",
         "NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID",
         "NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID",
-        
+
         "NEXT_PUBLIC_LIFETIME_PAYMENT_LINK",
         "NEXT_PUBLIC_LIFETIME_VARIANT_ID",
-        
+
         "NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS",
         "NEXT_PUBLIC_CALL_LINK",
         "NEXT_PUBLIC_POSTHOG_KEY",
@@ -46,6 +46,10 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "//#format-and-lint": {},
+    "//#format-and-lint:fix": {
+      "cache": false
     }
   }
 }
