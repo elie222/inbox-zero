@@ -261,7 +261,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                                 onChange={(enabled) => {
                                   setValue(
                                     `actions.${i}.${field.name}`,
-                                    enabled ? { value: "", ai: true } : null,
+                                    enabled
+                                      ? { value: "", ai: true }
+                                      : { value: "", ai: false },
                                   );
                                 }}
                               />
