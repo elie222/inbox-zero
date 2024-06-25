@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
-import { saveAiUsage } from "@/utils/usage";
 import type { Group, User } from "@prisma/client";
 
 export async function aiCreateGroup(
@@ -41,17 +40,9 @@ JSON:
       senders: z.array(z.string()),
       subjects: z.array(z.string()),
     }),
+    userEmail: user.email || "",
+    usageLabel: "Create group",
   });
-
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: user.email!,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "Create group",
-    });
-  }
 
   return aiResponse.object;
 }

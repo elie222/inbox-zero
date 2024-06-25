@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { gmail_v1 } from "googleapis";
-import { parseJSON } from "@/utils/json";
 import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { inboxZeroLabels } from "@/utils/label";
@@ -9,8 +8,6 @@ import { getOrCreateLabel, labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
-import { saveAiUsage } from "@/utils/usage";
-import { chatCompletion } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 
 const aiResponseSchema = z.object({
@@ -78,17 +75,9 @@ ${stringifyEmail(email, 500)}
     system,
     prompt,
     schema: aiResponseSchema,
+    userEmail: user.email || "",
+    usageLabel: "Cold email check",
   });
-
-  if (response.usage) {
-    await saveAiUsage({
-      email: user.email || "",
-      usage: response.usage,
-      provider: user.aiProvider,
-      model,
-      label: "Cold email check",
-    });
-  }
 
   return response.object;
 }

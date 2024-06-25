@@ -38,28 +38,6 @@ function getModel(provider: string, model: string, apiKey: string | null) {
   throw new Error("AI provider not supported");
 }
 
-export async function chatCompletion({
-  provider,
-  model,
-  apiKey,
-  prompt,
-  system,
-}: {
-  provider: string;
-  model: string;
-  apiKey: string | null;
-  prompt: string;
-  system?: string;
-}) {
-  const result = await generateText({
-    model: getModel(provider, model, apiKey),
-    prompt,
-    system,
-  });
-
-  return result;
-}
-
 export async function chatCompletionObject<T>({
   provider,
   model,
@@ -67,6 +45,8 @@ export async function chatCompletionObject<T>({
   prompt,
   system,
   schema,
+  userEmail,
+  usageLabel,
 }: {
   provider: string;
   model: string;
@@ -74,6 +54,8 @@ export async function chatCompletionObject<T>({
   prompt: string;
   system?: string;
   schema: z.Schema<T>;
+  userEmail: string;
+  usageLabel: string;
 }) {
   const result = await generateObject({
     model: getModel(provider, model, apiKey),
@@ -81,6 +63,16 @@ export async function chatCompletionObject<T>({
     system,
     schema,
   });
+
+  if (result.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: result.usage,
+      provider,
+      model,
+      label: usageLabel,
+    });
+  }
 
   return result;
 }
@@ -92,7 +84,7 @@ export async function chatCompletionStream({
   prompt,
   system,
   userEmail,
-  label,
+  usageLabel: label,
   onFinish,
 }: {
   provider: string;
@@ -101,7 +93,7 @@ export async function chatCompletionStream({
   prompt: string;
   system?: string;
   userEmail: string;
-  label: string;
+  usageLabel: string;
   onFinish?: (text: string) => Promise<void>;
 }) {
   const result = await streamText({

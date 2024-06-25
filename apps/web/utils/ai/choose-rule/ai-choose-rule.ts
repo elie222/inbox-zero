@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
-import { saveAiUsage } from "@/utils/usage";
 import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
 import type { User } from "@prisma/client";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
@@ -69,17 +68,9 @@ ${stringifyEmail(email, 500)}
       rule: z.number(),
       reason: z.string(),
     }),
+    userEmail: user.email || "",
+    usageLabel: "Choose rule",
   });
-
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: user.email || "",
-      usage: aiResponse.usage,
-      provider: user.aiProvider,
-      model,
-      label: "Choose rule",
-    });
-  }
 
   return aiResponse.object;
 }

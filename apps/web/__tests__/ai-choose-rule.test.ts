@@ -49,7 +49,7 @@ test("Should return correct rule when multiple rules passed", async () => {
   });
 });
 
-test.only("Should generate action arguments", async () => {
+test("Should generate action arguments", async () => {
   const rule1 = getRule(
     "Match emails that have the word 'question' in the subject line",
   );
@@ -136,7 +136,7 @@ function getEmail({
 
 function getUser() {
   return {
-    aiModel: "gpt-4o",
+    aiModel: "gpt-3.5-turbo",
     aiProvider: "openai",
     email: "user@test.com",
     openAIApiKey: null,

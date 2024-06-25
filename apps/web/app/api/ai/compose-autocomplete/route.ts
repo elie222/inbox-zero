@@ -38,7 +38,7 @@ Limit your response to no more than 200 characters, but make sure to construct c
     system,
     prompt,
     userEmail,
-    label: "Compose auto complete",
+    usageLabel: "Compose auto complete",
   });
 
   return response.toTextStreamResponse();

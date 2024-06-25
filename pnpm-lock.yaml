@@ -209,9 +209,6 @@ importers:
       jotai:
         specifier: ^2.8.3
         version: 2.8.3(@types/react@18.3.3)(react@18.3.1)
-      js-tiktoken:
-        specifier: ^1.0.12
-        version: 1.0.12
       json5:
         specifier: ^2.2.3
         version: 2.2.3
@@ -6803,9 +6800,6 @@ packages:
     resolution: {integrity: sha512-rPogWqAfoYh1Ryqqh2agUpVfbxAhbjuN1SmU86dskQUKouRiggUTCO4+2ym9UPXllc2WAp0J+T5qxn7Um3lCdw==}
     engines: {node: '>=14'}
     hasBin: true
-
-  js-tiktoken@1.0.12:
-    resolution: {integrity: sha512-L7wURW1fH9Qaext0VzaUDpFGVQgjkdE3Dgsy9/+yXyGEpBKnylTd0mU0bfbNkKDlXRb6TEsZkwuflu1B8uQbJQ==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -17277,10 +17271,6 @@ snapshots:
       editorconfig: 1.0.4
       glob: 10.4.2
       nopt: 7.2.0
-
-  js-tiktoken@1.0.12:
-    dependencies:
-      base64-js: 1.5.1
 
   js-tokens@4.0.0: {}
 

@@ -4,7 +4,6 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import type { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { truncate } from "@/utils/string";
-import { saveAiUsage } from "@/utils/usage";
 
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
@@ -90,17 +89,9 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
     system,
     prompt,
     schema: aiResponseSchema,
+    userEmail,
+    usageLabel: "Categorize",
   });
-
-  if (response.usage) {
-    await saveAiUsage({
-      email: userEmail,
-      usage: response.usage,
-      provider: body.aiProvider,
-      model,
-      label: "Categorize",
-    });
-  }
 
   return response;
 }
