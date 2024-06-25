@@ -2,8 +2,6 @@ import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { ActionItem } from "@/utils/ai/actions";
 import type { Action, ActionType, User } from "@prisma/client";
-import { parseJSONWithMultilines } from "@/utils/json";
-import { saveAiUsage } from "@/utils/usage";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
 import {
   type EmailForLLM,
@@ -26,15 +24,13 @@ function getToolParametersForRule(actions: Action[]) {
   const parameters: Record<string, z.ZodObject<any>> = {};
 
   for (const action of actionsWithParameters) {
-    if (parameters[action.type]) {
-      // count how many times we have already had this type
-      typeCount[action.type] = (typeCount[action.type] || 0) + 1;
-      parameters[
-        typeCount[action.type] === 1
-          ? action.type
-          : `${action.type}_${typeCount[action.type]}`
-      ] = action.parameters;
-    }
+    // count how many times we have already had this type
+    typeCount[action.type] = (typeCount[action.type] || 0) + 1;
+    parameters[
+      typeCount[action.type] === 1
+        ? action.type
+        : `${action.type}_${typeCount[action.type]}`
+    ] = action.parameters;
   }
 
   return parameters;
@@ -92,22 +88,36 @@ export async function getArgsAiResponse({
   user: Pick<User, "email" | "about"> & UserAIFields;
   selectedRule: RuleWithActions;
 }) {
+  console.log(
+    `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
+  );
+
   const parameters = getToolParametersForRule(selectedRule.actions);
 
-  if (!Object.keys(parameters).length) return;
+  if (!Object.keys(parameters).length) {
+    console.log(
+      `Skipping. No parameters for rule ${selectedRule.name} (${selectedRule.id})`,
+    );
+    return;
+  }
 
   const system = `You are an AI assistant that helps people manage their emails.
 Never put placeholders in your email responses.
 Do not mention you are an AI assistant when responding to people.
+${
+  user.about
+    ? `\nSome additional information the user has provided about themselves:\n\n${user.about}`
+    : ""
+}`;
 
-Some additional information the user has provided about themselves:\n\n${user.about}`;
+  const prompt = `An email was received for processing and the following rule was selected to process it:
+###
+${selectedRule.instructions}
+###
 
-  const prompt = `An email was received for processing and a rule was already selected to process it. Handle the email.
+Handle the email.
 
-The selected rule:
-${selectedRule.name} - ${selectedRule.instructions}
-
-The email the rule will be applied to:
+The email:
 ${stringifyEmail(email, 3000)}`;
 
   const { model, provider } = getAiProviderAndModel(
@@ -124,33 +134,21 @@ ${stringifyEmail(email, 3000)}`;
     prompt,
     system,
     tools: {
-      generate_fields: {
-        description: `Generate the arguments for the rule`,
+      apply_rule: {
+        description: `Apply the rule with the given arguments`,
         parameters: z.object(parameters),
       },
     },
+    label: "Args for rule",
+    userEmail: user.email || "",
   });
 
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: user.email || "",
-      usage: aiResponse.usage,
-      provider: user.aiProvider,
-      model,
-      label: "Args for rule",
-    });
-  }
+  const toolCall = aiResponse.toolCalls[0];
 
-  const functionCall = aiResponse.toolCalls[0];
+  if (!toolCall) return;
+  if (!toolCall.toolName) return;
 
-  if (!functionCall) return;
-  if (!functionCall.toolName) return;
-
-  const aiGeneratedArgs: AIGeneratedArgs = functionCall.args
-    ? parseJSONWithMultilines(functionCall.args)
-    : undefined;
-
-  return aiGeneratedArgs;
+  return toolCall.args;
 }
 
 export function getActionItemsFromAiArgsResponse(

@@ -131,6 +131,8 @@ export async function chatCompletionTools({
   prompt,
   system,
   tools,
+  label,
+  userEmail,
 }: {
   provider: string;
   model: string;
@@ -138,6 +140,8 @@ export async function chatCompletionTools({
   prompt: string;
   system?: string;
   tools: Record<string, CoreTool>;
+  label: string;
+  userEmail: string;
 }) {
   const result = await generateText({
     model: getModel(provider, model, apiKey),
@@ -146,6 +150,16 @@ export async function chatCompletionTools({
     prompt,
     system,
   });
+
+  if (result.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: result.usage,
+      provider,
+      model,
+      label,
+    });
+  }
 
   return result;
 }

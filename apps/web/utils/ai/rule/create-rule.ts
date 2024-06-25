@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { saveAiUsage } from "@/utils/usage";
 import { ActionType } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
@@ -93,17 +92,9 @@ export async function aiCreateRule(
         parameters: createRuleSchema,
       },
     },
+    userEmail,
+    label: "Categorize rule",
   });
-
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: userEmail,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "Categorize rule",
-    });
-  }
 
   return aiResponse.toolCalls[0].args as z.infer<typeof createRuleSchema>;
 }
