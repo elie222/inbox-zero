@@ -7,7 +7,7 @@
     "build": "NODE_OPTIONS=--max_old_space_size=8192 prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest --watch --detectOpenHandles",
+    "test": "vitest",
     "preinstall": "npx only-allow pnpm",
     "postinstall": "prisma generate"
   },
@@ -107,26 +107,28 @@
   },
   "devDependencies": {
     "@headlessui/tailwindcss": "^0.2.1",
+    "@testing-library/react": "^16.0.0",
     "@types/he": "^1.2.3",
     "@types/html-to-text": "^9.0.4",
-    "@types/jest": "^29.5.12",
     "@types/lodash": "^4.17.5",
     "@types/node": "20.14.7",
     "@types/nodemailer": "^6.4.15",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "10.4.19",
     "dotenv": "^16.4.5",
     "eslint-config-custom": "workspace:*",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
+    "jsdom": "^24.1.0",
     "postcss": "8.4.38",
     "prettier": "3.2.5",
     "prettier-plugin-tailwindcss": "^0.5.14",
     "prisma": "^5.15.1",
     "tailwindcss": "3.4.4",
     "tsconfig": "workspace:*",
-    "turbo": "^2.0.4"
+    "turbo": "^2.0.4",
+    "vite-tsconfig-paths": "^4.3.2",
+    "vitest": "1.6.0"
   },
   "engines": {
     "node": ">=18.17"
