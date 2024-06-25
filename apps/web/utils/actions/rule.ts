@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  CreateRuleBody,
+  type CreateRuleBody,
   createRuleBody,
-  UpdateRuleBody,
+  type UpdateRuleBody,
   updateRuleBody,
 } from "@/utils/actions/validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -28,7 +28,31 @@ export async function createRuleAction(options: CreateRuleBody) {
         actions: body.actions
           ? {
               createMany: {
-                data: body.actions,
+                data: body.actions.map(
+                  ({ type, label, subject, content, to, cc, bcc }) => {
+                    return {
+                      type,
+                      ...(label?.ai
+                        ? { label: null, labelPrompt: label?.value }
+                        : { label: label?.value, labelPrompt: null }),
+                      ...(subject?.ai
+                        ? { subject: null, subjectPrompt: subject?.value }
+                        : { subject: subject?.value, subjectPrompt: null }),
+                      ...(content?.ai
+                        ? { content: null, contentPrompt: content?.value }
+                        : { content: content?.value, contentPrompt: null }),
+                      ...(to?.ai
+                        ? { to: null, toPrompt: to?.value }
+                        : { to: to?.value, toPrompt: null }),
+                      ...(cc?.ai
+                        ? { cc: null, ccPrompt: cc?.value }
+                        : { cc: cc?.value, ccPrompt: null }),
+                      ...(bcc?.ai
+                        ? { bcc: null, bccPrompt: bcc?.value }
+                        : { bcc: bcc?.value, bccPrompt: null }),
+                    };
+                  },
+                ),
               },
             }
           : undefined,
@@ -36,7 +60,7 @@ export async function createRuleAction(options: CreateRuleBody) {
         from: body.from || undefined,
         to: body.to || undefined,
         subject: body.subject || undefined,
-        body: body.body || undefined,
+        // body: body.body || undefined,
         groupId: body.groupId || undefined,
       },
     });
@@ -63,18 +87,18 @@ export async function updateRuleAction(options: UpdateRuleBody) {
   if (error) return { error: error.message };
 
   try {
-    const currentRule = await prisma.rule.findUniqueOrThrow({
+    const currentRule = await prisma.rule.findUnique({
       where: { id: body.id, userId: session.user.id },
       include: { actions: true },
     });
+    if (!currentRule) return { error: "Rule not found" };
+
     const currentActions = currentRule.actions;
 
     const actionsToDelete = currentActions.filter(
       (currentAction) => !body.actions.find((a) => a.id === currentAction.id),
     );
-    const actionsToUpdate = currentActions.filter((currentAction) =>
-      body.actions.find((a) => a.id === currentAction.id),
-    );
+    const actionsToUpdate = body.actions.filter((a) => a.id);
     const actionsToCreate = body.actions.filter((a) => !a.id);
 
     const [rule] = await prisma.$transaction([
@@ -90,7 +114,7 @@ export async function updateRuleAction(options: UpdateRuleBody) {
           from: body.from,
           to: body.to,
           subject: body.subject,
-          body: body.body,
+          // body: body.body,
           groupId: body.groupId,
         },
       }),
@@ -103,22 +127,32 @@ export async function updateRuleAction(options: UpdateRuleBody) {
           ]
         : []),
       // update existing actions
-      ...(actionsToUpdate.length
-        ? [
-            prisma.action.updateMany({
-              where: { id: { in: actionsToUpdate.map((a) => a.id) } },
-              data: actionsToUpdate.map((a) => ({
-                type: a.type,
-                label: a.label,
-                subject: a.subject,
-                content: a.content,
-                to: a.to,
-                cc: a.cc,
-                bcc: a.bcc,
-              })),
-            }),
-          ]
-        : []),
+      ...actionsToUpdate.map((a) => {
+        return prisma.action.update({
+          where: { id: a.id },
+          data: {
+            type: a.type,
+            ...(a.label?.ai
+              ? { label: null, labelPrompt: a.label?.value }
+              : { label: a.label?.value, labelPrompt: null }),
+            ...(a.subject?.ai
+              ? { subject: null, subjectPrompt: a.subject?.value }
+              : { subject: a.subject?.value, subjectPrompt: null }),
+            ...(a.content?.ai
+              ? { content: null, contentPrompt: a.content?.value }
+              : { content: a.content?.value, contentPrompt: null }),
+            ...(a.to?.ai
+              ? { to: null, toPrompt: a.to?.value }
+              : { to: a.to?.value, toPrompt: null }),
+            ...(a.cc?.ai
+              ? { cc: null, ccPrompt: a.cc?.value }
+              : { cc: a.cc?.value, ccPrompt: null }),
+            ...(a.bcc?.ai
+              ? { bcc: null, bccPrompt: a.bcc?.value }
+              : { bcc: a.bcc?.value, bccPrompt: null }),
+          },
+        });
+      }),
       // create new actions
       ...(actionsToCreate.length
         ? [
@@ -126,12 +160,24 @@ export async function updateRuleAction(options: UpdateRuleBody) {
               data: actionsToCreate.map((a) => ({
                 ruleId: body.id,
                 type: a.type,
-                label: a.label,
-                subject: a.subject,
-                content: a.content,
-                to: a.to,
-                cc: a.cc,
-                bcc: a.bcc,
+                ...(a.label?.ai
+                  ? { label: null, labelPrompt: a.label?.value }
+                  : { label: a.label?.value, labelPrompt: null }),
+                ...(a.subject?.ai
+                  ? { subject: null, subjectPrompt: a.subject?.value }
+                  : { subject: a.subject?.value, subjectPrompt: null }),
+                ...(a.content?.ai
+                  ? { content: null, contentPrompt: a.content?.value }
+                  : { content: a.content?.value, contentPrompt: null }),
+                ...(a.to?.ai
+                  ? { to: null, toPrompt: a.to?.value }
+                  : { to: a.to?.value, toPrompt: null }),
+                ...(a.cc?.ai
+                  ? { cc: null, ccPrompt: a.cc?.value }
+                  : { cc: a.cc?.value, ccPrompt: null }),
+                ...(a.bcc?.ai
+                  ? { bcc: null, bccPrompt: a.bcc?.value }
+                  : { bcc: a.bcc?.value, bccPrompt: null }),
               })),
             }),
           ]

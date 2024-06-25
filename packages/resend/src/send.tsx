@@ -1,6 +1,6 @@
-import { JSXElementConstructor, ReactElement } from "react";
+import type { JSXElementConstructor, ReactElement } from "react";
 import { nanoid } from "nanoid";
-import StatsUpdateEmail, { StatsUpdateEmailProps } from "../emails/stats";
+import StatsUpdateEmail, { type StatsUpdateEmailProps } from "../emails/stats";
 import { resend } from "./client";
 import SummaryEmail, { type SummaryEmailProps } from "../emails/summary";
 

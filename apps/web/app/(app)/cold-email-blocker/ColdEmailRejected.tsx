@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
-import { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
+import type { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
 import {
   Table,
   TableBody,

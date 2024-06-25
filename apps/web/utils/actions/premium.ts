@@ -7,7 +7,7 @@ import prisma from "@/utils/prisma";
 import { env } from "@/env.mjs";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
-import { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
+import type { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,
   getLemonCustomer,
@@ -239,13 +239,13 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
         (i) => i.type === "subscriptions",
       );
       if (!subscription) throw new Error("Subscription not found");
-      lemonSqueezySubscriptionId = parseInt(subscription.id);
+      lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
       const attributes = subscription.attributes as any;
-      lemonSqueezyOrderId = parseInt(attributes.order_id);
-      lemonSqueezyProductId = parseInt(attributes.product_id);
-      lemonSqueezyVariantId = parseInt(attributes.variant_id);
+      lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
+      lemonSqueezyProductId = Number.parseInt(attributes.product_id);
+      lemonSqueezyVariantId = Number.parseInt(attributes.variant_id);
       lemonSqueezySubscriptionItemId = attributes.first_subscription_item.id
-        ? parseInt(attributes.first_subscription_item.id)
+        ? Number.parseInt(attributes.first_subscription_item.id)
         : null;
     }
 

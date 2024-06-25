@@ -1,15 +1,14 @@
-import { ActionItem } from "@/utils/ai/actions";
+import type { ActionItem } from "@/utils/ai/actions";
 import {
   getArgsAiResponse,
   getActionItemsFromAiArgsResponse,
+  getActionsWithParameters,
 } from "@/utils/ai/choose-rule/ai-choose-args";
 import { getAiResponse } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { REQUIRES_MORE_INFO } from "@/utils/ai/choose-rule/consts";
-import { UserAIFields } from "@/utils/llms/types";
-import { RuleWithActions } from "@/utils/types";
-import { Rule, User } from "@prisma/client";
-import { getFunctionsFromRules } from "@/utils/ai/choose-rule/functions-from-rules";
-import { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
+import type { UserAIFields } from "@/utils/llms/types";
+import type { RuleWithActions } from "@/utils/types";
+import type { Rule, User } from "@prisma/client";
+import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 
 export type ChooseRuleOptions = {
   email: EmailForLLM;
@@ -25,11 +24,12 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
   | { rule?: undefined; actionItems?: undefined; reason?: string }
 > {
   const { email, rules, user } = options;
-  const rulesWithFunctions = getFunctionsFromRules({ rules });
+
+  if (!rules.length) return { reason: "No rules" };
 
   const aiResponse = await getAiResponse({
     email,
-    functions: rulesWithFunctions.map((r) => r.function),
+    rules,
     user,
   });
 
@@ -39,27 +39,28 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
     return { reason: aiResponse?.reason };
   }
 
-  const selectedRule = rulesWithFunctions[ruleNumber];
+  const selectedRule = rules[ruleNumber];
 
-  if (selectedRule.function.name === REQUIRES_MORE_INFO)
-    return { reason: aiResponse?.reason };
+  if (!selectedRule) return { reason: aiResponse?.reason };
 
-  const aiArgsResponse = selectedRule.shouldAiGenerateArgs
+  const shouldAiGenerateArgs =
+    getActionsWithParameters(selectedRule.actions).length > 0;
+
+  const aiArgsResponse = shouldAiGenerateArgs
     ? await getArgsAiResponse({
         ...options,
         email,
-        selectedRule: selectedRule.function,
-        argsFunction: selectedRule.functionForArgs,
+        selectedRule,
       })
     : undefined;
 
   const actionItems = getActionItemsFromAiArgsResponse(
     aiArgsResponse,
-    selectedRule.rule.actions,
+    selectedRule.actions,
   );
 
   return {
-    rule: selectedRule.rule,
+    rule: selectedRule,
     actionItems,
     reason: aiResponse?.reason,
   };

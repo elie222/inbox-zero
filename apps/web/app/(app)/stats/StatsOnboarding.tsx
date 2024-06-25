@@ -18,7 +18,7 @@ export function StatsOnboarding() {
 
   const [viewedStatsOnboarding, setViewedStatsOnboarding] = useLocalStorage(
     "viewedStatsOnboarding",
-    false
+    false,
   );
 
   useEffect(() => {

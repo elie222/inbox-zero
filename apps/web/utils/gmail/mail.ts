@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import MailComposer from "nodemailer/lib/mail-composer";
-import Mail, { Attachment } from "nodemailer/lib/mailer";
+import type Mail from "nodemailer/lib/mailer";
+import type { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";

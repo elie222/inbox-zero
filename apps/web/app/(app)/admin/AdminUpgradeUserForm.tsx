@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";

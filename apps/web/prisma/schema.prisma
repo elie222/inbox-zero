@@ -190,13 +190,23 @@ model Action {
   ruleId    String
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  // optional extra fields to be used with the action
+  // Optional static fields to use for this action
   label   String?
   subject String?
   content String?
   to      String?
   cc      String?
   bcc     String?
+
+  // If using AI generated fields - the prompt for each field
+  // An empty string means the field is AI generated, but there's no specific prompt for the field
+  // NULL means there field is not AI generated
+  labelPrompt   String?
+  subjectPrompt String?
+  contentPrompt String?
+  toPrompt      String?
+  ccPrompt      String?
+  bccPrompt     String?
 }
 
 // Rule/Action models represent the rules and actions that the AI can take.

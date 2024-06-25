@@ -6,7 +6,7 @@ export const useExpanded = () => {
   const [expanded, setExpanded] = useState(false);
   const toggleExpand = useCallback(
     () => setExpanded((expanded) => !expanded),
-    []
+    [],
   );
 
   const extra = useMemo(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,7 @@ import {
   MailsIcon,
   SendHorizonalIcon,
 } from "lucide-react";
-import {
+import type {
   StatsByWeekParams,
   StatsByWeekResponse,
 } from "@/app/api/user/stats/tinybird/route";

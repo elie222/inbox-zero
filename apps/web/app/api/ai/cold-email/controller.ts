@@ -1,16 +1,13 @@
 import { z } from "zod";
-import { type gmail_v1 } from "googleapis";
-import { parseJSON } from "@/utils/json";
-import { getAiProviderAndModel } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
+import type { gmail_v1 } from "googleapis";
+import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
+import type { UserAIFields } from "@/utils/llms/types";
 import { inboxZeroLabels } from "@/utils/label";
 import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { getOrCreateLabel, labelMessage } from "@/utils/gmail/label";
-import { ColdEmailSetting, ColdEmailStatus, User } from "@prisma/client";
+import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
-import { saveAiUsage } from "@/utils/usage";
-import { chatCompletion } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 
 const aiResponseSchema = z.object({
@@ -46,7 +43,10 @@ async function aiIsColdEmail(
   email: { from: string; subject: string; content: string },
   user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields,
 ) {
-  const message = `Determine if this email is a cold email or not.
+  const system =
+    "You are an assistant that decides if an email is a cold email or not.";
+
+  const prompt = `Determine if this email is a cold email or not.
 
 ${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
 
@@ -68,48 +68,18 @@ ${stringifyEmail(email, 500)}
     user.aiProvider,
     user.aiModel,
   );
-  const response = await chatCompletion(
+  const response = await chatCompletionObject({
     provider,
     model,
-    user.openAIApiKey,
-    [
-      {
-        role: "system",
-        content:
-          "You are an assistant that decides if an email is a cold email or not.",
-      },
-      {
-        role: "user",
-        content: message,
-      },
-    ],
-    { jsonResponse: true },
-  );
+    apiKey: user.openAIApiKey,
+    system,
+    prompt,
+    schema: aiResponseSchema,
+    userEmail: user.email || "",
+    usageLabel: "Cold email check",
+  });
 
-  if (response.usage) {
-    await saveAiUsage({
-      email: user.email || "",
-      usage: response.usage,
-      provider: user.aiProvider,
-      model,
-      label: "Cold email check",
-    });
-  }
-
-  const content = response.response;
-
-  // this is an error
-  if (!content) return { coldEmail: false, reason: null };
-
-  try {
-    const res = parseJSON(content);
-    const parsedResponse = aiResponseSchema.parse(res);
-
-    return parsedResponse;
-  } catch (error) {
-    console.error("Error parsing json:", content);
-    return { coldEmail: false, reason: null };
-  }
+  return response.object;
 }
 
 export async function runColdEmailBlocker(options: {

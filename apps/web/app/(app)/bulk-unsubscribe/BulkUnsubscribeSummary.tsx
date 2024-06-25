@@ -6,7 +6,7 @@ import { StatsCards } from "@/components/StatsCards";
 import { formatStat } from "@/utils/stats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NewsletterSummaryResponse } from "@/app/api/user/stats/newsletters/summary/route";
+import type { NewsletterSummaryResponse } from "@/app/api/user/stats/newsletters/summary/route";
 import { NewsletterStatus } from "@prisma/client";
 
 export default function BulkUnsubscribeSummary() {

@@ -1,5 +1,5 @@
-import { gmail_v1 } from "googleapis";
-import { Action, Rule } from "@prisma/client";
+import type { gmail_v1 } from "googleapis";
+import type { Prisma } from "@prisma/client";
 
 // https://stackoverflow.com/a/53276873/2602771
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
@@ -9,7 +9,10 @@ export function isDefined<T>(value: T | undefined | null): value is T {
   return value !== undefined && value !== null;
 }
 
-export type RuleWithActions = Rule & { actions: Action[] };
+// export type RuleWithActions = Rule & { actions: Action[] };
+export type RuleWithActions = Prisma.RuleGetPayload<{
+  include: { actions: true };
+}>;
 
 export type BatchError = {
   error: {

@@ -1,44 +1,31 @@
 import { chatCompletionStream } from "@/utils/llms";
-import { saveAiUsageStream } from "@/utils/usage";
+import { expire } from "@/utils/redis";
+import { saveSummary } from "@/utils/redis/summary";
 
-export async function summarise(
-  text: string,
-  {
-    userEmail,
-    onFinal,
-  }: {
-    userEmail: string;
-    onFinal?: (completion: string) => Promise<void>;
-  },
-) {
+export async function summarise(text: string, userEmail: string) {
   const model = "gpt-3.5-turbo-0125" as const;
-  const messages = [
-    {
-      role: "system" as const,
-      content: `You are an email assistant. You summarise emails.
+
+  const system = `You are an email assistant. You summarise emails.
   Summarise each email in a short ~5 word sentence.
-  If you need to summarise a longer email, you can use bullet points. Each bullet should be ~5 words.`,
-    },
-    {
-      role: "user" as const,
-      content: `Summarise this:
-  ${text}`,
-    },
-  ];
+  If you need to summarise a longer email, you can use bullet points. Each bullet should be ~5 words.`;
 
-  const response = await chatCompletionStream("openai", model, null, messages);
+  const prompt = `Summarise this:\n${text}`;
 
-  const stream = await saveAiUsageStream({
-    response,
+  const response = await chatCompletionStream({
     provider: "openai",
     model,
+    apiKey: null,
+    system,
+    prompt,
     userEmail,
-    messages,
-    label: "Summarise",
-    onFinal,
+    usageLabel: "Summarise",
+    onFinish: async (completion) => {
+      await saveSummary(prompt, completion);
+      await expire(prompt, 60 * 60 * 24);
+    },
   });
 
-  return stream;
+  return response;
 }
 
 // alternative prompt:

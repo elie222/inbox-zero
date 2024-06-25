@@ -9,7 +9,7 @@ export type PlanHistoryResponse = Awaited<ReturnType<typeof getExecutedRules>>;
 
 export const GET = withError(async (request) => {
   const url = new URL(request.url);
-  const page = parseInt(url.searchParams.get("page") || "1");
+  const page = Number.parseInt(url.searchParams.get("page") || "1");
   const messages = await getExecutedRules(ExecutedRuleStatus.APPLIED, page);
   return NextResponse.json(messages);
 });

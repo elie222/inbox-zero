@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
+import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
@@ -15,13 +15,13 @@ import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   saveMultiAccountPremiumBody,
-  SaveMultiAccountPremiumBody,
+  type SaveMultiAccountPremiumBody,
 } from "@/app/api/user/settings/multi-account/validation";
 import {
   claimPremiumAdmin,
   updateMultiAccountPremium,
 } from "@/utils/actions/premium";
-import { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
+import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
 import { pricingAdditonalEmail } from "@/app/(app)/premium/config";

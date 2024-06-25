@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSwr, { useSWRConfig } from "swr";
 import { capitalCase } from "capital-case";
 import sortBy from "lodash/sortBy";
@@ -18,20 +18,20 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
 import { SectionDescription, SectionHeader } from "@/components/Typography";
 import {
-  GmailLabel,
-  GmailLabels,
+  type GmailLabel,
+  type GmailLabels,
   GmailProvider,
   useGmail,
 } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabelsAction } from "@/utils/actions/mail";
 import { useModal, Modal } from "@/components/Modal";
-import { type Label } from "@prisma/client";
+import type { Label } from "@prisma/client";
 import { postRequest } from "@/utils/api";
-import {
+import type {
   CreateLabelBody,
   CreateLabelResponse,
 } from "@/app/api/google/labels/create/controller";
-import { UserLabelsResponse } from "@/app/api/user/labels/route";
+import type { UserLabelsResponse } from "@/app/api/user/labels/route";
 import { PlusIcon } from "lucide-react";
 import { isErrorMessage } from "@/utils/error";
 

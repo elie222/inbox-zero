@@ -1,7 +1,7 @@
 "use client";
 
-import { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
-import { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
+import type { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
+import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { isError } from "lodash";

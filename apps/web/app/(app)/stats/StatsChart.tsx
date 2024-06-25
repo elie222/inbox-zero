@@ -1,6 +1,6 @@
-import { Color, Card, Title, BarChart } from "@tremor/react";
+import { type Color, Card, Title, BarChart } from "@tremor/react";
 import useSWR from "swr";
-import {
+import type {
   StatsByDayQuery,
   StatsByDayResponse,
 } from "@/app/api/user/stats/day/route";

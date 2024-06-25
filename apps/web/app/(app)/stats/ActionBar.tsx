@@ -1,7 +1,7 @@
 import React from "react";
 import { subDays } from "date-fns";
 import { GanttChartIcon, Tally3Icon } from "lucide-react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 
@@ -63,7 +63,7 @@ export function ActionBar(props: {
           setChecked: () => {
             setDateDropdown(option);
 
-            const days = parseInt(option.value);
+            const days = Number.parseInt(option.value);
 
             if (days === 0) setDateRange(undefined);
             if (days) {

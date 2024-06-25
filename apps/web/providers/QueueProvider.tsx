@@ -8,9 +8,9 @@ import {
   markReadThreadAction,
   trashThreadAction,
 } from "@/utils/actions/mail";
-import { EmailForAction } from "@/utils/ai/actions";
+import type { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
-import { type Thread } from "@/components/email-list/types";
+import type { Thread } from "@/components/email-list/types";
 
 const queue = new PQueue({ concurrency: 3 });
 

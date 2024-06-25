@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { TermsContent } from "@/app/(landing)/terms/content";
 
 export const metadata: Metadata = {

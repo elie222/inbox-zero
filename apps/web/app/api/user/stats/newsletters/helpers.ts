@@ -1,4 +1,4 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { extractEmailAddress } from "@/utils/email";
 import { getGmailClient } from "@/utils/gmail/client";

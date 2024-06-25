@@ -1,5 +1,5 @@
-import { type ParsedMessage } from "@/utils/types";
-import { type GroupItem, type Prisma } from "@prisma/client";
+import type { ParsedMessage } from "@/utils/types";
+import type { GroupItem, Prisma } from "@prisma/client";
 
 export type RuleWithGroup = Prisma.RuleGetPayload<{
   include: { group: { include: { items: true } } };

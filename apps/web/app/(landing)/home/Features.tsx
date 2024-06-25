@@ -3,7 +3,7 @@ import {
   BarChart2Icon,
   EyeIcon,
   LineChart,
-  LucideIcon,
+  type LucideIcon,
   MousePointer2Icon,
   Orbit,
   ShieldHalfIcon,

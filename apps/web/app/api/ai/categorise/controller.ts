@@ -1,12 +1,9 @@
 import { z } from "zod";
-import { parseJSON } from "@/utils/json";
-import { getAiProviderAndModel } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
+import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
+import type { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
-import { CategoriseBody } from "@/app/api/ai/categorise/validation";
+import type { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { truncate } from "@/utils/string";
-import { saveAiUsage } from "@/utils/usage";
-import { chatCompletion } from "@/utils/llms";
 
 export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
 
@@ -37,7 +34,9 @@ async function aiCategorise(
   expanded: boolean,
   userEmail: string,
 ) {
-  const message = `Categorize this email.
+  const system = "You are an assistant that helps categorize emails.";
+
+  const prompt = `Categorize this email.
 Return a JSON object with a "category" and "requiresMoreInformation" field.
 
 These are the categories to choose from, with an explanation of each one:
@@ -83,50 +82,24 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
     body.aiProvider,
     body.aiModel,
   );
-  const response = await chatCompletion(
+  const response = await chatCompletionObject({
     provider,
     model,
-    body.openAIApiKey,
-    [
-      {
-        role: "system",
-        content: "You are an assistant that helps categorize emails.",
-      },
-      {
-        role: "user",
-        content: message,
-      },
-    ],
-    { jsonResponse: true },
-  );
+    apiKey: body.openAIApiKey,
+    system,
+    prompt,
+    schema: aiResponseSchema,
+    userEmail,
+    usageLabel: "Categorize",
+  });
 
-  if (response.usage) {
-    await saveAiUsage({
-      email: userEmail,
-      usage: response.usage,
-      provider: body.aiProvider,
-      model,
-      label: "Categorize",
-    });
-  }
-
-  const content = response.response;
-
-  if (!content) return;
-
-  try {
-    const res = parseJSON(content);
-    return aiResponseSchema.parse(res);
-  } catch (error) {
-    console.error("Error parsing json:", content);
-    return;
-  }
+  return response;
 }
 
 export async function categorise(
   body: CategoriseBody & { content: string } & UserAIFields,
   options: { email: string },
-) {
+): Promise<{ category: string } | undefined> {
   // 1. check redis cache
   const existingCategory = await getCategory({
     email: options.email,
@@ -135,17 +108,17 @@ export async function categorise(
   if (existingCategory) return existingCategory;
   // 2. ai categorise
   let category = await aiCategorise(body, false, options.email);
-  if (category?.requiresMoreInformation) {
+  if (category.object.requiresMoreInformation) {
     console.log("Not enough information, expanding email and trying again");
     category = await aiCategorise(body, true, options.email);
   }
 
-  if (!category?.category) return;
+  if (!category.object.category) return;
   // 3. save category
   await saveCategory({
     email: options.email,
     threadId: body.threadId,
-    category: { category: category.category },
+    category: { category: category.object.category },
   });
-  return category;
+  return { category: category.object.category };
 }

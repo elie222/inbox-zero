@@ -1,5 +1,6 @@
-import React, { HTMLInputTypeAttribute } from "react";
-import { FieldError } from "react-hook-form";
+import type React from "react";
+import type { HTMLInputTypeAttribute } from "react";
+import type { FieldError } from "react-hook-form";
 import { MinusCircleIcon, PlusCircleIcon } from "lucide-react";
 import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";

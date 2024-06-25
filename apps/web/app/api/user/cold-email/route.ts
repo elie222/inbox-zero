@@ -42,7 +42,7 @@ export const GET = withError(async (request) => {
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" });
 
   const url = new URL(request.url);
-  const page = parseInt(url.searchParams.get("page") || "1");
+  const page = Number.parseInt(url.searchParams.get("page") || "1");
   const status =
     (url.searchParams.get("status") as ColdEmailStatus | undefined) ||
     ColdEmailStatus.AI_LABELED_COLD;

@@ -1,4 +1,4 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import prisma from "@/utils/prisma";
 import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { env } from "@/env.mjs";

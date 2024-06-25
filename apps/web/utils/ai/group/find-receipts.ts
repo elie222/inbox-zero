@@ -1,4 +1,4 @@
-import { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import uniq from "lodash/uniq";
 import uniqBy from "lodash/uniqBy";
 import { queryBatchMessagesPages } from "@/utils/gmail/message";

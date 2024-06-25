@@ -1,6 +1,6 @@
 import { Button } from "@/components/Button";
 // import { Checkbox } from "@/components/Checkbox";
-import React from "react";
+import type React from "react";
 
 export function GroupHeading(props: {
   leftContent: React.ReactNode;

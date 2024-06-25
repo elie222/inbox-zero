@@ -22,7 +22,7 @@ export const GET = withError(async (request: Request) => {
   return await processHistoryForUser(
     {
       emailAddress,
-      historyId: historyId ? parseInt(historyId) : 0,
+      historyId: historyId ? Number.parseInt(historyId) : 0,
     },
     {
       startHistoryId: startHistoryId ? startHistoryId : undefined,

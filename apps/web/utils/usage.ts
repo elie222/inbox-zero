@@ -1,8 +1,5 @@
-import { AnthropicStream, OpenAIStream } from "ai";
-import { TiktokenModel, encodingForModel } from "js-tiktoken";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
-import { ChatCompletionStreamResponse } from "@/utils/llms";
 
 export async function saveAiUsage({
   email,
@@ -15,9 +12,9 @@ export async function saveAiUsage({
   provider: string | null;
   model: string;
   usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
   };
   label: string;
 }) {
@@ -27,9 +24,9 @@ export async function saveAiUsage({
     publishAiCall({
       userId: email,
       provider: provider || "openai",
-      totalTokens: usage.total_tokens,
-      completionTokens: usage.completion_tokens,
-      promptTokens: usage.prompt_tokens,
+      totalTokens: usage.totalTokens,
+      completionTokens: usage.completionTokens,
+      promptTokens: usage.promptTokens,
       cost,
       model,
       timestamp: Date.now(),
@@ -37,63 +34,6 @@ export async function saveAiUsage({
     }),
     saveUsage({ email, cost, usage }),
   ]);
-}
-
-export async function saveAiUsageStream({
-  provider,
-  response,
-  model,
-  userEmail,
-  messages,
-  label,
-  onFinal,
-}: {
-  provider: string | null;
-  response: ChatCompletionStreamResponse;
-  model: string;
-  userEmail: string;
-  messages: { role: "system" | "user"; content: string }[];
-  label: string;
-  onFinal?: (completion: string) => Promise<void>;
-}) {
-  const enc = encodingForModel(model as TiktokenModel);
-  let completionTokens = 0;
-
-  const llmStream = provider === "anthropic" ? AnthropicStream : OpenAIStream;
-
-  // to count token usage:
-  // https://www.linkedin.com/pulse/token-usage-openai-streams-peter-marton-7bgpc/
-  const stream = llmStream(response as any, {
-    onToken: (content) => {
-      // We call encode for every message as some experienced
-      // regression when tiktoken called with the full completion
-      const tokenList = enc.encode(content);
-      completionTokens += tokenList.length;
-    },
-    async onFinal(completion) {
-      const promptTokens = messages.reduce(
-        (total, msg) => total + enc.encode(msg.content ?? "").length,
-        0,
-      );
-
-      await Promise.all([
-        onFinal?.(completion),
-        saveAiUsage({
-          email: userEmail,
-          usage: {
-            prompt_tokens: promptTokens,
-            completion_tokens: completionTokens,
-            total_tokens: promptTokens + completionTokens,
-          },
-          provider: provider || "openai",
-          model,
-          label,
-        }),
-      ]);
-    },
-  });
-
-  return stream;
 }
 
 // https://openai.com/pricing
@@ -122,13 +62,13 @@ const costs: Record<
 function calcuateCost(
   model: string,
   usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
+    promptTokens: number;
+    completionTokens: number;
   },
 ): number {
   if (!costs[model]) return 0;
 
   const { input, output } = costs[model];
 
-  return usage.prompt_tokens * input + usage.completion_tokens * output;
+  return usage.promptTokens * input + usage.completionTokens * output;
 }

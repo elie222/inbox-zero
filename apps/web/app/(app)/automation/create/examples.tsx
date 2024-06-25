@@ -1,5 +1,4 @@
-import { type CreateRuleBody } from "@/utils/actions/validation";
-import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
+import type { CreateRuleBody } from "@/utils/actions/validation";
 import { ActionType, RuleType } from "@prisma/client";
 import {
   ForwardIcon,
@@ -25,8 +24,10 @@ export const examples: {
     icon: <ForwardIcon className="h-4 w-4" />,
     rule: {
       name: "Forward receipts",
-      actions: [{ type: ActionType.FORWARD, to: "alice@accountant.com" }],
       instructions: "Forward receipts to alice@accountant.com.",
+      actions: [
+        { type: ActionType.FORWARD, to: { value: "alice@accountant.com" } },
+      ],
       type: RuleType.GROUP,
       groupId: RECEIPT_GROUP_ID,
     },
@@ -36,11 +37,11 @@ export const examples: {
     icon: <NewspaperIcon className="h-4 w-4" />,
     rule: {
       name: "Archive and label newsletters",
+      instructions: "Archive newsletters and label them as 'Newsletter'.",
       actions: [
         { type: ActionType.ARCHIVE },
-        { type: ActionType.LABEL, label: "Newsletter" },
+        { type: ActionType.LABEL, label: { value: "Newsletter" } },
       ],
-      instructions: "Archive newsletters and label them as 'Newsletter'.",
       type: RuleType.GROUP,
       groupId: NEWSLETTER_GROUP_ID,
     },
@@ -50,11 +51,11 @@ export const examples: {
     icon: <ShieldAlertIcon className="h-4 w-4" />,
     rule: {
       name: "Label high priority emails",
-      actions: [{ type: ActionType.LABEL, label: "High Priority" }],
       instructions: `Mark high priority emails as "High Priority". Examples include:
 * Customer wants to cancel their plan
 * Customer wants to purchase
 * Customer complaint`,
+      actions: [{ type: ActionType.LABEL, label: { value: "High Priority" } }],
       type: RuleType.AI,
     },
   },
@@ -63,14 +64,14 @@ export const examples: {
     icon: <MailQuestionIcon className="h-4 w-4" />,
     rule: {
       name: "Respond to question",
+      instructions:
+        "If someone asks how much the premium plan is, respond: 'Our premium plan is $10 per month.'",
       actions: [
         {
           type: ActionType.REPLY,
-          content: "Hey, our premium plan is $10 per month!",
+          content: { value: "Hey, our premium plan is $10 per month!" },
         },
       ],
-      instructions:
-        "If someone asks how much the premium plan is, respond: 'Our premium plan is $10 per month.'",
       type: RuleType.AI,
     },
   },
@@ -79,14 +80,17 @@ export const examples: {
     icon: <CalendarIcon className="h-4 w-4" />,
     rule: {
       name: "Draft meeting response",
+      instructions: "Select this rule when someone asks to book a meeting.",
       actions: [
         {
           type: ActionType.DRAFT_EMAIL,
-          content: AI_GENERATED_FIELD_VALUE,
+          content: {
+            value:
+              "Draft a response with my calendar booking link: https://cal.com/me/call",
+            ai: true,
+          },
         },
       ],
-      instructions:
-        "If someone asks to book a meeting, draft a response with my calendar booking link: https://cal.com/me/call",
       type: RuleType.AI,
       automate: true,
       runOnThreads: true,
@@ -97,13 +101,13 @@ export const examples: {
     icon: <PresentationIcon className="h-4 w-4" />,
     rule: {
       name: "Label founder pitch decks",
+      instructions: "Label founder pitch decks as 'Pitch'.",
       actions: [
         {
           type: ActionType.LABEL,
-          content: "Pitch",
+          content: { value: "Pitch" },
         },
       ],
-      instructions: "Label founder pitch decks as 'Pitch'.",
       type: RuleType.AI,
       automate: true,
       runOnThreads: true,

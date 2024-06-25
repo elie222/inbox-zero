@@ -1,4 +1,4 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { SPAM_LABEL_ID } from "@/utils/gmail/label";
 
 export async function markSpam(options: {

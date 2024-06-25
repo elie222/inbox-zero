@@ -1,6 +1,6 @@
 import useSWR from "swr";
 import { BarChart } from "@tremor/react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -12,22 +12,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
-import {
+import type {
   SenderEmailsQuery,
   SenderEmailsResponse,
 } from "@/app/api/user/stats/sender-emails/route";
-import { ZodPeriod } from "@inboxzero/tinybird";
+import type { ZodPeriod } from "@inboxzero/tinybird";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
-import { type ThreadsResponse } from "@/app/api/google/threads/controller";
+import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getGmailFilterSettingsUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions/client";
-import { MoreDropdown, Row } from "@/app/(app)/bulk-unsubscribe/common";
+import { MoreDropdown, type Row } from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
 
 export function NewsletterModal(props: {
@@ -56,6 +56,7 @@ export function NewsletterModal(props: {
                 <a
                   href={newsletter.lastUnsubscribeLink || undefined}
                   target="_blank"
+                  rel="noreferrer"
                 >
                   Unsubscribe
                 </a>

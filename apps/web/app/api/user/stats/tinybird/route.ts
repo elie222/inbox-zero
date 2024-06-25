@@ -26,7 +26,7 @@ export type StatsByWeekResponse = Awaited<ReturnType<typeof getStatsByPeriod>>;
 async function getStatsByPeriod(
   options: StatsByWeekParams & {
     ownerEmail: string;
-  }
+  },
 ) {
   const [all, read, sent, inbox] = await Promise.all([
     getEmailsByPeriod(options),
@@ -40,7 +40,7 @@ async function getStatsByPeriod(
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       All: d.count,
     })),
-    "startOfPeriod"
+    "startOfPeriod",
   );
 
   const sentObject = keyBy(
@@ -48,7 +48,7 @@ async function getStatsByPeriod(
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Sent: d.count,
     })),
-    "startOfPeriod"
+    "startOfPeriod",
   );
 
   // read/unread
@@ -58,14 +58,14 @@ async function getStatsByPeriod(
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Read: d.count,
     })),
-    "startOfPeriod"
+    "startOfPeriod",
   );
   const unreadObject = keyBy(
     (readUnreadGroups["false"] || []).map((d) => ({
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Unread: d.count,
     })),
-    "startOfPeriod"
+    "startOfPeriod",
   );
 
   // inbox/archived
@@ -75,14 +75,14 @@ async function getStatsByPeriod(
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Unarchived: d.count,
     })),
-    "startOfPeriod"
+    "startOfPeriod",
   );
   const archiveObject = keyBy(
     (inboxArchiveGroups["false"] || []).map((d) => ({
       startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
       Archived: d.count,
     })),
-    "startOfPeriod"
+    "startOfPeriod",
   );
 
   const merged = merge(
@@ -91,7 +91,7 @@ async function getStatsByPeriod(
     readObject,
     unreadObject,
     inboxObject,
-    archiveObject
+    archiveObject,
   );
 
   return {

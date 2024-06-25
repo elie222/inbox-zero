@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React from "react";
+import type React from "react";
 
 interface PanelProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export const Panel = (props: PanelProps) => {
       className={clsx(
         "rounded-lg bg-white text-gray-700 shadow",
         !props.full && "px-8 py-7",
-        props.classes
+        props.classes,
       )}
     >
       {props.title && (

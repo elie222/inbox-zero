@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
-import { ThreadWithPayloadMessages } from "@/utils/types";
+import type { ThreadWithPayloadMessages } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 
 export const dynamic = "force-dynamic";

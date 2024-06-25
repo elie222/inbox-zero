@@ -7,7 +7,7 @@ export function Prose<T extends React.ElementType = "div">({
 }: React.ComponentPropsWithoutRef<T> & {
   as?: T;
 }) {
-  let Component = as ?? "div";
+  const Component = as ?? "div";
 
   return (
     <Component

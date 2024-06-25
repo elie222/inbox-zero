@@ -3,7 +3,7 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
-import { type Executing, type Thread } from "@/components/email-list/types";
+import type { Executing, Thread } from "@/components/email-list/types";
 import { cn } from "@/utils";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 import { isActionError } from "@/utils/error";

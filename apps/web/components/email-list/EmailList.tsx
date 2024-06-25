@@ -9,16 +9,13 @@ import { toast } from "sonner";
 import { useAtom } from "jotai";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
-import { postRequest } from "@/utils/api";
-import { isError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import { useSession } from "next-auth/react";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
-import { type Thread } from "@/components/email-list/types";
+import type { Thread } from "@/components/email-list/types";
 import { useExecutePlan } from "@/components/email-list/PlanActions";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
-import { CategoriseResponse } from "@/app/api/ai/categorise/controller";
-import { CategoriseBodyWithHtml } from "@/app/api/ai/categorise/validation";
 import { Checkbox } from "@/components/Checkbox";
 import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
@@ -35,6 +32,7 @@ import {
   runAiRules,
 } from "@/providers/QueueProvider";
 import { selectedEmailAtom } from "@/store/email";
+import { categorizeAction } from "@/utils/actions/categorize";
 
 export function List(props: {
   emails: Thread[];
@@ -219,10 +217,7 @@ export function EmailList(props: {
 
           if (!message) return;
 
-          const res = await postRequest<
-            CategoriseResponse,
-            CategoriseBodyWithHtml
-          >("/api/ai/categorise", {
+          const result = await categorizeAction({
             from: message.headers.from,
             subject: message.headers.subject,
             textPlain: message.textPlain || null,
@@ -232,8 +227,7 @@ export function EmailList(props: {
             date: message.headers.date || "",
           });
 
-          if (isError(res)) {
-            console.error(res);
+          if (isActionError(result)) {
             setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
             throw new Error(`There was an error categorizing the email.`);
           } else {
@@ -242,7 +236,7 @@ export function EmailList(props: {
           }
           setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
 
-          return res?.category;
+          return result?.category;
         },
         {
           loading: "Categorizing...",

@@ -1,17 +1,13 @@
-import {
-  DEFAULT_ANTHROPIC_MODEL,
-  anthropicChatCompletion,
-  anthropicChatCompletionStream,
-  anthropicChatCompletionTools,
-} from "@/utils/llms/anthropic";
-import {
-  DEFAULT_OPENAI_MODEL,
-  openAIChatCompletion,
-  openAIChatCompletionStream,
-} from "@/utils/llms/openai";
-import { ChatCompletionTool } from "openai/resources/index";
+import type { z } from "zod";
+import { type CoreTool, generateObject, generateText, streamText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { env } from "@/env.mjs";
+import { saveAiUsage } from "@/utils/usage";
 
 const DEFAULT_AI_PROVIDER = "openai";
+const DEFAULT_OPENAI_MODEL = "gpt-4o";
+const DEFAULT_ANTHROPIC_MODEL = "claude-3-haiku-20240307";
 
 export function getAiProviderAndModel(
   provider: string | null,
@@ -33,140 +29,129 @@ export function getAiProviderAndModel(
   };
 }
 
-export async function chatCompletion(
-  provider: string | null,
-  model: string,
-  apiKey: string | null,
-  messages: Array<{
-    role: "system" | "user";
-    content: string;
-  }>,
-  options: { jsonResponse?: boolean },
-): Promise<{
-  response: any;
-  usage: {
-    completion_tokens: number;
-    prompt_tokens: number;
-    total_tokens: number;
-  } | null;
-}> {
-  if (provider === "openai") {
-    const completion = await openAIChatCompletion(
-      model,
-      apiKey,
-      messages,
-      options,
-    );
-    return {
-      response: completion.choices[0].message.content,
-      usage: completion.usage || null,
-    };
-  }
-
-  if (provider === "anthropic") {
-    const completion = await anthropicChatCompletion(
-      model,
-      apiKey,
-      messages.map((m) => ({ role: "user", content: m.content })),
-    );
-    return {
-      response: completion.response,
-      usage: {
-        completion_tokens: completion.usage.output_tokens,
-        prompt_tokens: completion.usage.input_tokens,
-        total_tokens:
-          completion.usage.input_tokens + completion.usage.output_tokens,
-      },
-    };
-  }
+function getModel(provider: string, model: string, apiKey: string | null) {
+  if (provider === "openai")
+    return createOpenAI({ apiKey: apiKey || env.OPENAI_API_KEY })(model);
+  if (provider === "anthropic")
+    return createAnthropic({ apiKey: apiKey || env.ANTHROPIC_API_KEY })(model);
 
   throw new Error("AI provider not supported");
 }
 
-export async function chatCompletionStream(
-  provider: string | null,
-  model: string,
-  apiKey: string | null,
-  messages: Array<{
-    role: "system" | "user";
-    content: string;
-  }>,
-) {
-  if (provider === "openai") {
-    const completion = await openAIChatCompletionStream(
+export async function chatCompletionObject<T>({
+  provider,
+  model,
+  apiKey,
+  prompt,
+  system,
+  schema,
+  userEmail,
+  usageLabel,
+}: {
+  provider: string;
+  model: string;
+  apiKey: string | null;
+  prompt: string;
+  system?: string;
+  schema: z.Schema<T>;
+  userEmail: string;
+  usageLabel: string;
+}) {
+  const result = await generateObject({
+    model: getModel(provider, model, apiKey),
+    prompt,
+    system,
+    schema,
+  });
+
+  if (result.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: result.usage,
+      provider,
       model,
-      apiKey,
-      messages,
-    );
-    return completion;
-  }
-
-  if (provider === "anthropic") {
-    const completion = await anthropicChatCompletionStream(
-      model,
-      apiKey,
-      messages.map((m) => ({ role: "user", content: m.content })),
-    );
-    return completion;
-  }
-
-  throw new Error("AI provider not supported");
-}
-export type ChatCompletionStreamResponse = Awaited<
-  ReturnType<typeof chatCompletionStream>
->;
-
-export async function chatCompletionTools(
-  provider: string | null,
-  model: string,
-  apiKey: string | null,
-  messages: Array<{
-    role: "system" | "user";
-    content: string;
-  }>,
-  tools: Array<ChatCompletionTool>,
-): Promise<{
-  functionCall?: {
-    name: string;
-    arguments: string;
-  };
-  usage: {
-    completion_tokens: number;
-    prompt_tokens: number;
-    total_tokens: number;
-  } | null;
-}> {
-  if (provider === "openai") {
-    const completion = await openAIChatCompletion(model, apiKey, messages, {
-      tools,
+      label: usageLabel,
     });
-
-    return {
-      functionCall: completion.choices?.[0]?.message.tool_calls?.[0]?.function,
-      usage: completion.usage || null,
-    };
   }
 
-  if (provider === "anthropic") {
-    const completion = await anthropicChatCompletionTools(
+  return result;
+}
+
+export async function chatCompletionStream({
+  provider,
+  model,
+  apiKey,
+  prompt,
+  system,
+  userEmail,
+  usageLabel: label,
+  onFinish,
+}: {
+  provider: string;
+  model: string;
+  apiKey: string | null;
+  prompt: string;
+  system?: string;
+  userEmail: string;
+  usageLabel: string;
+  onFinish?: (text: string) => Promise<void>;
+}) {
+  const result = await streamText({
+    model: getModel(provider, model, apiKey),
+    prompt,
+    system,
+    onFinish: async ({ usage, text }) => {
+      await saveAiUsage({
+        email: userEmail,
+        provider,
+        model,
+        usage,
+        label,
+      });
+
+      if (onFinish) await onFinish(text);
+    },
+  });
+
+  return result;
+}
+
+export async function chatCompletionTools({
+  provider,
+  model,
+  apiKey,
+  prompt,
+  system,
+  tools,
+  label,
+  userEmail,
+}: {
+  provider: string;
+  model: string;
+  apiKey: string | null;
+  prompt: string;
+  system?: string;
+  tools: Record<string, CoreTool>;
+  label: string;
+  userEmail: string;
+}) {
+  const result = await generateText({
+    model: getModel(provider, model, apiKey),
+    tools,
+    toolChoice: "required",
+    prompt,
+    system,
+  });
+
+  if (result.usage) {
+    await saveAiUsage({
+      email: userEmail,
+      usage: result.usage,
+      provider,
       model,
-      apiKey,
-      messages.map((m) => ({ role: "user", content: m.content })),
-      tools,
-    );
-    const completion_tokens =
-      (completion.additional_kwargs.usage as any).output_tokens || 0;
-    const prompt_tokens =
-      (completion.additional_kwargs as any).usage.input_tokens || 0;
-    return {
-      functionCall: completion.additional_kwargs.tool_calls?.[0]?.function,
-      usage: {
-        completion_tokens,
-        prompt_tokens,
-        total_tokens: completion_tokens + prompt_tokens,
-      },
-    };
+      label,
+    });
   }
 
-  throw new Error("AI provider not supported");
+  return result;
 }

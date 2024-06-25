@@ -1,4 +1,4 @@
-import { Action, ActionType, ExecutedAction } from "@prisma/client";
+import { type Action, ActionType, type ExecutedAction } from "@prisma/client";
 
 export const actionInputs: Record<
   ActionType,

@@ -3,7 +3,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import {
-  UpdateColdEmailSettingsBody,
+  type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
 

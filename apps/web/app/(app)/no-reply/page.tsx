@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
-import { NoReplyResponse } from "@/app/api/user/no-reply/route";
+import type { NoReplyResponse } from "@/app/api/user/no-reply/route";
 import { PageHeading } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 
