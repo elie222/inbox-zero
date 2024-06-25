@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TopSection } from "@/components/TopSection";
 import { activateLicenseKey } from "@/utils/actions/premium";
-import { UserResponse } from "@/app/api/user/me/route";
+import type { UserResponse } from "@/app/api/user/me/route";
 import { AlertBasic } from "@/components/Alert";
 
 type Inputs = { licenseKey: string };

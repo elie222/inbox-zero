@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import useSWR from "swr";
-import { LabelsResponse } from "@/app/api/google/labels/route";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
 
 export function useLabels() {
   const { data, isLoading, error, mutate } =

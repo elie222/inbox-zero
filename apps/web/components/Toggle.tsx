@@ -1,6 +1,6 @@
 import { Switch, SwitchGroup } from "@headlessui/react";
 import clsx from "clsx";
-import { FieldError } from "react-hook-form";
+import type { FieldError } from "react-hook-form";
 import { ErrorMessage, ExplainText, Label } from "./Input";
 
 export interface ToggleProps {

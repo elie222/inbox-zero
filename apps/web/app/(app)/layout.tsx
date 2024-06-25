@@ -1,5 +1,6 @@
 import "../../styles/globals.css";
-import React, { Suspense } from "react";
+import type React from "react";
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";

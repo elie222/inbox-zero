@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React from "react";
+import type React from "react";
 
 interface LoadingProps {
   size?: "xs" | "sm" | "md" | "xl";
@@ -26,7 +26,7 @@ export const Loading: React.FC<LoadingProps> = (props) => {
               "h-8 w-8": size === "sm",
               "h-16 w-16": size === "md",
               "h-32 w-32": size === "xl",
-            }
+            },
           )}
         ></div>
       </div>

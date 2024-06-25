@@ -1,14 +1,14 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
-import { ActionType, ExecutedAction } from "@prisma/client";
-import { PartialRecord } from "@/utils/types";
+import { ActionType, type ExecutedAction } from "@prisma/client";
+import type { PartialRecord } from "@/utils/types";
 import {
   archiveThread,
   getOrCreateLabel,
   labelThread,
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import { Attachment } from "@/utils/types/mail";
+import type { Attachment } from "@/utils/types/mail";
 
 export type EmailForAction = {
   threadId: string;

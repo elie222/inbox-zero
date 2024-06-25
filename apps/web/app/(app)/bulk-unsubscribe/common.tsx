@@ -4,7 +4,7 @@ import React, { useCallback, useState } from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { toast } from "sonner";
 import { Title, Text } from "@tremor/react";
 import {
@@ -41,7 +41,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LabelsResponse } from "@/app/api/google/labels/route";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { setNewsletterStatus } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCredit } from "@/utils/actions/premium";
 import {
@@ -50,12 +50,12 @@ import {
 } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@prisma/client";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
-import { GroupsResponse } from "@/app/api/user/group/route";
+import type { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { isActionError, isErrorMessage } from "@/utils/error";
-import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
 import { isDefined } from "@/utils/types";
 import { getGmailSearchUrl } from "@/utils/url";
@@ -185,6 +185,7 @@ export function ActionCell<T extends Row>({
             }
             target="_blank"
             onClick={onUnsubscribe}
+            rel="noreferrer"
           >
             {unsubscribeLoading && <ButtonLoader />}
             <span className="hidden xl:block">Unsubscribe</span>

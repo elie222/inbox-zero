@@ -25,7 +25,7 @@ async function getInsights(options: { email: string }) {
   const READ_THRESHOLD = 0.3;
 
   const lowReadEmails = newsletterCounts.data.filter(
-    (newsletter) => newsletter.readEmails / newsletter.count < READ_THRESHOLD
+    (newsletter) => newsletter.readEmails / newsletter.count < READ_THRESHOLD,
   );
 
   return {

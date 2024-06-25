@@ -1,4 +1,4 @@
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
 // Converts "<john.doe@gmail>" to "john.doe@gmail"

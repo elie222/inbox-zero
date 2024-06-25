@@ -1,14 +1,14 @@
-import { ActionItem } from "@/utils/ai/actions";
+import type { ActionItem } from "@/utils/ai/actions";
 import {
   getArgsAiResponse,
   getActionItemsFromAiArgsResponse,
   getActionsWithParameters,
 } from "@/utils/ai/choose-rule/ai-choose-args";
 import { getAiResponse } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { UserAIFields } from "@/utils/llms/types";
-import { RuleWithActions } from "@/utils/types";
-import { Rule, User } from "@prisma/client";
-import { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
+import type { UserAIFields } from "@/utils/llms/types";
+import type { RuleWithActions } from "@/utils/types";
+import type { Rule, User } from "@prisma/client";
+import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 
 export type ChooseRuleOptions = {
   email: EmailForLLM;

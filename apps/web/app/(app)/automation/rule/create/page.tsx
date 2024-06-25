@@ -7,7 +7,8 @@ export default function CreateRulePage({
   searchParams: { example: string };
 }) {
   const rule =
-    searchParams.example && examples[parseInt(searchParams.example)].rule;
+    searchParams.example &&
+    examples[Number.parseInt(searchParams.example)].rule;
 
   return (
     <div className="content-container mx-auto w-full max-w-3xl">

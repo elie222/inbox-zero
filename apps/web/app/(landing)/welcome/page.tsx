@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Card } from "@/components/Card";
@@ -35,7 +35,7 @@ export default async function WelcomePage({
   if (!searchParams.force && user.completedOnboarding) redirect(appHomePath);
 
   const questionIndex = searchParams.question
-    ? parseInt(searchParams.question)
+    ? Number.parseInt(searchParams.question)
     : 0;
 
   return (

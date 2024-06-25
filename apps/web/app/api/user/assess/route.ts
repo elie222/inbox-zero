@@ -4,7 +4,7 @@ import countBy from "lodash/countBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
-import { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import { getEmailClient } from "@/utils/mail";
 import prisma from "@/utils/prisma";

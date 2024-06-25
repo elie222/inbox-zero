@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
-import { PendingExecutedRules } from "@/app/api/user/planned/route";
+import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ActionBadgeExpanded } from "@/components/PlanBadge";
@@ -142,7 +142,7 @@ function OpenInGmailButton({
 
 export function TablePagination({ totalPages }: { totalPages: number }) {
   const searchParams = useSearchParams();
-  const page = parseInt(searchParams.get("page") || "1");
+  const page = Number.parseInt(searchParams.get("page") || "1");
   const hrefForPage = useCallback(
     (value: number) => {
       const params = new URLSearchParams(searchParams);

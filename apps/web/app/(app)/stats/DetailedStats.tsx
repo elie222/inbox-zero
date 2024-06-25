@@ -4,11 +4,11 @@ import { useState } from "react";
 import useSWR from "swr";
 import { BarChart, Title } from "@tremor/react";
 import { FilterIcon } from "lucide-react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/Card";
-import {
+import type {
   StatsByWeekResponse,
   StatsByWeekParams,
 } from "@/app/api/user/stats/tinybird/route";

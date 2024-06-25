@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { Provider } from "jotai";
 import { ComposeModalProvider } from "@/providers/ComposeModalProvider";
 import { QueueProvider } from "@/providers/QueueProvider";

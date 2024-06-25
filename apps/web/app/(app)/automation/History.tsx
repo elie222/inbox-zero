@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
-import { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
+import type { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { AlertBasic } from "@/components/Alert";
 import { Card } from "@/components/ui/card";
 import {

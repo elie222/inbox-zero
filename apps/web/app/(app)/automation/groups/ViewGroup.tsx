@@ -1,11 +1,11 @@
 "use client";
 
-import useSWR, { KeyedMutator } from "swr";
+import useSWR, { type KeyedMutator } from "swr";
 import { PlusIcon, TrashIcon } from "lucide-react";
 import { useState, useCallback } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
+import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Modal, useModal } from "@/components/Modal";
 import { Button, ButtonLoader } from "@/components/ui/button";
@@ -28,7 +28,10 @@ import { GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AddGroupItemBody, addGroupItemBody } from "@/utils/actions/validation";
+import {
+  type AddGroupItemBody,
+  addGroupItemBody,
+} from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 
 export function ViewGroupButton({

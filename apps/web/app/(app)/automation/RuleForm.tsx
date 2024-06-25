@@ -4,11 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  FieldError,
-  FieldErrors,
-  SubmitHandler,
-  UseFormRegisterReturn,
-  UseFormSetValue,
+  type FieldError,
+  type FieldErrors,
+  type SubmitHandler,
+  type UseFormRegisterReturn,
+  type UseFormSetValue,
   useFieldArray,
   useForm,
 } from "react-hook-form";
@@ -27,14 +27,17 @@ import {
 } from "@/components/Typography";
 import { ActionType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
-import { CreateRuleBody, createRuleBody } from "@/utils/actions/validation";
+import {
+  type CreateRuleBody,
+  createRuleBody,
+} from "@/utils/actions/validation";
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { Tooltip } from "@/components/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import useSWR from "swr";
-import { GroupsResponse } from "@/app/api/user/group/route";
+import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
@@ -48,7 +51,7 @@ import { isActionError } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
-import { LabelsResponse } from "@/app/api/google/labels/route";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {

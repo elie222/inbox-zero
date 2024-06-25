@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { Content } from "./content";
 import { StructuredData } from "@/app/blog/post/StructuredData";
 

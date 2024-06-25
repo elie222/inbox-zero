@@ -8,16 +8,19 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "prettier": "npx prettier --write \"**/*.{ts,tsx}\"",
     "prepare": "husky install",
-    "ncu": "ncu -u -ws"
+    "ncu": "ncu -u -ws",
+    "format-and-lint": "biome check .",
+    "format-and-lint:fix": "biome check . --write"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.8.2",
     "@turbo/gen": "^1.11.3",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "husky": "^8.0.3",
     "lint-staged": "^15.2.0",
     "prettier": "^3.1.1",
-    "turbo": "^1.13.2"
+    "turbo": "^2.0.5"
   },
   "packageManager": "pnpm@9.4.0",
   "lint-staged": {

@@ -1,9 +1,9 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { parseMessage } from "@/utils/mail";
 import {
-  BatchError,
-  MessageWithPayload,
-  ParsedMessage,
+  type BatchError,
+  type MessageWithPayload,
+  type ParsedMessage,
   isBatchError,
   isDefined,
 } from "@/utils/types";

@@ -1,6 +1,6 @@
 import uniqBy from "lodash/uniqBy";
 import { NextResponse } from "next/server";
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
@@ -9,13 +9,13 @@ import {
   INBOX_LABEL_ID,
   SENT_LABEL_ID,
 } from "@/utils/gmail/label";
-import { type RuleWithActions } from "@/utils/types";
+import type { RuleWithActions } from "@/utils/types";
 import { withError } from "@/utils/middleware";
 import { getMessage, hasPreviousEmailsFromDomain } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting, User } from "@prisma/client";
+import { ColdEmailSetting, type User } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { getAiProviderAndModel } from "@/utils/llms";
@@ -65,7 +65,7 @@ function decodeHistoryId(body: any) {
   // seem to get this in different formats? so unifying as number
   const historyId =
     typeof decodedData.historyId === "string"
-      ? parseInt(decodedData.historyId)
+      ? Number.parseInt(decodedData.historyId)
       : decodedData.historyId;
 
   return { emailAddress: decodedData.emailAddress, historyId };
@@ -181,7 +181,7 @@ export async function processHistoryForUser(
     const startHistoryId =
       options?.startHistoryId ||
       Math.max(
-        parseInt(account.user.lastSyncedHistoryId || "0"),
+        Number.parseInt(account.user.lastSyncedHistoryId || "0"),
         historyId - 500, // avoid going too far back
       ).toString();
 

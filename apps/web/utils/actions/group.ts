@@ -3,16 +3,16 @@
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
-  AddGroupItemBody,
+  type AddGroupItemBody,
   addGroupItemBody,
-  CreateGroupBody,
+  type CreateGroupBody,
   createGroupBody,
 } from "@/utils/actions/validation";
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
 import { GroupItemType } from "@prisma/client";
-import { ServerActionResponse } from "@/utils/error";
+import type { ServerActionResponse } from "@/utils/error";
 import {
   NEWSLETTER_GROUP_ID,
   RECEIPT_GROUP_ID,

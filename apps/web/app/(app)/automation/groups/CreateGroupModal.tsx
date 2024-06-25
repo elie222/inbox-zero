@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import { Modal, useModal } from "@/components/Modal";
 import { Button, ButtonLoader } from "@/components/ui/button";
@@ -13,7 +13,10 @@ import {
   createReceiptGroupAction,
 } from "@/utils/actions/group";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CreateGroupBody, createGroupBody } from "@/utils/actions/validation";
+import {
+  type CreateGroupBody,
+  createGroupBody,
+} from "@/utils/actions/validation";
 import { AlertBasic } from "@/components/Alert";
 import { isActionError } from "@/utils/error";
 

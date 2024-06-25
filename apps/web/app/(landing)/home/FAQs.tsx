@@ -13,6 +13,7 @@ const faqs = [
           href="/github"
           target="_blank"
           className="font-semibold hover:underline"
+          rel="noreferrer"
         >
           GitHub repo
         </a>
@@ -29,6 +30,7 @@ const faqs = [
           href="/github"
           target="_blank"
           className="font-semibold hover:underline"
+          rel="noreferrer"
         >
           GitHub
         </a>{" "}
@@ -37,6 +39,7 @@ const faqs = [
           href="mailto:elie@getinboxzero.com"
           target="_blank"
           className="font-semibold hover:underline"
+          rel="noreferrer"
         >
           email
         </a>{" "}
@@ -63,6 +66,7 @@ const faqs = [
           href="mailto:elie@getinboxzero.com"
           target="_blank"
           className="font-semibold hover:underline"
+          rel="noreferrer"
         >
           email
         </a>{" "}

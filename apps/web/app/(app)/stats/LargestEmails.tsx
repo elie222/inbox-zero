@@ -17,7 +17,7 @@ import { useSession } from "next-auth/react";
 import { ExternalLinkIcon, Trash2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
+import type { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";

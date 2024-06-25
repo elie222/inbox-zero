@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  CreateRuleBody,
+  type CreateRuleBody,
   createRuleBody,
-  UpdateRuleBody,
+  type UpdateRuleBody,
   updateRuleBody,
 } from "@/utils/actions/validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";

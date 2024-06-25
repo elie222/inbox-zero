@@ -1,7 +1,7 @@
 "use client";
 
 import { toastError, toastSuccess } from "@/components/Toast";
-import { ServerActionResponse, isActionError } from "@/utils/error";
+import { type ServerActionResponse, isActionError } from "@/utils/error";
 
 export function handleActionResult<T>(
   result: ServerActionResponse<T>,

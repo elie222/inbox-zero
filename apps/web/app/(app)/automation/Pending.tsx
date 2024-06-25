@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
-import { PendingExecutedRules } from "@/app/api/user/planned/route";
+import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import { Button, ButtonLoader } from "@/components/ui/button";
 import { AlertBasic } from "@/components/Alert";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 import { toastError } from "@/components/Toast";
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import {
   ActionItemsCell,
   EmailCell,
@@ -34,7 +34,7 @@ import { isActionError } from "@/utils/error";
 
 export function Pending() {
   const searchParams = useSearchParams();
-  const page = parseInt(searchParams.get("page") || "1");
+  const page = Number.parseInt(searchParams.get("page") || "1");
   const { data, isLoading, error, mutate } = useSWR<PendingExecutedRules>(
     `/api/user/planned?page=${page}`,
   );

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { getGmailAttachment } from "@/utils/gmail/attachment";

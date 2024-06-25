@@ -10,7 +10,7 @@ import {
   extendPremium,
   upgradeToPremium,
 } from "@/utils/premium/server";
-import { Payload } from "@/app/api/lemon-squeezy/webhook/types";
+import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { PremiumTier } from "@prisma/client";
 import { cancelledPremium, upgradedToPremium } from "@inboxzero/loops";
 

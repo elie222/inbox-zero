@@ -4,7 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
 import { MoreHorizontalIcon } from "lucide-react";
-import { RulesResponse } from "@/app/api/user/rules/route";
+import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -235,8 +235,8 @@ export function getInstructions(
     case RuleType.AI:
       return rule.instructions;
     case RuleType.STATIC:
-      let from = rule.from ? `From: ${rule.from}` : "";
-      let subject = rule.subject ? `Subject: ${rule.subject}` : "";
+      const from = rule.from ? `From: ${rule.from}` : "";
+      const subject = rule.subject ? `Subject: ${rule.subject}` : "";
       // let body = rule.body ? `Body: ${rule.body}` : "";
       return `${from} ${subject}`.trim();
     case RuleType.GROUP:

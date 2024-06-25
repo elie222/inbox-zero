@@ -1,4 +1,8 @@
-import { ErrorMessage, captureException, isErrorMessage } from "@/utils/error";
+import {
+  type ErrorMessage,
+  captureException,
+  isErrorMessage,
+} from "@/utils/error";
 
 export async function postRequest<T, S = any>(
   url: string,

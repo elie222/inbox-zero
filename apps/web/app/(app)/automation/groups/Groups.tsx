@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { GroupsResponse } from "@/app/api/user/group/route";
+import type { GroupsResponse } from "@/app/api/user/group/route";
 import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
 import { CreateGroupModalButton } from "@/app/(app)/automation/groups/CreateGroupModal";
 
