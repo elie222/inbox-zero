@@ -4,28 +4,44 @@ import { RuleType } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
 
+const email = {
+  from: "from@test.com",
+  subject: "test",
+  content: "test",
+};
+
+const user = {
+  aiModel: "gpt-4o",
+  aiProvider: "openai",
+  email: "user@test.com",
+  openAIApiKey: null,
+  about: null,
+};
+
 test("Should return no rule when no rules passed", async () => {
   const result = await chooseRule({
-    email: {
-      from: "from@test.com",
-      subject: "test",
-      content: "test",
-    },
+    email,
     rules: [],
-    user: {
-      aiModel: "gpt-4o",
-      aiProvider: "openai",
-      email: "user@test.com",
-      openAIApiKey: null,
-      about: null,
-    },
+    user,
   });
 
   expect(result).toEqual({ reason: "No rules" });
 });
 
 test("Should return correct rule", async () => {
-  const rule = {
+  const rule = createRule();
+
+  const result = await chooseRule({
+    email,
+    rules: [rule],
+    user,
+  });
+
+  expect(result).toEqual({ rule, reason: expect.any(String), actionItems: [] });
+});
+
+function createRule() {
+  return {
     instructions: "Match emails that have the word 'test' in the subject line",
     name: "rule1",
     actions: [],
@@ -42,22 +58,4 @@ test("Should return correct rule", async () => {
     to: null,
     type: RuleType.AI,
   };
-
-  const result = await chooseRule({
-    email: {
-      from: "from@test.com",
-      subject: "test",
-      content: "test",
-    },
-    rules: [rule],
-    user: {
-      aiModel: "gpt-4o",
-      aiProvider: "openai",
-      email: "user@test.com",
-      openAIApiKey: null,
-      about: null,
-    },
-  });
-
-  expect(result).toEqual({ rule, reason: expect.any(String), actionItems: [] });
-});
+}
