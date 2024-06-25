@@ -40,7 +40,7 @@ export function Combobox(props: {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[500px] justify-between"
+          className="w-full justify-between sm:w-[500px]"
         >
           {(value &&
             props.options.find((option) => option.value === value)?.label) ||
@@ -49,7 +49,7 @@ export function Combobox(props: {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[500px] p-0">
+      <PopoverContent className="w-full p-0 sm:w-[500px]">
         <Command>
           <CommandInput
             placeholder="Search..."

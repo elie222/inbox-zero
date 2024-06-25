@@ -86,7 +86,7 @@ export default function AutomationSettingsPage() {
                 rows={4}
                 name="prompt"
                 placeholder={`eg. Forward receipts to alice@accountant.com.`}
-                className="mt-2 min-w-[500px]"
+                className="mt-2"
                 registerProps={register("prompt")}
                 error={errors.prompt}
               />
