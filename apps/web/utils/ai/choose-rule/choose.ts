@@ -25,6 +25,8 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
 > {
   const { email, rules, user } = options;
 
+  if (!rules.length) return { reason: "No rules" };
+
   const aiResponse = await getAiResponse({
     email,
     rules,

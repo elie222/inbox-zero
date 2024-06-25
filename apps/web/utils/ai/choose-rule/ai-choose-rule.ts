@@ -20,6 +20,8 @@ type GetAiResponseOptions = {
 export async function getAiResponse(options: GetAiResponseOptions) {
   const { email, user, rules } = options;
 
+  if (!rules.length) return;
+
   const rulesWithUnknownRule = [
     ...rules,
     {

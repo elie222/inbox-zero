@@ -20,5 +20,5 @@ test("Should choose correct rule", async () => {
     },
   });
 
-  expect(result).toEqual({ reason: expect.any(String) });
+  expect(result).toEqual({ reason: "No rules" });
 });
