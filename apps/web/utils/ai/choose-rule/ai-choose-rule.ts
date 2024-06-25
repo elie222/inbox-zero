@@ -67,7 +67,7 @@ ${stringifyEmail(email, 500)}
     system,
     schema: z.object({
       rule: z.number(),
-      reason: z.string().optional(),
+      reason: z.string(),
     }),
   });
 
