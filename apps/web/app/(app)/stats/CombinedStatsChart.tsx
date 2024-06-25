@@ -1,7 +1,7 @@
 import { BarChart, Card, Title } from "@tremor/react";
 import { useMemo } from "react";
 import useSWRImmutable from "swr/immutable";
-import {
+import type {
   StatsByDayResponse,
   StatsByDayQuery,
 } from "@/app/api/user/stats/day/route";
@@ -16,7 +16,7 @@ export function CombinedStatsChart(props: { title: string }) {
   } = useSWRImmutable<StatsByDayResponse, { error: string }>(
     `/api/user/stats/day?${new URLSearchParams({
       type: "sent",
-    } as StatsByDayQuery).toString()}`
+    } as StatsByDayQuery).toString()}`,
   );
 
   const {
@@ -26,7 +26,7 @@ export function CombinedStatsChart(props: { title: string }) {
   } = useSWRImmutable<StatsByDayResponse, { error: string }>(
     `/api/user/stats/day?${new URLSearchParams({
       type: "archived",
-    } as StatsByDayQuery).toString()}`
+    } as StatsByDayQuery).toString()}`,
   );
 
   const {
@@ -36,7 +36,7 @@ export function CombinedStatsChart(props: { title: string }) {
   } = useSWRImmutable<StatsByDayResponse, { error: string }>(
     `/api/user/stats/day?${new URLSearchParams({
       type: "inbox",
-    } as StatsByDayQuery).toString()}`
+    } as StatsByDayQuery).toString()}`,
   );
 
   const isLoading = sentIsLoading || archivedIsLoading || inboxIsLoading;

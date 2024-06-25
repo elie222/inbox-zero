@@ -12,7 +12,7 @@ import {
 } from "novel";
 import { handleCommandNavigation } from "novel/extensions";
 import React, { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
@@ -22,7 +22,7 @@ import { LinkSelector } from "@/app/(app)/compose/selectors/link-selector";
 import { NodeSelector } from "@/app/(app)/compose/selectors/node-selector";
 // import { AISelector } from "@/app/(app)/compose/selectors/ai-selector";
 import { TextButtons } from "@/app/(app)/compose/selectors/text-buttons";
-import { ContactsResponse } from "@/app/api/google/contacts/route";
+import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import { Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,7 +33,7 @@ import { cn } from "@/utils";
 import { postRequest } from "@/utils/api";
 import { extractNameFromEmail } from "@/utils/email";
 import { isError } from "@/utils/error";
-import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
+import type { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import {
   slashCommand,
   suggestionItems,

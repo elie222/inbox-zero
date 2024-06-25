@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { capitalCase } from "capital-case";
@@ -15,7 +15,7 @@ import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { MessagesResponse } from "@/app/api/google/messages/route";
+import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
@@ -24,11 +24,11 @@ import {
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
 import { RuleType } from "@prisma/client";
-import { RulesResponse } from "@/app/api/user/rules/route";
+import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
 import { isActionError } from "@/utils/error";
-import { type TestResult } from "@/utils/ai/choose-rule/run-rules";
+import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (

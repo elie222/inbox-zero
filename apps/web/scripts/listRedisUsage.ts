@@ -20,7 +20,7 @@ async function scanUsageKeys() {
       if (!cost) return { email: key, cost: 0, data };
       return {
         email: key,
-        cost: parseFloat(parseFloat(cost).toFixed(1)),
+        cost: Number.parseFloat(Number.parseFloat(cost).toFixed(1)),
         data,
       };
     }),

@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
 import { Button } from "@/components/Button";
-import { UserResponse } from "@/app/api/user/me/route";
+import type { UserResponse } from "@/app/api/user/me/route";
 import {
   hasAiAccess,
   hasColdEmailAccess,

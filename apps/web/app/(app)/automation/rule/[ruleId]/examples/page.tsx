@@ -6,7 +6,7 @@ import groupBy from "lodash/groupBy";
 import { TopSection } from "@/components/TopSection";
 import { Button } from "@/components/ui/button";
 import { ExampleList } from "@/app/(app)/automation/rule/[ruleId]/examples/example-list";
-import { ExamplesResponse } from "@/app/api/user/rules/[id]/example/route";
+import type { ExamplesResponse } from "@/app/api/user/rules/[id]/example/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export const dynamic = "force-dynamic";

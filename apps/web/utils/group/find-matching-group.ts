@@ -1,6 +1,6 @@
 import { removeNumbersFromSubject } from "@/utils/ai/group/find-receipts";
 import prisma from "@/utils/prisma";
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import { GroupItemType } from "@prisma/client";
 
 type Groups = Awaited<ReturnType<typeof getGroups>>;

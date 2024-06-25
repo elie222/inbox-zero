@@ -18,7 +18,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
-import {
+import type {
   NewSendersQuery,
   NewSendersResponse,
 } from "@/app/api/user/stats/new-senders/route";
@@ -31,13 +31,13 @@ import {
   ShortcutTooltip,
   SectionHeader,
   ActionCell,
-  Row,
+  type Row,
   HeaderButton,
 } from "@/app/(app)/bulk-unsubscribe/common";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
-import { LabelsResponse } from "@/app/api/google/labels/route";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 

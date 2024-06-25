@@ -2,7 +2,7 @@
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { NewsletterStatus } from "@prisma/client";
+import type { NewsletterStatus } from "@prisma/client";
 
 export async function setNewsletterStatus(options: {
   newsletterEmail: string;

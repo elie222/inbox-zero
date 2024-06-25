@@ -21,7 +21,7 @@ import {
   FileIcon,
   InboxIcon,
   LightbulbIcon,
-  LucideIcon,
+  type LucideIcon,
   MailsIcon,
   MessagesSquareIcon,
   PenIcon,

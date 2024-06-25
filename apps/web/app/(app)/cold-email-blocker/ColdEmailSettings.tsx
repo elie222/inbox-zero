@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import { UserResponse } from "@/app/api/user/me/route";
-import { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
+import type { UserResponse } from "@/app/api/user/me/route";
+import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
@@ -14,7 +14,7 @@ import { Select } from "@/components/Select";
 import { isError } from "@/utils/error";
 import { Button } from "@/components/Button";
 import {
-  UpdateColdEmailSettingsBody,
+  type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
 import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";

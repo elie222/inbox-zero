@@ -14,10 +14,10 @@ import {
   TableRow,
 } from "@tremor/react";
 import { FilterIcon } from "lucide-react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
+import type {
   NewsletterStatsQuery,
   NewsletterStatsResponse,
 } from "@/app/api/user/stats/newsletters/route";
@@ -28,7 +28,7 @@ import {
   EmailsToIncludeFilter,
   useEmailsToIncludeFilter,
 } from "@/app/(app)/stats/EmailsToIncludeFilter";
-import { LabelsResponse } from "@/app/api/google/labels/route";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { usePremium } from "@/components/PremiumAlert";
 import {

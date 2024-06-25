@@ -1,4 +1,4 @@
-import { people_v1 } from "googleapis";
+import type { people_v1 } from "googleapis";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";

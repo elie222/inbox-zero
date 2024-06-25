@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import clsx from "clsx";
-import { type Dictionary } from "lodash";
+import type { Dictionary } from "lodash";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { deleteGroupItemAction } from "@/utils/actions/group";
-import { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
+import type { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 

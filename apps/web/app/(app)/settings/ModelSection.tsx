@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
@@ -10,15 +10,15 @@ import { Input } from "@/components/Input";
 import { isError } from "@/utils/error";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoadingContent } from "@/components/LoadingContent";
-import { UserResponse } from "@/app/api/user/me/route";
+import type { UserResponse } from "@/app/api/user/me/route";
 import { postRequest } from "@/utils/api";
 import {
   saveSettingsBody,
-  SaveSettingsBody,
+  type SaveSettingsBody,
 } from "@/app/api/user/settings/validation";
-import { SaveSettingsResponse } from "@/app/api/user/settings/route";
+import type { SaveSettingsResponse } from "@/app/api/user/settings/route";
 import { Select } from "@/components/Select";
-import { OpenAiModelsResponse } from "@/app/api/ai/models/route";
+import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import { AlertError } from "@/components/Alert";
 
 export function ModelSection() {

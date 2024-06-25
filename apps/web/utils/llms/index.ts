@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { CoreTool, generateObject, generateText, streamText } from "ai";
+import type { z } from "zod";
+import { type CoreTool, generateObject, generateText, streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { env } from "@/env.mjs";

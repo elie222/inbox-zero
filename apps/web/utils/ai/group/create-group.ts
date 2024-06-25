@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
 import { saveAiUsage } from "@/utils/usage";
-import { Group, User } from "@prisma/client";
+import type { Group, User } from "@prisma/client";
 
 export async function aiCreateGroup(
   user: User,

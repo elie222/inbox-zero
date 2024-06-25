@@ -2,7 +2,7 @@
 
 import { subDays } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { BulkUnsubscribeSection } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSection";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
@@ -36,7 +36,7 @@ export default function BulkUnsubscribePage() {
 
   const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(now, parseInt(defaultSelected.value)),
+    from: subDays(now, Number.parseInt(defaultSelected.value)),
     to: now,
   });
 

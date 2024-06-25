@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
-import { CategoriseBody } from "@/app/api/ai/categorise/validation";
+import type { CategoriseBody } from "@/app/api/ai/categorise/validation";
 import { truncate } from "@/utils/string";
 import { saveAiUsage } from "@/utils/usage";
 

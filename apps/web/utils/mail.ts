@@ -2,10 +2,10 @@ import "server-only";
 import parse from "gmail-api-parse-message";
 import replyParser from "node-email-reply-parser";
 import { convert } from "html-to-text";
-import {
-  type ThreadWithPayloadMessages,
-  type MessageWithPayload,
-  type ParsedMessage,
+import type {
+  ThreadWithPayloadMessages,
+  MessageWithPayload,
+  ParsedMessage,
 } from "@/utils/types";
 import { truncate } from "@/utils/string";
 

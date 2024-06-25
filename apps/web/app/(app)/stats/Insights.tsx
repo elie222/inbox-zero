@@ -1,7 +1,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { CheckCircleIcon } from "lucide-react";
-import { InsightsResponse } from "@/app/api/user/stats/insights/route";
+import type { InsightsResponse } from "@/app/api/user/stats/insights/route";
 
 export function Insights() {
   const { data, isLoading, error } = useSWR<

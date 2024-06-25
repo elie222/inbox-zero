@@ -1,8 +1,13 @@
 import { CheckCircleIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
-import { Badge, Color } from "@/components/Badge";
+import { Badge, type Color } from "@/components/Badge";
 import { HoverCard } from "@/components/HoverCard";
-import { ActionType, ExecutedRule, ExecutedAction, Rule } from "@prisma/client";
+import {
+  ActionType,
+  type ExecutedRule,
+  type ExecutedAction,
+  type Rule,
+} from "@prisma/client";
 import { truncate } from "@/utils/string";
 
 type Plan = Pick<ExecutedRule, "reason" | "status"> & {

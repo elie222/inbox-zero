@@ -1,4 +1,4 @@
-import { ExecutedRuleStatus } from "@prisma/client";
+import type { ExecutedRuleStatus } from "@prisma/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";

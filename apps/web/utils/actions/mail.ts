@@ -3,7 +3,7 @@
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { type Label } from "@prisma/client";
+import type { Label } from "@prisma/client";
 import { saveUserLabels } from "@/utils/redis/label";
 import { trashMessage, trashThread } from "@/utils/gmail/trash";
 import {
@@ -17,8 +17,8 @@ import {
   createFilter,
   deleteFilter,
 } from "@/utils/gmail/filter";
-import { ServerActionResponse } from "@/utils/error";
-import { gmail_v1 } from "googleapis";
+import type { ServerActionResponse } from "@/utils/error";
+import type { gmail_v1 } from "googleapis";
 import {
   getSessionAndGmailClient,
   isStatusOk,

@@ -6,7 +6,7 @@ import { RuleType, ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
-  TestResult,
+  type TestResult,
   runRulesOnMessage,
   testRulesOnMessage,
 } from "@/utils/ai/choose-rule/run-rules";
@@ -17,11 +17,11 @@ import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
 } from "@/utils/actions/group";
-import { EmailForAction } from "@/utils/ai/actions";
+import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { ServerActionResponse, isActionError } from "@/utils/error";
+import { type ServerActionResponse, isActionError } from "@/utils/error";
 
 export async function runRulesAction(
   email: EmailForAction,

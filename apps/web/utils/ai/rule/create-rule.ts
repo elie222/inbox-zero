@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { saveAiUsage } from "@/utils/usage";
 import { ActionType } from "@prisma/client";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
 
 const createRuleSchema = z.object({

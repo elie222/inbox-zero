@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
@@ -9,13 +9,13 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { isError } from "@/utils/error";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoadingContent } from "@/components/LoadingContent";
-import { UserResponse } from "@/app/api/user/me/route";
+import type { UserResponse } from "@/app/api/user/me/route";
 import { postRequest } from "@/utils/api";
-import { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
+import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { Select } from "@/components/Select";
 import { Frequency } from "@prisma/client";
 import {
-  SaveEmailUpdateSettingsBody,
+  type SaveEmailUpdateSettingsBody,
   saveEmailUpdateSettingsBody,
 } from "@/app/api/user/settings/email-updates/validation";
 

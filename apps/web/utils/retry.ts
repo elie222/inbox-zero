@@ -1,9 +1,9 @@
 export function withRetry<T>(
   fn: (...args: any[]) => Promise<T>,
   retries = 3,
-  delay = 20
+  delay = 20,
 ) {
-  return async function (...args: any[]) {
+  return async (...args: any[]) => {
     let lastError;
     for (let i = 0; i < retries; i++) {
       try {

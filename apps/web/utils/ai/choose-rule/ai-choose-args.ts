@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { UserAIFields } from "@/utils/llms/types";
-import { ActionItem } from "@/utils/ai/actions";
-import { Action, ActionType, User } from "@prisma/client";
+import type { UserAIFields } from "@/utils/llms/types";
+import type { ActionItem } from "@/utils/ai/actions";
+import type { Action, ActionType, User } from "@prisma/client";
 import { parseJSONWithMultilines } from "@/utils/json";
 import { saveAiUsage } from "@/utils/usage";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
 import {
-  EmailForLLM,
+  type EmailForLLM,
   stringifyEmail,
 } from "@/utils/ai/choose-rule/stringify-email";
-import { RuleWithActions, isDefined } from "@/utils/types";
+import { type RuleWithActions, isDefined } from "@/utils/types";
 
 type AIGeneratedArgs = Record<
   ActionType,

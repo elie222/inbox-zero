@@ -1,6 +1,6 @@
-import { gmail_v1 } from "googleapis";
-import { ParsedMessage } from "@/utils/types";
-import { User } from "@prisma/client";
+import type { gmail_v1 } from "googleapis";
+import type { ParsedMessage } from "@/utils/types";
+import type { User } from "@prisma/client";
 import { emailToContent } from "@/utils/mail";
 import {
   getActionItemsFromAiArgsResponse,

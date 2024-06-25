@@ -2,11 +2,11 @@
 
 import { categorise } from "@/app/api/ai/categorise/controller";
 import {
-  CategoriseBodyWithHtml,
+  type CategoriseBodyWithHtml,
   categoriseBodyWithHtml,
 } from "@/app/api/ai/categorise/validation";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { ServerActionResponse } from "@/utils/error";
+import type { ServerActionResponse } from "@/utils/error";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { getAiProviderAndModel } from "@/utils/llms";
 import { emailToContent } from "@/utils/mail";

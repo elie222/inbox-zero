@@ -12,7 +12,7 @@ import { Celebration } from "@/components/Celebration";
 import { isActionError } from "@/utils/error";
 import { useSession } from "next-auth/react";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
-import { type Thread } from "@/components/email-list/types";
+import type { Thread } from "@/components/email-list/types";
 import { useExecutePlan } from "@/components/email-list/PlanActions";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";

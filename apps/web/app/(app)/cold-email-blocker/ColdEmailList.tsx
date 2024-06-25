@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
-import { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
+import type { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
 import {
   Table,
   TableBody,
@@ -27,7 +27,7 @@ import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
 import { markNotColdEmail } from "@/utils/actions/cold-email";
 import { SectionDescription } from "@/components/Typography";
-import { UserResponse } from "@/app/api/user/me/route";
+import type { UserResponse } from "@/app/api/user/me/route";
 import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 

@@ -1,6 +1,6 @@
 import { ZodError } from "zod";
-import { NextRequest, NextResponse } from "next/server";
-import { StreamingTextResponse } from "ai";
+import { type NextRequest, NextResponse } from "next/server";
+import type { StreamingTextResponse } from "ai";
 import { captureException } from "@/utils/error";
 import { env } from "@/env.mjs";
 

@@ -1,8 +1,8 @@
 import { AnthropicStream, OpenAIStream } from "ai";
-import { TiktokenModel, encodingForModel } from "js-tiktoken";
+import { type TiktokenModel, encodingForModel } from "js-tiktoken";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
-import { chatCompletionStream } from "@/utils/llms";
+import type { chatCompletionStream } from "@/utils/llms";
 
 export async function saveAiUsage({
   email,

@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { PrivacyContent } from "@/app/(landing)/privacy/content";
 
 export const metadata: Metadata = {

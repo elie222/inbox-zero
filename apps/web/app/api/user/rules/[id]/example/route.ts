@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { GroupItemType, RuleType } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { extractEmailAddress } from "@/utils/email";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { getMessage } from "@/utils/gmail/message";
-import {
+import type {
   MessageWithGroupItem,
   RuleWithGroup,
 } from "@/app/(app)/automation/rule/[ruleId]/examples/types";

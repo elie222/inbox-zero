@@ -4,7 +4,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { BookOpenCheckIcon, SparklesIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -15,10 +15,10 @@ import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { MessagesResponse } from "@/app/api/google/messages/route";
+import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
-import {
+import type {
   ColdEmailBlockerBody,
   ColdEmailBlockerResponse,
 } from "@/app/api/ai/cold-email/route";

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import { saveAiUsage } from "@/utils/usage";
 import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
-import { User } from "@prisma/client";
+import type { User } from "@prisma/client";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 
 type GetAiResponseOptions = {
