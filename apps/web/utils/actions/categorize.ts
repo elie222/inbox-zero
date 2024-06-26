@@ -30,7 +30,7 @@ export async function categorizeAction(
 
   const content = emailToContent(data);
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: u.id },
     select: {
       aiProvider: true,
@@ -38,6 +38,8 @@ export async function categorizeAction(
       openAIApiKey: true,
     },
   });
+
+  if (!user) return { error: "User not found" };
 
   const unsubscribeLink = findUnsubscribeLink(data.textHtml);
   const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, data);

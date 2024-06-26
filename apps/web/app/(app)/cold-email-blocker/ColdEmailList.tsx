@@ -25,11 +25,12 @@ import { getGmailSearchUrl } from "@/utils/url";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
-import { markNotColdEmail } from "@/utils/actions/cold-email";
+import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 import { SectionDescription } from "@/components/Typography";
 import type { UserResponse } from "@/app/api/user/me/route";
 import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
+import { handleActionResult } from "@/utils/server-action";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -70,11 +71,8 @@ export function ColdEmailList() {
     for (const id of Array.from(selected.keys())) {
       const c = data?.coldEmails.find((c) => c.id === id);
       if (!c) continue;
-      try {
-        await markNotColdEmail({ sender: c.fromEmail });
-      } catch (error) {
-        console.error(error);
-      }
+      const result = await markNotColdEmailAction({ sender: c.fromEmail });
+      handleActionResult(result, "Marked not cold email!");
       mutate();
     }
     setIsRejecting(false);
@@ -200,7 +198,7 @@ function Row({
             variant="outline"
             onClick={async () => {
               setIsMarkingColdEmail(true);
-              await markNotColdEmail({ sender: row.fromEmail });
+              await markNotColdEmailAction({ sender: row.fromEmail });
               mutate();
               setIsMarkingColdEmail(false);
             }}

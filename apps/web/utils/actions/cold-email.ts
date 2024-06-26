@@ -14,7 +14,7 @@ import { getThreads } from "@/utils/gmail/thread";
 
 const markNotColdEmailBody = z.object({ sender: z.string() });
 
-export async function markNotColdEmail(body: { sender: string }) {
+export async function markNotColdEmailAction(body: { sender: string }) {
   return await withServerActionInstrumentation(
     "markNotColdEmail",
     {
@@ -22,7 +22,7 @@ export async function markNotColdEmail(body: { sender: string }) {
     },
     async () => {
       const session = await auth();
-      if (!session?.user.id) throw new Error("Not logged in");
+      if (!session?.user.id) return { error: "Not logged in" };
 
       const { data, error } = markNotColdEmailBody.safeParse(body);
       if (error) return { error: error.message };
