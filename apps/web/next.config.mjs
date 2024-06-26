@@ -1,15 +1,13 @@
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
 import createJiti from "jiti";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const jiti = createJiti(__filename);
+const jiti = createJiti(fileURLToPath(import.meta.url));
+ 
 // Import env here to validate during build. Using jiti we can import .ts files :)
-jiti(join(__dirname, 'env.ts'));
+const env = jiti("./env");
 
 const withMDX = nextMdx();
 

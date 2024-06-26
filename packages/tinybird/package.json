@@ -8,7 +8,7 @@
   },
   "devDependencies": {
     "tsconfig": "workspace:*",
-    "@types/node": "20.14.7",
+    "@types/node": "20.14.9",
     "typescript": "5.5.2"
   }
 }
