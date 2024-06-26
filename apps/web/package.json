@@ -117,6 +117,7 @@
     "autoprefixer": "10.4.19",
     "dotenv": "^16.4.5",
     "eslint-config-custom": "workspace:*",
+    "jiti": "^1.21.6",
     "jsdom": "^24.1.0",
     "postcss": "8.4.38",
     "prettier": "3.2.5",
