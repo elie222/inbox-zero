@@ -65,6 +65,20 @@ const posts = [
       imageUrl: "/images/blog/elie-profile.jpg",
     },
   },
+  {
+    title: "Best Email Unsubscribe App to Clean Up Your Inbox",
+    file: "best-email-unsubscribe-app",
+    description:
+      "Managing your email inbox can feel like a full-time job. With promotional emails, newsletters, and updates flooding our inboxes daily, it's crucial to have effective tools to maintain order.",
+    date: "June 26, 2024",
+    datetime: "2024-06-26",
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
 ];
 
 export default async function BlogPage() {
@@ -84,7 +98,7 @@ function Posts() {
     <div className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl">
-          <h2 className="font-cal  text-3xl tracking-tight text-gray-900 sm:text-4xl">
+          <h2 className="font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
             From the blog
           </h2>
           <p className="mt-2 text-lg leading-8 text-gray-600">

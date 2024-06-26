@@ -39,6 +39,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.getinboxzero.com/blog/post/alternatives-to-skiff-mail",
     },
     {
+      url: "https://www.getinboxzero.com/blog/post/best-email-unsubscribe-app",
+    },
+    {
       url: "https://www.getinboxzero.com/blog/post/bulk-unsubscribe-from-emails",
     },
     {
