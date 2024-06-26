@@ -35,6 +35,13 @@ export const env = createEnv({
       .string()
       .optional()
       .transform((value) => value?.split(",")),
+
+    // license
+    LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_3_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
+    LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
   },
   client: {
     NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
@@ -60,13 +67,6 @@ export const env = createEnv({
     NEXT_PUBLIC_LIFETIME_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_VARIANT_ID: z.coerce.number().default(0),
-
-    // license
-    LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
-    LICENSE_3_SEAT_VARIANT_ID: z.coerce.number().optional(),
-    LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
-    LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
-    LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
 
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.number().default(5),
     NEXT_PUBLIC_CALL_LINK: z
