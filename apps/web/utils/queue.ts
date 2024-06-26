@@ -1,4 +1,4 @@
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import Queue from "bull";
 
 const apiRequestQueue = new Queue("openai-requests", {

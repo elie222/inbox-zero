@@ -5,7 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Card } from "@/components/Card";
 import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";

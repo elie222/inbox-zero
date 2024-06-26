@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 const userNavigation = [
   ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD

@@ -7,7 +7,7 @@ import { usePostHog } from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input } from "@/components/Input";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,

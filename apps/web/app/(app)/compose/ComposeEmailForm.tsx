@@ -28,7 +28,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLoader } from "@/components/ui/button";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { cn } from "@/utils";
 import { postRequest } from "@/utils/api";
 import { extractNameFromEmail } from "@/utils/email";

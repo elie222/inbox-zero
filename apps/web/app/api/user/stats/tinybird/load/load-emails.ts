@@ -7,7 +7,7 @@ import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail } from "@/utils/email";
 import { type TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import {
   DRAFT_LABEL_ID,
   INBOX_LABEL_ID,

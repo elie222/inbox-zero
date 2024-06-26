@@ -38,7 +38,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 type NavItem = {
   name: string;

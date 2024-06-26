@@ -6,7 +6,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { captureException } from "@/utils/error";
 
 const SCOPES = [

@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { type CoreTool, generateObject, generateText, streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
 
 const DEFAULT_AI_PROVIDER = "openai";

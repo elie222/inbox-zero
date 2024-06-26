@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { subHours } from "date-fns";
 import { sendSummaryEmail } from "@inboxzero/resend";
 import { withError } from "@/utils/middleware";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";

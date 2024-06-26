@@ -5,7 +5,7 @@ import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
 import { usePremium } from "@/components/PremiumAlert";
 import { LoadingContent } from "@/components/LoadingContent";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { isPremium } from "@/utils/premium";
 
 export function Usage(props: {

@@ -19,7 +19,7 @@ import { ColdEmailSetting, type User } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { getAiProviderAndModel } from "@/utils/llms";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 
 export const dynamic = "force-dynamic";

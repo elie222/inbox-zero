@@ -9,7 +9,7 @@ import { capitalCase } from "capital-case";
 import Link from "next/link";
 import clsx from "clsx";
 import { sendGTMEvent } from "@next/third-parties/google";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Tag } from "@/components/Tag";

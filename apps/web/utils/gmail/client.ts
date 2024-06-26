@@ -1,6 +1,6 @@
 import { google } from "googleapis";
 import { saveRefreshToken } from "@/utils/auth";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 type ClientOptions = {
   accessToken?: string;

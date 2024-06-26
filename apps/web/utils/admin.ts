@@ -1,4 +1,4 @@
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 export function isAdmin(email?: string | null) {
   if (!email) return false;

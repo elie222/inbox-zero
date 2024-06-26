@@ -5,7 +5,7 @@ import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useSession } from "next-auth/react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 // based on: https://posthog.com/docs/libraries/next-js
 

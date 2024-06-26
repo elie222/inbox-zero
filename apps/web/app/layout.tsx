@@ -8,7 +8,7 @@ import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 

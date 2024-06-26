@@ -4,7 +4,7 @@ import { subDays } from "date-fns";
 import { sendStatsEmail } from "@inboxzero/resend";
 import { withError } from "@/utils/middleware";
 import { getWeeklyStats } from "@inboxzero/tinybird";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";

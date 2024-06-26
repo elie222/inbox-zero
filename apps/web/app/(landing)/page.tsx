@@ -14,7 +14,7 @@ import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 // import { HeroHeadingAB, HeroSubtitleAB } from "@/app/(landing)/home/HeroAB";
-// import { env } from "@/env.mjs";
+// import { env } from "@/env";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },

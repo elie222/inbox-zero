@@ -1,6 +1,6 @@
 "use client";
 
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import Script from "next/script";
 
 export function LemonScript() {

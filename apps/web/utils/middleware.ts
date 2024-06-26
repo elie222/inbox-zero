@@ -2,7 +2,7 @@ import { ZodError } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
 import type { StreamingTextResponse } from "ai";
 import { captureException } from "@/utils/error";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 export type NextHandler = (
   req: NextRequest,

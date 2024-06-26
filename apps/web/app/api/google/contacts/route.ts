@@ -5,7 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { getContactsClient } from "@/utils/gmail/client";
 import { searchContacts } from "@/utils/gmail/contact";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 const contactsQuery = z.object({ query: z.string() });
 export type ContactsQuery = z.infer<typeof contactsQuery>;
