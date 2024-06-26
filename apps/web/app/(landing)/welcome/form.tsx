@@ -9,8 +9,8 @@ import { Button, ButtonLoader } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { env } from "@/env.mjs";
 import {
-  completedOnboarding,
-  saveOnboardingAnswers,
+  completedOnboardingAction,
+  saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
 import { appHomePath } from "@/utils/config";
 
@@ -55,7 +55,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       newSeachParams.set(name, data[name]);
 
       const responses = getResponses(newSeachParams);
-      saveOnboardingAnswers({
+      await saveOnboardingAnswersAction({
         surveyId,
         questions: survey.questions,
         answers: responses,
@@ -64,7 +64,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       // submit on last question
       if (isFinalQuestion) {
         submitPosthog(responses);
-        await completedOnboarding();
+        await completedOnboardingAction();
         router.push(appHomePath);
       } else {
         router.push(`/welcome?${newSeachParams}`);
@@ -149,7 +149,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
                 const responses = getResponses(searchParams);
                 submitPosthog(responses);
                 posthog.capture("survey dismissed", { $survey_id: surveyId });
-                await completedOnboarding();
+                await completedOnboardingAction();
                 router.push(appHomePath);
               }}
             >

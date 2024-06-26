@@ -42,7 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
-import { setNewsletterStatus } from "@/utils/actions/unsubscriber";
+import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import {
   PremiumTooltip,
@@ -128,7 +128,7 @@ export function ActionCell<T extends Row>({
 
     setUnsubscribeLoading(true);
 
-    await setNewsletterStatus({
+    await setNewsletterStatusAction({
       newsletterEmail: item.name,
       status: NewsletterStatus.UNSUBSCRIBED,
     });
@@ -145,7 +145,7 @@ export function ActionCell<T extends Row>({
     setAutoArchiveLoading(true);
 
     onAutoArchive(item.name);
-    await setNewsletterStatus({
+    await setNewsletterStatusAction({
       newsletterEmail: item.name,
       status: NewsletterStatus.AUTO_ARCHIVED,
     });
@@ -264,7 +264,7 @@ export function ActionCell<T extends Row>({
                       setAutoArchiveLoading(true);
 
                       onDeleteFilter(item.autoArchived?.id!);
-                      await setNewsletterStatus({
+                      await setNewsletterStatusAction({
                         newsletterEmail: item.name,
                         status: null,
                       });
@@ -292,7 +292,7 @@ export function ActionCell<T extends Row>({
                       setAutoArchiveLoading(true);
 
                       onAutoArchive(item.name, label.id || undefined);
-                      await setNewsletterStatus({
+                      await setNewsletterStatusAction({
                         newsletterEmail: item.name,
                         status: NewsletterStatus.AUTO_ARCHIVED,
                       });
@@ -339,7 +339,7 @@ export function ActionCell<T extends Row>({
           onClick={async () => {
             setApproveLoading(true);
 
-            await setNewsletterStatus({
+            await setNewsletterStatusAction({
               newsletterEmail: item.name,
               status: NewsletterStatus.APPROVED,
             });
@@ -579,7 +579,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         // auto archive
         e.preventDefault();
         onAutoArchive(item.name);
-        await setNewsletterStatus({
+        await setNewsletterStatusAction({
           newsletterEmail: item.name,
           status: NewsletterStatus.AUTO_ARCHIVED,
         });
@@ -592,7 +592,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
         window.open(cleanUnsubscribeLink(item.lastUnsubscribeLink), "_blank");
-        await setNewsletterStatus({
+        await setNewsletterStatusAction({
           newsletterEmail: item.name,
           status: NewsletterStatus.UNSUBSCRIBED,
         });
@@ -603,7 +603,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       } else if (e.key === "a") {
         // approve
         e.preventDefault();
-        await setNewsletterStatus({
+        await setNewsletterStatusAction({
           newsletterEmail: item.name,
           status: NewsletterStatus.APPROVED,
         });

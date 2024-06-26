@@ -1,15 +1,16 @@
 "use server";
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { ServerActionResponse } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { NewsletterStatus } from "@prisma/client";
 
-export async function setNewsletterStatus(options: {
+export async function setNewsletterStatusAction(options: {
   newsletterEmail: string;
   status: NewsletterStatus | null;
-}) {
+}): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) return { error: "Not logged in" };
 
   return await prisma.newsletter.upsert({
     where: {

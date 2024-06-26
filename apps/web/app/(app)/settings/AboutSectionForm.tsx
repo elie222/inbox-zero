@@ -4,13 +4,13 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { saveAboutAction, type SaveAboutBody } from "@/utils/actions/user";
-import { toastError, toastSuccess } from "@/components/Toast";
 import {
   FormSection,
   FormSectionLeft,
   FormSectionRight,
   SubmitButtonWrapper,
 } from "@/components/Form";
+import { handleActionResult } from "@/utils/server-action";
 
 export const AboutSectionForm = (props: { about?: string }) => {
   const {
@@ -23,16 +23,9 @@ export const AboutSectionForm = (props: { about?: string }) => {
   return (
     <form
       action={async (formData: FormData) => {
-        try {
-          const about = formData.get("about") as string;
-          await saveAboutAction({ about });
-          toastSuccess({ description: "Updated profile!" });
-        } catch (error) {
-          console.error(error);
-          toastError({
-            description: "There was an error updating your profile.",
-          });
-        }
+        const about = formData.get("about") as string;
+        const result = await saveAboutAction({ about });
+        handleActionResult(result, "Updated profile!");
       }}
     >
       <FormSection>
