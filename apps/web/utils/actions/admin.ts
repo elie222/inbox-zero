@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { processHistoryForUser } from "@/app/api/google/webhook/route";
+import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { isAdmin } from "@/utils/admin";
 import { ServerActionResponse } from "@/utils/error";
 
