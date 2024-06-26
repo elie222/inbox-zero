@@ -6,7 +6,8 @@
     "paths": {
       "@/*": ["./*"],
       "@next/third-parties/google": ["./node_modules/@next/third-parties/dist/google"]
-    }
+    },
+    "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",

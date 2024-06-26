@@ -4,7 +4,7 @@ import uniq from "lodash/uniq";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { env } from "@/env.mjs";
+import { env } from "@/env.mts";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
 import type { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
