@@ -33,6 +33,17 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: 'authjs.session-token',
+          }
+        ],
+        permanent: false,
+      },
+      {
         source: "/feature-requests",
         destination: "https://inboxzero.featurebase.app",
         permanent: true,
