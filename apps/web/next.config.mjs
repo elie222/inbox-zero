@@ -38,7 +38,7 @@ const nextConfig = {
         has: [
           {
             type: 'cookie',
-            key: 'authjs.session-token',
+            key: '__Secure-authjs.session-token',
           }
         ],
         permanent: false,
