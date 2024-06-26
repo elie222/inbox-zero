@@ -6,7 +6,7 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
-import { changePremiumStatus } from "@/utils/actions/premium";
+import { changePremiumStatusAction } from "@/utils/actions/premium";
 import { Select } from "@/components/Select";
 import {
   changePremiumStatusSchema,
@@ -14,6 +14,7 @@ import {
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PremiumTier } from "@prisma/client";
+import { handleActionResult } from "@/utils/server-action";
 
 export const AdminUpgradeUserForm = () => {
   const {
@@ -29,16 +30,8 @@ export const AdminUpgradeUserForm = () => {
 
   const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
     async (data) => {
-      try {
-        const res = await changePremiumStatus(data);
-        if (isErrorMessage(res)) toastError({ description: res.data });
-        else
-          toastSuccess({
-            description: data.upgrade ? `Upgraded!` : `Downgraded!`,
-          });
-      } catch (error: any) {
-        toastError({ description: error?.message || "Error" });
-      }
+      const result = await changePremiumStatusAction(data);
+      handleActionResult(result, data.upgrade ? `Upgraded!` : `Downgraded!`);
     },
     [],
   );

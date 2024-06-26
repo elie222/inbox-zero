@@ -18,8 +18,8 @@ import {
   type SaveMultiAccountPremiumBody,
 } from "@/app/api/user/settings/multi-account/validation";
 import {
-  claimPremiumAdmin,
-  updateMultiAccountPremium,
+  claimPremiumAdminAction,
+  updateMultiAccountPremiumAction,
 } from "@/utils/actions/premium";
 import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
@@ -30,6 +30,7 @@ import { env } from "@/env.mjs";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { captureException } from "@/utils/error";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { handleActionResult } from "@/utils/server-action";
 
 export function MultiAccountSection() {
   const { data: session } = useSession();
@@ -65,15 +66,8 @@ export function MultiAccountSection() {
                   <div className="mb-4">
                     <Button
                       onClick={async () => {
-                        try {
-                          await claimPremiumAdmin();
-                          toastSuccess({ description: "Admin claimed!" });
-                        } catch (error) {
-                          toastError({
-                            description:
-                              "There was an error claiming the admin.",
-                          });
-                        }
+                        const result = await claimPremiumAdminAction();
+                        handleActionResult(result, "Admin claimed!");
                         mutate();
                       }}
                     >
@@ -157,18 +151,12 @@ function MultiAccountForm({
       if (!data.emailAddresses) return;
       if (needsToPurchaseMoreSeats) return;
 
-      try {
-        const emails = data.emailAddresses.map((e) => e.email);
-        const res = await updateMultiAccountPremium(emails);
+      const emails = data.emailAddresses.map((e) => e.email);
+      const result = await updateMultiAccountPremiumAction(emails);
 
-        if (res && res.error) toastError({ description: res.error });
-        else if (res && res.warning)
-          toastInfo({ title: "Warning", description: res.warning });
-        else toastSuccess({ description: "Users updated!" });
-      } catch (error) {
-        captureException(error);
-        toastError({ description: "There was an error updating users." });
-      }
+      if (result && result.warning)
+        toastInfo({ title: "Warning", description: result.warning });
+      else handleActionResult(result, "Users updated!");
     },
     [needsToPurchaseMoreSeats],
   );

@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { setNewsletterStatus } from "@/utils/actions/unsubscriber";
-import { decrementUnsubscribeCredit } from "@/utils/actions/premium";
+import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import {
   PremiumTooltip,
   PremiumTooltipContent,
@@ -133,7 +133,7 @@ export function ActionCell<T extends Row>({
       status: NewsletterStatus.UNSUBSCRIBED,
     });
     await mutate();
-    await decrementUnsubscribeCredit();
+    await decrementUnsubscribeCreditAction();
     await refetchPremium();
 
     posthog.capture("Clicked Unsubscribe");
@@ -150,7 +150,7 @@ export function ActionCell<T extends Row>({
       status: NewsletterStatus.AUTO_ARCHIVED,
     });
     await mutate();
-    await decrementUnsubscribeCredit();
+    await decrementUnsubscribeCreditAction();
     await refetchPremium();
 
     posthog.capture("Clicked Auto Archive");
@@ -297,7 +297,7 @@ export function ActionCell<T extends Row>({
                         status: NewsletterStatus.AUTO_ARCHIVED,
                       });
                       await mutate();
-                      await decrementUnsubscribeCredit();
+                      await decrementUnsubscribeCreditAction();
                       await refetchPremium();
 
                       posthog.capture("Clicked Auto Archive and Label");
@@ -584,7 +584,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
           status: NewsletterStatus.AUTO_ARCHIVED,
         });
         await mutate();
-        await decrementUnsubscribeCredit();
+        await decrementUnsubscribeCreditAction();
         await refetchPremium();
         return;
       } else if (e.key === "u") {
@@ -597,7 +597,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
           status: NewsletterStatus.UNSUBSCRIBED,
         });
         await mutate();
-        await decrementUnsubscribeCredit();
+        await decrementUnsubscribeCreditAction();
         await refetchPremium();
         return;
       } else if (e.key === "a") {

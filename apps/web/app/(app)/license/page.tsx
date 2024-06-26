@@ -7,9 +7,10 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TopSection } from "@/components/TopSection";
-import { activateLicenseKey } from "@/utils/actions/premium";
+import { activateLicenseKeyAction } from "@/utils/actions/premium";
 import type { UserResponse } from "@/app/api/user/me/route";
 import { AlertBasic } from "@/components/Alert";
+import { handleActionResult } from "@/utils/server-action";
 
 type Inputs = { licenseKey: string };
 
@@ -50,12 +51,8 @@ function ActivateLicenseForm(props: { licenseKey?: string }) {
   } = useForm<Inputs>({ defaultValues: { licenseKey: props.licenseKey } });
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
-    try {
-      await activateLicenseKey(data.licenseKey);
-      toastSuccess({ description: `License activated!` });
-    } catch (error: any) {
-      toastError({ description: error.message });
-    }
+    const result = await activateLicenseKeyAction(data.licenseKey);
+    handleActionResult(result, "License activated!");
   }, []);
 
   return (

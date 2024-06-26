@@ -15,12 +15,13 @@ import {
 } from "@/app/api/lemon-squeezy/api";
 import { isAdmin } from "@/utils/admin";
 import { PremiumTier } from "@prisma/client";
+import { ServerActionResponse } from "@/utils/error";
 
-export async function decrementUnsubscribeCredit() {
+export async function decrementUnsubscribeCreditAction(): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     select: {
       premium: {
@@ -33,6 +34,8 @@ export async function decrementUnsubscribeCredit() {
       },
     },
   });
+
+  if (!user) return { error: "User not found" };
 
   const isUserPremium = isPremium(user.premium?.lemonSqueezyRenewsAt || null);
   if (isUserPremium) return;
@@ -66,7 +69,7 @@ export async function decrementUnsubscribeCredit() {
   }
 }
 
-export async function updateMultiAccountPremium(
+export async function updateMultiAccountPremiumAction(
   emails: string[],
 ): Promise<
   | void
@@ -82,7 +85,7 @@ export async function updateMultiAccountPremium(
       const session = await auth();
       if (!session?.user.id) return { error: "Not logged in" };
 
-      const user = await prisma.user.findUniqueOrThrow({
+      const user = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: {
           premium: {
@@ -96,6 +99,8 @@ export async function updateMultiAccountPremium(
           },
         },
       });
+
+      if (!user) return { error: "User not found" };
 
       if (!isAdminForPremium(user.premium?.admins || [], session.user.id))
         return { error: "Not admin" };
@@ -172,9 +177,11 @@ async function createPremiumForUser(userId: string) {
   });
 }
 
-export async function activateLicenseKey(licenseKey: string) {
+export async function activateLicenseKeyAction(
+  licenseKey: string,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) return { error: "Not logged in" };
 
   const lemonSqueezyLicense = await activateLemonLicenseKey(
     licenseKey,
@@ -182,9 +189,9 @@ export async function activateLicenseKey(licenseKey: string) {
   );
 
   if (lemonSqueezyLicense.error) {
-    throw new Error(
-      lemonSqueezyLicense.data?.error || "Error activating license",
-    );
+    return {
+      error: lemonSqueezyLicense.data?.error || "Error activating license",
+    };
   }
 
   const seats = {
@@ -211,15 +218,19 @@ export async function activateLicenseKey(licenseKey: string) {
   });
 }
 
-export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
+export async function changePremiumStatusAction(
+  options: ChangePremiumStatusOptions,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
-  if (!isAdmin(session.user.email)) throw new Error("Not admin");
+  if (!session?.user.email) return { error: "Not logged in" };
+  if (!isAdmin(session.user.email)) return { error: "Not admin" };
 
-  const userToUpgrade = await prisma.user.findUniqueOrThrow({
+  const userToUpgrade = await prisma.user.findUnique({
     where: { email: options.email },
     select: { id: true, premiumId: true },
   });
+
+  if (!userToUpgrade) return { error: "User not found" };
 
   const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
 
@@ -234,11 +245,11 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
       const lemonCustomer = await getLemonCustomer(
         options.lemonSqueezyCustomerId.toString(),
       );
-      if (!lemonCustomer.data) throw new Error("Lemon customer not found");
+      if (!lemonCustomer.data) return { error: "Lemon customer not found" };
       const subscription = lemonCustomer.data.included?.find(
         (i) => i.type === "subscriptions",
       );
-      if (!subscription) throw new Error("Subscription not found");
+      if (!subscription) return { error: "Subscription not found" };
       lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
       const attributes = subscription.attributes as any;
       lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
@@ -275,22 +286,23 @@ export async function changePremiumStatus(options: ChangePremiumStatusOptions) {
         lemonSqueezyEndsAt: new Date(),
       });
     } else {
-      throw new Error("User not premium.");
+      return { error: "User not premium." };
     }
   }
 }
 
-export async function claimPremiumAdmin() {
+export async function claimPremiumAdminAction(): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { premium: { select: { id: true, admins: true } } },
   });
 
-  if (!user.premium?.id) throw new Error("User does not have a premium");
-  if (user.premium?.admins.length) throw new Error("Already has admin");
+  if (!user) return { error: "User not found" };
+  if (!user.premium?.id) return { error: "User does not have a premium" };
+  if (user.premium?.admins.length) return { error: "Already has admin" };
 
   await prisma.premium.update({
     where: { id: user.premium.id },
