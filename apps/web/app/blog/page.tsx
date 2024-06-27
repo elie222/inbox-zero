@@ -6,6 +6,21 @@ import Link from "next/link";
 
 const posts = [
   {
+    title: "Master Email Management with These Top Tips and Tools",
+    file: "email-management-best-practices",
+    description:
+      "Learn the best email management practices to boost productivity and efficiency. Discover tools and techniques for effective inbox organization.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
     title: "How Inbox Zero hit #1 on Product Hunt",
     file: "how-my-open-source-saas-hit-first-on-product-hunt",
     description:
