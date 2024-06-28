@@ -187,7 +187,13 @@ export async function createAutomationAction(
   if (!user) return { error: "User not found" };
   if (!user.email) return { error: "User email not found" };
 
-  const result = await aiCreateRule(prompt, user, user.email);
+  let result: Awaited<ReturnType<typeof aiCreateRule>>;
+
+  try {
+    result = await aiCreateRule(prompt, user, user.email);
+  } catch (error: any) {
+    return { error: `AI error creating rule. ${error.message}` };
+  }
 
   if (!result) return { error: "AI error creating rule." };
 
