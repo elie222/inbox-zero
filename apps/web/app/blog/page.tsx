@@ -6,6 +6,81 @@ import Link from "next/link";
 
 const posts = [
   {
+    title: "Boost Your Email Efficiency with These Gmail Productivity Hacks",
+    file: "gmail-productivity-hacks",
+    description:
+      "Discover effective Gmail productivity hacks to streamline your email management. Learn key tips, tools, and techniques for maximizing efficiency.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "Achieve Mental Clarity with Inbox Zero",
+    file: "inbox-zero-benefits-for-mental-health",
+    description:
+      "Learn how to achieve and maintain Inbox Zero for better mental health. Reduce stress, boost productivity, and gain mental clarity with these strategies.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "Mastering Inbox Zero - A Productivity Guide for Entrepreneurs",
+    file: "inbox-zero-workflow-for-entrepreneurs",
+    description:
+      "Learn how to achieve and maintain Inbox Zero as an entrepreneur with effective strategies, tools, and tips for efficient email management.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "How to Beat Email Stress as a Remote Worker",
+    file: "managing-email-stress-for-remote-workers",
+    description:
+      "Learn effective strategies and tools to manage email stress for remote workers. Increase productivity and work-life balance with expert recommendations.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "Master Email Management with These Top Tips and Tools",
+    file: "email-management-best-practices",
+    description:
+      "Learn the best email management practices to boost productivity and efficiency. Discover tools and techniques for effective inbox organization.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
     title: "How Inbox Zero hit #1 on Product Hunt",
     file: "how-my-open-source-saas-hit-first-on-product-hunt",
     description:
