@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { createInAiQueueSelector } from "@/store/queue";
 import { Card } from "@/components/Card";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
+import { ParsedMessage } from "@/utils/types";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -125,6 +126,45 @@ function EmailMessage(props: {
     setShowForward(false);
   }, []);
 
+  const prepareReplyingToEmail = (message: ParsedMessage) => ({
+    to: message.headers.from,
+    subject: `Re: ${message.headers.subject}`,
+    headerMessageId: message.headers["message-id"]!,
+    threadId: message.threadId!,
+    cc: message.headers.cc,
+    references: message.headers.references,
+    messageText: "",
+    messageHtml: "",
+  });
+
+  const prepareForwardingEmail = (message: ParsedMessage) => ({
+    to: "",
+    subject: `Fwd: ${message.headers.subject}`,
+    headerMessageId: "",
+    threadId: message.threadId!,
+    cc: "",
+    references: "",
+    messageText: `
+      \n\n--- Forwarded message ---
+      \nFrom: ${message.headers.from}
+      \nDate: ${message.headers.date}
+      \nSubject: ${message.headers.subject}
+      \nTo: ${message.headers.to}
+      ${message.textPlain}
+    `,
+    messageHtml: `
+      <br><br>
+      <div style="border-left: 2px solid #ccc; padding-left: 10px; margin: 10px 0;">
+        <p><strong>--- Forwarded message ---</strong></p>
+        <p><strong>From:</strong> ${message.headers.from}</p>
+        <p><strong>Date:</strong> ${message.headers.date}</p>
+        <p><strong>Subject:</strong> ${message.headers.subject}</p>
+        <p><strong>To:</strong> ${message.headers.to}</p>
+      </div>
+      ${message.textHtml}
+    `,
+  });
+
   return (
     <li className="bg-white p-4 shadow sm:rounded-lg">
       <div className="sm:flex sm:items-baseline sm:justify-between">
@@ -214,22 +254,8 @@ function EmailMessage(props: {
             <ComposeEmailFormLazy
               replyingToEmail={
                 showReply
-                  ? {
-                      to: message.headers.from,
-                      subject: `Re: ${message.headers.subject}`,
-                      headerMessageId: message.headers["message-id"]!,
-                      threadId: message.threadId!,
-                      cc: message.headers.cc,
-                      references: message.headers.references,
-                    }
-                  : {
-                      to: "",
-                      subject: `Fwd: ${message.headers.subject}`,
-                      headerMessageId: "",
-                      threadId: message.threadId!,
-                      cc: "",
-                      references: "",
-                    }
+                  ? prepareReplyingToEmail(message)
+                  : prepareForwardingEmail(message)
               }
               novelEditorClassName="h-40 overflow-auto"
               refetch={props.refetch}

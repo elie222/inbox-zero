@@ -48,6 +48,8 @@ export type ReplyingToEmail = {
   subject: string;
   to: string;
   cc?: string;
+  messageText: string | undefined;
+  messageHtml?: string | undefined;
 };
 
 export const ComposeEmailForm = (props: {
@@ -82,6 +84,12 @@ export const ComposeEmailForm = (props: {
 
   const onSubmit: SubmitHandler<SendEmailBody> = useCallback(
     async (data) => {
+      data = {
+        ...data,
+        messageText: data.messageText + props.replyingToEmail?.messageText,
+        messageHtml:
+          (data.messageHtml ?? "") + (props.replyingToEmail?.messageHtml ?? ""),
+      };
       try {
         const res = await postRequest<SendEmailResponse, SendEmailBody>(
           "/api/google/messages/send",
@@ -299,7 +307,7 @@ export const ComposeEmailForm = (props: {
             },
           }}
         >
-          <EditorCommand className="z-50 h-auto max-h-[330px]  w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
+          <EditorCommand className="z-50 h-auto max-h-[330px] w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
             <EditorCommandEmpty className="px-2 text-muted-foreground">
               No results
             </EditorCommandEmpty>
@@ -307,7 +315,7 @@ export const ComposeEmailForm = (props: {
               <EditorCommandItem
                 value={item.title}
                 onCommand={(val) => item.command?.(val)}
-                className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent `}
+                className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent`}
                 key={item.title}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
