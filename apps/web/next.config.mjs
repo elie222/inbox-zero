@@ -3,6 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
 import createJiti from "jiti";
+import withSerwistInit from "@serwist/next";
 
 const jiti = createJiti(fileURLToPath(import.meta.url));
  
@@ -172,4 +173,11 @@ const exportConfig =
     ? withSentryConfig(mdxConfig, { ...sentryOptions, ...sentryConfig })
     : mdxConfig;
 
-export default withAxiom(exportConfig);
+const withSerwist = withSerwistInit({
+  // Note: This is only an example. If you use Pages Router,
+  // use something else that works, such as "service-worker/index.ts".
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+});
+
+export default withAxiom(withSerwist(exportConfig));

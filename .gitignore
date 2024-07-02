@@ -48,3 +48,10 @@ dist
 .react-email
 
 .sentryclirc
+
+# Serwist
+**/public/serwist**
+**/public/sw**
+**/public/worker**
+**/public/fallback**
+**/public/precache**

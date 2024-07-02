@@ -50,6 +50,17 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  // pwa
+  applicationName: "Inbox Zero",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Inbox Zero",
+    startupImage: ["/icons/icon-512x512.png"],
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport = {

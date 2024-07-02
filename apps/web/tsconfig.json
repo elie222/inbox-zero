@@ -6,7 +6,8 @@
     "paths": {
       "@/*": ["./*"],
       "@next/third-parties/google": ["./node_modules/@next/third-parties/dist/google"]
-    }
+    },
+    "types": ["@serwist/next/typings"]
   },
   "include": [
     "next-env.d.ts",
@@ -15,5 +16,5 @@
     ".next/types/**/*.ts",
     "./env.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "public/sw.js"]
 }
