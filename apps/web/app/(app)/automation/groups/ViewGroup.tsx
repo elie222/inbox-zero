@@ -51,7 +51,7 @@ export function ViewGroupButton({
         <ButtonComponent onClick={openModal} />
       ) : (
         <Button size="sm" variant="outline" onClick={openModal}>
-          View
+          Edit
         </Button>
       )}
       <Modal

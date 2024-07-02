@@ -4,7 +4,7 @@ import { examples } from "@/app/(app)/automation/create/examples";
 export default function CreateRulePage({
   searchParams,
 }: {
-  searchParams: { example: string };
+  searchParams: { example?: string; groupId?: string };
 }) {
   const rule =
     searchParams.example &&
@@ -18,6 +18,7 @@ export default function CreateRulePage({
             name: "",
             actions: [],
             type: "AI",
+            groupId: searchParams.groupId,
           }
         }
       />

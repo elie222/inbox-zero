@@ -21,6 +21,7 @@ import {
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
 import { CreateGroupModalButton } from "@/app/(app)/automation/groups/CreateGroupModal";
+import { Button } from "@/components/ui/button";
 
 export function Groups() {
   const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
@@ -78,10 +79,23 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
             <TableCell className="text-center">{group._count.items}</TableCell>
             <TableCell>
               <Link href={`/automation/rule/${group.rule?.id}`}>
-                {group.rule?.name || ""}
+                {group.rule?.name || (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link
+                      href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
+                    >
+                      Attach Rule
+                    </Link>
+                  </Button>
+                )}
               </Link>
             </TableCell>
-            <TableCell className="flex justify-end space-x-1 p-3 text-center">
+            <TableCell className="flex justify-end gap-1 p-3 text-center">
+              {/* <Button variant="outline" size="sm" asChild>
+                <Link href={`/automation/group/${group.id}/examples`}>
+                  Examples
+                </Link>
+              </Button> */}
               <ViewGroupButton groupId={group.id} name={group.name} />
             </TableCell>
           </TableRow>
