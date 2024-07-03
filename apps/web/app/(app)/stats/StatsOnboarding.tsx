@@ -39,7 +39,7 @@ export function StatsOnboarding() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4">
+        <div className="grid gap-2 sm:gap-4">
           <Card className="flex items-center">
             <BarChartBigIcon className="mr-3 h-5 w-5" />
             Visualise your data

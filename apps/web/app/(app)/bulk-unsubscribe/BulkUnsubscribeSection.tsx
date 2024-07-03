@@ -107,7 +107,7 @@ export function BulkUnsubscribeSection(props: {
   return (
     <>
       <BulkUnsubscribeSummary />
-      <Card className="mt-4 p-0">
+      <Card className="mt-2 p-0 sm:mt-4">
         <div className="items-center justify-between px-6 pt-6 md:flex">
           <SectionHeader
             title="Which newsletters and marketing emails do you get the most?"

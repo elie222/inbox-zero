@@ -4,8 +4,8 @@ import { PageHeading, SectionDescription } from "@/components/Typography";
 
 export default function RequestAccessPage() {
   return (
-    <div className="px-4">
-      <Card className="mx-auto mt-8 w-full max-w-2xl">
+    <div className="px-2 sm:px-4">
+      <Card className="mx-auto mt-2 w-full max-w-2xl sm:mt-8">
         <PageHeading>Request Access</PageHeading>
         <div className="mt-2 max-w-prose">
           <SectionDescription>
@@ -19,8 +19,8 @@ export default function RequestAccessPage() {
         </div>
       </Card>
 
-      <Card className="mx-auto mt-8 w-full max-w-2xl">
-        <PageHeading>Email Client</PageHeading>
+      <Card className="mx-auto mt-2 w-full max-w-2xl sm:mt-8">
+        <PageHeading>Email Client (Beta)</PageHeading>
         <div className="mt-2 max-w-prose">
           <SectionDescription>
             Use the Inbox Zero email client to manage your email.
@@ -33,7 +33,7 @@ export default function RequestAccessPage() {
         </div>
       </Card>
 
-      <Card className="mx-auto mt-8 w-full max-w-2xl">
+      <Card className="mx-auto mt-2 w-full max-w-2xl sm:mt-8">
         <PageHeading>Inbox Zero Daily Challenge</PageHeading>
         <div className="mt-2 max-w-prose">
           <SectionDescription>

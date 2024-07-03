@@ -121,7 +121,7 @@ export function NewSenders(props: {
           ]}
         />
       </LoadingContent>
-      <Card className="mt-4 p-0">
+      <Card className="mt-2 sm:mt-4">
         <div className="items-center justify-between px-6 pt-6 md:flex">
           <SectionHeader
             title="Who are the first time senders?"

@@ -48,7 +48,7 @@ export default function BulkUnsubscribePage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 flex flex-col justify-between gap-1 border-b bg-white px-4 py-2 shadow sm:flex-row">
+      <div className="top-0 z-10 flex flex-col justify-between gap-1 border-b bg-white px-2 py-2 shadow sm:sticky sm:flex-row sm:px-4">
         <OnboardingModal
           title="Getting started with Bulk Unsubscribe"
           description={
@@ -76,7 +76,7 @@ export default function BulkUnsubscribePage() {
         </div>
       </div>
 
-      <div className="m-4">
+      <div className="m-2 sm:m-4">
         <BulkUnsubscribeSection
           dateRange={dateRange}
           refreshInterval={refreshInterval}

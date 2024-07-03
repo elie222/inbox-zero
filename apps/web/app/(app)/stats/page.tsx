@@ -62,7 +62,7 @@ export default function StatsPage() {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-0 z-10 justify-between border-b bg-white px-4 py-2 shadow sm:flex">
+      <div className="sticky top-0 z-10 justify-between border-b bg-white px-2 py-2 shadow sm:flex sm:px-4">
         {isLoading ? <LoadProgress /> : <div />}
         <div className="flex flex-wrap gap-1">
           <ActionBar
