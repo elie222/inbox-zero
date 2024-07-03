@@ -8,7 +8,6 @@ import { useSession } from "next-auth/react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import clsx from "clsx";
-import { sendGTMEvent } from "@next/third-parties/google";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
@@ -25,6 +24,7 @@ import {
   tiers,
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
+import { beginCheckoutEvent } from "@/utils/gtm";
 
 function attachUserInfo(
   url: string,
@@ -236,8 +236,8 @@ export function Pricing() {
                     "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
                   )}
                   onClick={() => {
-                    if (tier.price.monthly !== 0 && env.NEXT_PUBLIC_GTM_ID) {
-                      sendGTMEvent({ event: "Begin checkout", value: 1 });
+                    if (tier.price.monthly !== 0) {
+                      beginCheckoutEvent(1);
                     }
                   }}
                 >
@@ -335,9 +335,7 @@ function LifetimePricing(props: {
                     : "/login?next=/premium"
                 }
                 onClick={() => {
-                  if (env.NEXT_PUBLIC_GTM_ID) {
-                    sendGTMEvent({ event: "Begin checkout", value: 5 });
-                  }
+                  beginCheckoutEvent(5);
                 }}
                 target="_blank"
                 className="mt-10 block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"

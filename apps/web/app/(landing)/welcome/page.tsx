@@ -11,6 +11,7 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 import { appHomePath } from "@/utils/config";
 import { UTMs } from "@/app/(landing)/welcome/utms";
+import { SignUpEvent } from "@/app/(landing)/welcome/sign-up-event";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -61,6 +62,7 @@ export default async function WelcomePage({
           <UTMs userId={session.user.id} />
         </Suspense>
       )}
+      {!user.completedOnboarding && <SignUpEvent />}
     </div>
   );
 }
