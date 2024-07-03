@@ -3,7 +3,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { getGmailClient } from "@/utils/gmail/client";
-import { fetchGroupExampleMessages } from "@/app/api/user/rules/[id]/example/route";
+import { fetchGroupExampleMessages } from "@/app/api/user/rules/[id]/example/controller";
 
 export type ExamplesResponse = Awaited<ReturnType<typeof getExamples>>;
 
