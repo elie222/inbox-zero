@@ -47,9 +47,7 @@ export default function RuleExamplesPage({
         }
       />
       <LoadingContent loading={!data && isLoading} error={error}>
-        <div className="mx-auto my-4 grid max-w-4xl gap-4 px-4">
-          <ExampleList groupedBySenders={groupedBySenders} />
-        </div>
+        <ExampleList groupedBySenders={groupedBySenders} />
       </LoadingContent>
     </div>
   );
