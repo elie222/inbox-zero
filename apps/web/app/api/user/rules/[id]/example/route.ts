@@ -96,7 +96,7 @@ async function fetchStaticExampleMessages(
   return messages.filter((message) => matchesStaticRule(rule, message));
 }
 
-async function fetchGroupExampleMessages(
+export async function fetchGroupExampleMessages(
   group: NonNullable<RuleWithGroup["group"]>,
   gmail: gmail_v1.Gmail,
 ): Promise<MessageWithGroupItem[]> {

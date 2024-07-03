@@ -40,8 +40,8 @@ import useSWR from "swr";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
-import { CreateGroupModalButton } from "@/app/(app)/automation/groups/CreateGroupModal";
+import { ViewGroupButton } from "@/app/(app)/automation/group/ViewGroup";
+import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroupModal";
 import { createPredefinedGroupAction } from "@/utils/actions/group";
 import {
   NEWSLETTER_GROUP_ID,

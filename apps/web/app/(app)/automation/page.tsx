@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
-import { Groups } from "@/app/(app)/automation/groups/Groups";
+import { Groups } from "@/app/(app)/automation/group/Groups";
 
 export default async function AutomationPage() {
   const session = await auth();

@@ -19,8 +19,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { GroupsResponse } from "@/app/api/user/group/route";
-import { ViewGroupButton } from "@/app/(app)/automation/groups/ViewGroup";
-import { CreateGroupModalButton } from "@/app/(app)/automation/groups/CreateGroupModal";
+import { ViewGroupButton } from "@/app/(app)/automation/group/ViewGroup";
+import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroupModal";
 import { Button } from "@/components/ui/button";
 
 export function Groups() {
@@ -91,11 +91,11 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
               </Link>
             </TableCell>
             <TableCell className="flex justify-end gap-1 p-3 text-center">
-              {/* <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" asChild>
                 <Link href={`/automation/group/${group.id}/examples`}>
                   Examples
                 </Link>
-              </Button> */}
+              </Button>
               <ViewGroupButton groupId={group.id} name={group.name} />
             </TableCell>
           </TableRow>
