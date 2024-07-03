@@ -250,7 +250,7 @@ export function SideNav(props: {
               leaveFrom="translate-x-0"
               leaveTo="-translate-x-full"
             >
-              <DialogPanel className="relative mr-16 flex w-full max-w-64 flex-1">
+              <DialogPanel className="relative mr-16 flex h-full w-full max-w-64 flex-1">
                 <TransitionChild
                   as="div"
                   enter="ease-in-out duration-300"
