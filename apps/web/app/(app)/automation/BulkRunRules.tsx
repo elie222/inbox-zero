@@ -161,7 +161,7 @@ async function onRun(
 
       incrementThreadsQueued(threadsWithoutPlan.length);
 
-      runAiRules(threadsWithoutPlan);
+      runAiRules(threadsWithoutPlan, false);
 
       if (!nextPageToken || aborted) break;
 
