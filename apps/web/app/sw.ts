@@ -25,16 +25,7 @@ const serwist = new Serwist({
       matcher: ({ url }) =>
         url.hostname === "www.googletagmanager.com" ||
         url.hostname === "tagmanager.google.com",
-      handler: new NetworkOnly({
-        plugins: [
-          {
-            handlerDidError: async ({ request }) => {
-              console.error(`Failed to fetch: ${request.url}`);
-              return Response.error();
-            },
-          },
-        ],
-      }),
+      handler: new NetworkOnly(),
     },
     ...defaultCache,
   ],
