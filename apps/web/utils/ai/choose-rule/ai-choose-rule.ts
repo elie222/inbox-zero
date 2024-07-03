@@ -25,7 +25,7 @@ export async function getAiResponse(options: GetAiResponseOptions) {
     ...rules,
     {
       instructions:
-        "None of the above rules or not enough information to make a decision.",
+        "None of the other rules match or not enough information to make a decision.",
     },
   ];
 

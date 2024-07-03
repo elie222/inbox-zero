@@ -29,7 +29,7 @@ export function PlanBadge(props: { plan?: Plan }) {
         <HoverCard
           content={
             <div className="max-w-full whitespace-pre-wrap text-sm">
-              {plan.reason}
+              <strong>Reason:</strong> {plan.reason}
             </div>
           }
         >
