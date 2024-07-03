@@ -61,6 +61,7 @@ export const deleteEmails = async (
 
 export const runAiRules = async (
   threads: Thread[],
+  force: boolean,
   // refetch: () => void,
 ) => {
   // updateRunAiQueueStorage(threads, "pending");
@@ -71,7 +72,9 @@ export const runAiRules = async (
     threads.map((thread) => async () => {
       const message = threadToRunRulesEmail(thread);
       if (!message) return;
-      await runRulesAction(message);
+      console.log("runRulesAction", message.threadId);
+      const result = await runRulesAction(message, force);
+      console.log("result", result);
       removeFromAiQueueAtom(thread.id);
       // updateRunAiQueueStorage([thread], "complete");
       // refetch();

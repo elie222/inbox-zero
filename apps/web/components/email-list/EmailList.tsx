@@ -200,7 +200,7 @@ export function EmailList(props: {
   );
 
   const onPlanAiAction = useCallback((thread: Thread) => {
-    toast.promise(() => runAiRules([thread]), {
+    toast.promise(() => runAiRules([thread], true), {
       success: "Running...",
       error: "There was an error running the AI rules :(",
     });
@@ -356,7 +356,7 @@ export function EmailList(props: {
           .filter(([, selected]) => selected)
           .map(([id]) => threads.find((t) => t.id === id)!);
 
-        runAiRules(selectedThreads);
+        runAiRules(selectedThreads, false);
         // runAiRules(threadIds, () => refetch(threadIds));
       },
       {

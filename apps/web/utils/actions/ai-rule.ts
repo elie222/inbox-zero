@@ -25,6 +25,7 @@ import { type ServerActionResponse, isActionError } from "@/utils/error";
 
 export async function runRulesAction(
   email: EmailForAction,
+  force: boolean,
 ): Promise<ServerActionResponse> {
   const { gmail, user: u, error } = await getSessionAndGmailClient();
   if (error) return { error };
@@ -59,7 +60,7 @@ export async function runRulesAction(
     }),
   ]);
 
-  if (hasExistingRule) {
+  if (hasExistingRule && !force) {
     console.log("Skipping. Rule already exists.");
     return;
   }
