@@ -19,16 +19,7 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: [
-    {
-      // Google Tag Manager handling
-      matcher: ({ url }) =>
-        url.hostname === "www.googletagmanager.com" ||
-        url.hostname === "tagmanager.google.com",
-      handler: new NetworkOnly(),
-    },
-    ...defaultCache,
-  ],
+  runtimeCaching: [], // caching disabled
   disableDevLogs: true,
 });
 
