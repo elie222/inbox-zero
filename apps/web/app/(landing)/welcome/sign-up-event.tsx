@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { signUpEvent } from "@/utils/gtm";
+import { postRequest } from "@/utils/api";
+import { CompleteRegistrationBody } from "@/app/api/user/complete-registration/route";
 
 export const SignUpEvent = () => {
   useEffect(() => {
-    signUpEvent();
+    postRequest<{}, CompleteRegistrationBody>(
+      `/api/user/complete-registration`,
+      {},
+    );
   }, []);
 
   return null;

@@ -32,6 +32,8 @@ export const env = createEnv({
     RESEND_AUDIENCE_ID: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
+    FB_PIXEL_ID: z.string().optional(),
     ADMINS: z
       .string()
       .optional()

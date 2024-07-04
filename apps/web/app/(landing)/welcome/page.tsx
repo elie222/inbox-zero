@@ -62,7 +62,8 @@ export default async function WelcomePage({
           <UTMs userId={session.user.id} />
         </Suspense>
       )}
-      {!user.completedOnboarding && <SignUpEvent />}
+      {/* {!user.completedOnboarding && <SignUpEvent />} */}
+      <SignUpEvent />
     </div>
   );
 }
