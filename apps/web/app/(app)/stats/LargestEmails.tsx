@@ -25,7 +25,7 @@ import { getGmailUrl } from "@/utils/url";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { onTrashMessage } from "@/utils/actions/client";
 import { useState } from "react";
-import { Attachment } from "@/utils/types";
+import type { Attachment } from "@/utils/types";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
   const { data, isLoading, error, mutate } = useSWRImmutable<
