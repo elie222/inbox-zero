@@ -45,7 +45,8 @@
     "lint": {},
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "args": ["--host", "0.0.0.0"]
     }
   }
 }

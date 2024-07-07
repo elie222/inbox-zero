@@ -11,6 +11,7 @@
     "ncu": "ncu -u -ws"
   },
   "devDependencies": {
+    "prisma": "^4.0.0",
     "@turbo/gen": "^1.11.3",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
