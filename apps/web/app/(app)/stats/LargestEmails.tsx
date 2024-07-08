@@ -26,6 +26,7 @@ import { Button, ButtonLoader } from "@/components/ui/button";
 import { onTrashMessage } from "@/utils/actions/client";
 import { useState } from "react";
 import type { Attachment } from "@/utils/types";
+import { sumBy } from "lodash";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
   const { data, isLoading, error, mutate } = useSWRImmutable<
@@ -39,12 +40,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
 
   // Function to calculte total attachement size
   const calculateTotalAttachmentSize = (attachments?: Attachment[]): number => {
-    return (
-      attachments?.reduce(
-        (sum: number, attachment: Attachment) => sum + attachment.size,
-        0,
-      ) || 0
-    );
+    return sumBy(attachments, "size") || 0;
   };
 
   return (
