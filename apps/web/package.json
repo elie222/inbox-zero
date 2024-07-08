@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000 -H 0.0.0.0",
     "build": "NODE_OPTIONS=--max_old_space_size=8192 prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",

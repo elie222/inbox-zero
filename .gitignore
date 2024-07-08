@@ -47,3 +47,5 @@ dist
 .react-email
 
 .sentryclirc
+.vscode/settings.json
+.pnpm-store/*
