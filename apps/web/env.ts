@@ -51,8 +51,8 @@ export const env = createEnv({
 
     // lemon plans
     // basic
-    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK: z.string(),
-    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK: z.string(),
+    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
     // pro
