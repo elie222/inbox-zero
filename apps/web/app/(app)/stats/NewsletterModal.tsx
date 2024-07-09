@@ -4,7 +4,6 @@ import type { DateRange } from "react-day-picker";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,8 +26,9 @@ import { getGmailFilterSettingsUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions/client";
-import { MoreDropdown, type Row } from "@/app/(app)/bulk-unsubscribe/common";
+import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
+import { Row } from "@/app/(app)/bulk-unsubscribe/types";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
