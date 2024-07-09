@@ -50,7 +50,7 @@ export interface ParsedMessage extends gmail_v1.Schema$Message {
   textHtml?: string;
 }
 
-interface Attachment {
+export interface Attachment {
   filename: string;
   mimeType: string;
   size: number;
