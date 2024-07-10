@@ -13,6 +13,18 @@ import { AssessUser } from "@/app/(app)/assess";
 import { LastLogin } from "@/app/(app)/last-login";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
 
+export const viewport = {
+  themeColor: "#FFF",
+  // safe area for iOS PWA
+  userScalable: false,
+  initialScale: 1,
+  maximumScale: 1,
+  minimumScale: 1,
+  width: "device-width",
+  height: "device-height",
+  viewportFit: "cover",
+};
+
 export default async function AppLayout({
   children,
 }: {

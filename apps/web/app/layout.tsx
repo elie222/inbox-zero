@@ -61,6 +61,12 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  // safe area for iOS PWA
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "white-translucent",
+  },
 };
 
 export const viewport = {
