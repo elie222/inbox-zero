@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CogIcon,
+  BarChartIcon,
   MailMinusIcon,
   ShieldHalfIcon,
   SparklesIcon,
 } from "lucide-react";
 import { cn } from "@/utils";
 
-export function NavBottom({
+function NavBarBottom({
   links,
 }: {
   links: {
@@ -33,8 +33,8 @@ export function NavBottom({
               key={link.path}
               href={link.path}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 hover:text-blue-500",
-                link.isSelected ? "text-blue-500" : "text-muted-foreground",
+                "flex flex-col items-center justify-center gap-1 hover:text-black",
+                link.isSelected ? "text-black" : "text-muted-foreground",
               )}
             >
               <link.icon className="h-5 w-5" />
@@ -64,17 +64,17 @@ const links = [
     icon: ShieldHalfIcon,
   },
   {
-    path: "/settings",
-    label: "Settings",
-    icon: CogIcon,
+    path: "/stats",
+    label: "Analytics",
+    icon: BarChartIcon,
   },
 ];
 
-export function NavBottomDashboard() {
+export function NavBottom() {
   const pathname = usePathname();
 
   return (
-    <NavBottom
+    <NavBarBottom
       links={links.map((link) => ({
         ...link,
         isSelected: pathname === link.path,

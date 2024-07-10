@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SideNav } from "@/components/SideNav";
 import { TopNav } from "@/components/TopNav";
 import { Toaster } from "@/components/Toast";
-import { NavBottomDashboard } from "@/components/NavBottom";
+import { NavBottom } from "@/components/NavBottom";
 
 export function SideNavWithTopNav(props: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,7 +21,7 @@ export function SideNavWithTopNav(props: { children: React.ReactNode }) {
         className="md:hidden md:pt-0"
         style={{ paddingTop: "calc(env(safe-area-inset-bottom) + 1rem)" }}
       >
-        <NavBottomDashboard />
+        <NavBottom />
       </div>
     </SideNav>
   );
