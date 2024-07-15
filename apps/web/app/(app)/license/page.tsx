@@ -27,7 +27,7 @@ export default function LicensePage({
     <div>
       <TopSection title="Activate your license" />
 
-      <div className="content-container max-w-2xl py-6 ">
+      <div className="content-container max-w-2xl py-6">
         {data?.premium?.lemonLicenseKey && (
           <AlertBasic
             variant="success"

@@ -48,6 +48,7 @@ dist
 .react-email
 
 .sentryclirc
+.pnpm-store/*
 
 # Serwist
 **/public/serwist**
