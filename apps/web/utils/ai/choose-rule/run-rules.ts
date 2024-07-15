@@ -1,13 +1,24 @@
-import { gmail_v1 } from "googleapis";
-import { type ParsedMessage, type RuleWithActions } from "@/utils/types";
+import type { gmail_v1 } from "googleapis";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
 import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
-import { UserAIFields } from "@/utils/llms/types";
-import { ExecutedRuleStatus, Rule, RuleType, User } from "@prisma/client";
+import type { UserAIFields } from "@/utils/llms/types";
+import {
+  ExecutedRuleStatus,
+  type Rule,
+  RuleType,
+  type User,
+} from "@prisma/client";
 import { chooseRuleAndExecute } from "@/utils/ai/choose-rule/choose-and-execute";
 import { emailToContent } from "@/utils/mail";
 import prisma from "@/utils/prisma";
-import { ActionItem } from "@/utils/ai/actions";
+import type { ActionItem } from "@/utils/ai/actions";
+
+export type TestResult = {
+  rule?: Rule | null;
+  actionItems?: ActionItem[];
+  reason?: string | null;
+};
 
 export async function runRulesOnMessage({
   gmail,
@@ -74,6 +85,7 @@ export async function runRulesOnMessage({
     rules: aiRules,
     gmail,
     user,
+    isTest: false,
   });
 
   if (aiResponse.handled) return { handled: true };
@@ -144,11 +156,7 @@ export async function testRulesOnMessage({
   rules: RuleWithActions[];
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
-}): Promise<{
-  rule?: Rule | null;
-  actionItems?: ActionItem[];
-  reason?: string | null;
-}> {
+}): Promise<TestResult> {
   const applicableRules = isThread
     ? rules.filter((r) => r.runOnThreads)
     : rules;
@@ -209,6 +217,7 @@ export async function testRulesOnMessage({
     rules: aiRules,
     gmail,
     user,
+    isTest: true,
   });
 
   return plan;

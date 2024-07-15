@@ -9,13 +9,10 @@ export function getGmailUrl(
   return `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`;
 }
 
-export function getGmailSearchUrl(
-  search: string,
-  emailAddress?: string | null,
-) {
+export function getGmailSearchUrl(from: string, emailAddress?: string | null) {
   return `${getGmailBaseUrl(
     emailAddress,
-  )}/#advanced-search/from=${encodeURIComponent(search)}`;
+  )}/#advanced-search/from=${encodeURIComponent(from)}`;
 }
 
 export function getGmailBasicSearchUrl(emailAddress: string, query: string) {

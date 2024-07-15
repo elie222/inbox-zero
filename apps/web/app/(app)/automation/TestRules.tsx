@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { capitalCase } from "capital-case";
@@ -15,19 +15,20 @@ import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { MessagesResponse } from "@/app/api/google/messages/route";
+import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 import {
-  TestAiActionResponse,
   testAiAction,
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
 import { RuleType } from "@prisma/client";
-import { RulesResponse } from "@/app/api/user/rules/route";
+import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
+import { isActionError } from "@/utils/error";
+import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -97,7 +98,7 @@ export function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [testResult, setTestResult] = useState<TestAiActionResponse>();
+  const [testResult, setTestResult] = useState<TestResult | undefined>();
 
   const {
     register,
@@ -106,17 +107,16 @@ const TestRulesForm = () => {
   } = useForm<TestRulesInputs>();
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    try {
-      const testResult = await testAiCustomContentAction({
-        content: data.message,
-      });
-      setTestResult(testResult);
-    } catch (error) {
-      console.error(error);
+    const result = await testAiCustomContentAction({
+      content: data.message,
+    });
+    if (isActionError(result)) {
       toastError({
-        title: "Error checking email.",
-        description: (error as Error).message,
+        title: "Error testing email",
+        description: result.error,
       });
+    } else {
+      setTestResult(result);
     }
   }, []);
 
@@ -139,7 +139,7 @@ const TestRulesForm = () => {
       </form>
       {testResult && (
         <div className="mt-4">
-          <TestResult response={testResult} />
+          <TestResult result={testResult} />
         </div>
       )}
     </div>
@@ -153,7 +153,7 @@ function TestRulesContentRow(props: {
   const { message } = props;
 
   const [checking, setChecking] = useState(false);
-  const [testResult, setTestResult] = useState<TestAiActionResponse>();
+  const [testResult, setTestResult] = useState<TestResult>();
 
   return (
     <TableRow>
@@ -172,18 +172,17 @@ function TestRulesContentRow(props: {
               onClick={async () => {
                 setChecking(true);
 
-                try {
-                  const testResult = await testAiAction({
-                    messageId: message.id,
-                    threadId: message.threadId,
-                  });
-                  setTestResult(testResult);
-                } catch (error) {
-                  console.error(error);
+                const result = await testAiAction({
+                  messageId: message.id,
+                  threadId: message.threadId,
+                });
+                if (isActionError(result)) {
                   toastError({
-                    title: "There was an error testing the email.",
-                    description: (error as Error).message,
+                    title: "There was an error testing the email",
+                    description: result.error,
                   });
+                } else {
+                  setTestResult(result);
                 }
                 setChecking(false);
               }}
@@ -195,7 +194,7 @@ function TestRulesContentRow(props: {
         </div>
         {!!testResult && (
           <div className="mt-4">
-            <TestResult response={testResult} />
+            <TestResult result={testResult} />
           </div>
         )}
       </TableCell>
@@ -203,10 +202,10 @@ function TestRulesContentRow(props: {
   );
 }
 
-function TestResult({ response }: { response: TestAiActionResponse }) {
-  if (!response) return null;
+function TestResult({ result }: { result: TestResult }) {
+  if (!result) return null;
 
-  if (!response.rule) {
+  if (!result.rule) {
     return (
       <AlertBasic
         variant="destructive"
@@ -214,9 +213,9 @@ function TestResult({ response }: { response: TestAiActionResponse }) {
         description={
           <div className="space-y-2">
             <div>This email does not match any of the rules you have set.</div>
-            {!!response.reason && (
+            {!!result.reason && (
               <div>
-                <strong>AI reason:</strong> {response.reason}
+                <strong>AI reason:</strong> {result.reason}
               </div>
             )}
           </div>
@@ -225,10 +224,10 @@ function TestResult({ response }: { response: TestAiActionResponse }) {
     );
   }
 
-  if (response.actionItems) {
+  if (result.actionItems) {
     const MAX_LENGTH = 280;
 
-    const aiGeneratedContent = response.actionItems.map((action, i) => {
+    const aiGeneratedContent = result.actionItems.map((action, i) => {
       return (
         <div key={i}>
           <strong>{capitalCase(action.type)}</strong>
@@ -247,7 +246,7 @@ function TestResult({ response }: { response: TestAiActionResponse }) {
 
     return (
       <AlertBasic
-        title={`Rule found: "${response.rule.name}"`}
+        title={`Rule found: "${result.rule.name}"`}
         variant="blue"
         description={
           <div className="mt-4 space-y-4">
@@ -257,17 +256,17 @@ function TestResult({ response }: { response: TestAiActionResponse }) {
                 {aiGeneratedContent}
               </div>
             )}
-            {!!response.reason && (
+            {!!result.reason && (
               <div>
                 <strong>AI reason: </strong>
-                {response.reason}
+                {result.reason}
               </div>
             )}
-            {response.rule.type === RuleType.AI && (
+            {result.rule.type === RuleType.AI && (
               <div>
                 <strong>Instructions: </strong>
-                {response.rule.instructions.substring(0, MAX_LENGTH) +
-                  (response.rule.instructions.length < MAX_LENGTH ? "" : "...")}
+                {result.rule.instructions.substring(0, MAX_LENGTH) +
+                  (result.rule.instructions.length < MAX_LENGTH ? "" : "...")}
               </div>
             )}
           </div>

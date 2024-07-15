@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TopSection } from "@/components/TopSection";
-import { activateLicenseKey } from "@/utils/actions/premium";
-import { UserResponse } from "@/app/api/user/me/route";
+import { activateLicenseKeyAction } from "@/utils/actions/premium";
+import type { UserResponse } from "@/app/api/user/me/route";
 import { AlertBasic } from "@/components/Alert";
+import { handleActionResult } from "@/utils/server-action";
 
 type Inputs = { licenseKey: string };
 
@@ -26,7 +27,7 @@ export default function LicensePage({
     <div>
       <TopSection title="Activate your license" />
 
-      <div className="content-container max-w-2xl py-6 ">
+      <div className="content-container max-w-2xl py-6">
         {data?.premium?.lemonLicenseKey && (
           <AlertBasic
             variant="success"
@@ -50,12 +51,8 @@ function ActivateLicenseForm(props: { licenseKey?: string }) {
   } = useForm<Inputs>({ defaultValues: { licenseKey: props.licenseKey } });
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
-    try {
-      await activateLicenseKey(data.licenseKey);
-      toastSuccess({ description: `License activated!` });
-    } catch (error: any) {
-      toastError({ description: error.message });
-    }
+    const result = await activateLicenseKeyAction(data.licenseKey);
+    handleActionResult(result, "License activated!");
   }, []);
 
   return (

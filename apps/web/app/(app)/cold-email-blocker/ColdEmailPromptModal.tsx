@@ -1,15 +1,15 @@
 import { useCallback } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PenIcon } from "lucide-react";
 import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import {
-  UpdateColdEmailSettingsBody,
+  type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
-import { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
+import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { postRequest } from "@/utils/api";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { toastError, toastSuccess } from "@/components/Toast";

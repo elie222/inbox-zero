@@ -1,27 +1,27 @@
 "use client";
 
-import {
-  useCallback,
-  useState,
-  createContext,
-  useContext,
-  useMemo,
-} from "react";
+import { useCallback, useState, createContext, useMemo } from "react";
 import { SWRConfig, mutate } from "swr";
+import { captureException } from "@/utils/error";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
-export const fetcher = async (url: string, init?: RequestInit | undefined) => {
+const fetcher = async (url: string, init?: RequestInit | undefined) => {
   const res = await fetch(url, init);
 
   // If the status code is not in the range 200-299,
   // we still try to parse and throw it.
   if (!res.ok) {
     const error: Error & { info?: any; status?: number } = new Error(
-      "An error occurred while fetching the data."
+      "An error occurred while fetching the data.",
     );
     // Attach extra info to the error object.
     error.info = await res.json();
     error.status = res.status;
+
+    captureException(error, {
+      extra: { url, extraMessage: "SWR fetch error" },
+    });
+
     throw error;
   }
 
@@ -37,8 +37,6 @@ const defaultContextValue = {
 };
 
 const SWRContext = createContext<Context>(defaultContextValue);
-
-export const useSWRContext = () => useContext<Context>(SWRContext);
 
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());

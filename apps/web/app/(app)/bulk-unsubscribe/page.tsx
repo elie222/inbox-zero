@@ -2,8 +2,8 @@
 
 import { subDays } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DateRange } from "react-day-picker";
-import { NewsletterStats } from "@/app/(app)/bulk-unsubscribe/NewsletterStats";
+import type { DateRange } from "react-day-picker";
+import { BulkUnsubscribeSection } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSection";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
@@ -36,7 +36,7 @@ export default function BulkUnsubscribePage() {
 
   const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(now, parseInt(defaultSelected.value)),
+    from: subDays(now, Number.parseInt(defaultSelected.value)),
     to: now,
   });
 
@@ -48,25 +48,23 @@ export default function BulkUnsubscribePage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 border-b bg-white px-4 py-2 shadow sm:flex sm:justify-between">
-        <div className="flex items-center">
-          <OnboardingModal
-            title="Getting started with Bulk Unsubscribe"
-            description={
-              <>
-                Learn how to quickly bulk unsubscribe from unwanted emails. You
-                can read more in our{" "}
-                <TextLink href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber">
-                  documentation
-                </TextLink>
-                .
-              </>
-            }
-            videoId="T1rnooV4OYc"
-          />
-        </div>
+      <div className="top-0 z-10 flex flex-col justify-between gap-1 border-b bg-white px-2 py-2 shadow sm:sticky sm:flex-row sm:px-4">
+        <OnboardingModal
+          title="Getting started with Bulk Unsubscribe"
+          description={
+            <>
+              Learn how to quickly bulk unsubscribe from unwanted emails. You
+              can read more in our{" "}
+              <TextLink href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber">
+                documentation
+              </TextLink>
+              .
+            </>
+          }
+          videoId="T1rnooV4OYc"
+        />
 
-        <div className="mt-1 space-y-1 sm:mt-0 sm:flex sm:space-x-1 sm:space-y-0">
+        <div className="flex flex-wrap gap-1">
           <ActionBar
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}
@@ -78,8 +76,8 @@ export default function BulkUnsubscribePage() {
         </div>
       </div>
 
-      <div className="m-4">
-        <NewsletterStats
+      <div className="m-2 sm:m-4">
+        <BulkUnsubscribeSection
           dateRange={dateRange}
           refreshInterval={refreshInterval}
         />

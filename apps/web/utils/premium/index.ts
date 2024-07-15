@@ -1,4 +1,4 @@
-import { FeatureAccess, Premium, PremiumTier } from "@prisma/client";
+import { FeatureAccess, type Premium, PremiumTier } from "@prisma/client";
 
 export const isPremium = (lemonSqueezyRenewsAt: Date | null): boolean => {
   return !!lemonSqueezyRenewsAt && new Date(lemonSqueezyRenewsAt) > new Date();
@@ -31,33 +31,53 @@ export const getUserTier = (
   return premium?.tier || getUserPlan(premium?.lemonSqueezyRenewsAt);
 };
 
+export const isAdminForPremium = (
+  premiumAdmins: { id: string }[],
+  userId?: string,
+) => {
+  if (!userId) return false;
+  // if no admins are set, then we skip the check
+  if (!premiumAdmins.length) return true;
+  return premiumAdmins.some((admin) => admin.id === userId);
+};
+
 export const hasUnsubscribeAccess = (
+  bulkUnsubscribeAccess?: FeatureAccess | null,
   unsubscribeCredits?: number | null,
 ): boolean => {
+  if (
+    bulkUnsubscribeAccess === FeatureAccess.UNLOCKED ||
+    bulkUnsubscribeAccess === FeatureAccess.UNLOCKED_WITH_API_KEY
+  ) {
+    return true;
+  }
+
   return unsubscribeCredits !== 0;
 };
 
-export const hasFeatureAccess = (
-  premium: Pick<Premium, "coldEmailBlockerAccess" | "aiAutomationAccess">,
-  openAIApiKey: string | null,
+export const hasAiAccess = (
+  aiAutomationAccess?: FeatureAccess | null,
+  openAIApiKey?: string | null,
 ) => {
-  const coldEmailBlockerAccess = premium.coldEmailBlockerAccess;
-  const aiAutomationAccess = premium.aiAutomationAccess;
+  const hasAiAccess = !!(
+    aiAutomationAccess === FeatureAccess.UNLOCKED ||
+    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && openAIApiKey)
+  );
 
+  return hasAiAccess;
+};
+
+export const hasColdEmailAccess = (
+  coldEmailBlockerAccess?: FeatureAccess | null,
+  openAIApiKey?: string | null,
+) => {
   const hasColdEmailAccess = !!(
     coldEmailBlockerAccess === FeatureAccess.UNLOCKED ||
     (coldEmailBlockerAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
       openAIApiKey)
   );
 
-  const hasAiAccess = !!(
-    aiAutomationAccess === FeatureAccess.UNLOCKED ||
-    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && openAIApiKey)
-  );
-
-  const hasAiOrColdEmailAccess = hasColdEmailAccess || hasAiAccess;
-
-  return { hasAiOrColdEmailAccess, hasColdEmailAccess, hasAiAccess };
+  return hasColdEmailAccess;
 };
 
 export function isOnHigherTier(
@@ -65,11 +85,13 @@ export function isOnHigherTier(
   tier2?: PremiumTier | null,
 ) {
   const tierRanking = {
-    [PremiumTier.PRO_MONTHLY]: 1,
-    [PremiumTier.PRO_ANNUALLY]: 2,
-    [PremiumTier.BUSINESS_MONTHLY]: 3,
-    [PremiumTier.BUSINESS_ANNUALLY]: 4,
-    [PremiumTier.LIFETIME]: 5,
+    [PremiumTier.BASIC_MONTHLY]: 1,
+    [PremiumTier.BASIC_ANNUALLY]: 2,
+    [PremiumTier.PRO_MONTHLY]: 3,
+    [PremiumTier.PRO_ANNUALLY]: 4,
+    [PremiumTier.BUSINESS_MONTHLY]: 5,
+    [PremiumTier.BUSINESS_ANNUALLY]: 6,
+    [PremiumTier.LIFETIME]: 7,
   };
 
   const tier1Rank = tier1 ? tierRanking[tier1] : 0;

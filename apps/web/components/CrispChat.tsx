@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Crisp } from "crisp-sdk-web";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 const CrispChat = ({ email }: { email?: string }) => {
   useEffect(() => {

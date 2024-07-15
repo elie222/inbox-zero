@@ -1,13 +1,13 @@
 import { Button } from "@/components/Button";
 // import { Checkbox } from "@/components/Checkbox";
-import React from "react";
+import type React from "react";
 
 export function GroupHeading(props: {
   leftContent: React.ReactNode;
   buttons?: { label: string; loading?: boolean; onClick: () => void }[];
 }) {
   return (
-    <div className="content-container flex max-w-full flex-wrap items-center gap-x-6 sm:flex-nowrap ">
+    <div className="content-container flex max-w-full flex-wrap items-center gap-x-6 sm:flex-nowrap">
       {/* <div className="border-l-4 border-transparent">
         <Checkbox checked onChange={() => {}} />
       </div> */}

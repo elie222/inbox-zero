@@ -1,12 +1,12 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { type NextAuthConfig, type DefaultSession, Account } from "next-auth";
-import { type JWT } from "@auth/core/jwt";
+import type { NextAuthConfig, DefaultSession, Account } from "next-auth";
+import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { captureException } from "@/utils/error";
 
 const SCOPES = [

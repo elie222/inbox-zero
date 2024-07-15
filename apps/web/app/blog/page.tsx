@@ -65,6 +65,95 @@ const posts = [
       imageUrl: "/images/blog/elie-profile.jpg",
     },
   },
+  {
+    title: "Best Email Unsubscribe App to Clean Up Your Inbox",
+    file: "best-email-unsubscribe-app",
+    description:
+      "Managing your email inbox can feel like a full-time job. With promotional emails, newsletters, and updates flooding our inboxes daily, it's crucial to have effective tools to maintain order.",
+    date: "June 26, 2024",
+    datetime: "2024-06-26",
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
+  {
+    title: "Boost Your Email Efficiency with These Gmail Productivity Hacks",
+    file: "gmail-productivity-hacks",
+    description:
+      "Discover effective Gmail productivity hacks to streamline your email management. Learn key tips, tools, and techniques for maximizing efficiency.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "Achieve Mental Clarity with Inbox Zero",
+    file: "inbox-zero-benefits-for-mental-health",
+    description:
+      "Learn how to achieve and maintain Inbox Zero for better mental health. Reduce stress, boost productivity, and gain mental clarity with these strategies.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "Mastering Inbox Zero - A Productivity Guide for Entrepreneurs",
+    file: "inbox-zero-workflow-for-entrepreneurs",
+    description:
+      "Learn how to achieve and maintain Inbox Zero as an entrepreneur with effective strategies, tools, and tips for efficient email management.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "How to Beat Email Stress as a Remote Worker",
+    file: "managing-email-stress-for-remote-workers",
+    description:
+      "Learn effective strategies and tools to manage email stress for remote workers. Increase productivity and work-life balance with expert recommendations.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
+  {
+    title: "Master Email Management with These Top Tips and Tools",
+    file: "email-management-best-practices",
+    description:
+      "Learn the best email management practices to boost productivity and efficiency. Discover tools and techniques for effective inbox organization.",
+    date: "Jun 27, 2024",
+    datetime: "2024-06-27",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Ricardo Batista",
+      role: "Founder @ AI Blog Articles",
+      href: "https://getaiblogarticles.com/",
+      imageUrl: "/images/blog/ricardo-batista-profile.png",
+    },
+  },
 ];
 
 export default async function BlogPage() {
@@ -84,7 +173,7 @@ function Posts() {
     <div className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl">
-          <h2 className="font-cal  text-3xl tracking-tight text-gray-900 sm:text-4xl">
+          <h2 className="font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
             From the blog
           </h2>
           <p className="mt-2 text-lg leading-8 text-gray-600">

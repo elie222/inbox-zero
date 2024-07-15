@@ -1,4 +1,4 @@
-import { people_v1 } from "googleapis";
+import type { people_v1 } from "googleapis";
 
 export async function searchContacts(client: people_v1.People, query: string) {
   const readMasks: (keyof people_v1.Schema$Person)[] = [

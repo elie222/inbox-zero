@@ -1,5 +1,6 @@
 import "../../styles/globals.css";
-import React, { Suspense } from "react";
+import type React from "react";
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
@@ -11,6 +12,18 @@ import { AppProviders } from "@/providers/AppProviders";
 import { AssessUser } from "@/app/(app)/assess";
 import { LastLogin } from "@/app/(app)/last-login";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
+
+export const viewport = {
+  themeColor: "#FFF",
+  // safe area for iOS PWA
+  userScalable: false,
+  initialScale: 1,
+  maximumScale: 1,
+  minimumScale: 1,
+  width: "device-width",
+  height: "device-height",
+  viewportFit: "cover",
+};
 
 export default async function AppLayout({
   children,

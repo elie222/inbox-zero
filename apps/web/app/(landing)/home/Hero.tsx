@@ -41,14 +41,13 @@ export function Hero(props: {
           <div className="mx-auto max-w-xl text-center">
             {/* <HeroText>{props.title || <HeroHeadingAB />}</HeroText> */}
             <HeroText>
-              {props.title || "Clean Up Your Inbox In Minutes"}
+              {props.title || "Stop wasting half your day in Gmail"}
             </HeroText>
             <HeroSubtitle>
               {props.subtitle || (
                 <>
-                  Bulk unsubscribe from newsletters, automate your emails with
-                  AI, block cold emails, and view your analytics. Fully
-                  open-source.
+                  Automate your email with AI, bulk unsubscribe from
+                  newsletters, and block cold emails. Open-source.
                 </>
               )}
             </HeroSubtitle>
@@ -102,6 +101,7 @@ function ProductHuntBadge() {
       <a
         href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-top-post-badge&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
         target="_blank"
+        rel="noreferrer"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

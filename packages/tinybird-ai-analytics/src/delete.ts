@@ -14,7 +14,7 @@ async function deleteFromDatasource(
     `/v0/datasources/${datasource}/delete`,
     TINYBIRD_BASE_URL,
   );
-  let res = await fetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     body: `delete_condition=(${deleteCondition})`,
     headers: {

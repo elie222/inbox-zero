@@ -1,4 +1,4 @@
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 
 export function getDateRangeParams(dateRange?: DateRange) {
   const params: { fromDate?: number; toDate?: number } = {};

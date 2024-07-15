@@ -12,6 +12,8 @@ export const changePremiumStatusSchema = z.object({
     .optional()
     .transform((v) => v || undefined),
   period: z.enum([
+    PremiumTier.BASIC_MONTHLY,
+    PremiumTier.BASIC_ANNUALLY,
     PremiumTier.PRO_MONTHLY,
     PremiumTier.PRO_ANNUALLY,
     PremiumTier.BUSINESS_MONTHLY,
@@ -22,4 +24,13 @@ export const changePremiumStatusSchema = z.object({
 });
 export type ChangePremiumStatusOptions = z.infer<
   typeof changePremiumStatusSchema
+>;
+
+export const adminProcessHistorySchema = z.object({
+  email: z.string().email(),
+  historyId: z.number().optional(),
+  startHistoryId: z.number().optional(),
+});
+export type AdminProcessHistoryOptions = z.infer<
+  typeof adminProcessHistorySchema
 >;

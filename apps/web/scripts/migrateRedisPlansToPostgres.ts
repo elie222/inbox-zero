@@ -111,7 +111,7 @@ async function migrateUserPlans(userId: string) {
   });
 
   for (const [index, planData] of Object.entries(plans)) {
-    if (parseInt(index || "0") % 10 === 0)
+    if (Number.parseInt(index || "0") % 10 === 0)
       console.log("plan index:", userId, index);
 
     // Not sure why TS doesn't give me `data`. Quick hack to make it work.
@@ -236,8 +236,8 @@ export async function getFilteredPlans({
   count?: number;
 }): Promise<(Plan & { id: string })[]> {
   const key = `plans:${userId}`;
-  let cursor = 0;
-  let results: [string, Plan][] = [];
+  let cursor = "0";
+  const results: [string, Plan][] = [];
 
   do {
     const reply = await redis.hscan(key, cursor, { count });
@@ -252,11 +252,11 @@ export async function getFilteredPlans({
 
       // Break if we have collected enough data
       if (results.length >= count) {
-        cursor = 0; // Reset cursor to end the loop
+        cursor = "0"; // Reset cursor to end the loop
         break;
       }
     }
-  } while (cursor !== 0);
+  } while (cursor !== "0");
 
   return results.map(([planId, plan]) => ({ ...plan, id: planId }));
 }

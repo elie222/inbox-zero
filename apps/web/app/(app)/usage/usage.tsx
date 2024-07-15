@@ -5,7 +5,7 @@ import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
 import { usePremium } from "@/components/PremiumAlert";
 import { LoadingContent } from "@/components/LoadingContent";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { isPremium } from "@/utils/premium";
 
 export function Usage(props: {
@@ -26,7 +26,7 @@ export function Usage(props: {
               ? "Unlimited"
               : formatStat(
                   data?.premium?.unsubscribeCredits ??
-                    env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS,
+                    env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
                 ),
             subvalue: "credits",
             icon: <CoinsIcon className="h-4 w-4" />,

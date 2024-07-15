@@ -7,10 +7,13 @@ SQL >
     SELECT *
     FROM email
     WHERE
-        "unsubscribeLink" is not null
+        "ownerEmail" = {{ String(ownerEmail) }}
         AND "sent" = false
         AND "draft" = false
-        AND "ownerEmail" = {{ String(ownerEmail) }}
+        {% if Boolean(includeMissingUnsubscribe) %}
+        {% else %}
+          AND "unsubscribeLink" is not null
+        {% end %}
         {% if defined(fromDate) %}
           AND "timestamp" >= {{ Int64(fromDate) }}
         {% end %}

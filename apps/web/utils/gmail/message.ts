@@ -1,13 +1,14 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { parseMessage } from "@/utils/mail";
 import {
-  BatchError,
-  MessageWithPayload,
-  ParsedMessage,
+  type BatchError,
+  type MessageWithPayload,
+  type ParsedMessage,
   isBatchError,
   isDefined,
 } from "@/utils/types";
 import { getBatch } from "@/utils/gmail/batch";
+import { extractDomainFromEmail } from "@/utils/email";
 
 export async function getMessage(
   messageId: string,
@@ -81,6 +82,18 @@ export async function hasPreviousEmailsFromSender(
   );
 
   return hasPreviousEmail;
+}
+
+export async function hasPreviousEmailsFromDomain(
+  gmail: gmail_v1.Gmail,
+  options: { from: string; date: string; threadId: string },
+) {
+  const domain = extractDomainFromEmail(options.from);
+
+  return hasPreviousEmailsFromSender(gmail, {
+    ...options,
+    from: domain || options.from,
+  });
 }
 
 export async function getMessages(

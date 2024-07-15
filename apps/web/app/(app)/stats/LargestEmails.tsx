@@ -17,7 +17,7 @@ import { useSession } from "next-auth/react";
 import { ExternalLinkIcon, Trash2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
+import type { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
 import { formatShortDate } from "@/utils/date";
@@ -25,6 +25,8 @@ import { getGmailUrl } from "@/utils/url";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { onTrashMessage } from "@/utils/actions/client";
 import { useState } from "react";
+import type { Attachment } from "@/utils/types";
+import { sumBy } from "lodash";
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
   const { data, isLoading, error, mutate } = useSWRImmutable<
@@ -35,6 +37,11 @@ export function LargestEmails(props: { refreshInterval: number }) {
   });
 
   const { expanded, extra } = useExpanded();
+
+  // Function to calculte total attachement size
+  const calculateTotalAttachmentSize = (attachments?: Attachment[]): number => {
+    return sumBy(attachments, "size") || 0;
+  };
 
   return (
     <LoadingContent
@@ -60,6 +67,10 @@ export function LargestEmails(props: { refreshInterval: number }) {
               {data.largestEmails
                 .slice(0, expanded ? undefined : 5)
                 .map((item) => {
+                  // Calculate the total size of all attachements for each email
+                  const totalAttachmentSize = calculateTotalAttachmentSize(
+                    item.attachments,
+                  );
                   return (
                     <TableRow key={item.id}>
                       <TableCell>{item.headers.from}</TableCell>
@@ -73,7 +84,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
                         })}
                       </TableCell>
                       <TableCell>
-                        {bytesToMegabytes(item.sizeEstimate!).toFixed(1)} MB
+                        {bytesToMegabytes(totalAttachmentSize).toFixed(1)} MB
                       </TableCell>
                       <TableCell>
                         <Button asChild variant="secondary" size="sm">

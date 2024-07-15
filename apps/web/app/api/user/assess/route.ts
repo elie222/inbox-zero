@@ -4,11 +4,16 @@ import countBy from "lodash/countBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
-import { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import { getEmailClient } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
+import {
+  INBOX_LABEL_ID,
+  SENT_LABEL_ID,
+  UNREAD_LABEL_ID,
+} from "@/utils/gmail/label";
 
 export type AssessUserResponse = Awaited<ReturnType<typeof assessUser>>;
 
@@ -67,19 +72,25 @@ async function saveBehaviorProfile(
 }
 
 async function getUnreadEmailCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.labels.get({ userId: "me", id: "UNREAD" });
+  const res = await gmail.users.labels.get({
+    userId: "me",
+    id: UNREAD_LABEL_ID,
+  });
   const unreadCount = res.data.messagesUnread || 0;
   return unreadCount;
 }
 
 async function getInboxCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.labels.get({ userId: "me", id: "INBOX" });
+  const res = await gmail.users.labels.get({
+    userId: "me",
+    id: INBOX_LABEL_ID,
+  });
   const inboxCount = res.data.messagesTotal || 0;
   return inboxCount;
 }
 
 async function getSentCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.labels.get({ userId: "me", id: "SENT" });
+  const res = await gmail.users.labels.get({ userId: "me", id: SENT_LABEL_ID });
   const sentCount = res.data.messagesTotal || 0;
   return sentCount;
 }

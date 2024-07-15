@@ -1,13 +1,12 @@
 "use server";
 
-import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma from "@/utils/prisma";
-import { RuleType, Prisma, ExecutedRuleStatus } from "@prisma/client";
+import prisma, { isDuplicateError } from "@/utils/prisma";
+import { RuleType, ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
-import { isError } from "@/utils/error";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
+  type TestResult,
   runRulesOnMessage,
   testRulesOnMessage,
 } from "@/utils/ai/choose-rule/run-rules";
@@ -18,17 +17,22 @@ import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
 } from "@/utils/actions/group";
-import { EmailForAction } from "@/utils/ai/actions";
+import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
+import { getSessionAndGmailClient } from "@/utils/actions/helpers";
+import { type ServerActionResponse, isActionError } from "@/utils/error";
 
-export async function runRules(email: EmailForAction) {
-  const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
-  const gmail = getGmailClient(session);
+export async function runRulesAction(
+  email: EmailForAction,
+  force: boolean,
+): Promise<ServerActionResponse> {
+  const { gmail, user: u, error } = await getSessionAndGmailClient();
+  if (error) return { error };
+  if (!gmail) return { error: "Could not load Gmail" };
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
+  const user = await prisma.user.findUnique({
+    where: { id: u.id },
     select: {
       id: true,
       email: true,
@@ -39,8 +43,7 @@ export async function runRules(email: EmailForAction) {
       rules: { include: { actions: true } },
     },
   });
-
-  if (!user.email) throw new Error("User email not found");
+  if (!user?.email) return { error: "User email not found" };
 
   const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
     getMessage(email.messageId, gmail, "full"),
@@ -57,7 +60,7 @@ export async function runRules(email: EmailForAction) {
     }),
   ]);
 
-  if (hasExistingRule) {
+  if (hasExistingRule && !force) {
     console.log("Skipping. Rule already exists.");
     return;
   }
@@ -65,80 +68,69 @@ export async function runRules(email: EmailForAction) {
   const message = parseMessage(gmailMessage);
   const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
 
-  const result = await runRulesOnMessage({
+  await runRulesOnMessage({
     gmail,
     message,
     rules: user.rules,
-    user: { ...user, email: user.email! },
+    user: { ...user, email: user.email },
     isThread,
   });
-
-  return { ok: !isError(result) };
 }
 
-export type TestAiActionResponse = Awaited<ReturnType<typeof testAiAction>>;
 export async function testAiAction({
   messageId,
   threadId,
 }: {
   messageId: string;
   threadId: string;
-}) {
-  return await withServerActionInstrumentation(
-    "testAiAction",
-    {
-      recordResponse: true,
+}): Promise<ServerActionResponse<TestResult>> {
+  const { gmail, user: u, error } = await getSessionAndGmailClient();
+  if (error) return { error };
+  if (!gmail) return { error: "Could not load Gmail" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: u.id },
+    select: {
+      id: true,
+      email: true,
+      about: true,
+      aiProvider: true,
+      aiModel: true,
+      openAIApiKey: true,
+      rules: { include: { actions: true } },
     },
-    async () => {
-      const session = await auth();
-      if (!session?.user.id) throw new Error("Not logged in");
-      const gmail = getGmailClient(session);
+  });
+  if (!user) return { error: "User not found" };
 
-      const user = await prisma.user.findUniqueOrThrow({
-        where: { id: session.user.id },
-        select: {
-          id: true,
-          email: true,
-          about: true,
-          aiProvider: true,
-          aiModel: true,
-          openAIApiKey: true,
-          rules: { include: { actions: true } },
-        },
-      });
+  const [gmailMessage, gmailThread] = await Promise.all([
+    getMessage(messageId, gmail, "full"),
+    getThread(threadId, gmail),
+  ]);
 
-      const [gmailMessage, gmailThread] = await Promise.all([
-        getMessage(messageId, gmail, "full"),
-        getThread(threadId, gmail),
-      ]);
+  const message = parseMessage(gmailMessage);
+  const isThread = !!gmailThread?.messages && gmailThread.messages.length > 1;
 
-      const message = parseMessage(gmailMessage);
-      const isThread =
-        !!gmailThread?.messages && gmailThread.messages.length > 1;
+  const result = await testRulesOnMessage({
+    gmail,
+    message,
+    rules: user.rules,
+    user: { ...user, email: user.email },
+    isThread,
+  });
 
-      const result = await testRulesOnMessage({
-        gmail,
-        message,
-        rules: user.rules,
-        user: { ...user, email: user.email! },
-        isThread,
-      });
-
-      return result;
-    },
-  );
+  return result;
 }
 
 export async function testAiCustomContentAction({
   content,
 }: {
   content: string;
-}) {
+}): Promise<ServerActionResponse<TestResult>> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
   const gmail = getGmailClient(session);
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
       id: true,
@@ -150,6 +142,7 @@ export async function testAiCustomContentAction({
       rules: { include: { actions: true } },
     },
   });
+  if (!user) return { error: "User not found" };
 
   const result = await testRulesOnMessage({
     gmail,
@@ -169,31 +162,47 @@ export async function testAiCustomContentAction({
       internalDate: new Date().toISOString(),
     },
     rules: user.rules,
-    user: { ...user, email: user.email! },
+    user,
     isThread: false,
   });
 
   return result;
 }
 
-export async function createAutomationAction(prompt: string) {
+export async function createAutomationAction(
+  prompt: string,
+): Promise<ServerActionResponse<{ id: string }, { existingRuleId?: string }>> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  const userId = session?.user.id;
+  if (!userId) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
-    select: { aiProvider: true, aiModel: true, openAIApiKey: true },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      aiProvider: true,
+      aiModel: true,
+      openAIApiKey: true,
+      email: true,
+    },
   });
+  if (!user) return { error: "User not found" };
+  if (!user.email) return { error: "User email not found" };
 
-  const result = await aiCreateRule(prompt, user, session.user.email);
+  let result: Awaited<ReturnType<typeof aiCreateRule>>;
 
-  if (!result) throw new Error("No result");
+  try {
+    result = await aiCreateRule(prompt, user, user.email);
+  } catch (error: any) {
+    return { error: `AI error creating rule. ${error.message}` };
+  }
+
+  if (!result) return { error: "AI error creating rule." };
 
   let groupId: string | null = null;
 
   if (result.group) {
     const groups = await prisma.group.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       select: { id: true, name: true, rule: true },
     });
 
@@ -211,10 +220,14 @@ export async function createAutomationAction(prompt: string) {
 
         groupId = newsletterGroup.id;
       } else {
-        const group = await createNewsletterGroupAction({
-          name: "Newsletters",
-        });
-        groupId = group.id;
+        const result = await createNewsletterGroupAction();
+        if (isActionError(result)) {
+          return result;
+        } else if (!result) {
+          return { error: "Error creating newsletter group" };
+        } else {
+          groupId = result.id;
+        }
       }
     } else if (result.group === "Receipts") {
       const receiptsGroup = groups.find((g) =>
@@ -231,8 +244,14 @@ export async function createAutomationAction(prompt: string) {
           };
         }
       } else {
-        const group = await createReceiptGroupAction({ name: "Receipts" });
-        groupId = group.id;
+        const result = await createReceiptGroupAction();
+        if (isActionError(result)) {
+          return result;
+        } else if (!result) {
+          return { error: "Error creating receipt group" };
+        } else {
+          groupId = result.id;
+        }
       }
     }
   }
@@ -276,29 +295,27 @@ export async function createAutomationAction(prompt: string) {
   }
 
   try {
-    const rule = await createRule(result, session.user.id);
+    const rule = await createRule(result, userId);
     return { id: rule.id };
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (
-        error.code === "P2002" &&
-        (error.meta?.target as string[])?.includes?.("name")
-      ) {
-        // if rule name already exists, create a new rule with a unique name
-        const rule = await createRule(
-          { ...result, name: result.name + " - " + Date.now() },
-          session.user.id,
-        );
-        return { id: rule.id };
-      }
+    if (isDuplicateError(error, "name")) {
+      // if rule name already exists, create a new rule with a unique name
+      const rule = await createRule(
+        { ...result, name: result.name + " - " + Date.now() },
+        userId,
+      );
+      return { id: rule.id };
     }
-    throw error;
+
+    return { error: "Error creating rule." };
   }
 }
 
-export async function deleteRuleAction(ruleId: string) {
+export async function deleteRuleAction(
+  ruleId: string,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.rule.delete({
     where: { id: ruleId, userId: session.user.id },
@@ -308,9 +325,9 @@ export async function deleteRuleAction(ruleId: string) {
 export async function setRuleAutomatedAction(
   ruleId: string,
   automate: boolean,
-) {
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.rule.update({
     where: { id: ruleId, userId: session.user.id },
@@ -321,9 +338,9 @@ export async function setRuleAutomatedAction(
 export async function setRuleRunOnThreadsAction(
   ruleId: string,
   runOnThreads: boolean,
-) {
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.rule.update({
     where: { id: ruleId, userId: session.user.id },
@@ -334,16 +351,17 @@ export async function setRuleRunOnThreadsAction(
 export async function approvePlanAction(
   executedRuleId: string,
   message: ParsedMessage,
-) {
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) return { error: "Not logged in" };
 
   const gmail = getGmailClient(session);
 
-  const executedRule = await prisma.executedRule.findUniqueOrThrow({
+  const executedRule = await prisma.executedRule.findUnique({
     where: { id: executedRuleId },
     include: { actionItems: true },
   });
+  if (!executedRule) return { error: "Item not found" };
 
   await executeAct({
     gmail,
@@ -361,9 +379,11 @@ export async function approvePlanAction(
   });
 }
 
-export async function rejectPlanAction(executedRuleId: string) {
+export async function rejectPlanAction(
+  executedRuleId: string,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.executedRule.updateMany({
     where: { id: executedRuleId, userId: session.user.id },

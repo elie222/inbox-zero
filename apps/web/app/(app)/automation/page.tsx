@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
-import { Groups } from "@/app/(app)/automation/groups/Groups";
+import { Groups } from "@/app/(app)/automation/group/Groups";
 
 export default async function AutomationPage() {
   const session = await auth();
@@ -25,20 +25,22 @@ export default async function AutomationPage() {
     <Suspense>
       <Tabs defaultValue="automations">
         <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
-          <TabsList>
-            <TabsTrigger value="automations">Automations</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-            <TabsTrigger value="test">Test</TabsTrigger>
-            <TabsTrigger value="groups">Groups</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList>
+              <TabsTrigger value="automations">Automations</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="test">Test</TabsTrigger>
+              <TabsTrigger value="groups">Groups</TabsTrigger>
+            </TabsList>
+          </div>
 
           <div className="flex space-x-2">
             <BulkRunRules />
 
             <Button asChild>
               <Link href="/automation/create">
-                <SparklesIcon className="mr-2 h-4 w-4" />
+                <SparklesIcon className="mr-2 hidden h-4 w-4 md:block" />
                 Create Automation
               </Link>
             </Button>

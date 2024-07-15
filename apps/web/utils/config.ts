@@ -1,4 +1,4 @@
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 export const AI_GENERATED_FIELD_VALUE = "___AI_GENERATE___";
 

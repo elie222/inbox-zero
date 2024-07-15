@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-export type SendWeeklyStatsAllUpdateResponse = Awaited<
-  ReturnType<typeof sendWeeklyStatsAllUpdate>
->;
 
 async function sendWeeklyStatsAllUpdate() {
   const users = await prisma.user.findMany({

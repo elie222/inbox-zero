@@ -1,7 +1,7 @@
 "use server";
 
 import { PostHog } from "posthog-node";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 async function getPosthogUserId(options: { email: string }) {
   const personsEndpoint = `https://app.posthog.com/api/projects/${env.POSTHOG_PROJECT_ID}/persons/`;

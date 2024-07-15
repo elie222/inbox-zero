@@ -101,6 +101,7 @@ export const getNewsletterCounts = tb.buildPipe({
   pipe: "newsletters",
   parameters: z.object({
     ownerEmail: z.string(),
+    includeMissingUnsubscribe: z.boolean().nullish(),
     limit: z.number().nullish(),
     fromDate: z.number().nullish(),
     toDate: z.number().nullish(),
@@ -117,7 +118,7 @@ export const getNewsletterCounts = tb.buildPipe({
     count: z.number(),
     readEmails: z.number(),
     inboxEmails: z.number(),
-    lastUnsubscribeLink: z.string().optional(),
+    lastUnsubscribeLink: z.string().nullish(),
   }),
 });
 

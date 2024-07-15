@@ -1,4 +1,4 @@
-import { ExecutedRuleStatus } from "@prisma/client";
+import type { ExecutedRuleStatus } from "@prisma/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
@@ -15,9 +15,11 @@ export async function getExecutedRules(
   const session = await auth();
   if (!session?.user.email) throw new Error("Not authenticated");
 
+  const where = { userId: session.user.id, status, rule: { isNot: null } };
+
   const [pendingExecutedRules, total] = await Promise.all([
     prisma.executedRule.findMany({
-      where: { userId: session.user.id, status, rule: { isNot: null } },
+      where,
       take: LIMIT,
       skip: (page - 1) * LIMIT,
       orderBy: { createdAt: "desc" },
@@ -25,7 +27,7 @@ export async function getExecutedRules(
         id: true,
         messageId: true,
         threadId: true,
-        rule: true,
+        rule: { include: { group: { select: { name: true } } } },
         actionItems: true,
         status: true,
         reason: true,
@@ -33,9 +35,7 @@ export async function getExecutedRules(
         createdAt: true,
       },
     }),
-    prisma.executedRule.count({
-      where: { userId: session.user.id, status, rule: { isNot: null } },
-    }),
+    prisma.executedRule.count({ where }),
   ]);
 
   const gmail = getGmailClient(session);

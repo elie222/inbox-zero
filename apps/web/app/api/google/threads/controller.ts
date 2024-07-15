@@ -10,13 +10,13 @@ import {
   STARRED_LABEL_ID,
   TRASH_LABEL_ID,
   UNREAD_LABEL_ID,
-} from "@/utils/label";
-import { ThreadWithPayloadMessages, isDefined } from "@/utils/types";
+} from "@/utils/gmail/label";
+import { type ThreadWithPayloadMessages, isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
 import { getThreadsBatch } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { ThreadsQuery } from "@/app/api/google/threads/validation";
+import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { ExecutedRuleStatus } from "@prisma/client";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;

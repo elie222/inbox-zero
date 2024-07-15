@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import { UserResponse } from "@/app/api/user/me/route";
-import { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
+import type { UserResponse } from "@/app/api/user/me/route";
+import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
@@ -14,7 +14,7 @@ import { Select } from "@/components/Select";
 import { isError } from "@/utils/error";
 import { Button } from "@/components/Button";
 import {
-  UpdateColdEmailSettingsBody,
+  type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
 import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";
@@ -75,20 +75,20 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
   const options: { label: string; value: ColdEmailSetting }[] = useMemo(
     () => [
       {
-        label: "Off",
-        value: ColdEmailSetting.DISABLED,
+        label: 'Archive and label as "Cold Email"',
+        value: ColdEmailSetting.ARCHIVE_AND_LABEL,
       },
       {
-        label: "List here",
-        value: ColdEmailSetting.LIST,
-      },
-      {
-        label: 'Auto label as "Cold Email"',
+        label: 'Label as "Cold Email"',
         value: ColdEmailSetting.LABEL,
       },
       {
-        label: 'Auto archive and label as "Cold Email"',
-        value: ColdEmailSetting.ARCHIVE_AND_LABEL,
+        label: "Only list here",
+        value: ColdEmailSetting.LIST,
+      },
+      {
+        label: "Disabled",
+        value: ColdEmailSetting.DISABLED,
       },
     ],
     [],
@@ -97,7 +97,7 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
   const onSubmitForm = handleSubmit(onSubmit);
 
   return (
-    <form onSubmit={onSubmitForm} className="max-w-sm space-y-2">
+    <form onSubmit={onSubmitForm} className="flex max-w-sm items-end space-x-2">
       <Select
         name="coldEmailBlocker"
         label="How should we handle cold emails?"
@@ -106,9 +106,11 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
         error={errors.coldEmailBlocker}
       />
 
-      <Button type="submit" loading={isSubmitting}>
-        Save
-      </Button>
+      <div className="">
+        <Button type="submit" loading={isSubmitting}>
+          Save
+        </Button>
+      </div>
     </form>
   );
 }

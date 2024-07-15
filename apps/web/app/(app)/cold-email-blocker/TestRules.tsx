@@ -4,7 +4,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { BookOpenCheckIcon, SparklesIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -15,14 +15,15 @@ import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
-import { MessagesResponse } from "@/app/api/google/messages/route";
+import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
-import {
+import type {
   ColdEmailBlockerBody,
   ColdEmailBlockerResponse,
 } from "@/app/api/ai/cold-email/route";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 export function TestRules() {
   return (
@@ -105,7 +106,10 @@ const TestRulesForm = () => {
       email: {
         from: "",
         subject: "",
-        body: data.message,
+        textHtml: null,
+        textPlain: data.message,
+        snippet: null,
+        threadId: null,
       },
     });
 
@@ -163,7 +167,7 @@ function TestRulesContentRow(props: {
         <TestRulesMessage
           from={message.headers.from}
           subject={message.headers.subject}
-          snippet={message.snippet?.trim() || ""}
+          snippet={decodeSnippet(message.snippet)}
           userEmail={props.userEmail}
         />
         <div className="ml-4">
@@ -173,17 +177,6 @@ function TestRulesContentRow(props: {
             onClick={async () => {
               setLoading(true);
 
-              const text = message.snippet || message.textPlain;
-
-              if (!text) {
-                toastError({
-                  description: `Unable to check if cold email. No text found in email.`,
-                });
-
-                setLoading(false);
-                return;
-              }
-
               const res = await postRequest<
                 ColdEmailBlockerResponse,
                 ColdEmailBlockerBody
@@ -191,8 +184,10 @@ function TestRulesContentRow(props: {
                 email: {
                   from: message.headers.from,
                   subject: message.headers.subject,
-                  body: text,
-                  textHtml: message.textHtml,
+                  textHtml: message.textHtml || null,
+                  textPlain: message.textPlain || null,
+                  snippet: message.snippet || null,
+                  threadId: message.threadId,
                 },
               });
 
@@ -230,7 +225,7 @@ function Result(props: { coldEmailResponse: ColdEmailBlockerResponse | null }) {
       <AlertBasic
         variant="destructive"
         title="Email is a cold email!"
-        description=""
+        description={coldEmailResponse.aiReason}
       />
     );
   } else {
@@ -238,13 +233,11 @@ function Result(props: { coldEmailResponse: ColdEmailBlockerResponse | null }) {
       <AlertBasic
         variant="success"
         title={
-          coldEmailResponse.reason === "unsubscribeLink"
-            ? "The email contains an unsubscribe link. This is not a cold email!"
-            : coldEmailResponse.reason === "hasPreviousEmail"
-              ? "This person has previously emailed you. This is not a cold email!"
-              : "Our AI determined this is not a cold email!"
+          coldEmailResponse.reason === "hasPreviousEmail"
+            ? "This person has previously emailed you. This is not a cold email!"
+            : "Our AI determined this is not a cold email!"
         }
-        description=""
+        description={coldEmailResponse.aiReason}
       />
     );
   }

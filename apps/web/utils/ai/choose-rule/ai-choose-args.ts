@@ -1,58 +1,124 @@
-import { UserAIFields } from "@/utils/llms/types";
-import { ActionItem } from "@/utils/ai/actions";
-import { Action, ActionType, User } from "@prisma/client";
-import { Function } from "ai";
-import { parseJSONWithMultilines } from "@/utils/json";
-import { saveAiUsage } from "@/utils/usage";
-import { AI_GENERATED_FIELD_VALUE } from "@/utils/config";
+import { z } from "zod";
+import type { UserAIFields } from "@/utils/llms/types";
+import type { ActionItem } from "@/utils/ai/actions";
+import type { Action, ActionType, User } from "@prisma/client";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
-import { REQUIRES_MORE_INFO } from "@/utils/ai/choose-rule/consts";
 import {
-  EmailForLLM,
+  type EmailForLLM,
   stringifyEmail,
 } from "@/utils/ai/choose-rule/stringify-email";
-
-type GetArgsAiResponseOptions = {
-  email: EmailForLLM;
-  user: Pick<User, "email" | "about"> & UserAIFields;
-  selectedRule: { name: string; description: string };
-  argsFunction: Function;
-};
+import { type RuleWithActions, isDefined } from "@/utils/types";
 
 type AIGeneratedArgs = Record<
   ActionType,
   Record<keyof Omit<ActionItem, "type">, string>
 >;
 
-export async function getArgsAiResponse(options: GetArgsAiResponseOptions) {
-  const { email, user, selectedRule, argsFunction } = options;
+// Returns parameters for a zod.object for the rule that must be AI generated
+function getToolParametersForRule(actions: Action[]) {
+  const actionsWithParameters = getActionsWithParameters(actions);
 
-  const messages = [
-    {
-      role: "system" as const,
-      content: `You are an AI assistant that helps people manage their emails.
+  // handle duplicate keys. eg. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
+  // this is quite an edge case but need to handle regardless for when it happens
+  const typeCount: Record<string, number> = {};
+  const parameters: Record<string, z.ZodObject<any>> = {};
+
+  for (const action of actionsWithParameters) {
+    // count how many times we have already had this type
+    typeCount[action.type] = (typeCount[action.type] || 0) + 1;
+    parameters[
+      typeCount[action.type] === 1
+        ? action.type
+        : `${action.type}_${typeCount[action.type]}`
+    ] = action.parameters;
+  }
+
+  return parameters;
+}
+
+export function getActionsWithParameters(actions: Action[]) {
+  return actions
+    .map((action) => {
+      const fields = getParameterFieldsForAction(action);
+
+      if (!Object.keys(fields).length) return;
+
+      const parameters = z.object(fields);
+
+      return {
+        type: action.type,
+        parameters,
+      };
+    })
+    .filter(isDefined);
+}
+
+function getParameterFieldsForAction({
+  labelPrompt,
+  subjectPrompt,
+  contentPrompt,
+  toPrompt,
+  ccPrompt,
+  bccPrompt,
+}: Action) {
+  const fields: Record<string, z.ZodString> = {};
+
+  if (typeof labelPrompt === "string")
+    fields.label = z.string().describe("The email label");
+  if (typeof subjectPrompt === "string")
+    fields.subject = z.string().describe("The email subject");
+  if (typeof contentPrompt === "string")
+    fields.content = z.string().describe("The email content");
+  if (typeof toPrompt === "string")
+    fields.to = z.string().describe("The email recipient(s)");
+  if (typeof ccPrompt === "string")
+    fields.cc = z.string().describe("The cc recipient(s)");
+  if (typeof bccPrompt === "string")
+    fields.bcc = z.string().describe("The bcc recipient(s)");
+
+  return fields;
+}
+
+export async function getArgsAiResponse({
+  email,
+  user,
+  selectedRule,
+}: {
+  email: EmailForLLM;
+  user: Pick<User, "email" | "about"> & UserAIFields;
+  selectedRule: RuleWithActions;
+}) {
+  console.log(
+    `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
+  );
+
+  const parameters = getToolParametersForRule(selectedRule.actions);
+
+  if (!Object.keys(parameters).length) {
+    console.log(
+      `Skipping. No parameters for rule ${selectedRule.name} (${selectedRule.id})`,
+    );
+    return;
+  }
+
+  const system = `You are an AI assistant that helps people manage their emails.
 Never put placeholders in your email responses.
-Do not mention you are an AI assistant when responding to people.`,
-    },
-    ...(user.about
-      ? [
-          {
-            role: "user" as const,
-            content: `Some additional information the user has provided about themselves:\n\n${user.about}`,
-          },
-        ]
-      : []),
-    {
-      role: "user" as const,
-      content: `An email was received for processing and a rule was already selected to process it. Handle the email.
+Do not mention you are an AI assistant when responding to people.
+${
+  user.about
+    ? `\nSome additional information the user has provided about themselves:\n\n${user.about}`
+    : ""
+}`;
 
-The selected rule:
-${selectedRule.name} - ${selectedRule.description}
+  const prompt = `An email was received for processing and the following rule was selected to process it:
+###
+${selectedRule.instructions}
+###
 
-The email the rule will be applied to:
-${stringifyEmail(email, 3000)}`,
-    },
-  ];
+Handle the email.
+
+The email:
+${stringifyEmail(email, 3000)}`;
 
   const { model, provider } = getAiProviderAndModel(
     user.aiProvider,
@@ -61,57 +127,46 @@ ${stringifyEmail(email, 3000)}`,
 
   console.log("Calling chat completion tools");
 
-  const aiResponse = await chatCompletionTools(
+  const aiResponse = await chatCompletionTools({
     provider,
     model,
-    user.openAIApiKey,
-    messages,
-    [
-      {
-        type: "function",
-        function: argsFunction,
+    apiKey: user.openAIApiKey,
+    prompt,
+    system,
+    tools: {
+      apply_rule: {
+        description: `Apply the rule with the given arguments`,
+        parameters: z.object(parameters),
       },
-    ],
-  );
+    },
+    label: "Args for rule",
+    userEmail: user.email || "",
+  });
 
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: user.email || "",
-      usage: aiResponse.usage,
-      provider: user.aiProvider,
-      model,
-      label: "Args for rule",
-    });
-  }
+  const toolCall = aiResponse.toolCalls[0];
 
-  const functionCall = aiResponse.functionCall;
+  if (!toolCall) return;
+  if (!toolCall.toolName) return;
 
-  if (!functionCall?.name) return;
-  if (functionCall.name === REQUIRES_MORE_INFO) return;
-
-  const aiGeneratedArgs: AIGeneratedArgs = functionCall?.arguments
-    ? parseJSONWithMultilines(functionCall.arguments)
-    : undefined;
-
-  return aiGeneratedArgs;
+  return toolCall.args;
 }
 
 export function getActionItemsFromAiArgsResponse(
   response: AIGeneratedArgs | undefined,
   ruleActions: Action[],
 ) {
-  return ruleActions.map(({ type, label, subject, content, to, cc, bcc }) => {
+  return ruleActions.map((ra) => {
     // use prefilled values where we have them
-    const a = response?.[type] || ({} as any);
+    const a = response?.[ra.type] || ({} as any);
 
     return {
-      type,
-      label: label === AI_GENERATED_FIELD_VALUE ? a.label : label,
-      subject: subject === AI_GENERATED_FIELD_VALUE ? a.subject : subject,
-      content: content === AI_GENERATED_FIELD_VALUE ? a.content : content,
-      to: to === AI_GENERATED_FIELD_VALUE ? a.to : to,
-      cc: cc === AI_GENERATED_FIELD_VALUE ? a.cc : cc,
-      bcc: bcc === AI_GENERATED_FIELD_VALUE ? a.bcc : bcc,
+      type: ra.type,
+      label: ra.labelPrompt ? a.label : ra.label,
+      subject: ra.subjectPrompt ? a.subject : ra.subject,
+      content: ra.contentPrompt ? a.content : ra.content,
+      to: ra.toPrompt ? a.to : ra.to,
+      cc: ra.ccPrompt ? a.cc : ra.cc,
+      bcc: ra.bccPrompt ? a.bcc : ra.bcc,
     };
   });
 }

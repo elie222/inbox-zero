@@ -1,37 +1,42 @@
-"use client";
-
+import { Suspense } from "react";
 import { ColdEmailList } from "@/app/(app)/cold-email-blocker/ColdEmailList";
 import { ColdEmailSettings } from "@/app/(app)/cold-email-blocker/ColdEmailSettings";
-import { PremiumAlert, usePremium } from "@/components/PremiumAlert";
-import { TopSection } from "@/components/TopSection";
-import { PremiumTier } from "@prisma/client";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { ColdEmailRejected } from "@/app/(app)/cold-email-blocker/ColdEmailRejected";
 
 export default function ColdEmailBlockerPage() {
-  const { isPremium, isLoading, data } = usePremium();
-
-  const isProPlanWithoutApiKey =
-    (data?.premium?.tier === PremiumTier.PRO_MONTHLY ||
-      data?.premium?.tier === PremiumTier.PRO_ANNUALLY) &&
-    !data?.openAIApiKey;
-
   return (
-    <div>
-      <TopSection
-        title="Cold Email Blocker"
-        descriptionComponent={
-          <>
-            {(!isPremium || isProPlanWithoutApiKey) && !isLoading && (
-              <div className="mt-4 max-w-prose">
-                <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />
-              </div>
-            )}
-          </>
-        }
-      />
-      <div className="content-container border-b border-gray-200 bg-white py-6 shadow-sm">
-        <ColdEmailSettings />
+    <Suspense>
+      <div className="content-container mt-2">
+        <PremiumAlertWithData />
       </div>
-      <ColdEmailList />
-    </div>
+
+      <Tabs defaultValue="cold-emails">
+        <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white pb-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
+          <TabsList>
+            <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
+            <TabsTrigger value="rejected">Marked Not Cold</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="cold-emails" className="content-container mb-10">
+          <Card>
+            <ColdEmailList />
+          </Card>
+        </TabsContent>
+        <TabsContent value="rejected" className="content-container mb-10">
+          <Card>
+            <ColdEmailRejected />
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="content-container mb-10">
+          <ColdEmailSettings />
+        </TabsContent>
+      </Tabs>
+    </Suspense>
   );
 }

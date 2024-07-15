@@ -1,6 +1,6 @@
 import { capitalCase } from "capital-case";
 import { Badge } from "@/components/Badge";
-import { type Thread } from "@/components/email-list/types";
+import type { Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
 import { PlanBadge, getActionColor } from "@/components/PlanBadge";
 import { getActionFields } from "@/utils/actionType";

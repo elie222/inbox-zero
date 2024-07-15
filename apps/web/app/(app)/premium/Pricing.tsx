@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { RadioGroup } from "@headlessui/react";
+import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import clsx from "clsx";
-import { sendGTMEvent } from "@next/third-parties/google";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Tag } from "@/components/Tag";
@@ -51,7 +50,7 @@ export function Pricing() {
   const { isPremium, data, isLoading, error } = usePremium();
   const session = useSession();
 
-  const [frequency, setFrequency] = useState(frequencies[0]);
+  const [frequency, setFrequency] = useState(frequencies[1]);
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(data?.premium);
@@ -71,7 +70,7 @@ export function Pricing() {
           </p>
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
-          Clean your email and reach inbox zero fast with AI assistance.
+          No hidden fees. Cancel anytime.
         </p>
 
         {isPremium && (
@@ -91,9 +90,11 @@ export function Pricing() {
                 <AlertWithButton
                   variant="blue"
                   title="Add extra users to your account!"
-                  description={`You can upgrade extra emails to ${capitalCase(
+                  description={`You can upgrade extra accounts to ${capitalCase(
                     premiumTier,
-                  )} for ${pricingAdditonalEmail[premiumTier]} per email!`}
+                  )} for $${
+                    pricingAdditonalEmail[premiumTier]
+                  } per email address!`}
                   icon={null}
                   button={
                     <div className="ml-4 whitespace-nowrap">
@@ -108,17 +109,15 @@ export function Pricing() {
           </div>
         )}
 
-        <div className="mt-16 flex justify-center">
+        <div className="mt-16 flex items-center justify-center">
           <RadioGroup
             value={frequency}
             onChange={setFrequency}
             className="grid grid-cols-2 gap-x-1 rounded-full p-1 text-center text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200"
           >
-            <RadioGroup.Label className="sr-only">
-              Payment frequency
-            </RadioGroup.Label>
+            <Label className="sr-only">Payment frequency</Label>
             {frequencies.map((option) => (
-              <RadioGroup.Option
+              <Radio
                 key={option.value}
                 value={option}
                 className={({ checked }) =>
@@ -129,9 +128,13 @@ export function Pricing() {
                 }
               >
                 <span>{option.label}</span>
-              </RadioGroup.Option>
+              </Radio>
             ))}
           </RadioGroup>
+
+          <div className="ml-1">
+            <Badge>Save up to 40%!</Badge>
+          </div>
         </div>
 
         <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
@@ -144,13 +147,11 @@ export function Pricing() {
               ? isCurrentPlan
                 ? "#"
                 : buildLemonUrl(
-                    tier.checkout
-                      ? attachUserInfo(tier.href[frequency.value], {
-                          id: user.id,
-                          email: user.email!,
-                          name: user.name,
-                        })
-                      : tier.href[frequency.value],
+                    attachUserInfo(tier.href[frequency.value], {
+                      id: user.id,
+                      email: user.email!,
+                      name: user.name,
+                    }),
                     affiliateCode,
                   )
               : "/login?next=/premium";
@@ -176,29 +177,33 @@ export function Pricing() {
                     >
                       {tier.name}
                     </h3>
-                    {tier.mostPopular ? (
-                      <p className="rounded-full bg-blue-600/10 px-2.5 py-1 font-cal text-xs leading-5 text-blue-600">
-                        Most popular
-                      </p>
-                    ) : null}
+                    {tier.mostPopular ? <Badge>Most popular</Badge> : null}
                   </div>
                   <p className="mt-4 text-sm leading-6 text-gray-600">
                     {tier.description}
                   </p>
                   <p className="mt-6 flex items-baseline gap-x-1">
                     <span className="text-4xl font-bold tracking-tight text-gray-900">
-                      {tier.price[frequency.value]}
+                      ${tier.price[frequency.value]}
                     </span>
                     {!tier.hideFrequency && (
                       <span className="text-sm font-semibold leading-6 text-gray-600">
                         {frequency.priceSuffix}
                       </span>
                     )}
+
+                    {!!tier.discount?.[frequency.value] && (
+                      <Badge>
+                        <span className="tracking-wide">
+                          SAVE {tier.discount[frequency.value].toFixed(0)}%
+                        </span>
+                      </Badge>
+                    )}
                   </p>
                   {tier.priceAdditional ? (
                     <p className="mt-3 text-sm leading-6 text-gray-500">
-                      +{tier.priceAdditional[frequency.value]} for each
-                      additional email account
+                      +${formatPrice(tier.priceAdditional[frequency.value])} for
+                      each additional email account
                     </p>
                   ) : (
                     <div className="mt-16" />
@@ -229,11 +234,6 @@ export function Pricing() {
                       : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
                     "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
                   )}
-                  onClick={() => {
-                    if (tier.price.monthly !== "$0" && env.NEXT_PUBLIC_GTM_ID) {
-                      sendGTMEvent({ event: "Begin checkout", value: 1 });
-                    }
-                  }}
                 >
                   {isCurrentPlan ? "Current plan" : tier.cta}
                 </a>
@@ -328,13 +328,9 @@ function LifetimePricing(props: {
                         )
                     : "/login?next=/premium"
                 }
-                onClick={() => {
-                  if (env.NEXT_PUBLIC_GTM_ID) {
-                    sendGTMEvent({ event: "Begin checkout", value: 5 });
-                  }
-                }}
                 target="_blank"
                 className="mt-10 block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                rel="noreferrer"
               >
                 {hasLifetime ? "Current plan" : "Get lifetime access"}
               </a>
@@ -348,4 +344,19 @@ function LifetimePricing(props: {
       </div>
     </div>
   );
+}
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
+      {children}
+    </p>
+  );
+}
+
+// $3 => $3
+// $3.5 => $3.50
+function formatPrice(price: number) {
+  if (price - Math.floor(price) > 0) return price.toFixed(2);
+  return price;
 }

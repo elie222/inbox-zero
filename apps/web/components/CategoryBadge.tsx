@@ -1,4 +1,4 @@
-import { Badge, Color } from "@/components/Badge";
+import { Badge, type Color } from "@/components/Badge";
 import { capitalCase } from "capital-case";
 
 const categoryColors: Record<string, Color> = {

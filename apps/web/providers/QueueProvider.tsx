@@ -2,15 +2,15 @@
 
 import { useEffect } from "react";
 import PQueue from "p-queue";
-import { runRules } from "@/utils/actions/ai-rule";
+import { runRulesAction } from "@/utils/actions/ai-rule";
 import {
   archiveThreadAction,
   markReadThreadAction,
   trashThreadAction,
 } from "@/utils/actions/mail";
-import { EmailForAction } from "@/utils/ai/actions";
+import type { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
-import { type Thread } from "@/components/email-list/types";
+import type { Thread } from "@/components/email-list/types";
 
 const queue = new PQueue({ concurrency: 3 });
 
@@ -61,6 +61,7 @@ export const deleteEmails = async (
 
 export const runAiRules = async (
   threads: Thread[],
+  force: boolean,
   // refetch: () => void,
 ) => {
   // updateRunAiQueueStorage(threads, "pending");
@@ -71,7 +72,9 @@ export const runAiRules = async (
     threads.map((thread) => async () => {
       const message = threadToRunRulesEmail(thread);
       if (!message) return;
-      await runRules(message);
+      console.log("runRulesAction", message.threadId);
+      const result = await runRulesAction(message, force);
+      console.log("result", result);
       removeFromAiQueueAtom(thread.id);
       // updateRunAiQueueStorage([thread], "complete");
       // refetch();

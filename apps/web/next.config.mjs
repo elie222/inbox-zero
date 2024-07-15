@@ -1,6 +1,14 @@
+import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
-import { env } from "./env.mjs";
+import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
+import createJiti from "jiti";
+import withSerwistInit from "@serwist/next";
+
+const jiti = createJiti(fileURLToPath(import.meta.url));
+ 
+// Import env here to validate during build. Using jiti we can import .ts files :)
+const env = jiti("./env");
 
 const withMDX = nextMdx();
 
@@ -9,7 +17,8 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   experimental: {
-    serverComponentsExternalPackages: ['@sentry/nextjs', '@sentry/node'],
+    serverComponentsExternalPackages: ["@sentry/nextjs", "@sentry/node"],
+    instrumentationHook: true,
   },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {
@@ -31,23 +40,34 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: '__Secure-authjs.session-token',
+          }
+        ],
+        permanent: false,
+      },
+      {
         source: "/feature-requests",
         destination: "https://inboxzero.featurebase.app",
         permanent: true,
       },
       {
-        source: '/feedback',
-        destination: 'https://inboxzero.featurebase.app',
+        source: "/feedback",
+        destination: "https://inboxzero.featurebase.app",
         permanent: true,
       },
       {
-        source: '/roadmap',
-        destination: 'https://inboxzero.featurebase.app/roadmap',
+        source: "/roadmap",
+        destination: "https://inboxzero.featurebase.app/roadmap",
         permanent: true,
       },
       {
-        source: '/changelog',
-        destination: 'https://inboxzero.featurebase.app/changelog',
+        source: "/changelog",
+        destination: "https://inboxzero.featurebase.app/changelog",
         permanent: true,
       },
       {
@@ -150,7 +170,12 @@ const mdxConfig = withMDX(nextConfig);
 
 const exportConfig =
   env.NEXT_PUBLIC_SENTRY_DSN && env.SENTRY_ORGANIZATION && env.SENTRY_PROJECT
-    ? withSentryConfig(mdxConfig, sentryOptions, sentryConfig)
+    ? withSentryConfig(mdxConfig, { ...sentryOptions, ...sentryConfig })
     : mdxConfig;
 
-export default exportConfig;
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+});
+
+export default withAxiom(withSerwist(exportConfig));

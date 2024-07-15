@@ -1,8 +1,13 @@
 import { CheckCircleIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
-import { Badge, Color } from "@/components/Badge";
+import { Badge, type Color } from "@/components/Badge";
 import { HoverCard } from "@/components/HoverCard";
-import { ActionType, ExecutedRule, ExecutedAction, Rule } from "@prisma/client";
+import {
+  ActionType,
+  type ExecutedRule,
+  type ExecutedAction,
+  type Rule,
+} from "@prisma/client";
 import { truncate } from "@/utils/string";
 
 type Plan = Pick<ExecutedRule, "reason" | "status"> & {
@@ -24,7 +29,7 @@ export function PlanBadge(props: { plan?: Plan }) {
         <HoverCard
           content={
             <div className="max-w-full whitespace-pre-wrap text-sm">
-              {plan.reason}
+              <strong>Reason:</strong> {plan.reason}
             </div>
           }
         >
@@ -91,21 +96,21 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
     case ActionType.SEND_EMAIL:
       return (
         <div>
-          <Badge color="indigo">Send email to {action.to}</Badge>
+          <Badge color="indigo">Send email</Badge>
           <ActionContent action={action} />
         </div>
       );
     case ActionType.FORWARD:
       return (
         <div>
-          <Badge color="indigo">Forward email to {action.to}</Badge>
+          <Badge color="indigo">Forward email</Badge>
           <ActionContent action={action} />
         </div>
       );
     case ActionType.DRAFT_EMAIL:
       return (
         <div>
-          <Badge color="pink">Draft email to {action.to}</Badge>
+          <Badge color="pink">Draft email</Badge>
           <ActionContent action={action} />
         </div>
       );
@@ -135,9 +140,9 @@ function getActionLabel(type: ActionType) {
     case ActionType.REPLY:
       return "Reply";
     case ActionType.SEND_EMAIL:
-      return "Send email";
+      return "Send";
     case ActionType.DRAFT_EMAIL:
-      return "Draft email";
+      return "Draft";
     default:
       return capitalCase(type);
   }

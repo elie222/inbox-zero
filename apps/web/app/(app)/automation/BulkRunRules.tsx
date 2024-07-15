@@ -1,36 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 import { useAtomValue } from "jotai";
 import { Button, ButtonLoader } from "@/components/ui/button";
 import { useModal, Modal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
-import { ThreadsResponse } from "@/app/api/google/threads/controller";
-import { ThreadsQuery } from "@/app/api/google/threads/validation";
+import type { ThreadsResponse } from "@/app/api/google/threads/controller";
+import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/providers/QueueProvider";
 import { aiQueueAtom } from "@/store/queue";
 import { sleep } from "@/utils/sleep";
+import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
+import { SetDateDropdown } from "@/app/(app)/automation/SetDateDropdown";
+import { dateToSeconds } from "@/utils/date";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
-
-  const [started, setStarted] = useState(false);
   const [totalThreads, setTotalThreads] = useState(0);
-
-  const queue = useAtomValue(aiQueueAtom);
 
   const query: ThreadsQuery = { type: "inbox" };
   const { data, isLoading, error } = useSWR<ThreadsResponse>(
     `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
   );
 
-  useEffect(() => {
-    if (queue.size === 0 && started) {
-      setStarted(false);
-    }
-  }, [queue, started]);
+  const queue = useAtomValue(aiQueueAtom);
+
+  const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
+
+  const [running, setRunning] = useState(false);
+
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+
+  const abortRef = useRef<() => void>();
 
   return (
     <div>
@@ -60,16 +64,54 @@ export function BulkRunRules() {
                 </SectionDescription>
               )}
               <div className="mt-4">
-                <Button
-                  disabled={started}
-                  onClick={() => {
-                    setStarted(true);
-                    onRun((count) => setTotalThreads((total) => total + count));
-                  }}
-                >
-                  {started && <ButtonLoader />}
-                  Run AI On All Inbox Emails
-                </Button>
+                <LoadingContent loading={isLoadingPremium}>
+                  {hasAiAccess ? (
+                    <div className="flex flex-col space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <SetDateDropdown
+                          onChange={setStartDate}
+                          value={startDate}
+                          placeholder="Set start date"
+                          disabled={running}
+                        />
+                        <SetDateDropdown
+                          onChange={setEndDate}
+                          value={endDate}
+                          placeholder="Set end date (optional)"
+                          disabled={running}
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        disabled={running || !startDate}
+                        onClick={async () => {
+                          if (!startDate) return;
+                          setRunning(true);
+                          abortRef.current = await onRun(
+                            { startDate, endDate },
+                            (count) =>
+                              setTotalThreads((total) => total + count),
+                            () => setRunning(false),
+                          );
+                        }}
+                      >
+                        {running && <ButtonLoader />}
+                        Run AI On All Inbox Emails
+                      </Button>
+                      {running && (
+                        <Button
+                          variant="outline"
+                          onClick={() => abortRef.current?.()}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <PremiumAlertWithData />
+                  )}
+                </LoadingContent>
               </div>
             </>
           )}
@@ -80,29 +122,58 @@ export function BulkRunRules() {
 }
 
 // fetch batches of messages and add them to the ai queue
-async function onRun(incrementThreadsQueued: (count: number) => void) {
+async function onRun(
+  { startDate, endDate }: { startDate: Date; endDate?: Date },
+  incrementThreadsQueued: (count: number) => void,
+  onComplete: () => void,
+) {
   let nextPageToken = "";
-  const LIMIT = 50;
+  const LIMIT = 25;
 
-  for (let i = 0; i < 100; i++) {
-    const query: ThreadsQuery = { type: "inbox", nextPageToken, limit: LIMIT };
-    const res = await fetch(
-      `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
-    );
-    const data: ThreadsResponse = await res.json();
+  const startDateInSeconds = dateToSeconds(startDate);
+  const endDateInSeconds = endDate ? dateToSeconds(endDate) : "";
+  const q = `after:${startDateInSeconds} ${
+    endDate ? `before:${endDateInSeconds}` : ""
+  }`;
 
-    nextPageToken = data.nextPageToken || "";
+  let aborted = false;
 
-    const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
-
-    incrementThreadsQueued(threadsWithoutPlan.length);
-
-    runAiRules(threadsWithoutPlan);
-
-    if (!nextPageToken || data.threads.length < LIMIT) break;
-
-    // avoid gmail api rate limits
-    // ai takes longer anyway
-    sleep(5_000);
+  function abort() {
+    aborted = true;
   }
+
+  async function run() {
+    for (let i = 0; i < 100; i++) {
+      const query: ThreadsQuery = {
+        type: "inbox",
+        nextPageToken,
+        limit: LIMIT,
+        q,
+      };
+      const res = await fetch(
+        `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
+      );
+      const data: ThreadsResponse = await res.json();
+
+      nextPageToken = data.nextPageToken || "";
+
+      const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
+
+      incrementThreadsQueued(threadsWithoutPlan.length);
+
+      runAiRules(threadsWithoutPlan, false);
+
+      if (!nextPageToken || aborted) break;
+
+      // avoid gmail api rate limits
+      // ai takes longer anyway
+      await sleep(threadsWithoutPlan.length ? 5_000 : 2_000);
+    }
+
+    onComplete();
+  }
+
+  run();
+
+  return abort;
 }

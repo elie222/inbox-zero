@@ -1,4 +1,4 @@
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 export function hasCronSecret(request: Request) {
   const authHeader = request.headers.get("authorization");

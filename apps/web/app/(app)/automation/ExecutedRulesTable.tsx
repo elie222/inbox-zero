@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
-import { PendingExecutedRules } from "@/app/api/user/planned/route";
+import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ActionBadgeExpanded } from "@/components/PlanBadge";
@@ -17,6 +17,11 @@ import {
   PaginationLink,
   PaginationNext,
 } from "@/components/ui/pagination";
+import { HoverCard } from "@/components/HoverCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { getInstructions } from "@/app/(app)/automation/Rules";
+import { MessageText } from "@/components/Typography";
 
 export function EmailCell({
   from,
@@ -55,11 +60,41 @@ export function EmailCell({
 
 export function RuleCell({
   rule,
+  reason,
 }: {
   rule: PendingExecutedRules["executedRules"][number]["rule"];
+  reason?: string | null;
 }) {
   if (!rule) return null;
-  return <Link href={`/automation/rule/${rule.id}`}>{rule.name}</Link>;
+
+  return (
+    <HoverCard
+      content={
+        <div>
+          <div className="flex justify-between font-medium">
+            {rule.name}
+            <Badge>{rule.type}</Badge>
+          </div>
+          <div className="mt-2">{getInstructions(rule)}</div>
+          <div className="mt-2">
+            <Button variant="outline" size="sm">
+              View
+            </Button>
+          </div>
+          {!!reason && (
+            <div className="mt-4 space-y-2">
+              <div className="font-medium">
+                AI reason for choosing this rule:
+              </div>
+              <MessageText>{reason}</MessageText>
+            </div>
+          )}
+        </div>
+      }
+    >
+      <Link href={`/automation/rule/${rule.id}`}>{rule.name}</Link>
+    </HoverCard>
+  );
 }
 
 export function ActionItemsCell({
@@ -107,7 +142,7 @@ function OpenInGmailButton({
 
 export function TablePagination({ totalPages }: { totalPages: number }) {
   const searchParams = useSearchParams();
-  const page = parseInt(searchParams.get("page") || "1");
+  const page = Number.parseInt(searchParams.get("page") || "1");
   const hrefForPage = useCallback(
     (value: number) => {
       const params = new URLSearchParams(searchParams);

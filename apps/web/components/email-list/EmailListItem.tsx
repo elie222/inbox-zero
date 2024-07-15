@@ -10,7 +10,7 @@ import { useAtomValue } from "jotai";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { PlanBadge } from "@/components/PlanBadge";
-import { type Thread } from "@/components/email-list/types";
+import type { Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail, participant } from "@/utils/email";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -81,7 +81,7 @@ export const EmailListItem = forwardRef(
       <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
         <li
           ref={ref}
-          className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
+          className={clsx("group relative cursor-pointer border-l-4 py-3", {
             "hover:bg-gray-50": !props.selected && !props.opened,
             "bg-blue-50": props.selected,
             "bg-blue-100": props.opened,

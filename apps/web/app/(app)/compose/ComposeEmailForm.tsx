@@ -1,6 +1,6 @@
 "use client";
 
-import { Combobox } from "@headlessui/react";
+import { Combobox, ComboboxOption, ComboboxOptions } from "@headlessui/react";
 import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
 import {
   EditorBubble,
@@ -12,7 +12,7 @@ import {
 } from "novel";
 import { handleCommandNavigation } from "novel/extensions";
 import React, { useCallback, useState } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
@@ -22,18 +22,18 @@ import { LinkSelector } from "@/app/(app)/compose/selectors/link-selector";
 import { NodeSelector } from "@/app/(app)/compose/selectors/node-selector";
 // import { AISelector } from "@/app/(app)/compose/selectors/ai-selector";
 import { TextButtons } from "@/app/(app)/compose/selectors/text-buttons";
-import { ContactsResponse } from "@/app/api/google/contacts/route";
+import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import { Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLoader } from "@/components/ui/button";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { cn } from "@/utils";
 import { postRequest } from "@/utils/api";
 import { extractNameFromEmail } from "@/utils/email";
 import { isError } from "@/utils/error";
-import { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
+import type { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
 import {
   slashCommand,
   suggestionItems,
@@ -48,6 +48,8 @@ export type ReplyingToEmail = {
   subject: string;
   to: string;
   cc?: string;
+  messageText: string | undefined;
+  messageHtml?: string | undefined;
 };
 
 export const ComposeEmailForm = (props: {
@@ -82,6 +84,12 @@ export const ComposeEmailForm = (props: {
 
   const onSubmit: SubmitHandler<SendEmailBody> = useCallback(
     async (data) => {
+      data = {
+        ...data,
+        messageText: data.messageText + props.replyingToEmail?.messageText,
+        messageHtml:
+          (data.messageHtml ?? "") + (props.replyingToEmail?.messageHtml ?? ""),
+      };
       try {
         const res = await postRequest<SendEmailResponse, SendEmailBody>(
           "/api/google/messages/send",
@@ -194,12 +202,12 @@ export const ComposeEmailForm = (props: {
                     />
 
                     {!!data?.result?.length && (
-                      <Combobox.Options
+                      <ComboboxOptions
                         className={
                           "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
                         }
                       >
-                        <Combobox.Option
+                        <ComboboxOption
                           className="h-0 w-0 overflow-hidden"
                           value={searchQuery}
                         />
@@ -212,10 +220,10 @@ export const ComposeEmailForm = (props: {
                           };
 
                           return (
-                            <Combobox.Option
-                              className={({ active }) =>
+                            <ComboboxOption
+                              className={({ focus }) =>
                                 `cursor-default select-none px-4 py-1 text-gray-900 ${
-                                  active && "bg-gray-50"
+                                  focus && "bg-gray-50"
                                 }`
                               }
                               key={person.emailAddress}
@@ -249,10 +257,10 @@ export const ComposeEmailForm = (props: {
                                   </div>
                                 </div>
                               )}
-                            </Combobox.Option>
+                            </ComboboxOption>
                           );
                         })}
-                      </Combobox.Options>
+                      </ComboboxOptions>
                     )}
                   </div>
                 </div>
@@ -299,7 +307,7 @@ export const ComposeEmailForm = (props: {
             },
           }}
         >
-          <EditorCommand className="z-50 h-auto max-h-[330px]  w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
+          <EditorCommand className="z-50 h-auto max-h-[330px] w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
             <EditorCommandEmpty className="px-2 text-muted-foreground">
               No results
             </EditorCommandEmpty>
@@ -307,7 +315,7 @@ export const ComposeEmailForm = (props: {
               <EditorCommandItem
                 value={item.title}
                 onCommand={(val) => item.command?.(val)}
-                className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent `}
+                className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent`}
                 key={item.title}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">

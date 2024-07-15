@@ -10,14 +10,16 @@ import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
-import { captureException } from "@/utils/error";
+import { ServerActionResponse, captureException } from "@/utils/error";
 
 const saveAboutBody = z.object({ about: z.string() });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
-export async function saveAboutAction(options: SaveAboutBody) {
+export async function saveAboutAction(
+  options: SaveAboutBody,
+): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) return { error: "Not logged in" };
 
   await prisma.user.update({
     where: { email: session.user.email },
@@ -25,9 +27,9 @@ export async function saveAboutAction(options: SaveAboutBody) {
   });
 }
 
-export async function deleteAccountAction() {
+export async function deleteAccountAction(): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) return { error: "Not logged in" };
 
   try {
     await Promise.allSettled([
@@ -48,9 +50,9 @@ export async function deleteAccountAction() {
   await prisma.user.delete({ where: { email: session.user.email } });
 }
 
-export async function completedOnboarding() {
+export async function completedOnboardingAction(): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.user.update({
     where: { id: session.user.id },
@@ -58,13 +60,13 @@ export async function completedOnboarding() {
   });
 }
 
-export async function saveOnboardingAnswers(onboardingAnswers: {
+export async function saveOnboardingAnswersAction(onboardingAnswers: {
   surveyId?: string;
   questions: any;
   answers: Record<string, string>;
-}) {
+}): Promise<ServerActionResponse> {
   const session = await auth();
-  if (!session?.user.id) throw new Error("Not logged in");
+  if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.user.update({
     where: { id: session.user.id },

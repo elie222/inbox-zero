@@ -7,19 +7,37 @@ import { sleep } from "@/utils/sleep";
 
 const prisma = new PrismaClient();
 
+const THIRTY_DAYS_AGO = new Date(
+  new Date().getTime() - 30 * 24 * 60 * 60 * 1000,
+);
+
 async function main() {
   const users = await prisma.user.findMany({
     where: {
-      OR: [
+      AND: [
         {
-          premium: {
-            lemonSqueezyRenewsAt: null,
-          },
+          OR: [
+            {
+              premium: {
+                lemonSqueezyRenewsAt: null,
+              },
+            },
+            {
+              premium: {
+                lemonSqueezyRenewsAt: { lt: new Date() },
+              },
+            },
+          ],
         },
         {
-          premium: {
-            lemonSqueezyRenewsAt: { lt: new Date() },
-          },
+          OR: [
+            {
+              lastLogin: { lt: THIRTY_DAYS_AGO },
+            },
+            {
+              lastLogin: null,
+            },
+          ],
         },
       ],
     },
@@ -40,7 +58,7 @@ async function main() {
 
     try {
       await deleteTinybirdEmails({ email: user.email });
-      await sleep(500);
+      await sleep(4_000);
     } catch (error: any) {
       console.error(error);
       console.error(Object.keys(error));

@@ -1,39 +1,63 @@
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import { PremiumTier } from "@prisma/client";
 
 export const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
-  { value: "annually" as const, label: "Annually", priceSuffix: "/year" },
+  { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
 ];
 
-export const pricing: Record<PremiumTier, string> = {
-  [PremiumTier.PRO_MONTHLY]: "$10",
-  [PremiumTier.PRO_ANNUALLY]: "$99",
-  [PremiumTier.BUSINESS_MONTHLY]: "$19",
-  [PremiumTier.BUSINESS_ANNUALLY]: "$159",
-  [PremiumTier.LIFETIME]: "$299",
+export const pricing: Record<PremiumTier, number> = {
+  [PremiumTier.BASIC_MONTHLY]: 10,
+  [PremiumTier.BASIC_ANNUALLY]: 6,
+  [PremiumTier.PRO_MONTHLY]: 14,
+  [PremiumTier.PRO_ANNUALLY]: 9,
+  [PremiumTier.BUSINESS_MONTHLY]: 22,
+  [PremiumTier.BUSINESS_ANNUALLY]: 15,
+  [PremiumTier.LIFETIME]: 299,
 };
 
-export const pricingAdditonalEmail: Record<PremiumTier, string> = {
-  [PremiumTier.PRO_MONTHLY]: "$2",
-  [PremiumTier.PRO_ANNUALLY]: "$19",
-  [PremiumTier.BUSINESS_MONTHLY]: "$3",
-  [PremiumTier.BUSINESS_ANNUALLY]: "$29",
-  [PremiumTier.LIFETIME]: "$59",
+export const pricingAdditonalEmail: Record<PremiumTier, number> = {
+  [PremiumTier.BASIC_MONTHLY]: 2,
+  [PremiumTier.BASIC_ANNUALLY]: 1.5,
+  [PremiumTier.PRO_MONTHLY]: 3,
+  [PremiumTier.PRO_ANNUALLY]: 2.5,
+  [PremiumTier.BUSINESS_MONTHLY]: 3.5,
+  [PremiumTier.BUSINESS_ANNUALLY]: 3,
+  [PremiumTier.LIFETIME]: 59,
 };
+
+function discount(monthly: number, annually: number) {
+  return ((monthly - annually) / monthly) * 100;
+}
 
 export const tiers = [
   {
-    name: "Free",
-    href: { monthly: "/welcome", annually: "/welcome" },
-    price: { monthly: "$0", annually: "$0" },
-    description: "Try Inbox Zero for free.",
+    name: "Basic",
+    tiers: {
+      monthly: PremiumTier.BASIC_MONTHLY,
+      annually: PremiumTier.BASIC_ANNUALLY,
+    },
+    href: {
+      monthly: env.NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK,
+      annually: env.NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK,
+    },
+    price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
+    priceAdditional: {
+      monthly: pricingAdditonalEmail.BASIC_MONTHLY,
+      annually: pricingAdditonalEmail.BASIC_ANNUALLY,
+    },
+    discount: {
+      monthly: 0,
+      annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
+    },
+    description: "Unlimited unsubscribe credits.",
     features: [
       "Bulk email unsubscriber",
-      `Unsubscribe from ${env.NEXT_PUBLIC_UNSUBSCRIBE_CREDITS} emails per month`,
+      "Unlimited unsubscribes",
+      "Unlimited archives",
       "Email analytics",
     ],
-    cta: "Get Started",
+    cta: "Upgrade",
   },
   {
     name: "Pro",
@@ -45,17 +69,18 @@ export const tiers = [
       monthly: env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,
       annually: env.NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK,
     },
-    checkout: true,
     price: { monthly: pricing.PRO_MONTHLY, annually: pricing.PRO_ANNUALLY },
     priceAdditional: {
       monthly: pricingAdditonalEmail.PRO_MONTHLY,
       annually: pricingAdditonalEmail.PRO_ANNUALLY,
     },
-    description:
-      "Unlimited unsubscribe credits. Unlock AI features when using your own OpenAI key",
+    discount: {
+      monthly: 0,
+      annually: discount(pricing.PRO_MONTHLY, pricing.PRO_ANNUALLY),
+    },
+    description: "Unlock AI features when using your own OpenAI key",
     features: [
       "Everything in free",
-      "Unlimited unsubscribes",
       "AI automation when using your own OpenAI API key",
       "Cold email blocker when using your own OpenAI API key",
     ],
@@ -72,7 +97,6 @@ export const tiers = [
       monthly: env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
       annually: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
     },
-    checkout: true,
     price: {
       monthly: pricing.BUSINESS_MONTHLY,
       annually: pricing.BUSINESS_ANNUALLY,
@@ -81,12 +105,14 @@ export const tiers = [
       monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
       annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
     },
+    discount: {
+      monthly: 0,
+      annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
+    },
     description: "Unlock full AI-powered email management",
     features: [
       "Everything in pro",
-      "AI automation",
-      "Cold email blocker",
-      "AI categorization",
+      "Unlimited AI credits",
       "No need to provide your own OpenAI API key",
       "Priority support",
     ],

@@ -13,7 +13,14 @@ export const GET = withError(async (request: Request) => {
   const fromEmail = searchParams.get("fromEmail");
   const type = searchParams.get("type");
   const nextPageToken = searchParams.get("nextPageToken");
-  const query = threadsQuery.parse({ limit, fromEmail, type, nextPageToken });
+  const q = searchParams.get("q");
+  const query = threadsQuery.parse({
+    limit,
+    fromEmail,
+    type,
+    nextPageToken,
+    q,
+  });
 
   const threads = await getThreads(query);
   return NextResponse.json(threads);

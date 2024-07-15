@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import {
   Card,
   Table,
@@ -17,7 +18,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
-import {
+import type {
   NewSendersQuery,
   NewSendersResponse,
 } from "@/app/api/user/stats/new-senders/route";
@@ -26,23 +27,27 @@ import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
 import {
   useNewsletterFilter,
-  useNewsletterShortcuts,
-  ShortcutTooltip,
-  SectionHeader,
+  useBulkUnsubscribeShortcuts,
   ActionCell,
-  Row,
   HeaderButton,
 } from "@/app/(app)/bulk-unsubscribe/common";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
-import { LabelsResponse } from "@/app/api/google/labels/route";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { useLabels } from "@/hooks/useLabels";
+import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { SectionHeader } from "@/app/(app)/bulk-unsubscribe/SectionHeader";
 
 export function NewSenders(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
+  const session = useSession();
+  const userEmail = session.data?.user.email || "";
+
   const [sortColumn, setSortColumn] = useState<
     "subject" | "date" | "numberOfEmails"
   >("numberOfEmails");
@@ -63,7 +68,7 @@ export function NewSenders(props: {
   const newSenders = Object.entries(groupedSenders);
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
-  const { data: gmailLabels } = useSWR<LabelsResponse>("/api/google/labels");
+  const { userLabels } = useLabels();
 
   const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = React.useState<Row>();
@@ -86,7 +91,7 @@ export function NewSenders(props: {
     };
   });
 
-  useNewsletterShortcuts({
+  useBulkUnsubscribeShortcuts({
     newsletters: rows,
     selectedRow,
     setOpenedNewsletter,
@@ -116,7 +121,7 @@ export function NewSenders(props: {
           ]}
         />
       </LoadingContent>
-      <Card className="mt-4 p-0">
+      <Card className="mt-2 sm:mt-4">
         <div className="items-center justify-between px-6 pt-6 md:flex">
           <SectionHeader
             title="Who are the first time senders?"
@@ -188,10 +193,11 @@ export function NewSenders(props: {
                     <NewSenderRow
                       key={item.name}
                       item={item}
+                      userEmail={userEmail}
                       firstEmail={item.firstEmail}
                       numberOfEmails={item.numberOfEmails}
                       setOpenedNewsletter={setOpenedNewsletter}
-                      gmailLabels={gmailLabels?.labels || []}
+                      userGmailLabels={userLabels}
                       mutate={mutate}
                       selected={selectedRow?.name === item.name}
                       onSelectRow={() => {
@@ -267,9 +273,10 @@ function NewSendersTable(props: {
 function NewSenderRow(props: {
   item: Row;
   firstEmail: { from: string; subject: string; timestamp: number };
+  userEmail: string;
   numberOfEmails: number;
   setOpenedNewsletter: React.Dispatch<React.SetStateAction<Row | undefined>>;
-  gmailLabels: LabelsResponse["labels"];
+  userGmailLabels: LabelsResponse["labels"];
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;
@@ -296,15 +303,16 @@ function NewSenderRow(props: {
       </TableCell>
       <TableCell>{formatShortDate(new Date(firstEmail.timestamp))}</TableCell>
       <TableCell className="text-center">{numberOfEmails}</TableCell>
-      <TableCell className="flex justify-end space-x-2 p-2">
+      <TableCell className="flex justify-end gap-2 p-2">
         <ActionCell
           item={item}
+          userEmail={props.userEmail}
           hasUnsubscribeAccess={props.hasUnsubscribeAccess}
           mutate={props.mutate}
           refetchPremium={refetchPremium}
           setOpenedNewsletter={props.setOpenedNewsletter}
           selected={props.selected}
-          gmailLabels={props.gmailLabels}
+          userGmailLabels={props.userGmailLabels}
           openPremiumModal={openPremiumModal}
         />
       </TableCell>

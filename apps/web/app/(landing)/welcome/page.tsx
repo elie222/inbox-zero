@@ -1,16 +1,17 @@
 import { Suspense } from "react";
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Card } from "@/components/Card";
 import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 import { appHomePath } from "@/utils/config";
 import { UTMs } from "@/app/(landing)/welcome/utms";
+import { SignUpEvent } from "@/app/(landing)/welcome/sign-up-event";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -35,7 +36,7 @@ export default async function WelcomePage({
   if (!searchParams.force && user.completedOnboarding) redirect(appHomePath);
 
   const questionIndex = searchParams.question
-    ? parseInt(searchParams.question)
+    ? Number.parseInt(searchParams.question)
     : 0;
 
   return (
@@ -61,6 +62,8 @@ export default async function WelcomePage({
           <UTMs userId={session.user.id} />
         </Suspense>
       )}
+      {/* {!user.completedOnboarding && <SignUpEvent />} */}
+      <SignUpEvent />
     </div>
   );
 }

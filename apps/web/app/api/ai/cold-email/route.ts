@@ -1,22 +1,23 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
-import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
+import { hasPreviousEmailsFromDomain } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
+import { emailToContent } from "@/utils/mail";
 
 const coldEmailBlockerBody = z.object({
   email: z.object({
     from: z.string(),
     subject: z.string(),
-    body: z.string(),
-    textHtml: z.string().optional(),
+    textHtml: z.string().nullable(),
+    textPlain: z.string().nullable(),
+    snippet: z.string().nullable(),
     date: z.string().optional(),
-    threadId: z.string().optional(),
+    threadId: z.string().nullable(),
   }),
 });
 export type ColdEmailBlockerBody = z.infer<typeof coldEmailBlockerBody>;
@@ -42,15 +43,25 @@ async function checkColdEmail(
 
   const hasPreviousEmail =
     body.email.date && body.email.threadId
-      ? await hasPreviousEmailsFromSender(gmail, {
+      ? await hasPreviousEmailsFromDomain(gmail, {
           from: body.email.from,
           date: body.email.date,
           threadId: body.email.threadId,
         })
       : false;
 
+  const content = emailToContent({
+    textHtml: body.email.textHtml || null,
+    textPlain: body.email.textPlain || null,
+    snippet: body.email.snippet,
+  });
+
   const response = await isColdEmail({
-    email: body.email,
+    email: {
+      from: body.email.from,
+      subject: body.email.subject,
+      content,
+    },
     user,
     hasPreviousEmail,
   });

@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { deleteAccountAction } from "@/utils/actions/user";
+import { handleActionResult } from "@/utils/server-action";
 import { logOut } from "@/utils/user";
 
 export function DeleteSection() {
@@ -24,13 +25,9 @@ export function DeleteSection() {
 
             if (!yes) return;
 
-            try {
-              await deleteAccountAction();
-              toastSuccess({ description: "Account deleted!" });
-              await logOut("/");
-            } catch (error) {
-              toastError({ description: "Error deleting account." });
-            }
+            const result = await deleteAccountAction();
+            handleActionResult(result, "Account deleted!");
+            await logOut("/");
           }}
         >
           Yes, delete my account

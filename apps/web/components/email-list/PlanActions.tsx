@@ -3,9 +3,10 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
-import { type Executing, type Thread } from "@/components/email-list/types";
+import type { Executing, Thread } from "@/components/email-list/types";
 import { cn } from "@/utils";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
+import { isActionError } from "@/utils/error";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
@@ -19,14 +20,13 @@ export function useExecutePlan(refetch: () => void) {
 
       const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-      try {
-        await approvePlanAction(thread.plan.id, lastMessage);
-        toastSuccess({ description: "Executed!" });
-      } catch (error) {
-        console.error(error);
+      const result = await approvePlanAction(thread.plan.id, lastMessage);
+      if (isActionError(result)) {
         toastError({
-          description: "Unable to execute plan :(",
+          description: "Unable to execute plan. " + result.error || "",
         });
+      } else {
+        toastSuccess({ description: "Executed!" });
       }
 
       refetch();
@@ -40,18 +40,17 @@ export function useExecutePlan(refetch: () => void) {
     async (thread: Thread) => {
       setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
-      try {
-        if (thread.plan?.id) {
-          await rejectPlanAction(thread.plan.id);
-          toastSuccess({ description: "Plan rejected" });
+      if (thread.plan?.id) {
+        const result = await rejectPlanAction(thread.plan.id);
+        if (isActionError(result)) {
+          toastError({
+            description: "Error rejecting plan. " + result.error || "",
+          });
         } else {
-          toastError({ description: "Plan not found" });
+          toastSuccess({ description: "Plan rejected" });
         }
-      } catch (error) {
-        console.error(error);
-        toastError({
-          description: "Unable to reject plan :(",
-        });
+      } else {
+        toastError({ description: "Plan not found" });
       }
 
       refetch();

@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import AutoLogOut from "@/app/(landing)/login/error/AutoLogOut";
 import { AlertBasic } from "@/components/Alert";
-import { env } from "@/env.mjs";
+import { env } from "@/env";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",

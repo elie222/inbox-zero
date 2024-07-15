@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
-import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
+import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
+import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
@@ -14,21 +15,26 @@ import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   saveMultiAccountPremiumBody,
-  SaveMultiAccountPremiumBody,
+  type SaveMultiAccountPremiumBody,
 } from "@/app/api/user/settings/multi-account/validation";
-import { updateMultiAccountPremium } from "@/utils/actions/premium";
-import { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
+import {
+  claimPremiumAdminAction,
+  updateMultiAccountPremiumAction,
+} from "@/utils/actions/premium";
+import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
 import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
-import { env } from "@/env.mjs";
-import { getUserTier } from "@/utils/premium";
+import { env } from "@/env";
+import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { captureException } from "@/utils/error";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { handleActionResult } from "@/utils/server-action";
 
 export function MultiAccountSection() {
-  const { data, isLoading, error } = useSWR<MultiAccountEmailsResponse>(
+  const { data: session } = useSession();
+  const { data, isLoading, error, mutate } = useSWR<MultiAccountEmailsResponse>(
     "/api/user/settings/multi-account",
   );
   const {
@@ -42,6 +48,8 @@ export function MultiAccountSection() {
 
   const { openModal, PremiumModal } = usePremiumModal();
 
+  if (!isAdminForPremium(data?.admins || [], session?.user.id)) return null;
+
   return (
     <FormSection id="manage-users">
       <FormSectionLeft
@@ -54,6 +62,20 @@ export function MultiAccountSection() {
           <LoadingContent loading={isLoading} error={error}>
             {data && (
               <div>
+                {!data?.admins.length && (
+                  <div className="mb-4">
+                    <Button
+                      onClick={async () => {
+                        const result = await claimPremiumAdminAction();
+                        handleActionResult(result, "Admin claimed!");
+                        mutate();
+                      }}
+                    >
+                      Claim Admin
+                    </Button>
+                  </div>
+                )}
+
                 {premiumTier && (
                   <ExtraSeatsAlert
                     premiumTier={premiumTier}
@@ -129,18 +151,12 @@ function MultiAccountForm({
       if (!data.emailAddresses) return;
       if (needsToPurchaseMoreSeats) return;
 
-      try {
-        const emails = data.emailAddresses.map((e) => e.email);
-        const res = await updateMultiAccountPremium(emails);
+      const emails = data.emailAddresses.map((e) => e.email);
+      const result = await updateMultiAccountPremiumAction(emails);
 
-        if (res && res.error) toastError({ description: res.error });
-        else if (res && res.warning)
-          toastInfo({ title: "Warning", description: res.warning });
-        else toastSuccess({ description: "Users updated!" });
-      } catch (error) {
-        captureException(error);
-        toastError({ description: "There was an error updating users." });
-      }
+      if (result && result.warning)
+        toastInfo({ title: "Warning", description: result.warning });
+      else handleActionResult(result, "Users updated!");
     },
     [needsToPurchaseMoreSeats],
   );
@@ -218,7 +234,7 @@ function ExtraSeatsAlert({
       title="Extra email price"
       description={`You are on the ${capitalCase(
         premiumTier,
-      )} plan. You will be billed ${
+      )} plan. You will be billed $${
         pricingAdditonalEmail[premiumTier]
       } for each extra email you add to your account.`}
       icon={<CrownIcon className="h-4 w-4" />}

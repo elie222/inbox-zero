@@ -3,7 +3,7 @@
 // from: https://github.com/shadcn-ui/ui/issues/414#issuecomment-1772421366
 
 import * as React from "react";
-import Link, { LinkProps } from "next/link";
+import Link, { type LinkProps } from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/utils";
 
@@ -47,7 +47,7 @@ export function Tabs(props: {
 
       return pathname + (asString ? "?" + asString : "");
     },
-    [searchParams, props.searchParam],
+    [searchParams, props.defaultValue, pathname, searchParam],
   );
 
   return (

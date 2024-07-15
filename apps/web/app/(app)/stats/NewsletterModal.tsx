@@ -1,33 +1,34 @@
 import useSWR from "swr";
 import { BarChart } from "@tremor/react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
-import {
+import type {
   SenderEmailsQuery,
   SenderEmailsResponse,
 } from "@/app/api/user/stats/sender-emails/route";
-import { ZodPeriod } from "@inboxzero/tinybird";
+import type { ZodPeriod } from "@inboxzero/tinybird";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
-import { type ThreadsResponse } from "@/app/api/google/threads/controller";
+import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { getGmailFilterSettingsUrl, getGmailSearchUrl } from "@/utils/url";
+import { getGmailFilterSettingsUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions/client";
-import { Row } from "@/app/(app)/bulk-unsubscribe/common";
+import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
+import { useLabels } from "@/hooks/useLabels";
+import { Row } from "@/app/(app)/bulk-unsubscribe/types";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
@@ -39,21 +40,23 @@ export function NewsletterModal(props: {
   const session = useSession();
   const email = session.data?.user.email;
 
+  const { userLabels } = useLabels();
+
   return (
     <Dialog open={!!newsletter} onOpenChange={onClose}>
       <DialogContent className="max-h-screen overflow-x-scroll overflow-y-scroll lg:min-w-[880px] xl:min-w-[1280px]">
         {newsletter && (
           <>
             <DialogHeader>
-              <DialogTitle>Detailed Stats</DialogTitle>
-              <DialogDescription>{newsletter.name}</DialogDescription>
+              <DialogTitle>Stats for {newsletter.name}</DialogTitle>
             </DialogHeader>
 
             <div className="flex space-x-2">
-              <Button size="sm" variant="secondary">
+              <Button size="sm" variant="outline">
                 <a
                   href={newsletter.lastUnsubscribeLink || undefined}
                   target="_blank"
+                  rel="noreferrer"
                 >
                   Unsubscribe
                 </a>
@@ -61,29 +64,25 @@ export function NewsletterModal(props: {
               <Tooltip content="Auto archive emails using Gmail filters">
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="outline"
                   onClick={() => onAutoArchive(newsletter.name)}
                 >
                   Auto archive
                 </Button>
               </Tooltip>
-              <Button asChild size="sm" variant="secondary">
-                <Link
-                  href={getGmailSearchUrl(newsletter.name, email)}
-                  target="_blank"
-                >
-                  <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                  View emails in Gmail
-                </Link>
-              </Button>
               {newsletter.autoArchived && (
-                <Button asChild size="sm" variant="secondary">
+                <Button asChild size="sm" variant="outline">
                   <Link href={getGmailFilterSettingsUrl(email)} target="_blank">
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
                     View Auto Archive Filter
                   </Link>
                 </Button>
               )}
+              <MoreDropdown
+                item={newsletter}
+                userEmail={email || ""}
+                userGmailLabels={userLabels}
+              />
             </div>
 
             <div>
@@ -127,7 +126,7 @@ function EmailsChart(props: {
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <BarChart
-          className="mt-4 h-72"
+          className="h-72"
           data={data.result}
           index="startOfPeriod"
           categories={["Emails"]}
@@ -142,7 +141,7 @@ function Emails(props: { fromEmail: string; refreshInterval?: number }) {
   return (
     <>
       <SectionHeader>Emails</SectionHeader>
-      <Tabs defaultValue="unarchived" className="mt-2">
+      <Tabs defaultValue="unarchived" className="mt-2" searchParam="modal-tab">
         <TabsList>
           <TabsTrigger value="unarchived">Unarchived</TabsTrigger>
           <TabsTrigger value="all">All</TabsTrigger>

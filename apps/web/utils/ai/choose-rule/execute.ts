@@ -1,37 +1,39 @@
-import { type gmail_v1 } from "googleapis";
-import { EmailForAction, runActionFunction } from "@/utils/ai/actions";
+import type { gmail_v1 } from "googleapis";
+import { type EmailForAction, runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@prisma/client";
-import { getOrCreateInboxZeroLabel } from "@/utils/label";
-import { labelThread } from "@/utils/gmail/label";
+import type { Prisma } from "@prisma/client";
+import { inboxZeroLabels } from "@/utils/label";
+import { getOrCreateLabel, labelThread } from "@/utils/gmail/label";
 import { ExecutedRuleStatus } from "@prisma/client";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
 }>;
-export async function executeAct(options: {
+export async function executeAct({
+  gmail,
+  executedRule,
+  userEmail,
+  email,
+}: {
   gmail: gmail_v1.Gmail;
   executedRule: ExecutedRuleWithActionItems;
   email: EmailForAction;
   userEmail: string;
 }) {
-  const { gmail, executedRule, userEmail, email } = options;
-
   console.log("Executing act:", executedRule.id);
 
   async function labelActed() {
-    const label = await getOrCreateInboxZeroLabel({
+    const label = await getOrCreateLabel({
       gmail,
-      email: userEmail,
-      labelKey: "acted",
+      name: inboxZeroLabels.acted,
     });
 
-    if (!label) return;
+    if (!label.id) return;
 
     return labelThread({
       gmail,
-      labelId: label.id,
       threadId: executedRule.threadId,
+      addLabelIds: [label.id],
     });
   }
 

@@ -61,23 +61,29 @@ model User {
   utms                      Json?
 
   // settings
-  aiProvider          String?
-  aiModel             String?
-  openAIApiKey        String?
-  statsEmailFrequency Frequency         @default(WEEKLY)
-  categorizeEmails    Boolean           @default(true)
-  coldEmailBlocker    ColdEmailSetting?
-  coldEmailPrompt     String?
+  aiProvider            String?
+  aiModel               String?
+  openAIApiKey          String?
+  statsEmailFrequency   Frequency         @default(WEEKLY)
+  summaryEmailFrequency Frequency         @default(WEEKLY)
+  lastSummaryEmailAt    DateTime?
+  categorizeEmails      Boolean           @default(true)
+  coldEmailBlocker      ColdEmailSetting?
+  coldEmailPrompt       String?
 
   // premium can be shared among multiple users
-  premiumId String?
-  premium   Premium? @relation(fields: [premiumId], references: [id])
+  premiumId      String?
+  premium        Premium? @relation(name: "userPremium", fields: [premiumId], references: [id])
+  // only admin users can manage premium
+  premiumAdminId String?
+  premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
   promptHistory PromptHistory[]
   labels        Label[]
   rules         Rule[]
   executedRules ExecutedRule[]
   newsletters   Newsletter[]
+  coldEmails    ColdEmail[]
   groups        Group[]
 }
 
@@ -86,7 +92,8 @@ model Premium {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users  User[] @relation(name: "userPremium")
+  admins User[]
 
   // lemon squeezy
   lemonSqueezyRenewsAt           DateTime?
@@ -102,9 +109,10 @@ model Premium {
   tier PremiumTier?
 
   // feature access
+  bulkUnsubscribeAccess  FeatureAccess?
   coldEmailBlockerAccess FeatureAccess?
   aiAutomationAccess     FeatureAccess?
-  emailAccountsAccess    Int? // only used for lifetime
+  emailAccountsAccess    Int?
 
   // unsubscribe/ai credits
   // if `unsubscribeMonth` not set to this month, set to current month
@@ -155,8 +163,8 @@ model Rule {
   name          String
   instructions  String
   actions       Action[]
-  automate      Boolean        @default(true) // if set to false we display the plan and ask the user to confirm
-  runOnThreads  Boolean        @default(false) // if disabled only runs on individual emails
+  automate      Boolean        @default(false) // if disabled, user must approve to execute
+  runOnThreads  Boolean        @default(false) // if disabled, only runs on individual emails
   type          RuleType       @default(AI)
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -182,13 +190,23 @@ model Action {
   ruleId    String
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  // optional extra fields to be used with the action
+  // Optional static fields to use for this action
   label   String?
   subject String?
   content String?
   to      String?
   cc      String?
   bcc     String?
+
+  // If using AI generated fields - the prompt for each field
+  // An empty string means the field is AI generated, but there's no specific prompt for the field
+  // NULL means there field is not AI generated
+  labelPrompt   String?
+  subjectPrompt String?
+  contentPrompt String?
+  toPrompt      String?
+  ccPrompt      String?
+  bccPrompt     String?
 }
 
 // Rule/Action models represent the rules and actions that the AI can take.
@@ -268,12 +286,29 @@ model Newsletter {
   updatedAt DateTime          @updatedAt
   email     String
   status    NewsletterStatus?
-  coldEmail ColdEmailStatus?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([email, userId])
+  @@index([userId, status])
+}
+
+model ColdEmail {
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  fromEmail String
+  messageId String?
+  threadId  String?
+  status    ColdEmailStatus?
+  reason    String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fromEmail])
+  @@index([userId, status])
 }
 
 enum ActionType {
@@ -306,7 +341,8 @@ enum NewsletterStatus {
 }
 
 enum ColdEmailStatus {
-  COLD_EMAIL
+  AI_LABELED_COLD
+  USER_REJECTED_COLD
 }
 
 enum ColdEmailSetting {
@@ -317,6 +353,8 @@ enum ColdEmailSetting {
 }
 
 enum PremiumTier {
+  BASIC_MONTHLY
+  BASIC_ANNUALLY
   PRO_MONTHLY
   PRO_ANNUALLY
   BUSINESS_MONTHLY

@@ -1,5 +1,9 @@
-import { Panel } from "./Panel";
+"use client";
+
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Panel } from "./Panel";
+import { logOut } from "@/utils/user";
 
 // TODO would be better to have a consistent definition here. didn't want to break things.
 export function ErrorDisplay(props: {
@@ -36,6 +40,13 @@ export const NotLoggedIn = (props: {}) => {
   return (
     <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
       <div className="text-lg text-gray-700">You are not signed in 😞</div>
+      <Button
+        variant="outline"
+        className="mt-2"
+        onClick={() => logOut("/login")}
+      >
+        Sign in
+      </Button>
       <div className="mt-8">
         <Image
           src="/images/falling.svg"

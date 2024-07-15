@@ -5,29 +5,50 @@ import useSWR from "swr";
 import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
 import { Button } from "@/components/Button";
-import { UserResponse } from "@/app/api/user/me/route";
-import { hasUnsubscribeAccess, isPremium } from "@/utils/premium";
+import type { UserResponse } from "@/app/api/user/me/route";
+import {
+  hasAiAccess,
+  hasColdEmailAccess,
+  hasUnsubscribeAccess,
+  isPremium,
+} from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { PremiumTier } from "@prisma/client";
 
 export function usePremium() {
   const swrResponse = useSWR<UserResponse>("/api/user/me");
+  const { data } = swrResponse;
 
-  const premium = !!(
-    swrResponse.data?.premium &&
-    isPremium(swrResponse.data.premium.lemonSqueezyRenewsAt)
-  );
+  const premium = data?.premium;
+  const openAIApiKey = data?.openAIApiKey;
+
+  const isUserPremium = !!(premium && isPremium(premium.lemonSqueezyRenewsAt));
+
+  const isProPlanWithoutApiKey =
+    (premium?.tier === PremiumTier.PRO_MONTHLY ||
+      premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    !openAIApiKey;
 
   return {
     ...swrResponse,
-    isPremium: premium,
+    isPremium: isUserPremium,
     hasUnsubscribeAccess:
-      premium ||
-      hasUnsubscribeAccess(swrResponse.data?.premium?.unsubscribeCredits),
+      isUserPremium ||
+      hasUnsubscribeAccess(
+        premium?.bulkUnsubscribeAccess,
+        premium?.unsubscribeCredits,
+      ),
+    hasAiAccess: hasAiAccess(premium?.aiAutomationAccess, openAIApiKey),
+    hasColdEmailAccess: hasColdEmailAccess(
+      premium?.coldEmailBlockerAccess,
+      openAIApiKey,
+    ),
+    isProPlanWithoutApiKey,
   };
 }
 
-export function PremiumAlert({
+function PremiumAlert({
   plan = "Inbox Zero Business",
   showSetApiKey,
 }: {
@@ -67,6 +88,19 @@ export function PremiumAlert({
       <PremiumModal />
     </>
   );
+}
+
+export function PremiumAlertWithData() {
+  const {
+    hasAiAccess,
+    isLoading: isLoadingPremium,
+    isProPlanWithoutApiKey,
+  } = usePremium();
+
+  if (!isLoadingPremium && !hasAiAccess)
+    return <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />;
+
+  return null;
 }
 
 export function PremiumTooltip(props: {

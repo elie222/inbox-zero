@@ -1,11 +1,14 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
-import { ActionType, ExecutedAction } from "@prisma/client";
-import { PartialRecord } from "@/utils/types";
-import { labelThread } from "@/utils/gmail/label";
-import { getUserLabel } from "@/utils/label";
+import { ActionType, type ExecutedAction } from "@prisma/client";
+import type { PartialRecord } from "@/utils/types";
+import {
+  archiveThread,
+  getOrCreateLabel,
+  labelThread,
+} from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import { Attachment } from "@/utils/types/mail";
+import type { Attachment } from "@/utils/types/mail";
 
 export type EmailForAction = {
   threadId: string;
@@ -14,6 +17,8 @@ export type EmailForAction = {
   headerMessageId: string;
   subject: string;
   from: string;
+  cc?: string;
+  bcc?: string;
   replyTo?: string;
 };
 
@@ -227,33 +232,25 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
 };
 
 const archive: ActionFunction<{}> = async (gmail, email) => {
-  await gmail.users.threads.modify({
-    userId: "me",
-    id: email.threadId,
-    requestBody: {
-      removeLabelIds: ["INBOX"],
-    },
-  });
+  await archiveThread({ gmail, threadId: email.threadId });
 };
 
 const label: ActionFunction<{ label: string } | any> = async (
   gmail,
   email,
   args,
-  userEmail,
 ) => {
-  const label = await getUserLabel({
+  const label = await getOrCreateLabel({
     gmail,
-    email: userEmail,
-    labelName: args.label,
+    name: args.label,
   });
 
-  if (!label?.id) return;
+  if (!label.id) throw new Error("Label not found and unable to create label");
 
   await labelThread({
     gmail,
     threadId: email.threadId,
-    labelId: label.id,
+    addLabelIds: [label.id],
   });
 };
 
@@ -268,14 +265,16 @@ const draft: ActionFunction<any> = async (
   },
 ) => {
   await draftEmail(gmail, {
-    subject: args.subject,
-    messageText: args.content,
-    to: args.to,
     replyToEmail: {
       threadId: email.threadId,
       references: email.references,
       headerMessageId: email.headerMessageId,
     },
+    to: args.to || email.replyTo || email.from,
+    cc: email.cc,
+    bcc: email.bcc,
+    subject: email.subject,
+    messageText: args.content,
     attachments: args.attachments,
   });
 };

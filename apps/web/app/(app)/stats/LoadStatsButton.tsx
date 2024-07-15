@@ -10,7 +10,6 @@ export function LoadStatsButton() {
   return (
     <div>
       <Button
-        color="blue"
         variant="outline"
         onClick={() => onLoad({ loadBefore: true, showToast: true })}
         disabled={isLoading}

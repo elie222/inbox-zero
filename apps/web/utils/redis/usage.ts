@@ -24,9 +24,9 @@ export async function getUsage(options: { email: string }) {
 export async function saveUsage(options: {
   email: string;
   usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
   };
   cost: number;
 }) {
@@ -36,9 +36,9 @@ export async function saveUsage(options: {
 
   Promise.all([
     redis.hincrby(key, "openaiCalls", 1),
-    redis.hincrby(key, "openaiTokensUsed", usage.total_tokens),
-    redis.hincrby(key, "openaiCompletionTokensUsed", usage.completion_tokens),
-    redis.hincrby(key, "openaiPromptTokensUsed", usage.prompt_tokens),
+    redis.hincrby(key, "openaiTokensUsed", usage.totalTokens),
+    redis.hincrby(key, "openaiCompletionTokensUsed", usage.completionTokens),
+    redis.hincrby(key, "openaiPromptTokensUsed", usage.promptTokens),
     redis.hincrbyfloat(key, "cost", cost),
   ]);
 }

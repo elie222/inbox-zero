@@ -3,7 +3,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import {
-  SaveSettingsBody,
+  type SaveSettingsBody,
   saveSettingsBody,
 } from "@/app/api/user/settings/validation";
 

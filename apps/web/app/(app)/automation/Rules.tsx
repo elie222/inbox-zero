@@ -4,7 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
 import { MoreHorizontalIcon } from "lucide-react";
-import { RulesResponse } from "@/app/api/user/rules/route";
+import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -39,6 +38,9 @@ import { Toggle } from "@/components/Toggle";
 import { ruleTypeToString } from "@/utils/rule";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { toastError } from "@/components/Toast";
+import { isActionError } from "@/utils/error";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -47,128 +49,165 @@ export function Rules() {
   >(`/api/user/rules`);
 
   return (
-    <Card>
-      <LoadingContent loading={isLoading} error={error}>
-        {data?.length ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Instructions</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Actions</TableHead>
-                <TableHead className="text-center">Automated</TableHead>
-                <TableHead className="text-center">Threads</TableHead>
-                {/* <TableHead className="text-right">Pending</TableHead>
+    <div>
+      {/* only show once a rule has been created */}
+      {data && data.length > 0 && (
+        <div className="my-2">
+          <PremiumAlertWithData />
+        </div>
+      )}
+
+      <Card>
+        <LoadingContent loading={isLoading} error={error}>
+          {data?.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Conditions</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-center">Automated</TableHead>
+                  <TableHead className="text-center">Threads</TableHead>
+                  {/* <TableHead className="text-right">Pending</TableHead>
               <TableHead className="text-right">Executed</TableHead> */}
-                <TableHead>
-                  <span className="sr-only">User Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data?.map((rule) => (
-                <TableRow key={rule.id}>
-                  <TableCell className="font-medium">
-                    <Link href={`/automation/rule/${rule.id}`}>
-                      {rule.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="whitespace-pre-wrap">
-                    {rule.instructions}
-                  </TableCell>
-                  <TableCell>
-                    {ruleTypeToString(rule.type)}
-                    {rule.group?.name ? `: ${rule.group.name}` : ""}
-                  </TableCell>
-                  <TableCell>
-                    <Actions actions={rule.actions} />
-                  </TableCell>
-                  <TableCell>
-                    <Toggle
-                      enabled={rule.automate}
-                      name="automate"
-                      onChange={async () => {
-                        await setRuleAutomatedAction(rule.id, !rule.automate);
-                        mutate();
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Toggle
-                      enabled={rule.runOnThreads}
-                      name="runOnThreads"
-                      onChange={async () => {
-                        await setRuleRunOnThreadsAction(
-                          rule.id,
-                          !rule.runOnThreads,
-                        );
-                        mutate();
-                      }}
-                    />
-                  </TableCell>
-                  {/* <TableCell className="text-right">33</TableCell>
+                  <TableHead>
+                    <span className="sr-only">User Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.map((rule) => (
+                  <TableRow key={rule.id}>
+                    <TableCell className="font-medium">
+                      <Link href={`/automation/rule/${rule.id}`}>
+                        {rule.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="whitespace-pre-wrap">
+                      {getInstructions(rule)}
+                    </TableCell>
+                    <TableCell>{ruleTypeToString(rule.type)}</TableCell>
+                    <TableCell>
+                      <Actions actions={rule.actions} />
+                    </TableCell>
+                    <TableCell>
+                      <Toggle
+                        enabled={rule.automate}
+                        name="automate"
+                        onChange={async () => {
+                          const result = await setRuleAutomatedAction(
+                            rule.id,
+                            !rule.automate,
+                          );
+                          if (isActionError(result)) {
+                            toastError({
+                              description:
+                                "There was an error updating your rule. " +
+                                result.error,
+                            });
+                          }
+                          mutate();
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Toggle
+                        enabled={rule.runOnThreads}
+                        name="runOnThreads"
+                        onChange={async () => {
+                          const result = await setRuleRunOnThreadsAction(
+                            rule.id,
+                            !rule.runOnThreads,
+                          );
+                          if (isActionError(result)) {
+                            toastError({
+                              description:
+                                "There was an error updating your rule. " +
+                                result.error,
+                            });
+                          }
+                          mutate();
+                        }}
+                      />
+                    </TableCell>
+                    {/* <TableCell className="text-right">33</TableCell>
                 <TableCell className="text-right">43</TableCell> */}
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontalIcon className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/automation/rule/${rule.id}`}>View</Link>
-                        </DropdownMenuItem>
-                        {rule.type !== RuleType.AI && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontalIcon className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {rule.type !== RuleType.AI && (
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/automation/rule/${rule.id}/examples`}
+                              >
+                                View Examples
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem asChild>
-                            <Link href={`/automation/rule/${rule.id}/examples`}>
-                              Examples
+                            <Link href={`/automation/rule/${rule.id}`}>
+                              Edit
                             </Link>
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/automation/rule/${rule.id}`}>Edit</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={async () => {
-                            await deleteRuleAction(rule.id);
-                            mutate();
-                          }}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <>
-            <CardHeader>
-              <CardTitle>Create your first automation</CardTitle>
-              <CardDescription>
-                Automations are the rules that will be applied to your incoming
-                emails.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline">
-                <Link href="/automation/create">Create Automation</Link>
-              </Button>
-            </CardContent>
-          </>
-        )}
-      </LoadingContent>
-    </Card>
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              const yes = confirm(
+                                "Are you sure you want to delete this rule?",
+                              );
+                              if (yes) {
+                                const result = await deleteRuleAction(rule.id);
+
+                                if (isActionError(result)) {
+                                  toastError({
+                                    description:
+                                      "There was an error deleting your rule. " +
+                                      result.error,
+                                  });
+                                }
+
+                                mutate();
+                              }
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <>
+              <CardHeader>
+                <CardTitle>Create your first automation</CardTitle>
+                <CardDescription>
+                  Automations are the rules that will be applied to your
+                  incoming emails.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="outline">
+                  <Link href="/automation/create">Create Automation</Link>
+                </Button>
+              </CardContent>
+            </>
+          )}
+        </LoadingContent>
+      </Card>
+    </div>
   );
 }
 
@@ -184,4 +223,23 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
       })}
     </div>
   );
+}
+
+export function getInstructions(
+  rule: Pick<
+    RulesResponse[number],
+    "type" | "instructions" | "from" | "subject" | "body" | "group"
+  >,
+) {
+  switch (rule.type) {
+    case RuleType.AI:
+      return rule.instructions;
+    case RuleType.STATIC:
+      const from = rule.from ? `From: ${rule.from}` : "";
+      const subject = rule.subject ? `Subject: ${rule.subject}` : "";
+      // let body = rule.body ? `Body: ${rule.body}` : "";
+      return `${from} ${subject}`.trim();
+    case RuleType.GROUP:
+      return `Group: ${rule.group?.name || "MISSING"}`;
+  }
 }

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
 import {
   Features,
@@ -14,7 +14,7 @@ import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 // import { HeroHeadingAB, HeroSubtitleAB } from "@/app/(landing)/home/HeroAB";
-// import { env } from "@/env.mjs";
+// import { env } from "@/env";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -41,8 +41,8 @@ export default function Home() {
       />
       <Testimonials />
       <Features />
-      <FeaturesUnsubscribe />
       <FeaturesAutomation />
+      <FeaturesUnsubscribe />
       <FeaturesColdEmailBlocker />
       <FeaturesStats />
       <Suspense>

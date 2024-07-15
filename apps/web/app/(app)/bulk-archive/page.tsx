@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback } from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import { Container } from "@/components/Container";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/Button";
 import { Select } from "@/components/Select";
 import { isError } from "@/utils/error";
 import { postRequest } from "@/utils/api";
-import {
+import type {
   BulkArchiveBody,
   BulkArchiveResponse,
 } from "@/app/api/user/bulk-archive/route";
@@ -55,7 +55,7 @@ const BulkArchiveForm = () => {
   const onSubmit: SubmitHandler<BulkArchiveBody> = useCallback(async (data) => {
     const res = await postRequest<BulkArchiveResponse, BulkArchiveBody>(
       "/api/user/bulk-archive",
-      data
+      data,
     );
 
     if (isError(res))

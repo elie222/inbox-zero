@@ -1,18 +1,22 @@
-import { type gmail_v1 } from "googleapis";
-import { UserAIFields } from "@/utils/llms/types";
+import type { gmail_v1 } from "googleapis";
+import type { UserAIFields } from "@/utils/llms/types";
 import prisma from "@/utils/prisma";
-import { Rule, User } from "@prisma/client";
+import type { Rule, User } from "@prisma/client";
 import { ExecutedRuleStatus } from "@prisma/client";
-import { ChooseRuleOptions, chooseRule } from "@/utils/ai/choose-rule/choose";
+import {
+  type ChooseRuleOptions,
+  chooseRule,
+} from "@/utils/ai/choose-rule/choose";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
-import { ActionItem, EmailForAction } from "@/utils/ai/actions";
+import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
+import type { ActionItem, EmailForAction } from "@/utils/ai/actions";
 
 type ChooseRuleAndExecuteOptions = ChooseRuleOptions & {
   email: EmailForLLM & EmailForAction;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   gmail: gmail_v1.Gmail;
   forceExecute?: boolean;
+  isTest: boolean;
 };
 
 /**
@@ -27,7 +31,7 @@ export async function chooseRuleAndExecute(
   actionItems?: ActionItem[];
   reason?: string;
 }> {
-  const { rules, email, user, forceExecute, gmail } = options;
+  const { rules, email, user, forceExecute, gmail, isTest } = options;
 
   if (!rules.length) return { handled: false };
 
@@ -38,16 +42,19 @@ export async function chooseRuleAndExecute(
   // no rule to apply to this thread
   if (!plannedAct.rule) return { handled: false, reason: plannedAct.reason };
 
-  const executedRule = await saveExecutedRule(
-    {
-      userId: user.id,
-      threadId: email.threadId,
-      messageId: email.messageId,
-    },
-    plannedAct,
-  );
+  const executedRule = isTest
+    ? undefined
+    : await saveExecutedRule(
+        {
+          userId: user.id,
+          threadId: email.threadId,
+          messageId: email.messageId,
+        },
+        plannedAct,
+      );
 
-  const shouldExecute = plannedAct.rule?.automate || forceExecute;
+  const shouldExecute =
+    executedRule && (plannedAct.rule?.automate || forceExecute);
 
   if (shouldExecute) {
     await executeAct({

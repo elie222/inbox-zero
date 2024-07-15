@@ -1,15 +1,17 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
+import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
-import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
-import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
-import { env } from "@/env.mjs";
+import "../styles/globals.css";
+import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
+import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
+import { startupImage } from "@/app/startup-image";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,9 +26,9 @@ const calFont = localFont({
   display: "swap",
 });
 
-const title = "Inbox Zero | Clean your inbox in minutes";
+const title = "Inbox Zero | Automate and clean your inbox";
 const description =
-  "Inbox Zero is the quickest way to reach inbox zero. Bulk email unsubscriber, AI automation assistant, cold email blocker, and email analytics.";
+  "Inbox Zero is your AI personal assistant for email and the quickest way to reach inbox zero. Automate your email, bulk unsubscribe from newsletters, block cold emails, and view your email analytics. Open-source.";
 
 export const metadata: Metadata = {
   title,
@@ -48,6 +50,23 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+  },
+  // pwa
+  applicationName: "Inbox Zero",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Inbox Zero",
+    startupImage,
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  // safe area for iOS PWA
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "white-translucent",
   },
 };
 
@@ -73,6 +92,7 @@ export default function RootLayout({
         </PostHogProvider>
         <SpeedInsights />
         <Analytics />
+        <AxiomWebVitals />
         <UTM />
         {env.NEXT_PUBLIC_GTM_ID ? (
           <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />

@@ -2,7 +2,7 @@
 
 import { subDays } from "date-fns";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
 import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
@@ -30,7 +30,7 @@ export default function StatsPage() {
 
   const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(now, parseInt(defaultSelected.value)),
+    from: subDays(now, Number.parseInt(defaultSelected.value)),
     to: now,
   });
 
@@ -62,9 +62,9 @@ export default function StatsPage() {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-0 z-10 justify-between border-b bg-white px-4 py-2 shadow sm:flex">
+      <div className="sticky top-0 z-10 justify-between border-b bg-white px-2 py-2 shadow sm:flex sm:px-4">
         {isLoading ? <LoadProgress /> : <div />}
-        <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
+        <div className="flex flex-wrap gap-1">
           <ActionBar
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}

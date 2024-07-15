@@ -89,7 +89,7 @@ cd apps/web
 pnpm install
 ```
 
-Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.mjs`.
+Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.ts`.
 
 The required environment variables:
 

@@ -1,4 +1,5 @@
 import { AdminUpgradeUserForm } from "@/app/(app)/admin/AdminUpgradeUserForm";
+import { AdminUserControls } from "@/app/(app)/admin/AdminUserControls";
 import { TopSection } from "@/components/TopSection";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ErrorPage } from "@/components/ErrorPage";
@@ -20,8 +21,9 @@ export default async function AdminPage() {
     <div>
       <TopSection title="Admin" />
 
-      <div className="m-8">
+      <div className="m-8 space-y-8">
         <AdminUpgradeUserForm />
+        <AdminUserControls />
       </div>
     </div>
   );

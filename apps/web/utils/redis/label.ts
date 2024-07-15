@@ -46,32 +46,6 @@ function getInboxZeroLabelsKey(email: string) {
   return `labels:inboxzero:${email}`;
 }
 
-export type InboxZeroLabelKey = "archived" | "labeled" | "acted" | "cold_email";
-// | "drafted"
-// | "suggested_label";
-export type InboxZeroLabels = Record<InboxZeroLabelKey, RedisLabel>;
-
-export const inboxZeroLabelKeys: InboxZeroLabelKey[] = [
-  "archived",
-  "labeled",
-  // "drafted",
-  // "suggested_label",
-];
-
-export async function getInboxZeroLabels(options: { email: string }) {
-  const key = getInboxZeroLabelsKey(options.email);
-  return redis.hgetall<InboxZeroLabels>(key);
-}
-
-export async function saveInboxZeroLabel(options: {
-  email: string;
-  labelKey: string;
-  label: RedisLabel;
-}) {
-  const key = getInboxZeroLabelsKey(options.email);
-  return redis.hset(key, { [options.labelKey]: options.label });
-}
-
 export async function deleteInboxZeroLabels(options: { email: string }) {
   const key = getInboxZeroLabelsKey(options.email);
   return redis.del(key);

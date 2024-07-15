@@ -6,7 +6,7 @@ export function TopSection(props: {
   descriptionComponent?: React.ReactNode;
 }) {
   return (
-    <div className="content-container border-b border-gray-200 bg-white py-6 shadow-sm">
+    <div className="content-container border-b border-gray-200 bg-white py-4 shadow-sm sm:py-6">
       <PageHeading>{props.title}</PageHeading>
       <div className="mt-2">
         {props.descriptionComponent ? (

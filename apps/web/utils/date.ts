@@ -6,7 +6,7 @@ export function formatShortDate(
   } = {
     includeYear: false,
     lowercase: false,
-  }
+  },
 ) {
   // if date is today, return the time. eg. 12:30pm
   // if date is before today then return the date. eg JUL 5th or AUG 13th
@@ -29,4 +29,8 @@ export function formatShortDate(
 
     return options.lowercase ? formattedDate : formattedDate.toUpperCase();
   }
+}
+
+export function dateToSeconds(date: Date) {
+  return Math.floor(date.getTime() / 1000);
 }

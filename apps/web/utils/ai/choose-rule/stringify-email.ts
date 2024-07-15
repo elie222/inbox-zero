@@ -9,10 +9,11 @@ export type EmailForLLM = {
 };
 
 export function stringifyEmail(email: EmailForLLM, maxLength: number) {
-  return `From: ${email.from}
-${email.replyTo ? `Reply to: ${email.replyTo}` : ""}
-${email.cc ? `CC: ${email.cc}` : ""}
-Subject: ${email.subject}
-Body:
-${truncate(email.content, maxLength)}`;
+  return (
+    `From: ${email.from}` +
+    `${email.replyTo ? `\nReply to: ${email.replyTo}` : ""}` +
+    `${email.cc ? `\nCC: ${email.cc}` : ""}` +
+    `\nSubject: ${email.subject}` +
+    `\nBody: ${truncate(email.content, maxLength)}`
+  );
 }

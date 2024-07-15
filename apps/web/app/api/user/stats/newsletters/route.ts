@@ -10,6 +10,9 @@ import {
   getAutoArchiveFilters,
 } from "@/app/api/user/stats/newsletters/helpers";
 
+// not sure why this is slow sometimes
+export const maxDuration = 30;
+
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
   fromDate: z.coerce.number().nullish(),
@@ -24,6 +27,7 @@ const newsletterStatsQuery = z.object({
     )
     .optional()
     .transform((arr) => arr?.filter(Boolean)),
+  includeMissingUnsubscribe: z.boolean().optional(),
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
@@ -107,6 +111,8 @@ export const GET = withError(async (request) => {
     orderBy: searchParams.get("orderBy"),
     types: searchParams.get("types")?.split(",") || [],
     filters: searchParams.get("filters")?.split(",") || [],
+    includeMissingUnsubscribe:
+      searchParams.get("includeMissingUnsubscribe") === "true",
   });
 
   const result = await getNewslettersTinybird({
