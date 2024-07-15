@@ -47,3 +47,4 @@ dist
 .react-email
 
 .sentryclirc
+.pnpm-store/*

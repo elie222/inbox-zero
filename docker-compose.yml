@@ -13,6 +13,7 @@ services:
       - database-data:/var/lib/postgresql/data/
     ports:
       - 5432:5432
+    network_mode: host
 
   redis:
     image: redis
@@ -30,6 +31,19 @@ services:
       SRH_MODE: env
       SRH_TOKEN: ${UPSTASH_REDIS_TOKEN}
       SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
+
+  web:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.web
+    env_file:
+      - ./.env
+    depends_on:
+      - db
+      # - redis
+    ports:
+      - 3000:3000
+    network_mode: host
 
 volumes:
   database-data:
