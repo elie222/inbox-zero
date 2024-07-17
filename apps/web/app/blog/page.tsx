@@ -6,6 +6,80 @@ import Link from "next/link";
 
 const posts = [
   {
+    title: "How Inbox Zero hit #1 on Product Hunt",
+    file: "how-my-open-source-saas-hit-first-on-product-hunt",
+    description:
+      "Two weeks ago I launched Inbox Zero on Product Hunt. It finished in first place with over 1000 upvotes and gained thousands of new users. The app, Inbox Zero, helps you clean up your inbox fast. It lets you bulk unsubscribe from newsletters, automate emails with an AI assistant, automatically block cold emails, and provides email analytics.",
+    date: "Jan 22, 2024",
+    datetime: "2024-01-22",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
+  {
+    title: "Why Build An Open Source SaaS",
+    file: "why-build-an-open-source-saas",
+    description:
+      "Open source SaaS products are blowing up. This is why you should consider building one.",
+    date: "Jan 25, 2024",
+    datetime: "2024-01-25",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
+  {
+    title: "Alternatives to Skiff Mail",
+    file: "alternatives-to-skiff-mail",
+    description:
+      "Notion recently aqcuired Skiff Mail and is sunsetting it in six months. Here are some good alternatives to consider for your email needs.",
+    date: "Feb 22, 2024",
+    datetime: "2024-02-22",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
+  {
+    title: "How to Bulk Unsubscribe from Emails",
+    file: "bulk-unsubscribe-from-emails",
+    description:
+      "Want to stop the flood of unwanted subscriptions in your email? Learn how to bulk unsubscribe from emails and create a clutter-free inbox with Inbox Zero.",
+    date: "March 05, 2024",
+    datetime: "2024-03-05",
+    // category: { title: "Marketing", href: "#" },
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
+  {
+    title: "Best Email Unsubscribe App to Clean Up Your Inbox",
+    file: "best-email-unsubscribe-app",
+    description:
+      "Managing your email inbox can feel like a full-time job. With promotional emails, newsletters, and updates flooding our inboxes daily, it's crucial to have effective tools to maintain order.",
+    date: "June 26, 2024",
+    datetime: "2024-06-26",
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
+  {
     title: "Boost Your Email Efficiency with These Gmail Productivity Hacks",
     file: "gmail-productivity-hacks",
     description:
@@ -78,80 +152,6 @@ const posts = [
       role: "Founder @ AI Blog Articles",
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
-    },
-  },
-  {
-    title: "How Inbox Zero hit #1 on Product Hunt",
-    file: "how-my-open-source-saas-hit-first-on-product-hunt",
-    description:
-      "Two weeks ago I launched Inbox Zero on Product Hunt. It finished in first place with over 1000 upvotes and gained thousands of new users. The app, Inbox Zero, helps you clean up your inbox fast. It lets you bulk unsubscribe from newsletters, automate emails with an AI assistant, automatically block cold emails, and provides email analytics.",
-    date: "Jan 22, 2024",
-    datetime: "2024-01-22",
-    // category: { title: "Marketing", href: "#" },
-    author: {
-      name: "Elie Steinbock",
-      role: "Founder",
-      href: "#",
-      imageUrl: "/images/blog/elie-profile.jpg",
-    },
-  },
-  {
-    title: "Why Build An Open Source SaaS",
-    file: "why-build-an-open-source-saas",
-    description:
-      "Open source SaaS products are blowing up. This is why you should consider building one.",
-    date: "Jan 25, 2024",
-    datetime: "2024-01-25",
-    // category: { title: "Marketing", href: "#" },
-    author: {
-      name: "Elie Steinbock",
-      role: "Founder",
-      href: "#",
-      imageUrl: "/images/blog/elie-profile.jpg",
-    },
-  },
-  {
-    title: "Alternatives to Skiff Mail",
-    file: "alternatives-to-skiff-mail",
-    description:
-      "Notion recently aqcuired Skiff Mail and is sunsetting it in six months. Here are some good alternatives to consider for your email needs.",
-    date: "Feb 22, 2024",
-    datetime: "2024-02-22",
-    // category: { title: "Marketing", href: "#" },
-    author: {
-      name: "Elie Steinbock",
-      role: "Founder",
-      href: "#",
-      imageUrl: "/images/blog/elie-profile.jpg",
-    },
-  },
-  {
-    title: "How to Bulk Unsubscribe from Emails",
-    file: "bulk-unsubscribe-from-emails",
-    description:
-      "Want to stop the flood of unwanted subscriptions in your email? Learn how to bulk unsubscribe from emails and create a clutter-free inbox with Inbox Zero.",
-    date: "March 05, 2024",
-    datetime: "2024-03-05",
-    // category: { title: "Marketing", href: "#" },
-    author: {
-      name: "Elie Steinbock",
-      role: "Founder",
-      href: "#",
-      imageUrl: "/images/blog/elie-profile.jpg",
-    },
-  },
-  {
-    title: "Best Email Unsubscribe App to Clean Up Your Inbox",
-    file: "best-email-unsubscribe-app",
-    description:
-      "Managing your email inbox can feel like a full-time job. With promotional emails, newsletters, and updates flooding our inboxes daily, it's crucial to have effective tools to maintain order.",
-    date: "June 26, 2024",
-    datetime: "2024-06-26",
-    author: {
-      name: "Elie Steinbock",
-      role: "Founder",
-      href: "#",
-      imageUrl: "/images/blog/elie-profile.jpg",
     },
   },
 ];

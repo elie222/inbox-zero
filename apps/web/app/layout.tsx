@@ -4,13 +4,14 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
-import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
-import "../styles/globals.css";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
+import "../styles/globals.css";
+import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
+import { startupImage } from "@/app/startup-image";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -56,10 +57,16 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Inbox Zero",
-    startupImage: ["/icons/icon-512x512.png"],
+    startupImage,
   },
   formatDetection: {
     telephone: false,
+  },
+  // safe area for iOS PWA
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "white-translucent",
   },
 };
 

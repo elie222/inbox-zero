@@ -1,18 +1,9 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
-import {
-  Card,
-  ProgressBar,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-} from "@tremor/react";
+import { useWindowSize } from "usehooks-ts";
 import { FilterIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -28,22 +19,28 @@ import {
   EmailsToIncludeFilter,
   useEmailsToIncludeFilter,
 } from "@/app/(app)/stats/EmailsToIncludeFilter";
-import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { usePremium } from "@/components/PremiumAlert";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
-  ShortcutTooltip,
-  SectionHeader,
-  ActionCell,
-  HeaderButton,
 } from "@/app/(app)/bulk-unsubscribe/common";
 import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 import { useLabels } from "@/hooks/useLabels";
+import {
+  BulkUnsubscribeMobile,
+  BulkUnsubscribeRowMobile,
+} from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeMobile";
+import {
+  BulkUnsubscribeDesktop,
+  BulkUnsubscribeRowDesktop,
+} from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeDesktop";
+import { Card } from "@/components/ui/card";
+import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import { SectionHeader } from "@/app/(app)/bulk-unsubscribe/SectionHeader";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -81,7 +78,6 @@ export function BulkUnsubscribeSection(props: {
   });
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
-  const { userLabels } = useLabels();
 
   const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = React.useState<Newsletter>();
@@ -102,13 +98,44 @@ export function BulkUnsubscribeSection(props: {
 
   const { isLoading: isStatsLoading } = useStatLoader();
 
+  const { userLabels } = useLabels();
+
   const { PremiumModal, openModal } = usePremiumModal();
+
+  const windowSize = useWindowSize();
+
+  const isMobile = windowSize.width < 768;
+
+  const RowComponent = isMobile
+    ? BulkUnsubscribeRowMobile
+    : BulkUnsubscribeRowDesktop;
+
+  const tableRows = data?.newsletters
+    .slice(0, expanded ? undefined : 50)
+    .map((item) => (
+      <RowComponent
+        key={item.name}
+        item={item}
+        userEmail={userEmail}
+        setOpenedNewsletter={setOpenedNewsletter}
+        userGmailLabels={userLabels}
+        mutate={mutate}
+        selected={selectedRow?.name === item.name}
+        onSelectRow={() => {
+          setSelectedRow(item);
+        }}
+        onDoubleClick={() => setOpenedNewsletter(item)}
+        hasUnsubscribeAccess={hasUnsubscribeAccess}
+        refetchPremium={refetchPremium}
+        openPremiumModal={openModal}
+      />
+    ));
 
   return (
     <>
-      <BulkUnsubscribeSummary />
+      {!isMobile && <BulkUnsubscribeSummary />}
       <Card className="mt-2 p-0 sm:mt-4">
-        <div className="items-center justify-between px-6 pt-6 md:flex">
+        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
           <SectionHeader
             title="Which newsletters and marketing emails do you get the most?"
             description="Quickly unsubscribe or view them in more detail."
@@ -186,30 +213,13 @@ export function BulkUnsubscribeSection(props: {
               </div>
             }
           >
-            {data && (
-              <BulkUnsubscribeTable
+            {isMobile ? (
+              <BulkUnsubscribeMobile tableRows={tableRows} />
+            ) : (
+              <BulkUnsubscribeDesktop
                 sortColumn={sortColumn}
                 setSortColumn={setSortColumn}
-                tableRows={data.newsletters
-                  .slice(0, expanded ? undefined : 50)
-                  .map((item) => (
-                    <BulkUnsubscribeRow
-                      key={item.name}
-                      item={item}
-                      userEmail={userEmail}
-                      setOpenedNewsletter={setOpenedNewsletter}
-                      userGmailLabels={userLabels}
-                      mutate={mutate}
-                      selected={selectedRow?.name === item.name}
-                      onSelectRow={() => {
-                        setSelectedRow(item);
-                      }}
-                      onDoubleClick={() => setOpenedNewsletter(item)}
-                      hasUnsubscribeAccess={hasUnsubscribeAccess}
-                      refetchPremium={refetchPremium}
-                      openPremiumModal={openModal}
-                    />
-                  ))}
+                tableRows={tableRows}
               />
             )}
             <div className="mt-2 px-6 pb-6">{extra}</div>
@@ -223,127 +233,5 @@ export function BulkUnsubscribeSection(props: {
       />
       <PremiumModal />
     </>
-  );
-}
-
-function BulkUnsubscribeTable(props: {
-  tableRows?: React.ReactNode;
-  sortColumn: "emails" | "unread" | "unarchived";
-  setSortColumn: (sortColumn: "emails" | "unread" | "unarchived") => void;
-}) {
-  const { tableRows, sortColumn, setSortColumn } = props;
-
-  return (
-    <Table className="mt-4">
-      <TableHead>
-        <TableRow>
-          <TableHeaderCell className="pl-6">
-            <span className="text-sm font-medium">From</span>
-          </TableHeaderCell>
-          <TableHeaderCell>
-            <HeaderButton
-              sorted={sortColumn === "emails"}
-              onClick={() => setSortColumn("emails")}
-            >
-              Emails
-            </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
-            <HeaderButton
-              sorted={sortColumn === "unread"}
-              onClick={() => setSortColumn("unread")}
-            >
-              Read
-            </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
-            <HeaderButton
-              sorted={sortColumn === "unarchived"}
-              onClick={() => setSortColumn("unarchived")}
-            >
-              Archived
-            </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell />
-        </TableRow>
-      </TableHead>
-      <TableBody>{tableRows}</TableBody>
-    </Table>
-  );
-}
-
-function BulkUnsubscribeRow(props: {
-  item: Newsletter;
-  setOpenedNewsletter: React.Dispatch<
-    React.SetStateAction<Newsletter | undefined>
-  >;
-  userGmailLabels: LabelsResponse["labels"];
-  userEmail: string;
-  mutate: () => Promise<any>;
-  selected: boolean;
-  onSelectRow: () => void;
-  onDoubleClick: () => void;
-  hasUnsubscribeAccess: boolean;
-  refetchPremium: () => Promise<any>;
-  openPremiumModal: () => void;
-}) {
-  const { item, refetchPremium } = props;
-  const readPercentage = (item.readEmails / item.value) * 100;
-  const archivedEmails = item.value - item.inboxEmails;
-  const archivedPercentage = (archivedEmails / item.value) * 100;
-
-  return (
-    <TableRow
-      key={item.name}
-      className={props.selected ? "bg-blue-50" : undefined}
-      aria-selected={props.selected || undefined}
-      data-selected={props.selected || undefined}
-      onMouseEnter={props.onSelectRow}
-      onDoubleClick={props.onDoubleClick}
-    >
-      <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-none">
-        {item.name}
-      </TableCell>
-      <TableCell>{item.value}</TableCell>
-      <TableCell>
-        <div className="hidden xl:block">
-          <ProgressBar
-            label={`${Math.round(readPercentage)}%`}
-            value={readPercentage}
-            tooltip={`${item.readEmails} read. ${
-              item.value - item.readEmails
-            } unread.`}
-            color="blue"
-            className="w-[150px]"
-          />
-        </div>
-        <div className="xl:hidden">{Math.round(readPercentage)}%</div>
-      </TableCell>
-      <TableCell>
-        <div className="hidden 2xl:block">
-          <ProgressBar
-            label={`${Math.round(archivedPercentage)}%`}
-            value={archivedPercentage}
-            tooltip={`${archivedEmails} archived. ${item.inboxEmails} unarchived.`}
-            color="blue"
-            className="w-[150px]"
-          />
-        </div>
-        <div className="2xl:hidden">{Math.round(archivedPercentage)}%</div>
-      </TableCell>
-      <TableCell className="flex justify-end space-x-2 p-2">
-        <ActionCell
-          item={item}
-          hasUnsubscribeAccess={props.hasUnsubscribeAccess}
-          mutate={props.mutate}
-          refetchPremium={refetchPremium}
-          setOpenedNewsletter={props.setOpenedNewsletter}
-          selected={props.selected}
-          userGmailLabels={props.userGmailLabels}
-          openPremiumModal={props.openPremiumModal}
-          userEmail={props.userEmail}
-        />
-      </TableCell>
-    </TableRow>
   );
 }

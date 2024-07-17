@@ -6,7 +6,6 @@ import Link from "next/link";
 import useSWR from "swr";
 import type { gmail_v1 } from "googleapis";
 import { toast } from "sonner";
-import { Title, Text } from "@tremor/react";
 import {
   ArchiveIcon,
   ArchiveXIcon,
@@ -16,13 +15,12 @@ import {
   ChevronsUpDownIcon,
   ExpandIcon,
   ExternalLinkIcon,
+  MailMinusIcon,
   MoreHorizontalIcon,
   PlusCircle,
-  SquareSlashIcon,
   TagIcon,
   TrashIcon,
   UserPlus,
-  UserRoundMinusIcon,
 } from "lucide-react";
 import { type PostHog, usePostHog } from "posthog-js/react";
 import { Button, ButtonLoader } from "@/components/ui/button";
@@ -59,43 +57,7 @@ import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
 import { isDefined } from "@/utils/types";
 import { getGmailSearchUrl } from "@/utils/url";
-
-export type Row = {
-  name: string;
-  lastUnsubscribeLink?: string | null;
-  status?: NewsletterStatus | null;
-  autoArchived?: { id?: string | null };
-};
-
-export function SectionHeader(props: { title: string; description: string }) {
-  return (
-    <div>
-      <Title>{props.title}</Title>
-      <Text className="mt-2">{props.description}</Text>
-    </div>
-  );
-}
-
-export function ShortcutTooltip() {
-  return (
-    <Tooltip
-      contentComponent={
-        <div>
-          <h3 className="mb-1 font-semibold">Shortcuts:</h3>
-          <p>U - Unsubscribe</p>
-          <p>E - Auto Archive</p>
-          <p>A - Approve</p>
-          <p>Enter - View more</p>
-          <p>Up/down - navigate</p>
-        </div>
-      }
-    >
-      <Button size="icon" variant="link">
-        <SquareSlashIcon className="h-5 w-5" />
-      </Button>
-    </Tooltip>
-  );
-}
+import { Row } from "@/app/(app)/bulk-unsubscribe/types";
 
 export function ActionCell<T extends Row>({
   item,
@@ -117,11 +79,87 @@ export function ActionCell<T extends Row>({
   openPremiumModal: () => void;
   userEmail: string;
 }) {
-  const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
-  const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
-  const [approveLoading, setApproveLoading] = React.useState(false);
-
   const posthog = usePostHog();
+
+  return (
+    <>
+      <PremiumTooltip
+        showTooltip={!hasUnsubscribeAccess}
+        openModal={openPremiumModal}
+      >
+        <UnsubscribeButton
+          item={item}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
+          posthog={posthog}
+          refetchPremium={refetchPremium}
+        />
+      </PremiumTooltip>
+      <Tooltip
+        contentComponent={
+          !hasUnsubscribeAccess ? (
+            <PremiumTooltipContent openModal={openPremiumModal} />
+          ) : undefined
+        }
+        content={
+          hasUnsubscribeAccess
+            ? "Auto archive emails using Gmail filters."
+            : undefined
+        }
+      >
+        <AutoArchiveButton
+          item={item}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
+          posthog={posthog}
+          refetchPremium={refetchPremium}
+          userGmailLabels={userGmailLabels}
+        />
+      </Tooltip>
+      <Tooltip
+        contentComponent={
+          !hasUnsubscribeAccess ? (
+            <PremiumTooltipContent openModal={openPremiumModal} />
+          ) : undefined
+        }
+        content={
+          hasUnsubscribeAccess
+            ? "Approve to filter it from the list."
+            : undefined
+        }
+      >
+        <ApproveButton
+          item={item}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
+          posthog={posthog}
+        />
+      </Tooltip>
+      <MoreDropdown
+        setOpenedNewsletter={setOpenedNewsletter}
+        item={item}
+        userEmail={userEmail}
+        userGmailLabels={userGmailLabels}
+        posthog={posthog}
+      />
+    </>
+  );
+}
+
+export function useUnsubscribeButton<T extends Row>({
+  item,
+  hasUnsubscribeAccess,
+  mutate,
+  posthog,
+  refetchPremium,
+}: {
+  item: T;
+  hasUnsubscribeAccess: boolean;
+  mutate: () => Promise<void>;
+  posthog: PostHog;
+  refetchPremium: () => Promise<any>;
+}) {
+  const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
 
   const onUnsubscribe = useCallback(async () => {
     if (!hasUnsubscribeAccess) return;
@@ -141,6 +179,82 @@ export function ActionCell<T extends Row>({
     setUnsubscribeLoading(false);
   }, [hasUnsubscribeAccess, item.name, mutate, posthog, refetchPremium]);
 
+  return {
+    unsubscribeLoading,
+    onUnsubscribe,
+  };
+}
+
+function UnsubscribeButton<T extends Row>({
+  item,
+  hasUnsubscribeAccess,
+  mutate,
+  posthog,
+  refetchPremium,
+}: {
+  item: T;
+  hasUnsubscribeAccess: boolean;
+  mutate: () => Promise<void>;
+  posthog: PostHog;
+  refetchPremium: () => Promise<any>;
+}) {
+  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribeButton({
+    item,
+    hasUnsubscribeAccess,
+    mutate,
+    posthog,
+    refetchPremium,
+  });
+
+  return (
+    <Button
+      size="sm"
+      variant={
+        item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "secondary"
+      }
+      disabled={!item.lastUnsubscribeLink}
+      asChild={!!item.lastUnsubscribeLink}
+    >
+      <a
+        className={
+          hasUnsubscribeAccess ? undefined : "pointer-events-none opacity-50"
+        }
+        href={
+          hasUnsubscribeAccess
+            ? cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#")
+            : "#"
+        }
+        target="_blank"
+        onClick={onUnsubscribe}
+        rel="noreferrer"
+      >
+        {unsubscribeLoading && <ButtonLoader />}
+        <span className="hidden xl:block">Unsubscribe</span>
+        <span className="block xl:hidden">
+          <MailMinusIcon className="h-4 w-4" />
+        </span>
+      </a>
+    </Button>
+  );
+}
+
+function AutoArchiveButton<T extends Row>({
+  item,
+  hasUnsubscribeAccess,
+  mutate,
+  posthog,
+  refetchPremium,
+  userGmailLabels,
+}: {
+  item: T;
+  hasUnsubscribeAccess: boolean;
+  mutate: () => Promise<void>;
+  posthog: PostHog;
+  refetchPremium: () => Promise<any>;
+  userGmailLabels: LabelsResponse["labels"];
+}) {
+  const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
+
   const onAutoArchiveClick = useCallback(async () => {
     setAutoArchiveLoading(true);
 
@@ -159,60 +273,32 @@ export function ActionCell<T extends Row>({
   }, [item.name, mutate, posthog, refetchPremium]);
 
   return (
-    <>
-      <PremiumTooltip
-        showTooltip={!hasUnsubscribeAccess}
-        openModal={openPremiumModal}
-      >
-        <Button
-          size="sm"
-          variant={
-            item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "secondary"
-          }
-          disabled={!item.lastUnsubscribeLink}
-          asChild={!!item.lastUnsubscribeLink}
-        >
-          <a
-            className={
-              hasUnsubscribeAccess
-                ? undefined
-                : "pointer-events-none opacity-50"
-            }
-            href={
-              hasUnsubscribeAccess
-                ? cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#")
-                : "#"
-            }
-            target="_blank"
-            onClick={onUnsubscribe}
-            rel="noreferrer"
-          >
-            {unsubscribeLoading && <ButtonLoader />}
-            <span className="hidden xl:block">Unsubscribe</span>
-            <span className="block xl:hidden">
-              <UserRoundMinusIcon className="h-4 w-4" />
-            </span>
-          </a>
-        </Button>
-      </PremiumTooltip>
-      <Tooltip
-        contentComponent={
-          !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={openPremiumModal} />
-          ) : undefined
+    <div
+      className={clsx(
+        "flex h-min items-center gap-1 rounded-md text-secondary-foreground",
+        item.autoArchived ? "bg-blue-100" : "bg-secondary",
+      )}
+    >
+      <Button
+        variant={
+          item.status === NewsletterStatus.AUTO_ARCHIVED || item.autoArchived
+            ? "blue"
+            : "secondary"
         }
-        content={
-          hasUnsubscribeAccess
-            ? "Auto archive emails using Gmail filters."
-            : undefined
-        }
+        className="px-3 shadow-none"
+        size="sm"
+        onClick={onAutoArchiveClick}
+        disabled={!hasUnsubscribeAccess}
       >
-        <div
-          className={clsx(
-            "flex items-center space-x-1 rounded-md text-secondary-foreground",
-            item.autoArchived ? "bg-blue-100" : "bg-secondary",
-          )}
-        >
+        {autoArchiveLoading && <ButtonLoader />}
+        <span className="hidden xl:block">Auto Archive</span>
+        <span className="block xl:hidden">
+          <ArchiveIcon className="h-4 w-4" />
+        </span>
+      </Button>
+      <Separator orientation="vertical" className="h-[20px]" />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <Button
             variant={
               item.status === NewsletterStatus.AUTO_ARCHIVED ||
@@ -220,152 +306,148 @@ export function ActionCell<T extends Row>({
                 ? "blue"
                 : "secondary"
             }
-            className="px-3 shadow-none"
+            className="px-2 shadow-none"
             size="sm"
-            onClick={onAutoArchiveClick}
             disabled={!hasUnsubscribeAccess}
           >
-            {autoArchiveLoading && <ButtonLoader />}
-            <span className="hidden xl:block">Auto Archive</span>
-            <span className="block xl:hidden">
-              <ArchiveIcon className="h-4 w-4" />
-            </span>
+            <ChevronDownIcon className="h-4 w-4 text-secondary-foreground" />
           </Button>
-          <Separator orientation="vertical" className="h-[20px]" />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant={
-                  item.status === NewsletterStatus.AUTO_ARCHIVED ||
-                  item.autoArchived
-                    ? "blue"
-                    : "secondary"
-                }
-                className="px-2 shadow-none"
-                size="sm"
-                disabled={!hasUnsubscribeAccess}
-              >
-                <ChevronDownIcon className="h-4 w-4 text-secondary-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              alignOffset={-5}
-              className="max-h-[415px] w-[220px] overflow-auto"
-              forceMount
-              onKeyDown={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              {item.autoArchived?.id && (
-                <>
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      setAutoArchiveLoading(true);
-
-                      onDeleteFilter(item.autoArchived?.id!);
-                      await setNewsletterStatusAction({
-                        newsletterEmail: item.name,
-                        status: null,
-                      });
-                      await mutate();
-
-                      posthog.capture("Clicked Disable Auto Archive");
-
-                      setAutoArchiveLoading(false);
-                    }}
-                  >
-                    <ArchiveXIcon className="mr-2 h-4 w-4" /> Disable Auto
-                    Archive
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-
-              <DropdownMenuLabel>Auto Archive and Label</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {userGmailLabels?.map((label) => {
-                return (
-                  <DropdownMenuItem
-                    key={label.id}
-                    onClick={async () => {
-                      setAutoArchiveLoading(true);
-
-                      onAutoArchive(item.name, label.id || undefined);
-                      await setNewsletterStatusAction({
-                        newsletterEmail: item.name,
-                        status: NewsletterStatus.AUTO_ARCHIVED,
-                      });
-                      await mutate();
-                      await decrementUnsubscribeCreditAction();
-                      await refetchPremium();
-
-                      posthog.capture("Clicked Auto Archive and Label");
-
-                      setAutoArchiveLoading(false);
-                    }}
-                  >
-                    {label.name}
-                  </DropdownMenuItem>
-                );
-              })}
-              {!userGmailLabels?.length && (
-                <DropdownMenuItem>
-                  You do not have any labels. Create one in Gmail first to auto
-                  label emails.
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </Tooltip>
-      <Tooltip
-        contentComponent={
-          !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={openPremiumModal} />
-          ) : undefined
-        }
-        content={
-          hasUnsubscribeAccess
-            ? "Approve to filter it from the list."
-            : undefined
-        }
-      >
-        <Button
-          size="sm"
-          variant={
-            item.status === NewsletterStatus.APPROVED ? "green" : "secondary"
-          }
-          onClick={async () => {
-            setApproveLoading(true);
-
-            await setNewsletterStatusAction({
-              newsletterEmail: item.name,
-              status: NewsletterStatus.APPROVED,
-            });
-            await mutate();
-
-            posthog.capture("Clicked Approve Sender");
-
-            setApproveLoading(false);
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          alignOffset={-5}
+          className="max-h-[415px] w-[220px] overflow-auto"
+          forceMount
+          onKeyDown={(e) => {
+            e.stopPropagation();
           }}
-          disabled={!hasUnsubscribeAccess}
         >
-          {approveLoading && <ButtonLoader />}
-          <span className="sr-only">Approve</span>
-          <span>
-            <BadgeCheckIcon className="h-4 w-4" />
-          </span>
-        </Button>
-      </Tooltip>
-      <MoreDropdown
-        setOpenedNewsletter={setOpenedNewsletter}
-        item={item}
-        userEmail={userEmail}
-        userGmailLabels={userGmailLabels}
-        posthog={posthog}
-      />
-    </>
+          {item.autoArchived?.id && (
+            <>
+              <DropdownMenuItem
+                onClick={async () => {
+                  setAutoArchiveLoading(true);
+
+                  onDeleteFilter(item.autoArchived?.id!);
+                  await setNewsletterStatusAction({
+                    newsletterEmail: item.name,
+                    status: null,
+                  });
+                  await mutate();
+
+                  posthog.capture("Clicked Disable Auto Archive");
+
+                  setAutoArchiveLoading(false);
+                }}
+              >
+                <ArchiveXIcon className="mr-2 h-4 w-4" /> Disable Auto Archive
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+
+          <DropdownMenuLabel>Auto Archive and Label</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {userGmailLabels?.map((label) => {
+            return (
+              <DropdownMenuItem
+                key={label.id}
+                onClick={async () => {
+                  setAutoArchiveLoading(true);
+
+                  onAutoArchive(item.name, label.id || undefined);
+                  await setNewsletterStatusAction({
+                    newsletterEmail: item.name,
+                    status: NewsletterStatus.AUTO_ARCHIVED,
+                  });
+                  await mutate();
+                  await decrementUnsubscribeCreditAction();
+                  await refetchPremium();
+
+                  posthog.capture("Clicked Auto Archive and Label");
+
+                  setAutoArchiveLoading(false);
+                }}
+              >
+                {label.name}
+              </DropdownMenuItem>
+            );
+          })}
+          {!userGmailLabels?.length && (
+            <DropdownMenuItem>
+              You do not have any labels. Create one in Gmail first to auto
+              label emails.
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+export function useApproveButton<T extends Row>({
+  item,
+  mutate,
+  posthog,
+}: {
+  item: T;
+  mutate: () => Promise<void>;
+  posthog: PostHog;
+}) {
+  const [approveLoading, setApproveLoading] = React.useState(false);
+
+  const onApprove = async () => {
+    setApproveLoading(true);
+
+    await setNewsletterStatusAction({
+      newsletterEmail: item.name,
+      status: NewsletterStatus.APPROVED,
+    });
+    await mutate();
+
+    posthog.capture("Clicked Approve Sender");
+
+    setApproveLoading(false);
+  };
+
+  return {
+    approveLoading,
+    onApprove,
+  };
+}
+
+function ApproveButton<T extends Row>({
+  item,
+  hasUnsubscribeAccess,
+  mutate,
+  posthog,
+}: {
+  item: T;
+  hasUnsubscribeAccess: boolean;
+  mutate: () => Promise<void>;
+  posthog: PostHog;
+}) {
+  const { approveLoading, onApprove } = useApproveButton({
+    item,
+    mutate,
+    posthog,
+  });
+
+  return (
+    <Button
+      size="sm"
+      variant={
+        item.status === NewsletterStatus.APPROVED ? "green" : "secondary"
+      }
+      onClick={onApprove}
+      disabled={!hasUnsubscribeAccess}
+    >
+      {approveLoading && <ButtonLoader />}
+      <span className="sr-only">Keep</span>
+      <span>
+        <BadgeCheckIcon className="h-4 w-4" />
+      </span>
+    </Button>
   );
 }
 

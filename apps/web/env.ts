@@ -32,6 +32,8 @@ export const env = createEnv({
     RESEND_AUDIENCE_ID: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
+    FB_PIXEL_ID: z.string().optional(),
     ADMINS: z
       .string()
       .optional()
@@ -49,8 +51,8 @@ export const env = createEnv({
 
     // lemon plans
     // basic
-    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK: z.string(),
-    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK: z.string(),
+    NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
     // pro

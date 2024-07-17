@@ -18,7 +18,7 @@ export default function Page() {
         headline="Gmail Productivity Hacks"
         datePublished="2024-06-27T23:00:00+00:00"
         dateModified="2024-06-27T23:00:00+00:00"
-        authorName="AI Blog Articles"
+        authorName="Ricardo Batista"
         authorUrl="https://getaiblogarticles.com/"
         image={[]}
       />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import {
@@ -28,10 +28,7 @@ import { StatsCards } from "@/components/StatsCards";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
-  ShortcutTooltip,
-  SectionHeader,
   ActionCell,
-  type Row,
   HeaderButton,
 } from "@/app/(app)/bulk-unsubscribe/common";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
@@ -40,6 +37,9 @@ import { usePremium } from "@/components/PremiumAlert";
 import type { DateRange } from "react-day-picker";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
+import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { SectionHeader } from "@/app/(app)/bulk-unsubscribe/SectionHeader";
 
 export function NewSenders(props: {
   dateRange?: DateRange | undefined;
@@ -303,7 +303,7 @@ function NewSenderRow(props: {
       </TableCell>
       <TableCell>{formatShortDate(new Date(firstEmail.timestamp))}</TableCell>
       <TableCell className="text-center">{numberOfEmails}</TableCell>
-      <TableCell className="flex justify-end space-x-2 p-2">
+      <TableCell className="flex justify-end gap-2 p-2">
         <ActionCell
           item={item}
           userEmail={props.userEmail}

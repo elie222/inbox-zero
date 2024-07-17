@@ -81,7 +81,7 @@ export const EmailListItem = forwardRef(
       <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
         <li
           ref={ref}
-          className={clsx("group relative cursor-pointer border-l-4 py-3 ", {
+          className={clsx("group relative cursor-pointer border-l-4 py-3", {
             "hover:bg-gray-50": !props.selected && !props.opened,
             "bg-blue-50": props.selected,
             "bg-blue-100": props.opened,
