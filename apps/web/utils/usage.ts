@@ -48,6 +48,10 @@ const costs: Record<
     input: 0.5 / 1_000_000,
     output: 1.5 / 1_000_000,
   },
+  "gpt-4o-mini": {
+    input: 0.15 / 1_000_000,
+    output: 0.6 / 1_000_000,
+  },
   "gpt-4-turbo": {
     input: 10 / 1_000_000,
     output: 30 / 1_000_000,

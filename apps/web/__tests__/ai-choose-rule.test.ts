@@ -136,7 +136,7 @@ function getEmail({
 
 function getUser() {
   return {
-    aiModel: "gpt-3.5-turbo",
+    aiModel: "gpt-4o-mini",
     aiProvider: "openai",
     email: "user@test.com",
     openAIApiKey: null,

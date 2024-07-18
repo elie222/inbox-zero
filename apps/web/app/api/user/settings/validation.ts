@@ -20,8 +20,7 @@ export const saveSettingsBody = z
   })
   .superRefine((val) => {
     // if openai key is not set, model must be a valid model
-    if (!val.openAIApiKey)
-      z.enum(["gpt-3.5-turbo-0125", "gpt-4o"]).parse(val.aiModel);
+    if (!val.openAIApiKey) z.enum(["gpt-4o-mini", "gpt-4o"]).parse(val.aiModel);
     return true;
   });
 export type SaveSettingsBody = z.infer<typeof saveSettingsBody>;

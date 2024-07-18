@@ -3,7 +3,7 @@ import { expire } from "@/utils/redis";
 import { saveSummary } from "@/utils/redis/summary";
 
 export async function summarise(text: string, userEmail: string) {
-  const model = "gpt-3.5-turbo-0125" as const;
+  const model = "gpt-4o-mini" as const;
 
   const system = `You are an email assistant. You summarise emails.
   Summarise each email in a short ~5 word sentence.
