@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Dialog,
@@ -297,6 +297,9 @@ export function SideNav(props: {
 
 function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
+  const params = useSearchParams();
+  const typeParams = params.get("type");
+
   const showMailNav = path === "/mail" || path === "/compose";
 
   const { onOpen } = useComposeModal();
@@ -332,12 +335,15 @@ function Sidebar(props: { isMobile: boolean }) {
             </Button>
 
             <div className="mt-2">
-              <Links path={path} links={topMailLinks} />
+              <Links path={`${path}?type=${typeParams}`} links={topMailLinks} />
             </div>
             <div className="mt-7">
               <NavSectionHeader title="Labels" />
               <div className="mt-2">
-                <Links path={path} links={bottomMailLinks} />
+                <Links
+                  path={`${path}?type=${typeParams}`}
+                  links={bottomMailLinks}
+                />
               </div>
             </div>
           </Transition>
@@ -392,6 +398,7 @@ function Links(props: { path: string; links: NavItem[] }) {
 
 function NavLink(props: { path: string; link: NavItem }) {
   const { link } = props;
+  const isActive = props.path === link.href || props.path.includes(link.href);
 
   return (
     <li key={link.name}>
@@ -399,7 +406,7 @@ function NavLink(props: { path: string; link: NavItem }) {
         href={link.href}
         className={clsx(
           "group flex h-9 items-center gap-x-3 rounded-md px-3 text-sm font-semibold leading-5 text-white",
-          link.href === props.path ? "bg-gray-800" : "hover:bg-gray-800",
+          isActive ? "bg-gray-800" : "hover:bg-gray-800",
         )}
         target={link.target}
         prefetch={link.target !== "_blank"}
