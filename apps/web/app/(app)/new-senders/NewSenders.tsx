@@ -11,6 +11,7 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  Title,
 } from "@tremor/react";
 import groupBy from "lodash/groupBy";
 import { FilterIcon, Users2Icon } from "lucide-react";
@@ -39,7 +40,6 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
-import { SectionHeader } from "@/app/(app)/bulk-unsubscribe/SectionHeader";
 
 export function NewSenders(props: {
   dateRange?: DateRange | undefined;
@@ -121,12 +121,9 @@ export function NewSenders(props: {
           ]}
         />
       </LoadingContent>
-      <Card className="mt-2 sm:mt-4">
-        <div className="items-center justify-between px-6 pt-6 md:flex">
-          <SectionHeader
-            title="Who are the first time senders?"
-            description="A list of emails that you received for the first time."
-          />
+      <Card className="mt-2 p-0 sm:mt-4">
+        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
+          <Title>New Senders</Title>
           <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
             <div className="hidden md:block">
               <ShortcutTooltip />

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { useWindowSize } from "usehooks-ts";
 import { FilterIcon } from "lucide-react";
+import { Title } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,7 +41,6 @@ import {
 } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeDesktop";
 import { Card } from "@/components/ui/card";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
-import { SectionHeader } from "@/app/(app)/bulk-unsubscribe/SectionHeader";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -136,10 +136,7 @@ export function BulkUnsubscribeSection(props: {
       {!isMobile && <BulkUnsubscribeSummary />}
       <Card className="mt-2 p-0 sm:mt-4">
         <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
-          <SectionHeader
-            title="Which newsletters and marketing emails do you get the most?"
-            description="Quickly unsubscribe or view them in more detail."
-          />
+          <Title>Bulk Unsubscribe</Title>
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 sm:gap-2 md:mt-0 lg:flex-nowrap">
             <div className="hidden md:block">
               <ShortcutTooltip />
