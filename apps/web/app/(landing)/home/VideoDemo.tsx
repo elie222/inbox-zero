@@ -26,15 +26,20 @@ export function VideoDemo() {
         hideModal={closeModal}
         padding="none"
         size="6xl"
+        fullWidth
         backdropClass="backdrop-blur bg-white/80"
       >
-        <iframe
-          className="aspect-video h-full w-full rounded-lg"
-          src="https://www.youtube.com/embed/kc_9WZ1ZWyg?autoplay=1"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
+        <div className="w-[90vw] md:w-[80vw]">
+          <iframe
+            className="aspect-video h-full w-full rounded-lg"
+            src="https://www.youtube.com/embed/kc_9WZ1ZWyg?autoplay=1"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            width="100%"
+            height="100%"
+          />
+        </div>
       </Modal>
     </>
   );
