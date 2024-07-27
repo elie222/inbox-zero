@@ -54,7 +54,6 @@ import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
-  console.log("🚀 ~ RuleForm ~ rule:", rule);
   const {
     register,
     handleSubmit,
@@ -73,7 +72,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   const router = useRouter();
 
-  const onSubmit: SubmitHandler = useCallback(
+  const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
       const tab = searchParams.get("tab") || rule.type;
@@ -390,8 +389,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
 function GroupsTab(props: {
   registerProps: UseFormRegisterReturn;
-  setValue: UseFormSetValue;
-  errors: FieldErrors;
+  setValue: UseFormSetValue<CreateRuleBody>;
+  errors: FieldErrors<CreateRuleBody>;
   groupId?: string | null;
 }) {
   const { setValue } = props;
@@ -485,7 +484,7 @@ function LabelCombobox({
 }: {
   value: string;
   onChangeValue: (value: string) => void;
-  userLabels: NonNullable;
+  userLabels: NonNullable<LabelsResponse["labels"]>;
   isLoading: boolean;
   mutate: () => void;
 }) {
