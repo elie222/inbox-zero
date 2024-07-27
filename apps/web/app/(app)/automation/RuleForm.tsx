@@ -72,7 +72,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   const router = useRouter();
 
-  const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
+  const onSubmit: SubmitHandler = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
       const tab = searchParams.get("tab") || rule.type;
@@ -242,83 +242,76 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   </Button>
                 </div>
                 <div className="col-span-3 space-y-4">
-                  {actionInputs[watch(`actions.${i}.type`)].fields.map(
-                    (field) => {
-                      const isAiGenerated = watch(
-                        `actions.${i}.${field.name}.ai`,
-                      );
+                  {actionInputs[action.type].fields.map((field) => {
+                    const isAiGenerated = action[field.name]?.ai;
 
-                      return (
-                        <div key={field.label}>
-                          <div className="flex items-center justify-between">
-                            <Label name={field.name} label={field.label} />
-                            <div className="flex items-center space-x-2">
-                              <TooltipExplanation text="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation." />
-                              <Toggle
-                                name={`actions.${i}.${field.name}.ai`}
-                                label="AI generated"
-                                enabled={isAiGenerated || false}
-                                onChange={(enabled) => {
-                                  setValue(
-                                    `actions.${i}.${field.name}`,
-                                    enabled
-                                      ? { value: "", ai: true }
-                                      : { value: "", ai: false },
-                                  );
-                                }}
-                              />
-                            </div>
+                    return (
+                      <div key={field.label}>
+                        <div className="flex items-center justify-between">
+                          <Label name={field.name} label={field.label} />
+                          <div className="flex items-center space-x-2">
+                            <TooltipExplanation text="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation." />
+                            <Toggle
+                              name={`actions.${i}.${field.name}.ai`}
+                              label="AI generated"
+                              enabled={isAiGenerated || false}
+                              onChange={(enabled) => {
+                                setValue(
+                                  `actions.${i}.${field.name}`,
+                                  enabled
+                                    ? { value: "", ai: true }
+                                    : { value: "", ai: false },
+                                );
+                              }}
+                            />
                           </div>
-
-                          {field.name === "label" ? (
-                            <div className="mt-2">
-                              <LabelCombobox
-                                userLabels={userLabels}
-                                isLoading={isLoading}
-                                mutate={mutate}
-                                value={
-                                  watch(`actions.${i}.${field.name}.value`) ||
-                                  ""
-                                }
-                                onChangeValue={(value) => {
-                                  setValue(
-                                    `actions.${i}.${field.name}.value`,
-                                    value,
-                                  );
-                                }}
-                              />
-                            </div>
-                          ) : field.textArea ? (
-                            <textarea
-                              className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                              rows={3}
-                              placeholder={
-                                isAiGenerated ? "AI prompt (optional)" : ""
-                              }
-                              {...register(`actions.${i}.${field.name}.value`)}
-                            />
-                          ) : (
-                            <input
-                              className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                              type="text"
-                              placeholder={
-                                isAiGenerated ? "AI prompt (optional)" : ""
-                              }
-                              {...register(`actions.${i}.${field.name}.value`)}
-                            />
-                          )}
-
-                          {errors["actions"]?.[i]?.[field.name]?.message ? (
-                            <ErrorMessage
-                              message={
-                                errors["actions"]?.[i]?.[field.name]?.message!
-                              }
-                            />
-                          ) : null}
                         </div>
-                      );
-                    },
-                  )}
+
+                        {field.name === "label" ? (
+                          <div className="mt-2">
+                            <LabelCombobox
+                              userLabels={userLabels}
+                              isLoading={isLoading}
+                              mutate={mutate}
+                              value={action[field.name]?.value || ""}
+                              onChangeValue={(value) => {
+                                setValue(
+                                  `actions.${i}.${field.name}.value`,
+                                  value,
+                                );
+                              }}
+                            />
+                          </div>
+                        ) : field.textArea ? (
+                          <textarea
+                            className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                            rows={3}
+                            placeholder={
+                              isAiGenerated ? "AI prompt (optional)" : ""
+                            }
+                            {...register(`actions.${i}.${field.name}.value`)}
+                          />
+                        ) : (
+                          <input
+                            className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                            type="text"
+                            placeholder={
+                              isAiGenerated ? "AI prompt (optional)" : ""
+                            }
+                            {...register(`actions.${i}.${field.name}.value`)}
+                          />
+                        )}
+
+                        {errors["actions"]?.[i]?.[field.name]?.message ? (
+                          <ErrorMessage
+                            message={
+                              errors["actions"]?.[i]?.[field.name]?.message!
+                            }
+                          />
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </Card>
@@ -395,9 +388,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 }
 
 function GroupsTab(props: {
-  registerProps: UseFormRegisterReturn<"groupId">;
-  setValue: UseFormSetValue<CreateRuleBody>;
-  errors: FieldErrors<CreateRuleBody>;
+  registerProps: UseFormRegisterReturn;
+  setValue: UseFormSetValue;
+  errors: FieldErrors;
   groupId?: string | null;
 }) {
   const { setValue } = props;
@@ -491,7 +484,7 @@ function LabelCombobox({
 }: {
   value: string;
   onChangeValue: (value: string) => void;
-  userLabels: NonNullable<LabelsResponse["labels"]>;
+  userLabels: NonNullable;
   isLoading: boolean;
   mutate: () => void;
 }) {
