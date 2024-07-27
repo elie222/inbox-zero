@@ -54,6 +54,7 @@ import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
+  console.log("🚀 ~ RuleForm ~ rule:", rule);
   const {
     register,
     handleSubmit,

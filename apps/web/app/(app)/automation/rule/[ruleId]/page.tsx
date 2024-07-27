@@ -27,24 +27,30 @@ export default async function RulePage({
     ...rule,
     actions: rule.actions.map((action) => ({
       ...action,
-      label: action.labelPrompt
-        ? { value: action.labelPrompt, ai: true }
-        : { value: action.label, ai: false },
-      subject: action.subjectPrompt
-        ? { value: action.subjectPrompt, ai: true }
-        : { value: action.subject, ai: false },
-      content: action.contentPrompt
-        ? { value: action.contentPrompt, ai: true }
-        : { value: action.content, ai: false },
-      to: action.toPrompt
-        ? { value: action.toPrompt, ai: true }
-        : { value: action.to, ai: false },
-      cc: action.ccPrompt
-        ? { value: action.ccPrompt, ai: true }
-        : { value: action.cc, ai: false },
-      bcc: action.bccPrompt
-        ? { value: action.bccPrompt, ai: true }
-        : { value: action.bcc, ai: false },
+      label:
+        typeof action.labelPrompt === "string"
+          ? { value: action.labelPrompt, ai: true }
+          : { value: action.label, ai: false },
+      subject:
+        typeof action.subjectPrompt === "string"
+          ? { value: action.subjectPrompt, ai: true }
+          : { value: action.subject, ai: false },
+      content:
+        typeof action.contentPrompt === "string"
+          ? { value: action.contentPrompt, ai: true }
+          : { value: action.content, ai: false },
+      to:
+        typeof action.toPrompt === "string"
+          ? { value: action.toPrompt, ai: true }
+          : { value: action.to, ai: false },
+      cc:
+        typeof action.ccPrompt === "string"
+          ? { value: action.ccPrompt, ai: true }
+          : { value: action.cc, ai: false },
+      bcc:
+        typeof action.bccPrompt === "string"
+          ? { value: action.bccPrompt, ai: true }
+          : { value: action.bcc, ai: false },
     })),
   };
 
