@@ -14,8 +14,8 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^0.0.33",
     "@ai-sdk/openai": "^0.0.40",
-    "@auth/core": "^0.34.1",
-    "@auth/prisma-adapter": "^2.4.1",
+    "@auth/core": "^0.34.2",
+    "@auth/prisma-adapter": "^2.4.2",
     "@formkit/auto-animate": "^0.8.2",
     "@headlessui/react": "^2.1.2",
     "@hookform/resolvers": "^3.9.0",
@@ -75,7 +75,7 @@
     "linkify-react": "^4.1.3",
     "linkifyjs": "^4.1.3",
     "lodash": "^4.17.21",
-    "lucide-react": "^0.416.0",
+    "lucide-react": "^0.417.0",
     "next": "14.2.5",
     "next-auth": "5.0.0-beta.19",
     "next-axiom": "^1.3.0",
@@ -103,7 +103,7 @@
     "typescript": "5.5.4",
     "usehooks-ts": "^3.1.0",
     "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.23.1"
+    "zod-to-json-schema": "^3.23.2"
   },
   "devDependencies": {
     "@headlessui/tailwindcss": "^0.2.1",
@@ -117,7 +117,7 @@
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.19",
     "dotenv": "^16.4.5",
-    "eslint-config-custom": "workspace:*",
+    "@inboxzero/eslint-config": "workspace:*",
     "jiti": "^1.21.6",
     "jsdom": "^24.1.1",
     "postcss": "8.4.40",

@@ -1,6 +1,8 @@
 {
-  "extends": "next/core-web-vitals",
-  "rules": {
-    "no-process-env":"error"
+  "root": true,
+  "extends": ["@inboxzero/eslint-config"],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": true
   }
 }
