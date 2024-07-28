@@ -36,7 +36,7 @@ export async function ApiKeysSection() {
         description="Create an API key to access the Inbox Zero API. Do not share your API key with others, or expose it in the browser or other client-side code."
       />
 
-      <div className="space-y-4">
+      <div className="col-span-2 space-y-4">
         {apiKeys.length > 0 ? (
           <Card>
             <Table>

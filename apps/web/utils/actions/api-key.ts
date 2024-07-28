@@ -1,12 +1,18 @@
 "use server";
 
-import { randomBytes, scryptSync } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { createApiKeyBody, deactivateApiKeyBody } from "@/utils/actions/validation";
-import type { CreateApiKeyBody, DeactivateApiKeyBody } from "@/utils/actions/validation";
+import {
+  createApiKeyBody,
+  deactivateApiKeyBody,
+} from "@/utils/actions/validation";
+import type {
+  CreateApiKeyBody,
+  DeactivateApiKeyBody,
+} from "@/utils/actions/validation";
 import { ServerActionResponse } from "@/utils/error";
 import prisma from "@/utils/prisma";
+import { generateSecureApiKey, hashApiKey } from "@/utils/api-key";
 
 export async function createApiKeyAction(
   unsafeData: CreateApiKeyBody,
@@ -35,16 +41,6 @@ export async function createApiKeyAction(
   revalidatePath("/settings");
 
   return { secretKey };
-}
-
-function generateSecureApiKey(): string {
-  return randomBytes(32).toString("base64");
-}
-
-function hashApiKey(apiKey: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = scryptSync(apiKey, salt, 64);
-  return `${salt}:${derivedKey.toString("hex")}`;
 }
 
 export async function deactivateApiKeyAction(
