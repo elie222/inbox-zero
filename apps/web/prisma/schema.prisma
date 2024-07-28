@@ -85,6 +85,7 @@ model User {
   newsletters   Newsletter[]
   coldEmails    ColdEmail[]
   groups        Group[]
+  apiKeys       ApiKey[]
 }
 
 model Premium {
@@ -309,6 +310,20 @@ model ColdEmail {
 
   @@unique([userId, fromEmail])
   @@index([userId, status])
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String?
+  hashedKey String   @unique
+  isActive  Boolean  @default(true)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
 }
 
 enum ActionType {

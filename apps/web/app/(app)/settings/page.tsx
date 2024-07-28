@@ -5,6 +5,7 @@ import { DeleteSection } from "@/app/(app)/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/settings/ModelSection";
 import { EmailUpdatesSection } from "@/app/(app)/settings/EmailUpdatesSection";
 import { MultiAccountSection } from "@/app/(app)/settings/MultiAccountSection";
+import { ApiKeysSection } from "@/app/(app)/settings/ApiKeysSection";
 
 export default function Settings() {
   return (
@@ -14,6 +15,7 @@ export default function Settings() {
       <ModelSection />
       <EmailUpdatesSection />
       <MultiAccountSection />
+      <ApiKeysSection />
       <DeleteSection />
     </FormWrapper>
   );

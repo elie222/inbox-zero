@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
-import { toastError, toastSuccess } from "@/components/Toast";
 import { deleteAccountAction } from "@/utils/actions/user";
 import { handleActionResult } from "@/utils/server-action";
 import { logOut } from "@/utils/user";
