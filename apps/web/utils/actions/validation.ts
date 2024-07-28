@@ -7,14 +7,14 @@ export const createGroupBody = z.object({
   name: z.string(),
   prompt: z.string().optional(),
 });
-export type CreateGroupBody = z.infer;
+export type CreateGroupBody = z.infer<typeof createGroupBody>;
 
 export const addGroupItemBody = z.object({
   groupId: z.string(),
   type: z.enum([GroupItemType.FROM, GroupItemType.SUBJECT]),
   value: z.string(),
 });
-export type AddGroupItemBody = z.infer;
+export type AddGroupItemBody = z.infer<typeof addGroupItemBody>;
 
 // rules
 export const zodActionType = z.enum([
@@ -66,17 +66,17 @@ export const createRuleBody = z.object({
   // group
   groupId: z.string().nullish(),
 });
-export type CreateRuleBody = z.infer;
+export type CreateRuleBody = z.infer<typeof createGroupBody>;
 
 export const updateRuleBody = createRuleBody.extend({
   id: z.string(),
   actions: z.array(zodAction.extend({ id: z.string().optional() })),
 });
-export type UpdateRuleBody = z.infer;
+export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 // api key
 export const createApiKeyBody = z.object({ name: z.string().nullish() });
-export type CreateApiKeyBody = z.infer;
+export type CreateApiKeyBody = z.infer<typeof createApiKeyBody>;
 
 export const deactivateApiKeyBody = z.object({ id: z.string() });
-export type DeactivateApiKeyBody = z.infer;
+export type DeactivateApiKeyBody = z.infer<typeof deactivateApiKeyBody>;

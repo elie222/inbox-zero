@@ -46,7 +46,7 @@ export function ApiKeysCreateButtonModal() {
   );
 }
 
-function ApiKeysForm(props: {}) {
+function ApiKeysForm() {
   const {
     register,
     handleSubmit,
@@ -58,16 +58,19 @@ function ApiKeysForm(props: {}) {
 
   const [secretKey, setSecretKey] = useState("");
 
-  const onSubmit: SubmitHandler = useCallback(async (data) => {
-    const result = await createApiKeyAction(data);
-    handleActionResult(result, "API key created!");
+  const onSubmit: SubmitHandler<CreateApiKeyBody> = useCallback(
+    async (data) => {
+      const result = await createApiKeyAction(data);
+      handleActionResult(result, "API key created!");
 
-    if (!isActionError(result) && result?.secretKey) {
-      setSecretKey(result.secretKey);
-    } else {
-      toastError({ description: "Failed to create API key" });
-    }
-  }, []);
+      if (!isActionError(result) && result?.secretKey) {
+        setSecretKey(result.secretKey);
+      } else {
+        toastError({ description: "Failed to create API key" });
+      }
+    },
+    [],
+  );
 
   return !secretKey ? (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

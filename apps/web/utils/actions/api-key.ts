@@ -14,7 +14,7 @@ import prisma from "@/utils/prisma";
 
 export async function createApiKeyAction(
   unsafeData: CreateApiKeyBody,
-): Promise {
+): Promise<ServerActionResponse<{ secretKey: string }>> {
   const session = await auth();
   const userId = session?.user.id;
   if (!userId) return { error: "Not logged in" };
@@ -53,7 +53,7 @@ function hashApiKey(apiKey: string): string {
 
 export async function deactivateApiKeyAction(
   unsafeData: DeactivateApiKeyBody,
-): Promise {
+): Promise<ServerActionResponse> {
   const session = await auth();
   const userId = session?.user.id;
   if (!userId) return { error: "Not logged in" };
