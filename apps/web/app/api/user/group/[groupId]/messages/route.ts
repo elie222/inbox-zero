@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
-import { getExamples } from "@/app/api/user/group/[groupId]/examples/controller";
+import { getGroupEmails } from "@/app/api/user/group/[groupId]/messages/controller";
 import { getGmailClient } from "@/utils/gmail/client";
 
 export const GET = withError(async (_request, { params }) => {
@@ -14,13 +14,14 @@ export const GET = withError(async (_request, { params }) => {
 
   const gmail = getGmailClient(session);
 
-  const { examples, totalCount } = await getExamples({
+  const { messages } = await getGroupEmails({
     groupId,
     userId: session.user.id,
     gmail,
-    page: 1,
-    limit: 100,
+    from: undefined,
+    to: undefined,
+    pageToken: "",
   });
 
-  return NextResponse.json({ examples, totalCount });
+  return NextResponse.json({ messages });
 });

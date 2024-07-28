@@ -1,19 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { getExamples } from "@/app/api/user/group/[groupId]/examples/controller";
+import { getGroupEmails } from "@/app/api/user/group/[groupId]/messages/controller";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { hashApiKey } from "@/utils/api-key";
-import { paginationQuerySchema } from "@/utils/pagination-schema";
+
+const querySchema = z.object({
+  pageToken: z.string().optional(),
+  from: z.coerce.number().optional(),
+  to: z.coerce.number().optional(),
+});
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { groupId: string } },
 ) {
   const { groupId } = params;
   const { searchParams } = new URL(request.url);
-  const queryResult = paginationQuerySchema.safeParse(
-    Object.fromEntries(searchParams),
-  );
+  const queryResult = querySchema.safeParse(Object.fromEntries(searchParams));
 
   if (!queryResult.success) {
     return NextResponse.json(
@@ -52,25 +56,18 @@ export async function GET(
     account.providerAccountId,
   );
 
-  const { page, limit } = queryResult.data;
+  const { pageToken, from, to } = queryResult.data;
 
-  const { examples, totalCount } = await getExamples({
+  const { messages, nextPageToken } = await getGroupEmails({
     groupId,
     userId: user.id,
     gmail,
-    page,
-    limit,
+    from: from ? new Date(from) : undefined,
+    to: to ? new Date(to) : undefined,
+    pageToken,
   });
 
-  return NextResponse.json({
-    data: examples,
-    pagination: {
-      currentPage: page,
-      totalPages: Math.ceil(totalCount / limit),
-      totalCount,
-      limit,
-    },
-  });
+  return NextResponse.json({ messages, nextPageToken });
 }
 
 async function getUserFromApiKey(secretKey: string) {
