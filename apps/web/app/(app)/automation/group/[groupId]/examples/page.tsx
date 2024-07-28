@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import useSWR from "swr";
 import groupBy from "lodash/groupBy";
 import { TopSection } from "@/components/TopSection";
-import { Button } from "@/components/ui/button";
 import { ExampleList } from "@/app/(app)/automation/rule/[ruleId]/examples/example-list";
-import type { ExamplesResponse } from "@/app/api/user/rules/[id]/example/route";
+import type { ExamplesResponse } from "@/app/api/user/group/[groupId]/examples/controller";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +18,7 @@ export default function RuleExamplesPage({
     `/api/user/group/${params.groupId}/examples`,
   );
 
-  const threads = groupBy(data, (m) => m.threadId);
+  const threads = groupBy(data?.examples, (m) => m.threadId);
   const groupedBySenders = groupBy(threads, (t) => t[0]?.headers.from);
 
   const hasExamples = Object.keys(groupedBySenders).length > 0;

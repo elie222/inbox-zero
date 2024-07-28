@@ -3,12 +3,24 @@ import prisma from "@/utils/prisma";
 import { getExamples } from "@/app/api/user/group/[groupId]/examples/controller";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { hashApiKey } from "@/utils/api-key";
+import { paginationQuerySchema } from "@/utils/pagination-schema";
 
 export async function GET(
   request: Request,
   { params }: { params: { groupId: string } },
 ) {
   const { groupId } = params;
+  const { searchParams } = new URL(request.url);
+  const queryResult = paginationQuerySchema.safeParse(
+    Object.fromEntries(searchParams),
+  );
+
+  if (!queryResult.success) {
+    return NextResponse.json(
+      { error: "Invalid query parameters" },
+      { status: 400 },
+    );
+  }
 
   const apiKey = request.headers.get("API-Key");
 
@@ -40,13 +52,25 @@ export async function GET(
     account.providerAccountId,
   );
 
-  const examples = await getExamples({
+  const { page, limit } = queryResult.data;
+
+  const { examples, totalCount } = await getExamples({
     groupId,
     userId: user.id,
     gmail,
+    page,
+    limit,
   });
 
-  return NextResponse.json(examples);
+  return NextResponse.json({
+    data: examples,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+      totalCount,
+      limit,
+    },
+  });
 }
 
 async function getUserFromApiKey(secretKey: string) {

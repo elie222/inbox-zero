@@ -14,7 +14,13 @@ export const GET = withError(async (_request, { params }) => {
 
   const gmail = getGmailClient(session);
 
-  const result = await getExamples({ groupId, userId: session.user.id, gmail });
+  const { examples, totalCount } = await getExamples({
+    groupId,
+    userId: session.user.id,
+    gmail,
+    page: 1,
+    limit: 100,
+  });
 
-  return NextResponse.json(result);
+  return NextResponse.json({ examples, totalCount });
 });
