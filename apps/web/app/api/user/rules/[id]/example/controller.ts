@@ -18,10 +18,11 @@ export async function fetchExampleMessages(
       return fetchStaticExampleMessages(rule, gmail);
     case RuleType.GROUP:
       if (!rule.group) return [];
-      return fetchPaginatedMessages({
+      const { messages } = await fetchPaginatedMessages({
         groupItems: rule.group.items,
         gmail,
       });
+      return messages;
     case RuleType.AI:
       return [];
   }
