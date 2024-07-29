@@ -32,7 +32,7 @@ export function Groups() {
         <div className="flex justify-between">
           <div className="space-y-1.5">
             <CardTitle>Groups</CardTitle>
-            <CardDescription>
+            <CardDescription className="max-w-prose">
               Groups are used to group together emails that are related to each
               other. They can be created manually, or preset group can be
               generated for you automatically with AI.

@@ -73,3 +73,10 @@ export const updateRuleBody = createRuleBody.extend({
   actions: z.array(zodAction.extend({ id: z.string().optional() })),
 });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
+
+// api key
+export const createApiKeyBody = z.object({ name: z.string().nullish() });
+export type CreateApiKeyBody = z.infer<typeof createApiKeyBody>;
+
+export const deactivateApiKeyBody = z.object({ id: z.string() });
+export type DeactivateApiKeyBody = z.infer<typeof deactivateApiKeyBody>;
