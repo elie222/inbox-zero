@@ -66,7 +66,7 @@ export const createRuleBody = z.object({
   // group
   groupId: z.string().nullish(),
 });
-export type CreateRuleBody = z.infer<typeof createGroupBody>;
+export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
 export const updateRuleBody = createRuleBody.extend({
   id: z.string(),
