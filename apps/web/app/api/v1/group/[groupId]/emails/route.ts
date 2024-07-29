@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { getGroupEmails } from "@/app/api/user/group/[groupId]/messages/controller";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { hashApiKey } from "@/utils/api-key";
-
-const querySchema = z.object({
-  pageToken: z.string().optional(),
-  from: z.coerce.number().optional(),
-  to: z.coerce.number().optional(),
-});
+import {
+  groupEmailsQuerySchema,
+  GroupEmailsResult,
+} from "@/app/api/v1/group/[groupId]/emails/validation";
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +14,9 @@ export async function GET(
 ) {
   const { groupId } = params;
   const { searchParams } = new URL(request.url);
-  const queryResult = querySchema.safeParse(Object.fromEntries(searchParams));
+  const queryResult = groupEmailsQuerySchema.safeParse(
+    Object.fromEntries(searchParams),
+  );
 
   if (!queryResult.success) {
     return NextResponse.json(
@@ -67,7 +66,12 @@ export async function GET(
     pageToken,
   });
 
-  return NextResponse.json({ messages, nextPageToken });
+  const result: GroupEmailsResult = {
+    messages,
+    nextPageToken,
+  };
+
+  return NextResponse.json(result);
 }
 
 async function getUserFromApiKey(secretKey: string) {
