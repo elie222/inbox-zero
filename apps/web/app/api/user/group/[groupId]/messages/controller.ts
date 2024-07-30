@@ -253,7 +253,7 @@ function buildQuery(
 
   if (groupItemType === GroupItemType.FROM) {
     const q = `from:(${groupItems
-      .map((item) => `"${extractEmailAddress(item.value)}"`)
+      .map((item) => `"${extractEmailAddress(item.value) || item.value}"`)
       .join(" OR ")}) ${beforeQuery}${afterQuery}`;
     return q;
   }
