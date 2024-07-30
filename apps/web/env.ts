@@ -66,6 +66,9 @@ export const env = createEnv({
     NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
+    // copilot
+    NEXT_PUBLIC_COPILOT_MONTHLY_PAYMENT_LINK: z.string().default(""),
+    NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
     // lifetime
     NEXT_PUBLIC_LIFETIME_PAYMENT_LINK: z.string().default(""),
     NEXT_PUBLIC_LIFETIME_VARIANT_ID: z.coerce.number().default(0),
@@ -121,6 +124,11 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID,
     NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
       process.env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID,
+    // copilot
+    NEXT_PUBLIC_COPILOT_MONTHLY_PAYMENT_LINK:
+      process.env.NEXT_PUBLIC_COPILOT_MONTHLY_PAYMENT_LINK,
+    NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID:
+      process.env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID,
     // lifetime
     NEXT_PUBLIC_LIFETIME_PAYMENT_LINK:
       process.env.NEXT_PUBLIC_LIFETIME_PAYMENT_LINK,

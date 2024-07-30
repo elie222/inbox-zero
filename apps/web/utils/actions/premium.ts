@@ -274,7 +274,8 @@ export async function changePremiumStatusAction(
         options.period === PremiumTier.BUSINESS_ANNUALLY
           ? new Date(+new Date() + ONE_MONTH * 12)
           : options.period === PremiumTier.PRO_MONTHLY ||
-              options.period === PremiumTier.BUSINESS_MONTHLY
+              options.period === PremiumTier.BUSINESS_MONTHLY ||
+              options.period === PremiumTier.COPILOT_MONTHLY
             ? new Date(+new Date() + ONE_MONTH)
             : null,
       emailAccountsAccess: options.emailAccountsAccess,

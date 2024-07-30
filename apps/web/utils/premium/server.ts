@@ -129,6 +129,7 @@ function getTierAccess(tier: PremiumTier) {
       };
     case PremiumTier.BUSINESS_MONTHLY:
     case PremiumTier.BUSINESS_ANNUALLY:
+    case PremiumTier.COPILOT_MONTHLY:
     case PremiumTier.LIFETIME:
       return {
         bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,

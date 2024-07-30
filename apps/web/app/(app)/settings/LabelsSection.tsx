@@ -209,7 +209,7 @@ function LabelsSectionFormInner(props: {
             <div className="mt-8">
               <SectionHeader>Suggested Labels</SectionHeader>
               <SectionDescription>
-                Labels we suggest adding to organise your emails. Click a label
+                Labels we suggest adding to organize your emails. Click a label
                 to add it.
               </SectionDescription>
               <div className="mt-2">

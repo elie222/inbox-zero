@@ -5,7 +5,6 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { toastSuccess, toastError } from "@/components/Toast";
 import { TopSection } from "@/components/TopSection";
 import { activateLicenseKeyAction } from "@/utils/actions/premium";
 import type { UserResponse } from "@/app/api/user/me/route";

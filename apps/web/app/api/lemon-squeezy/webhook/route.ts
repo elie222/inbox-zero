@@ -294,6 +294,9 @@ function getSubscriptionTier({
       return PremiumTier.BUSINESS_MONTHLY;
     case env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
       return PremiumTier.BUSINESS_ANNUALLY;
+
+    case env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID:
+      return PremiumTier.COPILOT_MONTHLY;
   }
 
   throw new Error(`Unknown variant id: ${variantId}`);
