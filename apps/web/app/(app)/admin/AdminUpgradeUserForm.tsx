@@ -90,6 +90,10 @@ export const AdminUpgradeUserForm = () => {
             value: PremiumTier.BASIC_MONTHLY,
           },
           {
+            label: PremiumTier.COPILOT_MONTHLY,
+            value: PremiumTier.COPILOT_MONTHLY,
+          },
+          {
             label: PremiumTier.LIFETIME,
             value: PremiumTier.LIFETIME,
           },

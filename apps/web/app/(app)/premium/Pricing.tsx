@@ -66,8 +66,7 @@ export function Pricing() {
             Pricing
           </h2>
           <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
-            {/* Try for free, affordable paid plans */}
-            Try for free, affordable paid plan
+            Try for free, affordable paid plans
           </p>
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
@@ -139,7 +138,10 @@ export function Pricing() {
           </div>
         </div>
 
-        <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
+        {/* 3 col layout */}
+        {/* <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3"> */}
+        {/* 2 col layout */}
+        <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-x-4 gap-y-8 lg:max-w-4xl lg:grid-cols-2">
           {tiers.map((tier, tierIdx) => {
             const isCurrentPlan = tier.tiers?.[frequency.value] === premiumTier;
 
@@ -162,11 +164,12 @@ export function Pricing() {
               <div
                 key={tier.name}
                 className={clsx(
+                  // 3 col layout
                   // tierIdx === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
                   // tierIdx === 0 ? "lg:rounded-r-none" : "",
                   // tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
+                  // 2 col layout
                   "flex flex-col justify-between rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
-                  "lg:col-start-2 lg:col-end-3",
                 )}
               >
                 <div>
@@ -189,11 +192,9 @@ export function Pricing() {
                     <span className="text-4xl font-bold tracking-tight text-gray-900">
                       ${tier.price[frequency.value]}
                     </span>
-                    {!tier.hideFrequency && (
-                      <span className="text-sm font-semibold leading-6 text-gray-600">
-                        {frequency.priceSuffix}
-                      </span>
-                    )}
+                    <span className="text-sm font-semibold leading-6 text-gray-600">
+                      {frequency.priceSuffix}
+                    </span>
 
                     {!!tier.discount?.[frequency.value] && (
                       <Badge>

@@ -18,6 +18,7 @@ export const changePremiumStatusSchema = z.object({
     PremiumTier.PRO_ANNUALLY,
     PremiumTier.BUSINESS_MONTHLY,
     PremiumTier.BUSINESS_ANNUALLY,
+    PremiumTier.COPILOT_MONTHLY,
     PremiumTier.LIFETIME,
   ]),
   upgrade: z.boolean(),

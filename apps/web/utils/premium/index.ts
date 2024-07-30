@@ -91,7 +91,8 @@ export function isOnHigherTier(
     [PremiumTier.PRO_ANNUALLY]: 4,
     [PremiumTier.BUSINESS_MONTHLY]: 5,
     [PremiumTier.BUSINESS_ANNUALLY]: 6,
-    [PremiumTier.LIFETIME]: 7,
+    [PremiumTier.COPILOT_MONTHLY]: 7,
+    [PremiumTier.LIFETIME]: 8,
   };
 
   const tier1Rank = tier1 ? tierRanking[tier1] : 0;
