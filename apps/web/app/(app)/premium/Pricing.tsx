@@ -66,7 +66,8 @@ export function Pricing() {
             Pricing
           </h2>
           <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
-            Try for free, affordable paid plans
+            {/* Try for free, affordable paid plans */}
+            Try for free, affordable paid plan
           </p>
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
@@ -133,7 +134,8 @@ export function Pricing() {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 40%!</Badge>
+            {/* <Badge>Save up to 40%!</Badge> */}
+            <Badge>Save 32%!</Badge>
           </div>
         </div>
 
@@ -160,10 +162,11 @@ export function Pricing() {
               <div
                 key={tier.name}
                 className={clsx(
-                  tierIdx === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
-                  tierIdx === 0 ? "lg:rounded-r-none" : "",
-                  tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
+                  // tierIdx === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
+                  // tierIdx === 0 ? "lg:rounded-r-none" : "",
+                  // tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
                   "flex flex-col justify-between rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
+                  "lg:col-start-2 lg:col-end-3",
                 )}
               >
                 <div>
