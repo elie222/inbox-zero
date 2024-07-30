@@ -141,10 +141,10 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <AlertBasic
+      {/* <AlertBasic
         title="AI group creation via prompt coming soon"
         description=""
-      />
+      /> */}
 
       <Input
         type="text"
@@ -154,7 +154,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         registerProps={register("name", { required: true })}
         error={errors.name}
       />
-      <Input
+      {/* <Input
         disabled
         type="text"
         as="textarea"
@@ -165,7 +165,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         explainText="Tell our AI how to populate the group."
         registerProps={register("prompt", { required: true })}
         error={errors.prompt}
-      />
+      /> */}
       <Button type="submit">
         {isSubmitting && <ButtonLoader />}
         Create
