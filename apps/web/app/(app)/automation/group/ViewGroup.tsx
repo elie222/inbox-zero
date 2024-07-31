@@ -187,10 +187,10 @@ function ViewGroup({
                     </TableHeader>
                     <TableBody>
                       {data?.items.map((item) => {
-                        // within last 10 minutes
+                        // within last 2 minutes
                         const isRecent =
                           new Date(item.createdAt) >
-                          new Date(Date.now() - 1000 * 60 * 10);
+                          new Date(Date.now() - 1000 * 60 * 2);
 
                         return (
                           <TableRow key={item.id}>

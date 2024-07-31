@@ -438,7 +438,7 @@ function GroupsTab(props: {
       )}
 
       <LoadingContent loading={isLoading || loadingCreateGroup} error={error}>
-        <div className="mt-2 flex items-center space-x-2">
+        <div className="mt-2 grid gap-2 sm:flex sm:items-center">
           {data?.groups && data?.groups.length > 0 && (
             <div className="min-w-[250px]">
               <Select
