@@ -1,7 +1,7 @@
-import { removeNumbersFromSubject } from "@/utils/ai/group/find-receipts";
 import prisma from "@/utils/prisma";
+import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
-import { GroupItemType } from "@prisma/client";
+import { GroupItem, GroupItemType } from "@prisma/client";
 
 type Groups = Awaited<ReturnType<typeof getGroups>>;
 export async function getGroups(userId: string) {
@@ -18,10 +18,9 @@ export function findMatchingGroup(message: ParsedMessage, groups: Groups) {
   return group;
 }
 
-export function findMatchingGroupItem(
-  headers: { from: string; subject: string },
-  groupItems: Groups[number]["items"],
-) {
+export function findMatchingGroupItem<
+  T extends Pick<GroupItem, "type" | "value">,
+>(headers: { from: string; subject: string }, groupItems: T[]) {
   const { from, subject } = headers;
 
   return groupItems.find((item) => {
@@ -30,8 +29,8 @@ export function findMatchingGroupItem(
     }
 
     if (item.type === GroupItemType.SUBJECT && subject) {
-      const subjectWithoutNumbers = removeNumbersFromSubject(subject);
-      const valueWithoutNumbers = removeNumbersFromSubject(item.value);
+      const subjectWithoutNumbers = generalizeSubject(subject);
+      const valueWithoutNumbers = generalizeSubject(item.value);
 
       return (
         item.value.includes(subject) ||

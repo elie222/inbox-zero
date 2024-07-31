@@ -68,7 +68,7 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
         <TableRow>
           <TableHead>Group</TableHead>
           <TableHead className="text-center">Group Items</TableHead>
-          <TableHead>Rule</TableHead>
+          <TableHead>Automation</TableHead>
           <TableHead />
         </TableRow>
       </TableHeader>
@@ -84,7 +84,7 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                     <Link
                       href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
                     >
-                      Attach Rule
+                      Attach Automation
                     </Link>
                   </Button>
                 )}

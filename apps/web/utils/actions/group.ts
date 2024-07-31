@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
@@ -29,6 +30,8 @@ export async function createGroupAction(
     await prisma.group.create({
       data: { name, prompt, userId: session.user.id },
     });
+
+    revalidatePath(`/automation`);
   } catch (error) {
     return { error: "Error creating group" };
   }
@@ -76,6 +79,8 @@ export async function createNewsletterGroupAction(): Promise<
     },
   });
 
+  revalidatePath(`/automation`);
+
   return { id: group.id };
 }
 
@@ -104,6 +109,8 @@ export async function createReceiptGroupAction(): Promise<
     },
   });
 
+  revalidatePath(`/automation`);
+
   return { id: group.id };
 }
 
@@ -114,6 +121,8 @@ export async function deleteGroupAction(
   if (!session?.user.id) return { error: "Not logged in" };
 
   await prisma.group.delete({ where: { id, userId: session.user.id } });
+
+  revalidatePath(`/automation`);
 }
 
 export async function addGroupItemAction(
@@ -128,6 +137,8 @@ export async function addGroupItemAction(
     return { error: "You don't have permission to add items to this group" };
 
   await prisma.groupItem.create({ data: addGroupItemBody.parse(body) });
+
+  revalidatePath(`/automation`);
 }
 
 export async function deleteGroupItemAction(
@@ -139,4 +150,6 @@ export async function deleteGroupItemAction(
   await prisma.groupItem.delete({
     where: { id, group: { userId: session.user.id } },
   });
+
+  revalidatePath(`/automation`);
 }
