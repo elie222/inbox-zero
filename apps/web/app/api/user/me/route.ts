@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import { SafeError } from "@/utils/error";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>>;
 
 async function getUser(userId: string) {
-  return await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -33,6 +34,10 @@ async function getUser(userId: string) {
       },
     },
   });
+
+  if (!user) throw new SafeError("User not found");
+
+  return user;
 }
 
 export const GET = withError(async () => {

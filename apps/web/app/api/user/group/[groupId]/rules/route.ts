@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import { SafeError } from "@/utils/error";
 
 export type GroupRulesResponse = Awaited<ReturnType<typeof getGroupRules>>;
 
@@ -12,7 +13,7 @@ async function getGroupRules({
   userId: string;
   groupId: string;
 }) {
-  const groupWithRules = await prisma.group.findUniqueOrThrow({
+  const groupWithRules = await prisma.group.findUnique({
     where: { id: groupId, userId },
     select: {
       rule: {
@@ -22,6 +23,9 @@ async function getGroupRules({
       },
     },
   });
+
+  if (!groupWithRules) throw new SafeError("Group not found");
+
   return { rule: groupWithRules.rule };
 }
 
