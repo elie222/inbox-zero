@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ActionType } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
+import { GroupName } from "@/utils/config";
 
 const createRuleSchema = z.object({
   name: z.string().describe("The name of the rule"),
@@ -62,7 +63,7 @@ const createRuleSchema = z.object({
     .optional()
     .describe("The static conditions to match"),
   group: z
-    .enum(["Receipts", "Newsletters"])
+    .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
     .optional()
     .describe("The group to match"),
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR, { type KeyedMutator } from "swr";
-import { PlusIcon, TrashIcon } from "lucide-react";
+import { PlusIcon, SparklesIcon, TrashIcon } from "lucide-react";
 import { useState, useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -23,7 +23,10 @@ import {
   addGroupItemAction,
   deleteGroupAction,
   deleteGroupItemAction,
+  regenerateNewsletterGroupAction,
+  regenerateReceiptGroupAction,
 } from "@/utils/actions/group";
+import { GroupName } from "@/utils/config";
 import { GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
@@ -33,6 +36,8 @@ import {
   addGroupItemBody,
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
+import { Badge } from "@/components/ui/badge";
+import { capitalCase } from "capital-case";
 
 export function ViewGroupButton({
   groupId,
@@ -61,7 +66,7 @@ export function ViewGroupButton({
         size="4xl"
       >
         <div className="mt-4">
-          <ViewGroup groupId={groupId} onDelete={closeModal} />
+          <ViewGroup groupId={groupId} groupName={name} onDelete={closeModal} />
         </div>
       </Modal>
     </>
@@ -70,9 +75,11 @@ export function ViewGroupButton({
 
 function ViewGroup({
   groupId,
+  groupName,
   onDelete,
 }: {
   groupId: string;
+  groupName: string;
   onDelete: () => void;
 }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
@@ -80,10 +87,12 @@ function ViewGroup({
   );
 
   const [showAddItem, setShowAddItem] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   return (
     <div>
-      <div className="flex items-center justify-end space-x-2">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:justify-end">
         {showAddItem ? (
           <AddGroupItemForm groupId={groupId} mutate={mutate} />
         ) : (
@@ -92,23 +101,67 @@ function ViewGroup({
               <PlusIcon className="mr-2 h-4 w-4" />
               Add Item
             </Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                if (confirm("Are you sure you want to delete this group?")) {
-                  const result = await deleteGroupAction(groupId);
+            {(groupName === GroupName.NEWSLETTER ||
+              groupName === GroupName.RECEIPT) && (
+              <Button
+                variant="outline"
+                disabled={isRegenerating}
+                onClick={async () => {
+                  setIsRegenerating(true);
+                  const result =
+                    groupName === GroupName.NEWSLETTER
+                      ? await regenerateNewsletterGroupAction(groupId)
+                      : groupName === GroupName.RECEIPT
+                        ? await regenerateReceiptGroupAction(groupId)
+                        : null;
+
                   if (isActionError(result)) {
                     toastError({
-                      description: `Failed to delete group. ${result.error}`,
+                      description: `Failed to regenerate group. ${result.error}`,
                     });
                   } else {
-                    onDelete();
+                    toastSuccess({ description: `Group items regenerated!` });
                   }
-                  mutate();
+                  setIsRegenerating(false);
+                }}
+              >
+                {isRegenerating ? (
+                  <ButtonLoader />
+                ) : (
+                  <SparklesIcon className="mr-2 h-4 w-4" />
+                )}
+                Regenerate Group
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              disabled={isDeleting}
+              onClick={async () => {
+                const yes = confirm(
+                  "Are you sure you want to delete this group?",
+                );
+
+                if (!yes) return;
+
+                setIsDeleting(true);
+
+                const result = await deleteGroupAction(groupId);
+                if (isActionError(result)) {
+                  toastError({
+                    description: `Failed to delete group. ${result.error}`,
+                  });
+                } else {
+                  onDelete();
                 }
+                mutate();
+                setIsDeleting(false);
               }}
             >
-              <TrashIcon className="mr-2 h-4 w-4" />
+              {isDeleting ? (
+                <ButtonLoader />
+              ) : (
+                <TrashIcon className="mr-2 h-4 w-4" />
+              )}
               Delete Group
             </Button>
           </>
@@ -133,34 +186,49 @@ function ViewGroup({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data?.items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            {item.type === GroupItemType.SUBJECT && "Subject: "}
-                            {item.value}
-                          </TableCell>
-                          <TableCell className="py-2">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={async () => {
-                                const result = await deleteGroupItemAction(
-                                  item.id,
-                                );
-                                if (isActionError(result)) {
-                                  toastError({
-                                    description: `Failed to remove ${item.value} from group. ${result.error}`,
-                                  });
-                                } else {
-                                  mutate();
-                                }
-                              }}
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {data?.items.map((item) => {
+                        // within last 10 minutes
+                        const isRecent =
+                          new Date(item.createdAt) >
+                          new Date(Date.now() - 1000 * 60 * 10);
+
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              {isRecent && (
+                                <Badge variant="green" className="mr-2">
+                                  New!
+                                </Badge>
+                              )}
+
+                              <Badge variant="secondary" className="mr-2">
+                                {capitalCase(item.type)}
+                              </Badge>
+                              {item.value}
+                            </TableCell>
+                            <TableCell className="py-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={async () => {
+                                  const result = await deleteGroupItemAction(
+                                    item.id,
+                                  );
+                                  if (isActionError(result)) {
+                                    toastError({
+                                      description: `Failed to remove ${item.value} from group. ${result.error}`,
+                                    });
+                                  } else {
+                                    mutate();
+                                  }
+                                }}
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </>
@@ -211,7 +279,7 @@ const AddGroupItemForm = ({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="flex items-center space-x-2"
+      className="grid grid-cols-1 gap-2 sm:flex sm:items-center"
     >
       <Select
         name="type"

@@ -17,6 +17,7 @@ import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
 } from "@/utils/actions/group";
+import { GroupName } from "@/utils/config";
 import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import type { ParsedMessage } from "@/utils/types";
@@ -206,7 +207,7 @@ export async function createAutomationAction(
       select: { id: true, name: true, rule: true },
     });
 
-    if (result.group === "Newsletters") {
+    if (result.group === GroupName.NEWSLETTER) {
       const newsletterGroup = groups.find((g) =>
         g.name.toLowerCase().includes("newsletter"),
       );
@@ -229,7 +230,7 @@ export async function createAutomationAction(
           groupId = result.id;
         }
       }
-    } else if (result.group === "Receipts") {
+    } else if (result.group === GroupName.RECEIPT) {
       const receiptsGroup = groups.find((g) =>
         g.name.toLowerCase().includes("receipt"),
       );

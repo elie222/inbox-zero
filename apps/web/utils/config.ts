@@ -16,3 +16,8 @@ Rules to follow:
 export const appHomePath = env.NEXT_PUBLIC_DISABLE_TINYBIRD
   ? "/automation"
   : "/bulk-unsubscribe";
+
+export const GroupName = {
+  NEWSLETTER: "Newsletters",
+  RECEIPT: "Receipts",
+};
