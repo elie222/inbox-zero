@@ -29,3 +29,13 @@ export type ServerActionResponse<T = {}, S = {}> =
 export function isActionError(error: any): error is ActionError {
   return error && "error" in error && error.error;
 }
+
+export class SafeError extends Error {
+  constructor(
+    public safeMessage: string,
+    message?: string,
+  ) {
+    super(message || safeMessage);
+    this.name = "SafeError";
+  }
+}

@@ -1,7 +1,7 @@
 import { ZodError } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
 import type { StreamingTextResponse } from "ai";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { env } from "@/env";
 
 export type NextHandler = (
@@ -38,9 +38,9 @@ export function withError(handler: NextHandler): NextHandler {
       if ((error as any)?.errors?.[0]?.reason === "rateLimitExceeded") {
         return NextResponse.json(
           {
-            error: `You have exceeded the Gmail rate limit. Please try again later. Error from Gmail: "${(
-              error as any
-            )?.errors?.[0]?.message}"`,
+            error: `You have exceeded the Gmail rate limit. Please try again later. Error from Gmail: "${
+              (error as any)?.errors?.[0]?.message
+            }"`,
           },
           { status: 403 },
         );
@@ -59,10 +59,17 @@ export function withError(handler: NextHandler): NextHandler {
         delete error.config.headers;
       }
 
+      if (error instanceof SafeError) {
+        return NextResponse.json({ error: error.safeMessage }, { status: 400 });
+      }
+
+      console.error(`Unhandled error for url: ${req.url}:`, error);
       captureException(error, { extra: { url: req.url, params } });
-      console.error(`Error for url: ${req.url}:`);
-      console.error(error);
-      return NextResponse.json({ error: "Server error" }, { status: 500 });
+
+      return NextResponse.json(
+        { error: "An unexpected error occurred" },
+        { status: 500 },
+      );
     }
   };
 }

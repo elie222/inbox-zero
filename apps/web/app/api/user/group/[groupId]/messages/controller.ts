@@ -8,6 +8,7 @@ import { parseMessage } from "@/utils/mail";
 import { extractEmailAddress } from "@/utils/email";
 import { GroupItem, GroupItemType } from "@prisma/client";
 import type { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
+import { SafeError } from "@/utils/error";
 
 const PAGE_SIZE = 20;
 
@@ -40,7 +41,7 @@ export async function getGroupEmails({
     include: { items: true },
   });
 
-  if (!group) throw new Error("Group not found");
+  if (!group) throw new SafeError("Group not found");
 
   const { messages, nextPageToken } = await fetchPaginatedMessages({
     groupItems: group.items,

@@ -33,9 +33,9 @@ export function Groups() {
           <div className="space-y-1.5">
             <CardTitle>Groups</CardTitle>
             <CardDescription className="max-w-prose">
-              Groups are used to group together emails that are related to each
-              other. They can be created manually, or preset group can be
-              generated for you automatically with AI.
+              Groups organize related emails allowing you to apply actions to
+              matching emails. Create custom groups manually or create a preset
+              group using our AI.
             </CardDescription>
           </div>
           <div>
@@ -93,7 +93,7 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
             <TableCell className="flex justify-end gap-1 p-3 text-center">
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/automation/group/${group.id}/examples`}>
-                  Examples
+                  Matching Emails
                 </Link>
               </Button>
               <ViewGroupButton groupId={group.id} name={group.name} />
