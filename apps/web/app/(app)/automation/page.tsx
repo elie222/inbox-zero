@@ -24,7 +24,7 @@ export default async function AutomationPage() {
   return (
     <Suspense>
       <Tabs defaultValue="automations">
-        <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
+        <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
           <div className="w-full overflow-x-auto">
             <TabsList>
               <TabsTrigger value="automations">Automations</TabsTrigger>
@@ -35,7 +35,7 @@ export default async function AutomationPage() {
             </TabsList>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex gap-2">
             <BulkRunRules />
 
             <Button asChild>

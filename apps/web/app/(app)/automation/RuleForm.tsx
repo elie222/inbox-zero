@@ -457,7 +457,10 @@ function GroupsTab(props: {
           {props.groupId && (
             <ViewGroupButton
               groupId={props.groupId}
-              name="View group"
+              name={
+                data?.groups?.find((group) => group.id === props.groupId)
+                  ?.name || "View Group"
+              }
               ButtonComponent={({ onClick }) => (
                 <Button variant="outline" onClick={onClick}>
                   View group

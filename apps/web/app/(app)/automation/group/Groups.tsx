@@ -32,7 +32,7 @@ export function Groups() {
         <div className="flex justify-between">
           <div className="space-y-1.5">
             <CardTitle>Groups</CardTitle>
-            <CardDescription className="max-w-prose">
+            <CardDescription className="mr-2 max-w-prose">
               Groups organize related emails allowing you to apply actions to
               matching emails. Create custom groups manually or create a preset
               group using our AI.
@@ -90,13 +90,15 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                 )}
               </Link>
             </TableCell>
-            <TableCell className="flex justify-end gap-1 p-3 text-center">
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/automation/group/${group.id}/examples`}>
-                  Matching Emails
-                </Link>
-              </Button>
-              <ViewGroupButton groupId={group.id} name={group.name} />
+            <TableCell>
+              <div className="flex items-center justify-end gap-1">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/automation/group/${group.id}/examples`}>
+                    Matching Emails
+                  </Link>
+                </Button>
+                <ViewGroupButton groupId={group.id} name={group.name} />
+              </div>
             </TableCell>
           </TableRow>
         ))}
