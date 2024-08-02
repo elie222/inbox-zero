@@ -7,22 +7,21 @@
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "prettier": "npx prettier --write \"**/*.{ts,tsx}\"",
-    "prepare": "husky install",
     "ncu": "ncu -u -ws",
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write"
   },
   "devDependencies": {
     "@biomejs/biome": "1.8.2",
+    "@inboxzero/eslint-config": "workspace:*",
     "@turbo/gen": "^1.11.3",
     "eslint": "^8.56.0",
-    "@inboxzero/eslint-config": "workspace:*",
-    "husky": "^8.0.3",
+    "husky": "^8.0.0",
     "lint-staged": "^15.2.0",
     "prettier": "^3.3.3",
     "turbo": "^2.0.9"
   },
-  "packageManager": "pnpm@9.4.0",
+  "packageManager": "pnpm@9.6.0+sha512.38dc6fba8dba35b39340b9700112c2fe1e12f10b17134715a4aa98ccf7bb035e76fd981cf0bb384dfa98f8d6af5481c2bef2f4266a24bfa20c34eb7147ce0b5e",
   "lint-staged": {
     "*.{ts,tsx,md}": "prettier --write"
   },
