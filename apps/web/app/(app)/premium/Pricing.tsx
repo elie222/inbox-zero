@@ -133,15 +133,14 @@ export function Pricing() {
           </RadioGroup>
 
           <div className="ml-1">
-            {/* <Badge>Save up to 40%!</Badge> */}
-            <Badge>Save 32%!</Badge>
+            <Badge>Save up to 40%!</Badge>
           </div>
         </div>
 
         {/* 3 col layout */}
-        {/* <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3"> */}
-        {/* 2 col layout */}
-        <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-x-4 gap-y-8 lg:max-w-4xl lg:grid-cols-2">
+        <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
+          {/* 2 col layout */}
+          {/* <div className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-x-4 gap-y-8 lg:max-w-4xl lg:grid-cols-2"> */}
           {tiers.map((tier, tierIdx) => {
             const isCurrentPlan = tier.tiers?.[frequency.value] === premiumTier;
 
@@ -165,11 +164,11 @@ export function Pricing() {
                 key={tier.name}
                 className={clsx(
                   // 3 col layout
-                  // tierIdx === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
-                  // tierIdx === 0 ? "lg:rounded-r-none" : "",
-                  // tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
+                  tierIdx === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
+                  tierIdx === 0 ? "lg:rounded-r-none" : "",
+                  tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
                   // 2 col layout
-                  "flex flex-col justify-between rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
+                  // "flex flex-col justify-between rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
                 )}
               >
                 <div>
