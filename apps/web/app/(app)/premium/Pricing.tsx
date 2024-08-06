@@ -167,8 +167,10 @@ export function Pricing() {
                   tierIdx === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
                   tierIdx === 0 ? "lg:rounded-r-none" : "",
                   tierIdx === tiers.length - 1 ? "lg:rounded-l-none" : "",
+                  // 2 or 3 col layout
+                  "rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
                   // 2 col layout
-                  // "flex flex-col justify-between rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10",
+                  // "flex flex-col justify-between",
                 )}
               >
                 <div>
