@@ -113,20 +113,20 @@ const businessTier = {
     annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
   },
   description: "Unlock full AI-powered email management",
-  // features: [
-  //   "Everything in pro",
-  //   "Unlimited AI credits",
-  //   "No need to provide your own OpenAI API key",
-  //   "Priority support",
-  // ],
   features: [
-    "AI automation",
-    "Bulk email unsubscriber",
-    "Cold email blocker",
-    "Email analytics",
+    "Everything in pro",
     "Unlimited AI credits",
+    "No need to provide your own OpenAI API key",
     "Priority support",
   ],
+  // features: [
+  //   "AI automation",
+  //   "Bulk email unsubscriber",
+  //   "Cold email blocker",
+  //   "Email analytics",
+  //   "Unlimited AI credits",
+  //   "Priority support",
+  // ],
   cta: "Upgrade",
   mostPopular: true,
 };
@@ -173,10 +173,10 @@ export const tiers: {
   cta: string;
   mostPopular?: boolean;
 }[] = [
-  // basicTier,
-  // proTier,
+  basicTier,
+  proTier,
   businessTier,
-  copilotTier,
+  // copilotTier,
 ];
 
 export const lifetimeFeatures = [
