@@ -21,26 +21,45 @@ import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import { getGmailFilterSettingsUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions/client";
-import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
+import {
+  MoreDropdown,
+  useUnsubscribeButton,
+} from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { usePremium } from "@/components/PremiumAlert";
+import { usePostHog } from "posthog-js/react";
 
 export function NewsletterModal(props: {
-  newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
+  newsletter: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
+  mutate?: () => Promise<any>;
 }) {
   const { newsletter, refreshInterval, onClose } = props;
+  const mutate = props.mutate || (() => Promise.resolve()); // Set a default value for mutate if it's not provided
 
   const session = useSession();
   const email = session.data?.user.email;
 
   const { userLabels } = useLabels();
+
+  const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
+
+  const posthog = usePostHog();
+
+  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribeButton({
+    item: newsletter,
+    hasUnsubscribeAccess,
+    mutate,
+    posthog,
+    refetchPremium,
+  });
 
   return (
     <Dialog open={!!newsletter} onOpenChange={onClose}>
@@ -57,8 +76,15 @@ export function NewsletterModal(props: {
                   href={newsletter.lastUnsubscribeLink || undefined}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={onUnsubscribe}
                 >
-                  Unsubscribe
+                  {!unsubscribeLoading && <span>Unsubscribe</span>}
+                  {!!unsubscribeLoading && (
+                    <div className="flex cursor-not-allowed items-center opacity-50">
+                      <ButtonLoader />
+                      <span>Unsubscribing...</span>
+                    </div>
+                  )}
                 </a>
               </Button>
               <Tooltip content="Auto archive emails using Gmail filters">

@@ -223,11 +223,14 @@ export function BulkUnsubscribeSection(props: {
           </LoadingContent>
         )}
       </Card>
-      <NewsletterModal
-        newsletter={openedNewsletter}
-        onClose={() => setOpenedNewsletter(undefined)}
-        refreshInterval={props.refreshInterval}
-      />
+      {openedNewsletter && (
+        <NewsletterModal
+          newsletter={openedNewsletter}
+          onClose={() => setOpenedNewsletter(undefined)}
+          refreshInterval={props.refreshInterval}
+          mutate={mutate}
+        />
+      )}
       <PremiumModal />
     </>
   );
