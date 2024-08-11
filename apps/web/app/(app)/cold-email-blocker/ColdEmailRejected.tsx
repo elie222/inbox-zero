@@ -65,12 +65,12 @@ export function ColdEmailRejected() {
 
           <TablePagination totalPages={data.totalPages} />
 
-          <NewsletterModal
-            newsletter={
-              openedRow ? { name: openedRow.fromEmail || "" } : undefined
-            }
-            onClose={() => setOpenedRow(undefined)}
-          />
+          {openedRow && (
+            <NewsletterModal
+              newsletter={openedRow && { name: openedRow.fromEmail || "" }}
+              onClose={() => setOpenedRow(undefined)}
+            />
+          )}
         </div>
       ) : (
         <NoRejectedColdEmails />

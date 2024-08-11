@@ -211,11 +211,13 @@ export function NewSenders(props: {
           <div className="mt-2 px-6 pb-6">{extra}</div>
         </LoadingContent>
       </Card>
-      <NewsletterModal
-        newsletter={openedNewsletter}
-        onClose={() => setOpenedNewsletter(undefined)}
-        refreshInterval={props.refreshInterval}
-      />
+      {openedNewsletter && (
+        <NewsletterModal
+          newsletter={openedNewsletter}
+          onClose={() => setOpenedNewsletter(undefined)}
+          refreshInterval={props.refreshInterval}
+        />
+      )}
       <PremiumModal />
     </>
   );
