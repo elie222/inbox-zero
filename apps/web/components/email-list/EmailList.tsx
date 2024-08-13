@@ -42,7 +42,7 @@ export function List(props: {
   refetch: (removedThreadIds?: string[]) => void;
   isLoadMore?: boolean;
   isLoadMoreLoading?: boolean;
-  handleLoadMoreThreads?: () => {};
+  handleLoadMoreThreads?: () => void;
 }) {
   const {
     emails,
@@ -170,7 +170,7 @@ export function EmailList(props: {
   refetch?: (removedThreadIds?: string[]) => void;
   isLoadMore?: boolean;
   isLoadMoreLoading?: boolean;
-  handleLoadMoreThreads?: () => {};
+  handleLoadMoreThreads?: () => void;
 }) {
   const {
     threads = [],

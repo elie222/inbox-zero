@@ -25,6 +25,7 @@ export default function Mail({
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
+      revalidateOnFocus: false,
     },
   );
 
@@ -88,7 +89,7 @@ export default function Mail({
       async (currentData) => {
         const res = await fetch(
           `/api/google/threads?nextPageToken=${nextPageTokenId}&${new URLSearchParams(
-            query as any,
+            query as Record<string, string>,
           ).toString()}`,
         );
         const newData: ThreadsResponse = await res.json();
@@ -114,7 +115,7 @@ export default function Mail({
             emails={allThreads}
             refetch={refetch}
             type={searchParams.type}
-            isLoadMore={nextPageTokenId ? true : false} // If nextPageToken doesn't exist then the button will be hidden
+            isLoadMore={!!nextPageTokenId} // If nextPageToken doesn't exist then the button will be hidden
             handleLoadMoreThreads={handleLoadMoreThreads}
             isLoadMoreLoading={isLoadMoreLoading}
           />
