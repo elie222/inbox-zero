@@ -492,7 +492,7 @@ export function EmailList(props: {
                   />
                 );
               })}
-              // Load more button to fetch more data
+              {/* Load more button to fetch more data */}
               {isLoadMore && (
                 <div className="pb-2">
                   <Button
