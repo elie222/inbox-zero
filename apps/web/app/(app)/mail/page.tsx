@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
@@ -27,6 +27,11 @@ export default function Mail({
       dedupingInterval: 1_000,
     },
   );
+
+  // States to handle more emails for the load more feature
+  const [allThreads, setAllThreads] = useState(data?.threads || []);
+  const [nextPageTokenId, setNextPageTokenId] = useState(data?.nextPageToken);
+  const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false);
 
   const refetch = useCallback(
     (removedThreadIds?: string[]) => {
@@ -68,17 +73,50 @@ export default function Mail({
     setRefetchEmailList({ refetch });
   }, [refetch, setRefetchEmailList]);
 
+  useEffect(() => {
+    if (data) {
+      setAllThreads(data.threads);
+      setNextPageTokenId(data.nextPageToken);
+    }
+  }, [data]);
+
+  // Fetch new list of results based on nextPageToken when load more is clicked
+  const handleLoadMoreThreads = async () => {
+    if (!nextPageTokenId) return;
+    setIsLoadMoreLoading(true);
+    mutate(
+      async (currentData) => {
+        const res = await fetch(
+          `/api/google/threads?nextPageToken=${nextPageTokenId}&${new URLSearchParams(
+            query as any,
+          ).toString()}`,
+        );
+        const newData: ThreadsResponse = await res.json();
+
+        // update the threads and nextPageToken
+        return {
+          threads: [...(currentData?.threads || []), ...newData.threads],
+          nextPageToken: newData.nextPageToken,
+        };
+      },
+      { revalidate: false },
+    ).finally(() => setIsLoadMoreLoading(false));
+  };
+
   return (
     <>
       <ClientOnly>
         <BetaBanner />
       </ClientOnly>
       <LoadingContent loading={isLoading} error={error}>
-        {data && (
+        {allThreads && (
           <List
-            emails={data.threads}
+            emails={allThreads}
             refetch={refetch}
             type={searchParams.type}
+            isLoadMore={nextPageTokenId ? true : false} // If nextPageToken doesn't exist then the button will be hidden
+            handleLoadMoreThreads={handleLoadMoreThreads}
+            isLoadMoreLoading={isLoadMoreLoading}
           />
         )}
       </LoadingContent>

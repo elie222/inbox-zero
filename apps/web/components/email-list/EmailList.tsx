@@ -33,13 +33,24 @@ import {
 } from "@/providers/QueueProvider";
 import { selectedEmailAtom } from "@/store/email";
 import { categorizeAction } from "@/utils/actions/categorize";
+import { Button, ButtonLoader } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
 
 export function List(props: {
   emails: Thread[];
   type?: string;
   refetch: (removedThreadIds?: string[]) => void;
+  isLoadMore?: boolean;
+  isLoadMoreLoading?: boolean;
+  handleLoadMoreThreads?: () => {};
 }) {
-  const { emails, refetch } = props;
+  const {
+    emails,
+    refetch,
+    isLoadMore,
+    handleLoadMoreThreads,
+    isLoadMoreLoading,
+  } = props;
 
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "all";
@@ -106,6 +117,9 @@ export function List(props: {
       {emails.length ? (
         <EmailList
           threads={filteredEmails}
+          isLoadMore={isLoadMore}
+          isLoadMoreLoading={isLoadMoreLoading}
+          handleLoadMoreThreads={handleLoadMoreThreads}
           emptyMessage={
             <div className="px-2">
               {selectedTab === "planned" ? (
@@ -154,12 +168,18 @@ export function EmailList(props: {
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
   refetch?: (removedThreadIds?: string[]) => void;
+  isLoadMore?: boolean;
+  isLoadMoreLoading?: boolean;
+  handleLoadMoreThreads?: () => {};
 }) {
   const {
     threads = [],
     emptyMessage,
     hideActionBarWhenEmpty,
     refetch = () => {},
+    isLoadMore,
+    isLoadMoreLoading,
+    handleLoadMoreThreads,
   } = props;
 
   const session = useSession();
@@ -472,6 +492,25 @@ export function EmailList(props: {
                   />
                 );
               })}
+              // Load more button to fetch more data
+              {isLoadMore && (
+                <div className="pb-2">
+                  <Button
+                    variant="outline"
+                    className="w-full py-4"
+                    onClick={handleLoadMoreThreads}
+                  >
+                    {isLoadMoreLoading ? (
+                      <ButtonLoader />
+                    ) : (
+                      <>
+                        {" "}
+                        Load More <ChevronDown />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </ul>
           }
           right={
