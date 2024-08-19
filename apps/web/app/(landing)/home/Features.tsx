@@ -1,3 +1,6 @@
+"use client";
+
+import { env } from "@/env";
 import clsx from "clsx";
 import {
   BarChart2Icon,
@@ -12,6 +15,7 @@ import {
   TagIcon,
 } from "lucide-react";
 import Image from "next/image";
+import { useFeatureFlagVariantKey, usePostHog } from "posthog-js/react";
 
 const features = [
   {
@@ -82,7 +86,7 @@ function FeaturesOld() {
   );
 }
 
-export function Features() {
+export function FeaturesPrivacy() {
   return (
     <div className="bg-white py-24 sm:py-32" id="features">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -269,6 +273,12 @@ const featuresStats = [
 ];
 
 export function FeaturesStats() {
+  const variant = useFeatureFlagVariantKey(
+    env.NEXT_PUBLIC_POSTHOG_HERO_AB || "",
+  );
+
+  if (variant === "short-page") return null;
+
   return (
     <FeaturesWithImage
       imageSide="right"
@@ -312,5 +322,26 @@ export function FeaturesUnsubscribe() {
       image="/images/newsletters.png"
       features={featuresUnsubscribe}
     />
+  );
+}
+
+export function FeaturesHome() {
+  const posthog = usePostHog();
+  posthog.featureFlags.override({ "hero-copy-3": "short-page" });
+
+  const variant = useFeatureFlagVariantKey(
+    env.NEXT_PUBLIC_POSTHOG_HERO_AB || "",
+  );
+
+  if (variant === "short-page") return <FeaturesAutomation />;
+
+  return (
+    <>
+      {variant === "no-privacy" ? null : <FeaturesPrivacy />}
+      <FeaturesAutomation />
+      <FeaturesUnsubscribe />
+      <FeaturesColdEmailBlocker />
+      <FeaturesStats />
+    </>
   );
 }
