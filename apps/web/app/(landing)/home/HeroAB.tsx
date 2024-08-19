@@ -9,25 +9,30 @@ const copy: {
     subtitle: string;
   };
 } = {
-  automate: {
-    title: "Automate Your Email Inbox",
+  control: {
+    title: "Stop wasting half your day in Gmail",
     subtitle:
-      "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Open-source.",
+      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
   },
-  autopilot: {
-    title: "Autopilot For Your Email",
-    subtitle:
-      "Automate your email with our AI assistant by telling it in plain English how to handle your emails. Open-source.",
-  },
-  clean: {
+  "clean-up-in-minutes": {
     title: "Clean Up Your Inbox In Minutes",
     subtitle:
       "Bulk unsubscribe from newsletters, automate your emails with AI, block cold emails, and view your analytics. Open-source.",
   },
-  control: {
-    title: "Clean Up Your Inbox In Minutes",
+  "how-busy-founders": {
+    title: "How busy founders manage their email",
     subtitle:
-      "Newsletter cleaner, AI automation, cold email blocker, and analytics. Inbox Zero is the open-source email app that puts you back in control of your inbox.",
+      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
+  },
+  "email-assistant-in-30": {
+    title: "Set up your AI email assistant in just 30 minutes",
+    subtitle:
+      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source",
+  },
+  "half-the-time": {
+    title: "Spend 50% less time on email",
+    subtitle:
+      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
   },
 };
 
@@ -37,7 +42,7 @@ export function HeroHeadingAB(props: { variantKey: string }) {
   if (!variant) return <Skeleton className="h-28 w-full rounded" />;
   if (typeof variant !== "string") return <>{copy.control.title}</>;
 
-  return <>{copy[variant].title || copy.control.title}</>;
+  return <>{copy[variant]?.title || copy.control.title}</>;
 }
 
 export function HeroSubtitleAB(props: { variantKey: string }) {
@@ -46,5 +51,5 @@ export function HeroSubtitleAB(props: { variantKey: string }) {
   if (!variant) return <Skeleton className="h-24 w-full rounded" />;
   if (typeof variant !== "string") return <>{copy.control.subtitle}</>;
 
-  return <>{copy[variant].subtitle || copy.control.subtitle}</>;
+  return <>{copy[variant]?.subtitle || copy.control.subtitle}</>;
 }
