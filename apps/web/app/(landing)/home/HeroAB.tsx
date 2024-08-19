@@ -1,6 +1,6 @@
 "use client";
 
-import { useFeatureFlagVariantKey, usePostHog } from "posthog-js/react";
+import { useFeatureFlagVariantKey } from "posthog-js/react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const copy: {
