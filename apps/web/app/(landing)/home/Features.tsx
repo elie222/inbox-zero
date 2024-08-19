@@ -1,6 +1,5 @@
 "use client";
 
-import { env } from "@/env";
 import clsx from "clsx";
 import {
   BarChart2Icon,
@@ -13,9 +12,12 @@ import {
   Sparkles,
   SparklesIcon,
   TagIcon,
+  BlocksIcon,
+  ListStartIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useFeatureFlagVariantKey } from "posthog-js/react";
+import { env } from "@/env";
 
 const features = [
   {
@@ -334,11 +336,51 @@ export function FeaturesHome() {
 
   return (
     <>
-      {variant === "no-privacy" ? null : <FeaturesPrivacy />}
+      {variant !== "no-privacy" && <FeaturesPrivacy />}
       <FeaturesAutomation />
       <FeaturesUnsubscribe />
       <FeaturesColdEmailBlocker />
       <FeaturesStats />
     </>
+  );
+}
+
+const featuresNewSenders = [
+  {
+    name: "Quickly Identify New Senders",
+    description:
+      "Conveniently lists all new individuals or entities that recently emailed you, helping you spot important contacts.",
+    icon: EyeIcon,
+  },
+  {
+    name: "Effortless Blocking",
+    description:
+      "Easily block any unwanted sender with a single click, keeping your inbox clean and relevant.",
+    icon: ShieldHalfIcon,
+  },
+  {
+    name: "Stay Organized and Secure",
+    description:
+      "Enhance your email security by managing unfamiliar senders, reducing the risk of spam and phishing attacks.",
+    icon: BlocksIcon,
+  },
+  {
+    name: "Personalize Your Email Experience",
+    description:
+      "Discover and prioritize important emails, ensuring you never miss out on significant introductions or opportunities.",
+    icon: ListStartIcon,
+  },
+];
+
+export function FeaturesNewSenders() {
+  return (
+    <FeaturesWithImage
+      imageSide="left"
+      title="Newsletter Cleaner"
+      subtitle="Manage new senders in your inbox"
+      description="View a comprehensive list of recent new senders, making it easier to spot important contacts and opportunities, while also offering the ability to block unwanted communication effortlessly."
+      image="/images/newsletters.png"
+      features={featuresNewSenders}
+    />
   );
 }
