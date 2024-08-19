@@ -15,7 +15,7 @@ import {
   TagIcon,
 } from "lucide-react";
 import Image from "next/image";
-import { useFeatureFlagVariantKey, usePostHog } from "posthog-js/react";
+import { useFeatureFlagVariantKey } from "posthog-js/react";
 
 const features = [
   {
@@ -326,9 +326,6 @@ export function FeaturesUnsubscribe() {
 }
 
 export function FeaturesHome() {
-  const posthog = usePostHog();
-  posthog.featureFlags.override({ "hero-copy-3": "short-page" });
-
   const variant = useFeatureFlagVariantKey(
     env.NEXT_PUBLIC_POSTHOG_HERO_AB || "",
   );

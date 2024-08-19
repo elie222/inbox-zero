@@ -40,7 +40,9 @@ export default function Home() {
           <Pricing />
         </div>
       </Suspense>
-      <FAQsHome />
+      <Suspense>
+        <FAQsHome />
+      </Suspense>
       <CTA />
     </BasicLayout>
   );
