@@ -51,6 +51,39 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: '__Secure-authjs.session-token.0',
+          }
+        ],
+        permanent: false,
+      },
+      {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: '__Secure-authjs.session-token.1',
+          }
+        ],
+        permanent: false,
+      },
+      {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: '__Secure-authjs.session-token.2',
+          }
+        ],
+        permanent: false,
+      },
+      {
         source: "/feature-requests",
         destination: "https://inboxzero.featurebase.app",
         permanent: true,
