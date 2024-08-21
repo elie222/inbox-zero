@@ -15,7 +15,8 @@ import {
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { usePostHog } from "posthog-js/react";
 import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { NewsletterStatus } from "@prisma/client";
 import { BadgeCheckIcon, MailMinusIcon } from "lucide-react";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";

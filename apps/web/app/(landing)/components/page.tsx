@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Card } from "@/components/Card";
 import { Container } from "@/components/Container";
 import {
@@ -10,10 +11,12 @@ import {
   TextLink,
 } from "@/components/Typography";
 import { Button } from "@/components/Button";
+import { Button as ShadButton } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBasic } from "@/components/Alert";
-import { Suspense } from "react";
+import { SparklesIcon } from "lucide-react";
 
 export default function Components() {
   return (
@@ -39,7 +42,7 @@ export default function Components() {
 
         <div className="space-y-6">
           <div className="underline">Buttons</div>
-          <div className="space-x-4">
+          <div className="flex flex-wrap gap-2">
             <Button size="xs">Button XS</Button>
             <Button size="sm">Button SM</Button>
             <Button size="md">Button MD</Button>
@@ -47,12 +50,37 @@ export default function Components() {
             <Button size="xl">Button XL</Button>
             <Button size="2xl">Button 2XL</Button>
           </div>
-          <div className="space-x-4">
+          <div className="flex flex-wrap gap-2">
             <Button color="red">Button Red</Button>
             <Button color="white">Button White</Button>
             <Button color="transparent">Button Transparent</Button>
             <Button loading>Button Loading</Button>
             <Button disabled>Button Disabled</Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ShadButton variant="default">ShadButton Default</ShadButton>
+            <ShadButton variant="secondary">ShadButton Secondary</ShadButton>
+            <ShadButton variant="outline">ShadButton Outline</ShadButton>
+            <ShadButton variant="outline">
+              <ButtonLoader />
+              ShadButton Loading
+            </ShadButton>
+            <ShadButton variant="ghost">ShadButton Ghost</ShadButton>
+            <ShadButton variant="destructive">
+              ShadButton Destructive
+            </ShadButton>
+            <ShadButton variant="link">ShadButton Link</ShadButton>
+            <ShadButton variant="green">ShadButton Green</ShadButton>
+            <ShadButton variant="red">ShadButton Red</ShadButton>
+            <ShadButton variant="blue">ShadButton Blue</ShadButton>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ShadButton size="xs">ShadButton XS</ShadButton>
+            <ShadButton size="sm">ShadButton SM</ShadButton>
+            <ShadButton size="lg">ShadButton LG</ShadButton>
+            <ShadButton size="icon">
+              <SparklesIcon className="size-4" />
+            </ShadButton>
           </div>
         </div>
 

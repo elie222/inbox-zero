@@ -2,7 +2,7 @@
 
 import { useCompletion } from "ai/react";
 import { useEffect } from "react";
-import { ButtonLoader } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { ViewMoreButton } from "@/app/(app)/simple/ViewMoreButton";
 
 export function Summary({
