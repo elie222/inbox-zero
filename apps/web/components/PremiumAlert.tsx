@@ -67,7 +67,7 @@ function PremiumAlert({
             {showSetApiKey ? (
               <>
                 {" "}
-                or set an OpenAI API key on the{" "}
+                or set an AI API key on the{" "}
                 <Link
                   href="/settings"
                   className="font-semibold hover:text-gray-700"

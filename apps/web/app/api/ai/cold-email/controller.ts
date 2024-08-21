@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { gmail_v1 } from "googleapis";
-import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { inboxZeroLabels } from "@/utils/label";
 import { INBOX_LABEL_ID } from "@/utils/gmail/label";
@@ -64,14 +64,8 @@ The email:
 ${stringifyEmail(email, 500)}
 `;
 
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
   const response = await chatCompletionObject({
-    provider,
-    model,
-    apiKey: user.aiApiKey,
+    userAi: user,
     system,
     prompt,
     schema: aiResponseSchema,

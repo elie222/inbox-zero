@@ -8,7 +8,6 @@ import {
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import type { ServerActionResponse } from "@/utils/error";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
-import { getAiProviderAndModel } from "@/utils/llms";
 import { emailToContent } from "@/utils/mail";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { truncate } from "@/utils/string";
@@ -44,19 +43,14 @@ export async function categorizeAction(
   const unsubscribeLink = findUnsubscribeLink(data.textHtml);
   const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, data);
 
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
-
   const res = await categorise(
     {
       ...data,
       content,
       snippet: data.snippet || truncate(content, 300),
       aiApiKey: user.aiApiKey,
-      aiProvider: provider,
-      aiModel: model,
+      aiProvider: user.aiProvider,
+      aiModel: user.aiModel,
       unsubscribeLink,
       hasPreviousEmail,
     },

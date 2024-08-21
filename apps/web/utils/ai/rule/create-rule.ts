@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ActionType } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
-import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionTools } from "@/utils/llms";
 import { GroupName } from "@/utils/config";
 
 const createRuleSchema = z.object({
@@ -73,18 +73,11 @@ export async function aiCreateRule(
   user: UserAIFields,
   userEmail: string,
 ) {
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
-
   const system = `You are an AI assistant that helps people manage their emails.`;
   const prompt = `Generate a rule for these instructions:\n${instructions}`;
 
   const aiResponse = await chatCompletionTools({
-    provider,
-    model,
-    apiKey: user.aiApiKey,
+    userAi: user,
     prompt,
     system,
     tools: {

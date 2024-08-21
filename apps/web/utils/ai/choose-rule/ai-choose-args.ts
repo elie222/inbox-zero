@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { ActionItem } from "@/utils/ai/actions";
 import type { Action, ActionType, User } from "@prisma/client";
-import { chatCompletionTools, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionTools } from "@/utils/llms";
 import {
   type EmailForLLM,
   stringifyEmail,
@@ -120,17 +120,10 @@ Handle the email.
 The email:
 ${stringifyEmail(email, 3000)}`;
 
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
-
   console.log("Calling chat completion tools");
 
   const aiResponse = await chatCompletionTools({
-    provider,
-    model,
-    apiKey: user.aiApiKey,
+    userAi: user,
     prompt,
     system,
     tools: {

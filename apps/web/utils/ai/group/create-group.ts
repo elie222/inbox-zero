@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { Group, User } from "@prisma/client";
 
 export async function aiCreateGroup(
@@ -7,11 +7,6 @@ export async function aiCreateGroup(
   group: Pick<Group, "name" | "prompt">,
   emails: Array<{ sender: string; subject: string }>,
 ) {
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
-
   const prompt = `You are an assistant that helps people manage their emails.
 You categorise emailers into groups.
 
@@ -32,9 +27,7 @@ JSON:
 `;
 
   const aiResponse = await chatCompletionObject({
-    provider,
-    model,
-    apiKey: user.aiApiKey,
+    userAi: user,
     prompt,
     schema: z.object({
       senders: z.array(z.string()),

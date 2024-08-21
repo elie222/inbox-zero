@@ -338,7 +338,7 @@
       "      <Input",
       "        type=\"password\"",
       "        name=\"aiApiKey\"",
-      "        label=\"OpenAI API Key\"",
+      "        label=\"API Key\"",
       "        registerProps={register(\"aiApiKey\")}",
       "        error={errors.aiApiKey}",
       "      />",

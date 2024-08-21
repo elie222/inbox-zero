@@ -20,12 +20,7 @@ import type { SaveSettingsResponse } from "@/app/api/user/settings/route";
 import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import { AlertError } from "@/components/Alert";
-import {
-  getDefaultModel,
-  modelOptions,
-  Provider,
-  providerOptions,
-} from "@/utils/llms/config";
+import { modelOptions, Provider, providerOptions } from "@/utils/llms/config";
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } =
@@ -53,6 +48,12 @@ export function ModelSection() {
       </LoadingContent>
     </FormSection>
   );
+}
+
+function getDefaultModel(aiProvider: string | null) {
+  const provider = aiProvider || Provider.OPEN_AI;
+  const models = modelOptions[provider];
+  return models?.[0]?.value;
 }
 
 function ModelSectionForm(props: {
@@ -85,7 +86,7 @@ function ModelSectionForm(props: {
     const aiModel = watch("aiModel");
 
     // if model not part of provider then switch to default model for provider
-    if (!providerOptions.find((o) => o.value === aiModel)) {
+    if (!modelOptions[aiProvider].find((o) => o.value === aiModel)) {
       setValue("aiModel", getDefaultModel(aiProvider));
     }
   }, [aiProvider]);
@@ -133,7 +134,7 @@ function ModelSectionForm(props: {
       <Input
         type="password"
         name="aiApiKey"
-        label="OpenAI API Key"
+        label="API Key"
         registerProps={register("aiApiKey")}
         error={errors.aiApiKey}
       />

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
 import type { CategoriseBody } from "@/app/api/ai/categorise/validation";
@@ -78,14 +78,8 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
 ###
 `;
 
-  const { model, provider } = getAiProviderAndModel(
-    body.aiProvider,
-    body.aiModel,
-  );
   const response = await chatCompletionObject({
-    provider,
-    model,
-    apiKey: body.aiApiKey,
+    userAi: body,
     system,
     prompt,
     schema: aiResponseSchema,

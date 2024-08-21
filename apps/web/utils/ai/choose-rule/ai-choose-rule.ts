@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
-import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { User } from "@prisma/client";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 
@@ -54,14 +54,8 @@ The email:
 ${stringifyEmail(email, 500)}
 `;
 
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
   const aiResponse = await chatCompletionObject({
-    provider,
-    model,
-    apiKey: user.aiApiKey,
+    userAi: user,
     prompt,
     system,
     schema: z.object({
