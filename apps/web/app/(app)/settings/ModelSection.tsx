@@ -89,7 +89,7 @@ function ModelSectionForm(props: {
     if (!modelOptions[aiProvider].find((o) => o.value === aiModel)) {
       setValue("aiModel", getDefaultModel(aiProvider));
     }
-  }, [aiProvider]);
+  }, [aiProvider, setValue, watch]);
 
   const onSubmit: SubmitHandler<SaveSettingsBody> = useCallback(
     async (data) => {

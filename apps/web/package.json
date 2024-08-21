@@ -84,6 +84,7 @@
     "node-email-reply-parser": "^0.1.4",
     "nodemailer": "^6.9.14",
     "novel": "0.3.1",
+    "openai": "^4.56.0",
     "p-queue": "^8.0.1",
     "posthog-js": "^1.157.2",
     "posthog-node": "^4.1.1",
