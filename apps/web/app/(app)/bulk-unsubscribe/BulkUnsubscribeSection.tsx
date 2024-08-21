@@ -55,7 +55,7 @@ export function BulkUnsubscribeSection(props: {
     "emails" | "unread" | "unarchived"
   >("emails");
 
-  const { typesArray, types, setTypes } = useEmailsToIncludeFilter();
+  const { typesArray } = useEmailsToIncludeFilter();
   const { filtersArray, filters, setFilters } = useNewsletterFilter();
   const [includeMissingUnsubscribe, setIncludeMissingUnsubscribe] =
     useState(false);
@@ -191,8 +191,6 @@ export function BulkUnsubscribeSection(props: {
                 },
               ]}
             />
-
-            <EmailsToIncludeFilter types={types} setTypes={setTypes} />
           </div>
         </div>
 
