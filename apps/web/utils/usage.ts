@@ -1,4 +1,5 @@
 import { Provider } from "@/utils/llms/config";
+import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 
 export async function saveAiUsage({
@@ -20,17 +21,20 @@ export async function saveAiUsage({
 }) {
   const cost = calcuateCost(model, usage);
 
-  return publishAiCall({
-    userId: email,
-    provider: provider || Provider.ANTHROPIC,
-    totalTokens: usage.totalTokens,
-    completionTokens: usage.completionTokens,
-    promptTokens: usage.promptTokens,
-    cost,
-    model,
-    timestamp: Date.now(),
-    label,
-  });
+  return Promise.all([
+    publishAiCall({
+      userId: email,
+      provider: provider || Provider.ANTHROPIC,
+      totalTokens: usage.totalTokens,
+      completionTokens: usage.completionTokens,
+      promptTokens: usage.promptTokens,
+      cost,
+      model,
+      timestamp: Date.now(),
+      label,
+    }),
+    saveUsage({ email, cost, usage }),
+  ]);
 }
 
 const costs: Record<
