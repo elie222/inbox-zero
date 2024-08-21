@@ -80,7 +80,7 @@ const proTier = {
     monthly: 0,
     annually: discount(pricing.PRO_MONTHLY, pricing.PRO_ANNUALLY),
   },
-  description: "Unlock AI features when using your own OpenAI key",
+  description: "Unlock AI features when using your own AI API key",
   features: [
     "Everything in free",
     "AI automation when using your own AI API key",
