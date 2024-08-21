@@ -13,16 +13,18 @@ const loaderVariants = cva("mx-auto animate-spin", {
   defaultVariants: { size: "sm" },
 });
 
-export const Loading: React.FC<VariantProps<typeof loaderVariants>> = (
-  props,
-) => {
-  return <Loader2Icon className={cn(loaderVariants(props))} />;
-};
+export interface LoadingProps extends VariantProps<typeof loaderVariants> {
+  className: string;
+}
 
-export function LoadingMiniSpinner(props: VariantProps<typeof loaderVariants>) {
+export function Loading(props: LoadingProps) {
+  return <Loader2Icon className={cn(loaderVariants(props))} />;
+}
+
+export function LoadingMiniSpinner(props: LoadingProps) {
   return <Loading {...props} size="xs" />;
 }
 
 export function ButtonLoader() {
-  return <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />;
+  return <Loading size="xs" className="mr-2" />;
 }
