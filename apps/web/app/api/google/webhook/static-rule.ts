@@ -21,7 +21,7 @@ export async function handleStaticRule({
   message: ParsedMessage;
   user: Pick<
     User,
-    "id" | "email" | "aiModel" | "aiProvider" | "openAIApiKey" | "about"
+    "id" | "email" | "aiModel" | "aiProvider" | "aiApiKey" | "about"
   >;
   gmail: gmail_v1.Gmail;
   isTest: boolean;

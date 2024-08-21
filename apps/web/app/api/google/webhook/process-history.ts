@@ -17,7 +17,6 @@ import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting, type User } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
-import { getAiProviderAndModel } from "@/utils/llms";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 
 export async function processHistoryForUser(
@@ -47,7 +46,7 @@ export async function processHistoryForUser(
           coldEmailPrompt: true,
           aiProvider: true,
           aiModel: true,
-          openAIApiKey: true,
+          aiApiKey: true,
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
@@ -76,11 +75,11 @@ export async function processHistoryForUser(
 
   const userHasAiAccess = hasAiAccess(
     premium.aiAutomationAccess,
-    account.user.openAIApiKey,
+    account.user.aiApiKey,
   );
   const userHasColdEmailAccess = hasColdEmailAccess(
     premium.coldEmailBlockerAccess,
-    account.user.openAIApiKey,
+    account.user.aiApiKey,
   );
 
   if (!userHasAiAccess && !userHasColdEmailAccess) {
@@ -162,11 +161,6 @@ export async function processHistoryForUser(
         history.data.historyId,
       );
 
-      const { model, provider } = getAiProviderAndModel(
-        account.user.aiProvider,
-        account.user.aiModel,
-      );
-
       await processHistory({
         history: history.data.history,
         email,
@@ -179,9 +173,9 @@ export async function processHistoryForUser(
           id: account.userId,
           email: account.user.email,
           about: account.user.about || "",
-          aiProvider: provider,
-          aiModel: model,
-          openAIApiKey: account.user.openAIApiKey,
+          aiProvider: account.user.aiProvider,
+          aiModel: account.user.aiModel,
+          aiApiKey: account.user.aiApiKey,
           coldEmailPrompt: account.user.coldEmailPrompt,
           coldEmailBlocker: account.user.coldEmailBlocker,
         },
