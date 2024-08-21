@@ -63,7 +63,7 @@ model User {
   // settings
   aiProvider            String?
   aiModel               String?
-  openAIApiKey          String?
+  aiApiKey              String?
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?

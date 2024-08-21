@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/Button";
@@ -20,12 +20,18 @@ import type { SaveSettingsResponse } from "@/app/api/user/settings/route";
 import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import { AlertError } from "@/components/Alert";
+import {
+  getDefaultModel,
+  modelOptions,
+  Provider,
+  providerOptions,
+} from "@/utils/llms/config";
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } =
     useSWR<UserResponse>("/api/user/me");
   const { data: dataModels, isLoading: isLoadingModels } =
-    useSWR<OpenAiModelsResponse>(data?.openAIApiKey ? "/api/ai/models" : null);
+    useSWR<OpenAiModelsResponse>(data?.aiApiKey ? "/api/ai/models" : null);
 
   return (
     <FormSection>
@@ -37,8 +43,9 @@ export function ModelSection() {
       <LoadingContent loading={isLoading || isLoadingModels} error={error}>
         {data && (
           <ModelSectionForm
+            aiProvider={data.aiProvider}
             aiModel={data.aiModel}
-            openAIApiKey={data.openAIApiKey}
+            aiApiKey={data.aiApiKey}
             models={dataModels}
             refetchUser={mutate}
           />
@@ -49,8 +56,9 @@ export function ModelSection() {
 }
 
 function ModelSectionForm(props: {
+  aiProvider: string | null;
   aiModel: string | null;
-  openAIApiKey: string | null;
+  aiApiKey: string | null;
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
 }) {
@@ -59,14 +67,28 @@ function ModelSectionForm(props: {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<SaveSettingsBody>({
     resolver: zodResolver(saveSettingsBody),
     defaultValues: {
+      aiProvider: props.aiProvider ?? undefined,
       aiModel: props.aiModel ?? undefined,
-      openAIApiKey: props.openAIApiKey ?? undefined,
+      aiApiKey: props.aiApiKey ?? undefined,
     },
   });
+
+  const aiProvider = watch("aiProvider");
+
+  useEffect(() => {
+    const aiModel = watch("aiModel");
+
+    // if model not part of provider then switch to default model for provider
+    if (!providerOptions.find((o) => o.value === aiModel)) {
+      setValue("aiModel", getDefaultModel(aiProvider));
+    }
+  }, [aiProvider]);
 
   const onSubmit: SubmitHandler<SaveSettingsBody> = useCallback(
     async (data) => {
@@ -88,44 +110,32 @@ function ModelSectionForm(props: {
     [refetchUser],
   );
 
-  const options: { label: string; value: string }[] = useMemo(
-    () =>
-      props.models?.length
-        ? props.models?.map((m) => ({
-            label: m.id,
-            value: m.id,
-          }))
-        : [
-            {
-              label: "GPT-4o mini",
-              value: "gpt-4o-mini",
-            },
-            {
-              label: "GPT-4o",
-              value: "gpt-4o",
-            },
-          ],
-    [props.models],
-  );
-
   const globalError = (errors as any)[""];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Select
+        name="aiProvider"
+        label="Provider"
+        options={providerOptions}
+        registerProps={register("aiProvider")}
+        error={errors.aiProvider}
+      />
+
+      <Select
         name="aiModel"
         label="Model"
-        options={options}
+        options={modelOptions[watch("aiProvider") ?? Provider.OPEN_AI]}
         registerProps={register("aiModel")}
         error={errors.aiModel}
       />
 
       <Input
         type="password"
-        name="openAIApiKey"
+        name="aiApiKey"
         label="OpenAI API Key"
-        registerProps={register("openAIApiKey")}
-        error={errors.openAIApiKey}
+        registerProps={register("aiApiKey")}
+        error={errors.aiApiKey}
       />
 
       {globalError && (

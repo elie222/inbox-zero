@@ -1,4 +1,5 @@
 import { chatCompletionStream } from "@/utils/llms";
+import { Provider } from "@/utils/llms/config";
 import { expire } from "@/utils/redis";
 import { saveSummary } from "@/utils/redis/summary";
 
@@ -12,7 +13,7 @@ export async function summarise(text: string, userEmail: string) {
   const prompt = `Summarise this:\n${text}`;
 
   const response = await chatCompletionStream({
-    provider: "openai",
+    provider: Provider.OPEN_AI,
     model,
     apiKey: null,
     system,

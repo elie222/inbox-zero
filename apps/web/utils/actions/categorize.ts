@@ -35,7 +35,7 @@ export async function categorizeAction(
     select: {
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
     },
   });
 
@@ -54,7 +54,7 @@ export async function categorizeAction(
       ...data,
       content,
       snippet: data.snippet || truncate(content, 300),
-      openAIApiKey: user.openAIApiKey,
+      aiApiKey: user.aiApiKey,
       aiProvider: provider,
       aiModel: model,
       unsubscribeLink,

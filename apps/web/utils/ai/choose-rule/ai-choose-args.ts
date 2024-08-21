@@ -130,7 +130,7 @@ ${stringifyEmail(email, 3000)}`;
   const aiResponse = await chatCompletionTools({
     provider,
     model,
-    apiKey: user.openAIApiKey,
+    apiKey: user.aiApiKey,
     prompt,
     system,
     tools: {

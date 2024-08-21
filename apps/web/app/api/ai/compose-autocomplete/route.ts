@@ -15,7 +15,7 @@ export const POST = withError(async (request: Request): Promise<Response> => {
     select: {
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
     },
   });
 
@@ -34,7 +34,7 @@ Limit your response to no more than 200 characters, but make sure to construct c
   const response = await chatCompletionStream({
     provider,
     model,
-    apiKey: user.openAIApiKey,
+    apiKey: user.aiApiKey,
     system,
     prompt,
     userEmail,

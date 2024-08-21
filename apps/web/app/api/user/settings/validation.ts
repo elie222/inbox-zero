@@ -1,26 +1,18 @@
+import { modelOptions } from "@/utils/llms/config";
 import { z } from "zod";
 
 export const saveSettingsBody = z
   .object({
-    aiModel: z
-      .string()
-      .optional()
-      .refine((val) => !val || val.startsWith("gpt-"), {
-        message: "Model must start with 'gpt-'.",
-      }),
-    openAIApiKey: z
-      .string()
-      .refine((val) => !val || val.startsWith("sk-"), {
-        message: "API key must start with 'sk-'.",
-      })
-      // .refine((val) => !val || val.length === 51 || val.length === 56, {
-      //   message: "API key must be 51 or 56 characters long.",
-      // })
-      .optional(),
+    aiProvider: z.string(),
+    aiModel: z.string(),
+    aiApiKey: z.string().optional(),
   })
   .superRefine((val) => {
-    // if openai key is not set, model must be a valid model
-    if (!val.openAIApiKey) z.enum(["gpt-4o-mini", "gpt-4o"]).parse(val.aiModel);
+    // if ai api key is not set, model must be a preset model
+    if (!val.aiApiKey) {
+      const validModels = modelOptions[val.aiProvider].map((m) => m.value);
+      z.enum(validModels as [string, ...string[]]).parse(val.aiModel);
+    }
     return true;
   });
 export type SaveSettingsBody = z.infer<typeof saveSettingsBody>;

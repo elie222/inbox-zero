@@ -139,7 +139,7 @@ function getUser() {
     aiModel: "gpt-4o-mini",
     aiProvider: "openai",
     email: "user@test.com",
-    openAIApiKey: null,
+    aiApiKey: null,
     about: null,
   };
 }

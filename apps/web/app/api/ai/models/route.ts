@@ -21,12 +21,12 @@ export const GET = withError(async () => {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { email: session.user.email },
-    select: { openAIApiKey: true },
+    select: { aiApiKey: true },
   });
 
-  if (!user.openAIApiKey) return NextResponse.json([]);
+  if (!user.aiApiKey) return NextResponse.json([]);
 
-  const result = await getOpenAiModels({ apiKey: user.openAIApiKey });
+  const result = await getOpenAiModels({ apiKey: user.aiApiKey });
 
   return NextResponse.json(result);
 });

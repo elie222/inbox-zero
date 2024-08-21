@@ -34,7 +34,7 @@ JSON:
   const aiResponse = await chatCompletionObject({
     provider,
     model,
-    apiKey: user.openAIApiKey,
+    apiKey: user.aiApiKey,
     prompt,
     schema: z.object({
       senders: z.array(z.string()),

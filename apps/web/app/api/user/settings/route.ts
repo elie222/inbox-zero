@@ -17,7 +17,7 @@ async function saveAISettings(options: SaveSettingsBody) {
     where: { email: session.user.email },
     data: {
       aiModel: options.aiModel,
-      openAIApiKey: options.openAIApiKey || null,
+      aiApiKey: options.aiApiKey || null,
     },
   });
 }

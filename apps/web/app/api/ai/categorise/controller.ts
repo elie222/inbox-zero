@@ -85,7 +85,7 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
   const response = await chatCompletionObject({
     provider,
     model,
-    apiKey: body.openAIApiKey,
+    apiKey: body.aiApiKey,
     system,
     prompt,
     schema: aiResponseSchema,

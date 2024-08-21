@@ -40,7 +40,7 @@ export async function runRulesAction(
       about: true,
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
       rules: { include: { actions: true } },
     },
   });
@@ -97,7 +97,7 @@ export async function testAiAction({
       about: true,
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
       rules: { include: { actions: true } },
     },
   });
@@ -139,7 +139,7 @@ export async function testAiCustomContentAction({
       about: true,
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
       rules: { include: { actions: true } },
     },
   });
@@ -182,7 +182,7 @@ export async function createAutomationAction(
     select: {
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
       email: true,
     },
   });

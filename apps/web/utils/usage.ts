@@ -1,3 +1,4 @@
+import { Provider } from "@/utils/llms/config";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 
@@ -23,7 +24,7 @@ export async function saveAiUsage({
   return Promise.all([
     publishAiCall({
       userId: email,
-      provider: provider || "openai",
+      provider: provider || Provider.OPEN_AI,
       totalTokens: usage.totalTokens,
       completionTokens: usage.completionTokens,
       promptTokens: usage.promptTokens,

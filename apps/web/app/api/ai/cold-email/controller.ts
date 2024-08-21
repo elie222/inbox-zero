@@ -71,7 +71,7 @@ ${stringifyEmail(email, 500)}
   const response = await chatCompletionObject({
     provider,
     model,
-    apiKey: user.openAIApiKey,
+    apiKey: user.aiApiKey,
     system,
     prompt,
     schema: aiResponseSchema,

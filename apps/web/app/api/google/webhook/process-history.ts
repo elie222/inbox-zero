@@ -47,7 +47,7 @@ export async function processHistoryForUser(
           coldEmailPrompt: true,
           aiProvider: true,
           aiModel: true,
-          openAIApiKey: true,
+          aiApiKey: true,
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
@@ -76,11 +76,11 @@ export async function processHistoryForUser(
 
   const userHasAiAccess = hasAiAccess(
     premium.aiAutomationAccess,
-    account.user.openAIApiKey,
+    account.user.aiApiKey,
   );
   const userHasColdEmailAccess = hasColdEmailAccess(
     premium.coldEmailBlockerAccess,
-    account.user.openAIApiKey,
+    account.user.aiApiKey,
   );
 
   if (!userHasAiAccess && !userHasColdEmailAccess) {
@@ -181,7 +181,7 @@ export async function processHistoryForUser(
           about: account.user.about || "",
           aiProvider: provider,
           aiModel: model,
-          openAIApiKey: account.user.openAIApiKey,
+          aiApiKey: account.user.aiApiKey,
           coldEmailPrompt: account.user.coldEmailPrompt,
           coldEmailBlocker: account.user.coldEmailBlocker,
         },
