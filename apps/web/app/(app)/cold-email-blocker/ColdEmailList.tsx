@@ -22,7 +22,8 @@ import {
 import { AlertBasic } from "@/components/Alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGmailSearchUrl } from "@/utils/url";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";

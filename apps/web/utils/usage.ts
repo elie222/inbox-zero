@@ -1,4 +1,4 @@
-import { saveUsage } from "@/utils/redis/usage";
+import { Provider } from "@/utils/llms/config";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 
 export async function saveAiUsage({
@@ -20,23 +20,19 @@ export async function saveAiUsage({
 }) {
   const cost = calcuateCost(model, usage);
 
-  return Promise.all([
-    publishAiCall({
-      userId: email,
-      provider: provider || "openai",
-      totalTokens: usage.totalTokens,
-      completionTokens: usage.completionTokens,
-      promptTokens: usage.promptTokens,
-      cost,
-      model,
-      timestamp: Date.now(),
-      label,
-    }),
-    saveUsage({ email, cost, usage }),
-  ]);
+  return publishAiCall({
+    userId: email,
+    provider: provider || Provider.ANTHROPIC,
+    totalTokens: usage.totalTokens,
+    completionTokens: usage.completionTokens,
+    promptTokens: usage.promptTokens,
+    cost,
+    model,
+    timestamp: Date.now(),
+    label,
+  });
 }
 
-// https://openai.com/pricing
 const costs: Record<
   string,
   {
@@ -44,6 +40,7 @@ const costs: Record<
     output: number;
   }
 > = {
+  // https://openai.com/pricing
   "gpt-3.5-turbo-0125": {
     input: 0.5 / 1_000_000,
     output: 1.5 / 1_000_000,
@@ -58,6 +55,16 @@ const costs: Record<
   },
   "gpt-4o": {
     input: 5 / 1_000_000,
+    output: 15 / 1_000_000,
+  },
+  // https://www.anthropic.com/pricing#anthropic-api
+  "claude-3-5-sonnet-20240620": {
+    input: 3 / 1_000_000,
+    output: 15 / 1_000_000,
+  },
+  // https://aws.amazon.com/bedrock/pricing/
+  "anthropic.claude-3-5-sonnet-20240620-v1:0": {
+    input: 3 / 1_000_000,
     output: 15 / 1_000_000,
   },
 };

@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { VideoDemo } from "@/app/(landing)/home/VideoDemo";
 import { cn } from "@/utils";
 import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
+import { env } from "@/env";
+import { HeroHeadingAB, HeroSubtitleAB } from "@/app/(landing)/home/HeroAB";
 
 export function HeroText(props: {
   children: React.ReactNode;
@@ -21,6 +24,27 @@ export function HeroText(props: {
 
 export function HeroSubtitle(props: { children: React.ReactNode }) {
   return <p className="mt-6 text-lg leading-8 text-gray-600" {...props} />;
+}
+
+export function HeroHome() {
+  return (
+    <Hero
+      title={
+        env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
+          <Suspense>
+            <HeroHeadingAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
+          </Suspense>
+        ) : undefined
+      }
+      subtitle={
+        env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
+          <Suspense>
+            <HeroSubtitleAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
+          </Suspense>
+        ) : undefined
+      }
+    />
+  );
 }
 
 export function Hero(props: {

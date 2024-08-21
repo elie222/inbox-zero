@@ -13,7 +13,7 @@ async function getUser(userId: string) {
       id: true,
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
       statsEmailFrequency: true,
       summaryEmailFrequency: true,
       coldEmailBlocker: true,

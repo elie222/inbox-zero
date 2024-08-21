@@ -1,3 +1,8 @@
+"use client";
+
+import { useFeatureFlagVariantKey } from "posthog-js/react";
+import { env } from "@/env";
+
 const faqs = [
   {
     question: "Do you store my emails?",
@@ -102,4 +107,14 @@ export function FAQs() {
       </dl>
     </div>
   );
+}
+
+export function FAQsHome() {
+  const variant = useFeatureFlagVariantKey(
+    env.NEXT_PUBLIC_POSTHOG_HERO_AB || "",
+  );
+
+  if (variant === "short-page") return null;
+
+  return <FAQs />;
 }

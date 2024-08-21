@@ -35,7 +35,6 @@ const userNavigation = [
     href: "/mail",
     icon: InboxIcon,
   },
-  { name: "Usage", href: "/usage", icon: BarChartIcon },
   {
     name: "Sign out",
     href: "#",

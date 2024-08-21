@@ -6,6 +6,7 @@ import {
   type SaveSettingsBody,
   saveSettingsBody,
 } from "@/app/api/user/settings/validation";
+import { Model, Provider } from "@/utils/llms/config";
 
 export type SaveSettingsResponse = Awaited<ReturnType<typeof saveAISettings>>;
 
@@ -13,11 +14,31 @@ async function saveAISettings(options: SaveSettingsBody) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
+  const aiProvider = options.aiProvider || Provider.ANTHROPIC;
+
+  function getModel() {
+    switch (aiProvider) {
+      case Provider.OPEN_AI:
+        return options.aiModel;
+      case Provider.ANTHROPIC:
+        if (options.aiApiKey) {
+          // use anthropic if api key set
+          return Model.CLAUDE_3_5_SONNET_ANTHROPIC;
+        } else {
+          // use bedrock if no api key set
+          return Model.CLAUDE_3_5_SONNET_BEDROCK;
+        }
+      default:
+        throw new Error("Invalid AI provider");
+    }
+  }
+
   return await prisma.user.update({
     where: { email: session.user.email },
     data: {
-      aiModel: options.aiModel,
-      openAIApiKey: options.openAIApiKey || null,
+      aiProvider,
+      aiModel: getModel(),
+      aiApiKey: options.aiApiKey || null,
     },
   });
 }

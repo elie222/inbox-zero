@@ -1,10 +1,14 @@
 import { chatCompletionStream } from "@/utils/llms";
+import { Provider } from "@/utils/llms/config";
+import { UserAIFields } from "@/utils/llms/types";
 import { expire } from "@/utils/redis";
 import { saveSummary } from "@/utils/redis/summary";
 
-export async function summarise(text: string, userEmail: string) {
-  const model = "gpt-4o-mini" as const;
-
+export async function summarise(
+  text: string,
+  userEmail: string,
+  userAi: UserAIFields,
+) {
   const system = `You are an email assistant. You summarise emails.
   Summarise each email in a short ~5 word sentence.
   If you need to summarise a longer email, you can use bullet points. Each bullet should be ~5 words.`;
@@ -12,9 +16,7 @@ export async function summarise(text: string, userEmail: string) {
   const prompt = `Summarise this:\n${text}`;
 
   const response = await chatCompletionStream({
-    provider: "openai",
-    model,
-    apiKey: null,
+    userAi,
     system,
     prompt,
     userEmail,

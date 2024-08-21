@@ -1,7 +1,8 @@
 "use client";
 
 import { AreaChartIcon } from "lucide-react";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 export function LoadStatsButton() {

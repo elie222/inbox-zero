@@ -8,7 +8,8 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Modal, useModal } from "@/components/Modal";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
