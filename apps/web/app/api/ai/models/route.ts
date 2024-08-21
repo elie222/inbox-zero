@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import { Provider } from "@/utils/llms/config";
 
 export type OpenAiModelsResponse = Awaited<ReturnType<typeof getOpenAiModels>>;
 
@@ -21,10 +22,11 @@ export const GET = withError(async () => {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { email: session.user.email },
-    select: { aiApiKey: true },
+    select: { aiApiKey: true, aiProvider: true },
   });
 
-  if (!user.aiApiKey) return NextResponse.json([]);
+  if (!user.aiApiKey || user.aiProvider !== Provider.OPEN_AI)
+    return NextResponse.json([]);
 
   const result = await getOpenAiModels({ apiKey: user.aiApiKey });
 
