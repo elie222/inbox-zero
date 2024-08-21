@@ -74,8 +74,8 @@ function ModelSectionForm(props: {
   } = useForm<SaveSettingsBody>({
     resolver: zodResolver(saveSettingsBody),
     defaultValues: {
-      aiProvider: props.aiProvider ?? undefined,
-      aiModel: props.aiModel ?? undefined,
+      aiProvider: props.aiProvider ?? Provider.OPEN_AI,
+      aiModel: props.aiModel ?? getDefaultModel(props.aiProvider),
       aiApiKey: props.aiApiKey ?? undefined,
     },
   });
