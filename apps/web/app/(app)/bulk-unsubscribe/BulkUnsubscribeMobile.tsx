@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
   useUnsubscribeButton,
   useApproveButton,
@@ -105,7 +106,7 @@ export function BulkUnsubscribeRowMobile(props: RowProps) {
             disabled={!item.lastUnsubscribeLink}
             asChild={!!item.lastUnsubscribeLink}
           >
-            <a
+            <Link
               className={
                 hasUnsubscribeAccess
                   ? undefined
@@ -113,20 +114,23 @@ export function BulkUnsubscribeRowMobile(props: RowProps) {
               }
               href={
                 hasUnsubscribeAccess
-                  ? cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#")
+                  ? (cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#") ??
+                    "#")
                   : "#"
               }
               target="_blank"
               onClick={onUnsubscribe}
               rel="noreferrer"
             >
-              {unsubscribeLoading ? (
-                <ButtonLoader />
-              ) : (
-                <MailMinusIcon className="mr-2 h-4 w-4" />
-              )}
-              Unsubscribe
-            </a>
+              <span className="flex items-center gap-1.5">
+                {unsubscribeLoading ? (
+                  <ButtonLoader />
+                ) : (
+                  <MailMinusIcon className="size-4" />
+                )}
+                Unsubscribe
+              </span>
+            </Link>
           </Button>
         </div>
       </CardContent>

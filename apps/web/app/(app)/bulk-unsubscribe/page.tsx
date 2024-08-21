@@ -81,7 +81,7 @@ export default function BulkUnsubscribePage() {
         </div>
       </div>
 
-      <div className="m-2 sm:m-4">
+      <div className="my-2 sm:mx-4 sm:my-4">
         <BulkUnsubscribeSection
           dateRange={dateRange}
           refreshInterval={refreshInterval}
