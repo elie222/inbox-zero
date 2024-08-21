@@ -4,7 +4,8 @@ import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import { Modal, useModal } from "@/components/Modal";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {

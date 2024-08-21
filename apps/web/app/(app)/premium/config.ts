@@ -80,11 +80,11 @@ const proTier = {
     monthly: 0,
     annually: discount(pricing.PRO_MONTHLY, pricing.PRO_ANNUALLY),
   },
-  description: "Unlock AI features when using your own OpenAI key",
+  description: "Unlock AI features when using your own AI API key",
   features: [
     "Everything in free",
-    "AI automation when using your own OpenAI API key",
-    "Cold email blocker when using your own OpenAI API key",
+    "AI automation when using your own AI API key",
+    "Cold email blocker when using your own AI API key",
   ],
   cta: "Upgrade",
   mostPopular: false,
@@ -116,7 +116,7 @@ const businessTier = {
   features: [
     "Everything in pro",
     "Unlimited AI credits",
-    "No need to provide your own OpenAI API key",
+    "No need to provide your own AI API key",
     "Priority support",
   ],
   // features: [

@@ -1,5 +1,5 @@
 import { MessageText } from "@/components/Typography";
-import { ButtonLoader } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 
 export function LoadProgress(props: {}) {
   return (

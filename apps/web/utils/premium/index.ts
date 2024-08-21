@@ -57,11 +57,11 @@ export const hasUnsubscribeAccess = (
 
 export const hasAiAccess = (
   aiAutomationAccess?: FeatureAccess | null,
-  openAIApiKey?: string | null,
+  aiApiKey?: string | null,
 ) => {
   const hasAiAccess = !!(
     aiAutomationAccess === FeatureAccess.UNLOCKED ||
-    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && openAIApiKey)
+    (aiAutomationAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && aiApiKey)
   );
 
   return hasAiAccess;
@@ -69,12 +69,11 @@ export const hasAiAccess = (
 
 export const hasColdEmailAccess = (
   coldEmailBlockerAccess?: FeatureAccess | null,
-  openAIApiKey?: string | null,
+  aiApiKey?: string | null,
 ) => {
   const hasColdEmailAccess = !!(
     coldEmailBlockerAccess === FeatureAccess.UNLOCKED ||
-    (coldEmailBlockerAccess === FeatureAccess.UNLOCKED_WITH_API_KEY &&
-      openAIApiKey)
+    (coldEmailBlockerAccess === FeatureAccess.UNLOCKED_WITH_API_KEY && aiApiKey)
   );
 
   return hasColdEmailAccess;

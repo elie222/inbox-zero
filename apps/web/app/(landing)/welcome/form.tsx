@@ -5,7 +5,8 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Input } from "@/components/Input";
 import { env } from "@/env";
 import {

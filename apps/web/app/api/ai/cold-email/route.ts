@@ -37,7 +37,7 @@ async function checkColdEmail(
       coldEmailPrompt: true,
       aiProvider: true,
       aiModel: true,
-      openAIApiKey: true,
+      aiApiKey: true,
     },
   });
 

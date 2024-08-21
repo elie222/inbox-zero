@@ -24,7 +24,7 @@ async function watchAllEmails() {
         select: {
           id: true,
           email: true,
-          openAIApiKey: true,
+          aiApiKey: true,
           watchEmailsExpirationDate: true,
           accounts: {
             select: {
@@ -51,11 +51,11 @@ async function watchAllEmails() {
 
       const userHasAiAccess = hasAiAccess(
         user.premium.coldEmailBlockerAccess,
-        user.openAIApiKey,
+        user.aiApiKey,
       );
       const userHasColdEmailAccess = hasColdEmailAccess(
         user.premium.coldEmailBlockerAccess,
-        user.openAIApiKey,
+        user.aiApiKey,
       );
 
       if (!userHasAiAccess && !userHasColdEmailAccess) {

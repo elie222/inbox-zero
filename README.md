@@ -155,6 +155,8 @@ To run in development ngrok can be helpful:
 
 ```sh
 ngrok http 3000
+# or with an ngrok domain to keep your endpoint stable (set `XYZ`):
+ngrok http --domain=XYZ.ngrok-free.app 3000
 ```
 
 And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).

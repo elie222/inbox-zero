@@ -17,7 +17,8 @@ import { toast } from "sonner";
 import { capitalCase } from "capital-case";
 import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import {

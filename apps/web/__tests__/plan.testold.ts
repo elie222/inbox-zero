@@ -112,7 +112,7 @@
 //     userAbout: "",
 //     userEmail: "",
 //     aiModel: MODEL,
-//     openAIApiKey: null,
+//     aiApiKey: null,
 //   };
 
 //   it(
@@ -145,7 +145,7 @@
 //     userAbout: "",
 //     userEmail: "",
 //     aiModel: MODEL,
-//     openAIApiKey: null,
+//     aiApiKey: null,
 //   };
 
 //   // fails with gpt 3.5 turbo
@@ -185,7 +185,7 @@
 //     userAbout: "",
 //     userEmail: "",
 //     aiModel: MODEL,
-//     openAIApiKey: null,
+//     aiApiKey: null,
 //     rules: functions.map((f) => {
 //       return {
 //         instructions: f.description || "",
