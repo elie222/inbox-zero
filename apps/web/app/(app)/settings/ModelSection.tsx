@@ -89,7 +89,7 @@ function ModelSectionForm(props: {
     if (!modelOptions[aiProvider].find((o) => o.value === aiModel)) {
       setValue("aiModel", getDefaultModel(aiProvider));
     }
-  }, [aiProvider]);
+  }, [aiProvider, setValue, watch]);
 
   const onSubmit: SubmitHandler<SaveSettingsBody> = useCallback(
     async (data) => {
@@ -126,7 +126,14 @@ function ModelSectionForm(props: {
       <Select
         name="aiModel"
         label="Model"
-        options={modelOptions[watch("aiProvider") ?? Provider.OPEN_AI]}
+        options={
+          aiProvider === Provider.OPEN_AI && watch("aiApiKey")
+            ? props.models?.map((m) => ({
+                label: m.id,
+                value: m.id,
+              })) || []
+            : modelOptions[aiProvider ?? Provider.OPEN_AI]
+        }
         registerProps={register("aiModel")}
         error={errors.aiModel}
       />
