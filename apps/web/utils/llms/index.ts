@@ -9,7 +9,7 @@ import { Model, Provider } from "@/utils/llms/config";
 import { UserAIFields } from "@/utils/llms/types";
 
 function getModel({ aiProvider, aiModel, aiApiKey: apiKey }: UserAIFields) {
-  const provider = aiProvider || Provider.OPEN_AI;
+  const provider = aiProvider || Provider.ANTHROPIC;
 
   if (provider === Provider.OPEN_AI) {
     const model = aiModel || Model.GPT_4O;

@@ -51,7 +51,7 @@ export function ModelSection() {
 }
 
 function getDefaultModel(aiProvider: string | null) {
-  const provider = aiProvider || Provider.OPEN_AI;
+  const provider = aiProvider || Provider.ANTHROPIC;
   const models = modelOptions[provider];
   return models?.[0]?.value;
 }
@@ -74,7 +74,7 @@ function ModelSectionForm(props: {
   } = useForm<SaveSettingsBody>({
     resolver: zodResolver(saveSettingsBody),
     defaultValues: {
-      aiProvider: props.aiProvider ?? Provider.OPEN_AI,
+      aiProvider: props.aiProvider ?? Provider.ANTHROPIC,
       aiModel: props.aiModel ?? getDefaultModel(props.aiProvider),
       aiApiKey: props.aiApiKey ?? undefined,
     },
@@ -132,7 +132,7 @@ function ModelSectionForm(props: {
                 label: m.id,
                 value: m.id,
               })) || []
-            : modelOptions[aiProvider ?? Provider.OPEN_AI]
+            : modelOptions[aiProvider ?? Provider.ANTHROPIC]
         }
         registerProps={register("aiModel")}
         error={errors.aiModel}

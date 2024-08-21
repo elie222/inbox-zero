@@ -14,7 +14,7 @@ async function saveAISettings(options: SaveSettingsBody) {
   const session = await auth();
   if (!session?.user.email) throw new Error("Not logged in");
 
-  const aiProvider = options.aiProvider || Provider.OPEN_AI;
+  const aiProvider = options.aiProvider || Provider.ANTHROPIC;
 
   function getModel() {
     switch (aiProvider) {

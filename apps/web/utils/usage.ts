@@ -24,7 +24,7 @@ export async function saveAiUsage({
   return Promise.all([
     publishAiCall({
       userId: email,
-      provider: provider || Provider.OPEN_AI,
+      provider: provider || Provider.ANTHROPIC,
       totalTokens: usage.totalTokens,
       completionTokens: usage.completionTokens,
       promptTokens: usage.promptTokens,
