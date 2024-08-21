@@ -2,7 +2,7 @@
 
 import type * as React from "react";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { cn } from "@/utils";
@@ -32,7 +32,7 @@ export function DatePickerWithRange({
             !dateRange && "text-muted-foreground",
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
+          <CalendarIcon className="mr-2 hidden h-4 w-4 sm:block" />
           {dateRange?.from ? (
             dateRange.to ? (
               <>

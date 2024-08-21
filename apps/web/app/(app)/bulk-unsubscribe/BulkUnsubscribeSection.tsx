@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
-import { useWindowSize } from "usehooks-ts";
 import { FilterIcon } from "lucide-react";
 import { Title } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
@@ -16,10 +15,7 @@ import type {
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
-import {
-  EmailsToIncludeFilter,
-  useEmailsToIncludeFilter,
-} from "@/app/(app)/stats/EmailsToIncludeFilter";
+import { useEmailsToIncludeFilter } from "@/app/(app)/stats/EmailsToIncludeFilter";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { usePremium } from "@/components/PremiumAlert";
 import {
@@ -44,9 +40,14 @@ import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
-export function BulkUnsubscribeSection(props: {
+export function BulkUnsubscribeSection({
+  dateRange,
+  refreshInterval,
+  isMobile,
+}: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
+  isMobile: boolean;
 }) {
   const { data: session } = useSession();
   const userEmail = session?.user?.email || "";
@@ -66,14 +67,14 @@ export function BulkUnsubscribeSection(props: {
     orderBy: sortColumn,
     limit: 100,
     includeMissingUnsubscribe,
-    ...getDateRangeParams(props.dateRange),
+    ...getDateRangeParams(dateRange),
   };
   const urlParams = new URLSearchParams(params as any);
   const { data, isLoading, error, mutate } = useSWR<
     NewsletterStatsResponse,
     { error: string }
   >(`/api/user/stats/newsletters?${urlParams}`, {
-    refreshInterval: props.refreshInterval,
+    refreshInterval,
     keepPreviousData: true,
   });
 
@@ -101,10 +102,6 @@ export function BulkUnsubscribeSection(props: {
   const { userLabels } = useLabels();
 
   const { PremiumModal, openModal } = usePremiumModal();
-
-  const windowSize = useWindowSize();
-
-  const isMobile = windowSize.width < 768;
 
   const RowComponent = isMobile
     ? BulkUnsubscribeRowMobile
@@ -134,9 +131,9 @@ export function BulkUnsubscribeSection(props: {
   return (
     <>
       {!isMobile && <BulkUnsubscribeSummary />}
-      <Card className="mt-2 p-0 sm:mt-4">
+      <Card className="mt-0 p-0 md:mt-4">
         <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
-          <Title>Bulk Unsubscribe</Title>
+          <Title className="hidden md:block">Bulk Unsubscribe</Title>
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 sm:gap-2 md:mt-0 lg:flex-nowrap">
             <div className="hidden md:block">
               <ShortcutTooltip />
@@ -224,7 +221,7 @@ export function BulkUnsubscribeSection(props: {
       <NewsletterModal
         newsletter={openedNewsletter}
         onClose={() => setOpenedNewsletter(undefined)}
-        refreshInterval={props.refreshInterval}
+        refreshInterval={refreshInterval}
       />
       <PremiumModal />
     </>

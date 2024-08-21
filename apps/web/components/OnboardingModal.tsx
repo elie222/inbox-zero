@@ -26,7 +26,7 @@ export function OnboardingModal({
 
   return (
     <>
-      <Button onClick={openModal} className="text-nowrap">
+      <Button onClick={openModal} className="text-nowrap" variant="outline">
         <PlayIcon className="mr-2 h-4 w-4" />
         Watch Video
       </Button>

@@ -18,7 +18,7 @@ export function LoadStatsButton() {
         {isLoading ? (
           <ButtonLoader />
         ) : (
-          <AreaChartIcon className="mr-2 h-4 w-4" />
+          <AreaChartIcon className="mr-2 hidden h-4 w-4 sm:block" />
         )}
         Load more
       </Button>
