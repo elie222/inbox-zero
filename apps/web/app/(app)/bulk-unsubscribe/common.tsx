@@ -23,7 +23,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import { type PostHog, usePostHog } from "posthog-js/react";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Tooltip } from "@/components/Tooltip";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { Separator } from "@/components/ui/separator";

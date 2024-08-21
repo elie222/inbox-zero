@@ -63,8 +63,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
-const ButtonLoader = () => (
-  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-);
-
-export { Button, buttonVariants, ButtonLoader };
+export { Button, buttonVariants };
