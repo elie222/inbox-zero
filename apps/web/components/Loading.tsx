@@ -4,7 +4,7 @@ import { Loader2Icon } from "lucide-react";
 export function Loading() {
   return (
     <div className="p-8">
-      <Loader2Icon className="size-8 animate-spin" />
+      <Loader2Icon className="mx-auto size-8 animate-spin" />
     </div>
   );
 }
