@@ -36,6 +36,21 @@ const posts = [
     },
   },
   {
+    title:
+      "Escape the Email Trap: How to Unsubscribe for Good When Senders Won't Let Go",
+    file: "escape-email-trap-unsubscribe-for-good",
+    description:
+      "End unwanted emails permanently. Discover tactics to block persistent senders who disregard unsubscribe requests and spam reports.",
+    date: "Aug 22, 2024",
+    datetime: "2024-08-22",
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+  },
+  {
     title: "Alternatives to Skiff Mail",
     file: "alternatives-to-skiff-mail",
     description:
