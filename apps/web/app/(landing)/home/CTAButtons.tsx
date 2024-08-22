@@ -15,8 +15,6 @@ export function CTAButtons() {
     env.NEXT_PUBLIC_POSTHOG_HERO_AB || "",
   );
 
-  if (variant === "cta-get-inbox-zero") return null;
-
   return (
     <Button
       size="2xl"
