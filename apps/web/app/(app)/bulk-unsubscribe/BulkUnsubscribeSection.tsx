@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
+import { usePostHog } from "posthog-js/react";
 import { FilterIcon } from "lucide-react";
 import { Title } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
@@ -25,7 +26,6 @@ import {
 import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { Toggle } from "@/components/Toggle";
 import { useLabels } from "@/hooks/useLabels";
 import {
   BulkUnsubscribeMobile,
@@ -37,6 +37,7 @@ import {
 } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeDesktop";
 import { Card } from "@/components/ui/card";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import { SearchBar } from "@/app/(app)/bulk-unsubscribe/SearchBar";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -58,15 +59,14 @@ export function BulkUnsubscribeSection({
 
   const { typesArray } = useEmailsToIncludeFilter();
   const { filtersArray, filters, setFilters } = useNewsletterFilter();
-  const [includeMissingUnsubscribe, setIncludeMissingUnsubscribe] =
-    useState(false);
+  const posthog = usePostHog();
 
   const params: NewsletterStatsQuery = {
     types: typesArray,
     filters: filtersArray,
     orderBy: sortColumn,
     limit: 100,
-    includeMissingUnsubscribe,
+    includeMissingUnsubscribe: true,
     ...getDateRangeParams(dateRange),
   };
   const urlParams = new URLSearchParams(params as any);
@@ -83,6 +83,11 @@ export function BulkUnsubscribeSection({
   const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = React.useState<Newsletter>();
 
+  const onOpenNewsletter = (newsletter: Newsletter) => {
+    setOpenedNewsletter(newsletter);
+    posthog?.capture("Clicked Expand Sender");
+  };
+
   const [selectedRow, setSelectedRow] = React.useState<
     Newsletter | undefined
   >();
@@ -90,12 +95,14 @@ export function BulkUnsubscribeSection({
   useBulkUnsubscribeShortcuts({
     newsletters: data?.newsletters,
     selectedRow,
-    setOpenedNewsletter,
+    onOpenNewsletter,
     setSelectedRow,
     refetchPremium,
     hasUnsubscribeAccess,
     mutate,
   });
+
+  const [search, setSearch] = useState("");
 
   const { isLoading: isStatsLoading } = useStatLoader();
 
@@ -108,20 +115,29 @@ export function BulkUnsubscribeSection({
     : BulkUnsubscribeRowDesktop;
 
   const tableRows = data?.newsletters
+    .filter(
+      search
+        ? (item) =>
+            item.name.toLowerCase().includes(search.toLowerCase()) ||
+            item.lastUnsubscribeLink
+              ?.toLowerCase()
+              .includes(search.toLowerCase())
+        : Boolean,
+    )
     .slice(0, expanded ? undefined : 50)
     .map((item) => (
       <RowComponent
         key={item.name}
         item={item}
         userEmail={userEmail}
-        setOpenedNewsletter={setOpenedNewsletter}
+        onOpenNewsletter={onOpenNewsletter}
         userGmailLabels={userLabels}
         mutate={mutate}
         selected={selectedRow?.name === item.name}
         onSelectRow={() => {
           setSelectedRow(item);
         }}
-        onDoubleClick={() => setOpenedNewsletter(item)}
+        onDoubleClick={() => onOpenNewsletter(item)}
         hasUnsubscribeAccess={hasUnsubscribeAccess}
         refetchPremium={refetchPremium}
         openPremiumModal={openModal}
@@ -132,21 +148,16 @@ export function BulkUnsubscribeSection({
     <>
       {!isMobile && <BulkUnsubscribeSummary />}
       <Card className="mt-0 p-0 md:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
-          <Title className="hidden md:block">Bulk Unsubscribe</Title>
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 sm:gap-2 md:mt-0 lg:flex-nowrap">
+        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-4 md:flex">
+          <Title className="hidden md:block">
+            Bulk unsubscribe from emails
+          </Title>
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
             <div className="hidden md:block">
               <ShortcutTooltip />
             </div>
 
-            <Toggle
-              label="Missing unsubscribe"
-              name="missing-unsubscribe"
-              enabled={includeMissingUnsubscribe}
-              onChange={() => {
-                setIncludeMissingUnsubscribe(!includeMissingUnsubscribe);
-              }}
-            />
+            <SearchBar onSearch={setSearch} />
 
             <DetailedStatsFilter
               label="Filter"
@@ -163,21 +174,21 @@ export function BulkUnsubscribeSection({
                     }),
                 },
                 {
-                  label: "Auto Archived",
-                  checked: filters.autoArchived,
-                  setChecked: () =>
-                    setFilters({
-                      ...filters,
-                      ["autoArchived"]: !filters.autoArchived,
-                    }),
-                },
-                {
                   label: "Unsubscribed",
                   checked: filters.unsubscribed,
                   setChecked: () =>
                     setFilters({
                       ...filters,
                       ["unsubscribed"]: !filters.unsubscribed,
+                    }),
+                },
+                {
+                  label: "Auto Archived",
+                  checked: filters.autoArchived,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["autoArchived"]: !filters.autoArchived,
                     }),
                 },
                 {

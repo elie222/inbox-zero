@@ -21,7 +21,7 @@ export function BulkUnsubscribeDesktop(props: {
   const { tableRows, sortColumn, setSortColumn } = props;
 
   return (
-    <Table className="mt-4">
+    <Table>
       <TableHead>
         <TableRow>
           <TableHeaderCell className="pl-6">
@@ -67,7 +67,7 @@ export function BulkUnsubscribeRowDesktop({
   onDoubleClick,
   hasUnsubscribeAccess,
   mutate,
-  setOpenedNewsletter,
+  onOpenNewsletter,
   userGmailLabels,
   openPremiumModal,
   userEmail,
@@ -121,7 +121,7 @@ export function BulkUnsubscribeRowDesktop({
           hasUnsubscribeAccess={hasUnsubscribeAccess}
           mutate={mutate}
           refetchPremium={refetchPremium}
-          setOpenedNewsletter={setOpenedNewsletter}
+          onOpenNewsletter={onOpenNewsletter}
           selected={selected}
           userGmailLabels={userGmailLabels}
           openPremiumModal={openPremiumModal}
