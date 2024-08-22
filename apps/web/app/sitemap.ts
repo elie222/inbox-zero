@@ -45,6 +45,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.getinboxzero.com/blog/post/bulk-unsubscribe-from-emails",
     },
     {
+      url: "https://www.getinboxzero.com/blog/post/escape-email-trap-unsubscribe-for-good",
+    },
+    {
       url: "https://docs.getinboxzero.com/",
     },
     {
