@@ -26,7 +26,6 @@ import {
 import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { Toggle } from "@/components/Toggle";
 import { useLabels } from "@/hooks/useLabels";
 import {
   BulkUnsubscribeMobile,
@@ -59,8 +58,6 @@ export function BulkUnsubscribeSection({
 
   const { typesArray } = useEmailsToIncludeFilter();
   const { filtersArray, filters, setFilters } = useNewsletterFilter();
-  const [includeMissingUnsubscribe, setIncludeMissingUnsubscribe] =
-    useState(true);
   const posthog = usePostHog();
 
   const params: NewsletterStatsQuery = {
@@ -68,7 +65,7 @@ export function BulkUnsubscribeSection({
     filters: filtersArray,
     orderBy: sortColumn,
     limit: 100,
-    includeMissingUnsubscribe,
+    includeMissingUnsubscribe: true,
     ...getDateRangeParams(dateRange),
   };
   const urlParams = new URLSearchParams(params as any);
@@ -143,19 +140,10 @@ export function BulkUnsubscribeSection({
           <Title className="hidden md:block">
             Bulk unsubscribe from emails
           </Title>
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 sm:gap-2 md:mt-0 lg:flex-nowrap">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
             <div className="hidden md:block">
               <ShortcutTooltip />
             </div>
-
-            <Toggle
-              label="Missing unsubscribe"
-              name="missing-unsubscribe"
-              enabled={includeMissingUnsubscribe}
-              onChange={() => {
-                setIncludeMissingUnsubscribe(!includeMissingUnsubscribe);
-              }}
-            />
 
             <DetailedStatsFilter
               label="Filter"

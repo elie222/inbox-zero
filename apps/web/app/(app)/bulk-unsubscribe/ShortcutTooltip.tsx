@@ -18,8 +18,8 @@ export function ShortcutTooltip() {
         </div>
       }
     >
-      <Button size="icon" variant="link">
-        <SquareSlashIcon className="h-5 w-5" />
+      <Button size="icon" variant="ghost">
+        <SquareSlashIcon className="size-5" />
       </Button>
     </Tooltip>
   );
