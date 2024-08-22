@@ -132,11 +132,13 @@ async function saveBatch(
     options;
 
   // 1. find all emails since the last time we ran this function
-  const q = before
-    ? `before:${before / 1000 + 1}`
-    : after
-      ? `after:${after / 1000 - 1}`
-      : undefined;
+  let q: string | undefined;
+
+  if (before) {
+    q = `before:${before / 1000 + 1}`;
+  } else if (after) {
+    q = `after:${after / 1000 - 1}`;
+  }
 
   const res = await gmail.users.messages.list({
     userId: "me",

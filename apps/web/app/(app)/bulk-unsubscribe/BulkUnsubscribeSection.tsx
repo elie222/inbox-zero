@@ -37,6 +37,7 @@ import {
 } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeDesktop";
 import { Card } from "@/components/ui/card";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import { SearchBar } from "@/app/(app)/bulk-unsubscribe/SearchBar";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -101,6 +102,8 @@ export function BulkUnsubscribeSection({
     mutate,
   });
 
+  const [search, setSearch] = useState("");
+
   const { isLoading: isStatsLoading } = useStatLoader();
 
   const { userLabels } = useLabels();
@@ -112,6 +115,15 @@ export function BulkUnsubscribeSection({
     : BulkUnsubscribeRowDesktop;
 
   const tableRows = data?.newsletters
+    .filter(
+      search
+        ? (item) =>
+            item.name.toLowerCase().includes(search.toLowerCase()) ||
+            item.lastUnsubscribeLink
+              ?.toLowerCase()
+              .includes(search.toLowerCase())
+        : Boolean,
+    )
     .slice(0, expanded ? undefined : 50)
     .map((item) => (
       <RowComponent
@@ -144,6 +156,8 @@ export function BulkUnsubscribeSection({
             <div className="hidden md:block">
               <ShortcutTooltip />
             </div>
+
+            <SearchBar onSearch={setSearch} />
 
             <DetailedStatsFilter
               label="Filter"
