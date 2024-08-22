@@ -174,21 +174,21 @@ export function BulkUnsubscribeSection({
                     }),
                 },
                 {
-                  label: "Auto Archived",
-                  checked: filters.autoArchived,
-                  setChecked: () =>
-                    setFilters({
-                      ...filters,
-                      ["autoArchived"]: !filters.autoArchived,
-                    }),
-                },
-                {
                   label: "Unsubscribed",
                   checked: filters.unsubscribed,
                   setChecked: () =>
                     setFilters({
                       ...filters,
                       ["unsubscribed"]: !filters.unsubscribed,
+                    }),
+                },
+                {
+                  label: "Auto Archived",
+                  checked: filters.autoArchived,
+                  setChecked: () =>
+                    setFilters({
+                      ...filters,
+                      ["autoArchived"]: !filters.autoArchived,
                     }),
                 },
                 {

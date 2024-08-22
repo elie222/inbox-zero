@@ -53,7 +53,7 @@ import type { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
-import { isActionError, isErrorMessage } from "@/utils/error";
+import { captureException, isActionError, isErrorMessage } from "@/utils/error";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
 import { isDefined } from "@/utils/types";
@@ -167,15 +167,23 @@ export function useUnsubscribeButton<T extends Row>({
 
     setUnsubscribeLoading(true);
 
-    await setNewsletterStatusAction({
-      newsletterEmail: item.name,
-      status: NewsletterStatus.UNSUBSCRIBED,
-    });
-    await mutate();
-    await decrementUnsubscribeCreditAction();
-    await refetchPremium();
+    try {
+      posthog.capture("Clicked Unsubscribe");
 
-    posthog.capture("Clicked Unsubscribe");
+      await setNewsletterStatusAction({
+        newsletterEmail: item.name,
+        status:
+          item.status === NewsletterStatus.UNSUBSCRIBED
+            ? null
+            : NewsletterStatus.UNSUBSCRIBED,
+      });
+      await mutate();
+      await decrementUnsubscribeCreditAction();
+      await refetchPremium();
+    } catch (error) {
+      captureException(error);
+      console.error(error);
+    }
 
     setUnsubscribeLoading(false);
   }, [hasUnsubscribeAccess, item.name, mutate, posthog, refetchPremium]);
@@ -311,21 +319,23 @@ function UnsubscribeButton<T extends Row>({
     refetchPremium,
   });
 
+  const isLink = hasUnsubscribeAccess && item.lastUnsubscribeLink;
+
   return (
     <Button
       size="sm"
       variant={
         item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "secondary"
       }
-      asChild={!!item.lastUnsubscribeLink}
+      asChild
     >
       <Link
         href={
-          hasUnsubscribeAccess && item.lastUnsubscribeLink
-            ? cleanUnsubscribeLink(item.lastUnsubscribeLink) || "#"
-            : "#"
+          isLink
+            ? cleanUnsubscribeLink(item.lastUnsubscribeLink || "") || ""
+            : ""
         }
-        target="_blank"
+        target={isLink ? "_blank" : undefined}
         onClick={onUnsubscribe}
         rel="noreferrer"
       >
