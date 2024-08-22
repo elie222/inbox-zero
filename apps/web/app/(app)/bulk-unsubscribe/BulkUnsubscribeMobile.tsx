@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   useUnsubscribeButton,
   useApproveButton,
+  useArchiveAllButton,
 } from "@/app/(app)/bulk-unsubscribe/common";
 import {
   Card,
@@ -19,7 +20,12 @@ import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { NewsletterStatus } from "@prisma/client";
-import { BadgeCheckIcon, MailMinusIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  BadgeCheckIcon,
+  MailMinusIcon,
+  MoreVerticalIcon,
+} from "lucide-react";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { Badge } from "@/components/ui/badge";
 
@@ -31,9 +37,13 @@ export function BulkUnsubscribeMobile({
   return <div className="mx-2 mt-2 grid gap-2">{tableRows}</div>;
 }
 
-export function BulkUnsubscribeRowMobile(props: RowProps) {
-  const { item, refetchPremium, mutate, hasUnsubscribeAccess } = props;
-
+export function BulkUnsubscribeRowMobile({
+  item,
+  refetchPremium,
+  mutate,
+  hasUnsubscribeAccess,
+  setOpenedNewsletter,
+}: RowProps) {
   const readPercentage = (item.readEmails / item.value) * 100;
   const archivedEmails = item.value - item.inboxEmails;
   const archivedPercentage = (archivedEmails / item.value) * 100;
@@ -54,6 +64,10 @@ export function BulkUnsubscribeRowMobile(props: RowProps) {
     mutate,
     posthog,
     refetchPremium,
+  });
+  const { archiveAllLoading, onArchiveAll } = useArchiveAllButton({
+    item,
+    posthog,
   });
 
   return (
@@ -93,7 +107,7 @@ export function BulkUnsubscribeRowMobile(props: RowProps) {
             {approveLoading ? (
               <ButtonLoader />
             ) : (
-              <BadgeCheckIcon className="mr-2 h-4 w-4" />
+              <BadgeCheckIcon className="mr-2 size-4" />
             )}
             Keep
           </Button>
@@ -131,6 +145,24 @@ export function BulkUnsubscribeRowMobile(props: RowProps) {
                 Unsubscribe
               </span>
             </Link>
+          </Button>
+
+          <Button size="sm" variant="secondary" onClick={onArchiveAll}>
+            {archiveAllLoading ? (
+              <ButtonLoader />
+            ) : (
+              <ArchiveIcon className="mr-2 size-4" />
+            )}
+            Archive All
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setOpenedNewsletter(item)}
+          >
+            <MoreVerticalIcon className="mr-2 size-4" />
+            More
           </Button>
         </div>
       </CardContent>
