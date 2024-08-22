@@ -11,6 +11,8 @@ import {
 import type { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
 import type { Thread } from "@/components/email-list/types";
+import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import { isDefined } from "@/utils/types";
 
 const queue = new PQueue({ concurrency: 3 });
 
@@ -33,6 +35,26 @@ export const archiveEmails = async (
       refetch();
     }),
   );
+};
+
+export const archiveAllSenderEmails = async (
+  from: string,
+  onComplete: () => void,
+) => {
+  // 1. search gmail for messages from sender
+  const res = await fetch(
+    `/api/google/threads/basic?from=${from}&labelId=INBOX`,
+  );
+  const data: GetThreadsResponse = await res.json();
+
+  // 2. archive messages
+  if (data?.length) {
+    archiveEmails(data.map((t) => t.id).filter(isDefined), onComplete);
+  } else {
+    onComplete();
+  }
+
+  return data;
 };
 
 export const markReadThreads = async (

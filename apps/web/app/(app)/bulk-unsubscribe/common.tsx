@@ -55,7 +55,10 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { captureException, isActionError, isErrorMessage } from "@/utils/error";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
-import { archiveEmails, deleteEmails } from "@/providers/QueueProvider";
+import {
+  archiveAllSenderEmails,
+  deleteEmails,
+} from "@/providers/QueueProvider";
 import { isDefined } from "@/utils/types";
 import { getGmailSearchUrl } from "@/utils/url";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
@@ -180,6 +183,8 @@ export function useUnsubscribeButton<T extends Row>({
       await mutate();
       await decrementUnsubscribeCreditAction();
       await refetchPremium();
+
+      archiveAllSenderEmails(item.name, () => {});
     } catch (error) {
       captureException(error);
       console.error(error);
@@ -241,21 +246,9 @@ export function useArchiveAllButton<T extends Row>({
 
     toast.promise(
       async () => {
-        // 1. search gmail for messages from sender
-        const res = await fetch(
-          `/api/google/threads/basic?from=${item.name}&labelId=INBOX`,
+        const data = await archiveAllSenderEmails(item.name, () =>
+          setArchiveAllLoading(false),
         );
-        const data: GetThreadsResponse = await res.json();
-
-        // 2. archive messages
-        if (data?.length) {
-          archiveEmails(data.map((t) => t.id).filter(isDefined), () => {
-            setArchiveAllLoading(false);
-          });
-        } else {
-          setArchiveAllLoading(false);
-        }
-
         return data.length;
       },
       {
