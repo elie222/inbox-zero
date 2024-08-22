@@ -1,20 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import useSWRImmutable from "swr/immutable";
 import Link from "next/link";
-import {
-  Card,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-  Title,
-} from "@tremor/react";
 import truncate from "lodash/truncate";
 import { useSession } from "next-auth/react";
 import { ExternalLinkIcon, Trash2Icon } from "lucide-react";
+import sumBy from "lodash/sumBy";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
@@ -25,9 +17,17 @@ import { getGmailUrl } from "@/utils/url";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { onTrashMessage } from "@/utils/actions/client";
-import { useState } from "react";
 import type { Attachment } from "@/utils/types";
-import { sumBy } from "lodash";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
   const { data, isLoading, error, mutate } = useSWRImmutable<
@@ -52,18 +52,20 @@ export function LargestEmails(props: { refreshInterval: number }) {
     >
       {data && (
         <Card>
-          <Title>What are the largest items in your inbox?</Title>
-          <Table className="mt-6">
-            <TableHead>
+          <CardHeader>
+            <CardTitle>What are the largest items in your inbox?</CardTitle>
+          </CardHeader>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableHeaderCell>From</TableHeaderCell>
-                <TableHeaderCell>Subject</TableHeaderCell>
-                <TableHeaderCell>Date</TableHeaderCell>
-                <TableHeaderCell>Size</TableHeaderCell>
-                <TableHeaderCell>View</TableHeaderCell>
-                <TableHeaderCell>Delete</TableHeaderCell>
+                <TableHead>From</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Size</TableHead>
+                <TableHead>View</TableHead>
+                <TableHead>Delete</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {data.largestEmails
                 .slice(0, expanded ? undefined : 5)
@@ -109,7 +111,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
                 })}
             </TableBody>
           </Table>
-          <div className="mt-2">{extra}</div>
+          <div className="m-2">{extra}</div>
         </Card>
       )}
     </LoadingContent>

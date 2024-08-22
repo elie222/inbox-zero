@@ -4,16 +4,7 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { usePostHog } from "posthog-js/react";
-import {
-  Card,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-  Title,
-} from "@tremor/react";
+import { Card, Title } from "@tremor/react";
 import groupBy from "lodash/groupBy";
 import { FilterIcon, Users2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -40,6 +31,14 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
   const session = useSession();
@@ -234,38 +233,38 @@ function NewSendersTable({
 }) {
   return (
     <Table className="mt-4">
-      <TableHead>
+      <TableHeader>
         <TableRow>
-          <TableHeaderCell className="pl-6">
+          <TableHead className="pl-6">
             <span className="text-sm font-medium">From</span>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "subject"}
               onClick={() => setSortColumn("subject")}
             >
               Subject
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "date"}
               onClick={() => setSortColumn("date")}
             >
               Date
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "numberOfEmails"}
               onClick={() => setSortColumn("numberOfEmails")}
             >
               Emails
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell />
+          </TableHead>
+          <TableHead />
         </TableRow>
-      </TableHead>
+      </TableHeader>
       <TableBody>{tableRows}</TableBody>
     </Table>
   );

@@ -2,16 +2,16 @@
 
 import React from "react";
 import {
-  ProgressBar,
   Table,
   TableBody,
   TableCell,
   TableHead,
-  TableHeaderCell,
+  TableHeader,
   TableRow,
-} from "@tremor/react";
+} from "@/components/ui/table";
 import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
 import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
+import { ProgressBar } from "@tremor/react";
 
 export function BulkUnsubscribeDesktop(props: {
   tableRows?: React.ReactNode;
@@ -22,38 +22,38 @@ export function BulkUnsubscribeDesktop(props: {
 
   return (
     <Table>
-      <TableHead>
+      <TableHeader>
         <TableRow>
-          <TableHeaderCell className="pl-6">
+          <TableHead className="pl-6">
             <span className="text-sm font-medium">From</span>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "emails"}
               onClick={() => setSortColumn("emails")}
             >
               Emails
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "unread"}
               onClick={() => setSortColumn("unread")}
             >
               Read
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "unarchived"}
               onClick={() => setSortColumn("unarchived")}
             >
               Archived
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell />
+          </TableHead>
+          <TableHead />
         </TableRow>
-      </TableHead>
+      </TableHeader>
       <TableBody>{tableRows}</TableBody>
     </Table>
   );
