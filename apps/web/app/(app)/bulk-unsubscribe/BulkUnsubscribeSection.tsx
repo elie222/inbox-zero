@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
+import { usePostHog } from "posthog-js/react";
 import { FilterIcon } from "lucide-react";
 import { Title } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
@@ -59,7 +60,8 @@ export function BulkUnsubscribeSection({
   const { typesArray } = useEmailsToIncludeFilter();
   const { filtersArray, filters, setFilters } = useNewsletterFilter();
   const [includeMissingUnsubscribe, setIncludeMissingUnsubscribe] =
-    useState(false);
+    useState(true);
+  const posthog = usePostHog();
 
   const params: NewsletterStatsQuery = {
     types: typesArray,
@@ -83,6 +85,11 @@ export function BulkUnsubscribeSection({
   const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = React.useState<Newsletter>();
 
+  const onOpenNewsletter = (newsletter: Newsletter) => {
+    setOpenedNewsletter(newsletter);
+    posthog?.capture("Clicked Expand Sender");
+  };
+
   const [selectedRow, setSelectedRow] = React.useState<
     Newsletter | undefined
   >();
@@ -90,7 +97,7 @@ export function BulkUnsubscribeSection({
   useBulkUnsubscribeShortcuts({
     newsletters: data?.newsletters,
     selectedRow,
-    setOpenedNewsletter,
+    onOpenNewsletter,
     setSelectedRow,
     refetchPremium,
     hasUnsubscribeAccess,
@@ -114,14 +121,14 @@ export function BulkUnsubscribeSection({
         key={item.name}
         item={item}
         userEmail={userEmail}
-        setOpenedNewsletter={setOpenedNewsletter}
+        onOpenNewsletter={onOpenNewsletter}
         userGmailLabels={userLabels}
         mutate={mutate}
         selected={selectedRow?.name === item.name}
         onSelectRow={() => {
           setSelectedRow(item);
         }}
-        onDoubleClick={() => setOpenedNewsletter(item)}
+        onDoubleClick={() => onOpenNewsletter(item)}
         hasUnsubscribeAccess={hasUnsubscribeAccess}
         refetchPremium={refetchPremium}
         openPremiumModal={openModal}

@@ -67,7 +67,7 @@ export function BulkUnsubscribeRowDesktop({
   onDoubleClick,
   hasUnsubscribeAccess,
   mutate,
-  setOpenedNewsletter,
+  onOpenNewsletter,
   userGmailLabels,
   openPremiumModal,
   userEmail,
@@ -121,7 +121,7 @@ export function BulkUnsubscribeRowDesktop({
           hasUnsubscribeAccess={hasUnsubscribeAccess}
           mutate={mutate}
           refetchPremium={refetchPremium}
-          setOpenedNewsletter={setOpenedNewsletter}
+          onOpenNewsletter={onOpenNewsletter}
           selected={selected}
           userGmailLabels={userGmailLabels}
           openPremiumModal={openPremiumModal}

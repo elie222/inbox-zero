@@ -65,7 +65,7 @@ export function ActionCell<T extends Row>({
   hasUnsubscribeAccess,
   mutate,
   refetchPremium,
-  setOpenedNewsletter,
+  onOpenNewsletter,
   userGmailLabels,
   openPremiumModal,
   userEmail,
@@ -74,7 +74,7 @@ export function ActionCell<T extends Row>({
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<any>;
-  setOpenedNewsletter: React.Dispatch<React.SetStateAction<T | undefined>>;
+  onOpenNewsletter: (row: T) => void;
   selected: boolean;
   userGmailLabels: LabelsResponse["labels"];
   openPremiumModal: () => void;
@@ -137,7 +137,7 @@ export function ActionCell<T extends Row>({
         />
       </Tooltip>
       <MoreDropdown
-        setOpenedNewsletter={setOpenedNewsletter}
+        onOpenNewsletter={onOpenNewsletter}
         item={item}
         userEmail={userEmail}
         userGmailLabels={userGmailLabels}
@@ -317,16 +317,12 @@ function UnsubscribeButton<T extends Row>({
       variant={
         item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "secondary"
       }
-      disabled={!item.lastUnsubscribeLink}
       asChild={!!item.lastUnsubscribeLink}
     >
-      <a
-        className={
-          hasUnsubscribeAccess ? undefined : "pointer-events-none opacity-50"
-        }
+      <Link
         href={
-          hasUnsubscribeAccess
-            ? cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#")
+          hasUnsubscribeAccess && item.lastUnsubscribeLink
+            ? cleanUnsubscribeLink(item.lastUnsubscribeLink) || "#"
             : "#"
         }
         target="_blank"
@@ -338,7 +334,7 @@ function UnsubscribeButton<T extends Row>({
         <span className="block xl:hidden">
           <MailMinusIcon className="size-4" />
         </span>
-      </a>
+      </Link>
     </Button>
   );
 }
@@ -526,13 +522,13 @@ function ApproveButton<T extends Row>({
 }
 
 export function MoreDropdown<T extends Row>({
-  setOpenedNewsletter,
+  onOpenNewsletter,
   item,
   userEmail,
   userGmailLabels,
   posthog,
 }: {
-  setOpenedNewsletter?: (row: T) => void;
+  onOpenNewsletter?: (row: T) => void;
   item: T;
   userEmail: string;
   userGmailLabels: LabelsResponse["labels"];
@@ -552,13 +548,8 @@ export function MoreDropdown<T extends Row>({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {!!setOpenedNewsletter && (
-          <DropdownMenuItem
-            onClick={() => {
-              setOpenedNewsletter(item);
-              posthog?.capture("Clicked Expand Sender");
-            }}
-          >
+        {!!onOpenNewsletter && (
+          <DropdownMenuItem onClick={() => onOpenNewsletter(item)}>
             <ExpandIcon className="mr-2 size-4" />
             <span>View stats</span>
           </DropdownMenuItem>
@@ -667,7 +658,7 @@ export function HeaderButton(props: {
 export function useBulkUnsubscribeShortcuts<T extends Row>({
   newsletters,
   selectedRow,
-  setOpenedNewsletter,
+  onOpenNewsletter,
   setSelectedRow,
   refetchPremium,
   hasUnsubscribeAccess,
@@ -676,7 +667,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   newsletters?: T[];
   selectedRow?: T;
   setSelectedRow: (row: T) => void;
-  setOpenedNewsletter: (row: T) => void;
+  onOpenNewsletter: (row: T) => void;
   refetchPremium: () => Promise<any>;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<any>;
@@ -704,7 +695,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       } else if (e.key === "Enter") {
         // open modal
         e.preventDefault();
-        setOpenedNewsletter(item);
+        onOpenNewsletter(item);
         return;
       }
 
@@ -755,7 +746,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
     hasUnsubscribeAccess,
     refetchPremium,
     setSelectedRow,
-    setOpenedNewsletter,
+    onOpenNewsletter,
   ]);
 }
 

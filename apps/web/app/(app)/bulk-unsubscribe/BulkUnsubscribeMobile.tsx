@@ -42,7 +42,7 @@ export function BulkUnsubscribeRowMobile({
   refetchPremium,
   mutate,
   hasUnsubscribeAccess,
-  setOpenedNewsletter,
+  onOpenNewsletter,
 }: RowProps) {
   const readPercentage = (item.readEmails / item.value) * 100;
   const archivedEmails = item.value - item.inboxEmails;
@@ -117,19 +117,12 @@ export function BulkUnsubscribeRowMobile({
             variant={
               item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "default"
             }
-            disabled={!item.lastUnsubscribeLink}
             asChild={!!item.lastUnsubscribeLink}
           >
             <Link
-              className={
-                hasUnsubscribeAccess
-                  ? undefined
-                  : "pointer-events-none opacity-50"
-              }
               href={
-                hasUnsubscribeAccess
-                  ? (cleanUnsubscribeLink(item.lastUnsubscribeLink ?? "#") ??
-                    "#")
+                hasUnsubscribeAccess && item.lastUnsubscribeLink
+                  ? cleanUnsubscribeLink(item.lastUnsubscribeLink) || "#"
                   : "#"
               }
               target="_blank"
@@ -159,7 +152,7 @@ export function BulkUnsubscribeRowMobile({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setOpenedNewsletter(item)}
+            onClick={() => onOpenNewsletter(item)}
           >
             <MoreVerticalIcon className="mr-2 size-4" />
             More
