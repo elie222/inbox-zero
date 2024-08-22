@@ -139,8 +139,10 @@ export function BulkUnsubscribeSection({
     <>
       {!isMobile && <BulkUnsubscribeSummary />}
       <Card className="mt-0 p-0 md:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
-          <Title className="hidden md:block">Bulk Unsubscribe</Title>
+        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-4 md:flex">
+          <Title className="hidden md:block">
+            Bulk unsubscribe from emails
+          </Title>
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 sm:gap-2 md:mt-0 lg:flex-nowrap">
             <div className="hidden md:block">
               <ShortcutTooltip />

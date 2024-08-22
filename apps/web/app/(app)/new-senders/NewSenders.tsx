@@ -124,7 +124,7 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
         />
       </LoadingContent>
       <Card className="mt-2 p-0 sm:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
+        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-4 md:flex">
           <Title>New Senders</Title>
           <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
             <div className="hidden md:block">

@@ -21,7 +21,7 @@ export function BulkUnsubscribeDesktop(props: {
   const { tableRows, sortColumn, setSortColumn } = props;
 
   return (
-    <Table className="mt-4">
+    <Table>
       <TableHead>
         <TableRow>
           <TableHeaderCell className="pl-6">
