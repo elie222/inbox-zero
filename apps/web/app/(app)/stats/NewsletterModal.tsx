@@ -29,6 +29,7 @@ import { onAutoArchive } from "@/utils/actions/client";
 import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { usePostHog } from "posthog-js/react";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
@@ -41,6 +42,8 @@ export function NewsletterModal(props: {
   const email = session.data?.user.email;
 
   const { userLabels } = useLabels();
+
+  const posthog = usePostHog();
 
   return (
     <Dialog open={!!newsletter} onOpenChange={onClose}>
@@ -82,6 +85,7 @@ export function NewsletterModal(props: {
                 item={newsletter}
                 userEmail={email || ""}
                 userGmailLabels={userLabels}
+                posthog={posthog}
               />
             </div>
 

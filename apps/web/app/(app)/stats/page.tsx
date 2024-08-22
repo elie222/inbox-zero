@@ -73,6 +73,7 @@ export default function StatsPage() {
             setDateRange={setDateRange}
             period={period}
             setPeriod={setPeriod}
+            isMobile={false}
           />
           <LoadStatsButton />
         </div>
