@@ -59,8 +59,19 @@ export function BulkUnsubscribeDesktop(props: {
   );
 }
 
-export function BulkUnsubscribeRowDesktop(props: RowProps) {
-  const { item, refetchPremium } = props;
+export function BulkUnsubscribeRowDesktop({
+  item,
+  refetchPremium,
+  selected,
+  onSelectRow,
+  onDoubleClick,
+  hasUnsubscribeAccess,
+  mutate,
+  setOpenedNewsletter,
+  userGmailLabels,
+  openPremiumModal,
+  userEmail,
+}: RowProps) {
   const readPercentage = (item.readEmails / item.value) * 100;
   const archivedEmails = item.value - item.inboxEmails;
   const archivedPercentage = (archivedEmails / item.value) * 100;
@@ -68,11 +79,11 @@ export function BulkUnsubscribeRowDesktop(props: RowProps) {
   return (
     <TableRow
       key={item.name}
-      className={props.selected ? "bg-blue-50" : undefined}
-      aria-selected={props.selected || undefined}
-      data-selected={props.selected || undefined}
-      onMouseEnter={props.onSelectRow}
-      onDoubleClick={props.onDoubleClick}
+      className={selected ? "bg-blue-50" : undefined}
+      aria-selected={selected || undefined}
+      data-selected={selected || undefined}
+      onMouseEnter={onSelectRow}
+      onDoubleClick={onDoubleClick}
     >
       <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-none">
         {item.name}
@@ -107,14 +118,14 @@ export function BulkUnsubscribeRowDesktop(props: RowProps) {
       <TableCell className="flex justify-end gap-2 p-2">
         <ActionCell
           item={item}
-          hasUnsubscribeAccess={props.hasUnsubscribeAccess}
-          mutate={props.mutate}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
           refetchPremium={refetchPremium}
-          setOpenedNewsletter={props.setOpenedNewsletter}
-          selected={props.selected}
-          userGmailLabels={props.userGmailLabels}
-          openPremiumModal={props.openPremiumModal}
-          userEmail={props.userEmail}
+          setOpenedNewsletter={setOpenedNewsletter}
+          selected={selected}
+          userGmailLabels={userGmailLabels}
+          openPremiumModal={openPremiumModal}
+          userEmail={userEmail}
         />
       </TableCell>
     </TableRow>

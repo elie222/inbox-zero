@@ -186,6 +186,110 @@ export function useUnsubscribeButton<T extends Row>({
   };
 }
 
+export function useApproveButton<T extends Row>({
+  item,
+  mutate,
+  posthog,
+}: {
+  item: T;
+  mutate: () => Promise<void>;
+  posthog: PostHog;
+}) {
+  const [approveLoading, setApproveLoading] = React.useState(false);
+
+  const onApprove = async () => {
+    setApproveLoading(true);
+
+    await setNewsletterStatusAction({
+      newsletterEmail: item.name,
+      status: NewsletterStatus.APPROVED,
+    });
+    await mutate();
+
+    posthog.capture("Clicked Approve Sender");
+
+    setApproveLoading(false);
+  };
+
+  return {
+    approveLoading,
+    onApprove,
+  };
+}
+
+export function useArchiveAllButton<T extends Row>({
+  item,
+  posthog,
+}: {
+  item: T;
+  posthog: PostHog;
+}) {
+  const [archiveAllLoading, setArchiveAllLoading] = React.useState(false);
+
+  const onArchiveAll = async () => {
+    setArchiveAllLoading(true);
+
+    posthog.capture("Clicked Archive All");
+
+    toast.promise(
+      async () => {
+        // 1. search gmail for messages from sender
+        const res = await fetch(
+          `/api/google/threads/basic?from=${item.name}&labelId=INBOX`,
+        );
+        const data: GetThreadsResponse = await res.json();
+
+        // 2. archive messages
+        if (data?.length) {
+          archiveEmails(data.map((t) => t.id).filter(isDefined), () => {
+            setArchiveAllLoading(false);
+          });
+        } else {
+          setArchiveAllLoading(false);
+        }
+
+        return data.length;
+      },
+      {
+        loading: `Archiving all emails from ${item.name}`,
+        success: (data) =>
+          data
+            ? `Archiving ${data} emails from ${item.name}...`
+            : `No emails to archive from ${item.name}`,
+        error: `There was an error archiving the emails from ${item.name} :(`,
+      },
+    );
+  };
+
+  return {
+    archiveAllLoading,
+    onArchiveAll,
+  };
+}
+
+export function useMoreButton<T extends Row>({
+  item,
+  posthog,
+}: {
+  item: T;
+  posthog: PostHog;
+}) {
+  const [moreLoading, setMoreLoading] = React.useState(false);
+
+  const onMore = async () => {
+    setMoreLoading(true);
+
+    posthog.capture("Clicked More");
+
+    setMoreLoading(false);
+  };
+
+  return {
+    moreLoading,
+    onMore,
+  };
+}
+
 function UnsubscribeButton<T extends Row>({
   item,
   hasUnsubscribeAccess,
@@ -232,7 +336,7 @@ function UnsubscribeButton<T extends Row>({
         {unsubscribeLoading && <ButtonLoader />}
         <span className="hidden xl:block">Unsubscribe</span>
         <span className="block xl:hidden">
-          <MailMinusIcon className="h-4 w-4" />
+          <MailMinusIcon className="size-4" />
         </span>
       </a>
     </Button>
@@ -294,7 +398,7 @@ function AutoArchiveButton<T extends Row>({
         {autoArchiveLoading && <ButtonLoader />}
         <span className="hidden xl:block">Auto Archive</span>
         <span className="block xl:hidden">
-          <ArchiveIcon className="h-4 w-4" />
+          <ArchiveIcon className="size-4" />
         </span>
       </Button>
       <Separator orientation="vertical" className="h-[20px]" />
@@ -311,7 +415,7 @@ function AutoArchiveButton<T extends Row>({
             size="sm"
             disabled={!hasUnsubscribeAccess}
           >
-            <ChevronDownIcon className="h-4 w-4 text-secondary-foreground" />
+            <ChevronDownIcon className="size-4 text-secondary-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -341,7 +445,7 @@ function AutoArchiveButton<T extends Row>({
                   setAutoArchiveLoading(false);
                 }}
               >
-                <ArchiveXIcon className="mr-2 h-4 w-4" /> Disable Auto Archive
+                <ArchiveXIcon className="mr-2 size-4" /> Disable Auto Archive
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
@@ -386,37 +490,6 @@ function AutoArchiveButton<T extends Row>({
   );
 }
 
-export function useApproveButton<T extends Row>({
-  item,
-  mutate,
-  posthog,
-}: {
-  item: T;
-  mutate: () => Promise<void>;
-  posthog: PostHog;
-}) {
-  const [approveLoading, setApproveLoading] = React.useState(false);
-
-  const onApprove = async () => {
-    setApproveLoading(true);
-
-    await setNewsletterStatusAction({
-      newsletterEmail: item.name,
-      status: NewsletterStatus.APPROVED,
-    });
-    await mutate();
-
-    posthog.capture("Clicked Approve Sender");
-
-    setApproveLoading(false);
-  };
-
-  return {
-    approveLoading,
-    onApprove,
-  };
-}
-
 function ApproveButton<T extends Row>({
   item,
   hasUnsubscribeAccess,
@@ -446,7 +519,7 @@ function ApproveButton<T extends Row>({
       {approveLoading && <ButtonLoader />}
       <span className="sr-only">Keep</span>
       <span>
-        <BadgeCheckIcon className="h-4 w-4" />
+        <BadgeCheckIcon className="size-4" />
       </span>
     </Button>
   );
@@ -463,13 +536,18 @@ export function MoreDropdown<T extends Row>({
   item: T;
   userEmail: string;
   userGmailLabels: LabelsResponse["labels"];
-  posthog?: PostHog;
+  posthog: PostHog;
 }) {
+  const { archiveAllLoading, onArchiveAll } = useArchiveAllButton({
+    item,
+    posthog,
+  });
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button aria-haspopup="true" size="icon" variant="ghost">
-          <MoreHorizontalIcon className="h-4 w-4" />
+          <MoreHorizontalIcon className="size-4" />
           <span className="sr-only">Toggle menu</span>
         </Button>
       </DropdownMenuTrigger>
@@ -481,20 +559,20 @@ export function MoreDropdown<T extends Row>({
               posthog?.capture("Clicked Expand Sender");
             }}
           >
-            <ExpandIcon className="mr-2 h-4 w-4" />
+            <ExpandIcon className="mr-2 size-4" />
             <span>View stats</span>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
           <Link href={getGmailSearchUrl(item.name, userEmail)} target="_blank">
-            <ExternalLinkIcon className="mr-2 h-4 w-4" />
+            <ExternalLinkIcon className="mr-2 size-4" />
             <span>View in Gmail</span>
           </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <UserPlus className="mr-2 h-4 w-4" />
+            <UserPlus className="mr-2 size-4" />
             <span>Add sender to group</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
@@ -504,7 +582,7 @@ export function MoreDropdown<T extends Row>({
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <TagIcon className="mr-2 h-4 w-4" />
+            <TagIcon className="mr-2 size-4" />
             <span>Label future emails</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
@@ -512,38 +590,12 @@ export function MoreDropdown<T extends Row>({
           </DropdownMenuPortal>
         </DropdownMenuSub>
 
-        <DropdownMenuItem
-          onClick={() => {
-            toast.promise(
-              async () => {
-                // 1. search gmail for messages from sender
-                const res = await fetch(
-                  `/api/google/threads/basic?from=${item.name}&labelId=INBOX`,
-                );
-                const data: GetThreadsResponse = await res.json();
-
-                // 2. archive messages
-                if (data?.length) {
-                  archiveEmails(
-                    data.map((t) => t.id).filter(isDefined),
-                    () => {},
-                  );
-                }
-
-                return data.length;
-              },
-              {
-                loading: `Archiving all emails from ${item.name}`,
-                success: (data) =>
-                  data
-                    ? `Archiving ${data} emails from ${item.name}...`
-                    : `No emails to archive from ${item.name}`,
-                error: `There was an error archiving the emails from ${item.name} :(`,
-              },
-            );
-          }}
-        >
-          <ArchiveIcon className="mr-2 h-4 w-4" />
+        <DropdownMenuItem onClick={onArchiveAll}>
+          {archiveAllLoading ? (
+            <ButtonLoader />
+          ) : (
+            <ArchiveIcon className="mr-2 size-4" />
+          )}
           <span>Archive all</span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -582,7 +634,7 @@ export function MoreDropdown<T extends Row>({
             );
           }}
         >
-          <TrashIcon className="mr-2 h-4 w-4" />
+          <TrashIcon className="mr-2 size-4" />
           <span>Delete all</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -604,9 +656,9 @@ export function HeaderButton(props: {
     >
       <span>{props.children}</span>
       {props.sorted ? (
-        <ChevronDown className="ml-2 h-4 w-4" />
+        <ChevronDown className="ml-2 size-4" />
       ) : (
-        <ChevronsUpDownIcon className="ml-2 h-4 w-4" />
+        <ChevronsUpDownIcon className="ml-2 size-4" />
       )}
     </Button>
   );
@@ -776,7 +828,7 @@ function GroupsSubMenu({ sender }: { sender: string }) {
       <DropdownMenuSeparator />
       <DropdownMenuItem asChild>
         <Link href="/automation?tab=groups" target="_blank">
-          <PlusCircle className="mr-2 h-4 w-4" />
+          <PlusCircle className="mr-2 size-4" />
           <span>New Group</span>
         </Link>
       </DropdownMenuItem>
