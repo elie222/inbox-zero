@@ -18,6 +18,7 @@ import { ColdEmailSetting, type User } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
+import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -281,12 +282,27 @@ async function processHistoryItem(
       }),
     ]);
 
+    const message = parseMessage(gmailMessage);
+
+    const blocked = await blockUnsubscribedEmails({
+      from: message.headers.from,
+      userId: user.id,
+      gmail,
+      messageId,
+    });
+
+    if (blocked) {
+      console.log(
+        `Skipping. Blocked unsubscribed email. email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
+      );
+      return;
+    }
+
     if (hasExistingRule) {
       console.log("Skipping. Rule already exists.");
       return;
     }
 
-    const message = parseMessage(gmailMessage);
     const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
 
     if (hasAutomationRules && hasAiAutomationAccess) {
