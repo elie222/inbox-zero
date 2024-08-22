@@ -47,7 +47,7 @@ const tinybirdEmailAction = z.object({
 export type TinybirdEmailAction = z.infer<typeof tinybirdEmailAction>;
 
 export const publishEmailAction = tb.buildIngestEndpoint({
-  datasource: "email_actions",
+  datasource: "email_action",
   event: tinybirdEmailAction,
 });
 
