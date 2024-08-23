@@ -1,39 +1,39 @@
-import useSWR from "swr";
-import { BarChart } from "@tremor/react";
-import type { DateRange } from "react-day-picker";
-import Link from "next/link";
-import { ExternalLinkIcon } from "lucide-react";
-import { useSession } from "next-auth/react";
+import {
+  MoreDropdown,
+  useUnsubscribeButton,
+} from "@/app/(app)/bulk-unsubscribe/common";
+import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { getDateRangeParams } from "@/app/(app)/stats/params";
+import type { ThreadsResponse } from "@/app/api/google/threads/controller";
+import type {
+  SenderEmailsQuery,
+  SenderEmailsResponse,
+} from "@/app/api/user/stats/sender-emails/route";
+import { AlertBasic } from "@/components/Alert";
+import { LoadingContent } from "@/components/LoadingContent";
+import { usePremium } from "@/components/PremiumAlert";
+import { Tooltip } from "@/components/Tooltip";
+import { SectionHeader } from "@/components/Typography";
+import { EmailList } from "@/components/email-list/EmailList";
+import { Button, ButtonLoader } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getDateRangeParams } from "@/app/(app)/stats/params";
-import type {
-  SenderEmailsQuery,
-  SenderEmailsResponse,
-} from "@/app/api/user/stats/sender-emails/route";
-import type { ZodPeriod } from "@inboxzero/tinybird";
-import { LoadingContent } from "@/components/LoadingContent";
-import { SectionHeader } from "@/components/Typography";
-import { EmailList } from "@/components/email-list/EmailList";
-import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button, ButtonLoader } from "@/components/ui/button";
-import { getGmailFilterSettingsUrl } from "@/utils/url";
-import { Tooltip } from "@/components/Tooltip";
-import { AlertBasic } from "@/components/Alert";
-import { onAutoArchive } from "@/utils/actions/client";
-import {
-  MoreDropdown,
-  useUnsubscribeButton,
-} from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
-import { Row } from "@/app/(app)/bulk-unsubscribe/types";
-import { usePremium } from "@/components/PremiumAlert";
+import { onAutoArchive } from "@/utils/actions/client";
+import { getGmailFilterSettingsUrl } from "@/utils/url";
+import type { ZodPeriod } from "@inboxzero/tinybird";
+import { BarChart } from "@tremor/react";
+import { ExternalLinkIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
+import type { DateRange } from "react-day-picker";
+import useSWR from "swr";
 
 export function NewsletterModal(props: {
   newsletter: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
@@ -71,19 +71,22 @@ export function NewsletterModal(props: {
             </DialogHeader>
 
             <div className="flex space-x-2">
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" disabled={unsubscribeLoading}>
                 <a
                   href={newsletter.lastUnsubscribeLink || undefined}
                   target="_blank"
                   rel="noreferrer"
                   onClick={onUnsubscribe}
                 >
-                  {!unsubscribeLoading && <span>Unsubscribe</span>}
-                  {!!unsubscribeLoading && (
+                  {unsubscribeLoading ? (
+                    // Button loading state
                     <div className="flex cursor-not-allowed items-center opacity-50">
                       <ButtonLoader />
                       <span>Unsubscribing...</span>
                     </div>
+                  ) : (
+                    // Button default state
+                    <span>Unsubscribe</span>
                   )}
                 </a>
               </Button>
