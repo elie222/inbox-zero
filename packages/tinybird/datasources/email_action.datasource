@@ -1,7 +1,6 @@
 SCHEMA >
     `ownerEmail` String `json:$.ownerEmail`,
     `threadId` String `json:$.threadId`,
-    `gmailMessageId` String `json:$.gmailMessageId`,
     `action` LowCardinality(String) `json:$.action`,
     `actionSource` LowCardinality(String) `json:$.actionSource`,
     `timestamp` Int64 `json:$.timestamp`
