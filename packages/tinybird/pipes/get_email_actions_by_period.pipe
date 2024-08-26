@@ -1,0 +1,14 @@
+NODE get_email_actions
+DESCRIPTION >
+  Get the number of email actions by period
+
+SQL >
+  %
+    SELECT 
+        toDate(fromUnixTimestamp64Milli(timestamp)) AS date,
+        countIf(action = 'archive') AS archive_count,
+        countIf(action = 'delete') AS delete_count
+    FROM email_action
+    WHERE ownerEmail = {{ String(ownerEmail) }}
+    GROUP BY date
+    ORDER BY date

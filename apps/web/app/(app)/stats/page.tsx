@@ -12,6 +12,7 @@ import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
 import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { LoadProgress } from "@/app/(app)/stats/LoadProgress";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
+import { EmailActionsAnalytics } from "@/app/(app)/stats/EmailActionsAnalytics";
 // import { Insights } from "@/app/(app)/stats/Insights";
 
 const selectOptions = [
@@ -96,6 +97,10 @@ export default function StatsPage() {
           period={period}
           refreshInterval={refreshInterval}
         />
+      </div>
+
+      <div className="mt-4 px-4">
+        <EmailActionsAnalytics />
       </div>
 
       {/* <div className="px-4">

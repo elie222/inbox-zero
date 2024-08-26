@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWRImmutable from "swr/immutable";
 import Link from "next/link";
+import { Title } from "@tremor/react";
 import truncate from "lodash/truncate";
 import { useSession } from "next-auth/react";
 import { ExternalLinkIcon, Trash2Icon } from "lucide-react";
@@ -26,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 
 export function LargestEmails(props: { refreshInterval: number }) {
   const session = useSession();
@@ -53,7 +54,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
       {data && (
         <Card>
           <CardHeader>
-            <CardTitle>What are the largest items in your inbox?</CardTitle>
+            <Title>What are the largest items in your inbox?</Title>
           </CardHeader>
           <Table>
             <TableHeader>
