@@ -231,8 +231,13 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.MARK_SPAM]: MARK_SPAM,
 };
 
-const archive: ActionFunction<{}> = async (gmail, email) => {
-  await archiveThread({ gmail, threadId: email.threadId });
+const archive: ActionFunction<{}> = async (gmail, email, _args, userEmail) => {
+  await archiveThread({
+    gmail,
+    threadId: email.threadId,
+    ownerEmail: userEmail,
+    actionSource: "automation",
+  });
 };
 
 const label: ActionFunction<{ label: string } | any> = async (

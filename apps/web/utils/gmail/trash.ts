@@ -1,3 +1,4 @@
+import { publishDelete, TinybirdEmailAction } from "@inboxzero/tinybird";
 import type { gmail_v1 } from "googleapis";
 
 // trash moves the thread/message to the trash folder
@@ -7,13 +8,38 @@ import type { gmail_v1 } from "googleapis";
 export async function trashThread(options: {
   gmail: gmail_v1.Gmail;
   threadId: string;
+  ownerEmail: string;
+  actionSource: TinybirdEmailAction["actionSource"];
 }) {
-  const { gmail, threadId } = options;
+  const { gmail, threadId, ownerEmail, actionSource } = options;
 
-  return gmail.users.threads.trash({
+  const trashPromise = gmail.users.threads.trash({
     userId: "me",
     id: threadId,
   });
+
+  const publishPromise = publishDelete({
+    ownerEmail,
+    threadId,
+    actionSource,
+    timestamp: Date.now(),
+  });
+
+  const [trashResult, publishResult] = await Promise.allSettled([
+    trashPromise,
+    publishPromise,
+  ]);
+
+  if (trashResult.status === "rejected") {
+    console.error("Failed to trash thread:", trashResult.reason);
+    throw new Error("Failed to trash thread");
+  }
+
+  if (publishResult.status === "rejected") {
+    console.error("Failed to publish delete action:", publishResult.reason);
+  }
+
+  return trashResult.value;
 }
 
 export async function trashMessage(options: {

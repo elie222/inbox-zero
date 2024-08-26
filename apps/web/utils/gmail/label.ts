@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "googleapis";
+import { publishArchive, TinybirdEmailAction } from "@inboxzero/tinybird";
 
 export const INBOX_LABEL_ID = "INBOX";
 export const SENT_LABEL_ID = "SENT";
@@ -30,16 +31,41 @@ export async function labelThread(options: {
 export async function archiveThread(options: {
   gmail: gmail_v1.Gmail;
   threadId: string;
+  ownerEmail: string;
+  actionSource: TinybirdEmailAction["actionSource"];
 }) {
-  const { gmail, threadId } = options;
+  const { gmail, threadId, ownerEmail, actionSource } = options;
 
-  return gmail.users.threads.modify({
+  const archivePromise = gmail.users.threads.modify({
     userId: "me",
     id: threadId,
     requestBody: {
       removeLabelIds: [INBOX_LABEL_ID],
     },
   });
+
+  const publishPromise = publishArchive({
+    ownerEmail,
+    threadId,
+    actionSource,
+    timestamp: Date.now(),
+  });
+
+  const [archiveResult, publishResult] = await Promise.allSettled([
+    archivePromise,
+    publishPromise,
+  ]);
+
+  if (archiveResult.status === "rejected") {
+    console.error("Failed to archive thread:", archiveResult.reason);
+    throw new Error("Failed to archive thread");
+  }
+
+  if (publishResult.status === "rejected") {
+    console.error("Failed to publish archive action:", publishResult.reason);
+  }
+
+  return archiveResult.value;
 }
 
 export async function labelMessage(options: {
