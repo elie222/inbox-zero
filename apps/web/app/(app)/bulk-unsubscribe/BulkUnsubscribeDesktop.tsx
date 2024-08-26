@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { ProgressBar } from "@tremor/react";
 import {
   Table,
   TableBody,
@@ -11,20 +12,31 @@ import {
 } from "@/components/ui/table";
 import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
 import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
-import { ProgressBar } from "@tremor/react";
+import { Checkbox } from "@/components/Checkbox";
 
 export function BulkUnsubscribeDesktop(props: {
   tableRows?: React.ReactNode;
   sortColumn: "emails" | "unread" | "unarchived";
   setSortColumn: (sortColumn: "emails" | "unread" | "unarchived") => void;
+  isAllSelected: boolean;
+  onToggleSelectAll: () => void;
 }) {
-  const { tableRows, sortColumn, setSortColumn } = props;
+  const {
+    tableRows,
+    sortColumn,
+    setSortColumn,
+    isAllSelected,
+    onToggleSelectAll,
+  } = props;
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="pl-6">
+          <TableHead className="pr-0">
+            <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+          </TableHead>
+          <TableHead>
             <span className="text-sm font-medium">From</span>
           </TableHead>
           <TableHead>
@@ -71,6 +83,8 @@ export function BulkUnsubscribeRowDesktop({
   userGmailLabels,
   openPremiumModal,
   userEmail,
+  onToggleSelect,
+  checked,
 }: RowProps) {
   const readPercentage = (item.readEmails / item.value) * 100;
   const archivedEmails = item.value - item.inboxEmails;
@@ -85,7 +99,13 @@ export function BulkUnsubscribeRowDesktop({
       onMouseEnter={onSelectRow}
       onDoubleClick={onDoubleClick}
     >
-      <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-none">
+      <TableCell className="pr-0">
+        <Checkbox
+          checked={checked}
+          onChange={() => onToggleSelect?.(item.name)}
+        />
+      </TableCell>
+      <TableCell className="max-w-[250px] truncate min-[1550px]:max-w-[300px] min-[1650px]:max-w-[400px]">
         {item.name}
       </TableCell>
       <TableCell>{item.value}</TableCell>

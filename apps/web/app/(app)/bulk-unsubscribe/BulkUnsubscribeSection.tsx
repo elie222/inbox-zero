@@ -38,6 +38,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { SearchBar } from "@/app/(app)/bulk-unsubscribe/SearchBar";
+import { useToggleSelect } from "@/hooks/useToggleSelect";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -114,7 +115,7 @@ export function BulkUnsubscribeSection({
     ? BulkUnsubscribeRowMobile
     : BulkUnsubscribeRowDesktop;
 
-  const tableRows = data?.newsletters
+  const rows = data?.newsletters
     .filter(
       search
         ? (item) =>
@@ -124,8 +125,13 @@ export function BulkUnsubscribeSection({
               .includes(search.toLowerCase())
         : Boolean,
     )
-    .slice(0, expanded ? undefined : 50)
-    .map((item) => (
+    .slice(0, expanded ? undefined : 50);
+
+  const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
+    useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
+
+  const tableRows = rows?.map((item) => {
+    return (
       <RowComponent
         key={item.name}
         item={item}
@@ -134,15 +140,16 @@ export function BulkUnsubscribeSection({
         userGmailLabels={userLabels}
         mutate={mutate}
         selected={selectedRow?.name === item.name}
-        onSelectRow={() => {
-          setSelectedRow(item);
-        }}
+        onSelectRow={() => setSelectedRow(item)}
         onDoubleClick={() => onOpenNewsletter(item)}
         hasUnsubscribeAccess={hasUnsubscribeAccess}
         refetchPremium={refetchPremium}
         openPremiumModal={openModal}
+        checked={selected.get(item.name) || false}
+        onToggleSelect={onToggleSelect}
       />
-    ));
+    );
+  });
 
   return (
     <>
@@ -223,6 +230,8 @@ export function BulkUnsubscribeSection({
                 sortColumn={sortColumn}
                 setSortColumn={setSortColumn}
                 tableRows={tableRows}
+                isAllSelected={isAllSelected}
+                onToggleSelectAll={onToggleSelectAll}
               />
             )}
             <div className="mt-2 px-6 pb-6">{extra}</div>
