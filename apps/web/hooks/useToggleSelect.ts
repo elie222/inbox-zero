@@ -7,8 +7,10 @@ export function useToggleSelect(items: { id: string }[]) {
     setSelected((prev) => new Map(prev).set(id, !prev.get(id)));
   };
   const onToggleSelectAll = useCallback(() => {
+    const allSelected = items.every((item) => selected.get(item.id));
+
     items.forEach((item) => {
-      setSelected((prev) => new Map(prev).set(item.id, !prev.get(item.id)));
+      setSelected((prev) => new Map(prev).set(item.id, !allSelected));
     });
   }, [items]);
 
