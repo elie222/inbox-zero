@@ -26,6 +26,13 @@ export function withError(handler: NextHandler): NextHandler {
       }
 
       if ((error as any)?.errors?.[0]?.reason === "insufficientPermissions") {
+        console.error(
+          `User did not grant all Gmail permissions: ${req.url}:`,
+          error,
+        );
+        captureException(error, {
+          extra: { url: req.url, params, reason: "insufficientPermissions" },
+        });
         return NextResponse.json(
           {
             error:
