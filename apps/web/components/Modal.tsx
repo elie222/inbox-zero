@@ -61,25 +61,24 @@ export function Modal(props: ModalProps) {
               leave="ease-in duration-200"
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
+              className={clsx(
+                "w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all",
+                {
+                  "p-6": props.padding === "sm",
+                  "p-10": !props.padding,
+                  "sm:w-full sm:max-w-xl":
+                    !props.fullWidth && (!props.size || props.size === "xl"),
+                  "sm:w-full sm:max-w-2xl":
+                    !props.fullWidth && props.size === "2xl",
+                  "sm:w-full sm:max-w-4xl":
+                    !props.fullWidth && props.size === "4xl",
+                  "sm:w-full sm:max-w-6xl":
+                    !props.fullWidth && props.size === "6xl",
+                  "sm:w-full sm:max-w-full": props.fullWidth,
+                },
+              )}
             >
-              <DialogPanel
-                className={clsx(
-                  "w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all",
-                  {
-                    "p-6": props.padding === "sm",
-                    "p-10": !props.padding,
-                    "sm:w-full sm:max-w-xl":
-                      !props.fullWidth && (!props.size || props.size === "xl"),
-                    "sm:w-full sm:max-w-2xl":
-                      !props.fullWidth && props.size === "2xl",
-                    "sm:w-full sm:max-w-4xl":
-                      !props.fullWidth && props.size === "4xl",
-                    "sm:w-full sm:max-w-6xl":
-                      !props.fullWidth && props.size === "6xl",
-                    "sm:w-full sm:max-w-full": props.fullWidth,
-                  },
-                )}
-              >
+              <DialogPanel>
                 {props.title && (
                   <DialogTitle as="h3" className="font-cal text-xl leading-6">
                     {props.title}
