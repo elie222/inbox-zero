@@ -150,6 +150,21 @@ export function ActionCell<T extends Row>({
   );
 }
 
+async function unsubscribeAndArchive(
+  newsletterEmail: string,
+  mutate: () => Promise<void>,
+  refetchPremium: () => Promise<any>,
+) {
+  await setNewsletterStatusAction({
+    newsletterEmail,
+    status: NewsletterStatus.UNSUBSCRIBED,
+  });
+  await mutate();
+  await decrementUnsubscribeCreditAction();
+  await refetchPremium();
+  await archiveAllSenderEmails(newsletterEmail, () => {});
+}
+
 export function useUnsubscribeButton<T extends Row>({
   item,
   hasUnsubscribeAccess,
@@ -173,18 +188,15 @@ export function useUnsubscribeButton<T extends Row>({
     try {
       posthog.capture("Clicked Unsubscribe");
 
-      await setNewsletterStatusAction({
-        newsletterEmail: item.name,
-        status:
-          item.status === NewsletterStatus.UNSUBSCRIBED
-            ? null
-            : NewsletterStatus.UNSUBSCRIBED,
-      });
-      await mutate();
-      await decrementUnsubscribeCreditAction();
-      await refetchPremium();
-
-      archiveAllSenderEmails(item.name, () => {});
+      if (item.status === NewsletterStatus.UNSUBSCRIBED) {
+        await setNewsletterStatusAction({
+          newsletterEmail: item.name,
+          status: null,
+        });
+        await mutate();
+      } else {
+        await unsubscribeAndArchive(item.name, mutate, refetchPremium);
+      }
     } catch (error) {
       captureException(error);
       console.error(error);
@@ -196,6 +208,53 @@ export function useUnsubscribeButton<T extends Row>({
   return {
     unsubscribeLoading,
     onUnsubscribe,
+  };
+}
+
+export function useBulkUnsubscribeButton<T extends Row>({
+  hasUnsubscribeAccess,
+  mutate,
+  posthog,
+  refetchPremium,
+}: {
+  hasUnsubscribeAccess: boolean;
+  mutate: () => Promise<any>;
+  posthog: PostHog;
+  refetchPremium: () => Promise<any>;
+}) {
+  const [bulkUnsubscribeLoading, setBulkUnsubscribeLoading] =
+    React.useState(false);
+
+  const onBulkUnsubscribe = useCallback(
+    async (items: T[]) => {
+      if (!hasUnsubscribeAccess) return;
+
+      setBulkUnsubscribeLoading(true);
+
+      try {
+        posthog.capture("Clicked Bulk Unsubscribe");
+
+        for (const item of items) {
+          try {
+            await unsubscribeAndArchive(item.name, mutate, refetchPremium);
+          } catch (error) {
+            captureException(error);
+            console.error(error);
+          }
+        }
+      } catch (error) {
+        captureException(error);
+        console.error(error);
+      }
+
+      setBulkUnsubscribeLoading(false);
+    },
+    [hasUnsubscribeAccess, mutate, posthog, refetchPremium],
+  );
+
+  return {
+    bulkUnsubscribeLoading,
+    onBulkUnsubscribe,
   };
 }
 
@@ -227,6 +286,37 @@ export function useApproveButton<T extends Row>({
   return {
     approveLoading,
     onApprove,
+  };
+}
+
+export function useBulkApproveButton<T extends Row>({
+  mutate,
+  posthog,
+}: {
+  mutate: () => Promise<any>;
+  posthog: PostHog;
+}) {
+  const [bulkApproveLoading, setBulkApproveLoading] = React.useState(false);
+
+  const onBulkApprove = async (items: T[]) => {
+    setBulkApproveLoading(true);
+
+    posthog.capture("Clicked Bulk Approve");
+
+    for (const item of items) {
+      await setNewsletterStatusAction({
+        newsletterEmail: item.name,
+        status: NewsletterStatus.APPROVED,
+      });
+      await mutate();
+    }
+
+    setBulkApproveLoading(false);
+  };
+
+  return {
+    bulkApproveLoading,
+    onBulkApprove,
   };
 }
 

@@ -22,6 +22,8 @@ import { usePremium } from "@/components/PremiumAlert";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
+  useBulkUnsubscribeButton,
+  useBulkApproveButton,
 } from "@/app/(app)/bulk-unsubscribe/common";
 import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
@@ -39,6 +41,8 @@ import { Card } from "@/components/ui/card";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { SearchBar } from "@/app/(app)/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -151,14 +155,102 @@ export function BulkUnsubscribeSection({
     );
   });
 
+  const { bulkUnsubscribeLoading, onBulkUnsubscribe } =
+    useBulkUnsubscribeButton({
+      hasUnsubscribeAccess,
+      mutate,
+      posthog,
+      refetchPremium,
+    });
+
+  const { bulkApproveLoading, onBulkApprove } = useBulkApproveButton({
+    mutate,
+    posthog,
+  });
+
   return (
     <>
       {!isMobile && <BulkUnsubscribeSummary />}
-      <Card className="mt-0 p-0 md:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-4 md:flex">
-          <Title className="hidden md:block">
-            Bulk unsubscribe from emails
-          </Title>
+      <Card className="mt-0 md:mt-4">
+        <div className="items-center justify-between px-2 pt-2 sm:px-4 md:flex">
+          {Array.from(selected.values()).filter(Boolean).length > 0 ? (
+            <div className="flex items-center space-x-1.5">
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    onBulkUnsubscribe(
+                      Array.from(selected.entries()).map(([name, value]) => ({
+                        name,
+                        value,
+                      })),
+                    )
+                  }
+                  disabled={bulkUnsubscribeLoading}
+                >
+                  {bulkUnsubscribeLoading && <ButtonLoader />}
+                  Unsubscribe
+                </Button>
+              </div>
+              {/* <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={rejectSelected}
+                  disabled={isApproving || isRejecting}
+                >
+                  {isRejecting && <ButtonLoader />}
+                  Auto Archive
+                </Button>
+              </div> */}
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    onBulkApprove(
+                      Array.from(selected.entries()).map(([name, value]) => ({
+                        name,
+                        value,
+                      })),
+                    )
+                  }
+                  disabled={bulkApproveLoading}
+                >
+                  {bulkApproveLoading && <ButtonLoader />}
+                  Approve
+                </Button>
+              </div>
+              {/* <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={rejectSelected}
+                  disabled={isApproving || isRejecting}
+                >
+                  {isRejecting && <ButtonLoader />}
+                  Archive
+                </Button>
+              </div> */}
+              {/* <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={rejectSelected}
+                  disabled={isApproving || isRejecting}
+                >
+                  {isRejecting && <ButtonLoader />}
+                  Delete
+                </Button>
+              </div> */}
+            </div>
+          ) : (
+            <Title className="hidden md:block">
+              Bulk unsubscribe from emails
+            </Title>
+          )}
+
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
             <div className="hidden md:block">
               <ShortcutTooltip />
