@@ -31,6 +31,7 @@ async function executeGmailAction<T>(
     user: { id: string; email: string },
   ) => Promise<any>,
   errorMessage: string,
+  onError?: (error: unknown) => boolean, // returns true if error was handled
 ): Promise<ServerActionResponse<T>> {
   const { gmail, user, error } = await getSessionAndGmailClient();
   if (error) return { error };
@@ -40,6 +41,7 @@ async function executeGmailAction<T>(
     const res = await action(gmail, user);
     return !isStatusOk(res.status) ? handleError(res, errorMessage) : undefined;
   } catch (error) {
+    if (onError?.(error)) return;
     return handleError(error, errorMessage);
   }
 }
@@ -119,6 +121,11 @@ export async function createAutoArchiveFilterAction(
   return executeGmailAction(
     async (gmail) => createAutoArchiveFilter({ gmail, from, gmailLabelId }),
     "Failed to create auto archive filter",
+    (error) => {
+      const errorMessage = (error as any)?.errors?.[0]?.message;
+      if (errorMessage === "Filter already exists") return true;
+      return false;
+    },
   );
 }
 

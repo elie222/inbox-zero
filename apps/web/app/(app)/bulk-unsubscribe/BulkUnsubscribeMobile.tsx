@@ -3,10 +3,10 @@
 import React from "react";
 import Link from "next/link";
 import {
-  useUnsubscribeButton,
+  useUnsubscribe,
   useApproveButton,
-  useArchiveAllButton,
-} from "@/app/(app)/bulk-unsubscribe/common";
+  useArchiveAll,
+} from "@/app/(app)/bulk-unsubscribe/hooks";
 import {
   Card,
   CardContent,
@@ -58,14 +58,14 @@ export function BulkUnsubscribeRowMobile({
     mutate,
     posthog,
   });
-  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribeButton({
+  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribe({
     item,
     hasUnsubscribeAccess,
     mutate,
     posthog,
     refetchPremium,
   });
-  const { archiveAllLoading, onArchiveAll } = useArchiveAllButton({
+  const { archiveAllLoading, onArchiveAll } = useArchiveAll({
     item,
     posthog,
   });
