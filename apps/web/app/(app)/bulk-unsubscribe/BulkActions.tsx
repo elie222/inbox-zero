@@ -45,6 +45,14 @@ export function BulkActions({
 
   const { onBulkDelete } = useBulkDelete({ mutate, posthog });
 
+  const getSelectedValues = () =>
+    Array.from(selected.entries())
+      .filter(([_, value]) => value)
+      .map(([name, value]) => ({
+        name,
+        value,
+      }));
+
   return (
     <>
       <PremiumTooltip showTooltip={!hasUnsubscribeAccess} openModal={openModal}>
@@ -53,14 +61,7 @@ export function BulkActions({
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                onBulkUnsubscribe(
-                  Array.from(selected.entries()).map(([name, value]) => ({
-                    name,
-                    value,
-                  })),
-                )
-              }
+              onClick={() => onBulkUnsubscribe(getSelectedValues())}
               disabled={bulkUnsubscribeLoading}
             >
               {bulkUnsubscribeLoading && <ButtonLoader />}
@@ -71,14 +72,7 @@ export function BulkActions({
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                onBulkAutoArchive(
-                  Array.from(selected.entries()).map(([name, value]) => ({
-                    name,
-                    value,
-                  })),
-                )
-              }
+              onClick={() => onBulkAutoArchive(getSelectedValues())}
               disabled={bulkAutoArchiveLoading}
             >
               {bulkAutoArchiveLoading && <ButtonLoader />}
@@ -89,14 +83,7 @@ export function BulkActions({
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                onBulkApprove(
-                  Array.from(selected.entries()).map(([name, value]) => ({
-                    name,
-                    value,
-                  })),
-                )
-              }
+              onClick={() => onBulkApprove(getSelectedValues())}
               disabled={bulkApproveLoading}
             >
               {bulkApproveLoading && <ButtonLoader />}
@@ -107,14 +94,7 @@ export function BulkActions({
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                onBulkArchive(
-                  Array.from(selected.entries()).map(([name, value]) => ({
-                    name,
-                    value,
-                  })),
-                )
-              }
+              onClick={() => onBulkArchive(getSelectedValues())}
             >
               Archive All
             </Button>
@@ -123,14 +103,7 @@ export function BulkActions({
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                onBulkDelete(
-                  Array.from(selected.entries()).map(([name, value]) => ({
-                    name,
-                    value,
-                  })),
-                )
-              }
+              onClick={() => onBulkDelete(getSelectedValues())}
             >
               Delete All
             </Button>

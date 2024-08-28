@@ -351,9 +351,7 @@ export function useBulkArchive<T extends Row>({
     posthog.capture("Clicked Bulk Archive");
 
     for (const item of items) {
-      await archiveAll(item.name, () => {
-        mutate();
-      });
+      await archiveAll(item.name, mutate);
     }
   };
 
@@ -419,9 +417,7 @@ export function useBulkDelete<T extends Row>({
     posthog.capture("Clicked Bulk Delete");
 
     for (const item of items) {
-      await deleteAllFromSender(item.name, () => {
-        mutate();
-      });
+      await deleteAllFromSender(item.name, mutate);
     }
   };
 
