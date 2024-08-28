@@ -4,9 +4,10 @@ import {
   useBulkApprove,
   useBulkAutoArchive,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
-import { usePremium } from "@/components/PremiumAlert";
+import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { ButtonLoader } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function BulkActions({
   selected,
@@ -17,6 +18,7 @@ export function BulkActions({
 }) {
   const posthog = usePostHog();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
+  const { PremiumModal, openModal } = usePremiumModal();
 
   const { bulkUnsubscribeLoading, onBulkUnsubscribe } = useBulkUnsubscribe({
     hasUnsubscribeAccess,
@@ -38,62 +40,64 @@ export function BulkActions({
   });
 
   return (
-    <div className="flex items-center space-x-1.5">
-      <div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            onBulkUnsubscribe(
-              Array.from(selected.entries()).map(([name, value]) => ({
-                name,
-                value,
-              })),
-            )
-          }
-          disabled={bulkUnsubscribeLoading}
-        >
-          {bulkUnsubscribeLoading && <ButtonLoader />}
-          Unsubscribe
-        </Button>
-      </div>
-      <div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            onBulkAutoArchive(
-              Array.from(selected.entries()).map(([name, value]) => ({
-                name,
-                value,
-              })),
-            )
-          }
-          disabled={bulkAutoArchiveLoading}
-        >
-          {bulkAutoArchiveLoading && <ButtonLoader />}
-          Auto Archive
-        </Button>
-      </div>
-      <div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            onBulkApprove(
-              Array.from(selected.entries()).map(([name, value]) => ({
-                name,
-                value,
-              })),
-            )
-          }
-          disabled={bulkApproveLoading}
-        >
-          {bulkApproveLoading && <ButtonLoader />}
-          Approve
-        </Button>
-      </div>
-      {/* <div>
+    <>
+      <PremiumTooltip showTooltip={!hasUnsubscribeAccess} openModal={openModal}>
+        <div className="flex items-center space-x-1.5">
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                onBulkUnsubscribe(
+                  Array.from(selected.entries()).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
+                )
+              }
+              disabled={bulkUnsubscribeLoading}
+            >
+              {bulkUnsubscribeLoading && <ButtonLoader />}
+              Unsubscribe
+            </Button>
+          </div>
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                onBulkAutoArchive(
+                  Array.from(selected.entries()).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
+                )
+              }
+              disabled={bulkAutoArchiveLoading}
+            >
+              {bulkAutoArchiveLoading && <ButtonLoader />}
+              Auto Archive
+            </Button>
+          </div>
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                onBulkApprove(
+                  Array.from(selected.entries()).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
+                )
+              }
+              disabled={bulkApproveLoading}
+            >
+              {bulkApproveLoading && <ButtonLoader />}
+              Approve
+            </Button>
+          </div>
+          {/* <div>
     <Button
       size="sm"
       variant="outline"
@@ -104,7 +108,7 @@ export function BulkActions({
       Archive
     </Button>
   </div> */}
-      {/* <div>
+          {/* <div>
     <Button
       size="sm"
       variant="outline"
@@ -115,6 +119,9 @@ export function BulkActions({
       Delete
     </Button>
   </div> */}
-    </div>
+        </div>
+      </PremiumTooltip>
+      <PremiumModal />
+    </>
   );
 }
