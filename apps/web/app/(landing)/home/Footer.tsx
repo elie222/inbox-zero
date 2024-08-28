@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const navigation = {
   main: [
-    { name: "Newsletter Cleaner", href: "/newsletter-cleaner" },
+    { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Email AI Automation", href: "/ai-automation" },

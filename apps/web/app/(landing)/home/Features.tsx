@@ -318,7 +318,7 @@ export function FeaturesUnsubscribe() {
   return (
     <FeaturesWithImage
       imageSide="right"
-      title="Newsletter Cleaner"
+      title="Bulk Email Unsubscriber"
       subtitle="Clean up your subscriptions"
       description="See all newsletter and marketing subscriptions in one place. Unsubscribe in a click."
       image="/images/newsletters.png"
@@ -376,7 +376,7 @@ export function FeaturesNewSenders() {
   return (
     <FeaturesWithImage
       imageSide="left"
-      title="Newsletter Cleaner"
+      title="New Sender List"
       subtitle="Manage new senders in your inbox"
       description="View a comprehensive list of recent new senders, making it easier to spot important contacts and opportunities, while also offering the ability to block unwanted communication effortlessly."
       image="/images/newsletters.png"

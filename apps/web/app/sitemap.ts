@@ -6,7 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.getinboxzero.com/",
     },
     {
-      url: "https://www.getinboxzero.com/newsletter-cleaner",
+      url: "https://www.getinboxzero.com/bulk-email-unsubscriber",
     },
     {
       url: "https://www.getinboxzero.com/ai-automation",

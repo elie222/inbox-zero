@@ -9,10 +9,10 @@ import { CTA } from "@/app/(landing)/home/CTA";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 
 export const metadata: Metadata = {
-  title: "Email Newsletter Cleaner | Inbox Zero",
+  title: "Bulk Email Unsubscriber | Inbox Zero",
   description:
     "Effortlessly manage the newsletters in your inbox: one click unsubscribe, auto archive, or approve.",
-  alternates: { canonical: "/newsletter-cleaner" },
+  alternates: { canonical: "/bulk-email-unsubscriber" },
 };
 
 export default function NewsletterCleaner() {

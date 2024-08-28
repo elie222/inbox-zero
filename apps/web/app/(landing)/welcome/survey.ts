@@ -6,7 +6,7 @@ export const survey = {
       question: "Which features are you most interested in?",
       choices: [
         "AI Automation",
-        "Newsletter Cleaner",
+        "Bulk Email Unsubscriber",
         "Cold Email Blocker",
         "Email Analytics",
         "Other",
