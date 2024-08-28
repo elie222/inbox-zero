@@ -153,6 +153,8 @@ export function useAutoArchive<T extends Row>({
   const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
 
   const onAutoArchiveClick = useCallback(async () => {
+    if (!hasUnsubscribeAccess) return;
+
     setAutoArchiveLoading(true);
 
     await autoArchive(item.name, undefined, mutate, refetchPremium);
@@ -175,6 +177,8 @@ export function useAutoArchive<T extends Row>({
 
   const onAutoArchiveAndLabel = useCallback(
     async (labelId: string) => {
+      if (!hasUnsubscribeAccess) return;
+
       setAutoArchiveLoading(true);
 
       await autoArchive(item.name, labelId, mutate, refetchPremium);
@@ -208,6 +212,8 @@ export function useBulkAutoArchive<T extends Row>({
 
   const onBulkAutoArchive = useCallback(
     async (items: T[]) => {
+      if (!hasUnsubscribeAccess) return;
+
       setBulkAutoArchiveLoading(true);
 
       for (const item of items) {
