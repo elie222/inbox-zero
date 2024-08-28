@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Dialog,
@@ -297,6 +297,8 @@ export function SideNav(props: {
 
 function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
+  const searchParams = useSearchParams();
+  const activePath = "?" + searchParams.toString(); // "?" is added to match the href strings of NavItems
   const showMailNav = path === "/mail" || path === "/compose";
 
   const { onOpen } = useComposeModal();
@@ -332,12 +334,12 @@ function Sidebar(props: { isMobile: boolean }) {
             </Button>
 
             <div className="mt-2">
-              <Links path={path} links={topMailLinks} />
+              <Links path={activePath} links={topMailLinks} />
             </div>
             <div className="mt-7">
               <NavSectionHeader title="Labels" />
               <div className="mt-2">
-                <Links path={path} links={bottomMailLinks} />
+                <Links path={activePath} links={bottomMailLinks} />
               </div>
             </div>
           </Transition>
