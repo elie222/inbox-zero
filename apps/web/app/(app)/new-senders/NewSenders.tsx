@@ -18,12 +18,11 @@ import type {
 import { formatShortDate } from "@/utils/date";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
+import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
-  ActionCell,
-  HeaderButton,
-} from "@/app/(app)/bulk-unsubscribe/common";
+} from "@/app/(app)/bulk-unsubscribe/hooks";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";

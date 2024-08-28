@@ -22,7 +22,7 @@ import { usePremium } from "@/components/PremiumAlert";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
-} from "@/app/(app)/bulk-unsubscribe/common";
+} from "@/app/(app)/bulk-unsubscribe/hooks";
 import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
@@ -38,6 +38,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { SearchBar } from "@/app/(app)/bulk-unsubscribe/SearchBar";
+import { useToggleSelect } from "@/hooks/useToggleSelect";
+import { BulkActions } from "@/app/(app)/bulk-unsubscribe/BulkActions";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -114,7 +116,7 @@ export function BulkUnsubscribeSection({
     ? BulkUnsubscribeRowMobile
     : BulkUnsubscribeRowDesktop;
 
-  const tableRows = data?.newsletters
+  const rows = data?.newsletters
     .filter(
       search
         ? (item) =>
@@ -124,8 +126,13 @@ export function BulkUnsubscribeSection({
               .includes(search.toLowerCase())
         : Boolean,
     )
-    .slice(0, expanded ? undefined : 50)
-    .map((item) => (
+    .slice(0, expanded ? undefined : 50);
+
+  const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
+    useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
+
+  const tableRows = rows?.map((item) => {
+    return (
       <RowComponent
         key={item.name}
         item={item}
@@ -134,24 +141,30 @@ export function BulkUnsubscribeSection({
         userGmailLabels={userLabels}
         mutate={mutate}
         selected={selectedRow?.name === item.name}
-        onSelectRow={() => {
-          setSelectedRow(item);
-        }}
+        onSelectRow={() => setSelectedRow(item)}
         onDoubleClick={() => onOpenNewsletter(item)}
         hasUnsubscribeAccess={hasUnsubscribeAccess}
         refetchPremium={refetchPremium}
         openPremiumModal={openModal}
+        checked={selected.get(item.name) || false}
+        onToggleSelect={onToggleSelect}
       />
-    ));
+    );
+  });
 
   return (
     <>
       {!isMobile && <BulkUnsubscribeSummary />}
-      <Card className="mt-0 p-0 md:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-4 md:flex">
-          <Title className="hidden md:block">
-            Bulk unsubscribe from emails
-          </Title>
+      <Card className="mt-0 md:mt-4">
+        <div className="items-center justify-between px-2 pt-2 sm:px-4 md:flex">
+          {Array.from(selected.values()).filter(Boolean).length > 0 ? (
+            <BulkActions selected={selected} mutate={mutate} />
+          ) : (
+            <Title className="hidden md:block">
+              Bulk unsubscribe from emails
+            </Title>
+          )}
+
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
             <div className="hidden md:block">
               <ShortcutTooltip />
@@ -223,6 +236,8 @@ export function BulkUnsubscribeSection({
                 sortColumn={sortColumn}
                 setSortColumn={setSortColumn}
                 tableRows={tableRows}
+                isAllSelected={isAllSelected}
+                onToggleSelectAll={onToggleSelectAll}
               />
             )}
             <div className="mt-2 px-6 pb-6">{extra}</div>

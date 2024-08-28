@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
 import type { gmail_v1 } from "googleapis";
-import { toast } from "sonner";
 import {
   ArchiveIcon,
   ArchiveXIcon,
@@ -26,7 +25,6 @@ import { type PostHog, usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Tooltip } from "@/components/Tooltip";
-import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -41,8 +39,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
-import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
-import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import {
   PremiumTooltip,
   PremiumTooltipContent,
@@ -53,15 +49,16 @@ import type { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
-import { captureException, isActionError, isErrorMessage } from "@/utils/error";
-import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
-import {
-  archiveAllSenderEmails,
-  deleteEmails,
-} from "@/providers/QueueProvider";
-import { isDefined } from "@/utils/types";
+import { isActionError, isErrorMessage } from "@/utils/error";
 import { getGmailSearchUrl } from "@/utils/url";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import {
+  useUnsubscribe,
+  useAutoArchive,
+  useApproveButton,
+  useArchiveAll,
+  useDeleteAllFromSender,
+} from "@/app/(app)/bulk-unsubscribe/hooks";
 
 export function ActionCell<T extends Row>({
   item,
@@ -150,147 +147,6 @@ export function ActionCell<T extends Row>({
   );
 }
 
-export function useUnsubscribeButton<T extends Row>({
-  item,
-  hasUnsubscribeAccess,
-  mutate,
-  posthog,
-  refetchPremium,
-}: {
-  item: T;
-  hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<void>;
-  posthog: PostHog;
-  refetchPremium: () => Promise<any>;
-}) {
-  const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
-
-  const onUnsubscribe = useCallback(async () => {
-    if (!hasUnsubscribeAccess) return;
-
-    setUnsubscribeLoading(true);
-
-    try {
-      posthog.capture("Clicked Unsubscribe");
-
-      await setNewsletterStatusAction({
-        newsletterEmail: item.name,
-        status:
-          item.status === NewsletterStatus.UNSUBSCRIBED
-            ? null
-            : NewsletterStatus.UNSUBSCRIBED,
-      });
-      await mutate();
-      await decrementUnsubscribeCreditAction();
-      await refetchPremium();
-
-      archiveAllSenderEmails(item.name, () => {});
-    } catch (error) {
-      captureException(error);
-      console.error(error);
-    }
-
-    setUnsubscribeLoading(false);
-  }, [hasUnsubscribeAccess, item.name, mutate, posthog, refetchPremium]);
-
-  return {
-    unsubscribeLoading,
-    onUnsubscribe,
-  };
-}
-
-export function useApproveButton<T extends Row>({
-  item,
-  mutate,
-  posthog,
-}: {
-  item: T;
-  mutate: () => Promise<void>;
-  posthog: PostHog;
-}) {
-  const [approveLoading, setApproveLoading] = React.useState(false);
-
-  const onApprove = async () => {
-    setApproveLoading(true);
-
-    await setNewsletterStatusAction({
-      newsletterEmail: item.name,
-      status: NewsletterStatus.APPROVED,
-    });
-    await mutate();
-
-    posthog.capture("Clicked Approve Sender");
-
-    setApproveLoading(false);
-  };
-
-  return {
-    approveLoading,
-    onApprove,
-  };
-}
-
-export function useArchiveAllButton<T extends Row>({
-  item,
-  posthog,
-}: {
-  item: T;
-  posthog: PostHog;
-}) {
-  const [archiveAllLoading, setArchiveAllLoading] = React.useState(false);
-
-  const onArchiveAll = async () => {
-    setArchiveAllLoading(true);
-
-    posthog.capture("Clicked Archive All");
-
-    toast.promise(
-      async () => {
-        const data = await archiveAllSenderEmails(item.name, () =>
-          setArchiveAllLoading(false),
-        );
-        return data.length;
-      },
-      {
-        loading: `Archiving all emails from ${item.name}`,
-        success: (data) =>
-          data
-            ? `Archiving ${data} emails from ${item.name}...`
-            : `No emails to archive from ${item.name}`,
-        error: `There was an error archiving the emails from ${item.name} :(`,
-      },
-    );
-  };
-
-  return {
-    archiveAllLoading,
-    onArchiveAll,
-  };
-}
-
-export function useMoreButton<T extends Row>({
-  item,
-  posthog,
-}: {
-  item: T;
-  posthog: PostHog;
-}) {
-  const [moreLoading, setMoreLoading] = React.useState(false);
-
-  const onMore = async () => {
-    setMoreLoading(true);
-
-    posthog.capture("Clicked More");
-
-    setMoreLoading(false);
-  };
-
-  return {
-    moreLoading,
-    onMore,
-  };
-}
-
 function UnsubscribeButton<T extends Row>({
   item,
   hasUnsubscribeAccess,
@@ -304,7 +160,7 @@ function UnsubscribeButton<T extends Row>({
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
 }) {
-  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribeButton({
+  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribe({
     item,
     hasUnsubscribeAccess,
     mutate,
@@ -357,24 +213,18 @@ function AutoArchiveButton<T extends Row>({
   refetchPremium: () => Promise<any>;
   userGmailLabels: LabelsResponse["labels"];
 }) {
-  const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
-
-  const onAutoArchiveClick = useCallback(async () => {
-    setAutoArchiveLoading(true);
-
-    onAutoArchive(item.name);
-    await setNewsletterStatusAction({
-      newsletterEmail: item.name,
-      status: NewsletterStatus.AUTO_ARCHIVED,
-    });
-    await mutate();
-    await decrementUnsubscribeCreditAction();
-    await refetchPremium();
-
-    posthog.capture("Clicked Auto Archive");
-
-    setAutoArchiveLoading(false);
-  }, [item.name, mutate, posthog, refetchPremium]);
+  const {
+    autoArchiveLoading,
+    onAutoArchive,
+    onAutoArchiveAndLabel,
+    onDisableAutoArchive,
+  } = useAutoArchive({
+    item,
+    hasUnsubscribeAccess,
+    mutate,
+    posthog,
+    refetchPremium,
+  });
 
   return (
     <div
@@ -391,7 +241,7 @@ function AutoArchiveButton<T extends Row>({
         }
         className="px-3 shadow-none"
         size="sm"
-        onClick={onAutoArchiveClick}
+        onClick={onAutoArchive}
         disabled={!hasUnsubscribeAccess}
       >
         {autoArchiveLoading && <ButtonLoader />}
@@ -430,18 +280,8 @@ function AutoArchiveButton<T extends Row>({
             <>
               <DropdownMenuItem
                 onClick={async () => {
-                  setAutoArchiveLoading(true);
-
-                  onDeleteFilter(item.autoArchived?.id!);
-                  await setNewsletterStatusAction({
-                    newsletterEmail: item.name,
-                    status: null,
-                  });
-                  await mutate();
-
                   posthog.capture("Clicked Disable Auto Archive");
-
-                  setAutoArchiveLoading(false);
+                  onDisableAutoArchive();
                 }}
               >
                 <ArchiveXIcon className="mr-2 size-4" /> Disable Auto Archive
@@ -457,20 +297,8 @@ function AutoArchiveButton<T extends Row>({
               <DropdownMenuItem
                 key={label.id}
                 onClick={async () => {
-                  setAutoArchiveLoading(true);
-
-                  onAutoArchive(item.name, label.id || undefined);
-                  await setNewsletterStatusAction({
-                    newsletterEmail: item.name,
-                    status: NewsletterStatus.AUTO_ARCHIVED,
-                  });
-                  await mutate();
-                  await decrementUnsubscribeCreditAction();
-                  await refetchPremium();
-
                   posthog.capture("Clicked Auto Archive and Label");
-
-                  setAutoArchiveLoading(false);
+                  await onAutoArchiveAndLabel(label.id!);
                 }}
               >
                 {label.name}
@@ -537,7 +365,11 @@ export function MoreDropdown<T extends Row>({
   userGmailLabels: LabelsResponse["labels"];
   posthog: PostHog;
 }) {
-  const { archiveAllLoading, onArchiveAll } = useArchiveAllButton({
+  const { archiveAllLoading, onArchiveAll } = useArchiveAll({
+    item,
+    posthog,
+  });
+  const { deleteAllLoading, onDeleteAll } = useDeleteAllFromSender({
     item,
     posthog,
   });
@@ -599,36 +431,14 @@ export function MoreDropdown<T extends Row>({
             );
             if (!yes) return;
 
-            toast.promise(
-              async () => {
-                // 1. search gmail for messages from sender
-                const res = await fetch(
-                  `/api/google/threads/basic?from=${item.name}`,
-                );
-                const data: GetThreadsResponse = await res.json();
-
-                // 2. delete messages
-                if (data?.length) {
-                  deleteEmails(
-                    data.map((t) => t.id).filter(isDefined),
-                    () => {},
-                  );
-                }
-
-                return data.length;
-              },
-              {
-                loading: `Deleting all emails from ${item.name}`,
-                success: (data) =>
-                  data
-                    ? `Deleting ${data} emails from ${item.name}...`
-                    : `No emails to delete from ${item.name}`,
-                error: `There was an error deleting the emails from ${item.name} :(`,
-              },
-            );
+            onDeleteAll();
           }}
         >
-          <TrashIcon className="mr-2 size-4" />
+          {deleteAllLoading ? (
+            <ButtonLoader />
+          ) : (
+            <TrashIcon className="mr-2 size-4" />
+          )}
           <span>Delete all</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -656,125 +466,6 @@ export function HeaderButton(props: {
       )}
     </Button>
   );
-}
-
-export function useBulkUnsubscribeShortcuts<T extends Row>({
-  newsletters,
-  selectedRow,
-  onOpenNewsletter,
-  setSelectedRow,
-  refetchPremium,
-  hasUnsubscribeAccess,
-  mutate,
-}: {
-  newsletters?: T[];
-  selectedRow?: T;
-  setSelectedRow: (row: T) => void;
-  onOpenNewsletter: (row: T) => void;
-  refetchPremium: () => Promise<any>;
-  hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<any>;
-}) {
-  // perform actions using keyboard shortcuts
-  // TODO make this available to command-K dialog too
-  // TODO limit the copy-paste. same logic appears twice in this file
-  React.useEffect(() => {
-    const down = async (e: KeyboardEvent) => {
-      const item = selectedRow;
-      if (!item) return;
-
-      // to prevent when typing in an input such as Crisp support
-      if (document?.activeElement?.tagName !== "BODY") return;
-
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const index = newsletters?.findIndex((n) => n.name === item.name);
-        if (index === undefined) return;
-        const nextItem =
-          newsletters?.[index + (e.key === "ArrowDown" ? 1 : -1)];
-        if (!nextItem) return;
-        setSelectedRow(nextItem);
-        return;
-      } else if (e.key === "Enter") {
-        // open modal
-        e.preventDefault();
-        onOpenNewsletter(item);
-        return;
-      }
-
-      if (!hasUnsubscribeAccess) return;
-
-      if (e.key === "e") {
-        // auto archive
-        e.preventDefault();
-        onAutoArchive(item.name);
-        await setNewsletterStatusAction({
-          newsletterEmail: item.name,
-          status: NewsletterStatus.AUTO_ARCHIVED,
-        });
-        await mutate();
-        await decrementUnsubscribeCreditAction();
-        await refetchPremium();
-        return;
-      } else if (e.key === "u") {
-        // unsubscribe
-        e.preventDefault();
-        if (!item.lastUnsubscribeLink) return;
-        window.open(cleanUnsubscribeLink(item.lastUnsubscribeLink), "_blank");
-        await setNewsletterStatusAction({
-          newsletterEmail: item.name,
-          status: NewsletterStatus.UNSUBSCRIBED,
-        });
-        await mutate();
-        await decrementUnsubscribeCreditAction();
-        await refetchPremium();
-        return;
-      } else if (e.key === "a") {
-        // approve
-        e.preventDefault();
-        await setNewsletterStatusAction({
-          newsletterEmail: item.name,
-          status: NewsletterStatus.APPROVED,
-        });
-        await mutate();
-        return;
-      }
-    };
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, [
-    mutate,
-    newsletters,
-    selectedRow,
-    hasUnsubscribeAccess,
-    refetchPremium,
-    setSelectedRow,
-    onOpenNewsletter,
-  ]);
-}
-
-export function useNewsletterFilter() {
-  const [filters, setFilters] = useState<
-    Record<"unhandled" | "unsubscribed" | "autoArchived" | "approved", boolean>
-  >({
-    unhandled: true,
-    unsubscribed: false,
-    autoArchived: false,
-    approved: false,
-  });
-
-  return {
-    filters,
-    filtersArray: Object.entries(filters)
-      .filter(([, selected]) => selected)
-      .map(([key]) => key) as (
-      | "unhandled"
-      | "unsubscribed"
-      | "autoArchived"
-      | "approved"
-    )[],
-    setFilters,
-  };
 }
 
 function GroupsSubMenu({ sender }: { sender: string }) {
