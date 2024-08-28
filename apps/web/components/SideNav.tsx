@@ -297,9 +297,10 @@ export function SideNav(props: {
 
 function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
-  const searchParams = useSearchParams();
-  const activePath = "?" + searchParams.toString(); // "?" is added to match the href strings of NavItems
   const showMailNav = path === "/mail" || path === "/compose";
+  const searchParams = useSearchParams();
+  // "?" is added to match the href strings of NavItems
+  const activePath = `?${showMailNav && searchParams.toString() ? searchParams.toString() : "type=inbox"}`; // if we are at "/mail" only, then the "Inbox" item will be highlighted
 
   const { onOpen } = useComposeModal();
 
