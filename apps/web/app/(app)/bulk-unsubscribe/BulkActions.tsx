@@ -3,6 +3,8 @@ import {
   useBulkUnsubscribe,
   useBulkApprove,
   useBulkAutoArchive,
+  useBulkArchive,
+  useBulkDelete,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { ButtonLoader } from "@/components/Loading";
@@ -38,6 +40,10 @@ export function BulkActions({
     posthog,
     refetchPremium,
   });
+
+  const { onBulkArchive } = useBulkArchive({ mutate, posthog });
+
+  const { onBulkDelete } = useBulkDelete({ mutate, posthog });
 
   return (
     <>
@@ -97,28 +103,38 @@ export function BulkActions({
               Approve
             </Button>
           </div>
-          {/* <div>
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={rejectSelected}
-      disabled={isApproving || isRejecting}
-    >
-      {isRejecting && <ButtonLoader />}
-      Archive
-    </Button>
-  </div> */}
-          {/* <div>
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={rejectSelected}
-      disabled={isApproving || isRejecting}
-    >
-      {isRejecting && <ButtonLoader />}
-      Delete
-    </Button>
-  </div> */}
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                onBulkArchive(
+                  Array.from(selected.entries()).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
+                )
+              }
+            >
+              Archive All
+            </Button>
+          </div>
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                onBulkDelete(
+                  Array.from(selected.entries()).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
+                )
+              }
+            >
+              Delete All
+            </Button>
+          </div>
         </div>
       </PremiumTooltip>
       <PremiumModal />

@@ -5,7 +5,6 @@ import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
 import type { gmail_v1 } from "googleapis";
-import { toast } from "sonner";
 import {
   ArchiveIcon,
   ArchiveXIcon,
@@ -51,9 +50,6 @@ import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { isActionError, isErrorMessage } from "@/utils/error";
-import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
-import { deleteEmails } from "@/providers/QueueProvider";
-import { isDefined } from "@/utils/types";
 import { getGmailSearchUrl } from "@/utils/url";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import {
@@ -61,6 +57,7 @@ import {
   useAutoArchive,
   useApproveButton,
   useArchiveAll,
+  useDeleteAllFromSender,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
 
 export function ActionCell<T extends Row>({
@@ -372,6 +369,10 @@ export function MoreDropdown<T extends Row>({
     item,
     posthog,
   });
+  const { deleteAllLoading, onDeleteAll } = useDeleteAllFromSender({
+    item,
+    posthog,
+  });
 
   return (
     <DropdownMenu>
@@ -430,36 +431,14 @@ export function MoreDropdown<T extends Row>({
             );
             if (!yes) return;
 
-            toast.promise(
-              async () => {
-                // 1. search gmail for messages from sender
-                const res = await fetch(
-                  `/api/google/threads/basic?from=${item.name}`,
-                );
-                const data: GetThreadsResponse = await res.json();
-
-                // 2. delete messages
-                if (data?.length) {
-                  deleteEmails(
-                    data.map((t) => t.id).filter(isDefined),
-                    () => {},
-                  );
-                }
-
-                return data.length;
-              },
-              {
-                loading: `Deleting all emails from ${item.name}`,
-                success: (data) =>
-                  data
-                    ? `Deleting ${data} emails from ${item.name}...`
-                    : `No emails to delete from ${item.name}`,
-                error: `There was an error deleting the emails from ${item.name} :(`,
-              },
-            );
+            onDeleteAll();
           }}
         >
-          <TrashIcon className="mr-2 size-4" />
+          {deleteAllLoading ? (
+            <ButtonLoader />
+          ) : (
+            <TrashIcon className="mr-2 size-4" />
+          )}
           <span>Delete all</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -9,8 +9,13 @@ import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@prisma/client";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
-import { archiveAllSenderEmails } from "@/providers/QueueProvider";
+import {
+  archiveAllSenderEmails,
+  deleteEmails,
+} from "@/providers/QueueProvider";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import { isDefined } from "@/utils/types";
 
 async function unsubscribeAndArchive(
   newsletterEmail: string,
@@ -293,6 +298,23 @@ export function useBulkApprove<T extends Row>({
   };
 }
 
+async function archiveAll(name: string, onFinish: () => void) {
+  toast.promise(
+    async () => {
+      const data = await archiveAllSenderEmails(name, onFinish);
+      return data.length;
+    },
+    {
+      loading: `Archiving all emails from ${name}`,
+      success: (data) =>
+        data
+          ? `Archiving ${data} emails from ${name}...`
+          : `No emails to archive from ${name}`,
+      error: `There was an error archiving the emails from ${name} :(`,
+    },
+  );
+}
+
 export function useArchiveAll<T extends Row>({
   item,
   posthog,
@@ -307,22 +329,9 @@ export function useArchiveAll<T extends Row>({
 
     posthog.capture("Clicked Archive All");
 
-    toast.promise(
-      async () => {
-        const data = await archiveAllSenderEmails(item.name, () =>
-          setArchiveAllLoading(false),
-        );
-        return data.length;
-      },
-      {
-        loading: `Archiving all emails from ${item.name}`,
-        success: (data) =>
-          data
-            ? `Archiving ${data} emails from ${item.name}...`
-            : `No emails to archive from ${item.name}`,
-        error: `There was an error archiving the emails from ${item.name} :(`,
-      },
-    );
+    await archiveAll(item.name, () => setArchiveAllLoading(false));
+
+    setArchiveAllLoading(false);
   };
 
   return {
@@ -331,27 +340,92 @@ export function useArchiveAll<T extends Row>({
   };
 }
 
-export function useMoreButton<T extends Row>({
+export function useBulkArchive<T extends Row>({
+  mutate,
+  posthog,
+}: {
+  mutate: () => Promise<any>;
+  posthog: PostHog;
+}) {
+  const onBulkArchive = async (items: T[]) => {
+    posthog.capture("Clicked Bulk Archive");
+
+    for (const item of items) {
+      await archiveAll(item.name, () => {
+        mutate();
+      });
+    }
+  };
+
+  return { onBulkArchive };
+}
+
+async function deleteAllFromSender(name: string, onFinish: () => void) {
+  toast.promise(
+    async () => {
+      // 1. search gmail for messages from sender
+      const res = await fetch(`/api/google/threads/basic?from=${name}`);
+      const data: GetThreadsResponse = await res.json();
+
+      // 2. delete messages
+      if (data?.length) {
+        deleteEmails(data.map((t) => t.id).filter(isDefined), onFinish);
+      }
+
+      return data.length;
+    },
+    {
+      loading: `Deleting all emails from ${name}`,
+      success: (data) =>
+        data
+          ? `Deleting ${data} emails from ${name}...`
+          : `No emails to delete from ${name}`,
+      error: `There was an error deleting the emails from ${name} :(`,
+    },
+  );
+}
+
+export function useDeleteAllFromSender<T extends Row>({
   item,
   posthog,
 }: {
   item: T;
   posthog: PostHog;
 }) {
-  const [moreLoading, setMoreLoading] = React.useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = React.useState(false);
 
-  const onMore = async () => {
-    setMoreLoading(true);
+  const onDeleteAll = async () => {
+    setDeleteAllLoading(true);
 
-    posthog.capture("Clicked More");
+    posthog.capture("Clicked Delete All");
 
-    setMoreLoading(false);
+    await deleteAllFromSender(item.name, () => setDeleteAllLoading(false));
   };
 
   return {
-    moreLoading,
-    onMore,
+    deleteAllLoading,
+    onDeleteAll,
   };
+}
+
+export function useBulkDelete<T extends Row>({
+  mutate,
+  posthog,
+}: {
+  mutate: () => Promise<any>;
+  posthog: PostHog;
+}) {
+  const onBulkDelete = async (items: T[]) => {
+    posthog.capture("Clicked Bulk Delete");
+
+    for (const item of items) {
+      await deleteAllFromSender(item.name, () => {
+        mutate();
+      });
+    }
+  };
+
+  return { onBulkDelete };
 }
 
 export function useBulkUnsubscribeShortcuts<T extends Row>({
