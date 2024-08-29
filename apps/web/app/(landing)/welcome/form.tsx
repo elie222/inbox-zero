@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
+import { PostHog, usePostHog } from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -14,6 +14,8 @@ import {
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
 import { appHomePath } from "@/utils/config";
+import { Router } from "next/router";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -141,27 +143,49 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         )}
 
         {!isFinalQuestion && (
-          <div>
-            <Button
-              variant="ghost"
-              className="mt-8"
-              type="button"
-              onClick={async () => {
-                const responses = getResponses(searchParams);
-                submitPosthog(responses);
-                posthog.capture("survey dismissed", { $survey_id: surveyId });
-                await completedOnboardingAction();
-                router.push(appHomePath);
-              }}
-            >
-              Skip Onboarding
-            </Button>
-          </div>
+          <SkipOnboardingButton
+            searchParams={searchParams}
+            submitPosthog={submitPosthog}
+            posthog={posthog}
+            router={router}
+          />
         )}
       </div>
     </form>
   );
 };
+
+function SkipOnboardingButton({
+  searchParams,
+  submitPosthog,
+  posthog,
+  router,
+}: {
+  searchParams: URLSearchParams;
+  submitPosthog: (responses: {}) => void;
+  posthog: PostHog;
+  router: AppRouterInstance;
+}) {
+  if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
+    return null;
+
+  return (
+    <Button
+      variant="ghost"
+      className="mt-8"
+      type="button"
+      onClick={async () => {
+        const responses = getResponses(searchParams);
+        submitPosthog(responses);
+        posthog.capture("survey dismissed", { $survey_id: surveyId });
+        await completedOnboardingAction();
+        router.push(appHomePath);
+      }}
+    >
+      Skip Onboarding
+    </Button>
+  );
+}
 
 function getResponses(seachParams: URLSearchParams): Record<string, string> {
   const responses = survey.questions.reduce((acc, _q, i) => {
