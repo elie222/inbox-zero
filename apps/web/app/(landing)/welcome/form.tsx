@@ -80,9 +80,18 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        if (responses["$survey_response"].includes("AI Automation")) {
-          router.push(aiHomePath);
+        // A/B test for AI Automation
+        if (
+          posthog.getFeatureFlag("welcome-to-ai-automation") === "ai-if-chosen"
+        ) {
+          // send to automation home if AI Automation is chosen
+          if (responses["$survey_response"].includes("AI Automation")) {
+            router.push(aiHomePath);
+          } else {
+            router.push(appHomePath);
+          }
         } else {
+          // send to app home
           router.push(appHomePath);
         }
       } else {
@@ -193,6 +202,7 @@ function SkipOnboardingButton({
   posthog: PostHog;
   router: AppRouterInstance;
 }) {
+  // A/B test whether to show skip onboarding button
   if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
     return null;
 
