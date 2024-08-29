@@ -137,7 +137,7 @@ export default function AutomationSettingsPage() {
               <TypographyH3 className="pt-8">
                 Or set up a rule yourself
               </TypographyH3>
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 pb-8">
                 <Button variant="outline" asChild>
                   <Link href="/automation/rule/create">Create rule</Link>
                 </Button>
