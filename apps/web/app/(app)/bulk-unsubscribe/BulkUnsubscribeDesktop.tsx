@@ -14,21 +14,19 @@ import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
 import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
 import { Checkbox } from "@/components/Checkbox";
 
-export function BulkUnsubscribeDesktop(props: {
+export function BulkUnsubscribeDesktop({
+  tableRows,
+  sortColumn,
+  setSortColumn,
+  isAllSelected,
+  onToggleSelectAll,
+}: {
   tableRows?: React.ReactNode;
   sortColumn: "emails" | "unread" | "unarchived";
   setSortColumn: (sortColumn: "emails" | "unread" | "unarchived") => void;
   isAllSelected: boolean;
   onToggleSelectAll: () => void;
 }) {
-  const {
-    tableRows,
-    sortColumn,
-    setSortColumn,
-    isAllSelected,
-    onToggleSelectAll,
-  } = props;
-
   return (
     <Table>
       <TableHeader>

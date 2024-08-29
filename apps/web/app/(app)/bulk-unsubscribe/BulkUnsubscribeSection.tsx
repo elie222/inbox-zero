@@ -229,18 +229,31 @@ export function BulkUnsubscribeSection({
               </div>
             }
           >
-            {isMobile ? (
-              <BulkUnsubscribeMobile tableRows={tableRows} />
+            {tableRows?.length ? (
+              <>
+                {isMobile ? (
+                  <BulkUnsubscribeMobile tableRows={tableRows} />
+                ) : (
+                  <BulkUnsubscribeDesktop
+                    sortColumn={sortColumn}
+                    setSortColumn={setSortColumn}
+                    tableRows={tableRows}
+                    isAllSelected={isAllSelected}
+                    onToggleSelectAll={onToggleSelectAll}
+                  />
+                )}
+                <div className="mt-2 px-6 pb-6">{extra}</div>
+              </>
             ) : (
-              <BulkUnsubscribeDesktop
-                sortColumn={sortColumn}
-                setSortColumn={setSortColumn}
-                tableRows={tableRows}
-                isAllSelected={isAllSelected}
-                onToggleSelectAll={onToggleSelectAll}
-              />
+              <div className="max-w-prose space-y-4 p-4 text-gray-700">
+                <p>No emails! If you'd like to see more, click `Filter`.</p>
+                <p>
+                  It's also possible you didn't accept Gmail permissions when
+                  signing in. To fix this, sign out and log back in to grant
+                  Gmail permissions again.
+                </p>
+              </div>
             )}
-            <div className="mt-2 px-6 pb-6">{extra}</div>
           </LoadingContent>
         )}
       </Card>
