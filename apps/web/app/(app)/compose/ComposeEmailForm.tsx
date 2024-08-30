@@ -176,7 +176,7 @@ export const ComposeEmailForm = (props: {
                     <Badge
                       key={emailAddress}
                       variant="outline"
-                      className="h-8 rounded-md border-primary bg-primary text-white"
+                      className="h-8 rounded-md border-black bg-black text-white"
                     >
                       {extractNameFromEmail(emailAddress)}
 

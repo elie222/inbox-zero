@@ -299,8 +299,15 @@ function Sidebar(props: { isMobile: boolean }) {
   const path = usePathname();
   const showMailNav = path === "/mail" || path === "/compose";
   const searchParams = useSearchParams();
-  // "?" is added to match the href strings of NavItems
-  const activePath = `?${showMailNav && searchParams.toString() ? searchParams.toString() : "type=inbox"}`; // if we are at "/mail" only, then the "Inbox" item will be highlighted
+
+  const params = new URLSearchParams(searchParams);
+
+  if (showMailNav) {
+    // Checking whether we are on the "Mail" tab or not
+    params.set("type", params.get("type") || "inbox"); // Default to 'inbox' if 'type' is not already set
+  }
+
+  const activePath = `?${params.toString()}`;
 
   const { onOpen } = useComposeModal();
 
