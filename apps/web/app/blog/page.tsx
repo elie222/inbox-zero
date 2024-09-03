@@ -1,10 +1,22 @@
 // import { readdirSync } from "fs";
 // import { join } from "path";
-import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { SanityDocument } from "next-sanity";
 import Image from "next/image";
 import Link from "next/link";
+import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { sanityFetch } from "@/sanity/lib/fetch";
+import { postsQuery } from "@/sanity/lib/queries";
 
-const posts = [
+type Post = {
+  title: string;
+  file: string;
+  description: string;
+  date: string;
+  datetime: string;
+  author: { name: string; role: string; href: string; imageUrl: string };
+};
+
+const mdxPosts: Post[] = [
   {
     title: "How Inbox Zero hit #1 on Product Hunt",
     file: "how-my-open-source-saas-hit-first-on-product-hunt",
@@ -176,14 +188,33 @@ export default async function BlogPage() {
   // const postsDirectory = join(process.cwd(), "app/blog/post/");
   // const posts = readdirSync(postsDirectory);
 
+  const posts = await sanityFetch<SanityDocument[]>({ query: postsQuery });
+
   return (
     <BasicLayout>
-      <Posts />
+      <Posts posts={posts} />
     </BasicLayout>
   );
 }
 
-function Posts() {
+function Posts({ posts }: { posts: SanityDocument[] }) {
+  const allPosts: Post[] = [
+    ...posts.map((post) => ({
+      title: post.title,
+      file: post.slug.current,
+      description: post.description,
+      date: post._createdAt,
+      datetime: post._createdAt,
+      author: {
+        name: post.authorName,
+        role: "Founder",
+        href: "#",
+        imageUrl: "/images/blog/elie-profile.jpg",
+      },
+    })),
+    ...mdxPosts,
+  ];
+
   return (
     <div className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -195,56 +226,62 @@ function Posts() {
             Changelog and tips to better manage your email inbox.
           </p>
           <div className="mt-10 space-y-16 border-t border-gray-200 pt-10 sm:mt-16 sm:pt-16">
-            {posts.map((post) => (
-              <article
-                key={post.title}
-                className="flex max-w-xl flex-col items-start justify-between"
-              >
-                <div className="flex items-center gap-x-4 text-xs">
-                  <time dateTime={post.datetime} className="text-gray-500">
-                    {post.date}
-                  </time>
-                  {/* <a
-                    href={post.category.href}
-                    className="relative z-10 rounded-full bg-gray-50 px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-100"
-                  >
-                    {post.category.title}
-                  </a> */}
-                </div>
-                <div className="group relative">
-                  <h3 className="mt-3 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
-                    <Link href={`/blog/post/${post.file}`}>
-                      <span className="absolute inset-0" />
-                      {post.title}
-                    </Link>
-                  </h3>
-                  <p className="mt-5 line-clamp-3 text-sm leading-6 text-gray-600">
-                    {post.description}
-                  </p>
-                </div>
-                <div className="relative mt-8 flex items-center gap-x-4">
-                  <Image
-                    src={post.author.imageUrl}
-                    alt=""
-                    className="h-10 w-10 rounded-full bg-gray-50"
-                    width={40}
-                    height={40}
-                  />
-                  <div className="text-sm leading-6">
-                    <p className="font-semibold text-gray-900">
-                      <a href={post.author.href}>
-                        <span className="absolute inset-0" />
-                        {post.author.name}
-                      </a>
-                    </p>
-                    <p className="text-gray-600">{post.author.role}</p>
-                  </div>
-                </div>
-              </article>
+            {allPosts.map((post) => (
+              <PostCard key={post.title} post={post} />
             ))}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function PostCard({ post }: { post: Post }) {
+  return (
+    <article
+      key={post.title}
+      className="flex max-w-xl flex-col items-start justify-between"
+    >
+      <div className="flex items-center gap-x-4 text-xs">
+        <time dateTime={post.datetime} className="text-gray-500">
+          {post.date}
+        </time>
+        {/* <a
+      href={post.category.href}
+      className="relative z-10 rounded-full bg-gray-50 px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-100"
+    >
+      {post.category.title}
+    </a> */}
+      </div>
+      <div className="group relative">
+        <h3 className="mt-3 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
+          <Link href={`/blog/post/${post.file}`}>
+            <span className="absolute inset-0" />
+            {post.title}
+          </Link>
+        </h3>
+        <p className="mt-5 line-clamp-3 text-sm leading-6 text-gray-600">
+          {post.description}
+        </p>
+      </div>
+      <div className="relative mt-8 flex items-center gap-x-4">
+        <Image
+          src={post.author.imageUrl}
+          alt=""
+          className="h-10 w-10 rounded-full bg-gray-50"
+          width={40}
+          height={40}
+        />
+        <div className="text-sm leading-6">
+          <p className="font-semibold text-gray-900">
+            <a href={post.author.href}>
+              <span className="absolute inset-0" />
+              {post.author.name}
+            </a>
+          </p>
+          <p className="text-gray-600">{post.author.role}</p>
+        </div>
+      </div>
+    </article>
   );
 }
