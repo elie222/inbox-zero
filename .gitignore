@@ -56,3 +56,6 @@ dist
 **/public/worker**
 **/public/fallback**
 **/public/precache**
+
+# Sanity
+.sanity

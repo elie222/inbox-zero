@@ -162,3 +162,18 @@ ngrok http --domain=XYZ.ngrok-free.app 3000
 And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
 
 To start watching emails visit: `/api/google/watch/all`
+
+## Blog
+
+To deploy Sanity Studio to create and edit blog posts:
+
+```sh
+npx sanity deploy
+```
+
+Set the following .env vars for the deploy to work:
+
+```sh
+SANITY_STUDIO_PROJECT_ID=
+SANITY_STUDIO_DATASET=production
+```
