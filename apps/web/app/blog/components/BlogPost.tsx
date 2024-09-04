@@ -1,6 +1,8 @@
 // import { format, parseISO } from "date-fns";
+import Image from "next/image";
 import { Prose } from "@/app/blog/components/Prose";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function BlogPost(props: {
   date: string;
@@ -12,16 +14,18 @@ export function BlogPost(props: {
 
   return (
     <BasicLayout>
-      <article className="mx-auto max-w-xl px-6 py-20">
+      <article className="mx-auto max-w-2xl px-6 py-20">
         {/* <div className="text-center">
           <time dateTime={date} className="mb-1 text-xs text-gray-600">
             {format(parseISO(date), "LLLL d, yyyy")}
           </time>
           <p className="text-sm font-semibold">by {author}</p>
         </div> */}
-        <div className="mt-12">
-          <Prose>{content}</Prose>
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <Prose>{content}</Prose>
+          </CardContent>
+        </Card>
       </article>
     </BasicLayout>
   );
