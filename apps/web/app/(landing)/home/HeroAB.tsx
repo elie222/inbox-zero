@@ -19,20 +19,15 @@ const copy: {
     subtitle:
       "Bulk unsubscribe from newsletters, automate your emails with AI, block cold emails, and view your analytics. Open-source.",
   },
-  "how-busy-founders": {
-    title: "How busy founders manage their email",
-    subtitle:
-      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
-  },
-  "email-assistant-in-30": {
-    title: "Set up your AI email assistant in just 30 minutes",
-    subtitle:
-      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source",
-  },
   "half-the-time": {
     title: "Spend 50% less time on email",
     subtitle:
       "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
+  },
+  "gmail-autopilot": {
+    title: "Gmail on Autopilot: Work Smarter, Not Harder",
+    subtitle:
+      "Let AI handle your emails, unsubscribe from newsletters, and block unwanted messages. Tools for a clutter-free inbox.",
   },
 };
 
