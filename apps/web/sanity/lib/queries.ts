@@ -4,6 +4,7 @@ import { groq } from "next-sanity";
 export const postsQuery = groq`*[_type == "post"] {
   _createdAt,
   title,
+  description,
   slug,
   mainImage,
   "imageURL": mainImage.asset->url,

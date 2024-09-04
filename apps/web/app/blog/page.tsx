@@ -1,11 +1,9 @@
-// import { readdirSync } from "fs";
-// import { join } from "path";
-import { SanityDocument } from "next-sanity";
 import Image from "next/image";
 import Link from "next/link";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { sanityFetch } from "@/sanity/lib/fetch";
 import { postsQuery } from "@/sanity/lib/queries";
+import { Post as PostType } from "@/app/blog/types";
 
 type Post = {
   title: string;
@@ -14,6 +12,16 @@ type Post = {
   date: string;
   datetime: string;
   author: { name: string; role: string; href: string; imageUrl: string };
+};
+
+type SanityPost = {
+  title: string;
+  description: string | null;
+  slug: { current: string; _type: "slug" };
+  mainImage: PostType["mainImage"];
+  imageURL: string | null;
+  authorName: string;
+  _createdAt: string;
 };
 
 const mdxPosts: Post[] = [
@@ -184,11 +192,7 @@ const mdxPosts: Post[] = [
 ];
 
 export default async function BlogPage() {
-  // TODO gather metadata for all posts programatically
-  // const postsDirectory = join(process.cwd(), "app/blog/post/");
-  // const posts = readdirSync(postsDirectory);
-
-  const posts = await sanityFetch<SanityDocument[]>({ query: postsQuery });
+  const posts = await sanityFetch<SanityPost[]>({ query: postsQuery });
 
   return (
     <BasicLayout>
@@ -197,12 +201,12 @@ export default async function BlogPage() {
   );
 }
 
-function Posts({ posts }: { posts: SanityDocument[] }) {
+function Posts({ posts }: { posts: SanityPost[] }) {
   const allPosts: Post[] = [
     ...posts.map((post) => ({
       title: post.title,
       file: post.slug.current,
-      description: post.description,
+      description: post.description ?? "",
       date: post._createdAt,
       datetime: post._createdAt,
       author: {
@@ -261,7 +265,7 @@ function PostCard({ post }: { post: Post }) {
           </Link>
         </h3>
         <p className="mt-5 line-clamp-3 text-sm leading-6 text-gray-600">
-          {post.description}
+          {post.description ?? "Read more..."}
         </p>
       </div>
       <div className="relative mt-8 flex items-center gap-x-4">

@@ -13,7 +13,7 @@ export function Prose<T extends React.ElementType = "div">({
     <Component
       className={clsx(
         className,
-        "prose prose-slate max-w-none dark:prose-invert dark:text-slate-400",
+        "prose prose-lg prose-slate max-w-none dark:prose-invert dark:text-slate-400",
         // headings
         "prose-headings:scroll-mt-28 prose-headings:font-cal prose-headings:font-semibold lg:prose-headings:scroll-mt-[8.5rem]",
         // lead
