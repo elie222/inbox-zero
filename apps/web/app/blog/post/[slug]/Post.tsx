@@ -69,6 +69,39 @@ export function Post({ post }: { post: PostType }) {
               <TryInboxZero />
             </div>
 
+            <Card className="mb-4">
+              <CardContent className="pt-6">
+                <h3 className="mb-2 text-lg font-semibold">Written by</h3>
+                <div className="flex items-center">
+                  {post.authorImage && (
+                    <Image
+                      src={builder
+                        .image(post.authorImage)
+                        .width(40)
+                        .height(40)
+                        .url()}
+                      alt={post.authorName ?? ""}
+                      className="mr-3 h-10 w-10 rounded-full"
+                      width={40}
+                      height={40}
+                    />
+                  )}
+                  <div>
+                    <p className="font-medium">{post.authorName}</p>
+                    {post.authorTwitter && (
+                      <Link
+                        href={`https://twitter.com/${post.authorTwitter}`}
+                        className="text-sm text-gray-500"
+                        target="_blank"
+                      >
+                        @{post.authorTwitter}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {post.body && (
               <Card>
                 <CardContent className="pt-6">

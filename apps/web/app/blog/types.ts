@@ -12,4 +12,7 @@ export type Post = {
     };
   } | null;
   body: PortableTextBlock[] | null;
+  authorName: string | null;
+  authorImage: string | null;
+  authorTwitter: string | null;
 };
