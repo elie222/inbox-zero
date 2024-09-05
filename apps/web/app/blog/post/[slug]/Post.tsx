@@ -16,6 +16,7 @@ import { Prose } from "@/app/blog/components/Prose";
 import { TableOfContents } from "@/app/blog/components/TableOfContents";
 import { Card, CardContent } from "@/components/ui/card";
 import { extractTextFromPortableTextBlock, slugify } from "@/utils/text";
+import { TryInboxZero } from "@/app/blog/components/TryInboxZero";
 
 const builder = imageUrlBuilder(client);
 
@@ -60,6 +61,10 @@ export function Post({ post }: { post: PostType }) {
           </Card>
         </main>
         <aside className="hidden md:block">
+          <div className="mb-4">
+            <TryInboxZero />
+          </div>
+
           {post.body && (
             <Card>
               <CardContent className="pt-6">
