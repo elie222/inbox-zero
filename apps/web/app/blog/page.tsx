@@ -13,6 +13,7 @@ type Post = {
   date: string;
   datetime: string;
   author: { name: string; role: string; href: string; imageUrl: string };
+  imageUrl: string;
 };
 
 type SanityPost = {
@@ -40,6 +41,7 @@ const mdxPosts: Post[] = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Why Build An Open Source SaaS",
@@ -55,6 +57,7 @@ const mdxPosts: Post[] = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title:
@@ -70,6 +73,7 @@ const mdxPosts: Post[] = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Alternatives to Skiff Mail",
@@ -85,6 +89,7 @@ const mdxPosts: Post[] = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "How to Bulk Unsubscribe from Emails",
@@ -100,6 +105,7 @@ const mdxPosts: Post[] = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Best Email Unsubscribe App to Clean Up Your Inbox",
@@ -114,6 +120,7 @@ const mdxPosts: Post[] = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Boost Your Email Efficiency with These Gmail Productivity Hacks",
@@ -129,6 +136,7 @@ const mdxPosts: Post[] = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Achieve Mental Clarity with Inbox Zero",
@@ -144,6 +152,7 @@ const mdxPosts: Post[] = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Mastering Inbox Zero - A Productivity Guide for Entrepreneurs",
@@ -152,13 +161,13 @@ const mdxPosts: Post[] = [
       "Learn how to achieve and maintain Inbox Zero as an entrepreneur with effective strategies, tools, and tips for efficient email management.",
     date: "Jun 27, 2024",
     datetime: "2024-06-27",
-    // category: { title: "Marketing", href: "#" },
     author: {
       name: "Ricardo Batista",
       role: "Founder @ AI Blog Articles",
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "How to Beat Email Stress as a Remote Worker",
@@ -174,6 +183,7 @@ const mdxPosts: Post[] = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Master Email Management with These Top Tips and Tools",
@@ -189,6 +199,7 @@ const mdxPosts: Post[] = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
 ];
 
@@ -218,6 +229,7 @@ function Posts({ posts }: { posts: SanityPost[] }) {
         href: "#",
         imageUrl: "/images/blog/elie-profile.jpg",
       },
+      imageUrl: post.imageURL ?? "/images/reach-inbox-zero.png",
     })),
     ...mdxPosts,
   ];
@@ -225,23 +237,13 @@ function Posts({ posts }: { posts: SanityPost[] }) {
   return (
     <div className="py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl">
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
-                From the blog
-              </h2>
-              <p className="mt-2 text-lg leading-8 text-gray-600">
-                Tips to better manage your email inbox and reach inbox zero
-                fast.
-              </p>
-              <div className="mt-4 space-y-4 border-t border-gray-200 pt-10 sm:mt-8 sm:pt-8">
-                {allPosts.map((post) => (
-                  <PostCard key={post.title} post={post} />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        <h2 className="mb-8 font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
+          From the blog
+        </h2>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {allPosts.map((post) => (
+            <PostCard key={post.title} post={post} />
+          ))}
         </div>
       </div>
     </div>
@@ -250,52 +252,38 @@ function Posts({ posts }: { posts: SanityPost[] }) {
 
 function PostCard({ post }: { post: Post }) {
   return (
-    <Card className="transition-transform duration-300 hover:scale-105">
+    <Card className="overflow-hidden transition-transform duration-300 hover:scale-105">
       <Link href={`/blog/post/${post.file}`}>
-        <CardContent className="pt-6">
-          <article
-            key={post.title}
-            className="flex max-w-xl flex-col items-start justify-between"
-          >
-            <div className="flex items-center gap-x-4 text-xs">
+        <div className="relative h-48 w-full">
+          <Image
+            src={post.imageUrl}
+            alt={post.title}
+            layout="fill"
+            objectFit="cover"
+          />
+        </div>
+        <CardContent className="pt-4">
+          <h3 className="mb-2 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
+            {post.title}
+          </h3>
+          <p className="mb-4 line-clamp-2 text-sm leading-6 text-gray-600">
+            {post.description}
+          </p>
+          <div className="flex items-center gap-x-4">
+            <Image
+              src={post.author.imageUrl}
+              alt=""
+              className="h-8 w-8 rounded-full bg-gray-50"
+              width={32}
+              height={32}
+            />
+            <div className="text-sm">
+              <p className="font-semibold text-gray-900">{post.author.name}</p>
               <time dateTime={post.datetime} className="text-gray-500">
                 {post.date}
               </time>
-              {/* <a
-      href={post.category.href}
-      className="relative z-10 rounded-full bg-gray-50 px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-100"
-    >
-      {post.category.title}
-    </a> */}
             </div>
-            <div className="group relative">
-              <h3 className="mt-3 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
-                <span className="absolute inset-0" />
-                {post.title}
-              </h3>
-              <p className="mt-5 line-clamp-3 text-sm leading-6 text-gray-600">
-                {post.description ?? "Read more..."}
-              </p>
-            </div>
-            <div className="relative mt-8 flex items-center gap-x-4">
-              <Image
-                src={post.author.imageUrl}
-                alt=""
-                className="h-10 w-10 rounded-full bg-gray-50"
-                width={40}
-                height={40}
-              />
-              <div className="text-sm leading-6">
-                <p className="font-semibold text-gray-900">
-                  <a href={post.author.href}>
-                    <span className="absolute inset-0" />
-                    {post.author.name}
-                  </a>
-                </p>
-                <p className="text-gray-600">{post.author.role}</p>
-              </div>
-            </div>
-          </article>
+          </div>
         </CardContent>
       </Link>
     </Card>
