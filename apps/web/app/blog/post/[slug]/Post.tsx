@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -17,6 +15,7 @@ import { TableOfContents } from "@/app/blog/components/TableOfContents";
 import { Card, CardContent } from "@/components/ui/card";
 import { extractTextFromPortableTextBlock, slugify } from "@/utils/text";
 import { TryInboxZero } from "@/app/blog/components/TryInboxZero";
+import { ReadMore } from "@/app/blog/components/ReadMore";
 
 const builder = imageUrlBuilder(client);
 
@@ -59,6 +58,10 @@ export function Post({ post }: { post: PostType }) {
               </Prose>
             </CardContent>
           </Card>
+
+          <div className="mt-4">
+            <ReadMore />
+          </div>
         </main>
         <aside className="hidden md:block">
           <div className="sticky top-20">

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import type { PortableTextBlock } from "@portabletext/react";
 import { extractTextFromPortableTextBlock, slugify } from "@/utils/text";
