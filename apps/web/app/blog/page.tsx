@@ -4,6 +4,7 @@ import { BlogLayout } from "@/components/layouts/BlogLayout";
 import { sanityFetch } from "@/sanity/lib/fetch";
 import { postsQuery } from "@/sanity/lib/queries";
 import { Post as PostType } from "@/app/blog/types";
+import { Card, CardContent } from "@/components/ui/card";
 
 type Post = {
   title: string;
@@ -209,7 +210,7 @@ function Posts({ posts }: { posts: SanityPost[] }) {
       title: post.title,
       file: post.slug.current,
       description: post.description ?? "",
-      date: post._createdAt,
+      date: new Date(post._createdAt).toLocaleDateString(),
       datetime: post._createdAt,
       author: {
         name: post.authorName,
@@ -222,20 +223,25 @@ function Posts({ posts }: { posts: SanityPost[] }) {
   ];
 
   return (
-    <div className="bg-white py-24 sm:py-32">
+    <div className="py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl">
-          <h2 className="font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
-            From the blog
-          </h2>
-          <p className="mt-2 text-lg leading-8 text-gray-600">
-            Changelog and tips to better manage your email inbox.
-          </p>
-          <div className="mt-10 space-y-16 border-t border-gray-200 pt-10 sm:mt-16 sm:pt-16">
-            {allPosts.map((post) => (
-              <PostCard key={post.title} post={post} />
-            ))}
-          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <h2 className="font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
+                From the blog
+              </h2>
+              <p className="mt-2 text-lg leading-8 text-gray-600">
+                Tips to better manage your email inbox and reach inbox zero
+                fast.
+              </p>
+              <div className="mt-4 space-y-4 border-t border-gray-200 pt-10 sm:mt-8 sm:pt-8">
+                {allPosts.map((post) => (
+                  <PostCard key={post.title} post={post} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
@@ -244,50 +250,54 @@ function Posts({ posts }: { posts: SanityPost[] }) {
 
 function PostCard({ post }: { post: Post }) {
   return (
-    <article
-      key={post.title}
-      className="flex max-w-xl flex-col items-start justify-between"
-    >
-      <div className="flex items-center gap-x-4 text-xs">
-        <time dateTime={post.datetime} className="text-gray-500">
-          {post.date}
-        </time>
-        {/* <a
+    <Card className="transition-transform duration-300 hover:scale-105">
+      <Link href={`/blog/post/${post.file}`}>
+        <CardContent className="pt-6">
+          <article
+            key={post.title}
+            className="flex max-w-xl flex-col items-start justify-between"
+          >
+            <div className="flex items-center gap-x-4 text-xs">
+              <time dateTime={post.datetime} className="text-gray-500">
+                {post.date}
+              </time>
+              {/* <a
       href={post.category.href}
       className="relative z-10 rounded-full bg-gray-50 px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-100"
     >
       {post.category.title}
     </a> */}
-      </div>
-      <div className="group relative">
-        <h3 className="mt-3 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
-          <Link href={`/blog/post/${post.file}`}>
-            <span className="absolute inset-0" />
-            {post.title}
-          </Link>
-        </h3>
-        <p className="mt-5 line-clamp-3 text-sm leading-6 text-gray-600">
-          {post.description ?? "Read more..."}
-        </p>
-      </div>
-      <div className="relative mt-8 flex items-center gap-x-4">
-        <Image
-          src={post.author.imageUrl}
-          alt=""
-          className="h-10 w-10 rounded-full bg-gray-50"
-          width={40}
-          height={40}
-        />
-        <div className="text-sm leading-6">
-          <p className="font-semibold text-gray-900">
-            <a href={post.author.href}>
-              <span className="absolute inset-0" />
-              {post.author.name}
-            </a>
-          </p>
-          <p className="text-gray-600">{post.author.role}</p>
-        </div>
-      </div>
-    </article>
+            </div>
+            <div className="group relative">
+              <h3 className="mt-3 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
+                <span className="absolute inset-0" />
+                {post.title}
+              </h3>
+              <p className="mt-5 line-clamp-3 text-sm leading-6 text-gray-600">
+                {post.description ?? "Read more..."}
+              </p>
+            </div>
+            <div className="relative mt-8 flex items-center gap-x-4">
+              <Image
+                src={post.author.imageUrl}
+                alt=""
+                className="h-10 w-10 rounded-full bg-gray-50"
+                width={40}
+                height={40}
+              />
+              <div className="text-sm leading-6">
+                <p className="font-semibold text-gray-900">
+                  <a href={post.author.href}>
+                    <span className="absolute inset-0" />
+                    {post.author.name}
+                  </a>
+                </p>
+                <p className="text-gray-600">{post.author.role}</p>
+              </div>
+            </div>
+          </article>
+        </CardContent>
+      </Link>
+    </Card>
   );
 }
