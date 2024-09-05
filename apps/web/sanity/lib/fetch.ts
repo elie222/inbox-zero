@@ -29,7 +29,7 @@ export async function sanityFetch<QueryResponse>({
   return client
     .withConfig({ useCdn: true })
     .fetch<QueryResponse>(query, params, {
-      cache: isDevelopment || isDraftMode ? undefined : "force-cache",
+      // cache: isDevelopment || isDraftMode ? undefined : "force-cache",
       ...(isDraftMode && {
         token: token,
         perspective: "previewDrafts",
