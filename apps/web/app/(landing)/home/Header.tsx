@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog } from "@headlessui/react";
+import { Dialog, DialogPanel } from "@headlessui/react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { MenuIcon, XIcon } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/utils";
 
 const navigation = [
   { name: "Features", href: "/#features" },
@@ -15,14 +17,14 @@ const navigation = [
   { name: "Pricing", href: "/#pricing" },
 ];
 
-export function Header() {
+export function Header({ className }: { className?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const posthog = usePostHog();
 
   return (
-    <header className="absolute inset-x-0 top-0 z-50">
+    <header className={cn("absolute inset-x-0 top-0 z-50", className)}>
       <nav
-        className="flex items-center justify-between p-6 lg:px-8"
+        className="flex items-center justify-between px-6 py-4 lg:px-8"
         aria-label="Global"
       >
         <div className="flex lg:flex-1">
@@ -54,13 +56,20 @@ export function Header() {
             </Link>
           ))}
         </div>
-        <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-          <Link
+        <div className="hidden gap-2 lg:flex lg:flex-1 lg:justify-end">
+          <Button size="sm" variant="outline" className="rounded-full">
+            Log in
+          </Button>
+          <Button size="sm" variant="blue" className="rounded-full">
+            Sign up
+          </Button>
+
+          {/* <Link
             href="/welcome"
             className="text-sm font-semibold leading-6 text-gray-900"
           >
             Log in <span aria-hidden="true">&rarr;</span>
-          </Link>
+          </Link> */}
         </div>
       </nav>
       <Dialog
@@ -70,7 +79,7 @@ export function Header() {
         onClose={setMobileMenuOpen}
       >
         <div className="fixed inset-0 z-50" />
-        <Dialog.Panel className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+        <DialogPanel className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
           <div className="flex items-center justify-between">
             <Link href="#" className="-m-1.5 p-1.5">
               <span className="sr-only">Inbox Zero</span>
@@ -113,7 +122,7 @@ export function Header() {
               </div>
             </div>
           </div>
-        </Dialog.Panel>
+        </DialogPanel>
       </Dialog>
     </header>
   );

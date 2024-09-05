@@ -10,7 +10,7 @@ import {
 } from "@portabletext/react";
 import { client } from "@/sanity/lib/client";
 import imageUrlBuilder from "@sanity/image-url";
-import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { BlogLayout } from "@/components/layouts/BlogLayout";
 import type { Post as PostType } from "@/app/blog/types";
 import { Prose } from "@/app/blog/components/Prose";
 import { TableOfContents } from "@/app/blog/components/TableOfContents";
@@ -21,8 +21,8 @@ const builder = imageUrlBuilder(client);
 
 export function Post({ post }: { post: PostType }) {
   return (
-    <BasicLayout>
-      <article className="mx-auto mt-20 grid w-full max-w-screen-xl gap-5 px-0 pt-10 md:grid-cols-4 lg:gap-10 lg:px-20">
+    <BlogLayout>
+      <article className="mx-auto grid w-full max-w-screen-xl gap-5 px-0 pt-24 md:grid-cols-4 lg:gap-4 lg:px-20">
         <main className="md:col-span-3">
           <Card>
             <CardContent className="p-10">
@@ -69,7 +69,7 @@ export function Post({ post }: { post: PostType }) {
           )}
         </aside>
       </article>
-    </BasicLayout>
+    </BlogLayout>
   );
 }
 
