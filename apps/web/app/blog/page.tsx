@@ -192,7 +192,8 @@ const mdxPosts: Post[] = [
   },
 ];
 
-export const revalidate = 60;
+// export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function BlogContentsPage() {
   const posts = await sanityFetch<SanityPost[]>({ query: postsQuery });
