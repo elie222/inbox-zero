@@ -35,3 +35,7 @@ export const recentPostsQuery = groq`*[_type == "post"] | order(date desc) [0...
   date,
   "image": mainImage.asset->url
 }`;
+
+export const postSlugsQuery = groq`*[_type == "post"] {
+  "slug": slug.current
+}`;
