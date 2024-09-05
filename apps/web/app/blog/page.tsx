@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { BlogLayout } from "@/components/layouts/BlogLayout";
 import { sanityFetch } from "@/sanity/lib/fetch";
 import { postsQuery } from "@/sanity/lib/queries";
 import { Post as PostType } from "@/app/blog/types";
@@ -197,9 +197,9 @@ export default async function BlogContentsPage() {
   const posts = await sanityFetch<SanityPost[]>({ query: postsQuery });
 
   return (
-    <BasicLayout>
+    <BlogLayout>
       <Posts posts={posts} />
-    </BasicLayout>
+    </BlogLayout>
   );
 }
 
