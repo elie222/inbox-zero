@@ -61,17 +61,19 @@ export function Post({ post }: { post: PostType }) {
           </Card>
         </main>
         <aside className="hidden md:block">
-          <div className="mb-4">
-            <TryInboxZero />
-          </div>
+          <div className="sticky top-20">
+            <div className="mb-4">
+              <TryInboxZero />
+            </div>
 
-          {post.body && (
-            <Card>
-              <CardContent className="pt-6">
-                <TableOfContents body={post.body} />
-              </CardContent>
-            </Card>
-          )}
+            {post.body && (
+              <Card>
+                <CardContent className="pt-6">
+                  <TableOfContents body={post.body} />
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </aside>
       </article>
     </BlogLayout>
