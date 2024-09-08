@@ -57,15 +57,31 @@ export function Header({ className }: { className?: string }) {
           ))}
         </div>
         <div className="hidden gap-2 lg:flex lg:flex-1 lg:justify-end">
-          <Button size="sm" variant="outline" className="rounded-full">
-            Log in
+          <Button size="sm" variant="outline" className="rounded-full" asChild>
+            <Link
+              href="/login"
+              onClick={() => {
+                posthog.capture("Clicked Log In", { position: "top-nav" });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Log in
+            </Link>
           </Button>
-          <Button size="sm" variant="blue" className="rounded-full">
-            Sign up
+          <Button size="sm" variant="blue" className="rounded-full" asChild>
+            <Link
+              href="/login"
+              onClick={() => {
+                posthog.capture("Clicked Sign Up", { position: "top-nav" });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Sign up
+            </Link>
           </Button>
 
           {/* <Link
-            href="/welcome"
+            href="/login"
             className="text-sm font-semibold leading-6 text-gray-900"
           >
             Log in <span aria-hidden="true">&rarr;</span>
@@ -110,7 +126,7 @@ export function Header({ className }: { className?: string }) {
               </div>
               <div className="py-6">
                 <Link
-                  href="/welcome"
+                  href="/login"
                   className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
                   onClick={() => {
                     posthog.capture("Clicked Log In", { position: "top-nav" });

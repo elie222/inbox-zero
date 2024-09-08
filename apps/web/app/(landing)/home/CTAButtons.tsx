@@ -18,7 +18,7 @@ export function CTAButtons() {
     <Button
       size="2xl"
       className="mt-10"
-      link={{ href: "/welcome" }}
+      link={{ href: "/login" }}
       onClick={() => {
         posthog.capture("Clicked Get Started");
       }}
