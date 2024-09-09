@@ -52,6 +52,44 @@ export function Post({ post }: { post: PostType }) {
                         h2: createHeadingComponent("h2"),
                         h3: createHeadingComponent("h3"),
                       },
+                      types: {
+                        image: ({ value }) => {
+                          // console.log("🚀 ~ Post ~ value:", value);
+                          // https://www.sanity.io/answers/how-to-get-the-width-height-or-dimensions-of-uploaded-image-with-sanity-and-next-js-to-prevent-cls
+                          const pattern = /^image-([a-f\d]+)-(\d+x\d+)-(\w+)$/;
+
+                          const decodeAssetId = (id: string) => {
+                            const match = pattern.exec(id);
+                            if (!match) {
+                              console.error(`Invalid asset ID: ${id}`);
+                              return null;
+                            }
+                            const [, assetId, dimensions, format] = match;
+                            const [width, height] = dimensions
+                              .split("x")
+                              .map((v) => parseInt(v, 10));
+
+                            return {
+                              assetId,
+                              dimensions: { width, height },
+                              format,
+                            };
+                          };
+
+                          const { dimensions } =
+                            decodeAssetId(value.asset?._id) || {};
+
+                          return (
+                            <Image
+                              src={builder.image(value).width(800).url()}
+                              alt={value.alt || ""}
+                              width={dimensions?.width || 800}
+                              height={dimensions?.height || 600}
+                              className="h-auto w-full"
+                            />
+                          );
+                        },
+                      },
                     }}
                   />
                 ) : null}

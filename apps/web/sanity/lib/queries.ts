@@ -16,7 +16,16 @@ export const postQuery = groq`*[_type == "post" && slug.current == $slug][0]{
     title,
     description,
     mainImage,
-    body,
+    body[]{
+      ...,
+      _type == "image" => {
+        ...,
+        asset->{
+          ...,
+          metadata
+        }
+      }
+    },
     "authorName": author->name,
     "authorImage": author->image,
     "authorTwitter": author->twitter
