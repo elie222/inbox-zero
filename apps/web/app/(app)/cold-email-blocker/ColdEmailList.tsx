@@ -50,7 +50,7 @@ export function ColdEmailList() {
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(data?.coldEmails || []);
 
-  const [isApproving, setIsApproving] = useState(false);
+  // const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
 
   // const approveSelected = useCallback(async () => {
@@ -101,7 +101,8 @@ export function ColdEmailList() {
                   size="sm"
                   variant="outline"
                   onClick={markNotColdEmailSelected}
-                  disabled={isApproving || isRejecting}
+                  // disabled={isApproving || isRejecting}
+                  disabled={isRejecting}
                 >
                   {isRejecting && <ButtonLoader />}
                   Mark Not Cold Email
