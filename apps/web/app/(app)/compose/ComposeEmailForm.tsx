@@ -1,6 +1,11 @@
 "use client";
 
-import { Combobox, ComboboxOption, ComboboxOptions } from "@headlessui/react";
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from "@headlessui/react";
 import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
 import {
   EditorBubble,
@@ -166,12 +171,12 @@ export const ComposeEmailForm = (props: {
                 multiple
                 nullable={true}
               >
-                <div className="flex w-full flex-wrap items-center">
+                <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-2 rounded-md border border-gray-300 px-2 py-2 shadow-sm focus-within:border-black focus-within:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm">
                   {selectedEmailAddressses.map((emailAddress) => (
                     <Badge
                       key={emailAddress}
                       variant="outline"
-                      className="mr-1.5"
+                      className="h-8 rounded-md border-black bg-black text-white"
                     >
                       {extractNameFromEmail(emailAddress)}
 
@@ -185,10 +190,9 @@ export const ComposeEmailForm = (props: {
                   ))}
 
                   <div className="relative flex-1">
-                    <Combobox.Input
+                    <ComboboxInput
                       value={searchQuery}
-                      // styles copied and pasted from Input.tsx
-                      className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
+                      className="w-full border-none py-0 focus:border-none focus:ring-0"
                       onChange={(event) => setSearchQuery(event.target.value)}
                       onKeyUp={(event) => {
                         if (event.key === "Enter") {
@@ -296,7 +300,7 @@ export const ComposeEmailForm = (props: {
             setValue("messageHtml", editor.getHTML());
           }}
           className={cn(
-            "relative min-h-32 w-full max-w-screen-lg bg-background sm:rounded-lg",
+            "relative min-h-32 w-full max-w-screen-lg rounded-xl border bg-background sm:rounded-lg",
             props.novelEditorClassName,
           )}
           editorProps={{

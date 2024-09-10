@@ -26,10 +26,9 @@ export function VideoDemo() {
         hideModal={closeModal}
         padding="none"
         size="6xl"
-        fullWidth
         backdropClass="backdrop-blur bg-white/80"
       >
-        <div className="w-[90vw] md:w-[80vw]">
+        <div>
           <iframe
             className="aspect-video h-full w-full rounded-lg"
             src="https://www.youtube.com/embed/kc_9WZ1ZWyg?autoplay=1"
