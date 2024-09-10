@@ -150,7 +150,7 @@ export function FeaturesAutomation() {
       subtitle: "Your AI assistant for email",
     },
     benefit: {
-      title: "AI Automation",
+      title: "AI Email Assistant",
       subtitle: "Sorting, replying, archiving. Automate on your own terms.",
     },
   };

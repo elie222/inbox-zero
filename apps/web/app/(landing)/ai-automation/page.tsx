@@ -9,9 +9,9 @@ import { FeaturesAutomation } from "@/app/(landing)/home/Features";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 
 export const metadata: Metadata = {
-  title: "AI Email Automation | Inbox Zero",
+  title: "AI Email Assistant | Inbox Zero",
   description:
-    "Inbox Zero's AI automation simplifies your email management. It smartly handles repetitive queries, automates responses, and efficiently organizes your inbox, streamlining your email workflow for maximum efficiency.",
+    "Inbox Zero's AI email assistant simplifies your email management. It smartly handles repetitive queries, automates responses, and efficiently organizes your inbox, streamlining your email workflow for maximum efficiency.",
   alternates: { canonical: "/ai-automation" },
 };
 
@@ -20,7 +20,7 @@ export default function AiAutomation() {
     <BasicLayout>
       <Hero
         title="Automate your email with AI"
-        subtitle="Inbox Zero's AI automation simplifies your email management. It smartly handles repetitive queries, automates responses, and efficiently organizes your inbox, streamlining your email workflow for maximum efficiency."
+        subtitle="Inbox Zero's AI email assistant simplifies your email management. It smartly handles repetitive queries, automates responses, and efficiently organizes your inbox, streamlining your email workflow for maximum efficiency."
         image="/images/ai-automation.png"
       />
       <Testimonials />

@@ -83,7 +83,7 @@ const proTier = {
   description: "Unlock AI features when using your own AI API key",
   features: [
     "Everything in Basic",
-    "AI automation when using your own AI API key",
+    "AI email assistant when using your own AI API key",
     "Cold email blocker when using your own AI API key",
   ],
   cta: "Upgrade",
@@ -120,7 +120,7 @@ const businessTier = {
     "Priority support",
   ],
   // features: [
-  //   "AI automation",
+  //   "AI email assistant",
   //   "Bulk email unsubscriber",
   //   "Cold email blocker",
   //   "Email analytics",
