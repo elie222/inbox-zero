@@ -1,22 +1,28 @@
 import type { MetadataRoute } from "next";
+import { unstable_noStore } from "next/cache";
 import { sanityFetch } from "@/sanity/lib/fetch";
 import { postSlugsQuery } from "@/sanity/lib/queries";
 
 async function getBlogPosts() {
-  const posts = await sanityFetch<{ slug: string }[]>({
+  const posts = await sanityFetch<{ slug: string; date: string }[]>({
     query: postSlugsQuery,
   });
   return posts.map((post) => ({
     url: `https://www.getinboxzero.com/blog/post/${post.slug}`,
+    lastModified: new Date(post.date),
   }));
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // to try fix caching issue: https://github.com/vercel/next.js/discussions/56708#discussioncomment-10127496
+  unstable_noStore();
+
   const blogPosts = await getBlogPosts();
 
   const staticUrls = [
     {
       url: "https://www.getinboxzero.com/",
+      priority: 1,
     },
     {
       url: "https://www.getinboxzero.com/bulk-email-unsubscriber",
@@ -41,6 +47,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: "https://www.getinboxzero.com/blog",
+      changeFrequency: "daily",
+      lastModified: new Date(),
+      priority: 1,
     },
     {
       url: "https://www.getinboxzero.com/blog/post/how-my-open-source-saas-hit-first-on-product-hunt",
