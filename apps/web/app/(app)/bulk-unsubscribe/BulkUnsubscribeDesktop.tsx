@@ -1,66 +1,89 @@
 "use client";
 
 import React from "react";
+import { ProgressBar } from "@tremor/react";
 import {
-  ProgressBar,
   Table,
   TableBody,
   TableCell,
   TableHead,
-  TableHeaderCell,
+  TableHeader,
   TableRow,
-} from "@tremor/react";
+} from "@/components/ui/table";
 import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
 import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
+import { Checkbox } from "@/components/Checkbox";
 
-export function BulkUnsubscribeDesktop(props: {
+export function BulkUnsubscribeDesktop({
+  tableRows,
+  sortColumn,
+  setSortColumn,
+  isAllSelected,
+  onToggleSelectAll,
+}: {
   tableRows?: React.ReactNode;
   sortColumn: "emails" | "unread" | "unarchived";
   setSortColumn: (sortColumn: "emails" | "unread" | "unarchived") => void;
+  isAllSelected: boolean;
+  onToggleSelectAll: () => void;
 }) {
-  const { tableRows, sortColumn, setSortColumn } = props;
-
   return (
-    <Table className="mt-4">
-      <TableHead>
+    <Table>
+      <TableHeader>
         <TableRow>
-          <TableHeaderCell className="pl-6">
+          <TableHead className="pr-0">
+            <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+          </TableHead>
+          <TableHead>
             <span className="text-sm font-medium">From</span>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "emails"}
               onClick={() => setSortColumn("emails")}
             >
               Emails
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "unread"}
               onClick={() => setSortColumn("unread")}
             >
               Read
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "unarchived"}
               onClick={() => setSortColumn("unarchived")}
             >
               Archived
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell />
+          </TableHead>
+          <TableHead />
         </TableRow>
-      </TableHead>
+      </TableHeader>
       <TableBody>{tableRows}</TableBody>
     </Table>
   );
 }
 
-export function BulkUnsubscribeRowDesktop(props: RowProps) {
-  const { item, refetchPremium } = props;
+export function BulkUnsubscribeRowDesktop({
+  item,
+  refetchPremium,
+  selected,
+  onSelectRow,
+  onDoubleClick,
+  hasUnsubscribeAccess,
+  mutate,
+  onOpenNewsletter,
+  userGmailLabels,
+  openPremiumModal,
+  userEmail,
+  onToggleSelect,
+  checked,
+}: RowProps) {
   const readPercentage = (item.readEmails / item.value) * 100;
   const archivedEmails = item.value - item.inboxEmails;
   const archivedPercentage = (archivedEmails / item.value) * 100;
@@ -68,13 +91,19 @@ export function BulkUnsubscribeRowDesktop(props: RowProps) {
   return (
     <TableRow
       key={item.name}
-      className={props.selected ? "bg-blue-50" : undefined}
-      aria-selected={props.selected || undefined}
-      data-selected={props.selected || undefined}
-      onMouseEnter={props.onSelectRow}
-      onDoubleClick={props.onDoubleClick}
+      className={selected ? "bg-blue-50" : undefined}
+      aria-selected={selected || undefined}
+      data-selected={selected || undefined}
+      onMouseEnter={onSelectRow}
+      onDoubleClick={onDoubleClick}
     >
-      <TableCell className="max-w-[250px] truncate pl-6 min-[1550px]:max-w-[300px] min-[1650px]:max-w-none">
+      <TableCell className="pr-0">
+        <Checkbox
+          checked={checked}
+          onChange={() => onToggleSelect?.(item.name)}
+        />
+      </TableCell>
+      <TableCell className="max-w-[250px] truncate min-[1550px]:max-w-[300px] min-[1650px]:max-w-[400px]">
         {item.name}
       </TableCell>
       <TableCell>{item.value}</TableCell>
@@ -107,14 +136,14 @@ export function BulkUnsubscribeRowDesktop(props: RowProps) {
       <TableCell className="flex justify-end gap-2 p-2">
         <ActionCell
           item={item}
-          hasUnsubscribeAccess={props.hasUnsubscribeAccess}
-          mutate={props.mutate}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
           refetchPremium={refetchPremium}
-          setOpenedNewsletter={props.setOpenedNewsletter}
-          selected={props.selected}
-          userGmailLabels={props.userGmailLabels}
-          openPremiumModal={props.openPremiumModal}
-          userEmail={props.userEmail}
+          onOpenNewsletter={onOpenNewsletter}
+          selected={selected}
+          userGmailLabels={userGmailLabels}
+          openPremiumModal={openPremiumModal}
+          userEmail={userEmail}
         />
       </TableCell>
     </TableRow>

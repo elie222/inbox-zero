@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "loops": "^3.1.1"
+    "loops": "^3.2.0"
   },
   "devDependencies": {
-    "@types/node": "22.4.2",
+    "@types/node": "22.5.3",
     "tsconfig": "workspace:*",
     "typescript": "5.5.4"
   }

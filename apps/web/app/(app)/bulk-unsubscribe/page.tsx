@@ -2,6 +2,7 @@
 
 import { subDays } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useWindowSize } from "usehooks-ts";
 import type { DateRange } from "react-day-picker";
 import { BulkUnsubscribeSection } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSection";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
@@ -22,6 +23,9 @@ const defaultSelected = selectOptions[2];
 // Some copy paste from /stats page in here
 // May want to refactor some of this into a shared hook
 export default function BulkUnsubscribePage() {
+  const windowSize = useWindowSize();
+  const isMobile = windowSize.width < 768;
+
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
@@ -71,15 +75,17 @@ export default function BulkUnsubscribePage() {
             setDateDropdown={onSetDateDropdown}
             dateRange={dateRange}
             setDateRange={setDateRange}
+            isMobile={isMobile}
           />
           <LoadStatsButton />
         </div>
       </div>
 
-      <div className="m-2 sm:m-4">
+      <div className="my-2 sm:mx-4 sm:my-4">
         <BulkUnsubscribeSection
           dateRange={dateRange}
           refreshInterval={refreshInterval}
+          isMobile={isMobile}
         />
       </div>
     </div>

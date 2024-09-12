@@ -67,10 +67,10 @@ export default function AutomationSettingsPage() {
   return (
     <div className="mb-16 mt-6 md:mt-10">
       <PageHeading className="text-center">
-        Get started with AI Automation
+        Get started with AI Email Assistant
       </PageHeading>
       <SectionDescription className="text-center">
-        Automate your email with AI.
+        Set up intelligent automations to let our AI handle your emails for you.
       </SectionDescription>
 
       <div className="mx-auto mt-6 max-w-xl px-4 md:mt-16">
@@ -137,7 +137,7 @@ export default function AutomationSettingsPage() {
               <TypographyH3 className="pt-8">
                 Or set up a rule yourself
               </TypographyH3>
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 pb-8">
                 <Button variant="outline" asChild>
                   <Link href="/automation/rule/create">Create rule</Link>
                 </Button>

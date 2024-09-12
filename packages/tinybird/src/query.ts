@@ -189,3 +189,15 @@ export const getWeeklyStats = tb.buildPipe({
     unsubscribeEmails: z.number(),
   }),
 });
+
+export const getEmailActionsByDay = tb.buildPipe({
+  pipe: "get_email_actions_by_period",
+  parameters: z.object({
+    ownerEmail: z.string(),
+  }),
+  data: z.object({
+    date: z.string(),
+    archive_count: z.number(),
+    delete_count: z.number(),
+  }),
+});

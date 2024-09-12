@@ -1,10 +1,32 @@
-// import { readdirSync } from "fs";
-// import { join } from "path";
-import { BasicLayout } from "@/components/layouts/BasicLayout";
 import Image from "next/image";
 import Link from "next/link";
+import { BlogLayout } from "@/components/layouts/BlogLayout";
+import { sanityFetch } from "@/sanity/lib/fetch";
+import { postsQuery } from "@/sanity/lib/queries";
+import { Post as PostType } from "@/app/blog/types";
+import { Card, CardContent } from "@/components/ui/card";
 
-const posts = [
+type Post = {
+  title: string;
+  file: string;
+  description: string;
+  date: string;
+  datetime: string;
+  author: { name: string; role: string; href: string; imageUrl: string };
+  imageUrl: string;
+};
+
+type SanityPost = {
+  title: string;
+  description: string | null;
+  slug: { current: string; _type: "slug" };
+  mainImage: PostType["mainImage"];
+  imageURL: string | null;
+  authorName: string;
+  _createdAt: string;
+};
+
+const mdxPosts: Post[] = [
   {
     title: "How Inbox Zero hit #1 on Product Hunt",
     file: "how-my-open-source-saas-hit-first-on-product-hunt",
@@ -19,6 +41,7 @@ const posts = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Why Build An Open Source SaaS",
@@ -34,6 +57,23 @@ const posts = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
+  },
+  {
+    title:
+      "Escape the Email Trap: How to Unsubscribe for Good When Senders Won't Let Go",
+    file: "escape-email-trap-unsubscribe-for-good",
+    description:
+      "End unwanted emails permanently. Discover tactics to block persistent senders who disregard unsubscribe requests and spam reports.",
+    date: "Aug 22, 2024",
+    datetime: "2024-08-22",
+    author: {
+      name: "Elie Steinbock",
+      role: "Founder",
+      href: "#",
+      imageUrl: "/images/blog/elie-profile.jpg",
+    },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Alternatives to Skiff Mail",
@@ -49,6 +89,7 @@ const posts = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "How to Bulk Unsubscribe from Emails",
@@ -64,6 +105,7 @@ const posts = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Best Email Unsubscribe App to Clean Up Your Inbox",
@@ -78,6 +120,7 @@ const posts = [
       href: "#",
       imageUrl: "/images/blog/elie-profile.jpg",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Boost Your Email Efficiency with These Gmail Productivity Hacks",
@@ -93,6 +136,7 @@ const posts = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Achieve Mental Clarity with Inbox Zero",
@@ -108,6 +152,7 @@ const posts = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Mastering Inbox Zero - A Productivity Guide for Entrepreneurs",
@@ -116,13 +161,13 @@ const posts = [
       "Learn how to achieve and maintain Inbox Zero as an entrepreneur with effective strategies, tools, and tips for efficient email management.",
     date: "Jun 27, 2024",
     datetime: "2024-06-27",
-    // category: { title: "Marketing", href: "#" },
     author: {
       name: "Ricardo Batista",
       role: "Founder @ AI Blog Articles",
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "How to Beat Email Stress as a Remote Worker",
@@ -138,6 +183,7 @@ const posts = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
   {
     title: "Master Email Management with These Top Tips and Tools",
@@ -153,83 +199,93 @@ const posts = [
       href: "https://getaiblogarticles.com/",
       imageUrl: "/images/blog/ricardo-batista-profile.png",
     },
+    imageUrl: "/images/reach-inbox-zero.png",
   },
 ];
 
-export default async function BlogPage() {
-  // TODO gather metadata for all posts programatically
-  // const postsDirectory = join(process.cwd(), "app/blog/post/");
-  // const posts = readdirSync(postsDirectory);
+export const revalidate = 60;
+
+export default async function BlogContentsPage() {
+  const posts = await sanityFetch<SanityPost[]>({ query: postsQuery });
 
   return (
-    <BasicLayout>
-      <Posts />
-    </BasicLayout>
+    <BlogLayout>
+      <Posts posts={posts} />
+    </BlogLayout>
   );
 }
 
-function Posts() {
+function Posts({ posts }: { posts: SanityPost[] }) {
+  const allPosts: Post[] = [
+    ...posts.map((post) => ({
+      title: post.title,
+      file: post.slug.current,
+      description: post.description ?? "",
+      date: new Date(post._createdAt).toLocaleDateString(),
+      datetime: post._createdAt,
+      author: {
+        name: post.authorName,
+        role: "Founder",
+        href: "#",
+        imageUrl: "/images/blog/elie-profile.jpg",
+      },
+      imageUrl: post.imageURL ?? "/images/reach-inbox-zero.png",
+    })),
+    ...mdxPosts,
+  ];
+
   return (
-    <div className="bg-white py-24 sm:py-32">
+    <div className="py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl">
-          <h2 className="font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
-            From the blog
-          </h2>
-          <p className="mt-2 text-lg leading-8 text-gray-600">
-            Changelog and tips to better manage your email inbox.
-          </p>
-          <div className="mt-10 space-y-16 border-t border-gray-200 pt-10 sm:mt-16 sm:pt-16">
-            {posts.map((post) => (
-              <article
-                key={post.title}
-                className="flex max-w-xl flex-col items-start justify-between"
-              >
-                <div className="flex items-center gap-x-4 text-xs">
-                  <time dateTime={post.datetime} className="text-gray-500">
-                    {post.date}
-                  </time>
-                  {/* <a
-                    href={post.category.href}
-                    className="relative z-10 rounded-full bg-gray-50 px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-100"
-                  >
-                    {post.category.title}
-                  </a> */}
-                </div>
-                <div className="group relative">
-                  <h3 className="mt-3 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
-                    <Link href={`/blog/post/${post.file}`}>
-                      <span className="absolute inset-0" />
-                      {post.title}
-                    </Link>
-                  </h3>
-                  <p className="mt-5 line-clamp-3 text-sm leading-6 text-gray-600">
-                    {post.description}
-                  </p>
-                </div>
-                <div className="relative mt-8 flex items-center gap-x-4">
-                  <Image
-                    src={post.author.imageUrl}
-                    alt=""
-                    className="h-10 w-10 rounded-full bg-gray-50"
-                    width={40}
-                    height={40}
-                  />
-                  <div className="text-sm leading-6">
-                    <p className="font-semibold text-gray-900">
-                      <a href={post.author.href}>
-                        <span className="absolute inset-0" />
-                        {post.author.name}
-                      </a>
-                    </p>
-                    <p className="text-gray-600">{post.author.role}</p>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+        <h2 className="mb-8 font-cal text-3xl tracking-tight text-gray-900 sm:text-4xl">
+          From the blog
+        </h2>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {allPosts.map((post) => (
+            <PostCard key={post.title} post={post} />
+          ))}
         </div>
       </div>
     </div>
+  );
+}
+
+function PostCard({ post }: { post: Post }) {
+  return (
+    <Card className="overflow-hidden transition-transform duration-300 hover:scale-105">
+      <Link href={`/blog/post/${post.file}`}>
+        <div className="relative h-48 w-full">
+          <Image
+            src={post.imageUrl}
+            alt={post.title}
+            layout="fill"
+            objectFit="cover"
+          />
+        </div>
+        <CardContent className="pt-4">
+          <h3 className="mb-2 font-cal text-lg leading-6 text-gray-900 group-hover:text-gray-600">
+            {post.title}
+          </h3>
+          <p className="mb-4 line-clamp-2 text-sm leading-6 text-gray-600">
+            {post.description}
+          </p>
+          <div className="flex items-center gap-x-4">
+            <Image
+              src={post.author.imageUrl}
+              alt=""
+              className="h-8 w-8 rounded-full bg-gray-50"
+              width={32}
+              height={32}
+            />
+            <div className="text-sm">
+              <p className="font-semibold text-gray-900">{post.author.name}</p>
+              <time dateTime={post.datetime} className="text-gray-500">
+                {post.date}
+              </time>
+            </div>
+          </div>
+        </CardContent>
+      </Link>
+    </Card>
   );
 }

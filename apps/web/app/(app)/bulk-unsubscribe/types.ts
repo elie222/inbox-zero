@@ -13,9 +13,7 @@ type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 export interface RowProps {
   item: Newsletter;
-  setOpenedNewsletter: React.Dispatch<
-    React.SetStateAction<Newsletter | undefined>
-  >;
+  onOpenNewsletter: (row: Newsletter) => void;
   userGmailLabels: LabelsResponse["labels"];
   userEmail: string;
   mutate: () => Promise<any>;
@@ -25,4 +23,6 @@ export interface RowProps {
   hasUnsubscribeAccess: boolean;
   refetchPremium: () => Promise<any>;
   openPremiumModal: () => void;
+  checked: boolean;
+  onToggleSelect: (id: string) => void;
 }

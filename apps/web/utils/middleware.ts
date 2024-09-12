@@ -3,6 +3,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import type { StreamingTextResponse } from "ai";
 import { captureException, SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { posthogCaptureEvent } from "@/utils/posthog";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 export type NextHandler = (
   req: NextRequest,
@@ -26,6 +28,33 @@ export function withError(handler: NextHandler): NextHandler {
       }
 
       if ((error as any)?.errors?.[0]?.reason === "insufficientPermissions") {
+        console.error(
+          `User did not grant all Gmail permissions: ${req.url}:`,
+          error,
+        );
+
+        try {
+          const session = await auth();
+          if (!session?.user.email)
+            return NextResponse.json({ error: "Not authenticated" });
+
+          const email = session.user.email;
+
+          await posthogCaptureEvent(
+            email,
+            "User did not grant all Gmail permissions",
+            { $set: { insufficientPermissions: true } },
+          );
+        } catch (error) {
+          console.error("Error saving event to PostHog:", error);
+          captureException(error, {
+            extra: { url: req.url, params, reason: "posthogError" },
+          });
+        }
+
+        captureException(error, {
+          extra: { url: req.url, params, reason: "insufficientPermissions" },
+        });
         return NextResponse.json(
           {
             error:

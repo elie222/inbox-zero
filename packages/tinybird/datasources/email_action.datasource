@@ -1,0 +1,10 @@
+SCHEMA >
+    `ownerEmail` String `json:$.ownerEmail`,
+    `threadId` String `json:$.threadId`,
+    `action` LowCardinality(String) `json:$.action`,
+    `actionSource` LowCardinality(String) `json:$.actionSource`,
+    `timestamp` Int64 `json:$.timestamp`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY ownerEmail, action, actionSource, timestamp
+ENGINE_PARTITION_KEY "toYYYYMM(fromUnixTimestamp64Milli(timestamp))"

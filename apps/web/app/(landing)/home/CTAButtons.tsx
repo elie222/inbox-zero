@@ -1,27 +1,24 @@
 "use client";
 
 import { Button } from "@/components/Button";
-import { env } from "@/env";
 import { useFeatureFlagVariantKey, usePostHog } from "posthog-js/react";
 
 const variants: Record<string, string> = {
   control: "Get Started for Free",
-  "cta-get-inbox-zero": "Get Your Inbox to Zero",
+  "get-to-zero": "Get Your Inbox to Zero",
+  "get-inbox-zero": "Get Inbox Zero",
+  "cta-save-time": "Save 2 Hours Every Day",
 };
 
 export function CTAButtons() {
   const posthog = usePostHog();
-  const variant = useFeatureFlagVariantKey(
-    env.NEXT_PUBLIC_POSTHOG_HERO_AB || "",
-  );
-
-  if (variant === "cta-get-inbox-zero") return null;
+  const variant = useFeatureFlagVariantKey("cta-copy");
 
   return (
     <Button
       size="2xl"
       className="mt-10"
-      link={{ href: "/welcome" }}
+      link={{ href: "/login" }}
       onClick={() => {
         posthog.capture("Clicked Get Started");
       }}

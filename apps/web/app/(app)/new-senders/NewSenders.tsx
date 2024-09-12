@@ -3,16 +3,8 @@
 import React, { useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
-import {
-  Card,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-  Title,
-} from "@tremor/react";
+import { usePostHog } from "posthog-js/react";
+import { Card, Title } from "@tremor/react";
 import groupBy from "lodash/groupBy";
 import { FilterIcon, Users2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -26,25 +18,28 @@ import type {
 import { formatShortDate } from "@/utils/date";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
+import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
-  ActionCell,
-  HeaderButton,
-} from "@/app/(app)/bulk-unsubscribe/common";
+} from "@/app/(app)/bulk-unsubscribe/hooks";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";
-import type { DateRange } from "react-day-picker";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-export function NewSenders(props: {
-  dateRange?: DateRange | undefined;
-  refreshInterval: number;
-}) {
+export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
   const session = useSession();
   const userEmail = session.data?.user.email || "";
 
@@ -71,7 +66,12 @@ export function NewSenders(props: {
   const { userLabels } = useLabels();
 
   const { expanded, extra } = useExpanded();
+  const posthog = usePostHog();
   const [openedNewsletter, setOpenedNewsletter] = React.useState<Row>();
+  const onOpenNewsletter = (newsletter: Row) => {
+    setOpenedNewsletter(newsletter);
+    posthog?.capture("Clicked Expand Sender");
+  };
 
   const [selectedRow, setSelectedRow] = React.useState<Row | undefined>();
 
@@ -94,7 +94,7 @@ export function NewSenders(props: {
   useBulkUnsubscribeShortcuts({
     newsletters: rows,
     selectedRow,
-    setOpenedNewsletter,
+    onOpenNewsletter,
     setSelectedRow,
     refetchPremium,
     hasUnsubscribeAccess,
@@ -122,7 +122,7 @@ export function NewSenders(props: {
         />
       </LoadingContent>
       <Card className="mt-2 p-0 sm:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-6 md:flex">
+        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-4 md:flex">
           <Title>New Senders</Title>
           <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
             <div className="hidden md:block">
@@ -193,7 +193,7 @@ export function NewSenders(props: {
                       userEmail={userEmail}
                       firstEmail={item.firstEmail}
                       numberOfEmails={item.numberOfEmails}
-                      setOpenedNewsletter={setOpenedNewsletter}
+                      onOpenNewsletter={onOpenNewsletter}
                       userGmailLabels={userLabels}
                       mutate={mutate}
                       selected={selectedRow?.name === item.name}
@@ -214,65 +214,80 @@ export function NewSenders(props: {
       <NewsletterModal
         newsletter={openedNewsletter}
         onClose={() => setOpenedNewsletter(undefined)}
-        refreshInterval={props.refreshInterval}
+        refreshInterval={refreshInterval}
       />
       <PremiumModal />
     </>
   );
 }
 
-function NewSendersTable(props: {
+function NewSendersTable({
+  tableRows,
+  sortColumn,
+  setSortColumn,
+}: {
   tableRows?: React.ReactNode;
   sortColumn: "subject" | "date" | "numberOfEmails";
   setSortColumn: (sortColumn: "subject" | "date" | "numberOfEmails") => void;
 }) {
-  const { tableRows, sortColumn, setSortColumn } = props;
-
   return (
     <Table className="mt-4">
-      <TableHead>
+      <TableHeader>
         <TableRow>
-          <TableHeaderCell className="pl-6">
+          <TableHead className="pl-6">
             <span className="text-sm font-medium">From</span>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "subject"}
               onClick={() => setSortColumn("subject")}
             >
               Subject
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "date"}
               onClick={() => setSortColumn("date")}
             >
               Date
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell>
+          </TableHead>
+          <TableHead>
             <HeaderButton
               sorted={sortColumn === "numberOfEmails"}
               onClick={() => setSortColumn("numberOfEmails")}
             >
               Emails
             </HeaderButton>
-          </TableHeaderCell>
-          <TableHeaderCell />
+          </TableHead>
+          <TableHead />
         </TableRow>
-      </TableHead>
+      </TableHeader>
       <TableBody>{tableRows}</TableBody>
     </Table>
   );
 }
 
-function NewSenderRow(props: {
+function NewSenderRow({
+  item,
+  firstEmail,
+  numberOfEmails,
+  refetchPremium,
+  openPremiumModal,
+  onOpenNewsletter,
+  selected,
+  onSelectRow,
+  hasUnsubscribeAccess,
+  mutate,
+  userEmail,
+  userGmailLabels,
+}: {
   item: Row;
   firstEmail: { from: string; subject: string; timestamp: number };
   userEmail: string;
   numberOfEmails: number;
-  setOpenedNewsletter: React.Dispatch<React.SetStateAction<Row | undefined>>;
+  onOpenNewsletter: (row: Row) => void;
   userGmailLabels: LabelsResponse["labels"];
   mutate: () => Promise<any>;
   selected: boolean;
@@ -281,16 +296,13 @@ function NewSenderRow(props: {
   refetchPremium: () => Promise<any>;
   openPremiumModal: () => void;
 }) {
-  const { item, firstEmail, numberOfEmails, refetchPremium, openPremiumModal } =
-    props;
-
   return (
     <TableRow
       key={item.name}
-      className={props.selected ? "bg-blue-50" : undefined}
-      aria-selected={props.selected || undefined}
-      data-selected={props.selected || undefined}
-      onMouseEnter={props.onSelectRow}
+      className={selected ? "bg-blue-50" : undefined}
+      aria-selected={selected || undefined}
+      data-selected={selected || undefined}
+      onMouseEnter={onSelectRow}
     >
       <TableCell className="max-w-[200px] truncate pl-6 lg:max-w-[300px]">
         {firstEmail.from}
@@ -303,13 +315,13 @@ function NewSenderRow(props: {
       <TableCell className="flex justify-end gap-2 p-2">
         <ActionCell
           item={item}
-          userEmail={props.userEmail}
-          hasUnsubscribeAccess={props.hasUnsubscribeAccess}
-          mutate={props.mutate}
+          userEmail={userEmail}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
           refetchPremium={refetchPremium}
-          setOpenedNewsletter={props.setOpenedNewsletter}
-          selected={props.selected}
-          userGmailLabels={props.userGmailLabels}
+          onOpenNewsletter={onOpenNewsletter}
+          selected={selected}
+          userGmailLabels={userGmailLabels}
           openPremiumModal={openPremiumModal}
         />
       </TableCell>

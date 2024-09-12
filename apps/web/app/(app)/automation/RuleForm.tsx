@@ -15,6 +15,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { capitalCase } from "capital-case";
+import { usePostHog } from "posthog-js/react";
 import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   const router = useRouter();
 
+  const posthog = usePostHog();
+
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
       const searchParams = new URLSearchParams(window.location.search);
@@ -103,6 +106,12 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           });
         } else {
           toastSuccess({ description: `Saved!` });
+          posthog.capture("User updated AI rule", {
+            ruleType: body.type,
+            actions: body.actions.map((action) => action.type),
+            automate: body.automate,
+            runOnThreads: body.runOnThreads,
+          });
           router.push(`/automation`);
         }
       } else {
@@ -117,6 +126,12 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           });
         } else {
           toastSuccess({ description: `Created!` });
+          posthog.capture("User created AI rule", {
+            ruleType: body.type,
+            actions: body.actions.map((action) => action.type),
+            automate: body.automate,
+            runOnThreads: body.runOnThreads,
+          });
           router.replace(`/automation/rule/${res.rule.id}`);
           router.push(`/automation`);
         }

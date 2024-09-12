@@ -13,16 +13,16 @@
     "format-and-lint:fix": "biome check . --write"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.8.2",
-    "@turbo/gen": "^1.11.3",
-    "eslint": "^8.56.0",
+    "@biomejs/biome": "1.8.3",
+    "@turbo/gen": "^2.1.1",
+    "eslint": "^9.9.1",
     "@inboxzero/eslint-config": "workspace:*",
-    "husky": "^8.0.3",
-    "lint-staged": "^15.2.0",
+    "husky": "^9.1.5",
+    "lint-staged": "^15.2.10",
     "prettier": "^3.3.3",
-    "turbo": "^2.0.9"
+    "turbo": "^2.1.1"
   },
-  "packageManager": "pnpm@9.4.0",
+  "packageManager": "pnpm@9.9.0",
   "lint-staged": {
     "*.{ts,tsx,md}": "prettier --write"
   },

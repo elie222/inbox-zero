@@ -8,9 +8,9 @@ export const isStatusOk = (status: number) => status >= 200 && status < 300;
 
 export async function getSessionAndGmailClient() {
   const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
+  if (!session?.user.email) return { error: "Not logged in" };
   const gmail = getGmailClient(session);
-  return { gmail, user: session.user };
+  return { gmail, user: { id: session.user.id, email: session.user.email } };
 }
 
 export function handleError(error: unknown, message: string) {
