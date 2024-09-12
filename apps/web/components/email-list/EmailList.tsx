@@ -34,7 +34,7 @@ import {
 import { selectedEmailAtom } from "@/store/email";
 import { categorizeAction } from "@/utils/actions/categorize";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronsDownIcon } from "lucide-react";
+import { ChevronsDownIcon } from "lucide-react";
 import { ButtonLoader } from "@/components/Loading";
 
 export function List(props: {
