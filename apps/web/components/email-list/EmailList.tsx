@@ -33,13 +33,20 @@ import {
 } from "@/providers/QueueProvider";
 import { selectedEmailAtom } from "@/store/email";
 import { categorizeAction } from "@/utils/actions/categorize";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronsDownIcon } from "lucide-react";
+import { ButtonLoader } from "@/components/Loading";
 
 export function List(props: {
   emails: Thread[];
   type?: string;
   refetch: (removedThreadIds?: string[]) => void;
+  showLoadMore?: boolean;
+  isLoadingMore?: boolean;
+  handleLoadMore?: () => void;
 }) {
-  const { emails, refetch } = props;
+  const { emails, refetch, showLoadMore, handleLoadMore, isLoadingMore } =
+    props;
 
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "all";
@@ -106,6 +113,9 @@ export function List(props: {
       {emails.length ? (
         <EmailList
           threads={filteredEmails}
+          showLoadMore={showLoadMore}
+          isLoadingMore={isLoadingMore}
+          handleLoadMore={handleLoadMore}
           emptyMessage={
             <div className="px-2">
               {selectedTab === "planned" ? (
@@ -154,12 +164,18 @@ export function EmailList(props: {
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
   refetch?: (removedThreadIds?: string[]) => void;
+  showLoadMore?: boolean;
+  isLoadingMore?: boolean;
+  handleLoadMore?: () => void;
 }) {
   const {
     threads = [],
     emptyMessage,
     hideActionBarWhenEmpty,
     refetch = () => {},
+    showLoadMore,
+    isLoadingMore,
+    handleLoadMore,
   } = props;
 
   const session = useSession();
@@ -472,6 +488,28 @@ export function EmailList(props: {
                   />
                 );
               })}
+              {/* Load more button to fetch more data */}
+              {showLoadMore && (
+                <div className="pb-2">
+                  <Button
+                    variant="outline"
+                    className="w-full py-4"
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                  >
+                    {
+                      <>
+                        {isLoadingMore ? (
+                          <ButtonLoader />
+                        ) : (
+                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                        )}
+                        <span>Load more</span>
+                      </>
+                    }
+                  </Button>
+                </div>
+              )}
             </ul>
           }
           right={
