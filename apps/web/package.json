@@ -72,6 +72,7 @@
     "encoding": "^0.1.13",
     "eslint": "^9.9.1",
     "eslint-config-next": "14.2.7",
+    "framer-motion": "^11.5.4",
     "gmail-api-parse-message": "^2.1.2",
     "google": "link:@next/third-parties/google",
     "googleapis": "144",
@@ -112,6 +113,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.5.4",
     "usehooks-ts": "^3.1.0",
+    "uuidv7": "^1.0.2",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.23.2"
   },
