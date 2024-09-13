@@ -66,6 +66,9 @@ export async function chatCompletionObject<T>({
   usageLabel: string;
 }) {
   const { provider, model, llmModel } = getModel(userAi);
+  console.log(
+    `chatCompletionObject. Model: ${provider}, ${model}, ${llmModel}`,
+  );
 
   const result = await generateObject({
     model: llmModel,

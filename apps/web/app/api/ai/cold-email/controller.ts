@@ -26,11 +26,15 @@ export async function isColdEmail(options: {
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
+  console.debug("Checking is cold email");
+
   if (options.hasPreviousEmail)
     return { isColdEmail: false, reason: "hasPreviousEmail" };
 
   // otherwise run through ai to see if it's a cold email
   const res = await aiIsColdEmail(options.email, options.user);
+
+  console.debug(`AI is cold email: ${res.coldEmail}`);
 
   return {
     isColdEmail: !!res.coldEmail,
