@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
-import { CheckIcon, CreditCardIcon } from "lucide-react";
+import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
@@ -87,6 +87,11 @@ export function Pricing(props: { header?: React.ReactNode }) {
             >
               <CreditCardIcon className="mr-2 h-4 w-4" />
               Manage subscription
+            </Button>
+
+            <Button link={{ href: "/automation" }} color="blue">
+              <SparklesIcon className="mr-2 h-4 w-4" />
+              Use Inbox Zero
             </Button>
 
             {premiumTier && (
