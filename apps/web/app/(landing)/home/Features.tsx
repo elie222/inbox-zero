@@ -19,6 +19,18 @@ import Image from "next/image";
 import { useFeatureFlagVariantKey } from "posthog-js/react";
 
 export function FeaturesPrivacy() {
+  const variant = useFeatureFlagVariantKey("privacy-landing-page");
+
+  if (variant === "hide") return null;
+
+  const variants: Record<string, string> = {
+    control: "Approved by Google",
+    long: "Approved by Google. Open Source. See exactly what our code does. Or host it yourself.",
+  };
+
+  const selectedVariant =
+    typeof variant === "string" ? variants[variant] : variants.control;
+
   return (
     <div className="bg-white py-24 sm:py-32" id="features">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -27,7 +39,7 @@ export function FeaturesPrivacy() {
             Privacy first
           </h2>
           <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
-            Approved by Google
+            {selectedVariant}
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
             Inbox Zero has undergone a thorough security process with Google to
