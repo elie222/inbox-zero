@@ -1,6 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useFeatureFlagVariantKey } from "posthog-js/react";
 import { Hero } from "@/app/(landing)/home/Hero";
-import { Skeleton } from "@/components/ui/skeleton";
-import { getPosthogBootstrapData } from "@/utils/posthog/bootstrap";
 
 const copy: {
   [key: string]: {
@@ -30,15 +32,43 @@ const copy: {
   },
 };
 
-export async function HeroAB({ variantKey }: { variantKey: string }) {
-  const bootstrapData = await getPosthogBootstrapData();
-  const variant = bootstrapData?.featureFlags[variantKey];
+// allow this to work for search engines while avoiding flickering text for users
+// ssr method relied on cookies in the root layout which broke static page generation of blog posts
+export function HeroAB({ variantKey }: { variantKey: string }) {
+  const [title, setTitle] = useState(copy.control.title);
+  const [subtitle, setSubtitle] = useState(copy.control.subtitle);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  if (!variant) return <Skeleton className="h-28 w-full rounded" />;
+  const variant = useFeatureFlagVariantKey(variantKey);
 
-  const title = copy[variant as keyof typeof copy]?.title || copy.control.title;
-  const subtitle =
-    copy[variant as keyof typeof copy]?.subtitle || copy.control.subtitle;
+  useEffect(() => {
+    if (variant && copy[variant as string]) {
+      setTitle(copy[variant as string].title);
+      setSubtitle(copy[variant as string].subtitle);
+    }
+    setIsHydrated(true);
+  }, [variant]);
 
-  return <Hero title={title} subtitle={subtitle} />;
+  return (
+    <Hero
+      title={
+        <span
+          className={`transition-opacity duration-300 ease-in-out ${
+            isHydrated ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {title}
+        </span>
+      }
+      subtitle={
+        <span
+          className={`transition-opacity duration-300 ease-in-out ${
+            isHydrated ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {subtitle}
+        </span>
+      }
+    />
+  );
 }

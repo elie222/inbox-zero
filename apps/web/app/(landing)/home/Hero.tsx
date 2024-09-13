@@ -46,7 +46,6 @@ export function Hero(props: {
           </div>
 
           <div className="mx-auto max-w-xl text-center">
-            {/* <HeroText>{props.title || <HeroHeadingAB />}</HeroText> */}
             <HeroText>
               {props.title || "Stop wasting half your day in Gmail"}
             </HeroText>

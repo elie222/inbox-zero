@@ -6,14 +6,12 @@ import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
-import type { BootstrapConfig } from "posthog-js";
 import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
-import { getPosthogBootstrapData } from "@/utils/posthog/bootstrap";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -81,19 +79,12 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let bootstrapData: BootstrapConfig | null = null;
-  try {
-    bootstrapData = await getPosthogBootstrapData();
-  } catch (error) {
-    console.error("Error fetching PostHog bootstrap data:", error);
-  }
-
   return (
     <html lang="en" className="h-full">
       <body
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
-        <PostHogProvider bootstrapData={bootstrapData}>
+        <PostHogProvider>
           <Suspense>
             <PostHogPageview />
           </Suspense>
