@@ -83,6 +83,7 @@ export const env = createEnv({
       .string()
       .default("https://cal.com/team/inbox-zero/feedback"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
+    NEXT_PUBLIC_POSTHOG_API_HOST: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string().default("https://www.getinboxzero.com"),
@@ -144,6 +145,7 @@ export const env = createEnv({
 
     NEXT_PUBLIC_CALL_LINK: process.env.NEXT_PUBLIC_CALL_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    NEXT_PUBLIC_POSTHOG_API_HOST: process.env.NEXT_PUBLIC_POSTHOG_API_HOST,
     NEXT_PUBLIC_POSTHOG_HERO_AB: process.env.NEXT_PUBLIC_POSTHOG_HERO_AB,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,

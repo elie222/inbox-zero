@@ -1,7 +1,6 @@
-"use client";
-
-import { useFeatureFlagVariantKey } from "posthog-js/react";
+import { Hero } from "@/app/(landing)/home/Hero";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getPosthogBootstrapData } from "@/utils/posthog/bootstrap";
 
 const copy: {
   [key: string]: {
@@ -31,20 +30,15 @@ const copy: {
   },
 };
 
-export function HeroHeadingAB(props: { variantKey: string }) {
-  const variant = useFeatureFlagVariantKey(props.variantKey);
+export async function HeroAB({ variantKey }: { variantKey: string }) {
+  const bootstrapData = await getPosthogBootstrapData();
+  const variant = bootstrapData?.featureFlags[variantKey];
 
   if (!variant) return <Skeleton className="h-28 w-full rounded" />;
-  if (typeof variant !== "string") return <>{copy.control.title}</>;
 
-  return <>{copy[variant]?.title || copy.control.title}</>;
-}
+  const title = copy[variant as keyof typeof copy]?.title || copy.control.title;
+  const subtitle =
+    copy[variant as keyof typeof copy]?.subtitle || copy.control.subtitle;
 
-export function HeroSubtitleAB(props: { variantKey: string }) {
-  const variant = useFeatureFlagVariantKey(props.variantKey);
-
-  if (!variant) return <Skeleton className="h-24 w-full rounded" />;
-  if (typeof variant !== "string") return <>{copy.control.subtitle}</>;
-
-  return <>{copy[variant]?.subtitle || copy.control.subtitle}</>;
+  return <Hero title={title} subtitle={subtitle} />;
 }

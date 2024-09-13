@@ -72,7 +72,12 @@ async function storePosthogSignupEvent(userId: string, email: string) {
     return;
   }
 
-  return posthogCaptureEvent(email, "User signed up", {
-    $set_once: { createdAt: userCreatedAt.createdAt },
-  });
+  return posthogCaptureEvent(
+    email,
+    "User signed up",
+    {
+      $set_once: { createdAt: userCreatedAt.createdAt },
+    },
+    true,
+  );
 }

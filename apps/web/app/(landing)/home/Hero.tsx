@@ -1,10 +1,9 @@
-import { Suspense } from "react";
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { cn } from "@/utils";
 import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { env } from "@/env";
-import { HeroHeadingAB, HeroSubtitleAB } from "@/app/(landing)/home/HeroAB";
+import { HeroAB } from "@/app/(landing)/home/HeroAB";
 import HeroVideoDialog from "@/components/HeroVideoDialog";
 
 export function HeroText(props: {
@@ -26,24 +25,9 @@ export function HeroSubtitle(props: { children: React.ReactNode }) {
 }
 
 export function HeroHome() {
-  return (
-    <Hero
-      title={
-        env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
-          <Suspense>
-            <HeroHeadingAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
-          </Suspense>
-        ) : undefined
-      }
-      subtitle={
-        env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
-          <Suspense>
-            <HeroSubtitleAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
-          </Suspense>
-        ) : undefined
-      }
-    />
-  );
+  if (env.NEXT_PUBLIC_POSTHOG_HERO_AB)
+    return <HeroAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />;
+  return <Hero />;
 }
 
 export function Hero(props: {

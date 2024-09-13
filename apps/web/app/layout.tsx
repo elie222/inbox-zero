@@ -12,6 +12,7 @@ import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
+import { getPosthogBootstrapData } from "@/utils/posthog/bootstrap";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -74,17 +75,19 @@ export const viewport = {
   themeColor: "#FFF",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const bootstrapData = await getPosthogBootstrapData();
+
   return (
     <html lang="en" className="h-full">
       <body
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
-        <PostHogProvider>
+        <PostHogProvider bootstrapData={bootstrapData}>
           <Suspense>
             <PostHogPageview />
           </Suspense>
