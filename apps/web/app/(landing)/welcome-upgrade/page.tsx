@@ -21,7 +21,7 @@ export default function WelcomeUpgradePage() {
 
             <div className="mx-auto mt-4 flex flex-col items-start gap-2">
               <TrialFeature>100% no-risk trial</TrialFeature>
-              <TrialFeature>Pay nothing for the first 7 days</TrialFeature>
+              <TrialFeature>Free for the first 7 days</TrialFeature>
               <TrialFeature>Cancel anytime, hassle-free</TrialFeature>
             </div>
           </div>
