@@ -6,6 +6,7 @@ import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
+import type { BootstrapConfig } from "posthog-js";
 import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
@@ -80,7 +81,12 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const bootstrapData = await getPosthogBootstrapData();
+  let bootstrapData: BootstrapConfig | null = null;
+  try {
+    bootstrapData = await getPosthogBootstrapData();
+  } catch (error) {
+    console.error("Error fetching PostHog bootstrap data:", error);
+  }
 
   return (
     <html lang="en" className="h-full">
