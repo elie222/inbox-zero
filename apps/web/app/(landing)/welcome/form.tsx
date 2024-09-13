@@ -13,7 +13,7 @@ import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
-import { aiHomePath, appHomePath } from "@/utils/config";
+import { appHomePath } from "@/utils/config";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
@@ -80,20 +80,22 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        // A/B test for AI Automation
-        if (
-          posthog.getFeatureFlag("welcome-to-ai-automation") === "ai-if-chosen"
-        ) {
-          // send to automation home if AI Automation is chosen
-          if (responses["$survey_response"].includes("AI Automation")) {
-            router.push(aiHomePath);
-          } else {
-            router.push(appHomePath);
-          }
-        } else {
-          // send to app home
-          router.push(appHomePath);
-        }
+        router.push("/welcome-upgrade");
+
+        // // A/B test for AI Automation
+        // if (
+        //   posthog.getFeatureFlag("welcome-to-ai-automation") === "ai-if-chosen"
+        // ) {
+        //   // send to automation home if AI Automation is chosen
+        //   if (responses["$survey_response"].includes("AI Automation")) {
+        //     router.push(aiHomePath);
+        //   } else {
+        //     router.push(appHomePath);
+        //   }
+        // } else {
+        //   // send to app home
+        //   router.push(appHomePath);
+        // }
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
@@ -178,14 +180,14 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
           </Button>
         )}
 
-        {!isFinalQuestion && (
+        {/* {!isFinalQuestion && (
           <SkipOnboardingButton
             searchParams={searchParams}
             submitPosthog={submitPosthog}
             posthog={posthog}
             router={router}
           />
-        )}
+        )} */}
       </div>
     </form>
   );
@@ -202,9 +204,9 @@ function SkipOnboardingButton({
   posthog: PostHog;
   router: AppRouterInstance;
 }) {
-  // A/B test whether to show skip onboarding button
-  if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
-    return null;
+  // // A/B test whether to show skip onboarding button
+  // if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
+  //   return null;
 
   return (
     <Button

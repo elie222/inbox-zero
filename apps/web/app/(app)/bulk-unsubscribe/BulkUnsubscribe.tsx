@@ -22,7 +22,7 @@ const defaultSelected = selectOptions[2];
 
 // Some copy paste from /stats page in here
 // May want to refactor some of this into a shared hook
-export default function BulkUnsubscribePage() {
+export function BulkUnsubscribe() {
   const windowSize = useWindowSize();
   const isMobile = windowSize.width < 768;
 

@@ -24,7 +24,7 @@ const selectOptions = [
 ];
 const defaultSelected = selectOptions[1];
 
-export default function StatsPage() {
+export function Stats() {
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
