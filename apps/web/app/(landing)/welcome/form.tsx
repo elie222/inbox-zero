@@ -13,7 +13,7 @@ import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
-import { appHomePath } from "@/utils/config";
+import { aiHomePath, appHomePath } from "@/utils/config";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
@@ -80,22 +80,16 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        router.push("/welcome-upgrade");
-
-        // // A/B test for AI Automation
-        // if (
-        //   posthog.getFeatureFlag("welcome-to-ai-automation") === "ai-if-chosen"
-        // ) {
-        //   // send to automation home if AI Automation is chosen
-        //   if (responses["$survey_response"].includes("AI Automation")) {
-        //     router.push(aiHomePath);
-        //   } else {
-        //     router.push(appHomePath);
-        //   }
-        // } else {
-        //   // send to app home
-        //   router.push(appHomePath);
-        // }
+        if (process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) {
+          router.push("/welcome-upgrade");
+        } else {
+          // send to automation home if AI Automation is chosen
+          if (responses["$survey_response"].includes("AI Automation")) {
+            router.push(aiHomePath);
+          } else {
+            router.push(appHomePath);
+          }
+        }
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }

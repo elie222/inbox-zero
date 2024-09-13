@@ -5,6 +5,8 @@ import prisma from "@/utils/prisma";
 import { NotLoggedIn } from "@/components/ErrorDisplay";
 
 export async function redirectToWelcomeUpgrade() {
+  if (!process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) return;
+
   const session = await auth();
 
   const email = session?.user.email;
