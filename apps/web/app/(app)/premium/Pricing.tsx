@@ -78,7 +78,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
         {header}
 
         {isPremium && (
-          <div className="mt-8 text-center">
+          <div className="mb-8 mt-8 text-center">
             <Button
               link={{
                 href: `https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`,
