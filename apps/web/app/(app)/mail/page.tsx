@@ -27,7 +27,7 @@ export default function Mail({
     if (previousPageData && !previousPageData.nextPageToken) return null;
     // For the first page, use the base query
     if (pageIndex === 0)
-      return `/api/google/threads?${new URLSearchParams(query as any).toString()}`;
+      return `/api/google/threads?${new URLSearchParams(query as Record<string, string>).toString()}`;
     // For subsequent pages, append the nextPageToken
     return `/api/google/threads?nextPageToken=${previousPageData?.nextPageToken}&${new URLSearchParams(query as any).toString()}`;
   };
