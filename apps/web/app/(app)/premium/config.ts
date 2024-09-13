@@ -8,11 +8,11 @@ export const frequencies = [
 
 export const pricing: Record<PremiumTier, number> = {
   [PremiumTier.BASIC_MONTHLY]: 10,
-  [PremiumTier.BASIC_ANNUALLY]: 6,
-  [PremiumTier.PRO_MONTHLY]: 14,
-  [PremiumTier.PRO_ANNUALLY]: 9,
-  [PremiumTier.BUSINESS_MONTHLY]: 22,
-  [PremiumTier.BUSINESS_ANNUALLY]: 15,
+  [PremiumTier.BASIC_ANNUALLY]: 5,
+  [PremiumTier.PRO_MONTHLY]: 16,
+  [PremiumTier.PRO_ANNUALLY]: 8,
+  [PremiumTier.BUSINESS_MONTHLY]: 24,
+  [PremiumTier.BUSINESS_ANNUALLY]: 12,
   [PremiumTier.COPILOT_MONTHLY]: 99,
   [PremiumTier.LIFETIME]: 299,
 };

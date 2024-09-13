@@ -133,7 +133,7 @@ export function Pricing() {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 40%!</Badge>
+            <Badge>Save 50%!</Badge>
           </div>
         </div>
 
