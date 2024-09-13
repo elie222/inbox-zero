@@ -56,7 +56,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
   const premiumTier = getUserTier(data?.premium);
 
   const header = props.header || (
-    <>
+    <div className="mb-12">
       <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
         <h2 className="font-cal text-base leading-7 text-blue-600">Pricing</h2>
         <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
@@ -66,7 +66,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
       <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
         No hidden fees. Cancel anytime.
       </p>
-    </>
+    </div>
   );
 
   return (
@@ -78,7 +78,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
         {header}
 
         {isPremium && (
-          <div className="mb-16 mt-8 text-center">
+          <div className="mt-8 text-center">
             <Button
               link={{
                 href: `https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`,
