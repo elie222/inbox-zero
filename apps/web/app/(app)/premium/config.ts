@@ -143,11 +143,10 @@ const copilotTier = {
     annually: pricingAdditonalEmail.COPILOT_MONTHLY,
   },
   discount: { monthly: 0, annually: 0 },
-  description:
-    "Get a 30-minute monthly call to help you get your email organized",
+  description: "Tailored email strategy with monthly expert coaching",
   features: [
     "Everything in Business",
-    "30-minute 1:1 monthly call to help you get your email organized",
+    "30-minute 1:1 monthly call to get your email under control",
     "Full refund if not satisfied",
   ],
   cta: "Upgrade",

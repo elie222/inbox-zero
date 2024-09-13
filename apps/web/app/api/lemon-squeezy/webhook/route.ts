@@ -141,10 +141,20 @@ async function subscriptionCreated({
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
     await Promise.allSettled([
-      posthogCaptureEvent(email, "Upgraded to premium", {
-        ...payload.data.attributes,
-        $set: { premium: true, premiumTier: "subscription" },
-      }),
+      posthogCaptureEvent(
+        email,
+        payload.data.attributes.status === "on_trial"
+          ? "Premium trial started"
+          : "Upgraded to premium",
+        {
+          ...payload.data.attributes,
+          $set: {
+            premium: true,
+            premiumTier: "subscription",
+            premiumStatus: payload.data.attributes.status,
+          },
+        },
+      ),
       upgradedToPremium(email, tier),
     ]);
   }
@@ -231,10 +241,20 @@ async function subscriptionUpdated({
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
-    await posthogCaptureEvent(email, "Premium subscription payment success", {
-      ...payload.data.attributes,
-      $set: { premium: true, premiumTier: "subscription" },
-    });
+    await posthogCaptureEvent(
+      email,
+      payload.data.attributes.status === "on_trial"
+        ? "Premium subscription trial started"
+        : "Premium subscription payment success",
+      {
+        ...payload.data.attributes,
+        $set: {
+          premium: true,
+          premiumTier: "subscription",
+          premiumStatus: payload.data.attributes.status,
+        },
+      },
+    );
   }
 
   return NextResponse.json({ ok: true });
@@ -259,7 +279,11 @@ async function subscriptionCancelled({
     await Promise.allSettled([
       posthogCaptureEvent(email, "Cancelled premium subscription", {
         ...payload.data.attributes,
-        $set: { premiumCancelled: true, premium: false },
+        $set: {
+          premiumCancelled: true,
+          premium: false,
+          premiumStatus: payload.data.attributes.status,
+        },
       }),
       cancelledPremium(email),
     ]);

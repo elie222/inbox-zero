@@ -10,6 +10,7 @@ export const AboutSection = async () => {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
+    select: { about: true },
   });
 
   if (!user) return <NotLoggedIn />;
