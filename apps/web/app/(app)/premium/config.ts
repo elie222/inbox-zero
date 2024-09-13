@@ -114,19 +114,12 @@ const businessTier = {
   },
   description: "Unlock full AI-powered email management",
   features: [
-    "Everything in Pro",
+    "Everything in Basic",
+    "AI email assistant",
+    "Cold email blocker",
     "Unlimited AI credits",
-    "No need to provide your own AI API key",
     "Priority support",
   ],
-  // features: [
-  //   "AI email assistant",
-  //   "Bulk email unsubscriber",
-  //   "Cold email blocker",
-  //   "Email analytics",
-  //   "Unlimited AI credits",
-  //   "Priority support",
-  // ],
   cta: "Upgrade",
   mostPopular: true,
 };
@@ -174,9 +167,9 @@ export const tiers: {
   mostPopular?: boolean;
 }[] = [
   basicTier,
-  proTier,
+  // proTier,
   businessTier,
-  // copilotTier,
+  copilotTier,
 ];
 
 export const lifetimeFeatures = [
