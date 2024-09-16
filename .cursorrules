@@ -11,6 +11,7 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
 - We use Turborepo with pnpm workspaces.
 - We have one app called `web` in `apps/web`.
 - We have packages in the `packages` folder.
+- We have Next.js server actions in the `apps/web/utils/actions` folder. Eg. `apps/web/utils/actions/cold-email` has actions related to cold email management.
 - Favor named exports for components.
 - Use TypeScript for all code.
 - Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.
