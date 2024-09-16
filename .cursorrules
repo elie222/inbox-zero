@@ -95,10 +95,26 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
   };
   ```
 
-  - This is the format of a server action. Example:
+- This is how you do a text area. Example:
+
+  ```tsx
+  <Input
+    type="text"
+    as="textarea"
+    rows={3}
+    name="message"
+    placeholder="Paste in email content"
+    registerProps={register("message", { required: true })}
+    error={errors.message}
+  />
+  ```
+
+- This is the format of a server action. Example:
 
   ```typescript
-  export async function processHistoryAction(unsafeData: ProcessHistoryOptions): Promise<ServerActionResponse> {
+  export async function processHistoryAction(
+    unsafeData: ProcessHistoryOptions
+  ): Promise<ServerActionResponse> {
     const session = await auth();
     const userId = session?.user.id;
     if (!userId) return { error: "Not logged in" };
@@ -109,6 +125,6 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
     // perform action
     await processHistory();
 
-    revalidatePath('/history');
+    revalidatePath("/history");
   }
   ```
