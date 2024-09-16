@@ -71,13 +71,6 @@ export async function chatCompletionObject<T>({
   usageLabel: string;
 }) {
   const { provider, model, llmModel } = getModel(userAi);
-  console.log(
-    `chatCompletionObject. Model: ${provider}, ${model}, userAi: ${JSON.stringify(
-      userAi,
-      null,
-      2,
-    )}. llmModel: ${JSON.stringify(llmModel, null, 2)}`,
-  );
 
   const result = await generateObject({
     model: llmModel,
