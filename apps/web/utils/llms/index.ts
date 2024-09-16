@@ -8,7 +8,7 @@ import { saveAiUsage } from "@/utils/usage";
 import { Model, Provider } from "@/utils/llms/config";
 import { UserAIFields } from "@/utils/llms/types";
 
-function getModel({ aiProvider, aiModel, aiApiKey: apiKey }: UserAIFields) {
+function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   const provider = aiProvider || Provider.ANTHROPIC;
 
   if (provider === Provider.OPEN_AI) {
@@ -16,17 +16,17 @@ function getModel({ aiProvider, aiModel, aiApiKey: apiKey }: UserAIFields) {
     return {
       provider: Provider.OPEN_AI,
       model,
-      llmModel: createOpenAI({ apiKey: apiKey || env.OPENAI_API_KEY })(model),
+      llmModel: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(model),
     };
   }
 
   if (provider === Provider.ANTHROPIC) {
-    if (apiKey) {
+    if (aiApiKey) {
       const model = aiModel || Model.CLAUDE_3_5_SONNET_ANTHROPIC;
       return {
         provider: Provider.ANTHROPIC,
         model,
-        llmModel: createAnthropic({ apiKey })(model),
+        llmModel: createAnthropic({ apiKey: aiApiKey })(model),
       };
     } else {
       if (!env.BEDROCK_ACCESS_KEY)
@@ -67,7 +67,11 @@ export async function chatCompletionObject<T>({
 }) {
   const { provider, model, llmModel } = getModel(userAi);
   console.log(
-    `chatCompletionObject. Model: ${provider}, ${model}, ${llmModel}`,
+    `chatCompletionObject. Model: ${provider}, ${model}, userAi: ${JSON.stringify(
+      userAi,
+      null,
+      2,
+    )}. llmModel: ${JSON.stringify(llmModel, null, 2)}`,
   );
 
   const result = await generateObject({
