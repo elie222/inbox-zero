@@ -35,14 +35,16 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
         throw new Error("BEDROCK_SECRET_KEY is not set");
 
       const model = aiModel || Model.CLAUDE_3_5_SONNET_BEDROCK;
+      const bedrockOptions = {
+        accessKeyId: env.BEDROCK_ACCESS_KEY,
+        secretAccessKey: env.BEDROCK_SECRET_KEY,
+        region: env.BEDROCK_REGION,
+      };
+      console.log("🚀 ~ getModel ~ bedrockOptions:", bedrockOptions);
       return {
         provider: Provider.ANTHROPIC,
         model,
-        llmModel: createAmazonBedrock({
-          accessKeyId: env.BEDROCK_ACCESS_KEY,
-          secretAccessKey: env.BEDROCK_SECRET_KEY,
-          region: env.BEDROCK_REGION,
-        })(model),
+        llmModel: createAmazonBedrock(bedrockOptions)(model),
       };
     }
   }
