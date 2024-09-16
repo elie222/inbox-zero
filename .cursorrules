@@ -1,0 +1,113 @@
+You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, PostgreSQL, Turborepo, Shadcn UI, Radix UI and Tailwind.
+
+- Write concise, technical TypeScript code with accurate examples.
+- Use functional and declarative programming patterns; avoid classes.
+- Prefer iteration and modularization over code duplication. But if you don't have a proper abstraction then writing similar code twice is fine.
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+- Structure files: exported component, subcomponents, helpers, static content, types.
+- Use kebab case for route directories (e.g., `api/hello-world/route`). Use PascalCase for components (eg. `components/Button.tsx`)
+- Shadcn components are in `components/ui`. All other components are in `components/`.
+- Colocate files in the folder they're used. Unless the component can be used in many places across the app. Then it can be placed in the `components` folder.
+- We use Turborepo with pnpm workspaces.
+- We have one app called `web` in `apps/web`.
+- We have packages in the `packages` folder.
+- Favor named exports for components.
+- Use TypeScript for all code.
+- Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.
+- Use Shadcn UI and Tailwind for components and styling.
+- Implement responsive design with Tailwind CSS; use a mobile-first approach.
+- Use `next/image` package for images.
+- For API get requests to server use the `swr` package. Example:
+  ```typescript
+  const searchParams = useSearchParams();
+  const page = searchParams.get("page") || "1";
+  const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
+    `/api/user/planned/history?page=${page}`
+  );
+  ```
+- Use the `Loading` component. Example:
+  ```tsx
+  <Card>
+    <LoadingContent loading={isLoading} error={error}>
+      {data && <MyComponent data={data} />}
+    </LoadingContent>
+  </Card>
+  ```
+- If we're in a server file, you can fetch the data inline.
+- For mutating data, use Next.js server actions.
+- Use `isActionError` with `toastError` and `toastSuccess`. Success toast is optional. Example:
+
+  ```typescript
+  import { toastError, toastSuccess } from "@/components/Toast";
+
+  const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
+    const result = await testAiCustomContentAction({ content: data.message });
+    if (isActionError(result)) {
+      toastError({
+        title: "Error testing email",
+        description: result.error,
+      });
+    } else {
+      toastSuccess({ description: "Saved!" });
+    }
+  }, []);
+  ```
+
+- Implement type-safe server actions with proper validation.
+- Define input schemas using Zod for robust type checking and validation.
+- Handle errors gracefully and return appropriate responses.
+- Ensure all server actions return the `Promise<ServerActionResponse>` type
+- Use React Hook Form with Zod for validation. The same validation should be done in the server action too. Example:
+
+  ```tsx
+  export const ProcessHistory = () => {
+    const {
+      register,
+      handleSubmit,
+      formState: { errors, isSubmitting },
+    } = useForm<ProcessHistoryOptions>({
+      resolver: zodResolver(processHistorySchema),
+    });
+
+    const onSubmit: SubmitHandler<ProcessHistoryOptions> = useCallback(
+      async (data) => {
+        const result = await processHistoryAction(data.email);
+        handleActionResult(result, `Processed history for ${data.email}`);
+      },
+      []
+    );
+
+    return (
+      <form className="max-w-sm space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <Input
+          type="email"
+          name="email"
+          label="Email"
+          registerProps={register("email", { required: true })}
+          error={errors.email}
+        />
+        <Button type="submit" loading={isSubmitting}>
+          Process History
+        </Button>
+      </form>
+    );
+  };
+  ```
+
+  - This is the format of a server action. Example:
+
+  ```typescript
+  export async function processHistoryAction(unsafeData: ProcessHistoryOptions): Promise<ServerActionResponse> {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
+
+    const data = processHistorySchema.safeParse(unsafeData);
+    if (!data.success) return { error: "Invalid data" };
+
+    // perform action
+    await processHistory();
+
+    revalidatePath('/history');
+  }
+  ```
