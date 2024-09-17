@@ -406,7 +406,7 @@ export async function rejectPlanAction(
 
 export async function saveRulesPromptAction(
   unsafeData: SaveRulesPromptBody,
-): Promise<ServerActionResponse> {
+): Promise<ServerActionResponse<{ createdRules: number }>> {
   const session = await auth();
   if (!session?.user.id) return { error: "Not logged in" };
 
@@ -443,7 +443,7 @@ export async function saveRulesPromptAction(
     await safeCreateRule(rule, session.user.id, groupIdResult);
   }
 
-  return { success: true };
+  return { createdRules: parsedRules.rules.length };
 }
 
 function shouldAutomate(actions: Pick<Action, "type">[]) {

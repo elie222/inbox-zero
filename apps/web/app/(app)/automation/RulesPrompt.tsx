@@ -95,7 +95,9 @@ function RulesPromptForm({
         description: result.error,
       });
     } else {
-      toastSuccess({ description: "Rules saved successfully!" });
+      toastSuccess({
+        description: `Rules saved successfully! ${result?.createdRules || 0} rules created.`,
+      });
     }
 
     mutate();
@@ -114,7 +116,7 @@ function RulesPromptForm({
     <Card className="grid grid-cols-1 sm:grid-cols-3">
       <div className="sm:col-span-2">
         <CardHeader>
-          <CardTitle>How to handle emails</CardTitle>
+          <CardTitle>How your AI assistant should handle your emails</CardTitle>
           <CardDescription>
             Write a prompt for your AI assistant to follow.
           </CardDescription>
