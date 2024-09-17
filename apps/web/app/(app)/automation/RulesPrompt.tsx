@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -156,10 +157,16 @@ function RulesPromptForm({
                 </p>
               )}
 
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <ButtonLoader />}
-                Save
-              </Button>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <ButtonLoader />}
+                  Save
+                </Button>
+
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/automation/create">Create Rules Manually</Link>
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>

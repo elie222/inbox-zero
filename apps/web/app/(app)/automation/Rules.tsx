@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
-import { MoreHorizontalIcon, SparklesIcon } from "lucide-react";
+import { MoreHorizontalIcon, PenIcon, SparklesIcon } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -200,9 +200,9 @@ export function Rules() {
               </CardHeader>
               <CardContent>
                 <Button asChild>
-                  <Link href="/automation/create">
-                    <SparklesIcon className="mr-2 hidden h-4 w-4 md:block" />
-                    Create Automation
+                  <Link href="/automation?tab=prompt">
+                    <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+                    Set Prompt
                   </Link>
                 </Button>
               </CardContent>

@@ -1,11 +1,8 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import { SparklesIcon } from "lucide-react";
 import { History } from "@/app/(app)/automation/History";
 import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { Button } from "@/components/ui/button";
 import { Rules } from "@/app/(app)/automation/Rules";
 import { TestRulesContent } from "@/app/(app)/automation/TestRules";
 import {
@@ -37,16 +34,7 @@ export default async function AutomationPage() {
             </TabsList>
           </div>
 
-          <div className="flex gap-2">
-            <BulkRunRules />
-
-            <Button asChild>
-              <Link href="/automation/create">
-                <SparklesIcon className="mr-2 hidden h-4 w-4 md:block" />
-                Create Automation
-              </Link>
-            </Button>
-          </div>
+          <BulkRunRules />
         </div>
 
         <TabsContent value="prompt" className="content-container mb-10">
