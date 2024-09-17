@@ -24,12 +24,12 @@ export default async function AutomationPage() {
 
   return (
     <Suspense>
-      <Tabs defaultValue="automations">
+      <Tabs defaultValue="prompt">
         <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
           <div className="w-full overflow-x-auto">
             <TabsList>
+              <TabsTrigger value="prompt">Prompt</TabsTrigger>
               <TabsTrigger value="rules">Rules</TabsTrigger>
-              <TabsTrigger value="automations">Automations</TabsTrigger>
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="test">Test</TabsTrigger>
@@ -49,10 +49,10 @@ export default async function AutomationPage() {
           </div>
         </div>
 
-        <TabsContent value="rules" className="content-container mb-10">
+        <TabsContent value="prompt" className="content-container mb-10">
           <RulesPrompt />
         </TabsContent>
-        <TabsContent value="automations" className="content-container mb-10">
+        <TabsContent value="rules" className="content-container mb-10">
           <Rules />
         </TabsContent>
         <TabsContent value="pending" className="content-container mb-10">

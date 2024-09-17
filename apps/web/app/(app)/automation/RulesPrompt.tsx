@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,6 @@ import {
 } from "@/utils/actions/validation";
 import { ButtonLoader } from "@/components/Loading";
 import { SectionHeader } from "@/components/Typography";
-import { useCallback } from "react";
 
 const examplePrompts = [
   "Archive all marketing emails",
@@ -56,6 +57,7 @@ export function RulesPrompt() {
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
   });
+  const router = useRouter();
 
   const onSubmit = async (data: SaveRulesPromptBody) => {
     const result = await saveRulesPromptAction(data);
@@ -68,6 +70,8 @@ export function RulesPrompt() {
     } else {
       toastSuccess({ description: "Rules saved successfully!" });
     }
+
+    router.push("/automation?tab=rules");
   };
 
   const addExamplePrompt = useCallback((example: string) => {
