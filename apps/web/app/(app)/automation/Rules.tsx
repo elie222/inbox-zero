@@ -192,7 +192,7 @@ export function Rules() {
           ) : (
             <>
               <CardHeader>
-                <CardTitle>AI Email Assistant</CardTitle>
+                <CardTitle>AI Personal Assistant</CardTitle>
                 <CardDescription>
                   Set up intelligent automations to let our AI handle your
                   emails for you.
