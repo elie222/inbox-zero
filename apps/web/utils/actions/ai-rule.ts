@@ -27,6 +27,7 @@ import {
   saveRulesPromptBody,
   SaveRulesPromptBody,
 } from "@/utils/actions/validation";
+import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 
 export async function runRulesAction(
   email: EmailForAction,
@@ -405,6 +406,27 @@ export async function saveRulesPromptAction(
   const data = saveRulesPromptBody.parse(unsafeData);
 
   if (!data.rulesPrompt) return { error: "Rules prompt cannot be empty" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+      email: true,
+    },
+  });
+
+  if (!user) return { error: "User not found" };
+  if (!user.email) return { error: "User email not found" };
+
+  const rules = await aiPromptToRules({
+    user: {
+      ...user,
+      email: user.email,
+    },
+    promptFile: data.rulesPrompt,
+  });
 
   await prisma.user.update({
     where: { id: session.user.id },
