@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
@@ -23,6 +24,8 @@ import {
 } from "@/utils/actions/validation";
 import { ButtonLoader } from "@/components/Loading";
 import { SectionHeader } from "@/components/Typography";
+import { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
+import { LoadingContent } from "@/components/LoadingContent";
 
 const examplePrompts = [
   "Archive all marketing emails",
@@ -48,6 +51,28 @@ const examplePrompts = [
 ];
 
 export function RulesPrompt() {
+  const { data, isLoading, error, mutate } = useSWR<
+    RulesPromptResponse,
+    { error: string }
+  >(`/api/user/rules/prompt`);
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      <RulesPromptForm
+        rulesPrompt={data?.rulesPrompt || undefined}
+        mutate={mutate}
+      />
+    </LoadingContent>
+  );
+}
+
+function RulesPromptForm({
+  rulesPrompt,
+  mutate,
+}: {
+  rulesPrompt?: string;
+  mutate: () => void;
+}) {
   const {
     register,
     handleSubmit,
@@ -56,6 +81,7 @@ export function RulesPrompt() {
     setValue,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
+    defaultValues: { rulesPrompt },
   });
   const router = useRouter();
 
@@ -70,6 +96,8 @@ export function RulesPrompt() {
     } else {
       toastSuccess({ description: "Rules saved successfully!" });
     }
+
+    mutate();
 
     router.push("/automation?tab=rules");
   };
