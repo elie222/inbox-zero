@@ -2,7 +2,12 @@
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
-import { RuleType, ExecutedRuleStatus } from "@prisma/client";
+import {
+  RuleType,
+  ExecutedRuleStatus,
+  Action,
+  ActionType,
+} from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
@@ -206,13 +211,13 @@ export async function createAutomationAction(
 
   let groupId: string | null = null;
 
-  if (result.group) {
+  if (result.condition.group && result.condition.type === RuleType.GROUP) {
     const groups = await prisma.group.findMany({
       where: { userId },
       select: { id: true, name: true, rule: true },
     });
 
-    if (result.group === GroupName.NEWSLETTER) {
+    if (result.condition.group === GroupName.NEWSLETTER) {
       const newsletterGroup = groups.find((g) =>
         g.name.toLowerCase().includes("newsletter"),
       );
@@ -235,7 +240,7 @@ export async function createAutomationAction(
           groupId = result.id;
         }
       }
-    } else if (result.group === GroupName.RECEIPT) {
+    } else if (result.condition.group === GroupName.RECEIPT) {
       const receiptsGroup = groups.find((g) =>
         g.name.toLowerCase().includes("receipt"),
       );
@@ -262,46 +267,8 @@ export async function createAutomationAction(
     }
   }
 
-  function getRuleType() {
-    // prioritise group rules
-    if (result?.group) return RuleType.GROUP;
-    if (
-      result?.staticConditions?.from ||
-      result?.staticConditions?.to ||
-      result?.staticConditions?.subject
-    )
-      return RuleType.STATIC;
-    return RuleType.AI;
-  }
-
-  async function createRule(
-    result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
-    userId: string,
-  ) {
-    const rule = await prisma.rule.create({
-      data: {
-        name: result.name,
-        instructions: prompt,
-        userId,
-        type: getRuleType(), // TODO might want to set this to AI if "requiresAI" is true
-        actions: {
-          createMany: {
-            data: result.actions,
-          },
-        },
-        automate: false,
-        runOnThreads: false,
-        from: result.staticConditions?.from,
-        to: result.staticConditions?.to,
-        subject: result.staticConditions?.subject,
-        groupId,
-      },
-    });
-    return rule;
-  }
-
   try {
-    const rule = await createRule(result, userId);
+    const rule = await createRule(result, userId, groupId);
     return { id: rule.id };
   } catch (error) {
     if (isDuplicateError(error, "name")) {
@@ -309,12 +276,40 @@ export async function createAutomationAction(
       const rule = await createRule(
         { ...result, name: result.name + " - " + Date.now() },
         userId,
+        groupId,
       );
       return { id: rule.id };
     }
 
     return { error: "Error creating rule." };
   }
+}
+
+async function createRule(
+  result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+  userId: string,
+  groupId: string | null,
+) {
+  const rule = await prisma.rule.create({
+    data: {
+      name: result.name,
+      instructions: result.condition.aiInstructions || "",
+      userId,
+      type: result.condition.type,
+      actions: {
+        createMany: {
+          data: result.actions,
+        },
+      },
+      automate: false,
+      runOnThreads: false,
+      from: result.condition.static?.from,
+      to: result.condition.static?.to,
+      subject: result.condition.static?.subject,
+      groupId,
+    },
+  });
+  return rule;
 }
 
 export async function deleteRuleAction(
@@ -420,7 +415,7 @@ export async function saveRulesPromptAction(
   if (!user) return { error: "User not found" };
   if (!user.email) return { error: "User email not found" };
 
-  const rules = await aiPromptToRules({
+  const parsedRules = await aiPromptToRules({
     user: {
       ...user,
       email: user.email,
@@ -428,8 +423,53 @@ export async function saveRulesPromptAction(
     promptFile: data.rulesPrompt,
   });
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { rulesPrompt: data.rulesPrompt },
-  });
+  // Save the rules to the database
+  // await prisma.$transaction(async (tx) => {
+  //   // Update the user's rulesPrompt
+  //   await tx.user.update({
+  //     where: { id: session.user.id },
+  //     data: { rulesPrompt: data.rulesPrompt },
+  //   });
+
+  //   // Delete existing rules
+  //   await tx.rule.deleteMany({
+  //     where: { userId: session.user.id },
+  //   });
+
+  //   // Create new rules
+  //   for (const rule of parsedRules.rules) {
+  //     await tx.rule.create({
+  //       data: {
+  //         name: rule.name,
+  //         instructions: "",
+  //         userId: session.user.id,
+  //         type: RuleType.AI,
+  //         actions: {
+  //           createMany: {
+  //             data: rule.actions,
+  //           },
+  //         },
+  //         automate: shouldAutomate(rule.actions),
+  //         runOnThreads: false,
+  //       },
+  //     });
+  //   }
+  // });
+
+  return { success: true };
+}
+
+function shouldAutomate(actions: Pick<Action, "type">[]) {
+  const types = new Set(actions.map((action) => action.type));
+
+  // don't automate replies, forwards, and send emails
+  if (
+    types.has(ActionType.REPLY) ||
+    types.has(ActionType.FORWARD) ||
+    types.has(ActionType.SEND_EMAIL)
+  ) {
+    return false;
+  }
+
+  return true;
 }

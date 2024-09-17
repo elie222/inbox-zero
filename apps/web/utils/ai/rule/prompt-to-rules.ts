@@ -34,5 +34,8 @@ export async function aiPromptToRules({
     label: "Prompt to rules",
   });
 
-  return aiResponse.toolCalls[0].args as z.infer<typeof parameters>;
+  const parsedRules = aiResponse.toolCalls[0].args as z.infer<
+    typeof parameters
+  >;
+  return parsedRules;
 }

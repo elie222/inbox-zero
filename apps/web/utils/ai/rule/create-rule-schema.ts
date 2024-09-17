@@ -1,15 +1,45 @@
 import { z } from "zod";
 import { GroupName } from "@/utils/config";
-import { ActionType } from "@prisma/client";
+import { ActionType, RuleType } from "@prisma/client";
 
 export const createRuleSchema = z.object({
   name: z.string().describe("The name of the rule"),
-  // `requiresAI` helps prevent the subject line being set too narrowly
-  requiresAI: z
-    .enum(["yes", "no"])
-    .describe(
-      "Yes, if an AI is required, and it cannot be handled by static conditions or groups. For example, labelling marketing emails requires an AI to read the content. Receipts and Newsletters can be handled by preset groups so they do not require AI. Emails from a domain can be handled by static conditions, so they do not require AI.",
-    ),
+  condition: z
+    .object({
+      type: z
+        .enum([RuleType.AI, RuleType.STATIC, RuleType.GROUP])
+        .describe("The type of the condition"),
+
+      aiInstructions: z
+        .string()
+        .optional()
+        .describe(
+          "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule. Leave blank if using static conditions or groups.",
+        ),
+      static: z
+        .object({
+          from: z
+            .string()
+            .optional()
+            .describe("The from email address to match"),
+          to: z.string().optional().describe("The to email address to match"),
+          subject: z
+            .string()
+            .optional()
+            .describe(
+              "The subject to match. Leave blank if AI is required to process the subject line.",
+            ),
+        })
+        .optional()
+        .describe("The static conditions to match"),
+      group: z
+        .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
+        .optional()
+        .describe(
+          "The group to match. Only 'Receipt' and 'Newsletter' are supported.",
+        ),
+    })
+    .describe("The conditions to match"),
   actions: z
     .array(
       z.object({
@@ -47,21 +77,4 @@ export const createRuleSchema = z.object({
       }),
     )
     .describe("The actions to take"),
-  staticConditions: z
-    .object({
-      from: z.string().optional().describe("The from email address to match"),
-      to: z.string().optional().describe("The to email address to match"),
-      subject: z
-        .string()
-        .optional()
-        .describe(
-          "The subject to match. Leave blank if AI is required to process the subject line.",
-        ),
-    })
-    .optional()
-    .describe("The static conditions to match"),
-  group: z
-    .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
-    .optional()
-    .describe("The group to match"),
 });

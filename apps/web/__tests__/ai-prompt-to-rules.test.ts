@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import { ActionType, RuleType } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
 
@@ -32,10 +33,13 @@ describe.only("aiPromptToRules", () => {
     // receipts
     expect(result.rules[0]).toEqual({
       name: expect.any(String),
-      requiresAI: "no",
+      condition: {
+        type: RuleType.GROUP,
+        group: "Receipts",
+      },
       actions: [
         {
-          type: "LABEL",
+          type: ActionType.LABEL,
           label: "Receipt",
           to: null,
           cc: null,
@@ -44,16 +48,18 @@ describe.only("aiPromptToRules", () => {
           content: null,
         },
       ],
-      group: "Receipts",
     });
 
     // newsletters
     expect(result.rules[1]).toEqual({
       name: expect.any(String),
-      requiresAI: "no",
+      condition: {
+        type: RuleType.GROUP,
+        group: "Newsletters",
+      },
       actions: [
         {
-          type: "ARCHIVE",
+          type: ActionType.ARCHIVE,
           label: null,
           to: null,
           cc: null,
@@ -62,7 +68,7 @@ describe.only("aiPromptToRules", () => {
           content: null,
         },
         {
-          type: "LABEL",
+          type: ActionType.LABEL,
           label: "Newsletter",
           to: null,
           cc: null,
@@ -71,16 +77,18 @@ describe.only("aiPromptToRules", () => {
           content: null,
         },
       ],
-      group: "Newsletters",
     });
 
     // marketing
     expect(result.rules[2]).toEqual({
       name: expect.any(String),
-      requiresAI: "yes",
+      condition: {
+        type: RuleType.AI,
+        aiInstructions: expect.any(String),
+      },
       actions: [
         {
-          type: "ARCHIVE",
+          type: ActionType.ARCHIVE,
           label: null,
           to: null,
           cc: null,
@@ -89,7 +97,7 @@ describe.only("aiPromptToRules", () => {
           content: null,
         },
         {
-          type: "LABEL",
+          type: ActionType.LABEL,
           label: "Marketing",
           to: null,
           cc: null,
@@ -103,10 +111,15 @@ describe.only("aiPromptToRules", () => {
     // internal
     expect(result.rules[3]).toEqual({
       name: expect.any(String),
-      requiresAI: "no",
+      condition: {
+        type: RuleType.STATIC,
+        static: {
+          from: "mycompany.com",
+        },
+      },
       actions: [
         {
-          type: "LABEL",
+          type: ActionType.LABEL,
           label: "Internal",
           to: null,
           cc: null,
@@ -115,9 +128,6 @@ describe.only("aiPromptToRules", () => {
           content: null,
         },
       ],
-      staticConditions: {
-        from: "mycompany.com",
-      },
     });
 
     // Validate each rule against the schema
