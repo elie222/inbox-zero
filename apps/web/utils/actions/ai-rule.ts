@@ -23,6 +23,10 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import type { ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { type ServerActionResponse, isActionError } from "@/utils/error";
+import {
+  saveRulesPromptBody,
+  SaveRulesPromptBody,
+} from "@/utils/actions/validation";
 
 export async function runRulesAction(
   email: EmailForAction,
@@ -389,5 +393,21 @@ export async function rejectPlanAction(
   await prisma.executedRule.updateMany({
     where: { id: executedRuleId, userId: session.user.id },
     data: { status: ExecutedRuleStatus.REJECTED },
+  });
+}
+
+export async function saveRulesPromptAction(
+  unsafeData: SaveRulesPromptBody,
+): Promise<ServerActionResponse> {
+  const session = await auth();
+  if (!session?.user.id) return { error: "Not logged in" };
+
+  const data = saveRulesPromptBody.parse(unsafeData);
+
+  if (!data.rulesPrompt) return { error: "Rules prompt cannot be empty" };
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { rulesPrompt: data.rulesPrompt },
   });
 }

@@ -70,6 +70,7 @@ model User {
   categorizeEmails      Boolean           @default(true)
   coldEmailBlocker      ColdEmailSetting?
   coldEmailPrompt       String?
+  rulesPrompt           String?
 
   // premium can be shared among multiple users
   premiumId      String?
