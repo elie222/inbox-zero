@@ -209,6 +209,60 @@ export async function createAutomationAction(
 
   if (!result) return { error: "AI error creating rule." };
 
+  const groupIdResult = await getGroupId(result, userId);
+  if (isActionError(groupIdResult)) return groupIdResult;
+  return await safeCreateRule(result, userId, groupIdResult);
+}
+
+async function createRule(
+  result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+  userId: string,
+  groupId: string | null,
+) {
+  return prisma.rule.create({
+    data: {
+      name: result.name,
+      instructions: result.condition.aiInstructions || "",
+      userId,
+      type: result.condition.type,
+      actions: { createMany: { data: result.actions } },
+      automate: shouldAutomate(result.actions),
+      runOnThreads: false,
+      from: result.condition.static?.from,
+      to: result.condition.static?.to,
+      subject: result.condition.static?.subject,
+      groupId,
+    },
+  });
+}
+
+async function safeCreateRule(
+  result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+  userId: string,
+  groupId: string | null,
+) {
+  try {
+    const rule = await createRule(result, userId, groupId);
+    return { id: rule.id };
+  } catch (error) {
+    if (isDuplicateError(error, "name")) {
+      // if rule name already exists, create a new rule with a unique name
+      const rule = await createRule(
+        { ...result, name: result.name + " - " + Date.now() },
+        userId,
+        groupId,
+      );
+      return { id: rule.id };
+    }
+
+    return { error: "Error creating rule." };
+  }
+}
+
+async function getGroupId(
+  result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+  userId: string,
+) {
   let groupId: string | null = null;
 
   if (result.condition.group && result.condition.type === RuleType.GROUP) {
@@ -267,49 +321,7 @@ export async function createAutomationAction(
     }
   }
 
-  try {
-    const rule = await createRule(result, userId, groupId);
-    return { id: rule.id };
-  } catch (error) {
-    if (isDuplicateError(error, "name")) {
-      // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule(
-        { ...result, name: result.name + " - " + Date.now() },
-        userId,
-        groupId,
-      );
-      return { id: rule.id };
-    }
-
-    return { error: "Error creating rule." };
-  }
-}
-
-async function createRule(
-  result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
-  userId: string,
-  groupId: string | null,
-) {
-  const rule = await prisma.rule.create({
-    data: {
-      name: result.name,
-      instructions: result.condition.aiInstructions || "",
-      userId,
-      type: result.condition.type,
-      actions: {
-        createMany: {
-          data: result.actions,
-        },
-      },
-      automate: false,
-      runOnThreads: false,
-      from: result.condition.static?.from,
-      to: result.condition.static?.to,
-      subject: result.condition.static?.subject,
-      groupId,
-    },
-  });
-  return rule;
+  return groupId;
 }
 
 export async function deleteRuleAction(
@@ -416,45 +428,20 @@ export async function saveRulesPromptAction(
   if (!user.email) return { error: "User email not found" };
 
   const parsedRules = await aiPromptToRules({
-    user: {
-      ...user,
-      email: user.email,
-    },
+    user: { ...user, email: user.email },
     promptFile: data.rulesPrompt,
   });
 
-  // Save the rules to the database
-  // await prisma.$transaction(async (tx) => {
-  //   // Update the user's rulesPrompt
-  //   await tx.user.update({
-  //     where: { id: session.user.id },
-  //     data: { rulesPrompt: data.rulesPrompt },
-  //   });
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { rulesPrompt: data.rulesPrompt },
+  });
 
-  //   // Delete existing rules
-  //   await tx.rule.deleteMany({
-  //     where: { userId: session.user.id },
-  //   });
-
-  //   // Create new rules
-  //   for (const rule of parsedRules.rules) {
-  //     await tx.rule.create({
-  //       data: {
-  //         name: rule.name,
-  //         instructions: "",
-  //         userId: session.user.id,
-  //         type: RuleType.AI,
-  //         actions: {
-  //           createMany: {
-  //             data: rule.actions,
-  //           },
-  //         },
-  //         automate: shouldAutomate(rule.actions),
-  //         runOnThreads: false,
-  //       },
-  //     });
-  //   }
-  // });
+  for (const rule of parsedRules.rules) {
+    const groupIdResult = await getGroupId(rule, session.user.id);
+    if (isActionError(groupIdResult)) return groupIdResult;
+    await safeCreateRule(rule, session.user.id, groupIdResult);
+  }
 
   return { success: true };
 }
