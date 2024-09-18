@@ -5,7 +5,7 @@ import { ActionType, RuleType } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
 
-describe.only("aiPromptToRules", () => {
+describe("aiPromptToRules", () => {
   it("should convert prompt file to rules", async () => {
     const user = {
       email: "user@test.com",

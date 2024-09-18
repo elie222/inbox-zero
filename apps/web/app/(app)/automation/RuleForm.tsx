@@ -153,7 +153,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         />
       </div>
 
-      <TypographyH3 className="mt-6">Conditions</TypographyH3>
+      <TypographyH3 className="mt-6">Condition</TypographyH3>
 
       <Tabs defaultValue={rule.type} className="mt-2">
         <TabsList>

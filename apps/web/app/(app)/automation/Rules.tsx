@@ -64,7 +64,7 @@ export function Rules() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Conditions</TableHead>
+                  <TableHead>Condition</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Actions</TableHead>
                   <TableHead className="text-center">Automated</TableHead>
@@ -219,7 +219,11 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
     <div className="flex flex-1 space-x-2">
       {actions?.map((action) => {
         return (
-          <Badge key={action.id} color={getActionColor(action.type)}>
+          <Badge
+            key={action.id}
+            color={getActionColor(action.type)}
+            className="text-nowrap"
+          >
             {capitalCase(action.type)}
           </Badge>
         );

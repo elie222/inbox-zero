@@ -33,6 +33,8 @@ import {
   SaveRulesPromptBody,
 } from "@/utils/actions/validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
+import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
+import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 
 export async function runRulesAction(
   email: EmailForAction,
@@ -236,6 +238,33 @@ async function createRule(
   });
 }
 
+async function updateRule(
+  ruleId: string,
+  result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+  userId: string,
+  groupId: string | null,
+) {
+  return prisma.rule.update({
+    where: { id: ruleId },
+    data: {
+      name: result.name,
+      instructions: result.condition.aiInstructions || "",
+      userId,
+      type: result.condition.type,
+      actions: {
+        deleteMany: {},
+        createMany: { data: result.actions },
+      },
+      automate: shouldAutomate(result.actions),
+      runOnThreads: false,
+      from: result.condition.static?.from,
+      to: result.condition.static?.to,
+      subject: result.condition.static?.subject,
+      groupId,
+    },
+  });
+}
+
 async function safeCreateRule(
   result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
   userId: string,
@@ -243,6 +272,30 @@ async function safeCreateRule(
 ) {
   try {
     const rule = await createRule(result, userId, groupId);
+    return { id: rule.id };
+  } catch (error) {
+    if (isDuplicateError(error, "name")) {
+      // if rule name already exists, create a new rule with a unique name
+      const rule = await createRule(
+        { ...result, name: result.name + " - " + Date.now() },
+        userId,
+        groupId,
+      );
+      return { id: rule.id };
+    }
+
+    return { error: "Error creating rule." };
+  }
+}
+
+async function safeUpdateRule(
+  ruleId: string,
+  result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
+  userId: string,
+  groupId: string | null,
+) {
+  try {
+    const rule = await updateRule(ruleId, result, userId, groupId);
     return { id: rule.id };
   } catch (error) {
     if (isDuplicateError(error, "name")) {
@@ -412,11 +465,10 @@ export async function saveRulesPromptAction(
 
   const data = saveRulesPromptBody.parse(unsafeData);
 
-  if (!data.rulesPrompt) return { error: "Rules prompt cannot be empty" };
-
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
+      rulesPrompt: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
@@ -427,23 +479,128 @@ export async function saveRulesPromptAction(
   if (!user) return { error: "User not found" };
   if (!user.email) return { error: "User email not found" };
 
-  const parsedRules = await aiPromptToRules({
-    user: { ...user, email: user.email },
-    promptFile: data.rulesPrompt,
-  });
+  const oldPromptFile = user.rulesPrompt;
+
+  if (oldPromptFile === data.rulesPrompt) return { createdRules: 0 };
+
+  let addedRules: Awaited<ReturnType<typeof aiPromptToRules>> | null = null;
+
+  // check how the prompts have changed, and make changes to the rules accordingly
+  if (oldPromptFile) {
+    const diff = await aiDiffRules({
+      user: { ...user, email: user.email },
+      oldPromptFile,
+      newPromptFile: data.rulesPrompt,
+    });
+
+    if (
+      diff.addedRules.length === 0 &&
+      diff.editedRules.length === 0 &&
+      diff.removedRules.length === 0
+    ) {
+      return { createdRules: 0 };
+    }
+
+    addedRules = diff.addedRules.length
+      ? await aiPromptToRules({
+          user: { ...user, email: user.email },
+          promptFile: diff.addedRules.join("\n\n"),
+        })
+      : null;
+
+    // find existing rules
+    const userRules = await prisma.rule.findMany({
+      where: { userId: session.user.id },
+      include: { actions: true },
+    });
+
+    const existingRules = await aiFindExistingRules({
+      user: { ...user, email: user.email },
+      promptRulesToEdit: diff.editedRules,
+      promptRulesToRemove: diff.removedRules,
+      databaseRules: userRules,
+    });
+
+    // handle removed rules
+    for (const rule of existingRules.filter((r) => r.toRemove)) {
+      // if the rule has executed rules, disable it
+      // if not, then delete it
+
+      const executedRule = await prisma.executedRule.findFirst({
+        where: { userId: session.user.id, ruleId: rule.rule?.id },
+      });
+
+      console.log(
+        `Removing rule. Prompt: ${rule.promptRule}. Rule: ${rule.rule?.name}`,
+      );
+
+      if (executedRule) {
+        await prisma.rule.update({
+          where: { id: rule.rule?.id, userId: session.user.id },
+          data: { enabled: false },
+        });
+      } else {
+        await prisma.rule.delete({
+          where: { id: rule.rule?.id, userId: session.user.id },
+        });
+      }
+    }
+
+    // adjust edited rules
+    const rulesToEdit = existingRules.filter((r) => r.toEdit);
+
+    if (rulesToEdit.length > 0) {
+      const editedRules = await aiPromptToRules({
+        user: { ...user, email: user.email },
+        promptFile: rulesToEdit
+          .map((r) => `Rule ID: ${r.rule?.id}. Prompt: ${r.promptRule}`)
+          .join("\n\n"),
+      });
+
+      for (const rule of editedRules.rules) {
+        if (!rule.ruleId) {
+          console.error(`Rule ID not found for rule. Prompt: ${rule.name}`);
+          continue;
+        }
+
+        console.log(`Editing rule. Prompt: ${rule.name}`);
+
+        const groupIdResult = await getGroupId(rule, session.user.id);
+        if (isActionError(groupIdResult)) {
+          console.error(
+            `Error updating group for rule. ${groupIdResult.error}`,
+          );
+          continue;
+        }
+
+        await safeUpdateRule(rule.ruleId, rule, session.user.id, groupIdResult);
+      }
+    }
+  } else {
+    addedRules = await aiPromptToRules({
+      user: { ...user, email: user.email },
+      promptFile: data.rulesPrompt,
+    });
+  }
+
+  for (const rule of addedRules?.rules || []) {
+    console.log(`Creating rule. Prompt: ${rule.name}`);
+
+    const groupIdResult = await getGroupId(rule, session.user.id);
+    if (isActionError(groupIdResult)) {
+      console.error(`Error creating group for rule. ${groupIdResult.error}`);
+      continue;
+    }
+
+    await safeCreateRule(rule, session.user.id, groupIdResult);
+  }
 
   await prisma.user.update({
     where: { id: session.user.id },
     data: { rulesPrompt: data.rulesPrompt },
   });
 
-  for (const rule of parsedRules.rules) {
-    const groupIdResult = await getGroupId(rule, session.user.id);
-    if (isActionError(groupIdResult)) return groupIdResult;
-    await safeCreateRule(rule, session.user.id, groupIdResult);
-  }
-
-  return { createdRules: parsedRules.rules.length };
+  return { createdRules: addedRules?.rules.length || 0 };
 }
 
 function shouldAutomate(actions: Pick<Action, "type">[]) {

@@ -165,6 +165,7 @@ model Rule {
   name          String
   instructions  String
   actions       Action[]
+  enabled       Boolean        @default(true)
   automate      Boolean        @default(false) // if disabled, user must approve to execute
   runOnThreads  Boolean        @default(false) // if disabled, only runs on individual emails
   type          RuleType       @default(AI)

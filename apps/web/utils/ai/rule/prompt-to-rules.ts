@@ -3,19 +3,27 @@ import { chatCompletionTools } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 
-const parameters = z.object({
-  rules: z
-    .array(createRuleSchema)
-    .describe("The parsed rules list from the prompt file"),
+const updateRuleSchema = createRuleSchema.extend({
+  ruleId: z.string().optional(),
 });
 
 export async function aiPromptToRules({
   user,
   promptFile,
+  isEditing,
 }: {
   user: UserAIFields & { email: string };
   promptFile: string;
+  isEditing?: boolean;
 }) {
+  const schema = isEditing ? updateRuleSchema : createRuleSchema;
+
+  const parameters = z.object({
+    rules: z
+      .array(schema)
+      .describe("The parsed rules list from the prompt file"),
+  });
+
   const system =
     "You are an AI assistant that converts email management rules into a structured format. Parse the given prompt file and conver them into rules.";
   const prompt = `Convert the following prompt file into rules: ${promptFile}`;
@@ -34,8 +42,8 @@ export async function aiPromptToRules({
     label: "Prompt to rules",
   });
 
-  const parsedRules = aiResponse.toolCalls[0].args as z.infer<
-    typeof parameters
-  >;
+  const parsedRules = aiResponse.toolCalls[0].args as {
+    rules: z.infer<typeof updateRuleSchema>[];
+  };
   return parsedRules;
 }
