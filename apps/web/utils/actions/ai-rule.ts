@@ -468,7 +468,13 @@ export async function rejectPlanAction(
 
 export async function saveRulesPromptAction(
   unsafeData: SaveRulesPromptBody,
-): Promise<ServerActionResponse<{ createdRules: number }>> {
+): Promise<
+  ServerActionResponse<{
+    createdRules: number;
+    editedRules: number;
+    removedRules: number;
+  }>
+> {
   const session = await auth();
   if (!session?.user.id) return { error: "Not logged in" };
 
@@ -490,9 +496,12 @@ export async function saveRulesPromptAction(
 
   const oldPromptFile = user.rulesPrompt;
 
-  if (oldPromptFile === data.rulesPrompt) return { createdRules: 0 };
+  if (oldPromptFile === data.rulesPrompt)
+    return { createdRules: 0, editedRules: 0, removedRules: 0 };
 
   let addedRules: Awaited<ReturnType<typeof aiPromptToRules>> | null = null;
+  let editRulesCount = 0;
+  let removeRulesCount = 0;
 
   // check how the prompts have changed, and make changes to the rules accordingly
   if (oldPromptFile) {
@@ -507,7 +516,7 @@ export async function saveRulesPromptAction(
       !diff.editedRules.length &&
       !diff.removedRules.length
     ) {
-      return { createdRules: 0 };
+      return { createdRules: 0, editedRules: 0, removedRules: 0 };
     }
 
     addedRules = diff.addedRules.length
@@ -531,7 +540,8 @@ export async function saveRulesPromptAction(
     });
 
     // handle removed rules
-    for (const rule of existingRules.filter((r) => r.toRemove)) {
+    const rulesToRemove = existingRules.filter((r) => r.toRemove);
+    for (const rule of rulesToRemove) {
       // if the rule has executed rules, disable it
       // if not, then delete it
 
@@ -553,11 +563,12 @@ export async function saveRulesPromptAction(
           where: { id: rule.rule?.id, userId: session.user.id },
         });
       }
+
+      removeRulesCount++;
     }
 
     // adjust edited rules
     const rulesToEdit = existingRules.filter((r) => r.toEdit);
-
     if (rulesToEdit.length > 0) {
       const editedRules = await aiPromptToRules({
         user: { ...user, email: user.email },
@@ -581,6 +592,8 @@ export async function saveRulesPromptAction(
           );
           continue;
         }
+
+        editRulesCount++;
 
         await safeUpdateRule(rule.ruleId, rule, session.user.id, groupIdResult);
       }
@@ -609,7 +622,11 @@ export async function saveRulesPromptAction(
     data: { rulesPrompt: data.rulesPrompt },
   });
 
-  return { createdRules: addedRules?.rules.length || 0 };
+  return {
+    createdRules: addedRules?.rules.length || 0,
+    editedRules: editRulesCount,
+    removedRules: removeRulesCount,
+  };
 }
 
 function shouldAutomate(actions: Pick<Action, "type">[]) {

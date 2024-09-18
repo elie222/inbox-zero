@@ -74,7 +74,7 @@ export const updateRuleBody = createRuleBody.extend({
 });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
-export const saveRulesPromptBody = z.object({ rulesPrompt: z.string() });
+export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
 export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
 // api key

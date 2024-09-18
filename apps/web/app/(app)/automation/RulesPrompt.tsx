@@ -95,8 +95,16 @@ function RulesPromptForm({
         description: result.error,
       });
     } else {
+      const { createdRules, editedRules, removedRules } = result || {};
+
       toastSuccess({
-        description: `Rules saved successfully! ${result?.createdRules || 0} rules created.`,
+        description:
+          `Rules saved successfully! ` +
+          [
+            createdRules ? `${createdRules} rules created. ` : "",
+            editedRules ? `${editedRules} rules edited. ` : "",
+            removedRules ? `${removedRules} rules removed. ` : "",
+          ].join(""),
       });
     }
 
