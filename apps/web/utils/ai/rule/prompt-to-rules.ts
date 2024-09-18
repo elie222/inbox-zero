@@ -14,7 +14,7 @@ export async function aiPromptToRules({
 }: {
   user: UserAIFields & { email: string };
   promptFile: string;
-  isEditing?: boolean;
+  isEditing: boolean;
 }) {
   const schema = isEditing ? updateRuleSchema : createRuleSchema;
 

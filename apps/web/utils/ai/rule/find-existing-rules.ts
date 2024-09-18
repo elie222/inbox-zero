@@ -23,11 +23,14 @@ export async function aiFindExistingRules({
   databaseRules,
 }: {
   user: UserAIFields & { email: string };
-  promptRulesToEdit: string[];
+  promptRulesToEdit: { oldRule: string; newRule: string }[];
   promptRulesToRemove: string[];
   databaseRules: (Rule & { actions: Action[] })[];
 }) {
-  const promptRules = [...promptRulesToEdit, ...promptRulesToRemove];
+  const promptRules = [
+    ...promptRulesToEdit.map((r) => r.oldRule),
+    ...promptRulesToRemove,
+  ];
 
   const system =
     "You are an AI assistant that checks if the prompt rules are already in the database.";
@@ -59,17 +62,31 @@ Please return the existing rules that match the prompt rules.`;
     typeof parameters
   >;
 
-  return parsedRules.existingRules.map((rule) => {
+  const existingRules = parsedRules.existingRules.map((rule) => {
     const promptRule = rule.promptNumber
       ? promptRules[rule.promptNumber - 1]
+      : null;
+
+    const toRemove = promptRule
+      ? promptRulesToRemove.includes(promptRule)
+      : null;
+
+    const toEdit = promptRule
+      ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
       : null;
 
     return {
       rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
       promptNumber: rule.promptNumber,
       promptRule,
-      toEdit: !!(promptRule && promptRulesToEdit.includes(promptRule)),
-      toRemove: !!(promptRule && promptRulesToRemove.includes(promptRule)),
+      toRemove: !!toRemove,
+      toEdit: !!toEdit,
+      updatedPromptRule: toEdit?.newRule,
     };
   });
+
+  return {
+    editedRules: existingRules.filter((rule) => rule.toEdit),
+    removedRules: existingRules.filter((rule) => rule.toRemove),
+  };
 }

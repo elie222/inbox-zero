@@ -23,7 +23,11 @@ describe("aiPromptToRules", () => {
 
     const promptFile = prompts.join("\n");
 
-    const result = await aiPromptToRules({ user, promptFile });
+    const result = await aiPromptToRules({
+      user,
+      promptFile,
+      isEditing: false,
+    });
 
     console.log(JSON.stringify(result, null, 2));
 
@@ -145,6 +149,8 @@ describe("aiPromptToRules", () => {
     };
     const promptFile = "Some prompt";
 
-    await expect(aiPromptToRules({ user, promptFile })).rejects.toThrow();
+    await expect(
+      aiPromptToRules({ user, promptFile, isEditing: false }),
+    ).rejects.toThrow();
   });
 });

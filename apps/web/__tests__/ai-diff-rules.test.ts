@@ -31,7 +31,10 @@ describe("aiDiffRules", () => {
     expect(result).toEqual({
       addedRules: ['Label all emails from support@company.com as "Support"'],
       editedRules: [
-        'Archive all newsletters and label them "Newsletter Updates"',
+        {
+          oldRule: `Archive all newsletters and label them "Newsletter"`,
+          newRule: `Archive all newsletters and label them "Newsletter Updates"`,
+        },
       ],
       removedRules: ['Label receipts as "Receipt"'],
     });

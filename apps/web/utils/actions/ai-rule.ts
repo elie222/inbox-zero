@@ -466,6 +466,20 @@ export async function rejectPlanAction(
   });
 }
 
+/**
+ * Saves the user's rules prompt and updates the rules accordingly.
+ * Flow:
+ * 1. Authenticate user and validate input
+ * 2. Compare new prompt with old prompt (if exists)
+ * 3. If prompts differ:
+ *    a. For existing prompt: Identify added, edited, and removed rules
+ *    b. For new prompt: Process all rules as additions
+ * 4. Remove rules marked for deletion
+ * 5. Edit existing rules that have changes
+ * 6. Add new rules
+ * 7. Update user's rules prompt in the database
+ * 8. Return counts of created, edited, and removed rules
+ */
 export async function saveRulesPromptAction(
   unsafeData: SaveRulesPromptBody,
 ): Promise<
@@ -523,6 +537,7 @@ export async function saveRulesPromptAction(
       ? await aiPromptToRules({
           user: { ...user, email: user.email },
           promptFile: diff.addedRules.join("\n\n"),
+          isEditing: false,
         })
       : null;
 
@@ -539,9 +554,8 @@ export async function saveRulesPromptAction(
       databaseRules: userRules,
     });
 
-    // handle removed rules
-    const rulesToRemove = existingRules.filter((r) => r.toRemove);
-    for (const rule of rulesToRemove) {
+    // remove rules
+    for (const rule of existingRules.removedRules) {
       // if the rule has executed rules, disable it
       // if not, then delete it
 
@@ -567,14 +581,14 @@ export async function saveRulesPromptAction(
       removeRulesCount++;
     }
 
-    // adjust edited rules
-    const rulesToEdit = existingRules.filter((r) => r.toEdit);
-    if (rulesToEdit.length > 0) {
+    // edit rules
+    if (existingRules.editedRules.length > 0) {
       const editedRules = await aiPromptToRules({
         user: { ...user, email: user.email },
-        promptFile: rulesToEdit
-          .map((r) => `Rule ID: ${r.rule?.id}. Prompt: ${r.promptRule}`)
+        promptFile: existingRules.editedRules
+          .map((r) => `Rule ID: ${r.rule?.id}. Prompt: ${r.updatedPromptRule}`)
           .join("\n\n"),
+        isEditing: true,
       });
 
       for (const rule of editedRules.rules) {
@@ -602,9 +616,11 @@ export async function saveRulesPromptAction(
     addedRules = await aiPromptToRules({
       user: { ...user, email: user.email },
       promptFile: data.rulesPrompt,
+      isEditing: false,
     });
   }
 
+  // add new rules
   for (const rule of addedRules?.rules || []) {
     console.log(`Creating rule. Prompt: ${rule.name}`);
 
@@ -617,6 +633,7 @@ export async function saveRulesPromptAction(
     await safeCreateRule(rule, session.user.id, groupIdResult);
   }
 
+  // update rules prompt for user
   await prisma.user.update({
     where: { id: session.user.id },
     data: { rulesPrompt: data.rulesPrompt },
