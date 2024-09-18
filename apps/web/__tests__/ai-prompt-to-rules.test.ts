@@ -31,11 +31,11 @@ describe("aiPromptToRules", () => {
 
     console.log(JSON.stringify(result, null, 2));
 
-    expect(Array.isArray(result.rules)).toBe(true);
-    expect(result.rules.length).toBe(prompts.length);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(prompts.length);
 
     // receipts
-    expect(result.rules[0]).toEqual({
+    expect(result[0]).toEqual({
       name: expect.any(String),
       condition: {
         type: RuleType.GROUP,
@@ -45,17 +45,12 @@ describe("aiPromptToRules", () => {
         {
           type: ActionType.LABEL,
           label: "Receipt",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          content: null,
         },
       ],
     });
 
     // newsletters
-    expect(result.rules[1]).toEqual({
+    expect(result[1]).toEqual({
       name: expect.any(String),
       condition: {
         type: RuleType.GROUP,
@@ -64,27 +59,16 @@ describe("aiPromptToRules", () => {
       actions: [
         {
           type: ActionType.ARCHIVE,
-          label: null,
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          content: null,
         },
         {
           type: ActionType.LABEL,
           label: "Newsletter",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          content: null,
         },
       ],
     });
 
     // marketing
-    expect(result.rules[2]).toEqual({
+    expect(result[2]).toEqual({
       name: expect.any(String),
       condition: {
         type: RuleType.AI,
@@ -93,27 +77,16 @@ describe("aiPromptToRules", () => {
       actions: [
         {
           type: ActionType.ARCHIVE,
-          label: null,
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          content: null,
         },
         {
           type: ActionType.LABEL,
           label: "Marketing",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          content: null,
         },
       ],
     });
 
     // internal
-    expect(result.rules[3]).toEqual({
+    expect(result[3]).toEqual({
       name: expect.any(String),
       condition: {
         type: RuleType.STATIC,
@@ -125,17 +98,12 @@ describe("aiPromptToRules", () => {
         {
           type: ActionType.LABEL,
           label: "Internal",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          content: null,
         },
       ],
     });
 
     // Validate each rule against the schema
-    result.rules.forEach((rule) => {
+    result.forEach((rule) => {
       expect(() => createRuleSchema.parse(rule)).not.toThrow();
     });
   }, 15_000);

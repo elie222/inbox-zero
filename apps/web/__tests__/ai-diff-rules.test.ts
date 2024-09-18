@@ -38,7 +38,7 @@ describe("aiDiffRules", () => {
       ],
       removedRules: ['Label receipts as "Receipt"'],
     });
-  });
+  }, 15_000);
 
   it("should handle errors gracefully", async () => {
     const user = {

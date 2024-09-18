@@ -293,6 +293,8 @@ async function safeCreateRule(
       return { id: rule.id };
     }
 
+    console.log(`Error creating rule. ${error}`);
+
     return { error: "Error creating rule." };
   }
 }
@@ -317,7 +319,9 @@ async function safeUpdateRule(
       return { id: rule.id };
     }
 
-    return { error: "Error creating rule." };
+    console.log(`Error updating rule. ${error}`);
+
+    return { error: "Error updating rule." };
   }
 }
 
@@ -591,7 +595,7 @@ export async function saveRulesPromptAction(
         isEditing: true,
       });
 
-      for (const rule of editedRules.rules) {
+      for (const rule of editedRules) {
         if (!rule.ruleId) {
           console.error(`Rule ID not found for rule. Prompt: ${rule.name}`);
           continue;
@@ -621,7 +625,7 @@ export async function saveRulesPromptAction(
   }
 
   // add new rules
-  for (const rule of addedRules?.rules || []) {
+  for (const rule of addedRules || []) {
     console.log(`Creating rule. Prompt: ${rule.name}`);
 
     const groupIdResult = await getGroupId(rule, session.user.id);
@@ -640,7 +644,7 @@ export async function saveRulesPromptAction(
   });
 
   return {
-    createdRules: addedRules?.rules.length || 0,
+    createdRules: addedRules?.length || 0,
     editedRules: editRulesCount,
     removedRules: removeRulesCount,
   };

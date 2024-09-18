@@ -44,36 +44,78 @@ export const createRuleSchema = z.object({
     .array(
       z.object({
         type: z.nativeEnum(ActionType).describe("The type of the action"),
-        label: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The label to apply to the email"),
-        to: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The to email address to send the email to"),
-        cc: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The cc email address to send the email to"),
-        bcc: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The bcc email address to send the email to"),
-        subject: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The subject of the email"),
-        content: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The content of the email"),
+        static: z
+          .object({
+            label: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The label to apply to the email"),
+            to: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The to email address to send the email to"),
+            cc: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The cc email address to send the email to"),
+            bcc: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The bcc email address to send the email to"),
+            subject: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The subject of the email"),
+            content: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The content of the email"),
+          })
+          .optional()
+          .describe("The static fields to use for the action"),
+        aiPrompts: z
+          .object({
+            label: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The prompt to generate the label"),
+            to: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The prompt to generate the to email address"),
+            cc: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The prompt to generate the cc email address"),
+            bcc: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The prompt to generate the bcc email address"),
+            subject: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The prompt to generate the subject"),
+            content: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The prompt to generate the content"),
+          })
+          .optional()
+          .describe(
+            "If any of the fields are AI generated in real time based on the email being processed, the prompts to generate the fields",
+          ),
       }),
     )
     .describe("The actions to take"),

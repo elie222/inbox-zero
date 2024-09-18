@@ -25,5 +25,28 @@ export async function aiCreateRule(
     label: "Categorize rule",
   });
 
-  return aiResponse.toolCalls[0].args as z.infer<typeof createRuleSchema>;
+  const result = aiResponse.toolCalls[0].args as z.infer<
+    typeof createRuleSchema
+  >;
+
+  return {
+    ...result,
+    actions: result.actions.map((action) => ({
+      type: action.type,
+      // static
+      label: action.static?.label ?? undefined,
+      to: action.static?.to ?? undefined,
+      cc: action.static?.cc ?? undefined,
+      bcc: action.static?.bcc ?? undefined,
+      subject: action.static?.subject ?? undefined,
+      content: action.static?.content ?? undefined,
+      // ai
+      labelPrompt: action.aiPrompts?.label ?? undefined,
+      toPrompt: action.aiPrompts?.to ?? undefined,
+      ccPrompt: action.aiPrompts?.cc ?? undefined,
+      bccPrompt: action.aiPrompts?.bcc ?? undefined,
+      subjectPrompt: action.aiPrompts?.subject ?? undefined,
+      contentPrompt: action.aiPrompts?.content ?? undefined,
+    })),
+  };
 }

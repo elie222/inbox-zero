@@ -45,5 +45,25 @@ export async function aiPromptToRules({
   const parsedRules = aiResponse.toolCalls[0].args as {
     rules: z.infer<typeof updateRuleSchema>[];
   };
-  return parsedRules;
+
+  return parsedRules.rules.map((rule) => ({
+    ...rule,
+    actions: rule.actions.map((action) => ({
+      type: action.type,
+      // static
+      label: action.static?.label ?? undefined,
+      to: action.static?.to ?? undefined,
+      cc: action.static?.cc ?? undefined,
+      bcc: action.static?.bcc ?? undefined,
+      subject: action.static?.subject ?? undefined,
+      content: action.static?.content ?? undefined,
+      // ai
+      labelPrompt: action.aiPrompts?.label ?? undefined,
+      toPrompt: action.aiPrompts?.to ?? undefined,
+      ccPrompt: action.aiPrompts?.cc ?? undefined,
+      bccPrompt: action.aiPrompts?.bcc ?? undefined,
+      subjectPrompt: action.aiPrompts?.subject ?? undefined,
+      contentPrompt: action.aiPrompts?.content ?? undefined,
+    })),
+  }));
 }
