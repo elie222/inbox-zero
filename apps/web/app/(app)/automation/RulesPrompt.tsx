@@ -135,11 +135,13 @@ function RulesPromptForm({
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-4 sm:col-span-2">
               <Input
+                className="min-h-[300px]"
                 registerProps={register("rulesPrompt", { required: true })}
                 name="rulesPrompt"
                 type="text"
                 as="textarea"
                 rows={25}
+                error={errors.rulesPrompt}
                 placeholder={`Here's an example of what your prompt might look like.
 You can use the examples on the right or come up with your own.
 Feel free to add as many as you want:
@@ -151,13 +153,7 @@ Feel free to add as many as you want:
 * If a customer asks to set up a call, send them my Cal link: https://cal.com/max
 * Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question.
             `}
-                className="min-h-[300px]"
               />
-              {errors.rulesPrompt && (
-                <p className="text-sm text-red-500">
-                  {errors.rulesPrompt.message}
-                </p>
-              )}
 
               <div className="flex gap-2">
                 <Button type="submit" disabled={isSubmitting}>
