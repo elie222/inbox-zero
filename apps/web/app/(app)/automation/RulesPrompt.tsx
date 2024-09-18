@@ -29,26 +29,26 @@ import { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
 const examplePrompts = [
-  "Archive all marketing emails",
   'Label and archive newsletters as "Newsletter"',
+  'Label and archive marketing emails as "Marketing"',
   'Label emails that require a reply as "Reply Required"',
   'Label urgent emails as "Urgent"',
   'Label receipts as "Receipt" and forward them to jane@accounting.com',
-  'Label customer emails as "Customer"',
   'Label pitch decks as "Pitch Deck" and forward them to john@investing.com',
   "Reply to cold emails by telling them to check out Inbox Zero. Then mark them as spam",
   'Label high priority emails as "High Priority"',
-  'Label legal documents as "Legal"',
-  'Label server errors as "Error"',
-  'Label Stripe emails as "Stripe"',
-  "If a founder asks to set up a call, set them my Cal link: https://cal.com/max",
+  "If a founder asks to set up a call, send them my Cal link: https://cal.com/max",
   "If someone asks to cancel a plan, ask to set up a call by sending my Cal link",
   'If a founder sends me an investor update, label it "Investor Update" and archive it',
   'If someone pitches me their startup, label it as "Investing", archive it, and respond with a friendly reply that I no longer have time to look at the email but if they get a warm intro into that\'s their best bet to get funding from me',
   "If someone asks for a discount, reply with the discount code INBOX20",
   "If someone asks for help with MakerPad, tell them I no longer work there, but they should reach out to the Zapier team for support",
-  "Review any emails from questions@pr.com and see if any are about productivity. If so, respond with a friendly reply answering the question and mention I'm the CEO of Inbox Zero",
+  "Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question",
   'If people ask me to speak at an event, label the email "Speaker Opportunity" and archive it',
+  'Label customer emails as "Customer"',
+  'Label legal documents as "Legal"',
+  'Label server errors as "Error"',
+  'Label Stripe emails as "Stripe"',
 ];
 
 export function RulesPrompt() {
@@ -116,9 +116,11 @@ function RulesPromptForm({
     <Card className="grid grid-cols-1 sm:grid-cols-3">
       <div className="sm:col-span-2">
         <CardHeader>
-          <CardTitle>How your AI assistant should handle your emails</CardTitle>
+          <CardTitle>
+            How your AI personal assistant should handle your emails
+          </CardTitle>
           <CardDescription>
-            Write a prompt for your AI assistant to follow.
+            Write a prompt for your assistant to follow.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -130,26 +132,16 @@ function RulesPromptForm({
                 type="text"
                 as="textarea"
                 rows={25}
-                placeholder={`* Archive all marketing emails.
+                placeholder={`Here's an example of what your prompt might look like.
+You can use the examples on the right or come up with your own.
+Feel free to add as many as you want:
+
 * Label and archive newsletters as "Newsletter".
-* Label emails that require a reply as "Reply Required".
-* Label urgent emails as "Urgent".
+* Archive all marketing emails.
 * Label receipts as "Receipt" and forward them to jane@accounting.com.
-* Label customer emails as "Customer".
-* Label pitch decks as "Pitch Deck" and forward them to john@investing.com.
-* Reply to cold emails by telling them to check out Inbox Zero. Then mark them as spam.
-* Label high priority emails as "High Priority".
-* Label legal documents as "Legal".
-* Label server errors as "Error".
-* Label Stripe emails as "Stripe".
-* If a founder asks to set up a call, set them my Cal link: https://cal.com/max
-* If someone asks to cancel a plan, ask to set up a call by sending my Cal link.
-* If a founder sends me an investor update, label it "Investor Update" and archive it.
-* If someone pitches me their startup, label it as "Investing", archive it, and respond with a friendly reply that I don't have time to look at the email but if they get a warm intro into that's their best bet to get funding from me.
-* If someone asks for a discount, reply with the discount code INBOX20.
-* If someone asks for help with MakerPad, tell them I no longer work there, but they should reach out to the Zapier team for support.	
-* Review any emails from questions@pr.com and see if any are about productivity. If so, respond with a friendly reply answering the question and mention I'm the CEO of Inbox Zero.
-* If people ask me to speak at an event, label the email "Speaker Opportunity" and archive it.
+* Label emails that require a reply as "Reply Required".
+* If a customer asks to set up a call, send them my Cal link: https://cal.com/max
+* Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question.
             `}
                 className="min-h-[300px]"
               />
