@@ -112,7 +112,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             automate: body.automate,
             runOnThreads: body.runOnThreads,
           });
-          router.push(`/automation`);
+          router.push(`/automation?tab=rules`);
         }
       } else {
         const res = await createRuleAction(body);
@@ -133,7 +133,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             runOnThreads: body.runOnThreads,
           });
           router.replace(`/automation/rule/${res.rule.id}`);
-          router.push(`/automation`);
+          router.push(`/automation?tab=rules`);
         }
       }
     },
