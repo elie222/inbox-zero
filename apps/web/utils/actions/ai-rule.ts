@@ -53,7 +53,10 @@ export async function runRulesAction(
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      rules: { include: { actions: true } },
+      rules: {
+        where: { enabled: true },
+        include: { actions: true },
+      },
     },
   });
   if (!user?.email) return { error: "User email not found" };
@@ -110,7 +113,10 @@ export async function testAiAction({
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      rules: { include: { actions: true } },
+      rules: {
+        where: { enabled: true },
+        include: { actions: true },
+      },
     },
   });
   if (!user) return { error: "User not found" };
@@ -152,7 +158,10 @@ export async function testAiCustomContentAction({
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      rules: { include: { actions: true } },
+      rules: {
+        where: { enabled: true },
+        include: { actions: true },
+      },
     },
   });
   if (!user) return { error: "User not found" };
