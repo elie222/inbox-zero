@@ -503,9 +503,9 @@ export async function saveRulesPromptAction(
     });
 
     if (
-      diff.addedRules.length === 0 &&
-      diff.editedRules.length === 0 &&
-      diff.removedRules.length === 0
+      !diff.addedRules.length &&
+      !diff.editedRules.length &&
+      !diff.removedRules.length
     ) {
       return { createdRules: 0 };
     }
@@ -519,7 +519,7 @@ export async function saveRulesPromptAction(
 
     // find existing rules
     const userRules = await prisma.rule.findMany({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, enabled: true },
       include: { actions: true },
     });
 
