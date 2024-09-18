@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import useSWR from "swr";
 import {
   type FieldError,
   type FieldErrors,
@@ -37,8 +38,6 @@ import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { Tooltip } from "@/components/Tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import useSWR from "swr";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
@@ -78,9 +77,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const tab = searchParams.get("tab") || rule.type;
-      const body = cleanRule(data, tab as RuleType);
+      const body = cleanRule(data);
 
       // create labels that don't exist
       for (const action of body.actions) {
@@ -155,77 +152,76 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <TypographyH3 className="mt-6">Condition</TypographyH3>
 
-      <Tabs defaultValue={rule.type} className="mt-2">
-        <TabsList>
-          <TabsTrigger value={RuleType.AI}>AI</TabsTrigger>
-          <TabsTrigger value={RuleType.STATIC}>Static</TabsTrigger>
-          <TabsTrigger value={RuleType.GROUP}>Group</TabsTrigger>
-        </TabsList>
+      <div className="mt-2">
+        <Select
+          name="type"
+          label="Type"
+          options={[
+            { label: "AI", value: RuleType.AI },
+            { label: "Static", value: RuleType.STATIC },
+            { label: "Group", value: RuleType.GROUP },
+          ]}
+          registerProps={register("type")}
+          error={errors.type}
+        />
+      </div>
 
-        <TabsContent value={RuleType.AI}>
-          <div className="mt-4 space-y-4">
-            <Input
-              type="text"
-              as="textarea"
-              rows={3}
-              name="Instructions"
-              label="Instructions"
-              registerProps={register("instructions")}
-              error={errors.instructions}
-              placeholder='eg. Apply this rule to all "receipts"'
-              tooltipText="The instructions that will be passed to the AI."
-            />
-          </div>
-        </TabsContent>
-        <TabsContent value={RuleType.STATIC}>
-          <div className="mt-4 space-y-4">
-            <Input
-              type="text"
-              name="from"
-              label="From"
-              registerProps={register("from")}
-              error={errors.from}
-              placeholder="eg. elie@getinboxzero.com"
-              tooltipText="Only apply this rule to emails from this address."
-            />
-            <Input
-              type="text"
-              name="to"
-              label="To"
-              registerProps={register("to")}
-              error={errors.to}
-              placeholder="eg. elie@getinboxzero.com"
-              tooltipText="Only apply this rule to emails sent to this address."
-            />
-            <Input
-              type="text"
-              name="subject"
-              label="Subject"
-              registerProps={register("subject")}
-              error={errors.subject}
-              placeholder="eg. Receipt for your purchase"
-              tooltipText="Only apply this rule to emails with this subject."
-            />
-            {/* <Input
-                  type="text"
-                  name="body"
-                  label="Body"
-                  registerProps={register("body")}
-                  error={errors.body}
-                  placeholder="eg. Thanks for your purchase!"
-                  tooltipText="Only apply this rule to emails with this body."
-                /> */}
-          </div>
-        </TabsContent>
-        <TabsContent value={RuleType.GROUP}>
-          <GroupsTab
-            registerProps={register("groupId")}
-            setValue={setValue}
-            errors={errors}
-            groupId={watch("groupId")}
+      {watch("type") === RuleType.AI && (
+        <div className="mt-4 space-y-4">
+          <Input
+            type="text"
+            as="textarea"
+            rows={3}
+            name="Instructions"
+            label="Instructions"
+            registerProps={register("instructions")}
+            error={errors.instructions}
+            placeholder='eg. Apply this rule to all "receipts"'
+            tooltipText="The instructions that will be passed to the AI."
           />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
+
+      {watch("type") === RuleType.STATIC && (
+        <div className="mt-4 space-y-4">
+          <Input
+            type="text"
+            name="from"
+            label="From"
+            registerProps={register("from")}
+            error={errors.from}
+            placeholder="eg. elie@getinboxzero.com"
+            tooltipText="Only apply this rule to emails from this address."
+          />
+          <Input
+            type="text"
+            name="to"
+            label="To"
+            registerProps={register("to")}
+            error={errors.to}
+            placeholder="eg. elie@getinboxzero.com"
+            tooltipText="Only apply this rule to emails sent to this address."
+          />
+          <Input
+            type="text"
+            name="subject"
+            label="Subject"
+            registerProps={register("subject")}
+            error={errors.subject}
+            placeholder="eg. Receipt for your purchase"
+            tooltipText="Only apply this rule to emails with this subject."
+          />
+        </div>
+      )}
+
+      {watch("type") === RuleType.GROUP && (
+        <GroupsTab
+          registerProps={register("groupId")}
+          setValue={setValue}
+          errors={errors}
+          groupId={watch("groupId")}
+        />
+      )}
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 
@@ -387,13 +383,13 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 </Link>
               </Button>
             )}
-            <Button type="submit">
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <ButtonLoader />}
               Save
             </Button>
           </>
         ) : (
-          <Button type="submit">
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <ButtonLoader />}
             Create
           </Button>
@@ -553,8 +549,8 @@ function LabelCombobox({
   );
 }
 
-function cleanRule(rule: CreateRuleBody, type: RuleType) {
-  if (type === RuleType.STATIC) {
+function cleanRule(rule: CreateRuleBody) {
+  if (rule.type === RuleType.STATIC) {
     return {
       ...rule,
       type: RuleType.STATIC,
@@ -562,7 +558,7 @@ function cleanRule(rule: CreateRuleBody, type: RuleType) {
       groupId: null,
     };
   }
-  if (type === RuleType.GROUP) {
+  if (rule.type === RuleType.GROUP) {
     return {
       ...rule,
       type: RuleType.GROUP,
