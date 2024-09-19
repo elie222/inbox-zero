@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
-import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import {
   Card,
@@ -74,10 +74,11 @@ function RulesPromptForm({
   rulesPrompt?: string;
   mutate: () => void;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     getValues,
     setValue,
   } = useForm<SaveRulesPromptBody>({
@@ -86,38 +87,41 @@ function RulesPromptForm({
   });
   const router = useRouter();
 
-  const onSubmit = async (data: SaveRulesPromptBody) => {
-    toastInfo({
-      title: "Saving...",
-      description: "This may take a while to process...",
-      duration: 20_000,
-    });
+  const onSubmit = useCallback(
+    async (data: SaveRulesPromptBody) => {
+      setIsSubmitting(true);
 
-    const result = await saveRulesPromptAction(data);
+      const saveRulesPromise = async (data: SaveRulesPromptBody) => {
+        const result = await saveRulesPromptAction(data);
+        if (isActionError(result)) {
+          throw new Error(result.error);
+        }
+        return result;
+      };
 
-    if (isActionError(result)) {
-      toastError({
-        title: "Error saving rules",
-        description: result.error,
-      });
-    } else {
-      const { createdRules, editedRules, removedRules } = result || {};
+      toast.promise(() => saveRulesPromise(data), {
+        loading: "Saving rules... This may take a while to process...",
+        success: (result) => {
+          const { createdRules, editedRules, removedRules } = result || {};
 
-      toastSuccess({
-        description:
-          `Rules saved successfully! ` +
-          [
+          router.push("/automation?tab=rules");
+          mutate();
+          setIsSubmitting(false);
+
+          return `Rules saved successfully! ${[
             createdRules ? `${createdRules} rules created. ` : "",
             editedRules ? `${editedRules} rules edited. ` : "",
             removedRules ? `${removedRules} rules removed. ` : "",
-          ].join(""),
+          ].join("")}`;
+        },
+        error: (err) => {
+          setIsSubmitting(false);
+          return `Error saving rules: ${err.message}`;
+        },
       });
-    }
-
-    mutate();
-
-    router.push("/automation?tab=rules");
-  };
+    },
+    [router, mutate],
+  );
 
   const addExamplePrompt = useCallback(
     (example: string) => {
