@@ -8,7 +8,7 @@ import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import {
   Card,
@@ -87,6 +87,12 @@ function RulesPromptForm({
   const router = useRouter();
 
   const onSubmit = async (data: SaveRulesPromptBody) => {
+    toastInfo({
+      title: "Saving...",
+      description: "This may take a while to process...",
+      duration: 20_000,
+    });
+
     const result = await saveRulesPromptAction(data);
 
     if (isActionError(result)) {
