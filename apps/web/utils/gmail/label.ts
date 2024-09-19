@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "googleapis";
-import { publishArchive, TinybirdEmailAction } from "@inboxzero/tinybird";
+import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 
 export const INBOX_LABEL_ID = "INBOX";
 export const SENT_LABEL_ID = "SENT";

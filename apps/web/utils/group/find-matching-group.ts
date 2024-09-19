@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
-import { GroupItem, GroupItemType } from "@prisma/client";
+import { type GroupItem, GroupItemType } from "@prisma/client";
 
 type Groups = Awaited<ReturnType<typeof getGroups>>;
 export async function getGroups(userId: string) {

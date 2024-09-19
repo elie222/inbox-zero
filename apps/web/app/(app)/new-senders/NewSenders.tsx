@@ -29,7 +29,7 @@ import { usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
-import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import {
   Table,
   TableBody,

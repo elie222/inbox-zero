@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionTools } from "@/utils/llms";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";

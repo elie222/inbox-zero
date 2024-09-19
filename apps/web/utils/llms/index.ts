@@ -6,7 +6,7 @@ import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
 import { Model, Provider } from "@/utils/llms/config";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   const provider = aiProvider || Provider.ANTHROPIC;

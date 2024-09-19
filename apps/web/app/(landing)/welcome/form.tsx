@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PostHog, usePostHog } from "posthog-js/react";
+import { type PostHog, usePostHog } from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -14,7 +14,7 @@ import {
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
 import { aiHomePath, appHomePath } from "@/utils/config";
-import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 

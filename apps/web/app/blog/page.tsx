@@ -3,7 +3,7 @@ import Link from "next/link";
 import { BlogLayout } from "@/components/layouts/BlogLayout";
 import { sanityFetch } from "@/sanity/lib/fetch";
 import { postsQuery } from "@/sanity/lib/queries";
-import { Post as PostType } from "@/app/blog/types";
+import type { Post as PostType } from "@/app/blog/types";
 import { Card, CardContent } from "@/components/ui/card";
 
 type Post = {

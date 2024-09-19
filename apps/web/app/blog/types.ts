@@ -1,4 +1,4 @@
-import { PortableTextBlock } from "next-sanity";
+import type { PortableTextBlock } from "next-sanity";
 
 export type Post = {
   title: string;

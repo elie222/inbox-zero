@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
-import { Action, Rule } from "@prisma/client";
+import type { UserAIFields } from "@/utils/llms/types";
+import type { Action, Rule } from "@prisma/client";
 
 const parameters = z.object({
   existingRules: z

@@ -15,7 +15,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createApiKeyBody, CreateApiKeyBody } from "@/utils/actions/validation";
+import {
+  createApiKeyBody,
+  type CreateApiKeyBody,
+} from "@/utils/actions/validation";
 import {
   createApiKeyAction,
   deactivateApiKeyAction,

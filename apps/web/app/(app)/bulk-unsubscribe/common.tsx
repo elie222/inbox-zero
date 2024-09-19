@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import type React from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
@@ -51,7 +51,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { isActionError, isErrorMessage } from "@/utils/error";
 import { getGmailSearchUrl } from "@/utils/url";
-import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import {
   useUnsubscribe,
   useAutoArchive,

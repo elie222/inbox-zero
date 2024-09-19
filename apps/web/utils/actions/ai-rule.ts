@@ -5,7 +5,7 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import {
   RuleType,
   ExecutedRuleStatus,
-  Action,
+  type Action,
   ActionType,
 } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -30,7 +30,7 @@ import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { type ServerActionResponse, isActionError } from "@/utils/error";
 import {
   saveRulesPromptBody,
-  SaveRulesPromptBody,
+  type SaveRulesPromptBody,
 } from "@/utils/actions/validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";

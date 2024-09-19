@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createPatch } from "diff";
 import { chatCompletionTools } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 
 const parameters = z.object({
   addedRules: z.array(z.string()).describe("The added rules"),

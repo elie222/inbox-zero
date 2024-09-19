@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 
 const updateRuleSchema = createRuleSchema.extend({

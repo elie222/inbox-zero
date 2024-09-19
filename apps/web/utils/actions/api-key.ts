@@ -10,7 +10,7 @@ import type {
   CreateApiKeyBody,
   DeactivateApiKeyBody,
 } from "@/utils/actions/validation";
-import { ServerActionResponse } from "@/utils/error";
+import type { ServerActionResponse } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { generateSecureApiKey, hashApiKey } from "@/utils/api-key";
 

@@ -4,8 +4,8 @@ import Image from "next/image";
 import { LinkIcon } from "lucide-react";
 import {
   PortableText,
-  PortableTextBlock,
-  PortableTextComponentProps,
+  type PortableTextBlock,
+  type PortableTextComponentProps,
 } from "@portabletext/react";
 import { client } from "@/sanity/lib/client";
 import imageUrlBuilder from "@sanity/image-url";
@@ -67,7 +67,7 @@ export function Post({ post }: { post: PostType }) {
                             const [, assetId, dimensions, format] = match;
                             const [width, height] = dimensions
                               .split("x")
-                              .map((v) => parseInt(v, 10));
+                              .map((v) => Number.parseInt(v, 10));
 
                             return {
                               assetId,
