@@ -42,7 +42,10 @@ export async function processHistoryForUser(
           email: true,
           about: true,
           lastSyncedHistoryId: true,
-          rules: { include: { actions: true } },
+          rules: {
+            where: { enabled: true },
+            include: { actions: true },
+          },
           coldEmailBlocker: true,
           coldEmailPrompt: true,
           aiProvider: true,
@@ -249,19 +252,18 @@ async function processHistory(options: ProcessHistoryOptions) {
 
 async function processHistoryItem(
   m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
-  options: ProcessHistoryOptions,
-) {
-  const message = m.message;
-  const messageId = message?.id;
-  const threadId = message?.threadId;
-  const {
+  {
     gmail,
     user,
     hasColdEmailAccess,
     hasAutomationRules,
     hasAiAutomationAccess,
     rules,
-  } = options;
+  }: ProcessHistoryOptions,
+) {
+  const message = m.message;
+  const messageId = message?.id;
+  const threadId = message?.threadId;
 
   if (!messageId) return;
   if (!threadId) return;

@@ -1,11 +1,8 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import { SparklesIcon } from "lucide-react";
 import { History } from "@/app/(app)/automation/History";
 import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { Button } from "@/components/ui/button";
 import { Rules } from "@/app/(app)/automation/Rules";
 import { TestRulesContent } from "@/app/(app)/automation/TestRules";
 import {
@@ -16,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { Groups } from "@/app/(app)/automation/group/Groups";
+import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
 
 export default async function AutomationPage() {
   const session = await auth();
@@ -23,11 +21,12 @@ export default async function AutomationPage() {
 
   return (
     <Suspense>
-      <Tabs defaultValue="automations">
+      <Tabs defaultValue="prompt">
         <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
           <div className="w-full overflow-x-auto">
             <TabsList>
-              <TabsTrigger value="automations">Automations</TabsTrigger>
+              <TabsTrigger value="prompt">Prompt</TabsTrigger>
+              <TabsTrigger value="rules">Rules</TabsTrigger>
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="test">Test</TabsTrigger>
@@ -35,19 +34,13 @@ export default async function AutomationPage() {
             </TabsList>
           </div>
 
-          <div className="flex gap-2">
-            <BulkRunRules />
-
-            <Button asChild>
-              <Link href="/automation/create">
-                <SparklesIcon className="mr-2 hidden h-4 w-4 md:block" />
-                Create Automation
-              </Link>
-            </Button>
-          </div>
+          <BulkRunRules />
         </div>
 
-        <TabsContent value="automations" className="content-container mb-10">
+        <TabsContent value="prompt" className="content-container mb-10">
+          <RulesPrompt />
+        </TabsContent>
+        <TabsContent value="rules" className="content-container mb-10">
           <Rules />
         </TabsContent>
         <TabsContent value="pending" className="content-container mb-10">

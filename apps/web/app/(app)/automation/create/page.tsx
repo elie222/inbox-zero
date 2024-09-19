@@ -67,7 +67,7 @@ export default function AutomationSettingsPage() {
   return (
     <div className="mb-16 mt-6 md:mt-10">
       <PageHeading className="text-center">
-        Get started with AI Email Assistant
+        Get started with AI Personal Assistant
       </PageHeading>
       <SectionDescription className="text-center">
         Set up intelligent automations to let our AI handle your emails for you.

@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
-import { MoreHorizontalIcon, SparklesIcon } from "lucide-react";
+import { MoreHorizontalIcon, PenIcon, SparklesIcon } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,7 @@ export function Rules() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Conditions</TableHead>
+                  <TableHead>Condition</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Actions</TableHead>
                   <TableHead className="text-center">Automated</TableHead>
@@ -77,122 +77,134 @@ export function Rules() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.map((rule) => (
-                  <TableRow key={rule.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/automation/rule/${rule.id}`}>
-                        {rule.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="whitespace-pre-wrap">
-                      {getInstructions(rule)}
-                    </TableCell>
-                    <TableCell>{ruleTypeToString(rule.type)}</TableCell>
-                    <TableCell>
-                      <Actions actions={rule.actions} />
-                    </TableCell>
-                    <TableCell>
-                      <Toggle
-                        enabled={rule.automate}
-                        name="automate"
-                        onChange={async () => {
-                          const result = await setRuleAutomatedAction(
-                            rule.id,
-                            !rule.automate,
-                          );
-                          if (isActionError(result)) {
-                            toastError({
-                              description:
-                                "There was an error updating your rule. " +
-                                result.error,
-                            });
-                          }
-                          mutate();
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Toggle
-                        enabled={rule.runOnThreads}
-                        name="runOnThreads"
-                        onChange={async () => {
-                          const result = await setRuleRunOnThreadsAction(
-                            rule.id,
-                            !rule.runOnThreads,
-                          );
-                          if (isActionError(result)) {
-                            toastError({
-                              description:
-                                "There was an error updating your rule. " +
-                                result.error,
-                            });
-                          }
-                          mutate();
-                        }}
-                      />
-                    </TableCell>
-                    {/* <TableCell className="text-right">33</TableCell>
+                {data
+                  ?.sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0))
+                  .map((rule) => (
+                    <TableRow
+                      key={rule.id}
+                      className={!rule.enabled ? "bg-gray-100 opacity-50" : ""}
+                    >
+                      <TableCell className="font-medium">
+                        <Link href={`/automation/rule/${rule.id}`}>
+                          {!rule.enabled && (
+                            <Badge color="red" className="mr-2">
+                              Disabled
+                            </Badge>
+                          )}
+                          {rule.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="whitespace-pre-wrap">
+                        {getInstructions(rule)}
+                      </TableCell>
+                      <TableCell>{ruleTypeToString(rule.type)}</TableCell>
+                      <TableCell>
+                        <Actions actions={rule.actions} />
+                      </TableCell>
+                      <TableCell>
+                        <Toggle
+                          enabled={rule.automate}
+                          name="automate"
+                          onChange={async () => {
+                            const result = await setRuleAutomatedAction(
+                              rule.id,
+                              !rule.automate,
+                            );
+                            if (isActionError(result)) {
+                              toastError({
+                                description:
+                                  "There was an error updating your rule. " +
+                                  result.error,
+                              });
+                            }
+                            mutate();
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Toggle
+                          enabled={rule.runOnThreads}
+                          name="runOnThreads"
+                          onChange={async () => {
+                            const result = await setRuleRunOnThreadsAction(
+                              rule.id,
+                              !rule.runOnThreads,
+                            );
+                            if (isActionError(result)) {
+                              toastError({
+                                description:
+                                  "There was an error updating your rule. " +
+                                  result.error,
+                              });
+                            }
+                            mutate();
+                          }}
+                        />
+                      </TableCell>
+                      {/* <TableCell className="text-right">33</TableCell>
                 <TableCell className="text-right">43</TableCell> */}
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            aria-haspopup="true"
-                            size="icon"
-                            variant="ghost"
-                          >
-                            <MoreHorizontalIcon className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {rule.type !== RuleType.AI && (
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-haspopup="true"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontalIcon className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {rule.type !== RuleType.AI && (
+                              <DropdownMenuItem asChild>
+                                <Link
+                                  href={`/automation/rule/${rule.id}/examples`}
+                                >
+                                  View Examples
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem asChild>
-                              <Link
-                                href={`/automation/rule/${rule.id}/examples`}
-                              >
-                                View Examples
+                              <Link href={`/automation/rule/${rule.id}`}>
+                                Edit
                               </Link>
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem asChild>
-                            <Link href={`/automation/rule/${rule.id}`}>
-                              Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={async () => {
-                              const yes = confirm(
-                                "Are you sure you want to delete this rule?",
-                              );
-                              if (yes) {
-                                const result = await deleteRuleAction(rule.id);
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                const yes = confirm(
+                                  "Are you sure you want to delete this rule?",
+                                );
+                                if (yes) {
+                                  const result = await deleteRuleAction(
+                                    rule.id,
+                                  );
 
-                                if (isActionError(result)) {
-                                  toastError({
-                                    description:
-                                      "There was an error deleting your rule. " +
-                                      result.error,
-                                  });
+                                  if (isActionError(result)) {
+                                    toastError({
+                                      description:
+                                        "There was an error deleting your rule. " +
+                                        result.error,
+                                    });
+                                  }
+
+                                  mutate();
                                 }
-
-                                mutate();
-                              }
-                            }}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                              }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           ) : (
             <>
               <CardHeader>
-                <CardTitle>AI Email Assistant</CardTitle>
+                <CardTitle>AI Personal Assistant</CardTitle>
                 <CardDescription>
                   Set up intelligent automations to let our AI handle your
                   emails for you.
@@ -200,9 +212,9 @@ export function Rules() {
               </CardHeader>
               <CardContent>
                 <Button asChild>
-                  <Link href="/automation/create">
-                    <SparklesIcon className="mr-2 hidden h-4 w-4 md:block" />
-                    Create Automation
+                  <Link href="/automation?tab=prompt">
+                    <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+                    Set Prompt
                   </Link>
                 </Button>
               </CardContent>
@@ -219,7 +231,11 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
     <div className="flex flex-1 space-x-2">
       {actions?.map((action) => {
         return (
-          <Badge key={action.id} color={getActionColor(action.type)}>
+          <Badge
+            key={action.id}
+            color={getActionColor(action.type)}
+            className="text-nowrap"
+          >
             {capitalCase(action.type)}
           </Badge>
         );
