@@ -29,8 +29,8 @@ import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
 const examplePrompts = [
-  'Label and archive newsletters as "Newsletter"',
-  'Label and archive marketing emails as "Marketing"',
+  'Label newsletters as "Newsletter" and archive them',
+  'Label marketing emails as "Marketing" and archive them',
   'Label emails that require a reply as "Reply Required"',
   'Label urgent emails as "Urgent"',
   'Label receipts as "Receipt" and forward them to jane@accounting.com',
@@ -40,10 +40,10 @@ const examplePrompts = [
   "If a founder asks to set up a call, send them my Cal link: https://cal.com/max",
   "If someone asks to cancel a plan, ask to set up a call by sending my Cal link",
   'If a founder sends me an investor update, label it "Investor Update" and archive it',
-  'If someone pitches me their startup, label it as "Investing", archive it, and respond with a friendly reply that I no longer have time to look at the email but if they get a warm intro into that\'s their best bet to get funding from me',
+  'If someone pitches me their startup, label it as "Investing", archive it, and respond with a friendly reply that I no longer have time to look at the email but if they get a warm intro, that\'s their best bet to get funding from me',
   "If someone asks for a discount, reply with the discount code INBOX20",
   "If someone asks for help with MakerPad, tell them I no longer work there, but they should reach out to the Zapier team for support",
-  "Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question",
+  "Review any emails from questions@pr.com and see if any are about finance. If so, draft a friendly reply that answers the question",
   'If people ask me to speak at an event, label the email "Speaker Opportunity" and archive it',
   'Label customer emails as "Customer"',
   'Label legal documents as "Legal"',
