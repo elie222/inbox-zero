@@ -21,11 +21,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/Input";
 import {
   saveRulesPromptBody,
-  SaveRulesPromptBody,
+  type SaveRulesPromptBody,
 } from "@/utils/actions/validation";
 import { ButtonLoader } from "@/components/Loading";
 import { SectionHeader } from "@/components/Typography";
-import { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
+import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
 const examplePrompts = [
@@ -113,12 +113,15 @@ function RulesPromptForm({
     router.push("/automation?tab=rules");
   };
 
-  const addExamplePrompt = useCallback((example: string) => {
-    setValue(
-      "rulesPrompt",
-      `${getValues("rulesPrompt")}\n* ${example.trim()}`.trim(),
-    );
-  }, []);
+  const addExamplePrompt = useCallback(
+    (example: string) => {
+      setValue(
+        "rulesPrompt",
+        `${getValues("rulesPrompt")}\n* ${example.trim()}`.trim(),
+      );
+    },
+    [setValue, getValues],
+  );
 
   return (
     <Card className="grid grid-cols-1 sm:grid-cols-3">
@@ -174,9 +177,9 @@ Feel free to add as many as you want:
 
         <ScrollArea className="mt-2 sm:h-[600px] sm:max-h-[600px]">
           <div className="grid grid-cols-1 gap-2 sm:pr-3">
-            {examplePrompts.map((example, index) => (
+            {examplePrompts.map((example) => (
               <Button
-                key={index}
+                key={example}
                 variant="outline"
                 onClick={() => addExamplePrompt(example)}
                 className="h-auto w-full justify-start text-wrap py-2 text-left"
