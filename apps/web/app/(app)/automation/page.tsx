@@ -14,6 +14,7 @@ import {
 import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { Groups } from "@/app/(app)/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 export default async function AutomationPage() {
   const session = await auth();
@@ -34,7 +35,19 @@ export default async function AutomationPage() {
             </TabsList>
           </div>
 
-          <BulkRunRules />
+          <div className="flex gap-2">
+            <BulkRunRules />
+            <OnboardingModal
+              title="Getting started with AI Personal Assistant"
+              description={
+                <>
+                  Learn how to use the AI Personal Assistant to automatically
+                  label, archive, and more.
+                </>
+              }
+              videoId="1LSt3dyyZtQ"
+            />
+          </div>
         </div>
 
         <TabsContent value="prompt" className="content-container mb-10">
