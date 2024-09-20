@@ -1,4 +1,7 @@
-import { captureException as sentryCaptureException } from "@sentry/nextjs";
+import {
+  captureException as sentryCaptureException,
+  setUser,
+} from "@sentry/nextjs";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -16,7 +19,9 @@ export function isErrorMessage(value: any): value is ErrorMessage {
 export function captureException(
   error: unknown,
   additionalInfo?: { extra?: Record<string, any> },
+  userEmail?: string,
 ) {
+  if (userEmail) setUser({ email: userEmail });
   sentryCaptureException(error, additionalInfo);
 }
 

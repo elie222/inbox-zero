@@ -126,7 +126,7 @@ export const getAuthOptions: (options?: {
           ]);
         } catch (error) {
           console.error("Error creating contacts", error);
-          captureException(error);
+          captureException(error, undefined, user.email);
         }
       }
     },

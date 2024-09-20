@@ -188,7 +188,7 @@ export async function processHistoryForUser(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    captureException(error, { extra: { decodedData } });
+    captureException(error, { extra: { decodedData } }, email);
     console.error("Error processing webhook", error, decodedData);
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
@@ -236,7 +236,11 @@ async function processHistory(options: ProcessHistoryOptions) {
       try {
         await processHistoryItem(m, options);
       } catch (error) {
-        captureException(error, { extra: { email, messageId: m.message?.id } });
+        captureException(
+          error,
+          { extra: { email, messageId: m.message?.id } },
+          email,
+        );
         console.error(`Error processing history item. email: ${email}`, error);
       }
     }

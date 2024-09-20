@@ -44,7 +44,7 @@ export async function deleteAccountAction(): Promise<ServerActionResponse> {
     ]);
   } catch (error) {
     console.error("Error while deleting account: ", error);
-    captureException(error);
+    captureException(error, undefined, session.user.email);
   }
 
   await prisma.user.delete({ where: { email: session.user.email } });

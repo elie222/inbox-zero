@@ -1,5 +1,6 @@
 "use server";
 
+import { setUser } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import {
@@ -496,10 +497,11 @@ export async function saveRulesPromptAction(
     removedRules: number;
   }>
 > {
-  return executeServerAction(async () => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+  const session = await auth();
+  if (!session?.user.id) return { error: "Not logged in" };
+  setUser({ email: session.user.email ?? undefined });
 
+  return executeServerAction(async () => {
     const data = saveRulesPromptBody.parse(unsafeData);
 
     const user = await prisma.user.findUnique({

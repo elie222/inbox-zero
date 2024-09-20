@@ -39,10 +39,12 @@ async function executeGmailAction<T>(
 
   try {
     const res = await action(gmail, user);
-    return !isStatusOk(res.status) ? handleError(res, errorMessage) : undefined;
+    return !isStatusOk(res.status)
+      ? handleError(res, errorMessage, user.email)
+      : undefined;
   } catch (error) {
     if (onError?.(error)) return;
-    return handleError(error, errorMessage);
+    return handleError(error, errorMessage, user.email);
   }
 }
 
