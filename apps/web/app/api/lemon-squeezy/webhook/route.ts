@@ -82,6 +82,15 @@ export const POST = withError(async (request: Request) => {
     });
   }
 
+  // payment failed
+  if (payload.meta.event_name === "subscription_payment_failed") {
+    return await subscriptionCancelled({
+      payload,
+      premiumId,
+      endsAt: new Date().toISOString(),
+    });
+  }
+
   return NextResponse.json({ ok: true });
 });
 
