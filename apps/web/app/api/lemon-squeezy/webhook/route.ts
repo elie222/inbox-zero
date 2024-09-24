@@ -49,9 +49,11 @@ export const POST = withError(async (request: Request) => {
   const premiumId = premium?.id;
 
   if (!premiumId) {
-    throw new Error(
+    console.warn(
       `No user found for lemonSqueezyCustomerId ${lemonSqueezyCustomerId}`,
     );
+
+    return NextResponse.json({ ok: true });
   }
 
   // extra seats for lifetime plan
