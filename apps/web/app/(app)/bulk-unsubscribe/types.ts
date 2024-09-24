@@ -1,6 +1,6 @@
-import { LabelsResponse } from "@/app/api/google/labels/route";
-import { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
-import { NewsletterStatus } from "@prisma/client";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
+import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
+import type { NewsletterStatus } from "@prisma/client";
 
 export type Row = {
   name: string;
@@ -13,9 +13,7 @@ type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 export interface RowProps {
   item: Newsletter;
-  setOpenedNewsletter: React.Dispatch<
-    React.SetStateAction<Newsletter | undefined>
-  >;
+  onOpenNewsletter: (row: Newsletter) => void;
   userGmailLabels: LabelsResponse["labels"];
   userEmail: string;
   mutate: () => Promise<any>;
@@ -25,4 +23,6 @@ export interface RowProps {
   hasUnsubscribeAccess: boolean;
   refetchPremium: () => Promise<any>;
   openPremiumModal: () => void;
+  checked: boolean;
+  onToggleSelect: (id: string) => void;
 }

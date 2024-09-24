@@ -13,8 +13,15 @@ export function toastError(options: { title?: string; description: string }) {
   });
 }
 
-export function toastInfo(options: { title: string; description: string }) {
-  return toast(options.title, { description: options.description });
+export function toastInfo(options: {
+  title: string;
+  description: string;
+  duration?: number;
+}) {
+  return toast(options.title, {
+    description: options.description,
+    duration: options.duration,
+  });
 }
 
 export const Toaster = SonnerToaster;

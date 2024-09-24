@@ -5,7 +5,16 @@ import type { DateRange } from "react-day-picker";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 
-export function ActionBar(props: {
+export function ActionBar({
+  selectOptions,
+  dateDropdown,
+  setDateDropdown,
+  dateRange,
+  setDateRange,
+  period,
+  setPeriod,
+  isMobile,
+}: {
   dateDropdown: string;
   setDateDropdown: (option: { label: string; value: string }) => void;
   dateRange?: DateRange | undefined;
@@ -13,17 +22,8 @@ export function ActionBar(props: {
   selectOptions: { label: string; value: string }[];
   period?: "day" | "week" | "month" | "year";
   setPeriod?: (value: "day" | "week" | "month" | "year") => void;
+  isMobile: boolean;
 }) {
-  const {
-    selectOptions,
-    dateDropdown,
-    setDateDropdown,
-    dateRange,
-    setDateRange,
-    period,
-    setPeriod,
-  } = props;
-
   return (
     <>
       {period && setPeriod && (
@@ -54,25 +54,27 @@ export function ActionBar(props: {
           ]}
         />
       )}
-      <DetailedStatsFilter
-        label={dateDropdown || "Set date range"}
-        icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
-        columns={selectOptions.map((option) => ({
-          ...option,
-          checked: option.label === dateDropdown,
-          setChecked: () => {
-            setDateDropdown(option);
+      {!isMobile && (
+        <DetailedStatsFilter
+          label={dateDropdown || "Set date range"}
+          icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
+          columns={selectOptions.map((option) => ({
+            ...option,
+            checked: option.label === dateDropdown,
+            setChecked: () => {
+              setDateDropdown(option);
 
-            const days = Number.parseInt(option.value);
+              const days = Number.parseInt(option.value);
 
-            if (days === 0) setDateRange(undefined);
-            if (days) {
-              const now = new Date();
-              setDateRange({ from: subDays(now, days), to: now });
-            }
-          },
-        }))}
-      />
+              if (days === 0) setDateRange(undefined);
+              if (days) {
+                const now = new Date();
+                setDateRange({ from: subDays(now, days), to: now });
+              }
+            },
+          }))}
+        />
+      )}
       <DatePickerWithRange
         dateRange={dateRange}
         onSetDateRange={setDateRange}

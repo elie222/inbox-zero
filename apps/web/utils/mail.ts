@@ -73,13 +73,16 @@ export function getEmailClient(messageId: string) {
   return emailClient;
 }
 
-export function emailToContent(email: {
-  textHtml: string | null;
-  textPlain: string | null;
-  snippet: string | null;
-}): string {
+export function emailToContent(
+  email: {
+    textHtml: string | null;
+    textPlain: string | null;
+    snippet: string | null;
+  },
+  options?: { maxLength: number },
+): string {
   const content =
-    (email.textHtml && parseEmail(email.textHtml, false, null)) ||
+    (email.textHtml && parseEmail(email.textHtml, false, options?.maxLength)) ||
     email.textPlain ||
     email.snippet;
 

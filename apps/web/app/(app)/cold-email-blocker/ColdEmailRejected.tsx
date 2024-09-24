@@ -114,8 +114,8 @@ function NoRejectedColdEmails() {
   return (
     <div className="p-2">
       <AlertBasic
-        title="No rejected cold emails!"
-        description={`This tab shows emails that we've marked as cold emails by mistake, but you have said they aren't.`}
+        title="You have not marked any emails as 'Not Cold'"
+        description=""
       />
     </div>
   );

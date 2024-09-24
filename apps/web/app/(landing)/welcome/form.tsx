@@ -1,18 +1,20 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
+import { type PostHog, usePostHog } from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Input } from "@/components/Input";
 import { env } from "@/env";
 import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
-import { appHomePath } from "@/utils/config";
+import { aiHomePath, appHomePath } from "@/utils/config";
+import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -24,6 +26,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   const posthog = usePostHog();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [showOtherInput, setShowOtherInput] = useState(false);
 
   const {
     register,
@@ -50,9 +53,20 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {
+      const answer = data[name];
+
+      // ask user to fill in other input
+      if (answer === "Other") {
+        setShowOtherInput(true);
+        setValue(name, "");
+        return;
+      } else {
+        setShowOtherInput(false);
+      }
+
       const newSeachParams = new URLSearchParams(searchParams);
       newSeachParams.set("question", (questionIndex + 1).toString());
-      newSeachParams.set(name, data[name]);
+      newSeachParams.set(name, answer);
 
       const responses = getResponses(newSeachParams);
       await saveOnboardingAnswersAction({
@@ -65,7 +79,17 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       if (isFinalQuestion) {
         submitPosthog(responses);
         await completedOnboardingAction();
-        router.push(appHomePath);
+
+        if (process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) {
+          router.push("/welcome-upgrade");
+        } else {
+          // send to automation home if AI Automation is chosen
+          if (responses["$survey_response"].includes("AI Automation")) {
+            router.push(aiHomePath);
+          } else {
+            router.push(appHomePath);
+          }
+        }
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
@@ -109,6 +133,16 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
                 {answer}
               </Button>
             ))}
+
+            {showOtherInput && (
+              <Input
+                type="text"
+                name={name}
+                registerProps={register(name)}
+                error={errors[name]}
+                placeholder="Role"
+              />
+            )}
           </div>
         )}
         {question.type === "open" && (
@@ -125,42 +159,64 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             <Button
               className="mt-4 w-full"
               type="submit"
-              disabled={isSubmitting}
+              loading={isSubmitting}
             >
-              {isSubmitting && <ButtonLoader />}
               Get Started
             </Button>
           </div>
         )}
 
-        {question.type === "multiple_choice" && (
-          <Button className="mt-4 w-full" type="submit">
+        {(question.type === "multiple_choice" || showOtherInput) && (
+          <Button className="mt-4 w-full" type="submit" loading={isSubmitting}>
             Next
           </Button>
         )}
 
-        {!isFinalQuestion && (
-          <div>
-            <Button
-              variant="ghost"
-              className="mt-8"
-              type="button"
-              onClick={async () => {
-                const responses = getResponses(searchParams);
-                submitPosthog(responses);
-                posthog.capture("survey dismissed", { $survey_id: surveyId });
-                await completedOnboardingAction();
-                router.push(appHomePath);
-              }}
-            >
-              Skip Onboarding
-            </Button>
-          </div>
-        )}
+        {/* {!isFinalQuestion && (
+          <SkipOnboardingButton
+            searchParams={searchParams}
+            submitPosthog={submitPosthog}
+            posthog={posthog}
+            router={router}
+          />
+        )} */}
       </div>
     </form>
   );
 };
+
+function SkipOnboardingButton({
+  searchParams,
+  submitPosthog,
+  posthog,
+  router,
+}: {
+  searchParams: URLSearchParams;
+  submitPosthog: (responses: {}) => void;
+  posthog: PostHog;
+  router: AppRouterInstance;
+}) {
+  // // A/B test whether to show skip onboarding button
+  // if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
+  //   return null;
+
+  return (
+    <Button
+      variant="ghost"
+      className="mt-8"
+      type="button"
+      onClick={async () => {
+        const responses = getResponses(searchParams);
+        submitPosthog(responses);
+        posthog.capture("survey dismissed", { $survey_id: surveyId });
+        await completedOnboardingAction();
+        router.push(appHomePath);
+      }}
+    >
+      Skip Onboarding
+    </Button>
+  );
+}
 
 function getResponses(seachParams: URLSearchParams): Record<string, string> {
   const responses = survey.questions.reduce((acc, _q, i) => {

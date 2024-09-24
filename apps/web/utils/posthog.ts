@@ -68,7 +68,8 @@ export async function deletePosthogUser(options: { email: string }) {
 export async function posthogCaptureEvent(
   email: string,
   event: string,
-  properties: Record<string, any>,
+  properties?: Record<string, any>,
+  sendFeatureFlags?: boolean,
 ) {
   if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
     console.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
@@ -76,6 +77,11 @@ export async function posthogCaptureEvent(
   }
 
   const client = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY);
-  client.capture({ distinctId: email, event, properties });
+  client.capture({
+    distinctId: email,
+    event,
+    properties,
+    sendFeatureFlags,
+  });
   await client.shutdown();
 }

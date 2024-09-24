@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { gmail_v1 } from "googleapis";
-import { chatCompletionObject, getAiProviderAndModel } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { inboxZeroLabels } from "@/utils/label";
 import { INBOX_LABEL_ID } from "@/utils/gmail/label";
@@ -26,11 +26,15 @@ export async function isColdEmail(options: {
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
+  console.debug("Checking is cold email");
+
   if (options.hasPreviousEmail)
     return { isColdEmail: false, reason: "hasPreviousEmail" };
 
   // otherwise run through ai to see if it's a cold email
   const res = await aiIsColdEmail(options.email, options.user);
+
+  console.debug(`AI is cold email: ${res.coldEmail}`);
 
   return {
     isColdEmail: !!res.coldEmail,
@@ -64,14 +68,8 @@ The email:
 ${stringifyEmail(email, 500)}
 `;
 
-  const { model, provider } = getAiProviderAndModel(
-    user.aiProvider,
-    user.aiModel,
-  );
   const response = await chatCompletionObject({
-    provider,
-    model,
-    apiKey: user.openAIApiKey,
+    userAi: user,
     system,
     prompt,
     schema: aiResponseSchema,
@@ -126,11 +124,11 @@ async function blockColdEmail(options: {
     user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL
   ) {
     if (!user.email) throw new Error("User email is required");
-    const gmailLabel = await getOrCreateLabel({
+    const coldEmailLabel = await getOrCreateLabel({
       gmail,
       name: inboxZeroLabels.cold_email,
     });
-    if (!gmailLabel?.id) throw new Error("No gmail label id");
+    if (!coldEmailLabel?.id) console.error("No gmail label id");
 
     const shouldArchive =
       user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL;
@@ -138,7 +136,9 @@ async function blockColdEmail(options: {
     await labelMessage({
       gmail,
       messageId: email.messageId,
-      addLabelIds: [gmailLabel.id],
+      // label email as "Cold Email"
+      addLabelIds: coldEmailLabel?.id ? [coldEmailLabel.id] : undefined,
+      // archive email
       removeLabelIds: shouldArchive ? [INBOX_LABEL_ID] : undefined,
     });
   }

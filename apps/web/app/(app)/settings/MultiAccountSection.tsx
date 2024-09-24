@@ -28,7 +28,6 @@ import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { env } from "@/env";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
-import { captureException } from "@/utils/error";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { handleActionResult } from "@/utils/server-action";
 

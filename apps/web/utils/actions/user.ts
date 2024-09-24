@@ -10,7 +10,7 @@ import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
-import { ServerActionResponse, captureException } from "@/utils/error";
+import { type ServerActionResponse, captureException } from "@/utils/error";
 
 const saveAboutBody = z.object({ about: z.string() });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
@@ -44,7 +44,7 @@ export async function deleteAccountAction(): Promise<ServerActionResponse> {
     ]);
   } catch (error) {
     console.error("Error while deleting account: ", error);
-    captureException(error);
+    captureException(error, undefined, session.user.email);
   }
 
   await prisma.user.delete({ where: { email: session.user.email } });

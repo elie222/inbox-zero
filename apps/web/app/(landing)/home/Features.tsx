@@ -1,3 +1,5 @@
+"use client";
+
 import clsx from "clsx";
 import {
   BarChart2Icon,
@@ -10,79 +12,25 @@ import {
   Sparkles,
   SparklesIcon,
   TagIcon,
+  BlocksIcon,
+  ListStartIcon,
 } from "lucide-react";
 import Image from "next/image";
+import { useFeatureFlagVariantKey } from "posthog-js/react";
 
-const features = [
-  {
-    name: "Reply Automatically",
-    description:
-      "Tell Inbox Zero how to handle your emails and it will do it for you. Automatically reply, archive, and label emails based on your instructions.",
-    icon: Sparkles,
-  },
-  {
-    name: "Automatically archive cold emails",
-    description:
-      "Sick of cold emails? Inbox Zero can automatically archive and label them for you so they don't clog your inbox.",
-    icon: Orbit,
-  },
-  {
-    name: "Explain it in plain English",
-    description:
-      "Tell Inbox Zero how to handle your emails in plain English. It's as simple as writing to an assistant or ChatGPT.",
-    icon: LineChart,
-  },
-];
+export function FeaturesPrivacy() {
+  const variant = useFeatureFlagVariantKey("privacy-landing-page");
 
-function FeaturesOld() {
-  return (
-    <div className="bg-white py-24 sm:py-32" id="features">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="font-cal text-base leading-7 text-blue-600">
-            Handle emails faster
-          </h2>
-          <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
-            Respond faster. Remove the clutter. Get your time back.
-          </p>
-          <p className="mt-6 text-lg leading-8 text-gray-600">
-            Running a small business you{"'"}re constantly bombarded with the
-            same questions. Save your time and your customers time by having our
-            AI answer them for you.
-          </p>
-        </div>
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
-            {features.map((feature) => (
-              <div key={feature.name} className="flex flex-col">
-                <dt className="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900">
-                  <feature.icon
-                    className="h-5 w-5 flex-none text-blue-600"
-                    aria-hidden="true"
-                  />
-                  {feature.name}
-                </dt>
-                <dd className="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600">
-                  <p className="flex-auto">{feature.description}</p>
-                  {/* <p className="mt-6">
-                    <a
-                      href="#"
-                      className="text-sm font-semibold leading-6 text-blue-600"
-                    >
-                      Learn more <span aria-hidden="true">→</span>
-                    </a>
-                  </p> */}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </div>
-    </div>
-  );
-}
+  if (variant === "hide") return null;
 
-export function Features() {
+  const variants: Record<string, string> = {
+    control: "Approved by Google",
+    long: "Approved by Google. Open Source. See exactly what our code does. Or host it yourself.",
+  };
+
+  const selectedVariant =
+    typeof variant === "string" ? variants[variant] : variants.control;
+
   return (
     <div className="bg-white py-24 sm:py-32" id="features">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -91,8 +39,7 @@ export function Features() {
             Privacy first
           </h2>
           <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
-            Approved by Google. Open Source. See exactly what our code does. Or
-            host it yourself.
+            {selectedVariant}
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
             Inbox Zero has undergone a thorough security process with Google to
@@ -201,11 +148,33 @@ const featuresAutomations = [
 ];
 
 export function FeaturesAutomation() {
+  const variant = useFeatureFlagVariantKey("landing-page-features");
+
+  const variants: Record<
+    string,
+    {
+      title: string;
+      subtitle: string;
+    }
+  > = {
+    control: {
+      title: "Automate your inbox",
+      subtitle: "Your AI assistant for email",
+    },
+    benefit: {
+      title: "AI Email Assistant",
+      subtitle: "Sorting, replying, archiving. Automate on your own terms.",
+    },
+  };
+
+  const selectedVariant =
+    typeof variant === "string" ? variants[variant] : variants.control;
+
   return (
     <FeaturesWithImage
       imageSide="left"
-      title="Automate your inbox"
-      subtitle="Your AI assistant for email"
+      title={selectedVariant.title}
+      subtitle={selectedVariant.subtitle}
       description="Keep getting emails that require the same response? Let Inbox Zero handle it."
       image="/images/ai-automation.png"
       features={featuresAutomations}
@@ -235,12 +204,35 @@ const featuresColdEmailBlocker = [
 ];
 
 export function FeaturesColdEmailBlocker() {
+  const variant = useFeatureFlagVariantKey("landing-page-features");
+
+  const variants: Record<
+    string,
+    {
+      subtitle: string;
+      description: string;
+    }
+  > = {
+    control: {
+      subtitle: "Automatically block cold emails",
+      description: "Stop the spam. Automatically archive or label cold emails.",
+    },
+    benefit: {
+      subtitle: "Keep salespeople at the gate",
+      description:
+        "Block outreach emails you never signed up for and regain control of your inbox.",
+    },
+  };
+
+  const selectedVariant =
+    typeof variant === "string" ? variants[variant] : variants.control;
+
   return (
     <FeaturesWithImage
       imageSide="left"
       title="Cold Email Blocker"
-      subtitle="Automatically block cold emails"
-      description="Stop the spam. Automatically archive or label cold emails."
+      subtitle={selectedVariant.subtitle}
+      description={selectedVariant.description}
       image="/images/cold-email-blocker.png"
       features={featuresColdEmailBlocker}
     />
@@ -295,22 +287,98 @@ const featuresUnsubscribe = [
     icon: EyeIcon,
   },
   {
-    name: "How often they email",
+    name: "How often you read them",
     description:
-      "View analytic charts to see how often you get emails from certain senders to take action.",
+      "See how often you read emails from each sender to quickly take action.",
     icon: BarChart2Icon,
   },
 ];
 
 export function FeaturesUnsubscribe() {
+  const variant = useFeatureFlagVariantKey("landing-page-features");
+
+  const variants: Record<
+    string,
+    {
+      subtitle: string;
+      description: string;
+    }
+  > = {
+    control: {
+      subtitle: "Clean up your subscriptions",
+      description:
+        "See all newsletter and marketing subscriptions in one place. Unsubscribe in a click.",
+    },
+    benefit: {
+      subtitle: "No more newsletters you never read",
+      description:
+        "Bulk unsubscribe from emails in one click. View all your subscriptions and how often you read each one.",
+    },
+  };
+
+  const selectedVariant =
+    typeof variant === "string" ? variants[variant] : variants.control;
+
   return (
     <FeaturesWithImage
       imageSide="right"
-      title="Newsletter Cleaner"
-      subtitle="Clean up your subscriptions"
-      description="See all newsletter and marketing subscriptions in one place. Unsubscribe in a click."
+      title="Bulk Email Unsubscriber"
+      subtitle={selectedVariant.subtitle}
+      description={selectedVariant.description}
       image="/images/newsletters.png"
       features={featuresUnsubscribe}
+    />
+  );
+}
+
+export function FeaturesHome() {
+  return (
+    <>
+      <FeaturesPrivacy />
+      <FeaturesAutomation />
+      <FeaturesUnsubscribe />
+      <FeaturesColdEmailBlocker />
+      <FeaturesStats />
+    </>
+  );
+}
+
+const featuresNewSenders = [
+  {
+    name: "Quickly Identify New Senders",
+    description:
+      "Conveniently lists all new individuals or entities that recently emailed you, helping you spot important contacts.",
+    icon: EyeIcon,
+  },
+  {
+    name: "Effortless Blocking",
+    description:
+      "Easily block any unwanted sender with a single click, keeping your inbox clean and relevant.",
+    icon: ShieldHalfIcon,
+  },
+  {
+    name: "Stay Organized and Secure",
+    description:
+      "Enhance your email security by managing unfamiliar senders, reducing the risk of spam and phishing attacks.",
+    icon: BlocksIcon,
+  },
+  {
+    name: "Personalize Your Email Experience",
+    description:
+      "Discover and prioritize important emails, ensuring you never miss out on significant introductions or opportunities.",
+    icon: ListStartIcon,
+  },
+];
+
+export function FeaturesNewSenders() {
+  return (
+    <FeaturesWithImage
+      imageSide="left"
+      title="New Sender List"
+      subtitle="Manage new senders in your inbox"
+      description="View a comprehensive list of recent new senders, making it easier to spot important contacts and opportunities, while also offering the ability to block unwanted communication effortlessly."
+      image="/images/newsletters.png"
+      features={featuresNewSenders}
     />
   );
 }

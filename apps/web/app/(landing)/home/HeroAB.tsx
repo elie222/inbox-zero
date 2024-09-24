@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useFeatureFlagVariantKey } from "posthog-js/react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Hero } from "@/app/(landing)/home/Hero";
 
 const copy: {
   [key: string]: {
@@ -9,42 +10,65 @@ const copy: {
     subtitle: string;
   };
 } = {
-  automate: {
-    title: "Automate Your Email Inbox",
+  control: {
+    title: "Stop wasting half your day in Gmail",
     subtitle:
-      "Automate your email with our AI assistant, bulk unsubscribe from newsletters, block cold emails, and view your analytics. Open-source.",
+      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
   },
-  autopilot: {
-    title: "Autopilot For Your Email",
-    subtitle:
-      "Automate your email with our AI assistant by telling it in plain English how to handle your emails. Open-source.",
-  },
-  clean: {
+  "clean-up-in-minutes": {
     title: "Clean Up Your Inbox In Minutes",
     subtitle:
       "Bulk unsubscribe from newsletters, automate your emails with AI, block cold emails, and view your analytics. Open-source.",
   },
-  control: {
-    title: "Clean Up Your Inbox In Minutes",
+  "half-the-time": {
+    title: "Spend 50% less time on email",
     subtitle:
-      "Newsletter cleaner, AI automation, cold email blocker, and analytics. Inbox Zero is the open-source email app that puts you back in control of your inbox.",
+      "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
+  },
+  "gmail-autopilot": {
+    title: "Gmail on Autopilot: Work Smarter, Not Harder",
+    subtitle:
+      "Let AI handle your emails, unsubscribe from newsletters, and block unwanted messages. Tools for a clutter-free inbox.",
   },
 };
 
-export function HeroHeadingAB(props: { variantKey: string }) {
-  const variant = useFeatureFlagVariantKey(props.variantKey);
+// allow this to work for search engines while avoiding flickering text for users
+// ssr method relied on cookies in the root layout which broke static page generation of blog posts
+export function HeroAB({ variantKey }: { variantKey: string }) {
+  const [title, setTitle] = useState(copy.control.title);
+  const [subtitle, setSubtitle] = useState(copy.control.subtitle);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  if (!variant) return <Skeleton className="h-28 w-full rounded" />;
-  if (typeof variant !== "string") return <>{copy.control.title}</>;
+  const variant = useFeatureFlagVariantKey(variantKey);
 
-  return <>{copy[variant].title || copy.control.title}</>;
-}
+  useEffect(() => {
+    if (variant && copy[variant as string]) {
+      setTitle(copy[variant as string].title);
+      setSubtitle(copy[variant as string].subtitle);
+    }
+    setIsHydrated(true);
+  }, [variant]);
 
-export function HeroSubtitleAB(props: { variantKey: string }) {
-  const variant = useFeatureFlagVariantKey(props.variantKey);
-
-  if (!variant) return <Skeleton className="h-24 w-full rounded" />;
-  if (typeof variant !== "string") return <>{copy.control.subtitle}</>;
-
-  return <>{copy[variant].subtitle || copy.control.subtitle}</>;
+  return (
+    <Hero
+      title={
+        <span
+          className={`transition-opacity duration-300 ease-in-out ${
+            isHydrated ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {title}
+        </span>
+      }
+      subtitle={
+        <span
+          className={`transition-opacity duration-300 ease-in-out ${
+            isHydrated ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {subtitle}
+        </span>
+      }
+    />
+  );
 }

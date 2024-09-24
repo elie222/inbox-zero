@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { getGroupEmails } from "@/app/api/user/group/[groupId]/messages/controller";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { hashApiKey } from "@/utils/api-key";
 import {
   groupEmailsQuerySchema,
-  GroupEmailsResult,
+  type GroupEmailsResult,
 } from "@/app/api/v1/group/[groupId]/emails/validation";
 
 export async function GET(

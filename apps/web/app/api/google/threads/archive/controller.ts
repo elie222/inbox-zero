@@ -12,7 +12,12 @@ export async function archiveEmail(body: ArchiveBody) {
   if (!session?.user.email) throw new Error("Not authenticated");
 
   const gmail = getGmailClient(session);
-  const thread = await archiveThread({ gmail, threadId: body.id });
+  const thread = await archiveThread({
+    gmail,
+    threadId: body.id,
+    ownerEmail: session.user.email,
+    actionSource: "user",
+  });
 
   return { thread };
 }

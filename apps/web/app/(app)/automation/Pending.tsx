@@ -14,7 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { AlertBasic } from "@/components/Alert";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 import { toastError } from "@/components/Toast";
@@ -120,8 +121,8 @@ function PendingTable({
               variant="outline"
               onClick={approveSelected}
               disabled={isApproving || isRejecting}
+              loading={isApproving}
             >
-              {isApproving && <ButtonLoader />}
               Approve
             </Button>
           </div>
@@ -131,8 +132,8 @@ function PendingTable({
               variant="outline"
               onClick={rejectSelected}
               disabled={isApproving || isRejecting}
+              loading={isRejecting}
             >
-              {isRejecting && <ButtonLoader />}
               Reject
             </Button>
           </div>
@@ -225,8 +226,8 @@ function ExecuteButtons({
           setIsApproving(false);
         }}
         disabled={isApproving || isRejecting}
+        loading={isApproving}
       >
-        {isApproving && <ButtonLoader />}
         Approve
       </Button>
       <Button
@@ -243,8 +244,8 @@ function ExecuteButtons({
           setIsRejecting(false);
         }}
         disabled={isApproving || isRejecting}
+        loading={isRejecting}
       >
-        {isRejecting && <ButtonLoader />}
         Reject
       </Button>
     </div>

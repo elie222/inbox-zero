@@ -35,6 +35,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.sanity.io"
+      }
     ],
   },
   async redirects() {
@@ -46,6 +50,39 @@ const nextConfig = {
           {
             type: 'cookie',
             key: '__Secure-authjs.session-token',
+          }
+        ],
+        permanent: false,
+      },
+      {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: '__Secure-authjs.session-token.0',
+          }
+        ],
+        permanent: false,
+      },
+      {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: '__Secure-authjs.session-token.1',
+          }
+        ],
+        permanent: false,
+      },
+      {
+        source: '/',
+        destination: '/bulk-unsubscribe',
+        has: [
+          {
+            type: 'cookie',
+            key: '__Secure-authjs.session-token.2',
           }
         ],
         permanent: false,

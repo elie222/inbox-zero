@@ -9,14 +9,6 @@ import { env } from "@/env";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
-if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
-  posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
-    // https://posthog.com/docs/advanced/proxy/nextjs
-    api_host: `${window.location.origin}/ingest`,
-    capture_pageview: false, // Disable automatic pageview capture, as we capture manually
-  });
-}
-
 export function PostHogPageview(): JSX.Element {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -47,6 +39,13 @@ export function PostHogIdentify(): JSX.Element {
   }, [session?.data?.user.email]);
 
   return <></>;
+}
+
+if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
+  posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
+    api_host: env.NEXT_PUBLIC_POSTHOG_API_HOST, // https://posthog.com/docs/advanced/proxy/nextjs
+    capture_pageview: false, // Disable automatic pageview capture, as we capture manually
+  });
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {

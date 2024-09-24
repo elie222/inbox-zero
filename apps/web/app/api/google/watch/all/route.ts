@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import addDays from "date-fns/addDays";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";
@@ -24,7 +23,7 @@ async function watchAllEmails() {
         select: {
           id: true,
           email: true,
-          openAIApiKey: true,
+          aiApiKey: true,
           watchEmailsExpirationDate: true,
           accounts: {
             select: {
@@ -51,11 +50,11 @@ async function watchAllEmails() {
 
       const userHasAiAccess = hasAiAccess(
         user.premium.coldEmailBlockerAccess,
-        user.openAIApiKey,
+        user.aiApiKey,
       );
       const userHasColdEmailAccess = hasColdEmailAccess(
         user.premium.coldEmailBlockerAccess,
-        user.openAIApiKey,
+        user.aiApiKey,
       );
 
       if (!userHasAiAccess && !userHasColdEmailAccess) {

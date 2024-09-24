@@ -3,7 +3,7 @@
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { isAdmin } from "@/utils/admin";
-import { ServerActionResponse } from "@/utils/error";
+import type { ServerActionResponse } from "@/utils/error";
 
 export async function adminProcessHistoryAction(
   emailAddress: string,

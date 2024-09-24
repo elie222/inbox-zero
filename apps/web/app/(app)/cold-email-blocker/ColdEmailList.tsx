@@ -22,7 +22,8 @@ import {
 import { AlertBasic } from "@/components/Alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGmailSearchUrl } from "@/utils/url";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
@@ -49,7 +50,7 @@ export function ColdEmailList() {
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(data?.coldEmails || []);
 
-  const [isApproving, setIsApproving] = useState(false);
+  // const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
 
   // const approveSelected = useCallback(async () => {
@@ -100,9 +101,9 @@ export function ColdEmailList() {
                   size="sm"
                   variant="outline"
                   onClick={markNotColdEmailSelected}
-                  disabled={isApproving || isRejecting}
+                  // disabled={isApproving || isRejecting}
+                  loading={isRejecting}
                 >
-                  {isRejecting && <ButtonLoader />}
                   Mark Not Cold Email
                 </Button>
               </div>
@@ -202,9 +203,8 @@ function Row({
               mutate();
               setIsMarkingColdEmail(false);
             }}
-            disabled={isMarkingColdEmail}
+            loading={isMarkingColdEmail}
           >
-            {isMarkingColdEmail && <ButtonLoader />}
             Not cold email
           </Button>
         </div>

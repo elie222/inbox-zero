@@ -21,14 +21,14 @@ export function usePremium() {
   const { data } = swrResponse;
 
   const premium = data?.premium;
-  const openAIApiKey = data?.openAIApiKey;
+  const aiApiKey = data?.aiApiKey;
 
   const isUserPremium = !!(premium && isPremium(premium.lemonSqueezyRenewsAt));
 
   const isProPlanWithoutApiKey =
     (premium?.tier === PremiumTier.PRO_MONTHLY ||
       premium?.tier === PremiumTier.PRO_ANNUALLY) &&
-    !openAIApiKey;
+    !aiApiKey;
 
   return {
     ...swrResponse,
@@ -39,10 +39,10 @@ export function usePremium() {
         premium?.bulkUnsubscribeAccess,
         premium?.unsubscribeCredits,
       ),
-    hasAiAccess: hasAiAccess(premium?.aiAutomationAccess, openAIApiKey),
+    hasAiAccess: hasAiAccess(premium?.aiAutomationAccess, aiApiKey),
     hasColdEmailAccess: hasColdEmailAccess(
       premium?.coldEmailBlockerAccess,
-      openAIApiKey,
+      aiApiKey,
     ),
     isProPlanWithoutApiKey,
   };
@@ -51,9 +51,11 @@ export function usePremium() {
 function PremiumAlert({
   plan = "Inbox Zero Business",
   showSetApiKey,
+  className,
 }: {
   plan?: "Inbox Zero Business" | "Inbox Zero Pro";
   showSetApiKey: boolean;
+  className?: string;
 }) {
   const { PremiumModal, openModal } = usePremiumModal();
 
@@ -61,13 +63,14 @@ function PremiumAlert({
     <>
       <AlertWithButton
         title="Premium"
+        className={className}
         description={
           <>
             This is a premium feature. Upgrade to {plan}
             {showSetApiKey ? (
               <>
                 {" "}
-                or set an OpenAI API key on the{" "}
+                or set an AI API key on the{" "}
                 <Link
                   href="/settings"
                   className="font-semibold hover:text-gray-700"
@@ -90,7 +93,7 @@ function PremiumAlert({
   );
 }
 
-export function PremiumAlertWithData() {
+export function PremiumAlertWithData({ className }: { className?: string }) {
   const {
     hasAiAccess,
     isLoading: isLoadingPremium,
@@ -98,7 +101,12 @@ export function PremiumAlertWithData() {
   } = usePremium();
 
   if (!isLoadingPremium && !hasAiAccess)
-    return <PremiumAlert showSetApiKey={isProPlanWithoutApiKey} />;
+    return (
+      <PremiumAlert
+        showSetApiKey={isProPlanWithoutApiKey}
+        className={className}
+      />
+    );
 
   return null;
 }

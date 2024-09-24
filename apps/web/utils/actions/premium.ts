@@ -15,7 +15,7 @@ import {
 } from "@/app/api/lemon-squeezy/api";
 import { isAdmin } from "@/utils/admin";
 import { PremiumTier } from "@prisma/client";
-import { ServerActionResponse } from "@/utils/error";
+import type { ServerActionResponse } from "@/utils/error";
 
 export async function decrementUnsubscribeCreditAction(): Promise<ServerActionResponse> {
   const session = await auth();

@@ -1,7 +1,5 @@
-import {
-  MoreDropdown,
-  useUnsubscribeButton,
-} from "@/app/(app)/bulk-unsubscribe/common";
+import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
+import { useUnsubscribe } from "@/app/(app)/bulk-unsubscribe/hooks";
 import { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
@@ -15,7 +13,7 @@ import { usePremium } from "@/components/PremiumAlert";
 import { Tooltip } from "@/components/Tooltip";
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +51,7 @@ export function NewsletterModal(props: {
 
   const posthog = usePostHog();
 
-  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribeButton({
+  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribe({
     item: newsletter,
     hasUnsubscribeAccess,
     mutate,
@@ -80,7 +78,7 @@ export function NewsletterModal(props: {
                 >
                   {unsubscribeLoading ? (
                     <div className="flex cursor-not-allowed items-center opacity-50">
-                      <ButtonLoader />
+                      <Button loading={true} />
                       <span>Unsubscribing...</span>
                     </div>
                   ) : (
@@ -109,6 +107,7 @@ export function NewsletterModal(props: {
                 item={newsletter}
                 userEmail={email || ""}
                 userGmailLabels={userLabels}
+                posthog={posthog}
               />
             </div>
 

@@ -8,7 +8,8 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Modal, useModal } from "@/components/Modal";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -299,8 +300,7 @@ const AddGroupItemForm = ({
         error={errors.value}
         className="min-w-[250px]"
       />
-      <Button type="submit" variant="outline" disabled={isSubmitting}>
-        {isSubmitting && <ButtonLoader />}
+      <Button type="submit" variant="outline" loading={isSubmitting}>
         Add
       </Button>
     </form>

@@ -1,7 +1,8 @@
 "use client";
 
 import { AreaChartIcon } from "lucide-react";
-import { Button, ButtonLoader } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 export function LoadStatsButton() {
@@ -17,7 +18,7 @@ export function LoadStatsButton() {
         {isLoading ? (
           <ButtonLoader />
         ) : (
-          <AreaChartIcon className="mr-2 h-4 w-4" />
+          <AreaChartIcon className="mr-2 hidden h-4 w-4 sm:block" />
         )}
         Load more
       </Button>

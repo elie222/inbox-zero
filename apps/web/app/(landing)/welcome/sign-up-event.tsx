@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { postRequest } from "@/utils/api";
-import { CompleteRegistrationBody } from "@/app/api/user/complete-registration/route";
+import type { CompleteRegistrationBody } from "@/app/api/user/complete-registration/route";
 
 export const SignUpEvent = () => {
   useEffect(() => {

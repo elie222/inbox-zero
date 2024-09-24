@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
 import { chooseRule } from "@/utils/ai/choose-rule/choose";
-import { Action, ActionType, RuleType } from "@prisma/client";
+import { type Action, ActionType, RuleType } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
 
@@ -119,6 +119,7 @@ function getRule(instructions: string, actions: Action[] = []) {
     body: null,
     to: null,
     type: RuleType.AI,
+    enabled: true,
   };
 }
 
@@ -139,7 +140,7 @@ function getUser() {
     aiModel: "gpt-4o-mini",
     aiProvider: "openai",
     email: "user@test.com",
-    openAIApiKey: null,
+    aiApiKey: null,
     about: null,
   };
 }

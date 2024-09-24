@@ -73,35 +73,41 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {groups.map((group) => (
-          <TableRow key={group.id}>
-            <TableCell className="font-medium">{group.name}</TableCell>
-            <TableCell className="text-center">{group._count.items}</TableCell>
-            <TableCell>
-              <Link href={`/automation/rule/${group.rule?.id}`}>
-                {group.rule?.name || (
+        {groups.map((group) => {
+          return (
+            <TableRow key={group.id}>
+              <TableCell className="font-medium">{group.name}</TableCell>
+              <TableCell className="text-center">
+                {group._count.items}
+              </TableCell>
+              <TableCell>
+                <Link href={`/automation/rule/${group.rule?.id}`}>
+                  {group.rule ? (
+                    group.rule.name || `Rule ${group.rule.id}`
+                  ) : (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
+                      >
+                        Attach Automation
+                      </Link>
+                    </Button>
+                  )}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center justify-end gap-1">
                   <Button variant="outline" size="sm" asChild>
-                    <Link
-                      href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
-                    >
-                      Attach Automation
+                    <Link href={`/automation/group/${group.id}/examples`}>
+                      Matching Emails
                     </Link>
                   </Button>
-                )}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center justify-end gap-1">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/automation/group/${group.id}/examples`}>
-                    Matching Emails
-                  </Link>
-                </Button>
-                <ViewGroupButton groupId={group.id} name={group.name} />
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+                  <ViewGroupButton groupId={group.id} name={group.name} />
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );

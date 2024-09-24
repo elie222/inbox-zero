@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { createInAiQueueSelector } from "@/store/queue";
 import { Card } from "@/components/Card";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 
 export function EmailPanel(props: {
   row: Thread;

@@ -65,7 +65,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
             const url = getUrlFromString(input.value);
             url && editor.chain().focus().setLink({ href: url }).run();
           }}
-          className="flex  p-1 "
+          className="flex p-1"
         >
           <input
             ref={inputRef}

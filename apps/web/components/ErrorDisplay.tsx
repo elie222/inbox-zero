@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Panel } from "./Panel";
 import { logOut } from "@/utils/user";
+import { env } from "@/env";
 
 // TODO would be better to have a consistent definition here. didn't want to break things.
 export function ErrorDisplay(props: {
@@ -19,8 +20,8 @@ export function ErrorDisplay(props: {
   if (props.error) {
     return (
       <NotFound>
-        There was an error. Please refresh or contact support if the error
-        persists.
+        There was an error. Please refresh or contact support at{" "}
+        {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the error persists.
       </NotFound>
     );
   }

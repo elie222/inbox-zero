@@ -1,12 +1,31 @@
 import type { MetadataRoute } from "next";
+import { unstable_noStore } from "next/cache";
+import { sanityFetch } from "@/sanity/lib/fetch";
+import { postSlugsQuery } from "@/sanity/lib/queries";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  return [
+async function getBlogPosts() {
+  const posts = await sanityFetch<{ slug: string; date: string }[]>({
+    query: postSlugsQuery,
+  });
+  return posts.map((post) => ({
+    url: `https://www.getinboxzero.com/blog/post/${post.slug}`,
+    lastModified: new Date(post.date),
+  }));
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // to try fix caching issue: https://github.com/vercel/next.js/discussions/56708#discussioncomment-10127496
+  unstable_noStore();
+
+  const blogPosts = await getBlogPosts();
+
+  const staticUrls = [
     {
       url: "https://www.getinboxzero.com/",
+      priority: 1,
     },
     {
-      url: "https://www.getinboxzero.com/newsletter-cleaner",
+      url: "https://www.getinboxzero.com/bulk-email-unsubscriber",
     },
     {
       url: "https://www.getinboxzero.com/ai-automation",
@@ -28,6 +47,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: "https://www.getinboxzero.com/blog",
+      changeFrequency: "daily",
+      lastModified: new Date(),
+      priority: 1,
     },
     {
       url: "https://www.getinboxzero.com/blog/post/how-my-open-source-saas-hit-first-on-product-hunt",
@@ -45,6 +67,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.getinboxzero.com/blog/post/bulk-unsubscribe-from-emails",
     },
     {
+      url: "https://www.getinboxzero.com/blog/post/escape-email-trap-unsubscribe-for-good",
+    },
+    {
       url: "https://docs.getinboxzero.com/",
     },
     {
@@ -60,4 +85,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://docs.getinboxzero.com/essentials/cold-email-blocker",
     },
   ];
+
+  return [...staticUrls, ...blogPosts];
 }

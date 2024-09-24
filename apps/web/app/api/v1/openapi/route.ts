@@ -26,7 +26,13 @@ registry.registerPath({
   description: "Get group emails",
   security: [{ ApiKeyAuth: [] }],
   request: {
-    params: z.object({ groupId: z.string() }),
+    params: z.object({
+      groupId: z
+        .string()
+        .describe(
+          "You can find the group id by going to `https://www.getinboxzero.com/automation?tab=groups`, clicking `Matching Emails`, and then copying the id from the URL.",
+        ),
+    }),
     query: groupEmailsQuerySchema,
   },
   responses: {

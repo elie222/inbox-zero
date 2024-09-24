@@ -26,8 +26,12 @@ import {
 } from "@/utils/actions/helpers";
 
 async function executeGmailAction<T>(
-  action: (gmail: gmail_v1.Gmail, user: { id: string }) => Promise<any>,
+  action: (
+    gmail: gmail_v1.Gmail,
+    user: { id: string; email: string },
+  ) => Promise<any>,
   errorMessage: string,
+  onError?: (error: unknown) => boolean, // returns true if error was handled
 ): Promise<ServerActionResponse<T>> {
   const { gmail, user, error } = await getSessionAndGmailClient();
   if (error) return { error };
@@ -35,9 +39,12 @@ async function executeGmailAction<T>(
 
   try {
     const res = await action(gmail, user);
-    return !isStatusOk(res.status) ? handleError(res, errorMessage) : undefined;
+    return !isStatusOk(res.status)
+      ? handleError(res, errorMessage, user.email)
+      : undefined;
   } catch (error) {
-    return handleError(error, errorMessage);
+    if (onError?.(error)) return;
+    return handleError(error, errorMessage, user.email);
   }
 }
 
@@ -45,7 +52,13 @@ export async function archiveThreadAction(
   threadId: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
-    async (gmail) => archiveThread({ gmail, threadId }),
+    async (gmail, user) =>
+      archiveThread({
+        gmail,
+        threadId,
+        ownerEmail: user.email,
+        actionSource: "user",
+      }),
     "Failed to archive thread",
   );
 }
@@ -54,7 +67,13 @@ export async function trashThreadAction(
   threadId: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
-    async (gmail) => trashThread({ gmail, threadId }),
+    async (gmail, user) =>
+      trashThread({
+        gmail,
+        threadId,
+        ownerEmail: user.email,
+        actionSource: "user",
+      }),
     "Failed to delete thread",
   );
 }
@@ -104,6 +123,11 @@ export async function createAutoArchiveFilterAction(
   return executeGmailAction(
     async (gmail) => createAutoArchiveFilter({ gmail, from, gmailLabelId }),
     "Failed to create auto archive filter",
+    (error) => {
+      const errorMessage = (error as any)?.errors?.[0]?.message;
+      if (errorMessage === "Filter already exists") return true;
+      return false;
+    },
   );
 }
 
