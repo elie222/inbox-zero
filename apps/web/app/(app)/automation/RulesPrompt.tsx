@@ -8,7 +8,10 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
+import {
+  saveRulesPromptAction,
+  generateRulesPromptAction,
+} from "@/utils/actions/ai-rule";
 import { isActionError } from "@/utils/error";
 import {
   Card,
@@ -75,6 +78,7 @@ function RulesPromptForm({
   mutate: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const {
     register,
     handleSubmit,
@@ -169,13 +173,48 @@ Feel free to add as many as you want:
               />
 
               <div className="flex gap-2">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <ButtonLoader />}
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                >
                   Save
                 </Button>
 
                 <Button type="button" variant="outline" asChild>
                   <Link href="/automation/create">Create Rules Manually</Link>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    toast.promise(
+                      async () => {
+                        setIsGenerating(true);
+                        const result = await generateRulesPromptAction();
+                        setIsGenerating(false);
+                        if (isActionError(result))
+                          throw new Error(result.error);
+                        if (!result)
+                          throw new Error("Unable to generate prompt");
+                        return result;
+                      },
+                      {
+                        loading: "Generating prompt...",
+                        success: (result) => {
+                          setValue("rulesPrompt", result.rulesPrompt);
+                          return "Prompt generated successfully!";
+                        },
+                        error: (err) => {
+                          return `Error generating prompt: ${err.message}`;
+                        },
+                      },
+                    );
+                  }}
+                  loading={isGenerating}
+                >
+                  AI Generate Prompt
                 </Button>
               </div>
             </div>

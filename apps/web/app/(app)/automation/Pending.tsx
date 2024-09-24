@@ -121,8 +121,8 @@ function PendingTable({
               variant="outline"
               onClick={approveSelected}
               disabled={isApproving || isRejecting}
+              loading={isApproving}
             >
-              {isApproving && <ButtonLoader />}
               Approve
             </Button>
           </div>
@@ -132,8 +132,8 @@ function PendingTable({
               variant="outline"
               onClick={rejectSelected}
               disabled={isApproving || isRejecting}
+              loading={isRejecting}
             >
-              {isRejecting && <ButtonLoader />}
               Reject
             </Button>
           </div>
@@ -226,8 +226,8 @@ function ExecuteButtons({
           setIsApproving(false);
         }}
         disabled={isApproving || isRejecting}
+        loading={isApproving}
       >
-        {isApproving && <ButtonLoader />}
         Approve
       </Button>
       <Button
@@ -244,8 +244,8 @@ function ExecuteButtons({
           setIsRejecting(false);
         }}
         disabled={isApproving || isRejecting}
+        loading={isRejecting}
       >
-        {isRejecting && <ButtonLoader />}
         Reject
       </Button>
     </div>

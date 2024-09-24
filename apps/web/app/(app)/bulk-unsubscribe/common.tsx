@@ -342,8 +342,8 @@ function ApproveButton<T extends Row>({
       }
       onClick={onApprove}
       disabled={!hasUnsubscribeAccess}
+      loading={approveLoading}
     >
-      {approveLoading && <ButtonLoader />}
       <span className="sr-only">Keep</span>
       <span>
         <BadgeCheckIcon className="size-4" />

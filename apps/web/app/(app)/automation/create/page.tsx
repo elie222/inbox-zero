@@ -105,8 +105,8 @@ export default function AutomationSettingsPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting || !prompt || prompt.length < 5}
+                  loading={isSubmitting}
                 >
-                  {isSubmitting && <ButtonLoader />}
                   Preview Automation
                 </Button>
               </div>
