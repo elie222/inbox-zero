@@ -79,13 +79,11 @@ export function NewsletterModal(props: {
                   onClick={onUnsubscribe}
                 >
                   {unsubscribeLoading ? (
-                    // Button loading state
                     <div className="flex cursor-not-allowed items-center opacity-50">
                       <ButtonLoader />
                       <span>Unsubscribing...</span>
                     </div>
                   ) : (
-                    // Button default state
                     <span>Unsubscribe</span>
                   )}
                 </a>
