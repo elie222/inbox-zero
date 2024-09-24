@@ -61,8 +61,7 @@ export default function Components() {
             <ShadButton variant="default">ShadButton Default</ShadButton>
             <ShadButton variant="secondary">ShadButton Secondary</ShadButton>
             <ShadButton variant="outline">ShadButton Outline</ShadButton>
-            <ShadButton variant="outline">
-              <ButtonLoader />
+            <ShadButton variant="outline" loading>
               ShadButton Loading
             </ShadButton>
             <ShadButton variant="ghost">ShadButton Ghost</ShadButton>
