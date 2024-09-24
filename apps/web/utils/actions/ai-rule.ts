@@ -16,8 +16,8 @@ import {
   runRulesOnMessage,
   testRulesOnMessage,
 } from "@/utils/ai/choose-rule/run-rules";
-import { parseMessage } from "@/utils/mail";
-import { getMessage } from "@/utils/gmail/message";
+import { emailToContent, parseMessage } from "@/utils/mail";
+import { getMessage, getMessages } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import {
   createNewsletterGroupAction,
@@ -26,7 +26,7 @@ import {
 import { GroupName } from "@/utils/config";
 import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import type { ParsedMessage } from "@/utils/types";
+import { isDefined, type ParsedMessage } from "@/utils/types";
 import {
   executeServerAction,
   getSessionAndGmailClient,
@@ -39,6 +39,8 @@ import {
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
+import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
+import { getLabels } from "@/utils/gmail/label";
 
 export async function runRulesAction(
   email: EmailForAction,
@@ -677,4 +679,61 @@ function shouldAutomate(actions: Pick<Action, "type">[]) {
   }
 
   return true;
+}
+
+/**
+ * Generates a rules prompt based on the user's recent email activity and labels.
+ * This function:
+ * 1. Fetches the user's 20 most recent sent emails
+ * 2. Retrieves the user's Gmail labels
+ * 3. Calls an AI function to generate rule suggestions based on this data
+ * 4. Returns the generated rules prompt as a string
+ */
+export async function generateRulesPromptAction(): Promise<
+  ServerActionResponse<{ rulesPrompt: string }>
+> {
+  const session = await auth();
+  if (!session?.user.id) return { error: "Not logged in" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { aiProvider: true, aiModel: true, aiApiKey: true, email: true },
+  });
+
+  if (!user) return { error: "User not found" };
+  if (!user.email) return { error: "User email not found" };
+
+  const gmail = getGmailClient(session);
+  const lastSent = await getMessages(gmail, {
+    query: "in:sent",
+    maxResults: 20,
+  });
+  const userLabels = await getLabels(gmail);
+  const lastSentMessages = await Promise.all(
+    lastSent.messages?.map(async (message) => {
+      const gmailMessage = await getMessage(message.id!, gmail);
+      return parseMessage(gmailMessage);
+    }) || [],
+  );
+  const lastSentEmails = lastSentMessages?.map((message) => {
+    return emailToContent(
+      {
+        textHtml: message.textHtml || null,
+        textPlain: message.textPlain || null,
+        snippet: message.snippet || null,
+      },
+      { maxLength: 500 },
+    );
+  });
+
+  const result = await aiGenerateRulesPrompt({
+    user: { ...user, email: user.email },
+    lastSentEmails,
+    userLabels: userLabels?.map((label) => label.name).filter(isDefined) || [],
+  });
+
+  if (isActionError(result)) return { error: result.error };
+  if (!result) return { error: "Error generating rules prompt" };
+
+  return { rulesPrompt: result.join("\n\n") };
 }
