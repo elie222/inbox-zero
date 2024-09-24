@@ -146,8 +146,9 @@ export function ColdEmailList() {
 
           {openedRow && (
             <NewsletterModal
-              newsletter={openedRow && { name: openedRow.fromEmail || "" }}
+              newsletter={{ name: openedRow.fromEmail || "" }}
               onClose={() => setOpenedRow(undefined)}
+              mutate={mutate}
             />
           )}
         </div>
