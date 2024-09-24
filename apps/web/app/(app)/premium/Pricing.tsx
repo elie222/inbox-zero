@@ -362,9 +362,9 @@ function LifetimePricing(props: {
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
+    <span className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
       {children}
-    </p>
+    </span>
   );
 }
 
