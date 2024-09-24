@@ -383,14 +383,16 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 </Link>
               </Button>
             )}
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <ButtonLoader />}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              loading={isSubmitting}
+            >
               Save
             </Button>
           </>
         ) : (
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && <ButtonLoader />}
+          <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
             Create
           </Button>
         )}

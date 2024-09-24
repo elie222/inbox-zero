@@ -173,8 +173,11 @@ Feel free to add as many as you want:
               />
 
               <div className="flex gap-2">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <ButtonLoader />}
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                >
                   Save
                 </Button>
 

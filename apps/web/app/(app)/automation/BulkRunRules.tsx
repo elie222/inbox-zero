@@ -88,6 +88,7 @@ export function BulkRunRules() {
                       <Button
                         type="button"
                         disabled={running || !startDate}
+                        loading={running}
                         onClick={async () => {
                           if (!startDate) return;
                           setRunning(true);
@@ -99,7 +100,6 @@ export function BulkRunRules() {
                           );
                         }}
                       >
-                        {running && <ButtonLoader />}
                         Run AI On All Inbox Emails
                       </Button>
                       {running && (

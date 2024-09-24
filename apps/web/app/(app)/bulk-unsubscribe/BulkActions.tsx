@@ -62,9 +62,8 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkUnsubscribe(getSelectedValues())}
-              disabled={bulkUnsubscribeLoading}
+              loading={bulkUnsubscribeLoading}
             >
-              {bulkUnsubscribeLoading && <ButtonLoader />}
               Unsubscribe
             </Button>
           </div>
@@ -73,9 +72,8 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkAutoArchive(getSelectedValues())}
-              disabled={bulkAutoArchiveLoading}
+              loading={bulkAutoArchiveLoading}
             >
-              {bulkAutoArchiveLoading && <ButtonLoader />}
               Auto Archive
             </Button>
           </div>
@@ -84,9 +82,8 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkApprove(getSelectedValues())}
-              disabled={bulkApproveLoading}
+              loading={bulkApproveLoading}
             >
-              {bulkApproveLoading && <ButtonLoader />}
               Approve
             </Button>
           </div>

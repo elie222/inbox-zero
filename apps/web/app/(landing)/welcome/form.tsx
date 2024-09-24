@@ -159,17 +159,15 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             <Button
               className="mt-4 w-full"
               type="submit"
-              disabled={isSubmitting}
+              loading={isSubmitting}
             >
-              {isSubmitting && <ButtonLoader />}
               Get Started
             </Button>
           </div>
         )}
 
         {(question.type === "multiple_choice" || showOtherInput) && (
-          <Button className="mt-4 w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting && <ButtonLoader />}
+          <Button className="mt-4 w-full" type="submit" loading={isSubmitting}>
             Next
           </Button>
         )}
