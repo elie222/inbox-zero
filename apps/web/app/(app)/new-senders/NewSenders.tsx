@@ -1,35 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
-import useSWR from "swr";
-import { useSession } from "next-auth/react";
-import { usePostHog } from "posthog-js/react";
-import { Card, Title } from "@tremor/react";
-import groupBy from "lodash/groupBy";
-import { FilterIcon, Users2Icon } from "lucide-react";
-import { LoadingContent } from "@/components/LoadingContent";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useExpanded } from "@/app/(app)/stats/useExpanded";
+import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
+import {
+  useBulkUnsubscribeShortcuts,
+  useNewsletterFilter,
+} from "@/app/(app)/bulk-unsubscribe/hooks";
+import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
+import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
+import { useExpanded } from "@/app/(app)/stats/useExpanded";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
 import type {
   NewSendersQuery,
   NewSendersResponse,
 } from "@/app/api/user/stats/new-senders/route";
-import { formatShortDate } from "@/utils/date";
-import { formatStat } from "@/utils/stats";
-import { StatsCards } from "@/components/StatsCards";
-import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
-import {
-  useNewsletterFilter,
-  useBulkUnsubscribeShortcuts,
-} from "@/app/(app)/bulk-unsubscribe/hooks";
-import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
-import type { LabelsResponse } from "@/app/api/google/labels/route";
+import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { useLabels } from "@/hooks/useLabels";
-import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
-import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import { StatsCards } from "@/components/StatsCards";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -38,6 +28,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useLabels } from "@/hooks/useLabels";
+import { formatShortDate } from "@/utils/date";
+import { formatStat } from "@/utils/stats";
+import { Card, Title } from "@tremor/react";
+import groupBy from "lodash/groupBy";
+import { FilterIcon, Users2Icon } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { usePostHog } from "posthog-js/react";
+import React, { useState } from "react";
+import useSWR from "swr";
 
 export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
   const session = useSession();
@@ -215,7 +215,8 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
         <NewsletterModal
           newsletter={openedNewsletter}
           onClose={() => setOpenedNewsletter(undefined)}
-          refreshInterval={props.refreshInterval}
+          refreshInterval={refreshInterval}
+          mutate={mutate}
         />
       )}
       <PremiumModal />
