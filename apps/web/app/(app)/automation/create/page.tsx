@@ -13,7 +13,6 @@ import {
   TypographyH3,
 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { createAutomationAction } from "@/utils/actions/ai-rule";
 import { isActionError } from "@/utils/error";
 import { toastError, toastInfo } from "@/components/Toast";

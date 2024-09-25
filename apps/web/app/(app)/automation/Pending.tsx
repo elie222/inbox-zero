@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { AlertBasic } from "@/components/Alert";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 import { toastError } from "@/components/Toast";

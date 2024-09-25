@@ -20,7 +20,6 @@ import { usePostHog } from "posthog-js/react";
 import { HelpCircleIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import {

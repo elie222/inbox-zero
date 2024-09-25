@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type PostHog, usePostHog } from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { Input } from "@/components/Input";
 import { env } from "@/env";
 import {

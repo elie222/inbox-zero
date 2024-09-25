@@ -5,7 +5,6 @@ import useSWR from "swr";
 import { useAtomValue } from "jotai";
 import { LayersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { useModal, Modal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
