@@ -8,7 +8,7 @@ import withSerwistInit from "@serwist/next";
 const jiti = createJiti(fileURLToPath(import.meta.url));
 
 // Import env here to validate during build. Using jiti we can import .ts files :)
-const { env } = jiti("./env");
+jiti("./env");
 
 const withMDX = nextMdx();
 
@@ -173,8 +173,8 @@ const sentryOptions = {
 
   // Suppresses source map uploading logs during build
   silent: true,
-  org: env.SENTRY_ORGANIZATION,
-  project: env.SENTRY_PROJECT,
+  org: process.env.SENTRY_ORGANIZATION,
+  project: process.env.SENTRY_PROJECT,
 };
 
 const sentryConfig = {
@@ -206,7 +206,9 @@ const sentryConfig = {
 const mdxConfig = withMDX(nextConfig);
 
 const useSentry =
-  env.NEXT_PUBLIC_SENTRY_DSN && env.SENTRY_ORGANIZATION && env.SENTRY_PROJECT;
+  process.env.NEXT_PUBLIC_SENTRY_DSN &&
+  process.env.SENTRY_ORGANIZATION &&
+  process.env.SENTRY_PROJECT;
 
 const exportConfig = useSentry
   ? withSentryConfig(mdxConfig, { ...sentryOptions, ...sentryConfig })
