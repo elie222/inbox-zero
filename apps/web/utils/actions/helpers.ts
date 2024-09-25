@@ -1,5 +1,5 @@
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { captureException, ServerActionResponse } from "@/utils/error";
+import { captureException, type ServerActionResponse } from "@/utils/error";
 import { getGmailClient } from "@/utils/gmail/client";
 
 // do not return functions to the client or we'll get an error

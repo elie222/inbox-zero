@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
-import { type UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 
 const parameters = z.object({
   rules: z
