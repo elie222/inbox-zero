@@ -72,7 +72,7 @@
     "date-fns": "^3.6.0",
     "diff": "^7.0.0",
     "encoding": "^0.1.13",
-    "eslint": "^9.10.0",
+    "eslint": "^8.57.1",
     "eslint-config-next": "14.2.11",
     "framer-motion": "^11.5.4",
     "gmail-api-parse-message": "^2.1.2",
