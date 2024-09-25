@@ -18,12 +18,12 @@ export const pricing: Record<PremiumTier, number> = {
 };
 
 export const pricingAdditonalEmail: Record<PremiumTier, number> = {
-  [PremiumTier.BASIC_MONTHLY]: 2,
-  [PremiumTier.BASIC_ANNUALLY]: 1.5,
-  [PremiumTier.PRO_MONTHLY]: 3,
-  [PremiumTier.PRO_ANNUALLY]: 2.5,
-  [PremiumTier.BUSINESS_MONTHLY]: 3.5,
-  [PremiumTier.BUSINESS_ANNUALLY]: 3,
+  [PremiumTier.BASIC_MONTHLY]: 4,
+  [PremiumTier.BASIC_ANNUALLY]: 4,
+  [PremiumTier.PRO_MONTHLY]: 6,
+  [PremiumTier.PRO_ANNUALLY]: 6,
+  [PremiumTier.BUSINESS_MONTHLY]: 8,
+  [PremiumTier.BUSINESS_ANNUALLY]: 8,
   [PremiumTier.COPILOT_MONTHLY]: 0,
   [PremiumTier.LIFETIME]: 59,
 };
