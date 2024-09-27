@@ -53,7 +53,7 @@ export function HeroAB({ variantKey }: { variantKey: string }) {
     <Hero
       title={
         <span
-          className={`transition-opacity duration-300 ease-in-out ${
+          className={`transition-opacity duration-500 ease-in-out ${
             isHydrated ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -62,7 +62,7 @@ export function HeroAB({ variantKey }: { variantKey: string }) {
       }
       subtitle={
         <span
-          className={`transition-opacity duration-300 ease-in-out ${
+          className={`transition-opacity duration-500 ease-in-out ${
             isHydrated ? "opacity-100" : "opacity-0"
           }`}
         >
