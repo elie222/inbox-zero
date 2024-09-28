@@ -102,9 +102,8 @@ export function ColdEmailList() {
                   variant="outline"
                   onClick={markNotColdEmailSelected}
                   // disabled={isApproving || isRejecting}
-                  disabled={isRejecting}
+                  loading={isRejecting}
                 >
-                  {isRejecting && <ButtonLoader />}
                   Mark Not Cold Email
                 </Button>
               </div>
@@ -204,9 +203,8 @@ function Row({
               mutate();
               setIsMarkingColdEmail(false);
             }}
-            disabled={isMarkingColdEmail}
+            loading={isMarkingColdEmail}
           >
-            {isMarkingColdEmail && <ButtonLoader />}
             Not cold email
           </Button>
         </div>

@@ -1,18 +1,17 @@
 "use client";
 
-import type { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
-import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
-import { toastError, toastSuccess } from "@/components/Toast";
-import { postRequest } from "@/utils/api";
-import { isError } from "lodash";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
+import type { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
+import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { postRequest } from "@/utils/api";
+import { isError } from "@/utils/error";
 
 type Context = {
   isLoading: boolean;
@@ -29,38 +28,42 @@ const StatLoaderContext = createContext<Context>({
 
 export const useStatLoader = () => useContext(StatLoaderContext);
 
+class StatLoader {
+  #isLoading = false;
+
+  async loadStats(options: { loadBefore: boolean; showToast: boolean }) {
+    if (this.#isLoading) return;
+
+    this.#isLoading = true;
+
+    const res = await postRequest<
+      LoadTinybirdEmailsResponse,
+      LoadTinybirdEmailsBody
+    >("/api/user/stats/tinybird/load", {
+      loadBefore: options.loadBefore,
+    });
+
+    if (options.showToast) {
+      if (isError(res)) {
+        toastError({ description: `Error loading stats.` });
+      } else {
+        toastSuccess({ description: `Stats loaded!` });
+      }
+    }
+
+    this.#isLoading = false;
+  }
+}
+
+const statLoader = new StatLoader();
+
 export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
-  // avoid infinite loops by avoiding passing `isLoading` as a dependency to `onLoad`
-  const isLoadingRef = useRef(isLoading);
-
-  // Update the ref whenever isLoading changes
-  useEffect(() => {
-    isLoadingRef.current = isLoading;
-  }, [isLoading]);
-
   const onLoad = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
-      if (isLoadingRef.current) return;
-
       setIsLoading(true);
-
-      const res = await postRequest<
-        LoadTinybirdEmailsResponse,
-        LoadTinybirdEmailsBody
-      >("/api/user/stats/tinybird/load", {
-        loadBefore: options.loadBefore,
-      });
-
-      if (options.showToast) {
-        if (isError(res)) {
-          toastError({ description: `Error loading stats.` });
-        } else {
-          toastSuccess({ description: `Stats loaded!` });
-        }
-      }
-
+      await statLoader.loadStats(options);
       setIsLoading(false);
     },
     [],

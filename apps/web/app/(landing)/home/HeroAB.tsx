@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useFeatureFlagVariantKey } from "posthog-js/react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Hero } from "@/app/(landing)/home/Hero";
 
 const copy: {
   [key: string]: {
@@ -31,20 +32,43 @@ const copy: {
   },
 };
 
-export function HeroHeadingAB(props: { variantKey: string }) {
-  const variant = useFeatureFlagVariantKey(props.variantKey);
+// allow this to work for search engines while avoiding flickering text for users
+// ssr method relied on cookies in the root layout which broke static page generation of blog posts
+export function HeroAB({ variantKey }: { variantKey: string }) {
+  const [title, setTitle] = useState(copy.control.title);
+  const [subtitle, setSubtitle] = useState(copy.control.subtitle);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  if (!variant) return <Skeleton className="h-28 w-full rounded" />;
-  if (typeof variant !== "string") return <>{copy.control.title}</>;
+  const variant = useFeatureFlagVariantKey(variantKey);
 
-  return <>{copy[variant]?.title || copy.control.title}</>;
-}
+  useEffect(() => {
+    if (variant && copy[variant as string]) {
+      setTitle(copy[variant as string].title);
+      setSubtitle(copy[variant as string].subtitle);
+    }
+    setIsHydrated(true);
+  }, [variant]);
 
-export function HeroSubtitleAB(props: { variantKey: string }) {
-  const variant = useFeatureFlagVariantKey(props.variantKey);
-
-  if (!variant) return <Skeleton className="h-24 w-full rounded" />;
-  if (typeof variant !== "string") return <>{copy.control.subtitle}</>;
-
-  return <>{copy[variant]?.subtitle || copy.control.subtitle}</>;
+  return (
+    <Hero
+      title={
+        <span
+          className={`transition-opacity duration-500 ease-in-out ${
+            isHydrated ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {title}
+        </span>
+      }
+      subtitle={
+        <span
+          className={`transition-opacity duration-500 ease-in-out ${
+            isHydrated ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {subtitle}
+        </span>
+      }
+    />
+  );
 }

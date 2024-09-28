@@ -6,9 +6,9 @@ import createJiti from "jiti";
 import withSerwistInit from "@serwist/next";
 
 const jiti = createJiti(fileURLToPath(import.meta.url));
- 
+
 // Import env here to validate during build. Using jiti we can import .ts files :)
-const env = jiti("./env");
+jiti("./env");
 
 const withMDX = nextMdx();
 
@@ -37,53 +37,53 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "cdn.sanity.io"
-      }
+        hostname: "cdn.sanity.io",
+      },
     ],
   },
   async redirects() {
     return [
       {
-        source: '/',
-        destination: '/bulk-unsubscribe',
+        source: "/",
+        destination: "/bulk-unsubscribe",
         has: [
           {
-            type: 'cookie',
-            key: '__Secure-authjs.session-token',
-          }
+            type: "cookie",
+            key: "__Secure-authjs.session-token",
+          },
         ],
         permanent: false,
       },
       {
-        source: '/',
-        destination: '/bulk-unsubscribe',
+        source: "/",
+        destination: "/bulk-unsubscribe",
         has: [
           {
-            type: 'cookie',
-            key: '__Secure-authjs.session-token.0',
-          }
+            type: "cookie",
+            key: "__Secure-authjs.session-token.0",
+          },
         ],
         permanent: false,
       },
       {
-        source: '/',
-        destination: '/bulk-unsubscribe',
+        source: "/",
+        destination: "/bulk-unsubscribe",
         has: [
           {
-            type: 'cookie',
-            key: '__Secure-authjs.session-token.1',
-          }
+            type: "cookie",
+            key: "__Secure-authjs.session-token.1",
+          },
         ],
         permanent: false,
       },
       {
-        source: '/',
-        destination: '/bulk-unsubscribe',
+        source: "/",
+        destination: "/bulk-unsubscribe",
         has: [
           {
-            type: 'cookie',
-            key: '__Secure-authjs.session-token.2',
-          }
+            type: "cookie",
+            key: "__Secure-authjs.session-token.2",
+          },
         ],
         permanent: false,
       },
@@ -173,8 +173,8 @@ const sentryOptions = {
 
   // Suppresses source map uploading logs during build
   silent: true,
-  org: env.SENTRY_ORGANIZATION,
-  project: env.SENTRY_PROJECT,
+  org: process.env.SENTRY_ORGANIZATION,
+  project: process.env.SENTRY_PROJECT,
 };
 
 const sentryConfig = {
@@ -205,10 +205,14 @@ const sentryConfig = {
 
 const mdxConfig = withMDX(nextConfig);
 
-const exportConfig =
-  env.NEXT_PUBLIC_SENTRY_DSN && env.SENTRY_ORGANIZATION && env.SENTRY_PROJECT
-    ? withSentryConfig(mdxConfig, { ...sentryOptions, ...sentryConfig })
-    : mdxConfig;
+const useSentry =
+  process.env.NEXT_PUBLIC_SENTRY_DSN &&
+  process.env.SENTRY_ORGANIZATION &&
+  process.env.SENTRY_PROJECT;
+
+const exportConfig = useSentry
+  ? withSentryConfig(mdxConfig, { ...sentryOptions, ...sentryConfig })
+  : mdxConfig;
 
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",

@@ -1,72 +1,7 @@
-import { z } from "zod";
-import { ActionType } from "@prisma/client";
+import type { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionTools } from "@/utils/llms";
-import { GroupName } from "@/utils/config";
-
-const createRuleSchema = z.object({
-  name: z.string().describe("The name of the rule"),
-  // `requiresAI` helps prevent the subject line being set too narrowly
-  requiresAI: z
-    .enum(["yes", "no"])
-    .describe(
-      "Yes, if an AI is required to process each email. No, if we can create static conditions to process the emails.",
-    ),
-  actions: z
-    .array(
-      z.object({
-        type: z.nativeEnum(ActionType).describe("The type of the action"),
-        label: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The label to apply to the email"),
-        to: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The to email address to send the email to"),
-        cc: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The cc email address to send the email to"),
-        bcc: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The bcc email address to send the email to"),
-        subject: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The subject of the email"),
-        content: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The content of the email"),
-      }),
-    )
-    .describe("The actions to take"),
-  staticConditions: z
-    .object({
-      from: z.string().optional().describe("The from email address to match"),
-      to: z.string().optional().describe("The to email address to match"),
-      subject: z
-        .string()
-        .optional()
-        .describe(
-          "The subject to match. Leave blank if AI is required to process the subject line.",
-        ),
-    })
-    .optional()
-    .describe("The static conditions to match"),
-  group: z
-    .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
-    .optional()
-    .describe("The group to match"),
-});
+import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 
 export async function aiCreateRule(
   instructions: string,
@@ -90,5 +25,28 @@ export async function aiCreateRule(
     label: "Categorize rule",
   });
 
-  return aiResponse.toolCalls[0].args as z.infer<typeof createRuleSchema>;
+  const result = aiResponse.toolCalls[0].args as z.infer<
+    typeof createRuleSchema
+  >;
+
+  return {
+    ...result,
+    actions: result.actions.map((action) => ({
+      type: action.type,
+      // static
+      label: action.static?.label ?? undefined,
+      to: action.static?.to ?? undefined,
+      cc: action.static?.cc ?? undefined,
+      bcc: action.static?.bcc ?? undefined,
+      subject: action.static?.subject ?? undefined,
+      content: action.static?.content ?? undefined,
+      // ai
+      labelPrompt: action.aiPrompts?.label ?? undefined,
+      toPrompt: action.aiPrompts?.to ?? undefined,
+      ccPrompt: action.aiPrompts?.cc ?? undefined,
+      bccPrompt: action.aiPrompts?.bcc ?? undefined,
+      subjectPrompt: action.aiPrompts?.subject ?? undefined,
+      contentPrompt: action.aiPrompts?.content ?? undefined,
+    })),
+  };
 }

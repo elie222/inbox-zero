@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Panel } from "./Panel";
 import { logOut } from "@/utils/user";
+import { env } from "@/env";
 
 // TODO would be better to have a consistent definition here. didn't want to break things.
 export function ErrorDisplay(props: {
@@ -12,15 +13,22 @@ export function ErrorDisplay(props: {
   if (props.error?.info?.error || props.error?.error)
     return (
       <NotFound>
-        There was an error: {props.error?.info?.error || props.error?.error}
+        <p>There was an error:</p>
+        <p>{props.error?.info?.error || props.error?.error}</p>
       </NotFound>
     );
 
   if (props.error) {
     return (
       <NotFound>
-        There was an error. Please refresh or contact support if the error
-        persists.
+        <p>There was an error.</p>
+        <p>
+          Please refresh or contact support at{" "}
+          <a href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}>
+            {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+          </a>{" "}
+          if the error persists.
+        </p>
       </NotFound>
     );
   }

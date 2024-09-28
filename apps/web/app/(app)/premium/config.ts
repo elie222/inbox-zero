@@ -7,23 +7,23 @@ export const frequencies = [
 ];
 
 export const pricing: Record<PremiumTier, number> = {
-  [PremiumTier.BASIC_MONTHLY]: 10,
+  [PremiumTier.BASIC_MONTHLY]: 12,
   [PremiumTier.BASIC_ANNUALLY]: 6,
-  [PremiumTier.PRO_MONTHLY]: 14,
-  [PremiumTier.PRO_ANNUALLY]: 9,
-  [PremiumTier.BUSINESS_MONTHLY]: 22,
-  [PremiumTier.BUSINESS_ANNUALLY]: 15,
+  [PremiumTier.PRO_MONTHLY]: 16,
+  [PremiumTier.PRO_ANNUALLY]: 8,
+  [PremiumTier.BUSINESS_MONTHLY]: 24,
+  [PremiumTier.BUSINESS_ANNUALLY]: 12,
   [PremiumTier.COPILOT_MONTHLY]: 99,
   [PremiumTier.LIFETIME]: 299,
 };
 
 export const pricingAdditonalEmail: Record<PremiumTier, number> = {
-  [PremiumTier.BASIC_MONTHLY]: 2,
-  [PremiumTier.BASIC_ANNUALLY]: 1.5,
-  [PremiumTier.PRO_MONTHLY]: 3,
-  [PremiumTier.PRO_ANNUALLY]: 2.5,
-  [PremiumTier.BUSINESS_MONTHLY]: 3.5,
-  [PremiumTier.BUSINESS_ANNUALLY]: 3,
+  [PremiumTier.BASIC_MONTHLY]: 4,
+  [PremiumTier.BASIC_ANNUALLY]: 4,
+  [PremiumTier.PRO_MONTHLY]: 6,
+  [PremiumTier.PRO_ANNUALLY]: 6,
+  [PremiumTier.BUSINESS_MONTHLY]: 8,
+  [PremiumTier.BUSINESS_ANNUALLY]: 8,
   [PremiumTier.COPILOT_MONTHLY]: 0,
   [PremiumTier.LIFETIME]: 59,
 };
@@ -83,7 +83,7 @@ const proTier = {
   description: "Unlock AI features when using your own AI API key",
   features: [
     "Everything in Basic",
-    "AI email assistant when using your own AI API key",
+    "AI personal assistant when using your own AI API key",
     "Cold email blocker when using your own AI API key",
   ],
   cta: "Upgrade",
@@ -114,19 +114,12 @@ const businessTier = {
   },
   description: "Unlock full AI-powered email management",
   features: [
-    "Everything in Pro",
+    "Everything in Basic",
+    "AI personal assistant",
+    "Cold email blocker",
     "Unlimited AI credits",
-    "No need to provide your own AI API key",
     "Priority support",
   ],
-  // features: [
-  //   "AI email assistant",
-  //   "Bulk email unsubscriber",
-  //   "Cold email blocker",
-  //   "Email analytics",
-  //   "Unlimited AI credits",
-  //   "Priority support",
-  // ],
   cta: "Upgrade",
   mostPopular: true,
 };
@@ -150,11 +143,10 @@ const copilotTier = {
     annually: pricingAdditonalEmail.COPILOT_MONTHLY,
   },
   discount: { monthly: 0, annually: 0 },
-  description:
-    "Get a 30-minute monthly call to help you get your email organized",
+  description: "Tailored email strategy with monthly expert coaching",
   features: [
     "Everything in Business",
-    "30-minute 1:1 monthly call to help you get your email organized",
+    "30-minute 1:1 monthly call to get your email under control",
     "Full refund if not satisfied",
   ],
   cta: "Upgrade",
@@ -174,9 +166,9 @@ export const tiers: {
   mostPopular?: boolean;
 }[] = [
   basicTier,
-  proTier,
+  // proTier,
   businessTier,
-  // copilotTier,
+  copilotTier,
 ];
 
 export const lifetimeFeatures = [

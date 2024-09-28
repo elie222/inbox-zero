@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
@@ -72,7 +72,12 @@ async function storePosthogSignupEvent(userId: string, email: string) {
     return;
   }
 
-  return posthogCaptureEvent(email, "User signed up", {
-    $set_once: { createdAt: userCreatedAt.createdAt },
-  });
+  return posthogCaptureEvent(
+    email,
+    "User signed up",
+    {
+      $set_once: { createdAt: userCreatedAt.createdAt },
+    },
+    true,
+  );
 }

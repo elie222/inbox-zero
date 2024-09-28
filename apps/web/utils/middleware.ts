@@ -1,6 +1,7 @@
 import { ZodError } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
 import type { StreamingTextResponse } from "ai";
+import { setUser } from "@sentry/nextjs";
 import { captureException, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
@@ -39,6 +40,8 @@ export function withError(handler: NextHandler): NextHandler {
             return NextResponse.json({ error: "Not authenticated" });
 
           const email = session.user.email;
+
+          setUser({ email });
 
           await posthogCaptureEvent(
             email,

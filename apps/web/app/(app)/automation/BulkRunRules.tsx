@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 import useSWR from "swr";
 import { useAtomValue } from "jotai";
+import { LayersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { useModal, Modal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
@@ -40,7 +40,8 @@ export function BulkRunRules() {
   return (
     <div>
       <Button type="button" variant="outline" onClick={openModal}>
-        Bulk Run on Inbox
+        <LayersIcon className="mr-2 h-4 w-4" />
+        Configure Bulk Run
       </Button>
       <Modal
         isOpen={isModalOpen}
@@ -86,6 +87,7 @@ export function BulkRunRules() {
                       <Button
                         type="button"
                         disabled={running || !startDate}
+                        loading={running}
                         onClick={async () => {
                           if (!startDate) return;
                           setRunning(true);
@@ -97,7 +99,6 @@ export function BulkRunRules() {
                           );
                         }}
                       >
-                        {running && <ButtonLoader />}
                         Run AI On All Inbox Emails
                       </Button>
                       {running && (

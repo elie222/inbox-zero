@@ -3,10 +3,9 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PostHog, usePostHog } from "posthog-js/react";
+import { type PostHog, usePostHog } from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { Input } from "@/components/Input";
 import { env } from "@/env";
 import {
@@ -14,7 +13,7 @@ import {
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
 import { aiHomePath, appHomePath } from "@/utils/config";
-import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -80,19 +79,15 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        // A/B test for AI Automation
-        if (
-          posthog.getFeatureFlag("welcome-to-ai-automation") === "ai-if-chosen"
-        ) {
+        if (process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) {
+          router.push("/welcome-upgrade");
+        } else {
           // send to automation home if AI Automation is chosen
           if (responses["$survey_response"].includes("AI Automation")) {
             router.push(aiHomePath);
           } else {
             router.push(appHomePath);
           }
-        } else {
-          // send to app home
-          router.push(appHomePath);
         }
       } else {
         router.push(`/welcome?${newSeachParams}`);
@@ -163,29 +158,27 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             <Button
               className="mt-4 w-full"
               type="submit"
-              disabled={isSubmitting}
+              loading={isSubmitting}
             >
-              {isSubmitting && <ButtonLoader />}
               Get Started
             </Button>
           </div>
         )}
 
         {(question.type === "multiple_choice" || showOtherInput) && (
-          <Button className="mt-4 w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting && <ButtonLoader />}
+          <Button className="mt-4 w-full" type="submit" loading={isSubmitting}>
             Next
           </Button>
         )}
 
-        {!isFinalQuestion && (
+        {/* {!isFinalQuestion && (
           <SkipOnboardingButton
             searchParams={searchParams}
             submitPosthog={submitPosthog}
             posthog={posthog}
             router={router}
           />
-        )}
+        )} */}
       </div>
     </form>
   );
@@ -202,9 +195,9 @@ function SkipOnboardingButton({
   posthog: PostHog;
   router: AppRouterInstance;
 }) {
-  // A/B test whether to show skip onboarding button
-  if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
-    return null;
+  // // A/B test whether to show skip onboarding button
+  // if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
+  //   return null;
 
   return (
     <Button

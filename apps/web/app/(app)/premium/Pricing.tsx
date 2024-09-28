@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
-import { CheckIcon, CreditCardIcon } from "lucide-react";
+import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
@@ -46,7 +46,7 @@ function buildLemonUrl(url: string, affiliateCode: string | null) {
   return newUrl;
 }
 
-export function Pricing() {
+export function Pricing(props: { header?: React.ReactNode }) {
   const { isPremium, data, isLoading, error } = usePremium();
   const session = useSession();
 
@@ -55,26 +55,30 @@ export function Pricing() {
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(data?.premium);
 
+  const header = props.header || (
+    <div className="mb-12">
+      <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
+        <h2 className="font-cal text-base leading-7 text-blue-600">Pricing</h2>
+        <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
+          Try for free, affordable paid plans
+        </p>
+      </div>
+      <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
+        No hidden fees. Cancel anytime.
+      </p>
+    </div>
+  );
+
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div
         id="pricing"
         className="relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8"
       >
-        <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
-          <h2 className="font-cal text-base leading-7 text-blue-600">
-            Pricing
-          </h2>
-          <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
-            Try for free, affordable paid plans
-          </p>
-        </div>
-        <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
-          No hidden fees. Cancel anytime.
-        </p>
+        {header}
 
         {isPremium && (
-          <div className="mt-8 text-center">
+          <div className="mb-8 mt-8 text-center">
             <Button
               link={{
                 href: `https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`,
@@ -83,6 +87,11 @@ export function Pricing() {
             >
               <CreditCardIcon className="mr-2 h-4 w-4" />
               Manage subscription
+            </Button>
+
+            <Button link={{ href: "/automation" }} color="blue">
+              <SparklesIcon className="mr-2 h-4 w-4" />
+              Use Inbox Zero
             </Button>
 
             {premiumTier && (
@@ -109,7 +118,7 @@ export function Pricing() {
           </div>
         )}
 
-        <div className="mt-16 flex items-center justify-center">
+        <div className="flex items-center justify-center">
           <RadioGroup
             value={frequency}
             onChange={setFrequency}
@@ -133,7 +142,7 @@ export function Pricing() {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 40%!</Badge>
+            <Badge>Save 50%!</Badge>
           </div>
         </div>
 
@@ -353,9 +362,9 @@ function LifetimePricing(props: {
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
+    <span className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
       {children}
-    </p>
+    </span>
   );
 }
 

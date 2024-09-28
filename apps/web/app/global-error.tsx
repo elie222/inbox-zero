@@ -11,7 +11,7 @@ export default function GlobalError({ error }: any) {
 
   return (
     <html>
-      <body>
+      <body className="p-4">
         <ErrorDisplay error={{ error: error?.message }} />
       </body>
     </html>

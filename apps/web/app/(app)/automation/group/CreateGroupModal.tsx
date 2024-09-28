@@ -5,7 +5,6 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {
@@ -66,8 +65,8 @@ export function CreateGroupModalButton(props: {
                   setNewsletterLoading(false);
                   mutate("/api/user/group");
                 }}
+                loading={newsletterLoading}
               >
-                {newsletterLoading && <ButtonLoader />}
                 Newsletter
               </Button>
             )}
@@ -89,8 +88,8 @@ export function CreateGroupModalButton(props: {
                   setReceiptsLoading(false);
                   mutate("/api/user/group");
                 }}
+                loading={receiptsLoading}
               >
-                {receiptsLoading && <ButtonLoader />}
                 Receipt
               </Button>
             )}
@@ -167,8 +166,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         registerProps={register("prompt", { required: true })}
         error={errors.prompt}
       /> */}
-      <Button type="submit">
-        {isSubmitting && <ButtonLoader />}
+      <Button type="submit" loading={isSubmitting}>
         Create
       </Button>
     </form>

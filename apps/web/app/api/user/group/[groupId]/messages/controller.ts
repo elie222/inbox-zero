@@ -1,12 +1,12 @@
 import prisma from "@/utils/prisma";
-import { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import { createHash } from "crypto";
 import groupBy from "lodash/groupBy";
 import { getMessage } from "@/utils/gmail/message";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { parseMessage } from "@/utils/mail";
 import { extractEmailAddress } from "@/utils/email";
-import { GroupItem, GroupItemType } from "@prisma/client";
+import { type GroupItem, GroupItemType } from "@prisma/client";
 import type { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
 import { SafeError } from "@/utils/error";
 

@@ -7,7 +7,6 @@ import {
   useBulkDelete,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
-import { ButtonLoader } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
@@ -62,9 +61,8 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkUnsubscribe(getSelectedValues())}
-              disabled={bulkUnsubscribeLoading}
+              loading={bulkUnsubscribeLoading}
             >
-              {bulkUnsubscribeLoading && <ButtonLoader />}
               Unsubscribe
             </Button>
           </div>
@@ -73,9 +71,8 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkAutoArchive(getSelectedValues())}
-              disabled={bulkAutoArchiveLoading}
+              loading={bulkAutoArchiveLoading}
             >
-              {bulkAutoArchiveLoading && <ButtonLoader />}
               Auto Archive
             </Button>
           </div>
@@ -84,9 +81,8 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkApprove(getSelectedValues())}
-              disabled={bulkApproveLoading}
+              loading={bulkApproveLoading}
             >
-              {bulkApproveLoading && <ButtonLoader />}
               Approve
             </Button>
           </div>

@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { ServerActionResponse } from "@/utils/error";
+import type { ServerActionResponse } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { NewsletterStatus } from "@prisma/client";
 

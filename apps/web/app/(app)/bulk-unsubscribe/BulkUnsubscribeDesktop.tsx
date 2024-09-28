@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import type React from "react";
 import { ProgressBar } from "@tremor/react";
 import {
   Table,
@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ActionCell, HeaderButton } from "@/app/(app)/bulk-unsubscribe/common";
-import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
+import type { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
 import { Checkbox } from "@/components/Checkbox";
 
 export function BulkUnsubscribeDesktop({

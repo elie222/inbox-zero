@@ -11,7 +11,7 @@ import {
 import type { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
 import type { Thread } from "@/components/email-list/types";
-import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
 
 const queue = new PQueue({ concurrency: 3 });

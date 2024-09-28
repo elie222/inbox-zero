@@ -1,5 +1,5 @@
 import type { PortableTextBlock } from "@portabletext/react";
-import { PortableTextSpan } from "sanity";
+import type { PortableTextSpan } from "sanity";
 
 export const slugify = (text: string) => {
   return text

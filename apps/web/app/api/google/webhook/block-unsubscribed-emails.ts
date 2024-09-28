@@ -1,4 +1,4 @@
-import { type gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "googleapis";
 import {
   getOrCreateLabel,
   INBOX_LABEL_ID,
