@@ -79,7 +79,7 @@ export default function Mail({
 
   const handleLoadMore = useCallback(() => {
     setSize((size) => size + 1);
-  }, []);
+  }, [setSize]);
 
   return (
     <>
