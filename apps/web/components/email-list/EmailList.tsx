@@ -488,12 +488,12 @@ export function EmailList(props: {
                   />
                 );
               })}
-              {/* Load more button to fetch more data */}
               {showLoadMore && (
-                <div className="pb-2">
+                <>
                   <Button
                     variant="outline"
-                    className="w-full py-4"
+                    className="mb-2 w-full"
+                    size={"sm"}
                     onClick={handleLoadMore}
                     disabled={isLoadingMore}
                   >
@@ -508,7 +508,7 @@ export function EmailList(props: {
                       </>
                     }
                   </Button>
-                </div>
+                </>
               )}
             </ul>
           }

@@ -25,11 +25,12 @@ export default function Mail({
     previousPageData: ThreadsResponse | null,
   ) => {
     if (previousPageData && !previousPageData.nextPageToken) return null;
-    // For the first page, use the base query
-    if (pageIndex === 0)
-      return `/api/google/threads?${new URLSearchParams(query as Record<string, string>).toString()}`;
-    // For subsequent pages, append the nextPageToken
-    return `/api/google/threads?nextPageToken=${previousPageData?.nextPageToken}&${new URLSearchParams(query as any).toString()}`;
+    const queryParams = new URLSearchParams(query as Record<string, string>);
+    // Append nextPageToken for subsequent pages
+    if (pageIndex > 0 && previousPageData?.nextPageToken) {
+      queryParams.set("nextPageToken", previousPageData.nextPageToken);
+    }
+    return `/api/google/threads?${queryParams.toString()}`;
   };
 
   const { data, size, setSize, isLoading, error, mutate } =
@@ -76,9 +77,9 @@ export default function Mail({
     setRefetchEmailList({ refetch });
   }, [refetch, setRefetchEmailList]);
 
-  const handleLoadMore = () => {
-    setSize(size + 1);
-  };
+  const handleLoadMore = useCallback(() => {
+    setSize((size) => size + 1);
+  }, []);
 
   return (
     <>
