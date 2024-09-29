@@ -1,7 +1,7 @@
 "use client";
 
 import { subDays } from "date-fns";
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
@@ -13,6 +13,9 @@ import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { LoadProgress } from "@/app/(app)/stats/LoadProgress";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { EmailActionsAnalytics } from "@/app/(app)/stats/EmailActionsAnalytics";
+import { BulkUnsubscribeSummary } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
+import { Card } from "@/components/Card";
+import { Title } from "@tremor/react";
 // import { Insights } from "@/app/(app)/stats/Insights";
 
 const selectOptions = [
@@ -97,6 +100,17 @@ export function Stats() {
           period={period}
           refreshInterval={refreshInterval}
         />
+      </div>
+
+      <div className="mt-4 px-4">
+        <Card>
+          <Title>
+            How many emailers you've handled with Inbox Zero bulk unsubscribe
+          </Title>
+          <div className="mt-2">
+            <BulkUnsubscribeSummary />
+          </div>
+        </Card>
       </div>
 
       <div className="mt-4 px-4">

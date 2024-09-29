@@ -1,5 +1,11 @@
 import { usePostHog } from "posthog-js/react";
 import {
+  ArchiveIcon,
+  BadgeCheckIcon,
+  MailMinusIcon,
+  TrashIcon,
+} from "lucide-react";
+import {
   useBulkUnsubscribe,
   useBulkApprove,
   useBulkAutoArchive,
@@ -46,7 +52,7 @@ export function BulkActions({
 
   const getSelectedValues = () =>
     Array.from(selected.entries())
-      .filter(([_, value]) => value)
+      .filter(([, value]) => value)
       .map(([name, value]) => ({
         name,
         value,
@@ -63,6 +69,7 @@ export function BulkActions({
               onClick={() => onBulkUnsubscribe(getSelectedValues())}
               loading={bulkUnsubscribeLoading}
             >
+              <MailMinusIcon className="mr-2 size-4" />
               Unsubscribe
             </Button>
           </div>
@@ -73,6 +80,7 @@ export function BulkActions({
               onClick={() => onBulkAutoArchive(getSelectedValues())}
               loading={bulkAutoArchiveLoading}
             >
+              <ArchiveIcon className="mr-2 size-4" />
               Auto Archive
             </Button>
           </div>
@@ -83,6 +91,7 @@ export function BulkActions({
               onClick={() => onBulkApprove(getSelectedValues())}
               loading={bulkApproveLoading}
             >
+              <BadgeCheckIcon className="mr-2 size-4" />
               Approve
             </Button>
           </div>
@@ -92,6 +101,7 @@ export function BulkActions({
               variant="outline"
               onClick={() => onBulkArchive(getSelectedValues())}
             >
+              <ArchiveIcon className="mr-2 size-4" />
               Archive All
             </Button>
           </div>
@@ -101,6 +111,7 @@ export function BulkActions({
               variant="outline"
               onClick={() => onBulkDelete(getSelectedValues())}
             >
+              <TrashIcon className="mr-2 size-4" />
               Delete All
             </Button>
           </div>

@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { NewsletterSummaryResponse } from "@/app/api/user/stats/newsletters/summary/route";
 import { NewsletterStatus } from "@prisma/client";
 
-export default function BulkUnsubscribeSummary() {
+export function BulkUnsubscribeSummary() {
   const { data, isLoading, error } = useSWR<
     NewsletterSummaryResponse,
     { error: string }
@@ -34,7 +34,7 @@ export default function BulkUnsubscribeSummary() {
             icon: <UserRoundMinusIcon className="h-4 w-4" />,
           },
           {
-            name: "Auto archives",
+            name: "Auto archived",
             value: formatStat(
               data?.result?.[NewsletterStatus.AUTO_ARCHIVED] || 0,
             ),
