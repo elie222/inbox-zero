@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { SparklesIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Container } from "@/components/Container";
 import {
@@ -12,11 +13,10 @@ import {
 } from "@/components/Typography";
 import { Button } from "@/components/Button";
 import { Button as ShadButton } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBasic } from "@/components/Alert";
-import { SparklesIcon } from "lucide-react";
+import { TestErrorButton } from "@/app/(landing)/components/TestError";
 
 export default function Components() {
   return (
@@ -61,8 +61,7 @@ export default function Components() {
             <ShadButton variant="default">ShadButton Default</ShadButton>
             <ShadButton variant="secondary">ShadButton Secondary</ShadButton>
             <ShadButton variant="outline">ShadButton Outline</ShadButton>
-            <ShadButton variant="outline">
-              <ButtonLoader />
+            <ShadButton variant="outline" loading>
               ShadButton Loading
             </ShadButton>
             <ShadButton variant="ghost">ShadButton Ghost</ShadButton>
@@ -139,6 +138,8 @@ export default function Components() {
             />
           </div>
         </div>
+
+        <TestErrorButton />
       </div>
     </Container>
   );

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import addDays from "date-fns/addDays";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "@/app/api/google/watch/controller";

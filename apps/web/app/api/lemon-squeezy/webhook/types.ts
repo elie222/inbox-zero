@@ -42,13 +42,13 @@ export interface Attributes {
   variant_name: string;
   user_name: string;
   user_email: string;
-  status: string;
+  status: string; // on_trial, active, cancelled, past_due, and optionally paused.
   status_formatted: string;
   card_brand: string;
   card_last_four: string;
   pause: any;
   cancelled: boolean;
-  trial_ends_at: any;
+  trial_ends_at?: string;
   billing_anchor: number;
   urls: Urls;
   renews_at?: string;

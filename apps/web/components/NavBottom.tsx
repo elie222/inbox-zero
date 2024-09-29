@@ -50,7 +50,7 @@ function NavBarBottom({
 const links = [
   {
     path: "/automation",
-    label: "AI Email Assistant",
+    label: "AI Personal Assistant",
     icon: SparklesIcon,
   },
   {

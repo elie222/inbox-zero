@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { type PostHog } from "posthog-js/react";
+import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
@@ -13,8 +13,8 @@ import {
   archiveAllSenderEmails,
   deleteEmails,
 } from "@/providers/QueueProvider";
-import { Row } from "@/app/(app)/bulk-unsubscribe/types";
-import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
 
 async function unsubscribeAndArchive(

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import type React from "react";
 import Link from "next/link";
 import {
   useUnsubscribe,
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { usePostHog } from "posthog-js/react";
-import { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
+import type { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { NewsletterStatus } from "@prisma/client";

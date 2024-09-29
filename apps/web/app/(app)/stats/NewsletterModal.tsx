@@ -28,7 +28,7 @@ import { AlertBasic } from "@/components/Alert";
 import { onAutoArchive } from "@/utils/actions/client";
 import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
-import { Row } from "@/app/(app)/bulk-unsubscribe/types";
+import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import { usePostHog } from "posthog-js/react";
 
 export function NewsletterModal(props: {

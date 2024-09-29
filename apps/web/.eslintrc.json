@@ -1,6 +1,6 @@
 {
   "root": true,
-  "extends": ["@inboxzero/eslint-config"],
+  "extends": ["@inboxzero/eslint-config/next.js"],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "project": true

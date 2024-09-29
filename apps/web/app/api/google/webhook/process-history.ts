@@ -42,7 +42,10 @@ export async function processHistoryForUser(
           email: true,
           about: true,
           lastSyncedHistoryId: true,
-          rules: { include: { actions: true } },
+          rules: {
+            where: { enabled: true },
+            include: { actions: true },
+          },
           coldEmailBlocker: true,
           coldEmailPrompt: true,
           aiProvider: true,
@@ -185,7 +188,7 @@ export async function processHistoryForUser(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    captureException(error, { extra: { decodedData } });
+    captureException(error, { extra: { decodedData } }, email);
     console.error("Error processing webhook", error, decodedData);
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
@@ -233,7 +236,11 @@ async function processHistory(options: ProcessHistoryOptions) {
       try {
         await processHistoryItem(m, options);
       } catch (error) {
-        captureException(error, { extra: { email, messageId: m.message?.id } });
+        captureException(
+          error,
+          { extra: { email, messageId: m.message?.id } },
+          email,
+        );
         console.error(`Error processing history item. email: ${email}`, error);
       }
     }
@@ -249,19 +256,18 @@ async function processHistory(options: ProcessHistoryOptions) {
 
 async function processHistoryItem(
   m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
-  options: ProcessHistoryOptions,
-) {
-  const message = m.message;
-  const messageId = message?.id;
-  const threadId = message?.threadId;
-  const {
+  {
     gmail,
     user,
     hasColdEmailAccess,
     hasAutomationRules,
     hasAiAutomationAccess,
     rules,
-  } = options;
+  }: ProcessHistoryOptions,
+) {
+  const message = m.message;
+  const messageId = message?.id;
+  const threadId = message?.threadId;
 
   if (!messageId) return;
   if (!threadId) return;

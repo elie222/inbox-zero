@@ -1,4 +1,7 @@
-import { captureException as sentryCaptureException } from "@sentry/nextjs";
+import {
+  captureException as sentryCaptureException,
+  setUser,
+} from "@sentry/nextjs";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -16,7 +19,9 @@ export function isErrorMessage(value: any): value is ErrorMessage {
 export function captureException(
   error: unknown,
   additionalInfo?: { extra?: Record<string, any> },
+  userEmail?: string,
 ) {
+  if (userEmail) setUser({ email: userEmail });
   sentryCaptureException(error, additionalInfo);
 }
 
@@ -27,7 +32,7 @@ export type ServerActionResponse<T = {}, S = {}> =
   | undefined;
 
 export function isActionError(error: any): error is ActionError {
-  return error && "error" in error && error.error;
+  return error && typeof error === "object" && "error" in error && error.error;
 }
 
 // This class is used to throw error messages that are safe to expose to the client.

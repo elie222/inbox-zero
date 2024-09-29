@@ -1,12 +1,10 @@
-import { Suspense } from "react";
-import Image from "next/image";
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
-import { VideoDemo } from "@/app/(landing)/home/VideoDemo";
 import { cn } from "@/utils";
 import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { env } from "@/env";
-import { HeroHeadingAB, HeroSubtitleAB } from "@/app/(landing)/home/HeroAB";
+import { HeroAB } from "@/app/(landing)/home/HeroAB";
+import HeroVideoDialog from "@/components/HeroVideoDialog";
 
 export function HeroText(props: {
   children: React.ReactNode;
@@ -27,24 +25,9 @@ export function HeroSubtitle(props: { children: React.ReactNode }) {
 }
 
 export function HeroHome() {
-  return (
-    <Hero
-      title={
-        env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
-          <Suspense>
-            <HeroHeadingAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
-          </Suspense>
-        ) : undefined
-      }
-      subtitle={
-        env.NEXT_PUBLIC_POSTHOG_HERO_AB ? (
-          <Suspense>
-            <HeroSubtitleAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />
-          </Suspense>
-        ) : undefined
-      }
-    />
-  );
+  if (env.NEXT_PUBLIC_POSTHOG_HERO_AB)
+    return <HeroAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />;
+  return <Hero />;
 }
 
 export function Hero(props: {
@@ -63,7 +46,6 @@ export function Hero(props: {
           </div>
 
           <div className="mx-auto max-w-xl text-center">
-            {/* <HeroText>{props.title || <HeroHeadingAB />}</HeroText> */}
             <HeroText>
               {props.title || "Stop wasting half your day in Gmail"}
             </HeroText>
@@ -80,18 +62,14 @@ export function Hero(props: {
 
           <LogoCloud />
 
-          <div className="mt-16 flow-root sm:mt-24">
-            <div className="relative -m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
-              <Image
-                src={props.image || "/images/newsletters.png"}
-                alt="Inbox screenshot"
-                width={2432}
-                height={1442}
-                className="rounded-md shadow ring-1 ring-gray-900/10"
-              />
-
-              <VideoDemo />
-            </div>
+          <div className="relative mt-16 flow-root sm:mt-24">
+            <HeroVideoDialog
+              className="block"
+              animationStyle="top-in-bottom-out"
+              videoSrc="https://www.youtube.com/embed/kc_9WZ1ZWyg?autoplay=1"
+              thumbnailSrc={props.image || "/images/newsletters.png"}
+              thumbnailAlt="Bulk Unsubscriber Screenshot"
+            />
           </div>
         </div>
       </div>

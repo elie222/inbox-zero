@@ -23,7 +23,6 @@ import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
-import BulkUnsubscribeSummary from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
@@ -154,14 +153,13 @@ export function BulkUnsubscribeSection({
 
   return (
     <>
-      {!isMobile && <BulkUnsubscribeSummary />}
       <Card className="mt-0 md:mt-4">
         <div className="items-center justify-between px-2 pt-2 sm:px-4 md:flex">
           {Array.from(selected.values()).filter(Boolean).length > 0 ? (
             <BulkActions selected={selected} mutate={mutate} />
           ) : (
             <Title className="hidden md:block">
-              Bulk unsubscribe from emails
+              One-click bulk unsubscribe from emailers
             </Title>
           )}
 

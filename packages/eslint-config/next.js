@@ -1,5 +1,7 @@
 const { resolve } = require("node:path");
 
+// based on: https://turbo.build/repo/docs/guides/tools/eslint#our-repoeslint-config-package
+
 const project = resolve(process.cwd(), "tsconfig.json");
 
 /** @type {import("eslint").Linter.Config} */
@@ -10,6 +12,9 @@ module.exports = {
     require.resolve("@vercel/style-guide/eslint/next"),
     "eslint-config-turbo",
   ],
+  parserOptions: {
+    project,
+  },
   globals: {
     React: true,
     JSX: true,
@@ -30,6 +35,7 @@ module.exports = {
     // Ignore dotfiles
     ".*.js",
     "node_modules/",
+    "dist/",
   ],
   overrides: [{ files: ["*.js?(x)", "*.ts?(x)"] }],
 };

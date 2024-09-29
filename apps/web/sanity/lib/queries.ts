@@ -46,5 +46,6 @@ export const recentPostsQuery = groq`*[_type == "post"] | order(date desc) [0...
 }`;
 
 export const postSlugsQuery = groq`*[_type == "post"] {
-  "slug": slug.current
+  "slug": slug.current,
+  date
 }`;

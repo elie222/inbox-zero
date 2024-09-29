@@ -13,7 +13,6 @@ import {
   TypographyH3,
 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { createAutomationAction } from "@/utils/actions/ai-rule";
 import { isActionError } from "@/utils/error";
 import { toastError, toastInfo } from "@/components/Toast";
@@ -67,7 +66,7 @@ export default function AutomationSettingsPage() {
   return (
     <div className="mb-16 mt-6 md:mt-10">
       <PageHeading className="text-center">
-        Get started with AI Email Assistant
+        Get started with AI Personal Assistant
       </PageHeading>
       <SectionDescription className="text-center">
         Set up intelligent automations to let our AI handle your emails for you.
@@ -105,8 +104,8 @@ export default function AutomationSettingsPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting || !prompt || prompt.length < 5}
+                  loading={isSubmitting}
                 >
-                  {isSubmitting && <ButtonLoader />}
                   Preview Automation
                 </Button>
               </div>

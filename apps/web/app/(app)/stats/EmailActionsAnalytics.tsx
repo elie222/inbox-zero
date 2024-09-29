@@ -24,7 +24,7 @@ export function EmailActionsAnalytics() {
           <div className="mt-2">
             <Card>
               <Title>
-                How many emails you have archived and deleted with Inbox Zero
+                How many emails you've archived and deleted with Inbox Zero
               </Title>
 
               <BarChart

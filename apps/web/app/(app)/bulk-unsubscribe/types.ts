@@ -1,6 +1,6 @@
-import { LabelsResponse } from "@/app/api/google/labels/route";
-import { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
-import { NewsletterStatus } from "@prisma/client";
+import type { LabelsResponse } from "@/app/api/google/labels/route";
+import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
+import type { NewsletterStatus } from "@prisma/client";
 
 export type Row = {
   name: string;

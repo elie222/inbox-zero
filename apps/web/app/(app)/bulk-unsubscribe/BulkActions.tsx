@@ -1,5 +1,11 @@
 import { usePostHog } from "posthog-js/react";
 import {
+  ArchiveIcon,
+  BadgeCheckIcon,
+  MailMinusIcon,
+  TrashIcon,
+} from "lucide-react";
+import {
   useBulkUnsubscribe,
   useBulkApprove,
   useBulkAutoArchive,
@@ -7,7 +13,6 @@ import {
   useBulkDelete,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
-import { ButtonLoader } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
@@ -47,7 +52,7 @@ export function BulkActions({
 
   const getSelectedValues = () =>
     Array.from(selected.entries())
-      .filter(([_, value]) => value)
+      .filter(([, value]) => value)
       .map(([name, value]) => ({
         name,
         value,
@@ -62,9 +67,9 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkUnsubscribe(getSelectedValues())}
-              disabled={bulkUnsubscribeLoading}
+              loading={bulkUnsubscribeLoading}
             >
-              {bulkUnsubscribeLoading && <ButtonLoader />}
+              <MailMinusIcon className="mr-2 size-4" />
               Unsubscribe
             </Button>
           </div>
@@ -73,9 +78,9 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkAutoArchive(getSelectedValues())}
-              disabled={bulkAutoArchiveLoading}
+              loading={bulkAutoArchiveLoading}
             >
-              {bulkAutoArchiveLoading && <ButtonLoader />}
+              <ArchiveIcon className="mr-2 size-4" />
               Auto Archive
             </Button>
           </div>
@@ -84,9 +89,9 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkApprove(getSelectedValues())}
-              disabled={bulkApproveLoading}
+              loading={bulkApproveLoading}
             >
-              {bulkApproveLoading && <ButtonLoader />}
+              <BadgeCheckIcon className="mr-2 size-4" />
               Approve
             </Button>
           </div>
@@ -96,6 +101,7 @@ export function BulkActions({
               variant="outline"
               onClick={() => onBulkArchive(getSelectedValues())}
             >
+              <ArchiveIcon className="mr-2 size-4" />
               Archive All
             </Button>
           </div>
@@ -105,6 +111,7 @@ export function BulkActions({
               variant="outline"
               onClick={() => onBulkDelete(getSelectedValues())}
             >
+              <TrashIcon className="mr-2 size-4" />
               Delete All
             </Button>
           </div>

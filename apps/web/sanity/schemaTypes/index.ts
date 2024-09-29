@@ -1,4 +1,4 @@
-import { type SchemaTypeDefinition } from "sanity";
+import type { SchemaTypeDefinition } from "sanity";
 
 import { blockContentType } from "./blockContentType";
 import { categoryType } from "./categoryType";
