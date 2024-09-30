@@ -66,7 +66,7 @@ export function Hero(props: {
             <HeroVideoDialog
               className="block"
               animationStyle="top-in-bottom-out"
-              videoSrc="https://www.youtube.com/embed/kc_9WZ1ZWyg?autoplay=1"
+              videoSrc="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1"
               thumbnailSrc={props.image || "/images/newsletters.png"}
               thumbnailAlt="Bulk Unsubscriber Screenshot"
             />
