@@ -143,10 +143,10 @@ const copilotTier = {
     annually: pricingAdditonalEmail.COPILOT_MONTHLY,
   },
   discount: { monthly: 0, annually: 0 },
-  description: "Tailored email strategy with monthly expert coaching",
+  description: "Expert human assistant to manage your email",
   features: [
     "Everything in Business",
-    "Human assistant that will manage your email daily",
+    "Human assistant to manage your email daily",
     "30-minute 1:1 monthly call",
     "Full refund if not satisfied after first 3 days",
   ],
