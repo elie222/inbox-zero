@@ -13,7 +13,7 @@ export const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 8,
   [PremiumTier.BUSINESS_MONTHLY]: 24,
   [PremiumTier.BUSINESS_ANNUALLY]: 12,
-  [PremiumTier.COPILOT_MONTHLY]: 99,
+  [PremiumTier.COPILOT_MONTHLY]: 499,
   [PremiumTier.LIFETIME]: 299,
 };
 
@@ -146,8 +146,9 @@ const copilotTier = {
   description: "Tailored email strategy with monthly expert coaching",
   features: [
     "Everything in Business",
-    "30-minute 1:1 monthly call to get your email under control",
-    "Full refund if not satisfied",
+    "Human assistant that will manage your email daily",
+    "30-minute 1:1 monthly call",
+    "Full refund if not satisfied after first 3 days",
   ],
   cta: "Upgrade",
   mostPopular: false,
