@@ -3,9 +3,10 @@ import { isPremium } from "@/utils/premium";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { NotLoggedIn } from "@/components/ErrorDisplay";
+import { env } from "@/env";
 
 export async function redirectToWelcomeUpgrade() {
-  if (!process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) return;
+  if (!env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) return;
 
   const session = await auth();
 
