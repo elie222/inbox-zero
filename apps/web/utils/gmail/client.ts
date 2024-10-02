@@ -1,4 +1,4 @@
-import { auth, gmail } from "@googleapis/gmail";
+import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
 import { saveRefreshToken } from "@/utils/auth";
 import { env } from "@/env";
@@ -44,7 +44,7 @@ export const getGmailAccessToken = (session: ClientOptions) => {
 export const getGmailClientWithRefresh = async (
   session: ClientOptions & { refreshToken: string; expiryDate?: number | null },
   providerAccountId: string,
-) => {
+): Promise<gmail_v1.Gmail> => {
   const auth = getClient(session);
   const g = gmail({ version: "v1", auth });
 
@@ -67,5 +67,5 @@ export const getGmailClientWithRefresh = async (
     );
   }
 
-  return gmail;
+  return g;
 };
