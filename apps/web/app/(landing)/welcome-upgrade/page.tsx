@@ -3,10 +3,12 @@ import { CheckCircleIcon } from "lucide-react";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { Loading } from "@/components/Loading";
+import { WelcomeUpgradeNav } from "@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav";
 
 export default function WelcomeUpgradePage() {
   return (
-    <div className="mt-8">
+    <>
+      <WelcomeUpgradeNav />
       <Suspense fallback={<Loading />}>
         <Pricing
           header={
@@ -32,7 +34,7 @@ export default function WelcomeUpgradePage() {
         />
       </Suspense>
       <Footer />
-    </div>
+    </>
   );
 }
 
