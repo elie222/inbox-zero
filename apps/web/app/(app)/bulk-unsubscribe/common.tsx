@@ -4,7 +4,7 @@ import type React from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import {
   ArchiveIcon,
   ArchiveXIcon,

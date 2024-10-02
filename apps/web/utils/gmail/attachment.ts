@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 
 export async function getGmailAttachment(
   gmail: gmail_v1.Gmail,

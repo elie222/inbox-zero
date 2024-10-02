@@ -18,7 +18,7 @@ import {
   deleteFilter,
 } from "@/utils/gmail/filter";
 import type { ServerActionResponse } from "@/utils/error";
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import {
   getSessionAndGmailClient,
   isStatusOk,

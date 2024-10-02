@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
 import { handleStaticRule } from "@/app/api/google/webhook/static-rule";

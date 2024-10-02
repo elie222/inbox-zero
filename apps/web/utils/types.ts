@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { Prisma } from "@prisma/client";
 
 // https://stackoverflow.com/a/53276873/2602771

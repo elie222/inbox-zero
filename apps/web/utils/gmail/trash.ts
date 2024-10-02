@@ -1,5 +1,5 @@
 import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 
 // trash moves the thread/message to the trash folder
 // delete immediately deletes the thread/message

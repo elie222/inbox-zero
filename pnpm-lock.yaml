@@ -56,6 +56,12 @@ importers:
       '@formkit/auto-animate':
         specifier: ^0.8.2
         version: 0.8.2
+      '@googleapis/gmail':
+        specifier: ^12.0.0
+        version: 12.0.0(encoding@0.1.13)
+      '@googleapis/people':
+        specifier: ^3.0.9
+        version: 3.0.9(encoding@0.1.13)
       '@headlessui/react':
         specifier: ^2.1.8
         version: 2.1.8(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -230,9 +236,6 @@ importers:
       google:
         specifier: link:@next/third-parties/google
         version: link:@next/third-parties/google
-      googleapis:
-        specifier: '144'
-        version: 144.0.0(encoding@0.1.13)
       he:
         specifier: ^1.2.0
         version: 1.2.0
@@ -2158,6 +2161,14 @@ packages:
 
   '@formkit/auto-animate@0.8.2':
     resolution: {integrity: sha512-SwPWfeRa5veb1hOIBMdzI+73te5puUBHmqqaF1Bu7FjvxlYSz/kJcZKSa9Cg60zL0uRNeJL2SbRxV6Jp6Q1nFQ==}
+
+  '@googleapis/gmail@12.0.0':
+    resolution: {integrity: sha512-sMsgh7J4pRIzmgte4vPfcxBptKliquVXlc9nhIWvuDfdkEVkyP8yh5pkhAnZmStEF0I5iOI04zriAt4C98XhBw==}
+    engines: {node: '>=12.0.0'}
+
+  '@googleapis/people@3.0.9':
+    resolution: {integrity: sha512-gI3PaVcnVTGDbfRpOhN9aFoIAq37yQeG9064xoMbpUoMGo7rSrkUsLXdfENs0sq3YbwwGB+fmSGNjD+EqQm0Jw==}
+    engines: {node: '>=12.0.0'}
 
   '@headlessui/react@1.7.19':
     resolution: {integrity: sha512-Ll+8q3OlMJfJbAKM/+/Y2q6PPYbryqNTXDbryx7SXLIDamkF6iQFbriYHga0dY44PvDhvvBWCx1Xj4U5+G4hOw==}
@@ -7212,10 +7223,6 @@ packages:
 
   googleapis-common@7.0.0:
     resolution: {integrity: sha512-58iSybJPQZ8XZNMpjrklICefuOuyJ0lMxfKmBqmaC0/xGT4SiOs4BE60LAOOGtBURy1n8fHa2X2YUNFEWWbXyQ==}
-    engines: {node: '>=14.0.0'}
-
-  googleapis@144.0.0:
-    resolution: {integrity: sha512-ELcWOXtJxjPX4vsKMh+7V+jZvgPwYMlEhQFiu2sa9Qmt5veX8nwXPksOWGGN6Zk4xCiLygUyaz7xGtcMO+Onxw==}
     engines: {node: '>=14.0.0'}
 
   gopd@1.0.1:
@@ -13159,6 +13166,20 @@ snapshots:
   '@floating-ui/utils@0.2.2': {}
 
   '@formkit/auto-animate@0.8.2': {}
+
+  '@googleapis/gmail@12.0.0(encoding@0.1.13)':
+    dependencies:
+      googleapis-common: 7.0.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
+  '@googleapis/people@3.0.9(encoding@0.1.13)':
+    dependencies:
+      googleapis-common: 7.0.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
 
   '@headlessui/react@1.7.19(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -19349,14 +19370,6 @@ snapshots:
       qs: 6.11.2
       url-template: 2.0.8
       uuid: 9.0.1
-    transitivePeerDependencies:
-      - encoding
-      - supports-color
-
-  googleapis@144.0.0(encoding@0.1.13):
-    dependencies:
-      google-auth-library: 9.0.0(encoding@0.1.13)
-      googleapis-common: 7.0.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
       - supports-color

@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { RuleType, type User } from "@prisma/client";
 import {

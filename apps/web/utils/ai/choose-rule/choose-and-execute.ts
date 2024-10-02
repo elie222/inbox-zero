@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { UserAIFields } from "@/utils/llms/types";
 import prisma from "@/utils/prisma";
 import type { Rule, User } from "@prisma/client";
