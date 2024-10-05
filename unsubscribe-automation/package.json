@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node -r tsconfig-paths/register src/main.ts",
+    "start": "ts-node -r tsconfig-paths/register src/server.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/dotenv": "^8.2.0",
     "@types/node": "22.5.4",
     "playwright": "^1.47.2",
     "ts-node": "^10.9.2",
@@ -19,7 +20,11 @@
     "typescript": "^5.6.2"
   },
   "dependencies": {
+    "@fastify/cors": "^10.0.1",
     "@google/generative-ai": "^0.21.0",
+    "ai": "^3.3.36",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
     "zod": "^3.23.8"
   }
 }

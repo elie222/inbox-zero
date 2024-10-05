@@ -2,7 +2,10 @@ import { chromium, Page } from "playwright";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
-// TODO: Get API key from env
+import dotenv from "dotenv";
+
+dotenv.config();
+
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
 
 const PageAnalysisSchema = z.object({
@@ -103,7 +106,8 @@ async function performUnsubscribeActions(
   }
 }
 
-async function autoUnsubscribe(url: string): Promise<boolean> {
+export async function autoUnsubscribe(url: string): Promise<boolean> {
+  // Remove headless: false if you don't want the browser popup to open
   const browser = await chromium.launch({ headless: false });
   const page = await browser.newPage();
 
@@ -177,19 +181,19 @@ async function performFallbackUnsubscribe(page: Page) {
   console.log("No unsubscribe element found in fallback strategy");
 }
 
-async function main() {
-  const url =
-    "https://unsubscribe.convertkit-mail2.com/8ku0mlzpxxaoh077q34ikhk97mg99a3"; // Replace with an actual unsubscribe URL
-  try {
-    const success = await autoUnsubscribe(url);
-    if (success) {
-      console.log("Successfully unsubscribed!");
-    } else {
-      console.log("Unsubscribe process completed, but confirmation not found.");
-    }
-  } catch (error) {
-    console.error("An error occurred:", error);
-  }
-}
+// async function main() {
+//   const url =
+//     "https://unsubscribe.convertkit-mail2.com/8ku0mlzpxxaoh077q34ikhk97mg99a3"; // Replace with an actual unsubscribe URL
+//   try {
+//     const success = await autoUnsubscribe(url);
+//     if (success) {
+//       console.log("Successfully unsubscribed!");
+//     } else {
+//       console.log("Unsubscribe process completed, but confirmation not found.");
+//     }
+//   } catch (error) {
+//     console.error("An error occurred:", error);
+//   }
+// }
 
-main();
+// main();
