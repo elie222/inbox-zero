@@ -17,6 +17,12 @@ Thereafter:
 source .venv/bin/activate
 ```
 
+Then change into the directory
+
+```sh
+cd packages/tinybird
+```
+
 ### Docker
 
 You can also use the Docker image. This worked a lot better for me.
