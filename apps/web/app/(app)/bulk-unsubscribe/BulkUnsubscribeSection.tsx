@@ -176,6 +176,21 @@ export function BulkUnsubscribeSection({
               keepOpenOnSelect
               columns={[
                 {
+                  label: "All",
+                  checked:
+                    filters.approved &&
+                    filters.autoArchived &&
+                    filters.unsubscribed &&
+                    filters.unhandled,
+                  setChecked: () =>
+                    setFilters({
+                      approved: true,
+                      autoArchived: true,
+                      unsubscribed: true,
+                      unhandled: true,
+                    }),
+                },
+                {
                   label: "Unhandled",
                   checked: filters.unhandled,
                   setChecked: () =>
