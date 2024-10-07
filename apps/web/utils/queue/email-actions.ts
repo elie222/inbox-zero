@@ -16,6 +16,20 @@ export const archiveEmails = async (
   addThreadsToQueue("archive", threadIds, refetch);
 };
 
+export const markReadThreads = async (
+  threadIds: string[],
+  refetch: () => void,
+) => {
+  addThreadsToQueue("markRead", threadIds, refetch);
+};
+
+export const deleteEmails = async (
+  threadIds: string[],
+  refetch: () => void,
+) => {
+  addThreadsToQueue("delete", threadIds, refetch);
+};
+
 export const archiveAllSenderEmails = async (
   from: string,
   onComplete: () => void,
@@ -35,39 +49,15 @@ export const archiveAllSenderEmails = async (
   return data;
 };
 
-export const markReadThreads = async (
-  threadIds: string[],
-  refetch: () => void,
-) => {
-  addThreadsToQueue("markRead", threadIds, refetch);
-};
-
-export const deleteEmails = async (
-  threadIds: string[],
-  refetch: () => void,
-) => {
-  addThreadsToQueue("delete", threadIds, refetch);
-};
-
-export const runAiRules = async (
-  threads: Thread[],
-  force: boolean,
-  // refetch: () => void,
-) => {
-  // updateRunAiQueueStorage(threads, "pending");
-
+export const runAiRules = async (threads: Thread[], force: boolean) => {
   pushToAiQueueAtom(threads.map((t) => t.id));
 
   queue.addAll(
     threads.map((thread) => async () => {
       const message = threadToRunRulesEmail(thread);
       if (!message) return;
-      console.log("runRulesAction", message.threadId);
-      const result = await runRulesAction(message, force);
-      console.log("result", result);
+      await runRulesAction(message, force);
       removeFromAiQueueAtom(thread.id);
-      // updateRunAiQueueStorage([thread], "complete");
-      // refetch();
     }),
   );
 };
@@ -77,14 +67,8 @@ function threadToRunRulesEmail(thread: Thread): EmailForAction | undefined {
   if (!message) return;
   const email: EmailForAction = {
     from: message.headers.from,
-    // to: message.headers.to,
-    // date: message.headers.date,
     replyTo: message.headers["reply-to"],
-    // cc: message.headers.cc,
     subject: message.headers.subject,
-    // textPlain: message.textPlain || null,
-    // textHtml: message.textHtml || null,
-    // snippet: thread.snippet,
     threadId: message.threadId || "",
     messageId: message.id || "",
     headerMessageId: message.headers["message-id"] || "",
