@@ -42,7 +42,9 @@ server.post("/unsubscribe", async (request, reply) => {
 
 const start = async () => {
   try {
-    const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+    const port = process.env.PORT
+      ? Number.parseInt(process.env.PORT, 10)
+      : 5000;
     await server.listen({ port, host: "0.0.0.0" });
     console.log(`Server is running on ${port}`);
   } catch (err) {

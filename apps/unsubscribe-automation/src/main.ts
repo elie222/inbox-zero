@@ -23,11 +23,12 @@ type PageAnalysis = z.infer<typeof pageAnalysisSchema>;
 
 async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
   const maxContentLength = 20000; // Adjust based on API limitations
-  if (pageContent.length > maxContentLength) {
+  let contentToAnalyze = pageContent;
+  if (contentToAnalyze.length > maxContentLength) {
     console.warn(
       `Page content exceeds ${maxContentLength} characters. Truncating...`,
     );
-    pageContent = pageContent.substring(0, maxContentLength);
+    contentToAnalyze = contentToAnalyze.substring(0, maxContentLength);
   }
 
   const prompt = `
@@ -42,13 +43,20 @@ async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
     Return ONLY the JSON object, without any markdown formatting, code blocks, or explanation.
 
     HTML Content:
-    ${pageContent}
+    ${contentToAnalyze}
   `;
 
-  const { text: analysisText } = await generateText({
-    model: google("gemini-1.5-flash"),
-    prompt: prompt,
-  });
+  let analysisText: string;
+  try {
+    const { text } = await generateText({
+      model: google("gemini-1.5-flash"),
+      prompt: prompt,
+    });
+    analysisText = text;
+  } catch (error) {
+    console.error("Error generating AI analysis:", error);
+    throw new Error("Failed to generate AI analysis");
+  }
 
   try {
     // Remove any markdown code block indicators
@@ -184,7 +192,13 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     await page.goto(url, { timeout: 30000 });
     const initialContent = await page.content();
 
-    const analysis = await analyzePageWithAI(initialContent);
+    const maxContentLength = 20000; // Adjust based on API limitations
+    const truncatedContent =
+      initialContent.length > maxContentLength
+        ? initialContent.substring(0, maxContentLength)
+        : initialContent;
+
+    const analysis = await analyzePageWithAI(truncatedContent);
     console.log("AI analysis result:", JSON.stringify(analysis, null, 2));
 
     if (analysis.actions.length > 0) {
@@ -218,17 +232,17 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     if (confirmationFound) {
       console.log("Unsubscribe confirmation found.");
       return true;
-    } else {
-      console.log("Unsubscribe action performed, but confirmation not found.");
-      // Only take screenshot if not in production
-      if (!isProduction) {
-        await page.screenshot({
-          path: "final-state-screenshot.png",
-          fullPage: true,
-        });
-      }
-      return false;
     }
+
+    console.log("Unsubscribe action performed, but confirmation not found.");
+    // Only take screenshot if not in production
+    if (!isProduction) {
+      await page.screenshot({
+        path: "final-state-screenshot.png",
+        fullPage: true,
+      });
+    }
+    return false;
   } catch (error) {
     console.error("Error during unsubscribe process:", error);
     // Only take screenshot if not in production
