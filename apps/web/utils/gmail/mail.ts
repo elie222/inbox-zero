@@ -6,6 +6,11 @@ import type { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
+import {
+  forwardEmailHtml,
+  forwardEmailSubject,
+  forwardEmailText,
+} from "@/utils/gmail/forward";
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -126,27 +131,9 @@ export async function forwardEmail(
     to: options.to,
     cc: options.cc,
     bcc: options.bcc,
-    subject: `Fwd: ${message.headers.subject}`,
-    messageText: `${options.content ?? ""}
-        
----------- Forwarded message ----------
-From: ${message.headers.from}
-Date: ${message.headers.date}
-Subject: ${message.headers.subject}
-To: <${message.headers.to}>
-
-${message.textPlain}`,
-    messageHtml: `<div>${options.content ?? ""}</div>
-
-<div>---------- Forwarded message ----------</div>
-<div>From: ${message.headers.from}</div>
-<div>Date: ${message.headers.date}</div>
-<div>Subject: ${message.headers.subject}</div>
-<div>To: <${message.headers.to}></div>
-
-<br>
-
-${message.textHtml}`,
+    subject: forwardEmailSubject(message.headers.subject),
+    messageText: forwardEmailText({ content: options.content ?? "", message }),
+    messageHtml: forwardEmailHtml({ content: options.content ?? "", message }),
     replyToEmail: {
       threadId: message.threadId || "",
       references: "",
