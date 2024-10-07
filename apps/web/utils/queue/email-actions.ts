@@ -58,7 +58,8 @@ export const archiveAllSenderEmails = async (
   }
 };
 
-export const runAiRules = async (threads: Thread[], force: boolean) => {
+export const runAiRules = async (threadsArray: Thread[], force: boolean) => {
+  const threads = threadsArray.filter(isDefined);
   pushToAiQueueAtom(threads.map((t) => t.id));
 
   emailActionQueue.addAll(
