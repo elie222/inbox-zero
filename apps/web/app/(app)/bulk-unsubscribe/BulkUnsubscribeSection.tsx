@@ -39,6 +39,7 @@ import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { SearchBar } from "@/app/(app)/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { BulkActions } from "@/app/(app)/bulk-unsubscribe/BulkActions";
+import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -227,6 +228,8 @@ export function BulkUnsubscribeSection({
             />
           </div>
         </div>
+
+        <ArchiveProgress />
 
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
           <div className="p-4">
