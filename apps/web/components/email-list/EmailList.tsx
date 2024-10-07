@@ -30,7 +30,7 @@ import {
   deleteEmails,
   markReadThreads,
   runAiRules,
-} from "@/providers/QueueProvider";
+} from "@/utils/queue/email-actions";
 import { selectedEmailAtom } from "@/store/email";
 import { categorizeAction } from "@/utils/actions/categorize";
 

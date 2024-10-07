@@ -10,7 +10,7 @@ import { SectionDescription } from "@/components/Typography";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
-import { runAiRules } from "@/providers/QueueProvider";
+import { runAiRules } from "@/utils/queue/email-actions";
 import { aiQueueAtom } from "@/store/queue";
 import { sleep } from "@/utils/sleep";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
