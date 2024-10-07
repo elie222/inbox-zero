@@ -2,11 +2,11 @@ import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtomValue } from "jotai";
 import { ProgressBar } from "@tremor/react";
-import { archiveQueueAtom, resetTotalThreads } from "@/store/archive-queue";
+import { queueAtoms, resetTotalThreads } from "@/store/archive-queue";
 import { cn } from "@/utils";
 
 export const ArchiveProgress = () => {
-  const { totalThreads, activeThreadIds } = useAtomValue(archiveQueueAtom);
+  const { totalThreads, activeThreadIds } = useAtomValue(queueAtoms.archive);
 
   const threadsRemaining =
     Object.values(activeThreadIds).filter(Boolean).length;
@@ -17,7 +17,7 @@ export const ArchiveProgress = () => {
   useEffect(() => {
     if (isCompleted) {
       setTimeout(() => {
-        resetTotalThreads();
+        resetTotalThreads("archive");
       }, 5_000);
     }
   }, [isCompleted]);

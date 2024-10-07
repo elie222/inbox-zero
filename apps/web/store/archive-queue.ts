@@ -3,24 +3,48 @@
 import { atomWithStorage } from "jotai/utils";
 import { jotaiStore } from "@/store";
 import { queue } from "@/providers/p-queue";
-import { archiveThreadAction } from "@/utils/actions/mail";
+import {
+  archiveThreadAction,
+  trashThreadAction,
+  markReadThreadAction,
+} from "@/utils/actions/mail";
 
-const initialState: {
+type QueueType = "archive" | "delete" | "markRead";
+
+type QueueState = {
   activeThreadIds: Record<string, boolean>;
   totalThreads: number;
-} = {
+};
+
+const initialQueueState: QueueState = {
   activeThreadIds: {},
   totalThreads: 0,
 };
 
-// Create atom with localStorage persistence
-export const archiveQueueAtom = atomWithStorage("archiveQueue", initialState);
+// Create atoms with localStorage persistence for each queue type
+export const queueAtoms = {
+  archive: atomWithStorage("archiveQueue", initialQueueState),
+  delete: atomWithStorage("deleteQueue", initialQueueState),
+  markRead: atomWithStorage("markReadQueue", initialQueueState),
+};
 
-export const addThreadsToArchiveQueue = (
+type ActionFunction = (threadId: string, ...args: any[]) => Promise<any>;
+
+const actionMap: Record<QueueType, ActionFunction> = {
+  archive: archiveThreadAction,
+  delete: trashThreadAction,
+  markRead: (threadId: string) => markReadThreadAction(threadId, true),
+};
+
+export const addThreadsToQueue = (
+  queueType: QueueType,
   threadIds: string[],
   refetch?: () => void,
 ) => {
-  jotaiStore.set(archiveQueueAtom, (prev) => ({
+  const queueAtom = queueAtoms[queueType];
+  const action = actionMap[queueType];
+
+  jotaiStore.set(queueAtom, (prev) => ({
     activeThreadIds: {
       ...prev.activeThreadIds,
       ...Object.fromEntries(threadIds.map((id) => [id, true])),
@@ -30,10 +54,10 @@ export const addThreadsToArchiveQueue = (
 
   queue.addAll(
     threadIds.map((threadId) => async () => {
-      await archiveThreadAction(threadId);
+      await action(threadId);
 
       // remove completed thread from activeThreadIds
-      jotaiStore.set(archiveQueueAtom, (prev) => {
+      jotaiStore.set(queueAtom, (prev) => {
         const { [threadId]: _, ...remainingThreads } = prev.activeThreadIds;
         return {
           ...prev,
@@ -46,8 +70,9 @@ export const addThreadsToArchiveQueue = (
   );
 };
 
-export const resetTotalThreads = () => {
-  jotaiStore.set(archiveQueueAtom, (prev) => ({
+export const resetTotalThreads = (queueType: QueueType) => {
+  const queueAtom = queueAtoms[queueType];
+  jotaiStore.set(queueAtom, (prev) => ({
     ...prev,
     totalThreads: 0,
   }));

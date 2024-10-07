@@ -1,10 +1,9 @@
 "use client";
 
 import { runRulesAction } from "@/utils/actions/ai-rule";
-import { markReadThreadAction, trashThreadAction } from "@/utils/actions/mail";
 import type { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
-import { addThreadsToArchiveQueue } from "@/store/archive-queue";
+import { addThreadsToQueue } from "@/store/archive-queue";
 import type { Thread } from "@/components/email-list/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
@@ -14,7 +13,7 @@ export const archiveEmails = async (
   threadIds: string[],
   refetch?: () => void,
 ) => {
-  addThreadsToArchiveQueue(threadIds, refetch);
+  addThreadsToQueue("archive", threadIds, refetch);
 };
 
 export const archiveAllSenderEmails = async (
@@ -40,24 +39,14 @@ export const markReadThreads = async (
   threadIds: string[],
   refetch: () => void,
 ) => {
-  queue.addAll(
-    threadIds.map((threadId) => async () => {
-      await markReadThreadAction(threadId, true);
-      refetch();
-    }),
-  );
+  addThreadsToQueue("markRead", threadIds, refetch);
 };
 
 export const deleteEmails = async (
   threadIds: string[],
   refetch: () => void,
 ) => {
-  queue.addAll(
-    threadIds.map((threadId) => async () => {
-      await trashThreadAction(threadId);
-      refetch();
-    }),
-  );
+  addThreadsToQueue("delete", threadIds, refetch);
 };
 
 export const runAiRules = async (
