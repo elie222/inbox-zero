@@ -1,4 +1,5 @@
-import { chromium, Page, ElementHandle } from "playwright";
+import { chromium } from "playwright";
+import type { Page, ElementHandle } from "playwright";
 import { z } from "zod";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
@@ -21,6 +22,14 @@ const pageAnalysisSchema = z.object({
 type PageAnalysis = z.infer<typeof pageAnalysisSchema>;
 
 async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
+  const maxContentLength = 20000; // Adjust based on API limitations
+  if (pageContent.length > maxContentLength) {
+    console.warn(
+      `Page content exceeds ${maxContentLength} characters. Truncating...`,
+    );
+    pageContent = pageContent.substring(0, maxContentLength);
+  }
+
   const prompt = `
     Analyze the following HTML content and determine the actions needed to unsubscribe from an email newsletter.
     Provide a JSON object with:
@@ -96,7 +105,9 @@ async function performUnsubscribeActions(
     }
     await page
       .waitForLoadState("networkidle", { timeout: 5000 })
-      .catch(() => {});
+      .catch((error) => {
+        console.warn("Error waiting for network idle state:", error);
+      });
   }
 }
 
@@ -156,6 +167,14 @@ async function performFallbackUnsubscribe(page: Page): Promise<boolean> {
 }
 
 export async function autoUnsubscribe(url: string): Promise<boolean> {
+  // Validate URL
+  try {
+    new URL(url);
+  } catch (err) {
+    console.error("Invalid URL provided:", url);
+    return false;
+  }
+
   // Remove headless: false if you don't want the browser popup to open
   const isHeadless = process.env.BROWSER_HEADLESS !== "false";
   const browser = await chromium.launch({ headless: isHeadless });
@@ -183,7 +202,12 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     // Wait for any redirects or page loads to complete
     await page
       .waitForLoadState("networkidle", { timeout: 10000 })
-      .catch(() => {});
+      .catch((error) => {
+        console.warn(
+          "Error waiting for network idle state after actions:",
+          error,
+        );
+      });
 
     // Check for confirmation
     const finalContent = await page.content();
