@@ -191,7 +191,9 @@ function UnsubscribeButton<T extends Row>({
         {unsubscribeLoading && <ButtonLoader />}
         <span className="hidden xl:block">Unsubscribe</span>
         <span className="block xl:hidden">
-          <MailMinusIcon className="size-4" />
+          <Tooltip content="Unsubscribe">
+            <MailMinusIcon className="size-4" />
+          </Tooltip>
         </span>
       </Link>
     </Button>
@@ -247,7 +249,9 @@ function AutoArchiveButton<T extends Row>({
         {autoArchiveLoading && <ButtonLoader />}
         <span className="hidden xl:block">Auto Archive</span>
         <span className="block xl:hidden">
-          <ArchiveIcon className="size-4" />
+          <Tooltip content="Auto Archive">
+            <ArchiveIcon className="size-4" />
+          </Tooltip>
         </span>
       </Button>
       <Separator orientation="vertical" className="h-[20px]" />
