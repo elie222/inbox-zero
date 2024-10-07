@@ -524,9 +524,9 @@ export function useNewsletterFilter() {
     Record<"unhandled" | "unsubscribed" | "autoArchived" | "approved", boolean>
   >({
     unhandled: true,
-    unsubscribed: false,
-    autoArchived: false,
-    approved: false,
+    unsubscribed: true,
+    autoArchived: true,
+    approved: true,
   });
 
   return {
