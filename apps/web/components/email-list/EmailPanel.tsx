@@ -14,6 +14,11 @@ import { createInAiQueueSelector } from "@/store/queue";
 import { Card } from "@/components/Card";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 import type { ParsedMessage } from "@/utils/types";
+import {
+  forwardEmailHtml,
+  forwardEmailSubject,
+  forwardEmailText,
+} from "@/utils/gmail/forward";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -139,30 +144,13 @@ function EmailMessage(props: {
 
   const prepareForwardingEmail = (message: ParsedMessage) => ({
     to: "",
-    subject: `Fwd: ${message.headers.subject}`,
+    subject: forwardEmailSubject(message.headers.subject),
     headerMessageId: "",
     threadId: message.threadId!,
     cc: "",
     references: "",
-    messageText: `
-      \n\n--- Forwarded message ---
-      \nFrom: ${message.headers.from}
-      \nDate: ${message.headers.date}
-      \nSubject: ${message.headers.subject}
-      \nTo: ${message.headers.to}
-      ${message.textPlain}
-    `,
-    messageHtml: `
-      <br><br>
-      <div style="border-left: 2px solid #ccc; padding-left: 10px; margin: 10px 0;">
-        <p><strong>--- Forwarded message ---</strong></p>
-        <p><strong>From:</strong> ${message.headers.from}</p>
-        <p><strong>Date:</strong> ${message.headers.date}</p>
-        <p><strong>Subject:</strong> ${message.headers.subject}</p>
-        <p><strong>To:</strong> ${message.headers.to}</p>
-      </div>
-      ${message.textHtml}
-    `,
+    messageText: forwardEmailText({ content: "", message }),
+    messageHtml: forwardEmailHtml({ content: "", message }),
   });
 
   return (
