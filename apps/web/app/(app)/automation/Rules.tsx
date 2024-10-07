@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
-import { MoreHorizontalIcon, PenIcon, SparklesIcon } from "lucide-react";
+import { MoreHorizontalIcon, PenIcon } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { toastError } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
+import { Tooltip } from "@/components/Tooltip";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -68,7 +69,11 @@ export function Rules() {
                   <TableHead>Type</TableHead>
                   <TableHead>Actions</TableHead>
                   <TableHead className="text-center">Automated</TableHead>
-                  <TableHead className="text-center">Threads</TableHead>
+                  <TableHead className="text-center">
+                    <Tooltip content="Apply rule to email threads">
+                      <span>Threads</span>
+                    </Tooltip>
+                  </TableHead>
                   {/* <TableHead className="text-right">Pending</TableHead>
               <TableHead className="text-right">Executed</TableHead> */}
                   <TableHead>
