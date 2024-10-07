@@ -48,10 +48,20 @@ async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
 
   let analysisText: string;
   try {
-    const { text } = await generateText({
+    const analysisPromise = generateText({
       model: google("gemini-1.5-flash"),
       prompt: prompt,
     });
+
+    // Timeout if AI takes too long to respond
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("AI analysis timeout")), 30000),
+    );
+
+    const { text } = (await Promise.race([
+      analysisPromise,
+      timeoutPromise,
+    ])) as { text: string };
     analysisText = text;
   } catch (error) {
     console.error("Error generating AI analysis:", error);
@@ -74,48 +84,62 @@ async function performUnsubscribeActions(
   page: Page,
   actions: PageAnalysis["actions"],
 ) {
+  // Limit retries to 3 to avoid infinite loops
+  const MAX_RETRIES = 3;
+
   for (const action of actions) {
-    console.log(`Attempting action: ${action.type} on ${action.selector}`);
-    try {
-      const locator = page.locator(action.selector);
+    let retries = 0;
+    while (retries < MAX_RETRIES) {
+      try {
+        console.log(`Attempting action: ${action.type} on ${action.selector}`);
+        const locator = page.locator(action.selector);
 
-      if ((await locator.count()) === 0) {
-        console.warn(`Element not found: ${action.selector}`);
-        continue;
+        if ((await locator.count()) === 0) {
+          console.warn(`Element not found: ${action.selector}`);
+          break;
+        }
+
+        if (!(await locator.isVisible())) {
+          console.warn(`Element not visible: ${action.selector}`);
+          break;
+        }
+
+        switch (action.type) {
+          case "click":
+          case "submit":
+            await locator.click({ timeout: 5000 });
+            break;
+          case "fill":
+            if (action.value) {
+              await locator.fill(action.value, { timeout: 5000 });
+            }
+            break;
+          case "select":
+            if (action.value) {
+              await locator.selectOption(action.value, { timeout: 5000 });
+            }
+            break;
+        }
+        console.log(`Action completed: ${action.type} on ${action.selector}`);
+        break; // Success, exit retry loop
+      } catch (error) {
+        console.warn(
+          `Failed to perform action: ${action.type} on ${action.selector}. Retry ${retries + 1}/${MAX_RETRIES}. Error: ${error}`,
+        );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          console.error(
+            `Max retries reached for action: ${action.type} on ${action.selector}`,
+          );
+        }
       }
 
-      if (!(await locator.isVisible())) {
-        console.warn(`Element not visible: ${action.selector}`);
-        continue;
-      }
-
-      switch (action.type) {
-        case "click":
-        case "submit":
-          await locator.click({ timeout: 5000 });
-          break;
-        case "fill":
-          if (action.value) {
-            await locator.fill(action.value, { timeout: 5000 });
-          }
-          break;
-        case "select":
-          if (action.value) {
-            await locator.selectOption(action.value, { timeout: 5000 });
-          }
-          break;
-      }
-      console.log(`Action completed: ${action.type} on ${action.selector}`);
-    } catch (error) {
-      console.warn(
-        `Failed to perform action: ${action.type} on ${action.selector}. Error: ${error}`,
-      );
+      // Add delay between retries
+      await page.waitForTimeout(1000);
     }
-    await page
-      .waitForLoadState("networkidle", { timeout: 5000 })
-      .catch((error) => {
-        console.warn("Error waiting for network idle state:", error);
-      });
+
+    // Add delay between actions to mimic human behavior
+    await page.waitForTimeout(2000);
   }
 }
 
