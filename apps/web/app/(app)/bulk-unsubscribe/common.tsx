@@ -344,9 +344,11 @@ function ApproveButton<T extends Row>({
       disabled={!hasUnsubscribeAccess}
       loading={approveLoading}
     >
-      <span className="sr-only">Keep</span>
-      <span>
-        <BadgeCheckIcon className="size-4" />
+      <span className="hidden 2xl:block">Keep</span>
+      <span className="block 2xl:hidden">
+        <Tooltip content="Keep">
+          <BadgeCheckIcon className="size-4" />
+        </Tooltip>
       </span>
     </Button>
   );
