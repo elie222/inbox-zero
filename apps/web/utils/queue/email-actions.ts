@@ -7,7 +7,7 @@ import { addThreadsToQueue } from "@/store/archive-queue";
 import type { Thread } from "@/components/email-list/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
-import { queue } from "@/providers/p-queue";
+import { queue } from "@/utils/queue/p-queue";
 
 export const archiveEmails = async (
   threadIds: string[],

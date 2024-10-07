@@ -2,7 +2,7 @@
 
 import { atomWithStorage } from "jotai/utils";
 import { jotaiStore } from "@/store";
-import { queue } from "@/providers/p-queue";
+import { queue } from "@/utils/queue/p-queue";
 import {
   archiveThreadAction,
   trashThreadAction,
