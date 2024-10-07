@@ -1,14 +1,13 @@
 import { chromium, Page } from "playwright";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
 
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
-
-const PageAnalysisSchema = z.object({
+const pageAnalysisSchema = z.object({
   actions: z.array(
     z.object({
       type: z.enum(["click", "fill", "select", "submit"]),
@@ -19,39 +18,34 @@ const PageAnalysisSchema = z.object({
   confirmationIndicator: z.string().nullable(),
 });
 
-type PageAnalysis = z.infer<typeof PageAnalysisSchema>;
+type PageAnalysis = z.infer<typeof pageAnalysisSchema>;
 
 async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
   const prompt = `
-      Analyze the following HTML content and determine the actions needed to unsubscribe from an email newsletter.
-      Provide a JSON object with:
-      1. An 'actions' array containing steps to unsubscribe. Each action should have:
-         - 'type': Either 'click', 'fill', 'select', or 'submit'
-         - 'selector': A CSS selector for the element. Use only standard CSS selectors (e.g., '#id', '.class', 'tag', '[attribute]').
-         - 'value': (Optional) For input fields. Omit this field if not applicable.
-      2. A 'confirmationIndicator' string to verify success. This should be a CSS selector for an element that appears after successful unsubscription. If uncertain, set to null.
+    Analyze the following HTML content and determine the actions needed to unsubscribe from an email newsletter.
+    Provide a JSON object with:
+    1. An 'actions' array containing steps to unsubscribe. Each action should have:
+       - 'type': Either 'click', 'fill', 'select', or 'submit'
+       - 'selector': A CSS selector for the element. Use only standard CSS selectors (e.g., '#id', '.class', 'tag', '[attribute]').
+       - 'value': (Optional) For input fields. Omit this field if not applicable.
+    2. A 'confirmationIndicator' string to verify success. This should be a CSS selector for an element that appears after successful unsubscription. If uncertain, set to null.
 
-      Return ONLY the JSON object, without any markdown formatting, code blocks, or explanation.
+    Return ONLY the JSON object, without any markdown formatting, code blocks, or explanation.
 
-      HTML Content:
-      ${pageContent}
-    `;
+    HTML Content:
+    ${pageContent}
+  `;
 
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  let analysisText = response.text().trim();
+  const { text: analysisText } = await generateText({
+    model: google("gemini-1.5-flash"),
+    prompt: prompt,
+  });
 
   try {
     // Remove any markdown code block indicators
-    analysisText = analysisText.replace(/```json\n?|\n?```/g, "");
-
-    // Trim any leading or trailing whitespace
-    analysisText = analysisText.trim();
-
-    const parsedAnalysis = JSON.parse(analysisText);
-    return PageAnalysisSchema.parse(parsedAnalysis);
+    const cleanedText = analysisText.replace(/```json\n?|\n?```/g, "").trim();
+    const parsedAnalysis = JSON.parse(cleanedText);
+    return pageAnalysisSchema.parse(parsedAnalysis);
   } catch (error) {
     console.error("Error parsing AI response:", error);
     console.error("Raw AI response:", analysisText);
@@ -155,6 +149,7 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     }
   } catch (error) {
     console.error("Error during unsubscribe process:", error);
+    // Optional
     await page.screenshot({ path: "error-screenshot.png", fullPage: true });
     return false;
   } finally {
@@ -180,20 +175,3 @@ async function performFallbackUnsubscribe(page: Page) {
   }
   console.log("No unsubscribe element found in fallback strategy");
 }
-
-// async function main() {
-//   const url =
-//     "https://unsubscribe.convertkit-mail2.com/8ku0mlzpxxaoh077q34ikhk97mg99a3"; // Replace with an actual unsubscribe URL
-//   try {
-//     const success = await autoUnsubscribe(url);
-//     if (success) {
-//       console.log("Successfully unsubscribed!");
-//     } else {
-//       console.log("Unsubscribe process completed, but confirmation not found.");
-//     }
-//   } catch (error) {
-//     console.error("An error occurred:", error);
-//   }
-// }
-
-// main();

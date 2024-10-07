@@ -20,6 +20,8 @@
     "typescript": "^5.6.2"
   },
   "dependencies": {
+    "@ai-sdk/google": "^0.0.51",
+    "@ai-sdk/openai": "^0.0.59",
     "@fastify/cors": "^10.0.1",
     "@google/generative-ai": "^0.21.0",
     "ai": "^3.3.36",

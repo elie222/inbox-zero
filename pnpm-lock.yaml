@@ -16,7 +16,7 @@ importers:
         version: link:packages/eslint-config
       '@turbo/gen':
         specifier: ^2.1.2
-        version: 2.1.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)
+        version: 2.1.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
@@ -85,13 +85,13 @@ importers:
         version: 3.3.1
       '@mdx-js/loader':
         specifier: ^3.0.1
-        version: 3.0.1(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))
+        version: 3.0.1(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))
       '@mdx-js/react':
         specifier: ^3.0.1
         version: 3.0.1(@types/react@18.3.5)(react@18.3.1)
       '@next/mdx':
         specifier: ^14.2.11
-        version: 14.2.11(@mdx-js/loader@3.0.1(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)))(@mdx-js/react@3.0.1(@types/react@18.3.5)(react@18.3.1))
+        version: 14.2.11(@mdx-js/loader@3.0.1(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)))(@mdx-js/react@3.0.1(@types/react@18.3.5)(react@18.3.1))
       '@next/third-parties':
         specifier: ^14.2.11
         version: 14.2.11(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
@@ -157,25 +157,25 @@ importers:
         version: 3.56.0(@babel/runtime@7.24.1)(@codemirror/lint@6.8.1)(@codemirror/theme-one-dark@6.1.2)(@lezer/common@1.2.1)(codemirror@6.0.1(@lezer/common@1.2.1))(react-dom@18.3.1(react@18.3.1))(react-is@18.2.0)(react@18.3.1)(styled-components@6.1.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       '@sentry/nextjs':
         specifier: ^8.30.0
-        version: 8.30.0(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.53.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.26.0(@opentelemetry/api@1.9.0))(encoding@0.1.13)(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))
+        version: 8.30.0(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.53.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.26.0(@opentelemetry/api@1.9.0))(encoding@0.1.13)(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))
       '@serwist/next':
         specifier: ^9.0.7
-        version: 9.0.7(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))
+        version: 9.0.7(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))
       '@t3-oss/env-nextjs':
         specifier: ^0.11.1
         version: 0.11.1(typescript@5.6.2)(zod@3.23.8)
       '@tailwindcss/forms':
         specifier: ^0.5.9
-        version: 0.5.9(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))
+        version: 0.5.9(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))
       '@tailwindcss/typography':
         specifier: ^0.5.15
-        version: 0.5.15(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))
+        version: 0.5.15(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))
       '@tanstack/react-query':
         specifier: ^5.56.2
         version: 5.56.2(react@18.3.1)
       '@tremor/react':
         specifier: ^3.18.1
-        version: 3.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))
+        version: 3.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))
       '@types/mdx':
         specifier: ^2.0.13
         version: 2.0.13
@@ -340,7 +340,7 @@ importers:
         version: 2.5.2
       tailwindcss-animate:
         specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))
+        version: 1.0.7(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))
       typescript:
         specifier: 5.6.2
         version: 5.6.2
@@ -356,7 +356,7 @@ importers:
     devDependencies:
       '@headlessui/tailwindcss':
         specifier: ^0.2.1
-        version: 0.2.1(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))
+        version: 0.2.1(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))
       '@inboxzero/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
@@ -410,7 +410,7 @@ importers:
         version: 9.0.7(typescript@5.6.2)
       tailwindcss:
         specifier: 3.4.11
-        version: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2))
+        version: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2))
       tsconfig:
         specifier: workspace:*
         version: link:../../packages/tsconfig
@@ -434,7 +434,7 @@ importers:
         version: 8.5.0(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2)
       '@vercel/style-guide':
         specifier: ^6.0.0
-        version: 6.0.0(@next/eslint-plugin-next@14.2.11)(eslint@9.10.0(jiti@1.21.6))(prettier@3.3.3)(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4)(jsdom@25.0.0)(terser@5.26.0))
+        version: 6.0.0(@next/eslint-plugin-next@14.2.11)(eslint@9.10.0(jiti@1.21.6))(prettier@3.3.3)(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4))
       eslint-config-prettier:
         specifier: ^9.1.0
         version: 9.1.0(eslint@9.10.0(jiti@1.21.6))
@@ -11362,7 +11362,7 @@ snapshots:
       '@aws-sdk/client-sso-oidc': 3.600.0
       '@aws-sdk/client-sts': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)
       '@aws-sdk/core': 3.598.0
-      '@aws-sdk/credential-provider-node': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0)
+      '@aws-sdk/credential-provider-node': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))
       '@aws-sdk/middleware-host-header': 3.598.0
       '@aws-sdk/middleware-logger': 3.598.0
       '@aws-sdk/middleware-recursion-detection': 3.598.0
@@ -11411,7 +11411,7 @@ snapshots:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-sdk/client-sts': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)
       '@aws-sdk/core': 3.598.0
-      '@aws-sdk/credential-provider-node': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0)
+      '@aws-sdk/credential-provider-node': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))
       '@aws-sdk/middleware-host-header': 3.598.0
       '@aws-sdk/middleware-logger': 3.598.0
       '@aws-sdk/middleware-recursion-detection': 3.598.0
@@ -11499,7 +11499,7 @@ snapshots:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-sdk/client-sso-oidc': 3.600.0
       '@aws-sdk/core': 3.598.0
-      '@aws-sdk/credential-provider-node': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0)
+      '@aws-sdk/credential-provider-node': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))
       '@aws-sdk/middleware-host-header': 3.598.0
       '@aws-sdk/middleware-logger': 3.598.0
       '@aws-sdk/middleware-recursion-detection': 3.598.0
@@ -11568,14 +11568,14 @@ snapshots:
       '@smithy/util-stream': 3.1.3
       tslib: 2.6.2
 
-  '@aws-sdk/credential-provider-ini@3.598.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0)':
+  '@aws-sdk/credential-provider-ini@3.598.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))':
     dependencies:
       '@aws-sdk/client-sts': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)
       '@aws-sdk/credential-provider-env': 3.598.0
       '@aws-sdk/credential-provider-http': 3.598.0
       '@aws-sdk/credential-provider-process': 3.598.0
       '@aws-sdk/credential-provider-sso': 3.598.0(@aws-sdk/client-sso-oidc@3.600.0)
-      '@aws-sdk/credential-provider-web-identity': 3.598.0(@aws-sdk/client-sts@3.600.0)
+      '@aws-sdk/credential-provider-web-identity': 3.598.0(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))
       '@aws-sdk/types': 3.598.0
       '@smithy/credential-provider-imds': 3.2.0
       '@smithy/property-provider': 3.1.3
@@ -11586,14 +11586,14 @@ snapshots:
       - '@aws-sdk/client-sso-oidc'
       - aws-crt
 
-  '@aws-sdk/credential-provider-node@3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0)':
+  '@aws-sdk/credential-provider-node@3.600.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))':
     dependencies:
       '@aws-sdk/credential-provider-env': 3.598.0
       '@aws-sdk/credential-provider-http': 3.598.0
-      '@aws-sdk/credential-provider-ini': 3.598.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0)
+      '@aws-sdk/credential-provider-ini': 3.598.0(@aws-sdk/client-sso-oidc@3.600.0)(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))
       '@aws-sdk/credential-provider-process': 3.598.0
       '@aws-sdk/credential-provider-sso': 3.598.0(@aws-sdk/client-sso-oidc@3.600.0)
-      '@aws-sdk/credential-provider-web-identity': 3.598.0(@aws-sdk/client-sts@3.600.0)
+      '@aws-sdk/credential-provider-web-identity': 3.598.0(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))
       '@aws-sdk/types': 3.598.0
       '@smithy/credential-provider-imds': 3.2.0
       '@smithy/property-provider': 3.1.3
@@ -11626,7 +11626,7 @@ snapshots:
       - '@aws-sdk/client-sso-oidc'
       - aws-crt
 
-  '@aws-sdk/credential-provider-web-identity@3.598.0(@aws-sdk/client-sts@3.600.0)':
+  '@aws-sdk/credential-provider-web-identity@3.598.0(@aws-sdk/client-sts@3.600.0(@aws-sdk/client-sso-oidc@3.600.0))':
     dependencies:
       '@aws-sdk/client-sts': 3.600.0(@aws-sdk/client-sso-oidc@3.600.0)
       '@aws-sdk/types': 3.598.0
@@ -13197,9 +13197,9 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@headlessui/tailwindcss@0.2.1(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))':
+  '@headlessui/tailwindcss@0.2.1(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))':
     dependencies:
-      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2))
+      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2))
 
   '@hookform/resolvers@3.9.0(react-hook-form@7.53.0(react@18.3.1))':
     dependencies:
@@ -13237,7 +13237,7 @@ snapshots:
   '@jridgewell/gen-mapping@0.3.5':
     dependencies:
       '@jridgewell/set-array': 1.2.1
-      '@jridgewell/sourcemap-codec': 1.4.15
+      '@jridgewell/sourcemap-codec': 1.5.0
       '@jridgewell/trace-mapping': 0.3.25
 
   '@jridgewell/resolve-uri@3.1.2': {}
@@ -13256,12 +13256,12 @@ snapshots:
   '@jridgewell/trace-mapping@0.3.25':
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
-      '@jridgewell/sourcemap-codec': 1.4.15
+      '@jridgewell/sourcemap-codec': 1.5.0
 
   '@jridgewell/trace-mapping@0.3.9':
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
-      '@jridgewell/sourcemap-codec': 1.4.15
+      '@jridgewell/sourcemap-codec': 1.5.0
 
   '@juggle/resize-observer@3.4.0': {}
 
@@ -13283,11 +13283,11 @@ snapshots:
     dependencies:
       '@lezer/common': 1.2.1
 
-  '@mdx-js/loader@3.0.1(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))':
+  '@mdx-js/loader@3.0.1(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))':
     dependencies:
       '@mdx-js/mdx': 3.0.0
       source-map: 0.7.4
-      webpack: 5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)
+      webpack: 5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)
     transitivePeerDependencies:
       - supports-color
 
@@ -13360,11 +13360,11 @@ snapshots:
     dependencies:
       glob: 10.3.10
 
-  '@next/mdx@14.2.11(@mdx-js/loader@3.0.1(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)))(@mdx-js/react@3.0.1(@types/react@18.3.5)(react@18.3.1))':
+  '@next/mdx@14.2.11(@mdx-js/loader@3.0.1(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)))(@mdx-js/react@3.0.1(@types/react@18.3.5)(react@18.3.1))':
     dependencies:
       source-map: 0.7.4
     optionalDependencies:
-      '@mdx-js/loader': 3.0.1(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))
+      '@mdx-js/loader': 3.0.1(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))
       '@mdx-js/react': 3.0.1(@types/react@18.3.5)(react@18.3.1)
 
   '@next/swc-darwin-arm64@14.2.11':
@@ -14967,11 +14967,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@sanity/presentation@1.16.5(@sanity/client@6.21.3)(react-dom@18.3.1(react@18.3.1))(react-is@18.2.0)(react@18.3.1)(styled-components@6.1.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
+  '@sanity/presentation@1.16.5(@sanity/client@6.21.3(debug@4.3.6))(react-dom@18.3.1(react@18.3.1))(react-is@18.2.0)(react@18.3.1)(styled-components@6.1.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
     dependencies:
       '@sanity/client': 6.21.3(debug@4.3.6)
       '@sanity/icons': 3.4.0(react@18.3.1)
-      '@sanity/preview-url-secret': 1.6.21(@sanity/client@6.21.3)
+      '@sanity/preview-url-secret': 1.6.21(@sanity/client@6.21.3(debug@4.3.6))
       '@sanity/ui': 2.8.9(react-dom@18.3.1(react@18.3.1))(react-is@18.2.0)(react@18.3.1)(styled-components@6.1.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       '@sanity/uuid': 3.0.2
       '@types/lodash.isequal': 4.5.8
@@ -15008,7 +15008,7 @@ snapshots:
       '@sanity/client': 6.21.3(debug@4.3.6)
       '@sanity/uuid': 3.0.2
 
-  '@sanity/preview-url-secret@1.6.21(@sanity/client@6.21.3)':
+  '@sanity/preview-url-secret@1.6.21(@sanity/client@6.21.3(debug@4.3.6))':
     dependencies:
       '@sanity/client': 6.21.3(debug@4.3.6)
       '@sanity/uuid': 3.0.2
@@ -15289,7 +15289,7 @@ snapshots:
       '@sentry/types': 8.30.0
       '@sentry/utils': 8.30.0
 
-  '@sentry/nextjs@8.30.0(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.53.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.26.0(@opentelemetry/api@1.9.0))(encoding@0.1.13)(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))':
+  '@sentry/nextjs@8.30.0(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.53.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.26.0(@opentelemetry/api@1.9.0))(encoding@0.1.13)(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))':
     dependencies:
       '@opentelemetry/instrumentation-http': 0.53.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.27.0
@@ -15301,14 +15301,14 @@ snapshots:
       '@sentry/types': 8.30.0
       '@sentry/utils': 8.30.0
       '@sentry/vercel-edge': 8.30.0
-      '@sentry/webpack-plugin': 2.22.3(encoding@0.1.13)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))
+      '@sentry/webpack-plugin': 2.22.3(encoding@0.1.13)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))
       chalk: 3.0.0
       next: 14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       resolve: 1.22.8
       rollup: 3.29.4
       stacktrace-parser: 0.1.10
     optionalDependencies:
-      webpack: 5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)
+      webpack: 5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/core'
@@ -15402,12 +15402,12 @@ snapshots:
       '@sentry/types': 8.30.0
       '@sentry/utils': 8.30.0
 
-  '@sentry/webpack-plugin@2.22.3(encoding@0.1.13)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))':
+  '@sentry/webpack-plugin@2.22.3(encoding@0.1.13)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))':
     dependencies:
       '@sentry/bundler-plugin-core': 2.22.3(encoding@0.1.13)
       unplugin: 1.0.1
       uuid: 9.0.1
-      webpack: 5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)
+      webpack: 5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -15423,10 +15423,10 @@ snapshots:
     optionalDependencies:
       typescript: 5.6.2
 
-  '@serwist/next@9.0.7(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))':
+  '@serwist/next@9.0.7(next@14.2.11(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))':
     dependencies:
       '@serwist/build': 9.0.7(typescript@5.6.2)
-      '@serwist/webpack-plugin': 9.0.7(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))
+      '@serwist/webpack-plugin': 9.0.7(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))
       '@serwist/window': 9.0.7(typescript@5.6.2)
       chalk: 5.3.0
       glob: 10.4.5
@@ -15438,14 +15438,14 @@ snapshots:
     transitivePeerDependencies:
       - webpack
 
-  '@serwist/webpack-plugin@9.0.7(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))':
+  '@serwist/webpack-plugin@9.0.7(typescript@5.6.2)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))':
     dependencies:
       '@serwist/build': 9.0.7(typescript@5.6.2)
       pretty-bytes: 6.1.1
       zod: 3.23.8
     optionalDependencies:
       typescript: 5.6.2
-      webpack: 5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)
+      webpack: 5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)
 
   '@serwist/window@9.0.7(typescript@5.6.2)':
     dependencies:
@@ -15782,7 +15782,7 @@ snapshots:
   '@swc/core-win32-x64-msvc@1.6.5':
     optional: true
 
-  '@swc/core@1.6.5(@swc/helpers@0.5.5)':
+  '@swc/core@1.6.5':
     dependencies:
       '@swc/counter': 0.1.3
       '@swc/types': 0.1.9
@@ -15797,7 +15797,6 @@ snapshots:
       '@swc/core-win32-arm64-msvc': 1.6.5
       '@swc/core-win32-ia32-msvc': 1.6.5
       '@swc/core-win32-x64-msvc': 1.6.5
-      '@swc/helpers': 0.5.5
     optional: true
 
   '@swc/counter@0.1.3': {}
@@ -15825,18 +15824,18 @@ snapshots:
     optionalDependencies:
       typescript: 5.6.2
 
-  '@tailwindcss/forms@0.5.9(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))':
+  '@tailwindcss/forms@0.5.9(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))':
     dependencies:
       mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2))
+      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2))
 
-  '@tailwindcss/typography@0.5.15(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))':
+  '@tailwindcss/typography@0.5.15(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))':
     dependencies:
       lodash.castarray: 4.4.0
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       postcss-selector-parser: 6.0.10
-      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2))
+      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2))
 
   '@tanstack/query-core@5.56.2': {}
 
@@ -16084,11 +16083,11 @@ snapshots:
 
   '@tootallnate/quickjs-emscripten@0.23.0': {}
 
-  '@tremor/react@3.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))':
+  '@tremor/react@3.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))':
     dependencies:
       '@floating-ui/react': 0.19.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@headlessui/react': 1.7.19(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@headlessui/tailwindcss': 0.2.1(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)))
+      '@headlessui/tailwindcss': 0.2.1(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)))
       date-fns: 3.6.0
       react: 18.3.1
       react-day-picker: 8.10.1(date-fns@3.6.0)(react@18.3.1)
@@ -16107,7 +16106,7 @@ snapshots:
 
   '@tsconfig/node16@1.0.4': {}
 
-  '@turbo/gen@2.1.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)':
+  '@turbo/gen@2.1.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)':
     dependencies:
       '@turbo/workspaces': 2.1.2
       commander: 10.0.1
@@ -16117,7 +16116,7 @@ snapshots:
       node-plop: 0.26.3
       picocolors: 1.0.1
       proxy-agent: 6.3.1
-      ts-node: 10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)
+      ts-node: 10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)
       update-check: 1.5.4
       validate-npm-package-name: 5.0.0
     transitivePeerDependencies:
@@ -16755,7 +16754,7 @@ snapshots:
 
   '@vercel/stega@0.1.2': {}
 
-  '@vercel/style-guide@6.0.0(@next/eslint-plugin-next@14.2.11)(eslint@9.10.0(jiti@1.21.6))(prettier@3.3.3)(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4)(jsdom@25.0.0)(terser@5.26.0))':
+  '@vercel/style-guide@6.0.0(@next/eslint-plugin-next@14.2.11)(eslint@9.10.0(jiti@1.21.6))(prettier@3.3.3)(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4))':
     dependencies:
       '@babel/core': 7.24.7
       '@babel/eslint-parser': 7.25.0(@babel/core@7.24.7)(eslint@9.10.0(jiti@1.21.6))
@@ -16775,7 +16774,7 @@ snapshots:
       eslint-plugin-testing-library: 6.2.2(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2)
       eslint-plugin-tsdoc: 0.2.17
       eslint-plugin-unicorn: 51.0.1(eslint@9.10.0(jiti@1.21.6))
-      eslint-plugin-vitest: 0.3.26(@typescript-eslint/eslint-plugin@7.17.0(@typescript-eslint/parser@7.17.0(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4)(jsdom@25.0.0)(terser@5.26.0))
+      eslint-plugin-vitest: 0.3.26(@typescript-eslint/eslint-plugin@7.17.0(@typescript-eslint/parser@7.17.0(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4))
       prettier-plugin-packagejson: 2.5.1(prettier@3.3.3)
     optionalDependencies:
       '@next/eslint-plugin-next': 14.2.11
@@ -16807,7 +16806,7 @@ snapshots:
       chai: 5.1.1
       tinyrainbow: 1.2.0
 
-  '@vitest/mocker@2.1.1(@vitest/spy@2.1.1)(vite@5.1.3(@types/node@22.5.4)(terser@5.26.0))':
+  '@vitest/mocker@2.1.1(@vitest/spy@2.1.1)(vite@5.1.3(@types/node@22.5.4))':
     dependencies:
       '@vitest/spy': 2.1.1
       estree-walker: 3.0.3
@@ -18695,7 +18694,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-vitest@0.3.26(@typescript-eslint/eslint-plugin@7.17.0(@typescript-eslint/parser@7.17.0(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4)(jsdom@25.0.0)(terser@5.26.0)):
+  eslint-plugin-vitest@0.3.26(@typescript-eslint/eslint-plugin@7.17.0(@typescript-eslint/parser@7.17.0(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2))(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2)(vitest@2.1.1(@types/node@22.5.4)):
     dependencies:
       '@typescript-eslint/utils': 7.17.0(eslint@9.10.0(jiti@1.21.6))(typescript@5.6.2)
       eslint: 9.10.0(jiti@1.21.6)
@@ -21584,13 +21583,13 @@ snapshots:
       camelcase-css: 2.0.1
       postcss: 8.4.45
 
-  postcss-load-config@4.0.1(postcss@8.4.45)(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)):
+  postcss-load-config@4.0.1(postcss@8.4.45)(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)):
     dependencies:
       lilconfig: 2.1.0
       yaml: 2.5.0
     optionalDependencies:
       postcss: 8.4.45
-      ts-node: 10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)
+      ts-node: 10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)
 
   postcss-nested@6.0.1(postcss@8.4.45):
     dependencies:
@@ -22503,7 +22502,7 @@ snapshots:
       '@sanity/logos': 2.1.13(@sanity/color@3.0.6)(react@18.3.1)
       '@sanity/migrate': 3.57.3
       '@sanity/mutator': 3.57.3
-      '@sanity/presentation': 1.16.5(@sanity/client@6.21.3)(react-dom@18.3.1(react@18.3.1))(react-is@18.2.0)(react@18.3.1)(styled-components@6.1.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
+      '@sanity/presentation': 1.16.5(@sanity/client@6.21.3(debug@4.3.6))(react-dom@18.3.1(react@18.3.1))(react-is@18.2.0)(react@18.3.1)(styled-components@6.1.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       '@sanity/schema': 3.57.3(debug@4.3.6)
       '@sanity/telemetry': 0.7.9(react@18.3.1)
       '@sanity/types': 3.57.3(debug@4.3.6)
@@ -23128,11 +23127,11 @@ snapshots:
 
   tailwind-merge@2.5.2: {}
 
-  tailwindcss-animate@1.0.7(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2))):
+  tailwindcss-animate@1.0.7(tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2))):
     dependencies:
-      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2))
+      tailwindcss: 3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2))
 
-  tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2)):
+  tailwindcss@3.4.11(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2)):
     dependencies:
       '@alloc/quick-lru': 5.2.0
       arg: 5.0.2
@@ -23151,7 +23150,7 @@ snapshots:
       postcss: 8.4.45
       postcss-import: 15.1.0(postcss@8.4.45)
       postcss-js: 4.0.1(postcss@8.4.45)
-      postcss-load-config: 4.0.1(postcss@8.4.45)(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2))
+      postcss-load-config: 4.0.1(postcss@8.4.45)(ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2))
       postcss-nested: 6.0.1(postcss@8.4.45)
       postcss-selector-parser: 6.0.13
       resolve: 1.22.8
@@ -23201,16 +23200,16 @@ snapshots:
       mkdirp: 3.0.1
       yallist: 5.0.0
 
-  terser-webpack-plugin@5.3.10(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)):
+  terser-webpack-plugin@5.3.10(@swc/core@1.6.5)(esbuild@0.21.5)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.25
       jest-worker: 27.5.1
       schema-utils: 3.3.0
       serialize-javascript: 6.0.2
       terser: 5.26.0
-      webpack: 5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)
+      webpack: 5.90.3(@swc/core@1.6.5)(esbuild@0.21.5)
     optionalDependencies:
-      '@swc/core': 1.6.5(@swc/helpers@0.5.5)
+      '@swc/core': 1.6.5
       esbuild: 0.21.5
 
   terser@5.26.0:
@@ -23335,7 +23334,7 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
-  ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.5))(@types/node@22.5.4)(typescript@5.6.2):
+  ts-node@10.9.2(@swc/core@1.6.5)(@types/node@22.5.4)(typescript@5.6.2):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.9
@@ -23353,7 +23352,7 @@ snapshots:
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
     optionalDependencies:
-      '@swc/core': 1.6.5(@swc/helpers@0.5.5)
+      '@swc/core': 1.6.5
 
   tsconfck@3.1.0(typescript@5.6.2):
     optionalDependencies:
@@ -23827,7 +23826,7 @@ snapshots:
   vitest@2.1.1(@types/node@22.5.4)(jsdom@25.0.0)(terser@5.26.0):
     dependencies:
       '@vitest/expect': 2.1.1
-      '@vitest/mocker': 2.1.1(@vitest/spy@2.1.1)(vite@5.1.3(@types/node@22.5.4)(terser@5.26.0))
+      '@vitest/mocker': 2.1.1(@vitest/spy@2.1.1)(vite@5.1.3(@types/node@22.5.4))
       '@vitest/pretty-format': 2.1.1
       '@vitest/runner': 2.1.1
       '@vitest/snapshot': 2.1.1
@@ -23899,7 +23898,7 @@ snapshots:
 
   webpack-virtual-modules@0.5.0: {}
 
-  webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5):
+  webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5):
     dependencies:
       '@types/eslint-scope': 3.7.7
       '@types/estree': 1.0.5
@@ -23922,7 +23921,7 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 3.3.0
       tapable: 2.2.1
-      terser-webpack-plugin: 5.3.10(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5)(webpack@5.90.3(@swc/core@1.6.5(@swc/helpers@0.5.5))(esbuild@0.21.5))
+      terser-webpack-plugin: 5.3.10(@swc/core@1.6.5)(esbuild@0.21.5)(webpack@5.90.3(@swc/core@1.6.5)(esbuild@0.21.5))
       watchpack: 2.4.0
       webpack-sources: 3.2.3
     transitivePeerDependencies:
