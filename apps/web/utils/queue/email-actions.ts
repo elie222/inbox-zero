@@ -7,7 +7,7 @@ import { addThreadsToQueue } from "@/store/archive-queue";
 import type { Thread } from "@/components/email-list/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
-import { emailActionQueue } from "@/utils/queue/p-queue";
+import { emailActionQueue } from "@/utils/queue/email-action-queue";
 
 export const archiveEmails = async (
   threadIds: string[],
@@ -34,19 +34,28 @@ export const archiveAllSenderEmails = async (
   from: string,
   onComplete: () => void,
 ) => {
-  // 1. search gmail for messages from sender
-  const url = `/api/google/threads/basic?from=${from}&labelId=INBOX`;
-  const res = await fetch(url);
-  const data: GetThreadsResponse = await res.json();
+  try {
+    // 1. search gmail for messages from sender
+    const url = `/api/google/threads/basic?from=${from}&labelId=INBOX`;
+    const res = await fetch(url);
 
-  // 2. archive messages
-  if (data?.length) {
-    archiveEmails(data.map((t) => t.id).filter(isDefined), onComplete);
-  } else {
-    onComplete();
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+    const data: GetThreadsResponse = await res.json();
+
+    // 2. archive messages
+    if (data?.length) {
+      archiveEmails(data.map((t) => t.id).filter(isDefined), onComplete);
+    } else {
+      onComplete();
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Failed to fetch or archive emails:", error);
+    onComplete(); // Call onComplete even if there's an error
+    return []; // Return an empty array in case of error
   }
-
-  return data;
 };
 
 export const runAiRules = async (threads: Thread[], force: boolean) => {
