@@ -4,5 +4,6 @@
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "project": true
-  }
+  },
+  "plugins": ["next"]
 }
