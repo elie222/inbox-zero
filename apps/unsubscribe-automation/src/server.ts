@@ -13,7 +13,6 @@ server.register(cors, {
 
 const unsubscribeSchema = z.object({
   url: z.string().url(),
-  useGoogle: z.boolean().optional(),
 });
 
 server.get("/", async (request, reply) => {
