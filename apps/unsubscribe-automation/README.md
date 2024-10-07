@@ -91,11 +91,3 @@ curl -X POST http://localhost:5000/unsubscribe \
 
 - If you encounter any issues with Playwright, ensure that you have the necessary system dependencies installed. Refer to the [Playwright installation guide](https://playwright.dev/docs/intro#installation) for more information.
 - Check the console output for any error messages or logs that might indicate the cause of any issues.
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.

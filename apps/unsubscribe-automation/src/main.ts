@@ -1,4 +1,4 @@
-import { chromium, Page } from "playwright";
+import { chromium, Page, ElementHandle } from "playwright";
 import { z } from "zod";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
@@ -100,9 +100,65 @@ async function performUnsubscribeActions(
   }
 }
 
+async function performFallbackUnsubscribe(page: Page): Promise<boolean> {
+  const unsubscribeKeywords = [
+    "unsubscribe", // English
+    "désabonner", // French
+    "abbestellen", // German
+    "cancelar suscripción", // Spanish
+    "annulla iscrizione", // Italian
+    "退订", // Chinese (Simplified)
+    "退訂", // Chinese (Traditional)
+    "退会", // Japanese
+    "отписаться", // Russian
+    "se désabonner", // Alternative French
+    "désinscription", // Another French alternative
+    "abmelden", // Alternative German
+    "darse de baja", // Alternative Spanish
+  ];
+
+  const generateSelectors = (keyword: string) => [
+    `button:has-text("${keyword}")`,
+    `a:has-text("${keyword}")`,
+    `input[type="submit"][value*="${keyword}" i]`,
+    `:text("${keyword}")`,
+    `[aria-label*="${keyword}" i]`,
+    `[title*="${keyword}" i]`,
+  ];
+
+  const allSelectors = unsubscribeKeywords.flatMap(generateSelectors);
+
+  for (const selector of allSelectors) {
+    try {
+      const elements = await page.$$(selector);
+      if (elements.length > 0) {
+        // Filter visible elements
+        const visibleElements = await Promise.all(
+          elements.map(async (el) => ((await el.isVisible()) ? el : null)),
+        );
+        const element = visibleElements.find((el) => el !== null) as
+          | ElementHandle<Element>
+          | undefined;
+
+        if (element) {
+          await element.click({ timeout: 5000 });
+          console.log(`Successfully clicked unsubscribe element: ${selector}`);
+          return true;
+        }
+      }
+    } catch (error) {
+      console.warn(`Error trying to click ${selector}:`, error);
+    }
+  }
+
+  console.log("No unsubscribe element found or clicked in fallback strategy");
+  return false;
+}
+
 export async function autoUnsubscribe(url: string): Promise<boolean> {
   // Remove headless: false if you don't want the browser popup to open
-  const browser = await chromium.launch({ headless: false });
+  const isHeadless = process.env.BROWSER_HEADLESS !== "false";
+  const browser = await chromium.launch({ headless: isHeadless });
   const page = await browser.newPage();
 
   try {
@@ -117,30 +173,31 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
       await performUnsubscribeActions(page, analysis.actions);
     } else {
       console.log("No actions determined by AI. Attempting fallback strategy.");
-      await performFallbackUnsubscribe(page);
+      const fallbackSuccess = await performFallbackUnsubscribe(page);
+      if (!fallbackSuccess) {
+        console.log("Fallback strategy failed to find unsubscribe element.");
+        return false;
+      }
     }
 
+    // Wait for any redirects or page loads to complete
     await page
-      .waitForLoadState("networkidle", { timeout: 5000 })
+      .waitForLoadState("networkidle", { timeout: 10000 })
       .catch(() => {});
 
+    // Check for confirmation
     const finalContent = await page.content();
-    const contentChanged = initialContent !== finalContent;
+    const confirmationFound = analysis.confirmationIndicator
+      ? await page.$(analysis.confirmationIndicator).then(Boolean)
+      : finalContent.toLowerCase().includes("unsubscribed") ||
+        finalContent.toLowerCase().includes("successfully");
 
-    const confirmationText = await page.evaluate(() => {
-      const body = document.body.innerText.toLowerCase();
-      return (
-        body.includes("unsubscribed") ||
-        body.includes("successfully") ||
-        body.includes("confirmed")
-      );
-    });
-
-    if (confirmationText || contentChanged) {
-      console.log("Unsubscribe likely successful");
+    if (confirmationFound) {
+      console.log("Unsubscribe confirmation found.");
       return true;
     } else {
-      console.log("Unsubscribe may have failed");
+      console.log("Unsubscribe action performed, but confirmation not found.");
+      // Optionl
       await page.screenshot({
         path: "final-state-screenshot.png",
         fullPage: true,
@@ -155,23 +212,4 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
   } finally {
     await browser.close();
   }
-}
-
-async function performFallbackUnsubscribe(page: Page) {
-  const unsubscribeSelectors = [
-    "button:has-text(/unsubscribe/i)",
-    "a:has-text(/unsubscribe/i)",
-    'input[type="submit"][value*="unsubscribe" i]',
-    ':text("unsubscribe")',
-  ];
-
-  for (const selector of unsubscribeSelectors) {
-    const element = page.locator(selector);
-    if ((await element.count()) > 0) {
-      await element.click({ timeout: 5000 }).catch(console.warn);
-      console.log(`Clicked element: ${selector}`);
-      return;
-    }
-  }
-  console.log("No unsubscribe element found in fallback strategy");
 }

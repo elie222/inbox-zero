@@ -7,11 +7,11 @@ const server = fastify();
 
 // Register CORS
 server.register(cors, {
-  origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  origin: process.env.CORS_ORIGIN,
   methods: ["GET", "POST"],
 });
 
-const UnsubscribeSchema = z.object({
+const unsubscribeSchema = z.object({
   url: z.string().url(),
   useGoogle: z.boolean().optional(),
 });
@@ -22,7 +22,7 @@ server.get("/", async (request, reply) => {
 
 server.post("/unsubscribe", async (request, reply) => {
   try {
-    const { url } = UnsubscribeSchema.parse(request.body);
+    const { url } = unsubscribeSchema.parse(request.body);
     const success = await autoUnsubscribe(url);
     return {
       success,
@@ -45,7 +45,7 @@ const start = async () => {
   try {
     const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
     await server.listen({ port, host: "0.0.0.0" });
-    console.log(`Server is running on http://localhost:${port}`);
+    console.log(`Server is running on ${port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);
