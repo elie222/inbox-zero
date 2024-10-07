@@ -175,9 +175,8 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     return false;
   }
 
-  // Remove headless: false if you don't want the browser popup to open
-  const isHeadless = process.env.BROWSER_HEADLESS !== "false";
-  const browser = await chromium.launch({ headless: isHeadless });
+  const isProduction = process.env.NODE_ENV === "production";
+  const browser = await chromium.launch({ headless: isProduction });
   const page = await browser.newPage();
 
   try {
@@ -221,17 +220,21 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
       return true;
     } else {
       console.log("Unsubscribe action performed, but confirmation not found.");
-      // Optionl
-      await page.screenshot({
-        path: "final-state-screenshot.png",
-        fullPage: true,
-      });
+      // Only take screenshot if not in production
+      if (!isProduction) {
+        await page.screenshot({
+          path: "final-state-screenshot.png",
+          fullPage: true,
+        });
+      }
       return false;
     }
   } catch (error) {
     console.error("Error during unsubscribe process:", error);
-    // Optional
-    await page.screenshot({ path: "error-screenshot.png", fullPage: true });
+    // Only take screenshot if not in production
+    if (!isProduction) {
+      await page.screenshot({ path: "error-screenshot.png", fullPage: true });
+    }
     return false;
   } finally {
     await browser.close();
