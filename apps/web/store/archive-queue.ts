@@ -2,7 +2,7 @@
 
 import { atomWithStorage } from "jotai/utils";
 import { jotaiStore } from "@/store";
-import { queue } from "@/utils/queue/p-queue";
+import { emailActionQueue } from "@/utils/queue/email-action-queue";
 import {
   archiveThreadAction,
   trashThreadAction,
@@ -52,7 +52,7 @@ export const addThreadsToQueue = (
     totalThreads: prev.totalThreads + threadIds.length,
   }));
 
-  queue.addAll(
+  emailActionQueue.addAll(
     threadIds.map((threadId) => async () => {
       await action(threadId);
 

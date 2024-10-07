@@ -17,7 +17,7 @@ import { Button as HoverButton } from "@/components/Button";
 import { extractNameFromEmail } from "@/utils/email";
 import { Tooltip } from "@/components/Tooltip";
 import type { ParsedMessage } from "@/utils/types";
-import { archiveEmails } from "@/providers/QueueProvider";
+import { archiveEmails } from "@/utils/queue/email-actions";
 import { Summary } from "@/app/(app)/simple/Summary";
 import { getGmailUrl } from "@/utils/url";
 import {
