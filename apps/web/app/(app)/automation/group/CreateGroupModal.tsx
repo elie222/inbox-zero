@@ -17,7 +17,6 @@ import {
   type CreateGroupBody,
   createGroupBody,
 } from "@/utils/actions/validation";
-import { AlertBasic } from "@/components/Alert";
 import { isActionError } from "@/utils/error";
 
 export function CreateGroupModalButton(props: {
@@ -141,11 +140,6 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* <AlertBasic
-        title="AI group creation via prompt coming soon"
-        description=""
-      /> */}
-
       <Input
         type="text"
         name="name"
@@ -154,18 +148,17 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         registerProps={register("name", { required: true })}
         error={errors.name}
       />
-      {/* <Input
-        disabled
+      <Input
         type="text"
         as="textarea"
         rows={3}
         name="prompt"
-        label="Prompt"
-        placeholder="eg. Anyone I've done a demo call with."
-        explainText="Tell our AI how to populate the group."
-        registerProps={register("prompt", { required: true })}
+        label="AI Prompt (Optional)"
+        placeholder="Describe the group members (e.g., 'Customers', or 'Marketing emails')"
+        explainText="Our AI will analyze your recent email history and add matching contacts or subjects to this group"
+        registerProps={register("prompt")}
         error={errors.prompt}
-      /> */}
+      />
       <Button type="submit" loading={isSubmitting}>
         Create
       </Button>
