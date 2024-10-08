@@ -502,8 +502,8 @@ export async function saveRulesPromptAction(
   }>
 > {
   const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
-  setUser({ email: session.user.email ?? undefined });
+  if (!session?.user.email) return { error: "Not logged in" };
+  setUser({ email: session.user.email });
 
   return executeServerAction(async () => {
     const data = saveRulesPromptBody.parse(unsafeData);

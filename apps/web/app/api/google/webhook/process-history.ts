@@ -16,7 +16,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting, type User } from "@prisma/client";
 import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
-import { captureException } from "@/utils/error";
+import { captureException, isKnownApiError } from "@/utils/error";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 
@@ -236,6 +236,11 @@ async function processHistory(options: ProcessHistoryOptions) {
       try {
         await processHistoryItem(m, options);
       } catch (error) {
+        if (isKnownApiError(error)) {
+          console.warn(`Known API error. email: ${email}`, error);
+          continue;
+        }
+
         captureException(
           error,
           { extra: { email, messageId: m.message?.id } },

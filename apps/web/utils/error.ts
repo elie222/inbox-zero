@@ -45,3 +45,29 @@ export class SafeError extends Error {
     this.name = "SafeError";
   }
 }
+
+export function isGmailInsufficientPermissionsError(error: unknown): boolean {
+  return (error as any)?.errors?.[0]?.reason === "insufficientPermissions";
+}
+
+export function isGmailRateLimitExceededError(error: unknown): boolean {
+  return (error as any)?.errors?.[0]?.reason === "rateLimitExceeded";
+}
+
+export function isGmailQuotaExceededError(error: unknown): boolean {
+  return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
+}
+
+export function isOpenAIQuotaExceededError(error: unknown): boolean {
+  return (error as any)?.code === "insufficient_quota";
+}
+
+// we don't want to capture these errors in Sentry
+export function isKnownApiError(error: unknown): boolean {
+  return (
+    isGmailInsufficientPermissionsError(error) ||
+    isGmailRateLimitExceededError(error) ||
+    isGmailQuotaExceededError(error) ||
+    isOpenAIQuotaExceededError(error)
+  );
+}
