@@ -19,7 +19,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { MessageText } from "@/components/Typography";
+import { MessageText, SectionDescription } from "@/components/Typography";
 import {
   addGroupItemAction,
   deleteGroupAction,
@@ -66,7 +66,7 @@ export function ViewGroupButton({
         title={name}
         size="4xl"
       >
-        <div className="mt-4">
+        <div className="mt-2">
           <ViewGroup groupId={groupId} groupName={name} onDelete={closeModal} />
         </div>
       </Modal>
@@ -93,6 +93,10 @@ function ViewGroup({
 
   return (
     <div>
+      {data?.group?.prompt ? (
+        <SectionDescription>Prompt: {data.group.prompt}</SectionDescription>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:justify-end">
         {showAddItem ? (
           <AddGroupItemForm groupId={groupId} mutate={mutate} />
@@ -177,7 +181,7 @@ function ViewGroup({
         >
           {data && (
             <>
-              {data.items.length ? (
+              {data?.group?.items.length ? (
                 <>
                   <Table>
                     <TableHeader>
@@ -187,7 +191,7 @@ function ViewGroup({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data?.items.map((item) => {
+                      {data?.group?.items.map((item) => {
                         // within last 2 minutes
                         const isRecent =
                           new Date(item.createdAt) >

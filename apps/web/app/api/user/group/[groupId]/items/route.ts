@@ -12,10 +12,11 @@ async function getGroupItems({
   userId: string;
   groupId: string;
 }) {
-  const items = await prisma.groupItem.findMany({
-    where: { group: { userId }, groupId },
+  const group = await prisma.group.findUnique({
+    where: { id: groupId, userId },
+    select: { prompt: true, items: true },
   });
-  return { items };
+  return { group };
 }
 
 export const GET = withError(async (_request: Request, { params }) => {
