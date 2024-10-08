@@ -12,7 +12,7 @@ import {
   saveRulesPromptAction,
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
-import { isActionError } from "@/utils/error";
+import { captureException, isActionError } from "@/utils/error";
 import {
   Card,
   CardContent,
@@ -190,14 +190,20 @@ Feel free to add as many as you want:
                       if (isSubmitting || isGenerating) return;
                       toast.promise(
                         async () => {
-                          setIsGenerating(true);
-                          const result = await generateRulesPromptAction();
-                          setIsGenerating(false);
-                          if (isActionError(result))
-                            throw new Error(result.error);
-                          if (!result)
-                            throw new Error("Unable to generate prompt");
-                          return result;
+                          try {
+                            setIsGenerating(true);
+                            const result = await generateRulesPromptAction();
+                            if (isActionError(result))
+                              throw new Error(result.error);
+                            if (!result)
+                              throw new Error("Unable to generate prompt");
+                            return result;
+                          } catch (error) {
+                            captureException(error);
+                            throw error;
+                          } finally {
+                            setIsGenerating(false);
+                          }
                         },
                         {
                           loading: "Generating prompt...",
@@ -225,7 +231,7 @@ Feel free to add as many as you want:
           </form>
         </CardContent>
       </div>
-      <div className="px-6 sm:mt-8 sm:p-0">
+      <div className="px-6 pb-4 sm:mt-8 sm:p-0">
         <SectionHeader>Examples</SectionHeader>
 
         <ScrollArea className="mt-2 sm:h-[600px] sm:max-h-[600px]">
