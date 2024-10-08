@@ -28,6 +28,7 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
+      // gmail insufficient permissions
       if ((error as any)?.errors?.[0]?.reason === "insufficientPermissions") {
         console.error(
           `User did not grant all Gmail permissions: ${req.url}:`,
@@ -67,6 +68,7 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
+      // gmail rate limit exceeded
       if ((error as any)?.errors?.[0]?.reason === "rateLimitExceeded") {
         return NextResponse.json(
           {
@@ -78,6 +80,17 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
+      // gmail quota exceeded
+      if ((error as any)?.errors?.[0]?.reason === "quotaExceeded") {
+        return NextResponse.json(
+          {
+            error: `You have exceeded the Gmail quota. Please try again later.`,
+          },
+          { status: 429 },
+        );
+      }
+
+      // openai quota exceeded
       if ((error as any)?.code === "insufficient_quota") {
         return NextResponse.json(
           {
