@@ -159,9 +159,7 @@ export function BulkUnsubscribeSection({
           {Array.from(selected.values()).filter(Boolean).length > 0 ? (
             <BulkActions selected={selected} mutate={mutate} />
           ) : (
-            <Title className="hidden md:block">
-              One-click bulk unsubscribe from emailers
-            </Title>
+            <Title className="hidden md:block">Bulk Unsubscriber</Title>
           )}
 
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
