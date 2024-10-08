@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
-import { MoreHorizontalIcon, PenIcon } from "lucide-react";
+import { MoreHorizontalIcon, PenIcon, PlusIcon } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -49,10 +49,12 @@ export function Rules() {
     { error: string }
   >(`/api/user/rules`);
 
+  const hasRules = !!data?.length;
+
   return (
     <div>
       {/* only show once a rule has been created */}
-      {data && data.length > 0 && (
+      {hasRules && (
         <div className="my-2">
           <PremiumAlertWithData />
         </div>
@@ -60,7 +62,7 @@ export function Rules() {
 
       <Card>
         <LoadingContent loading={isLoading} error={error}>
-          {data?.length ? (
+          {hasRules ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -207,26 +209,27 @@ export function Rules() {
               </TableBody>
             </Table>
           ) : (
-            <>
-              <CardHeader>
-                <CardTitle>AI Personal Assistant</CardTitle>
-                <CardDescription>
-                  Set up intelligent automations to let our AI handle your
-                  emails for you.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <Link href="/automation?tab=prompt">
-                    <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
-                    Set Prompt
-                  </Link>
-                </Button>
-              </CardContent>
-            </>
+            <NoRules />
           )}
         </LoadingContent>
       </Card>
+
+      {hasRules && (
+        <div className="my-2 flex justify-end gap-2">
+          <Button asChild variant="outline">
+            <Link href="/automation?tab=prompt">
+              <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+              Add Rule via Prompt File
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/automation/create">
+              <PlusIcon className="mr-2 hidden h-4 w-4 md:block" />
+              Create Rule Manually
+            </Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -266,4 +269,32 @@ export function getInstructions(
     case RuleType.GROUP:
       return `Group: ${rule.group?.name || "MISSING"}`;
   }
+}
+
+function NoRules() {
+  return (
+    <>
+      <CardHeader>
+        <CardTitle>AI Personal Assistant</CardTitle>
+        <CardDescription>
+          Set up intelligent automations to let our AI handle your emails for
+          you.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2">
+          <Button asChild>
+            <Link href="/automation?tab=prompt">
+              <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+              Set Prompt
+            </Link>
+          </Button>
+
+          <Button type="button" variant="outline" asChild>
+            <Link href="/automation/create">Create a Rule Manually</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </>
+  );
 }
