@@ -134,6 +134,7 @@ export async function chatCompletionTools({
   prompt,
   system,
   tools,
+  maxSteps,
   label,
   userEmail,
 }: {
@@ -141,6 +142,7 @@ export async function chatCompletionTools({
   prompt: string;
   system?: string;
   tools: Record<string, CoreTool>;
+  maxSteps?: number;
   label: string;
   userEmail: string;
 }) {
@@ -152,6 +154,7 @@ export async function chatCompletionTools({
     toolChoice: "required",
     prompt,
     system,
+    maxSteps,
   });
 
   if (result.usage) {

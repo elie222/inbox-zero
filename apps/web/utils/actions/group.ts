@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import prisma from "@/utils/prisma";
+import prisma, { isDuplicateError } from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
   type AddGroupItemBody,
@@ -13,27 +13,69 @@ import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
 import { GroupItemType } from "@prisma/client";
-import type { ServerActionResponse } from "@/utils/error";
+import { captureException, type ServerActionResponse } from "@/utils/error";
 import {
   NEWSLETTER_GROUP_ID,
   RECEIPT_GROUP_ID,
 } from "@/app/(app)/automation/create/examples";
 import { GroupName } from "@/utils/config";
+import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 
 export async function createGroupAction(
   body: CreateGroupBody,
 ): Promise<ServerActionResponse> {
   const { name, prompt } = createGroupBody.parse(body);
   const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
+  if (!session?.user.email) return { error: "Not logged in" };
 
   try {
-    await prisma.group.create({
+    const group = await prisma.group.create({
       data: { name, prompt, userId: session.user.id },
     });
 
+    if (prompt) {
+      const gmail = getGmailClient(session);
+      const token = await getGmailAccessToken(session);
+
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          email: true,
+          aiModel: true,
+          aiProvider: true,
+          aiApiKey: true,
+        },
+      });
+      if (!user) return { error: "User not found" };
+      if (!token.token) return { error: "No access token" };
+      const result = await aiGenerateGroupItems(user, gmail, token.token, {
+        name,
+        prompt,
+      });
+
+      await prisma.groupItem.createMany({
+        data: [
+          ...result.senders.map((sender) => ({
+            type: GroupItemType.FROM,
+            value: sender,
+            groupId: group.id,
+          })),
+          ...result.subjects.map((subject) => ({
+            type: GroupItemType.SUBJECT,
+            value: subject,
+            groupId: group.id,
+          })),
+        ],
+      });
+    }
+
     revalidatePath(`/automation`);
   } catch (error) {
+    if (isDuplicateError(error, "name"))
+      return { error: "Group with this name already exists" };
+
+    console.error("Error creating group", error);
+    captureException(error, { extra: { name, prompt } }, session?.user.email);
     return { error: "Error creating group" };
   }
 }
