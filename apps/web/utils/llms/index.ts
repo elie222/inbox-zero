@@ -77,6 +77,7 @@ export async function chatCompletionObject<T>({
     prompt,
     system,
     schema,
+    experimental_telemetry: { isEnabled: true },
   });
 
   if (result.usage) {
@@ -113,6 +114,7 @@ export async function chatCompletionStream({
     model: llmModel,
     prompt,
     system,
+    experimental_telemetry: { isEnabled: true },
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,
@@ -155,6 +157,7 @@ export async function chatCompletionTools({
     prompt,
     system,
     maxSteps,
+    experimental_telemetry: { isEnabled: true },
   });
 
   if (result.usage) {
