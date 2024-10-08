@@ -22,7 +22,7 @@ This service provides an automated solution for unsubscribing from email newslet
 1. Navigate to the project directory:
 
    ```
-   cd unsubscribe-automation
+   cd apps/unsubscribe-automation
    ```
 
 2. Install dependencies:
@@ -35,16 +35,11 @@ This service provides an automated solution for unsubscribing from email newslet
    Create a `.env` file in the root directory with the following content:
 
    ```
-   GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+   GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_api_key_here
    CORS_ORIGIN=http://localhost:3000
    ```
 
    Replace the API keys with your actual keys, and adjust the CORS_ORIGIN if needed.
-
-4. Install Playwright browsers:
-   ```
-   npx playwright install chromium
-   ```
 
 ## Running the Service
 
@@ -67,7 +62,6 @@ curl -X POST http://localhost:5000/unsubscribe \
 ```
 
 - Replace `https://example.com/unsubscribe` with the actual unsubscribe URL.
-- Set `useGoogle` to `true` to use Google AI, or `false` to use OpenAI.
 
 ## API Endpoints
 
