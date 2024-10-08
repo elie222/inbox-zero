@@ -261,14 +261,10 @@ export function BulkUnsubscribeSection({
                 <div className="mt-2 px-6 pb-6">{extra}</div>
               </>
             ) : (
-              <div className="max-w-prose space-y-4 p-4 text-gray-700">
-                <p>No emails! If you'd like to see more, click `Filter`.</p>
-                <p>
-                  It's also possible you didn't accept Gmail permissions when
-                  signing in. To fix this, sign out and log back in to grant
-                  Gmail permissions again.
-                </p>
-              </div>
+              <p className="max-w-prose space-y-4 p-4 text-gray-700">
+                No emails found. To see more, adjust the filter options or click
+                the "Load More" button.
+              </p>
             )}
           </LoadingContent>
         )}
