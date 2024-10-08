@@ -6,7 +6,7 @@ const BATCH_LIMIT = 100;
 // https://developers.google.com/gmail/api/guides/batch
 export async function getBatch(
   ids: string[],
-  endpoint: string, // eg. /gmail/v1/users/me/messages
+  endpoint: string, // e.g. /gmail/v1/users/me/messages
   accessToken: string,
 ) {
   if (!ids.length) return [];
