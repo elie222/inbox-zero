@@ -24,8 +24,7 @@ import {
   addGroupItemAction,
   deleteGroupAction,
   deleteGroupItemAction,
-  regenerateNewsletterGroupAction,
-  regenerateReceiptGroupAction,
+  regenerateGroupAction,
 } from "@/utils/actions/group";
 import { GroupName } from "@/utils/config";
 import { GroupItemType } from "@prisma/client";
@@ -94,7 +93,9 @@ function ViewGroup({
   return (
     <div>
       {data?.group?.prompt ? (
-        <SectionDescription>Prompt: {data.group.prompt}</SectionDescription>
+        <SectionDescription className="mb-2">
+          Prompt: {data.group.prompt}
+        </SectionDescription>
       ) : null}
 
       <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:justify-end">
@@ -107,18 +108,14 @@ function ViewGroup({
               Add Item
             </Button>
             {(groupName === GroupName.NEWSLETTER ||
-              groupName === GroupName.RECEIPT) && (
+              groupName === GroupName.RECEIPT ||
+              data?.group?.prompt) && (
               <Button
                 variant="outline"
                 disabled={isRegenerating}
                 onClick={async () => {
                   setIsRegenerating(true);
-                  const result =
-                    groupName === GroupName.NEWSLETTER
-                      ? await regenerateNewsletterGroupAction(groupId)
-                      : groupName === GroupName.RECEIPT
-                        ? await regenerateReceiptGroupAction(groupId)
-                        : null;
+                  const result = await regenerateGroupAction(groupId);
 
                   if (isActionError(result)) {
                     toastError({

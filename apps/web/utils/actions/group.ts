@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { gmail_v1 } from "@googleapis/gmail";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
@@ -12,7 +13,7 @@ import {
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
-import { GroupItemType } from "@prisma/client";
+import { GroupItemType, Prisma, User } from "@prisma/client";
 import { captureException, type ServerActionResponse } from "@/utils/error";
 import {
   NEWSLETTER_GROUP_ID,
@@ -20,6 +21,7 @@ import {
 } from "@/app/(app)/automation/create/examples";
 import { GroupName } from "@/utils/config";
 import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
+import { UserAIFields } from "@/utils/llms/types";
 
 export async function createGroupAction(
   body: CreateGroupBody,
@@ -48,25 +50,15 @@ export async function createGroupAction(
       });
       if (!user) return { error: "User not found" };
       if (!token.token) return { error: "No access token" };
-      const result = await aiGenerateGroupItems(user, gmail, token.token, {
+
+      await generateGroupItemsFromPrompt(
+        group.id,
+        user,
+        gmail,
+        token.token,
         name,
         prompt,
-      });
-
-      await prisma.groupItem.createMany({
-        data: [
-          ...result.senders.map((sender) => ({
-            type: GroupItemType.FROM,
-            value: sender,
-            groupId: group.id,
-          })),
-          ...result.subjects.map((subject) => ({
-            type: GroupItemType.SUBJECT,
-            value: subject,
-            groupId: group.id,
-          })),
-        ],
-      });
+      );
     }
 
     revalidatePath(`/automation`);
@@ -78,6 +70,57 @@ export async function createGroupAction(
     captureException(error, { extra: { name, prompt } }, session?.user.email);
     return { error: "Error creating group" };
   }
+}
+
+async function generateGroupItemsFromPrompt(
+  groupId: string,
+  user: Pick<User, "email"> & UserAIFields,
+  gmail: gmail_v1.Gmail,
+  token: string,
+  name: string,
+  prompt: string,
+) {
+  const result = await aiGenerateGroupItems(user, gmail, token, {
+    name,
+    prompt,
+  });
+
+  await prisma.$transaction([
+    ...result.senders.map((sender) =>
+      prisma.groupItem.upsert({
+        where: {
+          groupId_type_value: {
+            groupId,
+            type: GroupItemType.FROM,
+            value: sender,
+          },
+        },
+        update: {}, // No update needed if it exists
+        create: {
+          type: GroupItemType.FROM,
+          value: sender,
+          groupId,
+        },
+      }),
+    ),
+    ...result.subjects.map((subject) =>
+      prisma.groupItem.upsert({
+        where: {
+          groupId_type_value: {
+            groupId,
+            type: GroupItemType.SUBJECT,
+            value: subject,
+          },
+        },
+        update: {}, // No update needed if it exists
+        create: {
+          type: GroupItemType.SUBJECT,
+          value: subject,
+          groupId,
+        },
+      }),
+    ),
+  ]);
 }
 
 export async function createPredefinedGroupAction(
@@ -107,7 +150,10 @@ export async function createNewsletterGroupAction(): Promise<
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
-  const newsletters = await findNewsletters(gmail, token.token!);
+
+  if (!token.token) return { error: "No access token" };
+
+  const newsletters = await findNewsletters(gmail, token.token);
 
   const group = await prisma.group.create({
     data: {
@@ -142,7 +188,10 @@ export async function createReceiptGroupAction(): Promise<
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
-  const receipts = await findReceipts(gmail, token.token!);
+
+  if (!token.token) return { error: "No access token" };
+
+  const receipts = await findReceipts(gmail, token.token);
 
   const group = await prisma.group.create({
     data: {
@@ -157,7 +206,16 @@ export async function createReceiptGroupAction(): Promise<
   return { id: group.id };
 }
 
-export async function regenerateNewsletterGroupAction(
+type ExistingGroup = Prisma.GroupGetPayload<{
+  select: {
+    id: true;
+    name: true;
+    prompt: true;
+    items: { select: { id: true; type: true; value: true } };
+  };
+}>;
+
+export async function regenerateGroupAction(
   groupId: string,
 ): Promise<ServerActionResponse> {
   const session = await auth();
@@ -165,13 +223,54 @@ export async function regenerateNewsletterGroupAction(
 
   const existingGroup = await prisma.group.findUnique({
     where: { id: groupId, userId: session.user.id },
-    select: { items: { select: { id: true, type: true, value: true } } },
+    select: {
+      id: true,
+      name: true,
+      prompt: true,
+      items: { select: { id: true, type: true, value: true } },
+    },
   });
   if (!existingGroup) return { error: "Group not found" };
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
-  const newsletters = await findNewsletters(gmail, token.token!);
+
+  if (!token.token) return { error: "No access token" };
+
+  if (existingGroup.name === GroupName.NEWSLETTER) {
+    return await regenerateNewsletterGroup(existingGroup, gmail, token.token);
+  } else if (existingGroup.name === GroupName.RECEIPT) {
+    return await regenerateReceiptGroup(existingGroup, gmail, token.token);
+  } else if (existingGroup.prompt) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        email: true,
+        aiModel: true,
+        aiProvider: true,
+        aiApiKey: true,
+      },
+    });
+    if (!user) return { error: "User not found" };
+
+    await generateGroupItemsFromPrompt(
+      groupId,
+      user,
+      gmail,
+      token.token,
+      existingGroup.name,
+      existingGroup.prompt,
+    );
+    return;
+  }
+}
+
+async function regenerateNewsletterGroup(
+  existingGroup: ExistingGroup,
+  gmail: gmail_v1.Gmail,
+  token: string,
+): Promise<ServerActionResponse> {
+  const newsletters = await findNewsletters(gmail, token);
 
   const newItems = newsletters.filter(
     (newItem) =>
@@ -184,28 +283,21 @@ export async function regenerateNewsletterGroupAction(
     data: newItems.map((item) => ({
       type: GroupItemType.FROM,
       value: item,
-      groupId,
+      groupId: existingGroup.id,
     })),
   });
 
   revalidatePath(`/automation`);
+
+  return;
 }
 
-export async function regenerateReceiptGroupAction(
-  groupId: string,
+async function regenerateReceiptGroup(
+  existingGroup: ExistingGroup,
+  gmail: gmail_v1.Gmail,
+  token: string,
 ): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
-
-  const existingGroup = await prisma.group.findUnique({
-    where: { id: groupId, userId: session.user.id },
-    select: { items: { select: { id: true, type: true, value: true } } },
-  });
-  if (!existingGroup) return { error: "Group not found" };
-
-  const gmail = getGmailClient(session);
-  const token = await getGmailAccessToken(session);
-  const receipts = await findReceipts(gmail, token.token!);
+  const receipts = await findReceipts(gmail, token);
 
   const newItems = receipts.filter(
     (newItem) =>
@@ -218,11 +310,13 @@ export async function regenerateReceiptGroupAction(
     data: newItems.map((item) => ({
       type: GroupItemType.FROM,
       value: item.value,
-      groupId,
+      groupId: existingGroup.id,
     })),
   });
 
   revalidatePath(`/automation`);
+
+  return;
 }
 
 export async function deleteGroupAction(
