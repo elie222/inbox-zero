@@ -21,7 +21,9 @@ export async function aiGenerateRulesPrompt({
     .map((email, index) => `Email ${index + 1}:\n${email}\n`)
     .join("\n");
 
-  const labelsList = userLabels.map((label) => `- ${label}`).join("\n");
+  const labelsList = userLabels
+    ? userLabels.map((label) => `- ${label}`).join("\n")
+    : "No labels found";
 
   const system =
     "You are an AI assistant that helps people manage their emails by generating rules based on their email behavior and existing labels.";

@@ -708,7 +708,8 @@ export async function generateRulesPromptAction(): Promise<
     query: "in:sent",
     maxResults: 20,
   });
-  const userLabels = await getLabels(gmail);
+  const gmailLabels = await getLabels(gmail);
+  const userLabels = gmailLabels?.filter((label) => label.type === "user");
   const lastSentMessages = await Promise.all(
     lastSent.messages?.map(async (message) => {
       const gmailMessage = await getMessage(message.id!, gmail);

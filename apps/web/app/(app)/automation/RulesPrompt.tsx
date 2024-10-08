@@ -29,6 +29,7 @@ import {
 import { SectionHeader } from "@/components/Typography";
 import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Tooltip } from "@/components/Tooltip";
 
 const examplePrompts = [
   'Label newsletters as "Newsletter" and archive them',
@@ -174,47 +175,51 @@ Feel free to add as many as you want:
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isGenerating}
                   loading={isSubmitting}
                 >
                   Save
                 </Button>
 
-                <Button type="button" variant="outline" asChild>
-                  <Link href="/automation/create">Create Rules Manually</Link>
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    toast.promise(
-                      async () => {
-                        setIsGenerating(true);
-                        const result = await generateRulesPromptAction();
-                        setIsGenerating(false);
-                        if (isActionError(result))
-                          throw new Error(result.error);
-                        if (!result)
-                          throw new Error("Unable to generate prompt");
-                        return result;
-                      },
-                      {
-                        loading: "Generating prompt...",
-                        success: (result) => {
-                          setValue("rulesPrompt", result.rulesPrompt);
-                          return "Prompt generated successfully!";
+                <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmitting || isGenerating}
+                    onClick={async () => {
+                      if (isSubmitting || isGenerating) return;
+                      toast.promise(
+                        async () => {
+                          setIsGenerating(true);
+                          const result = await generateRulesPromptAction();
+                          setIsGenerating(false);
+                          if (isActionError(result))
+                            throw new Error(result.error);
+                          if (!result)
+                            throw new Error("Unable to generate prompt");
+                          return result;
                         },
-                        error: (err) => {
-                          return `Error generating prompt: ${err.message}`;
+                        {
+                          loading: "Generating prompt...",
+                          success: (result) => {
+                            const currentPrompt = getValues("rulesPrompt");
+                            const updatedPrompt = currentPrompt
+                              ? `${currentPrompt}\n\n${result.rulesPrompt}`
+                              : result.rulesPrompt;
+                            setValue("rulesPrompt", updatedPrompt.trim());
+                            return "Prompt generated successfully!";
+                          },
+                          error: (err) => {
+                            return `Error generating prompt: ${err.message}`;
+                          },
                         },
-                      },
-                    );
-                  }}
-                  loading={isGenerating}
-                >
-                  AI Generate Prompt
-                </Button>
+                      );
+                    }}
+                    loading={isGenerating}
+                  >
+                    AI Generate Prompt
+                  </Button>
+                </Tooltip>
               </div>
             </div>
           </form>
