@@ -14,6 +14,7 @@ import {
   InboxIcon,
   LogOutIcon,
   MenuIcon,
+  RibbonIcon,
   Users2Icon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -30,12 +31,17 @@ const userNavigation = [
           icon: Users2Icon,
         },
       ]),
+  { name: "Usage", href: "/usage", icon: BarChartIcon },
   {
     name: "Mail (Alpha)",
     href: "/mail",
     icon: InboxIcon,
   },
-  { name: "Usage", href: "/usage", icon: BarChartIcon },
+  {
+    name: "Early Access",
+    href: "/request-access?type=early-access",
+    icon: RibbonIcon,
+  },
   {
     name: "Sign out",
     href: "#",
