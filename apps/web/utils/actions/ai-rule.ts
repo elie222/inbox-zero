@@ -67,9 +67,8 @@ export async function runRulesAction(
   });
   if (!user?.email) return { error: "User email not found" };
 
-  const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
+  const [gmailMessage, hasExistingRule] = await Promise.all([
     getMessage(email.messageId, gmail, "full"),
-    getThread(email.threadId, gmail),
     prisma.executedRule.findUnique({
       where: {
         unique_user_thread_message: {
@@ -81,6 +80,9 @@ export async function runRulesAction(
       select: { id: true },
     }),
   ]);
+
+  // fetch after getting the message to avoid rate limiting
+  const gmailThread = await getThread(email.threadId, gmail);
 
   if (hasExistingRule && !force) {
     console.log("Skipping. Rule already exists.");
