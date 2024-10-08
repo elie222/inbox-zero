@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { UserAIFields } from "@/utils/llms/types";
 import prisma from "@/utils/prisma";
 import type { Rule, User } from "@prisma/client";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus, Prisma } from "@prisma/client";
 import {
   type ChooseRuleOptions,
   chooseRule,
@@ -97,18 +97,43 @@ export async function saveExecutedRule(
     user: { connect: { id: userId } },
   };
 
-  const executedRule = await prisma.executedRule.upsert({
-    where: {
-      unique_user_thread_message: {
-        userId,
-        threadId,
-        messageId,
+  try {
+    const executedRule = await prisma.executedRule.upsert({
+      where: {
+        unique_user_thread_message: {
+          userId,
+          threadId,
+          messageId,
+        },
       },
-    },
-    create: data,
-    update: data,
-    include: { actionItems: true },
-  });
+      create: data,
+      update: data,
+      include: { actionItems: true },
+    });
 
-  return executedRule;
+    return executedRule;
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      // Unique constraint violation, ignore the error
+      // May be due to a race condition?
+      console.log(
+        `Ignored duplicate entry for ExecutedRule: ${userId} ${threadId} ${messageId}`,
+      );
+      return await prisma.executedRule.findUnique({
+        where: {
+          unique_user_thread_message: {
+            userId,
+            threadId,
+            messageId,
+          },
+        },
+        include: { actionItems: true },
+      });
+    }
+    // Re-throw any other errors
+    throw error;
+  }
 }
