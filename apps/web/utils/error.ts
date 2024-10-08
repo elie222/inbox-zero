@@ -21,6 +21,11 @@ export function captureException(
   additionalInfo?: { extra?: Record<string, any> },
   userEmail?: string,
 ) {
+  if (isKnownApiError(error)) {
+    console.warn(`Known API error. email: ${userEmail}`, error, additionalInfo);
+    return;
+  }
+
   if (userEmail) setUser({ email: userEmail });
   sentryCaptureException(error, additionalInfo);
 }
