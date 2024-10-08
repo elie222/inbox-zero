@@ -144,7 +144,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         type="text"
         name="name"
         label="Name"
-        placeholder="e.g. VIP"
+        placeholder="e.g. Customers, VIP, Web3 Newsletters"
         registerProps={register("name", { required: true })}
         error={errors.name}
       />
@@ -155,7 +155,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
         name="prompt"
         label="AI Prompt (Optional)"
         placeholder="Describe the group members (e.g., 'Customers', or 'Marketing emails')"
-        explainText="Our AI will analyze your recent email history and add matching contacts or subjects to this group"
+        explainText="Our AI will analyze your recent email history and add matching contacts or subjects to this group. If not provided, an empty group will be created."
         registerProps={register("prompt")}
         error={errors.prompt}
       />
