@@ -14,9 +14,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.0",
+    "@inboxzero/eslint-config": "workspace:*",
     "@turbo/gen": "^2.1.2",
     "eslint": "^8.57.1",
-    "@inboxzero/eslint-config": "workspace:*",
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "prettier": "^3.3.3",
@@ -28,5 +28,10 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "swr@2.2.5": "apps/web/patches/swr@2.2.5.patch"
+    }
   }
 }
