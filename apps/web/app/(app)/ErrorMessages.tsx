@@ -1,6 +1,6 @@
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { AlertError } from "@/components/Alert";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { clearUserErrorMessagesAction } from "@/utils/actions/error-messages";
 import { getUserErrorMessages } from "@/utils/error-messages";
 
@@ -22,13 +22,12 @@ export async function ErrorMessages() {
               <div key={error.message}>{error.message}</div>
             ))}
 
-            <Button
-              onClick={() => {
-                clearUserErrorMessagesAction();
-              }}
-            >
-              Clear
-            </Button>
+            {/* Avoids onClick. So it works in server components */}
+            <form action={clearUserErrorMessagesAction} className="mt-2">
+              <Button type="submit" variant="red">
+                Clear
+              </Button>
+            </form>
           </>
         }
       />
