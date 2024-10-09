@@ -75,6 +75,13 @@ export function isIncorrectOpenAIAPIKeyError(error: unknown): boolean {
   );
 }
 
+export function isInvalidOpenAIModelError(error: unknown): boolean {
+  return (
+    APICallError.isInstance(error) &&
+    error.message.includes("does not exist or you do not have access to it")
+  );
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
@@ -82,6 +89,7 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
     isOpenAIQuotaExceededError(error) ||
-    isIncorrectOpenAIAPIKeyError(error)
+    isIncorrectOpenAIAPIKeyError(error) ||
+    isInvalidOpenAIModelError(error)
   );
 }

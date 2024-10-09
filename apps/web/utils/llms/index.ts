@@ -14,7 +14,10 @@ import { saveAiUsage } from "@/utils/usage";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
-import { isIncorrectOpenAIAPIKeyError } from "@/utils/error";
+import {
+  isIncorrectOpenAIAPIKeyError,
+  isInvalidOpenAIModelError,
+} from "@/utils/error";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   const provider = aiProvider || Provider.ANTHROPIC;
@@ -191,6 +194,14 @@ async function handleError(error: unknown, userEmail: string) {
       await addUserErrorMessage(
         userEmail,
         ErrorType.INCORRECT_OPENAI_API_KEY,
+        error.message,
+      );
+    }
+
+    if (isInvalidOpenAIModelError(error)) {
+      await addUserErrorMessage(
+        userEmail,
+        ErrorType.INVALID_OPENAI_MODEL,
         error.message,
       );
     }
