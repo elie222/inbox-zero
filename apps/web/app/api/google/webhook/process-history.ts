@@ -314,6 +314,8 @@ async function processHistoryItem(
     const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
 
     if (hasAutomationRules && hasAiAutomationAccess) {
+      console.log("Running rules...");
+
       await runRulesOnMessage({
         gmail,
         message,
@@ -330,6 +332,8 @@ async function processHistoryItem(
     );
 
     if (shouldRunBlocker) {
+      console.log("Running cold email blocker...");
+
       const hasPreviousEmail = await hasPreviousEmailsFromDomain(gmail, {
         from: message.headers.from,
         date: message.headers.date,

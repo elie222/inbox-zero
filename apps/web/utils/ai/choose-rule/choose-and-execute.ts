@@ -37,7 +37,9 @@ export async function chooseRuleAndExecute(
 
   const plannedAct = await chooseRule(options);
 
-  console.log("Planned act:", plannedAct.rule?.name, plannedAct.actionItems);
+  console.log(
+    `Planned act: ${plannedAct.rule?.name} ${plannedAct.actionItems}`,
+  );
 
   // no rule to apply to this thread
   if (!plannedAct.rule) return { handled: false, reason: plannedAct.reason };
