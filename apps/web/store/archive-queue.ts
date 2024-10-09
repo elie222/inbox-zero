@@ -1,6 +1,6 @@
 "use client";
 
-import { atomWithStorage } from "jotai/utils";
+import { atomWithStorage, createJSONStorage } from "jotai/utils";
 import { jotaiStore } from "@/store";
 import { emailActionQueue } from "@/utils/queue/email-action-queue";
 import {
@@ -16,16 +16,34 @@ type QueueState = {
   totalThreads: number;
 };
 
-const initialQueueState: QueueState = {
-  activeThreadIds: {},
-  totalThreads: 0,
+function getInitialState(): QueueState {
+  return { activeThreadIds: {}, totalThreads: 0 };
+}
+
+// some users were somehow getting null for activeThreadIds, this should fix it
+const createStorage = () => {
+  const storage = createJSONStorage<QueueState>(() => localStorage);
+  return {
+    ...storage,
+    getItem: (key: string, initialValue: QueueState) => {
+      const storedValue = storage.getItem(key, initialValue);
+      return {
+        activeThreadIds: storedValue.activeThreadIds || {},
+        totalThreads: storedValue.totalThreads || 0,
+      };
+    },
+  };
 };
 
 // Create atoms with localStorage persistence for each queue type
 export const queueAtoms = {
-  archive: atomWithStorage("archiveQueue", initialQueueState),
-  delete: atomWithStorage("deleteQueue", initialQueueState),
-  markRead: atomWithStorage("markReadQueue", initialQueueState),
+  archive: atomWithStorage("archiveQueue", getInitialState(), createStorage()),
+  delete: atomWithStorage("deleteQueue", getInitialState(), createStorage()),
+  markRead: atomWithStorage(
+    "markReadQueue",
+    getInitialState(),
+    createStorage(),
+  ),
 };
 
 type ActionFunction = (threadId: string, ...args: any[]) => Promise<any>;
