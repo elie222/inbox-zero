@@ -12,7 +12,7 @@ export default async function RulePage({
   searchParams: { new: string };
 }) {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+  if (!session?.user) redirect("/login");
 
   const rule = await prisma.rule.findUnique({
     where: { id: params.ruleId, userId: session.user.id },

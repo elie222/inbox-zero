@@ -19,7 +19,7 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 
 export default async function AutomationPage() {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+  if (!session?.user) redirect("/login");
 
   return (
     <Suspense>
