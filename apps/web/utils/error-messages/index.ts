@@ -56,4 +56,5 @@ export async function clearUserErrorMessages(userId: string): Promise<void> {
 export const ErrorType = {
   INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
   INVALID_OPENAI_MODEL: "Invalid OpenAI model",
+  OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
 };

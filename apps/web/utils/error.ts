@@ -82,6 +82,13 @@ export function isInvalidOpenAIModelError(error: unknown): boolean {
   );
 }
 
+export function isOpenAIAPIKeyDeactivatedError(error: unknown): boolean {
+  return (
+    APICallError.isInstance(error) &&
+    error.message.includes("this API key has been deactivated")
+  );
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
@@ -90,6 +97,7 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailQuotaExceededError(error) ||
     isOpenAIQuotaExceededError(error) ||
     isIncorrectOpenAIAPIKeyError(error) ||
-    isInvalidOpenAIModelError(error)
+    isInvalidOpenAIModelError(error) ||
+    isOpenAIAPIKeyDeactivatedError(error)
   );
 }

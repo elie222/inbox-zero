@@ -17,6 +17,7 @@ import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
   isIncorrectOpenAIAPIKeyError,
   isInvalidOpenAIModelError,
+  isOpenAIAPIKeyDeactivatedError,
 } from "@/utils/error";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
@@ -202,6 +203,14 @@ async function handleError(error: unknown, userEmail: string) {
       await addUserErrorMessage(
         userEmail,
         ErrorType.INVALID_OPENAI_MODEL,
+        error.message,
+      );
+    }
+
+    if (isOpenAIAPIKeyDeactivatedError(error)) {
+      await addUserErrorMessage(
+        userEmail,
+        ErrorType.OPENAI_API_KEY_DEACTIVATED,
         error.message,
       );
     }
