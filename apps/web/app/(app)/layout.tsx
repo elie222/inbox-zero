@@ -44,9 +44,9 @@ export default async function AppLayout({
         <ErrorMessages />
         {children}
       </SideNavWithTopNav>
+      <AssessUser />
+      <SentryIdentify email={session.user.email} />
       <Suspense>
-        <AssessUser />
-        <SentryIdentify email={session.user.email} />
         <LastLogin email={session.user.email} />
       </Suspense>
       <Suspense>

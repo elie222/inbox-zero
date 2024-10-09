@@ -1,3 +1,5 @@
+"use client";
+
 import type React from "react";
 import { Provider } from "jotai";
 import { ComposeModalProvider } from "@/providers/ComposeModalProvider";
