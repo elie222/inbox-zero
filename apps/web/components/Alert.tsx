@@ -47,7 +47,10 @@ export function AlertWithButton(props: {
   );
 }
 
-export function AlertError(props: { title: string; description: string }) {
+export function AlertError(props: {
+  title: string;
+  description: React.ReactNode;
+}) {
   return (
     <Alert variant="destructive">
       <AlertCircle className="h-4 w-4" />

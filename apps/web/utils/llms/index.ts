@@ -1,5 +1,11 @@
 import type { z } from "zod";
-import { type CoreTool, generateObject, generateText, streamText } from "ai";
+import {
+  APICallError,
+  type CoreTool,
+  generateObject,
+  generateText,
+  streamText,
+} from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
@@ -7,6 +13,7 @@ import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
+import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   const provider = aiProvider || Provider.ANTHROPIC;
@@ -70,26 +77,31 @@ export async function chatCompletionObject<T>({
   userEmail: string;
   usageLabel: string;
 }) {
-  const { provider, model, llmModel } = getModel(userAi);
+  try {
+    const { provider, model, llmModel } = getModel(userAi);
 
-  const result = await generateObject({
-    model: llmModel,
-    prompt,
-    system,
-    schema,
-  });
-
-  if (result.usage) {
-    await saveAiUsage({
-      email: userEmail,
-      usage: result.usage,
-      provider,
-      model,
-      label: usageLabel,
+    const result = await generateObject({
+      model: llmModel,
+      prompt,
+      system,
+      schema,
     });
-  }
 
-  return result;
+    if (result.usage) {
+      await saveAiUsage({
+        email: userEmail,
+        usage: result.usage,
+        provider,
+        model,
+        label: usageLabel,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    await handleError(error, userEmail);
+    throw error;
+  }
 }
 
 export async function chatCompletionStream({
@@ -144,25 +156,42 @@ export async function chatCompletionTools({
   label: string;
   userEmail: string;
 }) {
-  const { provider, model, llmModel } = getModel(userAi);
+  try {
+    const { provider, model, llmModel } = getModel(userAi);
 
-  const result = await generateText({
-    model: llmModel,
-    tools,
-    toolChoice: "required",
-    prompt,
-    system,
-  });
-
-  if (result.usage) {
-    await saveAiUsage({
-      email: userEmail,
-      usage: result.usage,
-      provider,
-      model,
-      label,
+    const result = await generateText({
+      model: llmModel,
+      tools,
+      toolChoice: "required",
+      prompt,
+      system,
     });
-  }
 
-  return result;
+    if (result.usage) {
+      await saveAiUsage({
+        email: userEmail,
+        usage: result.usage,
+        provider,
+        model,
+        label,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    await handleError(error, userEmail);
+    throw error;
+  }
+}
+
+async function handleError(error: unknown, userEmail: string) {
+  if (APICallError.isInstance(error)) {
+    if (error.message.includes("Incorrect API key provided")) {
+      await addUserErrorMessage(
+        userEmail,
+        ErrorType.INCORRECT_OPENAI_API_KEY,
+        error.message,
+      );
+    }
+  }
 }
