@@ -1,5 +1,3 @@
-"use client";
-
 import { atom } from "jotai";
 import { jotaiStore } from "@/store";
 

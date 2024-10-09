@@ -1,5 +1,3 @@
-"use client";
-
 import { atomWithStorage, createJSONStorage } from "jotai/utils";
 import { jotaiStore } from "@/store";
 import { emailActionQueue } from "@/utils/queue/email-action-queue";
