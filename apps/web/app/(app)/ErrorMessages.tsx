@@ -15,16 +15,18 @@ export async function ErrorMessages() {
   return (
     <div className="p-2">
       <AlertError
-        title="Error"
+        title="We encountered some errors in your account that need to be fixed:"
         description={
           <>
-            {Object.values(errorMessages).map((error) => (
-              <div key={error.message}>{error.message}</div>
-            ))}
+            <ul className="list-inside list-disc">
+              {Object.values(errorMessages).map((error) => (
+                <li key={error.message}>{error.message}</li>
+              ))}
+            </ul>
 
             {/* Avoids onClick. So it works in server components */}
             <form action={clearUserErrorMessagesAction} className="mt-2">
-              <Button type="submit" variant="red">
+              <Button type="submit" variant="red" size="sm">
                 Clear
               </Button>
             </form>
