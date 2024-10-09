@@ -58,7 +58,6 @@ export const addThreadsToQueue = (
   refetch?: () => void,
 ) => {
   const queueAtom = queueAtoms[queueType];
-  const action = actionMap[queueType];
 
   jotaiStore.set(queueAtom, (prev) => ({
     activeThreadIds: {
@@ -67,6 +66,17 @@ export const addThreadsToQueue = (
     },
     totalThreads: prev.totalThreads + threadIds.length,
   }));
+
+  processQueue(queueType, threadIds, refetch);
+};
+
+export function processQueue(
+  queueType: QueueType,
+  threadIds: string[],
+  refetch?: () => void,
+) {
+  const queueAtom = queueAtoms[queueType];
+  const action = actionMap[queueType];
 
   emailActionQueue.addAll(
     threadIds.map((threadId) => async () => {
@@ -84,7 +94,7 @@ export const addThreadsToQueue = (
       refetch?.();
     }),
   );
-};
+}
 
 export const resetTotalThreads = (queueType: QueueType) => {
   const queueAtom = queueAtoms[queueType];
