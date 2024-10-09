@@ -18,6 +18,7 @@ import {
   isIncorrectOpenAIAPIKeyError,
   isInvalidOpenAIModelError,
   isOpenAIAPIKeyDeactivatedError,
+  isOpenAIRetryError,
 } from "@/utils/error";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
@@ -211,6 +212,14 @@ async function handleError(error: unknown, userEmail: string) {
       await addUserErrorMessage(
         userEmail,
         ErrorType.OPENAI_API_KEY_DEACTIVATED,
+        error.message,
+      );
+    }
+
+    if (isOpenAIRetryError(error)) {
+      await addUserErrorMessage(
+        userEmail,
+        ErrorType.OPENAI_RETRY_ERROR,
         error.message,
       );
     }

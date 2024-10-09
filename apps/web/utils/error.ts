@@ -2,7 +2,7 @@ import {
   captureException as sentryCaptureException,
   setUser,
 } from "@sentry/nextjs";
-import { APICallError } from "ai";
+import { APICallError, RetryError } from "ai";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -89,6 +89,15 @@ export function isOpenAIAPIKeyDeactivatedError(error: unknown): boolean {
   );
 }
 
+// Handling OpenAI retry errors on their own because this will be related to the user's own API quota,
+// rather than an error on our side (as we default to Anthropic atm).
+export function isOpenAIRetryError(error: unknown): boolean {
+  return (
+    RetryError.isInstance(error) &&
+    error.message.includes("You exceeded your current quota")
+  );
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
@@ -98,6 +107,7 @@ export function isKnownApiError(error: unknown): boolean {
     isOpenAIQuotaExceededError(error) ||
     isIncorrectOpenAIAPIKeyError(error) ||
     isInvalidOpenAIModelError(error) ||
-    isOpenAIAPIKeyDeactivatedError(error)
+    isOpenAIAPIKeyDeactivatedError(error) ||
+    isOpenAIRetryError(error)
   );
 }

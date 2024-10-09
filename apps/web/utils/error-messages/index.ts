@@ -57,4 +57,5 @@ export const ErrorType = {
   INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
   INVALID_OPENAI_MODEL: "Invalid OpenAI model",
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
+  OPENAI_RETRY_ERROR: "OpenAI retry error",
 };
