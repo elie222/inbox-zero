@@ -14,6 +14,7 @@ import { saveAiUsage } from "@/utils/usage";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
+import { isIncorrectOpenAIAPIKeyError } from "@/utils/error";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   const provider = aiProvider || Provider.ANTHROPIC;
@@ -186,7 +187,7 @@ export async function chatCompletionTools({
 
 async function handleError(error: unknown, userEmail: string) {
   if (APICallError.isInstance(error)) {
-    if (error.message.includes("Incorrect API key provided")) {
+    if (isIncorrectOpenAIAPIKeyError(error)) {
       await addUserErrorMessage(
         userEmail,
         ErrorType.INCORRECT_OPENAI_API_KEY,
