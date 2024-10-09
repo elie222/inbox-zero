@@ -19,7 +19,13 @@ const fetcher = async (url: string, init?: RequestInit | undefined) => {
     error.status = res.status;
 
     captureException(error, {
-      extra: { url, extraMessage: "SWR fetch error" },
+      extra: {
+        url,
+        status: res.status,
+        statusText: res.statusText,
+        responseBody: error.info,
+        extraMessage: "SWR fetch error",
+      },
     });
 
     throw error;
