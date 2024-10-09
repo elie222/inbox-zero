@@ -11,7 +11,7 @@ type ErrorMessages = Record<string, ErrorMessageEntry>;
 
 export async function getUserErrorMessages(
   userId: string,
-): Promise<ErrorMessages> {
+): Promise<ErrorMessages | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { errorMessages: true },
