@@ -2,6 +2,7 @@ import {
   captureException as sentryCaptureException,
   setUser,
 } from "@sentry/nextjs";
+import { APICallError } from "ai";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -67,12 +68,20 @@ export function isOpenAIQuotaExceededError(error: unknown): boolean {
   return (error as any)?.code === "insufficient_quota";
 }
 
+export function isIncorrectOpenAIAPIKeyError(error: unknown): boolean {
+  return (
+    APICallError.isInstance(error) &&
+    error.message.includes("Incorrect API key provided")
+  );
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
     isGmailInsufficientPermissionsError(error) ||
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
-    isOpenAIQuotaExceededError(error)
+    isOpenAIQuotaExceededError(error) ||
+    isIncorrectOpenAIAPIKeyError(error)
   );
 }
