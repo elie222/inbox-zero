@@ -1,9 +1,7 @@
 import { BulkUnsubscribe } from "./BulkUnsubscribe";
-import { redirectToWelcomeUpgrade } from "@/utils/premium/redirect-to-welcome-upgrade";
+import { checkAndRedirectForUpgrade } from "@/utils/premium/check-and-redirect-for-upgrade";
 
 export default async function BulkUnsubscribePage() {
-  const component = await redirectToWelcomeUpgrade();
-  if (component) return component;
-
+  await checkAndRedirectForUpgrade();
   return <BulkUnsubscribe />;
 }
