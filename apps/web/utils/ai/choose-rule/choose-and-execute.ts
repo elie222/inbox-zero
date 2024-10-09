@@ -86,7 +86,7 @@ export async function saveExecutedRule(
   },
   plannedAct: Awaited<ReturnType<typeof chooseRule>>,
 ) {
-  const data = {
+  const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: { createMany: { data: plannedAct.actionItems || [] } },
     messageId,
     threadId,
@@ -99,8 +99,22 @@ export async function saveExecutedRule(
     user: { connect: { id: userId } },
   };
 
+  return await upsertExecutedRule({ userId, threadId, messageId, data });
+}
+
+export async function upsertExecutedRule({
+  userId,
+  threadId,
+  messageId,
+  data,
+}: {
+  userId: string;
+  threadId: string;
+  messageId: string;
+  data: Prisma.ExecutedRuleCreateInput;
+}) {
   try {
-    const executedRule = await prisma.executedRule.upsert({
+    return await prisma.executedRule.upsert({
       where: {
         unique_user_thread_message: {
           userId,
@@ -112,8 +126,6 @@ export async function saveExecutedRule(
       update: data,
       include: { actionItems: true },
     });
-
-    return executedRule;
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
