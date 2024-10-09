@@ -57,12 +57,12 @@ export async function archiveThread(options: {
   ]);
 
   if (archiveResult.status === "rejected") {
-    console.error("Failed to archive thread:", archiveResult.reason);
+    console.error(`Failed to archive thread: ${archiveResult.reason}`);
     throw new Error("Failed to archive thread");
   }
 
   if (publishResult.status === "rejected") {
-    console.error("Failed to publish archive action:", publishResult.reason);
+    console.error(`Failed to publish archive action: ${publishResult.reason}`);
   }
 
   return archiveResult.value;
