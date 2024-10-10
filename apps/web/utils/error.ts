@@ -68,24 +68,25 @@ export function isOpenAIQuotaExceededError(error: unknown): boolean {
   return (error as any)?.code === "insufficient_quota";
 }
 
-export function isIncorrectOpenAIAPIKeyError(error: unknown): boolean {
-  return (
-    APICallError.isInstance(error) &&
-    error.message.includes("Incorrect API key provided")
+export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
+  return error.message.includes("Incorrect API key provided");
+}
+
+export function isInvalidOpenAIModelError(error: APICallError): boolean {
+  return error.message.includes(
+    "does not exist or you do not have access to it",
   );
 }
 
-export function isInvalidOpenAIModelError(error: unknown): boolean {
-  return (
-    APICallError.isInstance(error) &&
-    error.message.includes("does not exist or you do not have access to it")
-  );
+export function isOpenAIAPIKeyDeactivatedError(error: APICallError): boolean {
+  return error.message.includes("this API key has been deactivated");
 }
 
-export function isOpenAIAPIKeyDeactivatedError(error: unknown): boolean {
-  return (
-    APICallError.isInstance(error) &&
-    error.message.includes("this API key has been deactivated")
+export function isAnthropicInsufficientBalanceError(
+  error: APICallError,
+): boolean {
+  return error.message.includes(
+    "Your credit balance is too low to access the Anthropic API",
   );
 }
 
@@ -105,9 +106,11 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
     isOpenAIQuotaExceededError(error) ||
-    isIncorrectOpenAIAPIKeyError(error) ||
-    isInvalidOpenAIModelError(error) ||
-    isOpenAIAPIKeyDeactivatedError(error) ||
-    isOpenAIRetryError(error)
+    (APICallError.isInstance(error) &&
+      (isIncorrectOpenAIAPIKeyError(error) ||
+        isInvalidOpenAIModelError(error) ||
+        isOpenAIAPIKeyDeactivatedError(error) ||
+        isOpenAIRetryError(error) ||
+        isAnthropicInsufficientBalanceError(error)))
   );
 }

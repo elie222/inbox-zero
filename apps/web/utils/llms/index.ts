@@ -15,6 +15,7 @@ import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
+  isAnthropicInsufficientBalanceError,
   isIncorrectOpenAIAPIKeyError,
   isInvalidOpenAIModelError,
   isOpenAIAPIKeyDeactivatedError,
@@ -193,7 +194,7 @@ export async function chatCompletionTools({
 async function handleError(error: unknown, userEmail: string) {
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
-      await addUserErrorMessage(
+      return await addUserErrorMessage(
         userEmail,
         ErrorType.INCORRECT_OPENAI_API_KEY,
         error.message,
@@ -201,7 +202,7 @@ async function handleError(error: unknown, userEmail: string) {
     }
 
     if (isInvalidOpenAIModelError(error)) {
-      await addUserErrorMessage(
+      return await addUserErrorMessage(
         userEmail,
         ErrorType.INVALID_OPENAI_MODEL,
         error.message,
@@ -209,7 +210,7 @@ async function handleError(error: unknown, userEmail: string) {
     }
 
     if (isOpenAIAPIKeyDeactivatedError(error)) {
-      await addUserErrorMessage(
+      return await addUserErrorMessage(
         userEmail,
         ErrorType.OPENAI_API_KEY_DEACTIVATED,
         error.message,
@@ -217,9 +218,17 @@ async function handleError(error: unknown, userEmail: string) {
     }
 
     if (isOpenAIRetryError(error)) {
-      await addUserErrorMessage(
+      return await addUserErrorMessage(
         userEmail,
         ErrorType.OPENAI_RETRY_ERROR,
+        error.message,
+      );
+    }
+
+    if (isAnthropicInsufficientBalanceError(error)) {
+      return await addUserErrorMessage(
+        userEmail,
+        ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         error.message,
       );
     }

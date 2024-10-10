@@ -58,4 +58,5 @@ export const ErrorType = {
   INVALID_OPENAI_MODEL: "Invalid OpenAI model",
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
   OPENAI_RETRY_ERROR: "OpenAI retry error",
+  ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
 };
