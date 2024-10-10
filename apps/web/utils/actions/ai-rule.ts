@@ -41,7 +41,7 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 
 export const runRulesAction = withActionInstrumentation(
   "runRules",
-  async (email: EmailForAction, force: boolean) => {
+  async ({ email, force }: { email: EmailForAction; force: boolean }) => {
     const { gmail, user: u, error } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
@@ -192,40 +192,41 @@ export const testAiCustomContentAction = withActionInstrumentation(
   },
 );
 
-export const createAutomationAction = withActionInstrumentation(
-  "createAutomation",
-  async (prompt: string) => {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+export const createAutomationAction = withActionInstrumentation<
+  [{ prompt: string }],
+  { id: string },
+  { existingRuleId?: string }
+>("createAutomation", async ({ prompt }: { prompt: string }) => {
+  const session = await auth();
+  const userId = session?.user.id;
+  if (!userId) return { error: "Not logged in" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        email: true,
-      },
-    });
-    if (!user) return { error: "User not found" };
-    if (!user.email) return { error: "User email not found" };
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+      email: true,
+    },
+  });
+  if (!user) return { error: "User not found" };
+  if (!user.email) return { error: "User email not found" };
 
-    let result: Awaited<ReturnType<typeof aiCreateRule>>;
+  let result: Awaited<ReturnType<typeof aiCreateRule>>;
 
-    try {
-      result = await aiCreateRule(prompt, user, user.email);
-    } catch (error: any) {
-      return { error: `AI error creating rule. ${error.message}` };
-    }
+  try {
+    result = await aiCreateRule(prompt, user, user.email);
+  } catch (error: any) {
+    return { error: `AI error creating rule. ${error.message}` };
+  }
 
-    if (!result) return { error: "AI error creating rule." };
+  if (!result) return { error: "AI error creating rule." };
 
-    const groupIdResult = await getGroupId(result, userId);
-    if (isActionError(groupIdResult)) return groupIdResult;
-    return await safeCreateRule(result, userId, groupIdResult);
-  },
-);
+  const groupIdResult = await getGroupId(result, userId);
+  if (isActionError(groupIdResult)) return groupIdResult;
+  return await safeCreateRule(result, userId, groupIdResult);
+});
 
 async function createRule(
   result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
@@ -394,7 +395,7 @@ async function getGroupId(
 
 export const deleteRuleAction = withActionInstrumentation(
   "deleteRule",
-  async (ruleId: string) => {
+  async ({ ruleId }: { ruleId: string }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -406,7 +407,7 @@ export const deleteRuleAction = withActionInstrumentation(
 
 export const setRuleAutomatedAction = withActionInstrumentation(
   "setRuleAutomated",
-  async (ruleId: string, automate: boolean) => {
+  async ({ ruleId, automate }: { ruleId: string; automate: boolean }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -419,7 +420,13 @@ export const setRuleAutomatedAction = withActionInstrumentation(
 
 export const setRuleRunOnThreadsAction = withActionInstrumentation(
   "setRuleRunOnThreads",
-  async (ruleId: string, runOnThreads: boolean) => {
+  async ({
+    ruleId,
+    runOnThreads,
+  }: {
+    ruleId: string;
+    runOnThreads: boolean;
+  }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -432,7 +439,13 @@ export const setRuleRunOnThreadsAction = withActionInstrumentation(
 
 export const approvePlanAction = withActionInstrumentation(
   "approvePlan",
-  async (executedRuleId: string, message: ParsedMessage) => {
+  async ({
+    executedRuleId,
+    message,
+  }: {
+    executedRuleId: string;
+    message: ParsedMessage;
+  }) => {
     const session = await auth();
     if (!session?.user.email) return { error: "Not logged in" };
 
@@ -463,7 +476,7 @@ export const approvePlanAction = withActionInstrumentation(
 
 export const rejectPlanAction = withActionInstrumentation(
   "rejectPlan",
-  async (executedRuleId: string) => {
+  async ({ executedRuleId }: { executedRuleId: string }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 

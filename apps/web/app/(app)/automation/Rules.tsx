@@ -113,10 +113,10 @@ export function Rules() {
                           enabled={rule.automate}
                           name="automate"
                           onChange={async () => {
-                            const result = await setRuleAutomatedAction(
-                              rule.id,
-                              !rule.automate,
-                            );
+                            const result = await setRuleAutomatedAction({
+                              ruleId: rule.id,
+                              automate: !rule.automate,
+                            });
                             if (isActionError(result)) {
                               toastError({
                                 description:
@@ -133,10 +133,10 @@ export function Rules() {
                           enabled={rule.runOnThreads}
                           name="runOnThreads"
                           onChange={async () => {
-                            const result = await setRuleRunOnThreadsAction(
-                              rule.id,
-                              !rule.runOnThreads,
-                            );
+                            const result = await setRuleRunOnThreadsAction({
+                              ruleId: rule.id,
+                              runOnThreads: !rule.runOnThreads,
+                            });
                             if (isActionError(result)) {
                               toastError({
                                 description:
@@ -183,9 +183,9 @@ export function Rules() {
                                   "Are you sure you want to delete this rule?",
                                 );
                                 if (yes) {
-                                  const result = await deleteRuleAction(
-                                    rule.id,
-                                  );
+                                  const result = await deleteRuleAction({
+                                    ruleId: rule.id,
+                                  });
 
                                   if (isActionError(result)) {
                                     toastError({

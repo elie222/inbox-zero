@@ -33,7 +33,7 @@ export default function AutomationSettingsPage() {
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {
       if (data.prompt) {
-        const result = await createAutomationAction(data.prompt);
+        const result = await createAutomationAction({ prompt: data.prompt });
 
         if (isActionError(result)) {
           const existingRuleId = result.existingRuleId;

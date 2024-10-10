@@ -66,7 +66,7 @@ export const runAiRules = async (threadsArray: Thread[], force: boolean) => {
     threads.map((thread) => async () => {
       const message = threadToRunRulesEmail(thread);
       if (!message) return;
-      await runRulesAction(message, force);
+      await runRulesAction({ email: message, force });
       removeFromAiQueueAtom(thread.id);
     }),
   );
