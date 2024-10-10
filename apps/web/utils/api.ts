@@ -22,7 +22,10 @@ export async function postRequest<T, S = any>(
     return JSON.parse(responseText);
     // return await res.json();
   } catch (error) {
-    captureException(error, {
+    // if json parse error
+    const isSyntaxError = error instanceof SyntaxError;
+
+    captureException(isSyntaxError ? responseText : error, {
       extra: {
         url,
         data,
