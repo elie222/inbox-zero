@@ -25,7 +25,10 @@ export async function ErrorMessages() {
             </ul>
 
             {/* Avoids onClick. So it works in server components */}
-            <form action={clearUserErrorMessagesAction} className="mt-2">
+            <form
+              action={clearUserErrorMessagesAction as () => void}
+              className="mt-2"
+            >
               <Button type="submit" variant="red" size="sm">
                 Clear
               </Button>
