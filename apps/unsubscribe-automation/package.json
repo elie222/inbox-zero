@@ -1,0 +1,32 @@
+{
+  "name": "unsubscribe-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node -r tsconfig-paths/register src/server.ts",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/dotenv": "^8.2.0",
+    "@types/node": "22.5.4",
+    "playwright": "^1.47.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.6.2"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^0.0.51",
+    "@ai-sdk/openai": "^0.0.59",
+    "@fastify/cors": "^10.0.1",
+    "@google/generative-ai": "^0.21.0",
+    "ai": "^3.3.36",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
+    "zod": "^3.23.8"
+  }
+}
