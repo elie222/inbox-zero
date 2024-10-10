@@ -6,10 +6,11 @@ import { getFiltersList } from "@/utils/gmail/filter";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
 import { INBOX_LABEL_ID, TRASH_LABEL_ID } from "@/utils/gmail/label";
+import { SafeError } from "@/utils/error";
 
 export async function getAutoArchiveFilters() {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) throw new SafeError("Not logged in");
   const gmail = getGmailClient(session);
 
   const filters = await getFiltersList({ gmail });

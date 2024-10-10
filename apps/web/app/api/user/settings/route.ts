@@ -7,12 +7,13 @@ import {
   saveSettingsBody,
 } from "@/app/api/user/settings/validation";
 import { Model, Provider } from "@/utils/llms/config";
+import { SafeError } from "@/utils/error";
 
 export type SaveSettingsResponse = Awaited<ReturnType<typeof saveAISettings>>;
 
 async function saveAISettings(options: SaveSettingsBody) {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) throw new SafeError("Not logged in");
 
   const aiProvider = options.aiProvider || Provider.ANTHROPIC;
 

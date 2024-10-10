@@ -14,6 +14,7 @@ import {
   SENT_LABEL_ID,
   UNREAD_LABEL_ID,
 } from "@/utils/gmail/label";
+import { SafeError } from "@/utils/error";
 
 export type AssessUserResponse = Awaited<ReturnType<typeof assessUser>>;
 
@@ -150,7 +151,7 @@ export const POST = withError(async () => {
   const token = await getGmailAccessToken(session);
   const accessToken = token?.token;
 
-  if (!accessToken) throw new Error("Missing access token");
+  if (!accessToken) throw new SafeError("Missing access token");
 
   const assessedUser = await prisma.user.findUnique({
     where: { email: session.user.email },
