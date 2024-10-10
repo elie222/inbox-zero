@@ -13,24 +13,27 @@ export async function getSessionAndGmailClient() {
 }
 
 export function handleError(
+  actionName: string,
   error: unknown,
   message: string,
-  userEmail?: string,
+  userEmail: string,
 ) {
-  captureException(error, undefined, userEmail);
+  captureException(error, { extra: { message, actionName } }, userEmail);
   console.error(message, error);
   return { error: message };
 }
 
+// NOTE: only used in one place. Will likely remove, and replace with `withActionInstrumentation()`
 export async function executeServerAction<T>(
-  action: () => Promise<T>,
+  actionName: string,
   errorMessage: string,
-  userEmail?: string,
+  userEmail: string,
+  action: () => Promise<T>,
 ): Promise<ServerActionResponse<T>> {
   try {
     const result = await action();
     return result;
   } catch (error) {
-    return handleError(error, errorMessage, userEmail);
+    return handleError(actionName, error, errorMessage, userEmail);
   }
 }
