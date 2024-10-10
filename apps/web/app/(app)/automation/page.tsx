@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { History } from "@/app/(app)/automation/History";
 import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +19,7 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 
 export default async function AutomationPage() {
   const session = await auth();
-  if (!session?.user) throw new Error("Not logged in");
+  if (!session?.user) redirect("/login");
 
   return (
     <Suspense>

@@ -99,11 +99,11 @@ export const navigation: NavItem[] = [
   //   href: "/compose",
   //   icon: SendIcon,
   // },
-  {
-    name: "Early Access",
-    href: "/request-access?type=early-access",
-    icon: RibbonIcon,
-  },
+  // {
+  //   name: "Early Access",
+  //   href: "/request-access?type=early-access",
+  //   icon: RibbonIcon,
+  // },
   // {
   //   name: "No reply",
   //   href: "/no-reply",
@@ -149,13 +149,13 @@ const bottomLinks: NavItem[] = [
     icon: LightbulbIcon,
     hideInMail: true,
   },
-  {
-    name: "Star on GitHub",
-    href: "/github",
-    target: "_blank",
-    icon: StarIcon,
-    hideInMail: true,
-  },
+  // {
+  //   name: "Star on GitHub",
+  //   href: "/github",
+  //   target: "_blank",
+  //   icon: StarIcon,
+  //   hideInMail: true,
+  // },
   { name: "Premium", href: "/premium", icon: CrownIcon },
   { name: "Settings", href: "/settings", icon: CogIcon },
 ];

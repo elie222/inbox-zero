@@ -8,7 +8,7 @@ export type MultiAccountEmailsResponse = Awaited<
 >;
 
 async function getMultiAccountEmails(options: { email: string }) {
-  const user = await prisma.user.findFirstOrThrow({
+  const user = await prisma.user.findUnique({
     where: { email: options.email },
     select: {
       premium: {
@@ -21,8 +21,8 @@ async function getMultiAccountEmails(options: { email: string }) {
   });
 
   return {
-    users: user.premium?.users || [],
-    admins: user.premium?.admins || [],
+    users: user?.premium?.users || [],
+    admins: user?.premium?.admins || [],
   };
 }
 

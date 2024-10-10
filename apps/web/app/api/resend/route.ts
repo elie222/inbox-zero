@@ -16,12 +16,17 @@ const sendWeeklyStatsBody = z.object({ email: z.string() });
 async function sendWeeklyStats(options: { email: string }) {
   const { email } = options;
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { email },
     select: {
       accounts: { select: { access_token: true, refresh_token: true } },
     },
   });
+
+  if (!user) {
+    captureException(new Error(`User not found for email ${email}`));
+    return { success: false };
+  }
 
   const account = user.accounts[0];
   const accessToken = account.access_token;

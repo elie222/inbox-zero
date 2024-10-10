@@ -6,7 +6,7 @@ import { postRequest } from "@/utils/api";
 
 export function AssessUser() {
   useEffect(() => {
-    const res = postRequest<AssessUserResponse, {}>(`/api/user/assess`, {});
+    postRequest<AssessUserResponse, {}>(`/api/user/assess`, {});
   }, []);
 
   return null;

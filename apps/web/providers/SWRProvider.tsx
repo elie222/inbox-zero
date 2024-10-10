@@ -8,19 +8,31 @@ import { captureException } from "@/utils/error";
 const fetcher = async (url: string, init?: RequestInit | undefined) => {
   const res = await fetch(url, init);
 
-  // If the status code is not in the range 200-299,
-  // we still try to parse and throw it.
   if (!res.ok) {
+    const errorData = await res.json();
+    const errorMessage =
+      errorData.message || "An error occurred while fetching the data.";
     const error: Error & { info?: any; status?: number } = new Error(
-      "An error occurred while fetching the data.",
+      errorMessage,
     );
+
     // Attach extra info to the error object.
-    error.info = await res.json();
+    error.info = errorData;
     error.status = res.status;
 
-    captureException(error, {
-      extra: { url, extraMessage: "SWR fetch error" },
-    });
+    const isKnownError = errorData.isKnownError;
+
+    if (!isKnownError) {
+      captureException(error, {
+        extra: {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+          responseBody: error.info,
+          extraMessage: "SWR fetch error",
+        },
+      });
+    }
 
     throw error;
   }

@@ -18,19 +18,20 @@ import { getThreadsBatch } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { ExecutedRuleStatus } from "@prisma/client";
+import { SafeError } from "@/utils/error";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
 export async function getThreads(query: ThreadsQuery) {
   const session = await auth();
   const email = session?.user.email;
-  if (!email) throw new Error("Not authenticated");
+  if (!email) throw new SafeError("Not authenticated");
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
   const accessToken = token?.token;
 
-  if (!accessToken) throw new Error("Missing access token");
+  if (!accessToken) throw new SafeError("Missing access token");
 
   const gmailThreads = await gmail.users.threads.list({
     userId: "me",

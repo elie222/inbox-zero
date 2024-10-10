@@ -24,10 +24,12 @@ export async function upgradeToPremium(options: {
       ? new Date(Date.now() + TEN_YEARS)
       : options.lemonSqueezyRenewsAt;
 
-  const user = await prisma.user.findFirstOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: options.userId },
     select: { premiumId: true },
   });
+
+  if (!user) throw new Error(`User not found for id ${options.userId}`);
 
   const data = {
     ...rest,

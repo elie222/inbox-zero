@@ -59,6 +59,7 @@ model User {
   behaviorProfile           Json?
   lastLogin                 DateTime?
   utms                      Json?
+  errorMessages             Json? // eg. user set incorrect AI API key
 
   // settings
   aiProvider            String?

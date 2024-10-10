@@ -10,7 +10,7 @@ export const POST = withError(async (request: Request): Promise<Response> => {
   const userEmail = session?.user.email;
   if (!userEmail) return NextResponse.json({ error: "Not authenticated" });
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
       aiProvider: true,
@@ -18,6 +18,8 @@ export const POST = withError(async (request: Request): Promise<Response> => {
       aiApiKey: true,
     },
   });
+
+  if (!user) return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const { prompt } = composeAutocompleteBody.parse(json);

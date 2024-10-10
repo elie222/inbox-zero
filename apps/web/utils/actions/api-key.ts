@@ -10,55 +10,57 @@ import type {
   CreateApiKeyBody,
   DeactivateApiKeyBody,
 } from "@/utils/actions/validation";
-import type { ServerActionResponse } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { generateSecureApiKey, hashApiKey } from "@/utils/api-key";
+import { withActionInstrumentation } from "@/utils/actions/middleware";
 
-export async function createApiKeyAction(
-  unsafeData: CreateApiKeyBody,
-): Promise<ServerActionResponse<{ secretKey: string }>> {
-  const session = await auth();
-  const userId = session?.user.id;
-  if (!userId) return { error: "Not logged in" };
+export const createApiKeyAction = withActionInstrumentation(
+  "createApiKey",
+  async (unsafeData: CreateApiKeyBody) => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
 
-  const data = createApiKeyBody.safeParse(unsafeData);
-  if (!data.success) return { error: "Invalid data" };
+    const { data, success, error } = createApiKeyBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
 
-  console.log(`Creating API key for ${userId}`);
+    console.log(`Creating API key for ${userId}`);
 
-  const secretKey = generateSecureApiKey();
-  const hashedKey = hashApiKey(secretKey);
+    const secretKey = generateSecureApiKey();
+    const hashedKey = hashApiKey(secretKey);
 
-  await prisma.apiKey.create({
-    data: {
-      userId,
-      name: data.data.name || "Secret key",
-      hashedKey,
-      isActive: true,
-    },
-  });
+    await prisma.apiKey.create({
+      data: {
+        userId,
+        name: data.name || "Secret key",
+        hashedKey,
+        isActive: true,
+      },
+    });
 
-  revalidatePath("/settings");
+    revalidatePath("/settings");
 
-  return { secretKey };
-}
+    return { secretKey };
+  },
+);
 
-export async function deactivateApiKeyAction(
-  unsafeData: DeactivateApiKeyBody,
-): Promise<ServerActionResponse> {
-  const session = await auth();
-  const userId = session?.user.id;
-  if (!userId) return { error: "Not logged in" };
+export const deactivateApiKeyAction = withActionInstrumentation(
+  "deactivateApiKey",
+  async (unsafeData: DeactivateApiKeyBody) => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
 
-  const data = deactivateApiKeyBody.safeParse(unsafeData);
-  if (!data.success) return { error: "Invalid data" };
+    const { data, success, error } = deactivateApiKeyBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
 
-  console.log(`Deactivating API key for ${userId}`);
+    console.log(`Deactivating API key for ${userId}`);
 
-  await prisma.apiKey.update({
-    where: { id: data.data.id, userId },
-    data: { isActive: false },
-  });
+    await prisma.apiKey.update({
+      where: { id: data.id, userId },
+      data: { isActive: false },
+    });
 
-  revalidatePath("/settings");
-}
+    revalidatePath("/settings");
+  },
+);

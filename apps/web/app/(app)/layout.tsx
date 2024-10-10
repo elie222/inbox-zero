@@ -12,6 +12,8 @@ import { AppProviders } from "@/providers/AppProviders";
 import { AssessUser } from "@/app/(app)/assess";
 import { LastLogin } from "@/app/(app)/last-login";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
+import { ErrorMessages } from "@/app/(app)/ErrorMessages";
+import { QueueInitializer } from "@/store/QueueInitializer";
 
 export const viewport = {
   themeColor: "#FFF",
@@ -39,10 +41,14 @@ export default async function AppLayout({
       <PostHogIdentify />
       <TokenCheck />
       <CommandK />
-      <SideNavWithTopNav>{children}</SideNavWithTopNav>
+      <QueueInitializer />
+      <SideNavWithTopNav>
+        <ErrorMessages />
+        {children}
+      </SideNavWithTopNav>
+      <AssessUser />
+      <SentryIdentify email={session.user.email} />
       <Suspense>
-        <AssessUser />
-        <SentryIdentify email={session.user.email} />
         <LastLogin email={session.user.email} />
       </Suspense>
       <Suspense>

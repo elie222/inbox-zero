@@ -8,8 +8,10 @@ import { cn } from "@/utils";
 export const ArchiveProgress = () => {
   const { totalThreads, activeThreadIds } = useAtomValue(queueAtoms.archive);
 
-  const threadsRemaining =
-    Object.values(activeThreadIds).filter(Boolean).length;
+  // Make sure activeThreadIds is an object as this was causing an error.
+  const threadsRemaining = Object.values(activeThreadIds || {}).filter(
+    Boolean,
+  ).length;
   const totalArchived = totalThreads - threadsRemaining;
   const progress = (totalArchived / totalThreads) * 100;
   const isCompleted = progress === 100;

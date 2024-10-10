@@ -5,13 +5,16 @@ import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 import type { UserAIFields } from "@/utils/llms/types";
 import {
   ExecutedRuleStatus,
+  Prisma,
   type Rule,
   RuleType,
   type User,
 } from "@prisma/client";
-import { chooseRuleAndExecute } from "@/utils/ai/choose-rule/choose-and-execute";
+import {
+  chooseRuleAndExecute,
+  upsertExecutedRule,
+} from "@/utils/ai/choose-rule/choose-and-execute";
 import { emailToContent } from "@/utils/mail";
-import prisma from "@/utils/prisma";
 import type { ActionItem } from "@/utils/ai/actions";
 
 export type TestResult = {
@@ -116,31 +119,20 @@ async function saveSkippedExecutedRule({
   messageId: string;
   reason?: string;
 }) {
-  await prisma.executedRule.upsert({
-    where: {
-      unique_user_thread_message: {
-        userId,
-        threadId,
-        messageId,
-      },
-    },
-    // `automated` only relevent when we have a rule
-    create: {
-      threadId,
-      messageId,
-      automated: true,
-      reason,
-      status: ExecutedRuleStatus.SKIPPED,
-      user: { connect: { id: userId } },
-    },
-    update: {
-      threadId,
-      messageId,
-      automated: true,
-      reason,
-      status: ExecutedRuleStatus.SKIPPED,
-      user: { connect: { id: userId } },
-    },
+  const data: Prisma.ExecutedRuleCreateInput = {
+    threadId,
+    messageId,
+    automated: true,
+    reason,
+    status: ExecutedRuleStatus.SKIPPED,
+    user: { connect: { id: userId } },
+  };
+
+  await upsertExecutedRule({
+    userId,
+    threadId,
+    messageId,
+    data,
   });
 }
 

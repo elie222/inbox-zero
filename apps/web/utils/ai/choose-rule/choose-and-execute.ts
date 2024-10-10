@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { UserAIFields } from "@/utils/llms/types";
 import prisma from "@/utils/prisma";
 import type { Rule, User } from "@prisma/client";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus, Prisma } from "@prisma/client";
 import {
   type ChooseRuleOptions,
   chooseRule,
@@ -37,7 +37,9 @@ export async function chooseRuleAndExecute(
 
   const plannedAct = await chooseRule(options);
 
-  console.log("Planned act:", plannedAct.rule?.name, plannedAct.actionItems);
+  console.log(
+    `Planned act: ${plannedAct.rule?.name} ${plannedAct.actionItems}`,
+  );
 
   // no rule to apply to this thread
   if (!plannedAct.rule) return { handled: false, reason: plannedAct.reason };
@@ -84,7 +86,7 @@ export async function saveExecutedRule(
   },
   plannedAct: Awaited<ReturnType<typeof chooseRule>>,
 ) {
-  const data = {
+  const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: { createMany: { data: plannedAct.actionItems || [] } },
     messageId,
     threadId,
@@ -97,18 +99,55 @@ export async function saveExecutedRule(
     user: { connect: { id: userId } },
   };
 
-  const executedRule = await prisma.executedRule.upsert({
-    where: {
-      unique_user_thread_message: {
-        userId,
-        threadId,
-        messageId,
-      },
-    },
-    create: data,
-    update: data,
-    include: { actionItems: true },
-  });
+  return await upsertExecutedRule({ userId, threadId, messageId, data });
+}
 
-  return executedRule;
+export async function upsertExecutedRule({
+  userId,
+  threadId,
+  messageId,
+  data,
+}: {
+  userId: string;
+  threadId: string;
+  messageId: string;
+  data: Prisma.ExecutedRuleCreateInput;
+}) {
+  try {
+    return await prisma.executedRule.upsert({
+      where: {
+        unique_user_thread_message: {
+          userId,
+          threadId,
+          messageId,
+        },
+      },
+      create: data,
+      update: data,
+      include: { actionItems: true },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      // Unique constraint violation, ignore the error
+      // May be due to a race condition?
+      console.log(
+        `Ignored duplicate entry for ExecutedRule: ${userId} ${threadId} ${messageId}`,
+      );
+      return await prisma.executedRule.findUnique({
+        where: {
+          unique_user_thread_message: {
+            userId,
+            threadId,
+            messageId,
+          },
+        },
+        include: { actionItems: true },
+      });
+    }
+    // Re-throw any other errors
+    throw error;
+  }
 }
