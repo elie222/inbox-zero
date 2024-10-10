@@ -26,6 +26,7 @@ import {
 } from "@/utils/actions/helpers";
 
 async function executeGmailAction<T>(
+  actionName: string,
   action: (
     gmail: gmail_v1.Gmail,
     user: { id: string; email: string },
@@ -40,11 +41,11 @@ async function executeGmailAction<T>(
   try {
     const res = await action(gmail, user);
     return !isStatusOk(res.status)
-      ? handleError(res, errorMessage, user.email)
+      ? handleError(actionName, res, errorMessage, user.email)
       : undefined;
   } catch (error) {
     if (onError?.(error)) return;
-    return handleError(error, errorMessage, user.email);
+    return handleError(actionName, error, errorMessage, user.email);
   }
 }
 
@@ -52,6 +53,7 @@ export async function archiveThreadAction(
   threadId: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "archiveThread",
     async (gmail, user) =>
       archiveThread({
         gmail,
@@ -67,6 +69,7 @@ export async function trashThreadAction(
   threadId: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "trashThread",
     async (gmail, user) =>
       trashThread({
         gmail,
@@ -82,6 +85,7 @@ export async function trashMessageAction(
   messageId: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "trashMessage",
     async (gmail) => trashMessage({ gmail, messageId }),
     "Failed to delete message",
   );
@@ -92,6 +96,7 @@ export async function markReadThreadAction(
   read: boolean,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "markReadThread",
     async (gmail) => markReadThread({ gmail, threadId, read }),
     "Failed to mark thread as read",
   );
@@ -102,6 +107,7 @@ export async function markImportantMessageAction(
   important: boolean,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "markImportantMessage",
     async (gmail) => markImportantMessage({ gmail, messageId, important }),
     "Failed to mark message as important",
   );
@@ -111,6 +117,7 @@ export async function markSpamThreadAction(
   threadId: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "markSpamThread",
     async (gmail) => markSpam({ gmail, threadId }),
     "Failed to mark thread as spam",
   );
@@ -121,6 +128,7 @@ export async function createAutoArchiveFilterAction(
   gmailLabelId?: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "createAutoArchiveFilter",
     async (gmail) => createAutoArchiveFilter({ gmail, from, gmailLabelId }),
     "Failed to create auto archive filter",
     (error) => {
@@ -136,6 +144,7 @@ export async function createFilterAction(
   gmailLabelId: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "createFilter",
     async (gmail) => createFilter({ gmail, from, addLabelIds: [gmailLabelId] }),
     "Failed to create filter",
   );
@@ -145,6 +154,7 @@ export async function deleteFilterAction(
   id: string,
 ): Promise<ServerActionResponse> {
   return executeGmailAction(
+    "deleteFilter",
     async (gmail) => deleteFilter({ gmail, id }),
     "Failed to delete filter",
   );
