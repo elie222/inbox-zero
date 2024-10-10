@@ -1,5 +1,5 @@
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { captureException, type ServerActionResponse } from "@/utils/error";
+import { captureException } from "@/utils/error";
 import { getGmailClient } from "@/utils/gmail/client";
 
 // do not return functions to the client or we'll get an error
@@ -21,19 +21,4 @@ export function handleError(
   captureException(error, { extra: { message, actionName } }, userEmail);
   console.error(message, error);
   return { error: message };
-}
-
-// NOTE: only used in one place. Will likely remove, and replace with `withActionInstrumentation()`
-export async function executeServerAction<T>(
-  actionName: string,
-  errorMessage: string,
-  userEmail: string,
-  action: () => Promise<T>,
-): Promise<ServerActionResponse<T>> {
-  try {
-    const result = await action();
-    return result;
-  } catch (error) {
-    return handleError(actionName, error, errorMessage, userEmail);
-  }
 }

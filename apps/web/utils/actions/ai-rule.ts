@@ -26,10 +26,7 @@ import { GroupName } from "@/utils/config";
 import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
-import {
-  executeServerAction,
-  getSessionAndGmailClient,
-} from "@/utils/actions/helpers";
+import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { type ServerActionResponse, isActionError } from "@/utils/error";
 import {
   saveRulesPromptBody,
@@ -491,188 +488,175 @@ export const rejectPlanAction = withActionInstrumentation(
  * 7. Update user's rules prompt in the database
  * 8. Return counts of created, edited, and removed rules
  */
-export async function saveRulesPromptAction(
-  unsafeData: SaveRulesPromptBody,
-): Promise<
-  ServerActionResponse<{
-    createdRules: number;
-    editedRules: number;
-    removedRules: number;
-  }>
-> {
-  const session = await auth();
-  if (!session?.user.email) return { error: "Not logged in" };
-  setUser({ email: session.user.email });
+export const saveRulesPromptAction = withActionInstrumentation(
+  "saveRulesPrompt",
+  async (unsafeData: SaveRulesPromptBody) => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
+    setUser({ email: session.user.email });
 
-  return executeServerAction(
-    "saveRulesPrompt",
-    "Error saving rules",
-    session.user.email,
-    async () => {
-      const data = saveRulesPromptBody.parse(unsafeData);
+    const { data, success, error } = saveRulesPromptBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: {
-          rulesPrompt: true,
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
-          email: true,
-        },
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        rulesPrompt: true,
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+        email: true,
+      },
+    });
+
+    if (!user) return { error: "User not found" };
+    if (!user.email) return { error: "User email not found" };
+
+    const oldPromptFile = user.rulesPrompt;
+
+    if (oldPromptFile === data.rulesPrompt)
+      return { createdRules: 0, editedRules: 0, removedRules: 0 };
+
+    let addedRules: Awaited<ReturnType<typeof aiPromptToRules>> | null = null;
+    let editRulesCount = 0;
+    let removeRulesCount = 0;
+
+    // check how the prompts have changed, and make changes to the rules accordingly
+    if (oldPromptFile) {
+      const diff = await aiDiffRules({
+        user: { ...user, email: user.email },
+        oldPromptFile,
+        newPromptFile: data.rulesPrompt,
       });
 
-      if (!user) return { error: "User not found" };
-      if (!user.email) return { error: "User email not found" };
-
-      const oldPromptFile = user.rulesPrompt;
-
-      if (oldPromptFile === data.rulesPrompt)
+      if (
+        !diff.addedRules.length &&
+        !diff.editedRules.length &&
+        !diff.removedRules.length
+      ) {
         return { createdRules: 0, editedRules: 0, removedRules: 0 };
+      }
 
-      let addedRules: Awaited<ReturnType<typeof aiPromptToRules>> | null = null;
-      let editRulesCount = 0;
-      let removeRulesCount = 0;
-
-      // check how the prompts have changed, and make changes to the rules accordingly
-      if (oldPromptFile) {
-        const diff = await aiDiffRules({
-          user: { ...user, email: user.email },
-          oldPromptFile,
-          newPromptFile: data.rulesPrompt,
-        });
-
-        if (
-          !diff.addedRules.length &&
-          !diff.editedRules.length &&
-          !diff.removedRules.length
-        ) {
-          return { createdRules: 0, editedRules: 0, removedRules: 0 };
-        }
-
-        addedRules = diff.addedRules.length
-          ? await aiPromptToRules({
-              user: { ...user, email: user.email },
-              promptFile: diff.addedRules.join("\n\n"),
-              isEditing: false,
-            })
-          : null;
-
-        // find existing rules
-        const userRules = await prisma.rule.findMany({
-          where: { userId: session.user.id, enabled: true },
-          include: { actions: true },
-        });
-
-        const existingRules = await aiFindExistingRules({
-          user: { ...user, email: user.email },
-          promptRulesToEdit: diff.editedRules,
-          promptRulesToRemove: diff.removedRules,
-          databaseRules: userRules,
-        });
-
-        // remove rules
-        for (const rule of existingRules.removedRules) {
-          // if the rule has executed rules, disable it
-          // if not, then delete it
-
-          const executedRule = await prisma.executedRule.findFirst({
-            where: { userId: session.user.id, ruleId: rule.rule?.id },
-          });
-
-          console.log(
-            `Removing rule. Prompt: ${rule.promptRule}. Rule: ${rule.rule?.name}`,
-          );
-
-          if (executedRule) {
-            await prisma.rule.update({
-              where: { id: rule.rule?.id, userId: session.user.id },
-              data: { enabled: false },
-            });
-          } else {
-            await prisma.rule.delete({
-              where: { id: rule.rule?.id, userId: session.user.id },
-            });
-          }
-
-          removeRulesCount++;
-        }
-
-        // edit rules
-        if (existingRules.editedRules.length > 0) {
-          const editedRules = await aiPromptToRules({
+      addedRules = diff.addedRules.length
+        ? await aiPromptToRules({
             user: { ...user, email: user.email },
-            promptFile: existingRules.editedRules
-              .map(
-                (r) => `Rule ID: ${r.rule?.id}. Prompt: ${r.updatedPromptRule}`,
-              )
-              .join("\n\n"),
-            isEditing: true,
-          });
+            promptFile: diff.addedRules.join("\n\n"),
+            isEditing: false,
+          })
+        : null;
 
-          for (const rule of editedRules) {
-            if (!rule.ruleId) {
-              console.error(`Rule ID not found for rule. Prompt: ${rule.name}`);
-              continue;
-            }
-
-            console.log(`Editing rule. Prompt: ${rule.name}`);
-
-            const groupIdResult = await getGroupId(rule, session.user.id);
-            if (isActionError(groupIdResult)) {
-              console.error(
-                `Error updating group for rule. ${groupIdResult.error}`,
-              );
-              continue;
-            }
-
-            editRulesCount++;
-
-            await safeUpdateRule(
-              rule.ruleId,
-              rule,
-              session.user.id,
-              groupIdResult,
-            );
-          }
-        }
-      } else {
-        addedRules = await aiPromptToRules({
-          user: { ...user, email: user.email },
-          promptFile: data.rulesPrompt,
-          isEditing: false,
-        });
-      }
-
-      // add new rules
-      for (const rule of addedRules || []) {
-        console.log(`Creating rule. Prompt: ${rule.name}`);
-
-        const groupIdResult = await getGroupId(rule, session.user.id);
-        if (isActionError(groupIdResult)) {
-          console.error(
-            `Error creating group for rule. ${groupIdResult.error}`,
-          );
-          continue;
-        }
-
-        await safeCreateRule(rule, session.user.id, groupIdResult);
-      }
-
-      // update rules prompt for user
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: { rulesPrompt: data.rulesPrompt },
+      // find existing rules
+      const userRules = await prisma.rule.findMany({
+        where: { userId: session.user.id, enabled: true },
+        include: { actions: true },
       });
 
-      return {
-        createdRules: addedRules?.length || 0,
-        editedRules: editRulesCount,
-        removedRules: removeRulesCount,
-      };
-    },
-  );
-}
+      const existingRules = await aiFindExistingRules({
+        user: { ...user, email: user.email },
+        promptRulesToEdit: diff.editedRules,
+        promptRulesToRemove: diff.removedRules,
+        databaseRules: userRules,
+      });
+
+      // remove rules
+      for (const rule of existingRules.removedRules) {
+        // if the rule has executed rules, disable it
+        // if not, then delete it
+
+        const executedRule = await prisma.executedRule.findFirst({
+          where: { userId: session.user.id, ruleId: rule.rule?.id },
+        });
+
+        console.log(
+          `Removing rule. Prompt: ${rule.promptRule}. Rule: ${rule.rule?.name}`,
+        );
+
+        if (executedRule) {
+          await prisma.rule.update({
+            where: { id: rule.rule?.id, userId: session.user.id },
+            data: { enabled: false },
+          });
+        } else {
+          await prisma.rule.delete({
+            where: { id: rule.rule?.id, userId: session.user.id },
+          });
+        }
+
+        removeRulesCount++;
+      }
+
+      // edit rules
+      if (existingRules.editedRules.length > 0) {
+        const editedRules = await aiPromptToRules({
+          user: { ...user, email: user.email },
+          promptFile: existingRules.editedRules
+            .map(
+              (r) => `Rule ID: ${r.rule?.id}. Prompt: ${r.updatedPromptRule}`,
+            )
+            .join("\n\n"),
+          isEditing: true,
+        });
+
+        for (const rule of editedRules) {
+          if (!rule.ruleId) {
+            console.error(`Rule ID not found for rule. Prompt: ${rule.name}`);
+            continue;
+          }
+
+          console.log(`Editing rule. Prompt: ${rule.name}`);
+
+          const groupIdResult = await getGroupId(rule, session.user.id);
+          if (isActionError(groupIdResult)) {
+            console.error(
+              `Error updating group for rule. ${groupIdResult.error}`,
+            );
+            continue;
+          }
+
+          editRulesCount++;
+
+          await safeUpdateRule(
+            rule.ruleId,
+            rule,
+            session.user.id,
+            groupIdResult,
+          );
+        }
+      }
+    } else {
+      addedRules = await aiPromptToRules({
+        user: { ...user, email: user.email },
+        promptFile: data.rulesPrompt,
+        isEditing: false,
+      });
+    }
+
+    // add new rules
+    for (const rule of addedRules || []) {
+      console.log(`Creating rule. Prompt: ${rule.name}`);
+
+      const groupIdResult = await getGroupId(rule, session.user.id);
+      if (isActionError(groupIdResult)) {
+        console.error(`Error creating group for rule. ${groupIdResult.error}`);
+        continue;
+      }
+
+      await safeCreateRule(rule, session.user.id, groupIdResult);
+    }
+
+    // update rules prompt for user
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { rulesPrompt: data.rulesPrompt },
+    });
+
+    return {
+      createdRules: addedRules?.length || 0,
+      editedRules: editRulesCount,
+      removedRules: removeRulesCount,
+    };
+  },
+);
 
 function shouldAutomate(actions: Pick<Action, "type">[]) {
   const types = new Set(actions.map((action) => action.type));
