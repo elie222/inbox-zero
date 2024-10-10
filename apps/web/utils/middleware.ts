@@ -30,7 +30,7 @@ export function withError(handler: NextHandler): NextHandler {
           console.error(error);
         }
         return NextResponse.json(
-          { error: { issues: error.issues } },
+          { error: { issues: error.issues }, isKnownError: true },
           { status: 400 },
         );
       }
@@ -44,8 +44,11 @@ export function withError(handler: NextHandler): NextHandler {
           {
             error:
               "You must grant all Gmail permissions to use the app. Please log out and log in again to grant permissions.",
+            isKnownError: true,
           },
-          { status: 403 },
+          {
+            status: 403,
+          },
         );
       }
 
@@ -55,6 +58,7 @@ export function withError(handler: NextHandler): NextHandler {
         return NextResponse.json(
           {
             error: `You have exceeded the Gmail rate limit. Please try again later. Error from Gmail: "${(error as any)?.errors?.[0]?.message}"`,
+            isKnownError: true,
           },
           { status: 429 },
         );
@@ -66,6 +70,7 @@ export function withError(handler: NextHandler): NextHandler {
         return NextResponse.json(
           {
             error: "You have exceeded the Gmail quota. Please try again later.",
+            isKnownError: true,
           },
           { status: 429 },
         );
@@ -77,6 +82,7 @@ export function withError(handler: NextHandler): NextHandler {
         return NextResponse.json(
           {
             error: `OpenAI error: ${(error as any)?.error?.message}`,
+            isKnownError: true,
           },
           { status: 429 },
         );
@@ -87,7 +93,10 @@ export function withError(handler: NextHandler): NextHandler {
       }
 
       if (error instanceof SafeError) {
-        return NextResponse.json({ error: error.safeMessage }, { status: 400 });
+        return NextResponse.json(
+          { error: error.safeMessage, isKnownError: true },
+          { status: 400 },
+        );
       }
 
       console.error(`Unhandled error for url: ${req.url}:`, error);
