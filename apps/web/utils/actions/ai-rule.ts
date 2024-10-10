@@ -27,7 +27,7 @@ import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { type ServerActionResponse, isActionError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import {
   saveRulesPromptBody,
   type SaveRulesPromptBody,
@@ -702,12 +702,15 @@ export const generateRulesPromptAction = withActionInstrumentation(
     });
     const gmailLabels = await getLabels(gmail);
     const userLabels = gmailLabels?.filter((label) => label.type === "user");
-    const lastSentMessages = await Promise.all(
-      lastSent.messages?.map(async (message) => {
-        const gmailMessage = await getMessage(message.id!, gmail);
-        return parseMessage(gmailMessage);
-      }) || [],
-    );
+    const lastSentMessages = (
+      await Promise.all(
+        lastSent.messages?.map(async (message) => {
+          if (!message.id) return null;
+          const gmailMessage = await getMessage(message.id, gmail);
+          return parseMessage(gmailMessage);
+        }) || [],
+      )
+    ).filter(isDefined);
     const lastSentEmails = lastSentMessages?.map((message) => {
       return emailToContent(
         {
