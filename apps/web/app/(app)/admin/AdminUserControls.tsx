@@ -41,7 +41,9 @@ export const AdminUserControls = () => {
           onClick={async () => {
             setIsProcessing(true);
             const email = getValues("email");
-            const result = await adminProcessHistoryAction(email);
+            const result = await adminProcessHistoryAction({
+              emailAddress: email,
+            });
             handleActionResult(result, `Processed history for ${email}`);
             setIsProcessing(false);
           }}
