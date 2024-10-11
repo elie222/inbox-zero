@@ -70,7 +70,11 @@ export function Rules() {
                   <TableHead>Condition</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Actions</TableHead>
-                  <TableHead className="text-center">Automated</TableHead>
+                  <TableHead className="text-center">
+                    <Tooltip content="When disabled, actions require manual approval in the Pending tab.">
+                      <span>Automated</span>
+                    </Tooltip>
+                  </TableHead>
                   <TableHead className="text-center">
                     <Tooltip content="Apply rule to email threads">
                       <span>Threads</span>
