@@ -199,27 +199,26 @@ Feel free to add as many as you want:
                       if (isSubmitting || isGenerating) return;
                       toast.promise(
                         async () => {
-                          try {
-                            setIsGenerating(true);
-                            const result = await generateRulesPromptAction();
-                            setIsGenerating(false);
-                            if (isActionError(result))
-                              throw new Error(result.error);
-                            if (!result)
-                              throw new Error("Unable to generate prompt");
+                          setIsGenerating(true);
+                          const result = await handleActionCall(
+                            "generateRulesPromptAction",
+                            generateRulesPromptAction,
+                          );
 
-                            const currentPrompt = getValues("rulesPrompt");
-                            const updatedPrompt = currentPrompt
-                              ? `${currentPrompt}\n\n${result.rulesPrompt}`
-                              : result.rulesPrompt;
-                            setValue("rulesPrompt", updatedPrompt.trim());
-
-                            return result;
-                          } catch (error) {
+                          if (isActionError(result)) {
                             setIsGenerating(false);
-                            captureException(error);
-                            throw error;
+                            throw new Error(result.error);
                           }
+
+                          const currentPrompt = getValues("rulesPrompt");
+                          const updatedPrompt = currentPrompt
+                            ? `${currentPrompt}\n\n${result.rulesPrompt}`
+                            : result.rulesPrompt;
+                          setValue("rulesPrompt", updatedPrompt.trim());
+
+                          setIsGenerating(false);
+
+                          return result;
                         },
                         {
                           loading: "Generating prompt...",

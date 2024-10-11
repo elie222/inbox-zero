@@ -19,6 +19,8 @@ export function handleActionResult<T>(
   }
 }
 
+// NOTE: not in love with the indirection here
+// Not sure I'll use across the app
 export async function handleActionCall<T, E = {}>(
   actionName: string,
   actionFn: () => Promise<ServerActionResponse<T, E>>,
