@@ -665,11 +665,13 @@ export const saveRulesPromptAction = withActionInstrumentation(
         }
       }
     } else {
+      console.log("Processing new rules prompt with AI");
       addedRules = await aiPromptToRules({
         user: { ...user, email: user.email },
         promptFile: data.rulesPrompt,
         isEditing: false,
       });
+      console.log(`${addedRules?.length || 0} rules to be added`);
     }
 
     // add new rules

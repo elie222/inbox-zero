@@ -98,21 +98,30 @@ function RulesPromptForm({
       setIsSubmitting(true);
 
       const saveRulesPromise = async (data: SaveRulesPromptBody) => {
-        const result = await saveRulesPromptAction(data);
-        if (isActionError(result)) {
-          throw new Error(result.error);
+        try {
+          const result = await saveRulesPromptAction(data);
+          console.log("saveRulesPromptAction completed", result);
+          setIsSubmitting(false);
+          if (isActionError(result)) {
+            throw new Error(result.error);
+          }
+
+          router.push("/automation?tab=rules");
+          mutate();
+          setIsSubmitting(false);
+
+          return result;
+        } catch (error) {
+          setIsSubmitting(false);
+          captureException(error);
+          throw error;
         }
-        return result;
       };
 
       toast.promise(() => saveRulesPromise(data), {
         loading: "Saving rules... This may take a while to process...",
         success: (result) => {
           const { createdRules, editedRules, removedRules } = result || {};
-
-          router.push("/automation?tab=rules");
-          mutate();
-          setIsSubmitting(false);
 
           return `Rules saved successfully! ${[
             createdRules ? `${createdRules} rules created. ` : "",
@@ -121,7 +130,6 @@ function RulesPromptForm({
           ].join("")}`;
         },
         error: (err) => {
-          setIsSubmitting(false);
           return `Error saving rules: ${err.message}`;
         },
       });
@@ -200,6 +208,13 @@ Feel free to add as many as you want:
                               throw new Error(result.error);
                             if (!result)
                               throw new Error("Unable to generate prompt");
+
+                            const currentPrompt = getValues("rulesPrompt");
+                            const updatedPrompt = currentPrompt
+                              ? `${currentPrompt}\n\n${result.rulesPrompt}`
+                              : result.rulesPrompt;
+                            setValue("rulesPrompt", updatedPrompt.trim());
+
                             return result;
                           } catch (error) {
                             setIsGenerating(false);
@@ -210,11 +225,6 @@ Feel free to add as many as you want:
                         {
                           loading: "Generating prompt...",
                           success: (result) => {
-                            const currentPrompt = getValues("rulesPrompt");
-                            const updatedPrompt = currentPrompt
-                              ? `${currentPrompt}\n\n${result.rulesPrompt}`
-                              : result.rulesPrompt;
-                            setValue("rulesPrompt", updatedPrompt.trim());
                             return "Prompt generated successfully!";
                           },
                           error: (err) => {
