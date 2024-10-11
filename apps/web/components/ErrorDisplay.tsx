@@ -44,7 +44,7 @@ const NotFound = (props: { children: React.ReactNode }) => {
   );
 };
 
-export const NotLoggedIn = (props: {}) => {
+export const NotLoggedIn = () => {
   return (
     <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
       <div className="text-lg text-gray-700">You are not signed in 😞</div>
