@@ -782,3 +782,16 @@ export const generateRulesPromptAction = withActionInstrumentation(
     return { rulesPrompt: result.join("\n\n") };
   },
 );
+
+export const setRuleEnabledAction = withActionInstrumentation(
+  "setRuleEnabled",
+  async ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    await prisma.rule.update({
+      where: { id: ruleId, userId: session.user.id },
+      data: { enabled },
+    });
+  },
+);

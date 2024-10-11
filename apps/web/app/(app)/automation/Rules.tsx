@@ -32,6 +32,7 @@ import {
   deleteRuleAction,
   setRuleAutomatedAction,
   setRuleRunOnThreadsAction,
+  setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
 import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
@@ -39,7 +40,7 @@ import { ruleTypeToString } from "@/utils/rule";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
-import { toastError } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import { Tooltip } from "@/components/Tooltip";
 
@@ -93,7 +94,7 @@ export function Rules() {
                   .map((rule) => (
                     <TableRow
                       key={rule.id}
-                      className={!rule.enabled ? "bg-gray-100 opacity-50" : ""}
+                      className={!rule.enabled ? "bg-gray-100 opacity-60" : ""}
                     >
                       <TableCell className="font-medium">
                         <Link href={`/automation/rule/${rule.id}`}>
@@ -104,6 +105,33 @@ export function Rules() {
                           )}
                           {rule.name}
                         </Link>
+
+                        {!rule.enabled && (
+                          <div>
+                            <Button
+                              size="xs"
+                              className="mt-2"
+                              onClick={async () => {
+                                const result = await setRuleEnabledAction({
+                                  ruleId: rule.id,
+                                  enabled: true,
+                                });
+                                if (isActionError(result)) {
+                                  toastError({
+                                    description: `There was an error enabling your rule. ${result.error}`,
+                                  });
+                                } else {
+                                  toastSuccess({
+                                    description: "Rule enabled!",
+                                  });
+                                }
+                                mutate();
+                              }}
+                            >
+                              Enable
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-pre-wrap">
                         {getInstructions(rule)}
