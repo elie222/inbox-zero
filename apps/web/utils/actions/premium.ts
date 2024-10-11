@@ -268,6 +268,23 @@ export const changePremiumStatusAction = withActionInstrumentation(
           : null;
       }
 
+      const getRenewsAt = (period: PremiumTier): Date | null => {
+        const now = new Date();
+        switch (period) {
+          case PremiumTier.PRO_ANNUALLY:
+          case PremiumTier.BUSINESS_ANNUALLY:
+          case PremiumTier.BASIC_ANNUALLY:
+            return new Date(now.getTime() + ONE_MONTH * 12);
+          case PremiumTier.PRO_MONTHLY:
+          case PremiumTier.BUSINESS_MONTHLY:
+          case PremiumTier.BASIC_MONTHLY:
+          case PremiumTier.COPILOT_MONTHLY:
+            return new Date(now.getTime() + ONE_MONTH);
+          default:
+            return null;
+        }
+      };
+
       await upgradeToPremium({
         userId: userToUpgrade.id,
         tier: options.period,
@@ -277,17 +294,7 @@ export const changePremiumStatusAction = withActionInstrumentation(
         lemonSqueezyOrderId,
         lemonSqueezyProductId,
         lemonSqueezyVariantId,
-        lemonSqueezyRenewsAt:
-          options.period === PremiumTier.PRO_ANNUALLY ||
-          options.period === PremiumTier.BUSINESS_ANNUALLY ||
-          options.period === PremiumTier.BASIC_ANNUALLY
-            ? new Date(+new Date() + ONE_MONTH * 12)
-            : options.period === PremiumTier.PRO_MONTHLY ||
-                options.period === PremiumTier.BUSINESS_MONTHLY ||
-                options.period === PremiumTier.BASIC_MONTHLY ||
-                options.period === PremiumTier.COPILOT_MONTHLY
-              ? new Date(+new Date() + ONE_MONTH)
-              : null,
+        lemonSqueezyRenewsAt: getRenewsAt(options.period),
         emailAccountsAccess: options.emailAccountsAccess,
       });
     } else if (userToUpgrade) {
