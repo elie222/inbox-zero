@@ -18,6 +18,8 @@ import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 
+export const maxDuration = 300; // Applies to the actions
+
 export default async function AutomationPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");

@@ -31,8 +31,6 @@ import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 
-export const maxDuration = 300; // Applies to the actions
-
 const examplePrompts = [
   'Label newsletters as "Newsletter" and archive them',
   'Label marketing emails as "Marketing" and archive them',
