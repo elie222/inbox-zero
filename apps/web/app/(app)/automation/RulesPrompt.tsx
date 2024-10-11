@@ -31,6 +31,8 @@ import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 
+export const maxDuration = 300; // Applies to the actions
+
 const examplePrompts = [
   'Label newsletters as "Newsletter" and archive them',
   'Label marketing emails as "Marketing" and archive them',
@@ -193,16 +195,16 @@ Feel free to add as many as you want:
                           try {
                             setIsGenerating(true);
                             const result = await generateRulesPromptAction();
+                            setIsGenerating(false);
                             if (isActionError(result))
                               throw new Error(result.error);
                             if (!result)
                               throw new Error("Unable to generate prompt");
                             return result;
                           } catch (error) {
+                            setIsGenerating(false);
                             captureException(error);
                             throw error;
-                          } finally {
-                            setIsGenerating(false);
                           }
                         },
                         {
