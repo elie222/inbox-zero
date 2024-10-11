@@ -85,10 +85,16 @@ async function watchAllEmails() {
       // }
 
       const account = user.accounts[0];
+
+      if (!account.access_token || !account.refresh_token) {
+        console.log(`User ${user.email} has no access token or refresh token`);
+        continue;
+      }
+
       const gmail = await getGmailClientWithRefresh(
         {
-          accessToken: account.access_token!,
-          refreshToken: account.refresh_token!,
+          accessToken: account.access_token,
+          refreshToken: account.refresh_token,
           expiryDate: account.expires_at,
         },
         account.providerAccountId,

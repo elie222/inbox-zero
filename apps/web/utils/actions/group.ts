@@ -65,7 +65,8 @@ export async function createNewsletterGroupAction(): Promise<
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
-  const newsletters = await findNewsletters(gmail, token.token!);
+  if (!token.token) return { error: "No access token" };
+  const newsletters = await findNewsletters(gmail, token.token);
 
   const group = await prisma.group.create({
     data: {
@@ -100,7 +101,8 @@ export async function createReceiptGroupAction(): Promise<
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
-  const receipts = await findReceipts(gmail, token.token!);
+  if (!token.token) return { error: "No access token" };
+  const receipts = await findReceipts(gmail, token.token);
 
   const group = await prisma.group.create({
     data: {
@@ -129,7 +131,8 @@ export async function regenerateNewsletterGroupAction(
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
-  const newsletters = await findNewsletters(gmail, token.token!);
+  if (!token.token) return { error: "No access token" };
+  const newsletters = await findNewsletters(gmail, token.token);
 
   const newItems = newsletters.filter(
     (newItem) =>
@@ -163,7 +166,8 @@ export async function regenerateReceiptGroupAction(
 
   const gmail = getGmailClient(session);
   const token = await getGmailAccessToken(session);
-  const receipts = await findReceipts(gmail, token.token!);
+  if (!token.token) return { error: "No access token" };
+  const receipts = await findReceipts(gmail, token.token);
 
   const newItems = receipts.filter(
     (newItem) =>
