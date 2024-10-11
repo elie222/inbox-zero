@@ -30,7 +30,7 @@ export async function ErrorMessages() {
               className="mt-2"
             >
               <Button type="submit" variant="red" size="sm">
-                Clear
+                I've fixed them
               </Button>
             </form>
           </>

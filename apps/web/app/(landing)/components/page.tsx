@@ -143,9 +143,10 @@ export default function Components() {
           </div>
         </div>
 
-        <TestErrorButton />
-
-        <TestActionButton />
+        <div className="flex gap-2">
+          <TestErrorButton />
+          <TestActionButton />
+        </div>
       </div>
     </Container>
   );

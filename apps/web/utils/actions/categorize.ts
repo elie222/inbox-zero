@@ -57,6 +57,6 @@ export const categorizeAction = withActionInstrumentation(
       { email: u.email! },
     );
 
-    return res;
+    return { category: res?.category };
   },
 );
