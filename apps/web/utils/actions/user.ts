@@ -10,66 +10,77 @@ import { deleteUserStats } from "@/utils/redis/stats";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
-import { type ServerActionResponse, captureException } from "@/utils/error";
+import { captureException } from "@/utils/error";
+import { withActionInstrumentation } from "@/utils/actions/middleware";
 
 const saveAboutBody = z.object({ about: z.string() });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
-export async function saveAboutAction(
-  options: SaveAboutBody,
-): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.email) return { error: "Not logged in" };
+export const saveAboutAction = withActionInstrumentation(
+  "saveAbout",
+  async (options: SaveAboutBody) => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
 
-  await prisma.user.update({
-    where: { email: session.user.email },
-    data: { about: options.about },
-  });
-}
+    await prisma.user.update({
+      where: { email: session.user.email },
+      data: { about: options.about },
+    });
+  },
+);
 
-export async function deleteAccountAction(): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.email) return { error: "Not logged in" };
+export const deleteAccountAction = withActionInstrumentation(
+  "deleteAccount",
+  async () => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
 
-  try {
-    await Promise.allSettled([
-      deleteUserLabels({ email: session.user.email }),
-      deleteInboxZeroLabels({ email: session.user.email }),
-      deleteUserStats({ email: session.user.email }),
-      deleteTinybirdEmails({ email: session.user.email }),
-      deleteTinybirdAiCalls({ userId: session.user.email }),
-      deletePosthogUser({ email: session.user.email }),
-      deleteLoopsContact(session.user.email),
-      deleteResendContact({ email: session.user.email }),
-    ]);
-  } catch (error) {
-    console.error("Error while deleting account: ", error);
-    captureException(error, undefined, session.user.email);
-  }
+    try {
+      await Promise.allSettled([
+        deleteUserLabels({ email: session.user.email }),
+        deleteInboxZeroLabels({ email: session.user.email }),
+        deleteUserStats({ email: session.user.email }),
+        deleteTinybirdEmails({ email: session.user.email }),
+        deleteTinybirdAiCalls({ userId: session.user.email }),
+        deletePosthogUser({ email: session.user.email }),
+        deleteLoopsContact(session.user.email),
+        deleteResendContact({ email: session.user.email }),
+      ]);
+    } catch (error) {
+      console.error("Error while deleting account: ", error);
+      captureException(error, undefined, session.user.email);
+    }
 
-  await prisma.user.delete({ where: { email: session.user.email } });
-}
+    await prisma.user.delete({ where: { email: session.user.email } });
+  },
+);
 
-export async function completedOnboardingAction(): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
+export const completedOnboardingAction = withActionInstrumentation(
+  "completedOnboarding",
+  async () => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { completedOnboarding: true },
-  });
-}
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { completedOnboarding: true },
+    });
+  },
+);
 
-export async function saveOnboardingAnswersAction(onboardingAnswers: {
-  surveyId?: string;
-  questions: any;
-  answers: Record<string, string>;
-}): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
+export const saveOnboardingAnswersAction = withActionInstrumentation(
+  "saveOnboardingAnswers",
+  async (onboardingAnswers: {
+    surveyId?: string;
+    questions: any;
+    answers: Record<string, string>;
+  }) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { onboardingAnswers },
-  });
-}
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { onboardingAnswers },
+    });
+  },
+);

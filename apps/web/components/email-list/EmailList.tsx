@@ -230,6 +230,8 @@ export function EmailList(props: {
           if (isActionError(result)) {
             setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
             throw new Error(`There was an error categorizing the email.`);
+          } else if (!result) {
+            throw new Error("The request did not complete");
           } else {
             // setCategory(res);
             refetch();

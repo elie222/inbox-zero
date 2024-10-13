@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
-import { type SubmitHandler, useForm } from "react-hook-form";
-import { Button } from "@/components/Button";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import {
   adminProcessHistorySchema,
@@ -11,26 +11,22 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { handleActionResult } from "@/utils/server-action";
 import { adminProcessHistoryAction } from "@/utils/actions/admin";
+import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
 
 export const AdminUserControls = () => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
+
   const {
     register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
+    getValues,
   } = useForm<AdminProcessHistoryOptions>({
     resolver: zodResolver(adminProcessHistorySchema),
   });
 
-  const onSubmit: SubmitHandler<AdminProcessHistoryOptions> = useCallback(
-    async (data) => {
-      const result = await adminProcessHistoryAction(data.email);
-      handleActionResult(result, `Processed history for ${data.email}`);
-    },
-    [],
-  );
-
   return (
-    <form className="max-w-sm space-y-4" onSubmit={handleSubmit(onSubmit)}>
+    <form className="max-w-sm space-y-4">
       <Input
         type="email"
         name="email"
@@ -38,9 +34,43 @@ export const AdminUserControls = () => {
         registerProps={register("email", { required: true })}
         error={errors.email}
       />
-      <Button type="submit" loading={isSubmitting}>
-        Process History
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          loading={isProcessing}
+          onClick={async () => {
+            setIsProcessing(true);
+            const email = getValues("email");
+            const result = await adminProcessHistoryAction({
+              emailAddress: email,
+            });
+            handleActionResult(result, `Processed history for ${email}`);
+            setIsProcessing(false);
+          }}
+        >
+          Process History
+        </Button>
+        <Button
+          variant="outline"
+          loading={isCheckingPermissions}
+          onClick={async () => {
+            setIsCheckingPermissions(true);
+            const email = getValues("email");
+            const result = await adminCheckPermissionsAction({ email });
+            handleActionResult(
+              result,
+              `Checked permissions for ${email}. ${
+                result?.hasAllPermissions
+                  ? "Has all permissions"
+                  : "Missing permissions"
+              }`,
+            );
+            setIsCheckingPermissions(false);
+          }}
+        >
+          Check Permissions
+        </Button>
+      </div>
     </form>
   );
 };

@@ -112,19 +112,23 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
 - This is the format of a server action. Example:
 
   ```typescript
-  export async function processHistoryAction(
-    unsafeData: ProcessHistoryOptions
-  ): Promise<ServerActionResponse> {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+  export const deactivateApiKeyAction = withActionInstrumentation(
+    "deactivateApiKey",
+    async (unsafeData: DeactivateApiKeyBody) => {
+      const session = await auth();
+      const userId = session?.user.id;
+      if (!userId) return { error: "Not logged in" };
 
-    const data = processHistorySchema.safeParse(unsafeData);
-    if (!data.success) return { error: "Invalid data" };
+      const { data, success, error } =
+        deactivateApiKeyBody.safeParse(unsafeData);
+      if (!success) return { error: error.message };
 
-    // perform action
-    await processHistory();
+      await prisma.apiKey.update({
+        where: { id: data.id, userId },
+        data: { isActive: false },
+      });
 
-    revalidatePath("/history");
-  }
+      revalidatePath("/settings");
+    }
+  );
   ```

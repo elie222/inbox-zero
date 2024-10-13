@@ -20,7 +20,10 @@ export function useExecutePlan(refetch: () => void) {
 
       const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-      const result = await approvePlanAction(thread.plan.id, lastMessage);
+      const result = await approvePlanAction({
+        executedRuleId: thread.plan.id,
+        message: lastMessage,
+      });
       if (isActionError(result)) {
         toastError({
           description: "Unable to execute plan. " + result.error || "",
@@ -41,7 +44,9 @@ export function useExecutePlan(refetch: () => void) {
       setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
       if (thread.plan?.id) {
-        const result = await rejectPlanAction(thread.plan.id);
+        const result = await rejectPlanAction({
+          executedRuleId: thread.plan.id,
+        });
         if (isActionError(result)) {
           toastError({
             description: "Error rejecting plan. " + result.error || "",

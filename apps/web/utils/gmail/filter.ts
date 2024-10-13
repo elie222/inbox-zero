@@ -9,7 +9,7 @@ export async function createFilter(options: {
 }) {
   const { gmail, from, addLabelIds, removeLabelIds } = options;
 
-  return gmail.users.settings.filters.create({
+  return await gmail.users.settings.filters.create({
     userId: "me",
     requestBody: {
       criteria: { from },
@@ -21,19 +21,28 @@ export async function createFilter(options: {
   });
 }
 
-export async function createAutoArchiveFilter(options: {
+export async function createAutoArchiveFilter({
+  gmail,
+  from,
+  gmailLabelId,
+}: {
   gmail: gmail_v1.Gmail;
   from: string;
   gmailLabelId?: string;
 }) {
-  const { gmail, from, gmailLabelId } = options;
-
-  return createFilter({
-    gmail,
-    from,
-    removeLabelIds: [INBOX_LABEL_ID],
-    addLabelIds: gmailLabelId ? [gmailLabelId] : undefined,
-  });
+  try {
+    return await createFilter({
+      gmail,
+      from,
+      removeLabelIds: [INBOX_LABEL_ID],
+      addLabelIds: gmailLabelId ? [gmailLabelId] : undefined,
+    });
+  } catch (error) {
+    const errorMessage = (error as any)?.errors?.[0]?.message;
+    // if filter already exists, return 200
+    if (errorMessage === "Filter already exists") return { status: 200 };
+    throw error;
+  }
 }
 
 export async function deleteFilter(options: {

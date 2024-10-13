@@ -41,7 +41,7 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 
 export const runRulesAction = withActionInstrumentation(
   "runRules",
-  async (email: EmailForAction, force: boolean) => {
+  async ({ email, force }: { email: EmailForAction; force: boolean }) => {
     const { gmail, user: u, error } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
@@ -192,40 +192,41 @@ export const testAiCustomContentAction = withActionInstrumentation(
   },
 );
 
-export const createAutomationAction = withActionInstrumentation(
-  "createAutomation",
-  async (prompt: string) => {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+export const createAutomationAction = withActionInstrumentation<
+  [{ prompt: string }],
+  { id: string },
+  { existingRuleId?: string }
+>("createAutomation", async ({ prompt }: { prompt: string }) => {
+  const session = await auth();
+  const userId = session?.user.id;
+  if (!userId) return { error: "Not logged in" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        email: true,
-      },
-    });
-    if (!user) return { error: "User not found" };
-    if (!user.email) return { error: "User email not found" };
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+      email: true,
+    },
+  });
+  if (!user) return { error: "User not found" };
+  if (!user.email) return { error: "User email not found" };
 
-    let result: Awaited<ReturnType<typeof aiCreateRule>>;
+  let result: Awaited<ReturnType<typeof aiCreateRule>>;
 
-    try {
-      result = await aiCreateRule(prompt, user, user.email);
-    } catch (error: any) {
-      return { error: `AI error creating rule. ${error.message}` };
-    }
+  try {
+    result = await aiCreateRule(prompt, user, user.email);
+  } catch (error: any) {
+    return { error: `AI error creating rule. ${error.message}` };
+  }
 
-    if (!result) return { error: "AI error creating rule." };
+  if (!result) return { error: "AI error creating rule." };
 
-    const groupIdResult = await getGroupId(result, userId);
-    if (isActionError(groupIdResult)) return groupIdResult;
-    return await safeCreateRule(result, userId, groupIdResult);
-  },
-);
+  const groupIdResult = await getGroupId(result, userId);
+  if (isActionError(groupIdResult)) return groupIdResult;
+  return await safeCreateRule(result, userId, groupIdResult);
+});
 
 async function createRule(
   result: NonNullable<Awaited<ReturnType<typeof aiCreateRule>>>,
@@ -394,7 +395,7 @@ async function getGroupId(
 
 export const deleteRuleAction = withActionInstrumentation(
   "deleteRule",
-  async (ruleId: string) => {
+  async ({ ruleId }: { ruleId: string }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -406,7 +407,7 @@ export const deleteRuleAction = withActionInstrumentation(
 
 export const setRuleAutomatedAction = withActionInstrumentation(
   "setRuleAutomated",
-  async (ruleId: string, automate: boolean) => {
+  async ({ ruleId, automate }: { ruleId: string; automate: boolean }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -419,7 +420,13 @@ export const setRuleAutomatedAction = withActionInstrumentation(
 
 export const setRuleRunOnThreadsAction = withActionInstrumentation(
   "setRuleRunOnThreads",
-  async (ruleId: string, runOnThreads: boolean) => {
+  async ({
+    ruleId,
+    runOnThreads,
+  }: {
+    ruleId: string;
+    runOnThreads: boolean;
+  }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -432,7 +439,13 @@ export const setRuleRunOnThreadsAction = withActionInstrumentation(
 
 export const approvePlanAction = withActionInstrumentation(
   "approvePlan",
-  async (executedRuleId: string, message: ParsedMessage) => {
+  async ({
+    executedRuleId,
+    message,
+  }: {
+    executedRuleId: string;
+    message: ParsedMessage;
+  }) => {
     const session = await auth();
     if (!session?.user.email) return { error: "Not logged in" };
 
@@ -463,7 +476,7 @@ export const approvePlanAction = withActionInstrumentation(
 
 export const rejectPlanAction = withActionInstrumentation(
   "rejectPlan",
-  async (executedRuleId: string) => {
+  async ({ executedRuleId }: { executedRuleId: string }) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -495,8 +508,15 @@ export const saveRulesPromptAction = withActionInstrumentation(
     if (!session?.user.email) return { error: "Not logged in" };
     setUser({ email: session.user.email });
 
+    console.log(
+      `Starting saveRulesPromptAction for user ${session.user.email}`,
+    );
+
     const { data, success, error } = saveRulesPromptBody.safeParse(unsafeData);
-    if (!success) return { error: error.message };
+    if (!success) {
+      console.error("Input validation failed:", error.message);
+      return { error: error.message };
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -509,13 +529,25 @@ export const saveRulesPromptAction = withActionInstrumentation(
       },
     });
 
-    if (!user) return { error: "User not found" };
-    if (!user.email) return { error: "User email not found" };
+    if (!user) {
+      console.error("User not found");
+      return { error: "User not found" };
+    }
+    if (!user.email) {
+      console.error("User email not found");
+      return { error: "User email not found" };
+    }
 
     const oldPromptFile = user.rulesPrompt;
+    console.log(
+      "Old prompt file:",
+      oldPromptFile ? "exists" : "does not exist",
+    );
 
-    if (oldPromptFile === data.rulesPrompt)
+    if (oldPromptFile === data.rulesPrompt) {
+      console.log("No changes in rules prompt, returning early");
       return { createdRules: 0, editedRules: 0, removedRules: 0 };
+    }
 
     let addedRules: Awaited<ReturnType<typeof aiPromptToRules>> | null = null;
     let editRulesCount = 0;
@@ -523,33 +555,42 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
     // check how the prompts have changed, and make changes to the rules accordingly
     if (oldPromptFile) {
+      console.log("Comparing old and new prompts");
       const diff = await aiDiffRules({
         user: { ...user, email: user.email },
         oldPromptFile,
         newPromptFile: data.rulesPrompt,
       });
 
+      console.log(
+        `Diff results: Added rules: ${diff.addedRules.length}, Edited rules: ${diff.editedRules.length}, Removed rules: ${diff.removedRules.length}`,
+      );
+
       if (
         !diff.addedRules.length &&
         !diff.editedRules.length &&
         !diff.removedRules.length
       ) {
+        console.log("No changes detected in rules, returning early");
         return { createdRules: 0, editedRules: 0, removedRules: 0 };
       }
 
-      addedRules = diff.addedRules.length
-        ? await aiPromptToRules({
-            user: { ...user, email: user.email },
-            promptFile: diff.addedRules.join("\n\n"),
-            isEditing: false,
-          })
-        : null;
+      if (diff.addedRules.length) {
+        console.log("Processing added rules");
+        addedRules = await aiPromptToRules({
+          user: { ...user, email: user.email },
+          promptFile: diff.addedRules.join("\n\n"),
+          isEditing: false,
+        });
+        console.log(`${addedRules?.length || 0} rules to be added`);
+      }
 
       // find existing rules
       const userRules = await prisma.rule.findMany({
         where: { userId: session.user.id, enabled: true },
         include: { actions: true },
       });
+      console.log(`Found ${userRules.length} existing user rules`);
 
       const existingRules = await aiFindExistingRules({
         user: { ...user, email: user.email },
@@ -559,10 +600,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
       });
 
       // remove rules
+      console.log(
+        `Processing ${existingRules.removedRules.length} rules for removal`,
+      );
       for (const rule of existingRules.removedRules) {
-        // if the rule has executed rules, disable it
-        // if not, then delete it
-
         const executedRule = await prisma.executedRule.findFirst({
           where: { userId: session.user.id, ruleId: rule.rule?.id },
         });
@@ -624,11 +665,13 @@ export const saveRulesPromptAction = withActionInstrumentation(
         }
       }
     } else {
+      console.log("Processing new rules prompt with AI");
       addedRules = await aiPromptToRules({
         user: { ...user, email: user.email },
         promptFile: data.rulesPrompt,
         isEditing: false,
       });
+      console.log(`${addedRules?.length || 0} rules to be added`);
     }
 
     // add new rules
@@ -649,6 +692,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
       where: { id: session.user.id },
       data: { rulesPrompt: data.rulesPrompt },
     });
+
+    console.log(
+      `saveRulesPromptAction completed. Created rules: ${addedRules?.length || 0}, Edited rules: ${editRulesCount}, Removed rules: ${removeRulesCount}`,
+    );
 
     return {
       createdRules: addedRules?.length || 0,
@@ -733,5 +780,18 @@ export const generateRulesPromptAction = withActionInstrumentation(
     if (!result) return { error: "Error generating rules prompt" };
 
     return { rulesPrompt: result.join("\n\n") };
+  },
+);
+
+export const setRuleEnabledAction = withActionInstrumentation(
+  "setRuleEnabled",
+  async ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    await prisma.rule.update({
+      where: { id: ruleId, userId: session.user.id },
+      data: { enabled },
+    });
   },
 );
