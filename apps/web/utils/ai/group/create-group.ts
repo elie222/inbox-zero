@@ -125,11 +125,16 @@ async function verifyGroupItems(
   console.log(`verifyGroupItems: ${group.name} - ${group.prompt}`);
 
   const system = `You are an AI assistant specializing in email management and organization.
-Your task is to identify and remove any incorrect or overly broad criteria from the generated email group.`;
+Your task is to identify and remove any incorrect or overly broad criteria from the generated email group.
+One word subjects are almost always too broad and should be removed.`;
 
   const prompt = `Review the following email group criteria for the group "${group.name}" and identify any items that should be removed:
-Senders: ${JSON.stringify(initialItems.senders)}
-Subjects: ${JSON.stringify(initialItems.subjects)}
+
+Senders:
+${JSON.stringify(initialItems.senders)}
+
+Subjects:
+${JSON.stringify(initialItems.subjects)}
 
 Original prompt: "${group.prompt}"
 
