@@ -9,6 +9,8 @@ import {
   addGroupItemBody,
   type CreateGroupBody,
   createGroupBody,
+  type UpdateGroupPromptBody,
+  updateGroupPromptBody,
 } from "@/utils/actions/validation";
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
@@ -23,6 +25,7 @@ import { GroupName } from "@/utils/config";
 import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 import { UserAIFields } from "@/utils/llms/types";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { z } from "zod";
 
 export const createGroupAction = withActionInstrumentation(
   "createGroup",
@@ -372,5 +375,22 @@ export const deleteGroupItemAction = withActionInstrumentation(
     });
 
     revalidatePath("/automation");
+  },
+);
+
+export const updateGroupPromptAction = withActionInstrumentation(
+  "updateGroupPrompt",
+  async (unsafeData: UpdateGroupPromptBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { success, error, data } =
+      updateGroupPromptBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
+
+    await prisma.group.update({
+      where: { id: data.groupId, userId: session.user.id },
+      data: { prompt: data.prompt },
+    });
   },
 );

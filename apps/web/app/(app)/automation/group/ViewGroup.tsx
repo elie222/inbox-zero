@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR, { type KeyedMutator } from "swr";
-import { PlusIcon, SparklesIcon, TrashIcon } from "lucide-react";
+import { PlusIcon, SparklesIcon, TrashIcon, PenIcon } from "lucide-react";
 import { useState, useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -25,6 +25,7 @@ import {
   deleteGroupAction,
   deleteGroupItemAction,
   regenerateGroupAction,
+  updateGroupPromptAction,
 } from "@/utils/actions/group";
 import { GroupName } from "@/utils/config";
 import { GroupItemType } from "@prisma/client";
@@ -34,6 +35,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type AddGroupItemBody,
   addGroupItemBody,
+  updateGroupPromptBody,
+  UpdateGroupPromptBody,
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
@@ -92,11 +95,13 @@ function ViewGroup({
 
   return (
     <div>
-      {data?.group?.prompt ? (
-        <SectionDescription className="mb-2">
-          Prompt: {data.group.prompt}
-        </SectionDescription>
-      ) : null}
+      {data?.group?.prompt && (
+        <EditablePrompt
+          groupId={groupId}
+          initialPrompt={data.group.prompt}
+          onUpdate={mutate}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:justify-end">
         {showAddItem ? (
@@ -307,3 +312,102 @@ const AddGroupItemForm = ({
     </form>
   );
 };
+
+function EditablePrompt({
+  groupId,
+  initialPrompt,
+  onUpdate,
+}: {
+  groupId: string;
+  initialPrompt: string;
+  onUpdate: () => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  if (isEditing) {
+    return (
+      <UpdatePromptForm
+        groupId={groupId}
+        initialPrompt={initialPrompt}
+        onUpdate={onUpdate}
+        onFinishEditing={() => setIsEditing(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="group relative mb-2 inline-flex items-center">
+      <SectionDescription>
+        Prompt: {initialPrompt}
+        <button
+          onClick={() => setIsEditing(true)}
+          className="ml-2 opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          <PenIcon className="h-4 w-4" />
+        </button>
+      </SectionDescription>
+    </div>
+  );
+}
+
+function UpdatePromptForm({
+  groupId,
+  initialPrompt,
+  onUpdate,
+  onFinishEditing,
+}: {
+  groupId: string;
+  initialPrompt: string;
+  onUpdate: () => void;
+  onFinishEditing: () => void;
+}) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<UpdateGroupPromptBody>({
+    resolver: zodResolver(updateGroupPromptBody),
+    defaultValues: { groupId, prompt: initialPrompt },
+  });
+
+  const onSubmit: SubmitHandler<UpdateGroupPromptBody> = useCallback(
+    async (data) => {
+      const result = await updateGroupPromptAction(data);
+      if (isActionError(result)) {
+        toastError({
+          description: `Failed to update prompt. ${result.error}`,
+        });
+      } else {
+        toastSuccess({
+          description: "Prompt updated! You should regenerate the group.",
+        });
+        onFinishEditing();
+        onUpdate();
+      }
+    },
+    [groupId, onUpdate],
+  );
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Input
+        type="text"
+        as="textarea"
+        rows={3}
+        name="prompt"
+        label="Prompt"
+        placeholder=""
+        registerProps={register("prompt", { required: true })}
+        error={errors.prompt}
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <Button type="submit" variant="outline" disabled={isSubmitting}>
+          Save
+        </Button>
+        <Button type="button" variant="outline" onClick={onFinishEditing}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
