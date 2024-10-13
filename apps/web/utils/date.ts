@@ -8,7 +8,7 @@ export function formatShortDate(
     lowercase: false,
   },
 ) {
-  // if date is today, return the time. eg. 12:30pm
+  // if date is today, return the time. e.g. 12:30pm
   // if date is before today then return the date. eg JUL 5th or AUG 13th
 
   const today = new Date();

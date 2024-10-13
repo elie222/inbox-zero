@@ -3,7 +3,7 @@ const TINYBIRD_TOKEN = process.env.TINYBIRD_TOKEN;
 
 async function deleteFromDatasource(
   datasource: string,
-  deleteCondition: string, // eg. "email='abc@example.com'"
+  deleteCondition: string, // e.g. "email='abc@example.com'"
 ): Promise<unknown> {
   const url = new URL(
     `/v0/datasources/${datasource}/delete`,

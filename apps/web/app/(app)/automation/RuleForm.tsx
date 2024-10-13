@@ -145,7 +145,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           label="Rule name"
           registerProps={register("name")}
           error={errors.name}
-          placeholder="eg. Label receipts"
+          placeholder="e.g. Label receipts"
         />
       </div>
 
@@ -175,7 +175,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="Instructions"
             registerProps={register("instructions")}
             error={errors.instructions}
-            placeholder='eg. Apply this rule to all "receipts"'
+            placeholder='e.g. Apply this rule to all "receipts"'
             tooltipText="The instructions that will be passed to the AI."
           />
         </div>
@@ -189,7 +189,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="From"
             registerProps={register("from")}
             error={errors.from}
-            placeholder="eg. elie@getinboxzero.com"
+            placeholder="e.g. elie@getinboxzero.com"
             tooltipText="Only apply this rule to emails from this address."
           />
           <Input
@@ -198,7 +198,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="To"
             registerProps={register("to")}
             error={errors.to}
-            placeholder="eg. elie@getinboxzero.com"
+            placeholder="e.g. elie@getinboxzero.com"
             tooltipText="Only apply this rule to emails sent to this address."
           />
           <Input
@@ -207,7 +207,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="Subject"
             registerProps={register("subject")}
             error={errors.subject}
-            placeholder="eg. Receipt for your purchase"
+            placeholder="e.g. Receipt for your purchase"
             tooltipText="Only apply this rule to emails with this subject."
           />
         </div>

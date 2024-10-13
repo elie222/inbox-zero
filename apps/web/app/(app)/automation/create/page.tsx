@@ -86,7 +86,7 @@ export default function AutomationSettingsPage() {
                 as="textarea"
                 rows={4}
                 name="prompt"
-                placeholder={`eg. Forward receipts to alice@accountant.com.`}
+                placeholder={`e.g. Forward receipts to alice@accountant.com.`}
                 className="mt-2"
                 registerProps={register("prompt")}
                 error={errors.prompt}
