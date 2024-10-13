@@ -62,7 +62,7 @@ export const createGroupAction = withActionInstrumentation(
         );
       }
 
-      revalidatePath(`/automation`);
+      revalidatePath("/automation");
     } catch (error) {
       if (isDuplicateError(error, "name"))
         return { error: "Group with this name already exists" };
@@ -171,7 +171,7 @@ export const createNewsletterGroupAction = withActionInstrumentation(
       },
     });
 
-    revalidatePath(`/automation`);
+    revalidatePath("/automation");
 
     return { id: group.id };
   },
@@ -205,7 +205,7 @@ export const createReceiptGroupAction = withActionInstrumentation(
       },
     });
 
-    revalidatePath(`/automation`);
+    revalidatePath("/automation");
 
     return { id: group.id };
   },
@@ -270,7 +270,7 @@ export const regenerateGroupAction = withActionInstrumentation(
       return { error: "Invalid group type or missing prompt" };
     }
 
-    revalidatePath(`/automation`);
+    revalidatePath("/automation");
   },
 );
 
@@ -296,7 +296,7 @@ async function regenerateNewsletterGroup(
     })),
   });
 
-  revalidatePath(`/automation`);
+  revalidatePath("/automation");
 }
 
 async function regenerateReceiptGroup(
@@ -321,7 +321,7 @@ async function regenerateReceiptGroup(
     })),
   });
 
-  revalidatePath(`/automation`);
+  revalidatePath("/automation");
 }
 
 export const deleteGroupAction = withActionInstrumentation(
@@ -332,7 +332,7 @@ export const deleteGroupAction = withActionInstrumentation(
 
     await prisma.group.delete({ where: { id, userId: session.user.id } });
 
-    revalidatePath(`/automation`);
+    revalidatePath("/automation");
   },
 );
 
@@ -351,7 +351,7 @@ export const addGroupItemAction = withActionInstrumentation(
 
     await prisma.groupItem.create({ data: addGroupItemBody.parse(body) });
 
-    revalidatePath(`/automation`);
+    revalidatePath("/automation");
   },
 );
 
@@ -365,6 +365,6 @@ export const deleteGroupItemAction = withActionInstrumentation(
       where: { id, group: { userId: session.user.id } },
     });
 
-    revalidatePath(`/automation`);
+    revalidatePath("/automation");
   },
 );
