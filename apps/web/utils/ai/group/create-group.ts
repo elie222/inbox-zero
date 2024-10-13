@@ -54,6 +54,8 @@ export async function aiGenerateGroupItems(
   accessToken: string,
   group: Pick<Group, "name" | "prompt">,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
+  console.log(`aiGenerateGroupItems: ${group.name} - ${group.prompt}`);
+
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to create highly specific email groups based on user prompts and their actual email history.
 
@@ -120,6 +122,8 @@ async function verifyGroupItems(
   group: Pick<Group, "name" | "prompt">,
   initialItems: z.infer<typeof generateGroupItemsSchema>,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
+  console.log(`verifyGroupItems: ${group.name} - ${group.prompt}`);
+
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to identify and remove any incorrect or overly broad criteria from the generated email group.`;
 

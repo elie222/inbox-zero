@@ -82,10 +82,16 @@ async function generateGroupItemsFromPrompt(
   name: string,
   prompt: string,
 ) {
+  console.log(`generateGroupItemsFromPrompt: ${name} - ${prompt}`);
+
   const result = await aiGenerateGroupItems(user, gmail, token, {
     name,
     prompt,
   });
+
+  console.log(
+    `generateGroupItemsFromPrompt result. Senders: ${result.senders.length}, Subjects: ${result.subjects.length}`,
+  );
 
   await prisma.$transaction([
     ...result.senders.map((sender) =>
