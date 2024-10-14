@@ -54,7 +54,7 @@ export function EmailAnalytics(props: {
             col1="Sender"
             col2="Emails"
             data={data.mostActiveSenderEmails
-              .slice(0, expanded ? undefined : 5)
+              ?.slice(0, expanded ? undefined : 5)
               .map((d) => ({
                 ...d,
                 href: getGmailSearchUrl(d.name, email),
@@ -75,7 +75,7 @@ export function EmailAnalytics(props: {
             col1="Domain"
             col2="Emails"
             data={data.mostActiveSenderDomains
-              .slice(0, expanded ? undefined : 5)
+              ?.slice(0, expanded ? undefined : 5)
               .map((d) => ({
                 ...d,
                 href: getGmailSearchUrl(d.name, email),
