@@ -70,7 +70,7 @@ export function RulesPrompt() {
   );
 }
 
-function RulesPromptForm({
+export function RulesPromptForm({
   rulesPrompt,
   mutate,
 }: {
