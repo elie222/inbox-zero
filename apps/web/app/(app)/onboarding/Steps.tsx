@@ -51,7 +51,7 @@ export function Steps({
           <div
             className={cn(
               "flex-1 transition-opacity duration-300 ease-in-out",
-              step.active ? "opacity-100" : "opacity-30",
+              step.active ? "opacity-100" : "opacity-20",
             )}
           >
             <div className="flex justify-between gap-4">

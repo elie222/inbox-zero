@@ -1,5 +1,11 @@
-import { Button } from "@/components/ui/button";
+"use client";
+
+import { ColdEmailForm } from "@/app/(app)/cold-email-blocker/ColdEmailSettings";
 
 export function OnboardingColdEmailBlocker() {
-  return <Button>Enable</Button>;
+  return (
+    <div>
+      <ColdEmailForm />
+    </div>
+  );
 }
