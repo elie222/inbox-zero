@@ -1,3 +1,6 @@
+"use client";
+
+import { Suspense, useState } from "react";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Suspense } from "react";
 
 export function OnboardingBulkUnsubscriber() {
+  const [removed, setRemoved] = useState<string[]>([]);
+
   const rows = [
     {
       email: "test@test.com",
@@ -34,8 +38,8 @@ export function OnboardingBulkUnsubscriber() {
   ];
 
   return (
-    <div>
-      <Card>
+    <div className="relative">
+      <Card className="overflow-visible">
         <Table>
           <TableHeader>
             <TableRow>
@@ -54,7 +58,19 @@ export function OnboardingBulkUnsubscriber() {
                 <TableCell>{row.read}%</TableCell>
                 <TableCell>{row.archived}%</TableCell>
                 <TableCell>
-                  <Button>Unsubscribe</Button>
+                  <Button
+                    disabled={removed.includes(row.email)}
+                    onClick={() => {
+                      setRemoved((currentRemoved) => [
+                        ...currentRemoved,
+                        row.email,
+                      ]);
+                    }}
+                  >
+                    {removed.includes(row.email)
+                      ? "Unsubscribed"
+                      : "Unsubscribe"}
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

@@ -48,7 +48,12 @@ export function Steps({
             <div className="h-1.5 w-1.5 rounded-full bg-gray-100 ring-1 ring-gray-300" />
           </div>
 
-          <div className={cn("flex-1", { "opacity-30": !step.active })}>
+          <div
+            className={cn(
+              "flex-1 transition-opacity duration-300 ease-in-out",
+              step.active ? "opacity-100" : "opacity-30",
+            )}
+          >
             <div className="flex justify-between gap-4">
               <div>
                 <TypographyH3>{step.title}</TypographyH3>

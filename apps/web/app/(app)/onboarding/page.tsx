@@ -22,16 +22,14 @@ export default function OnboardingPage({
           steps={[
             {
               title: "Bulk Unsubscriber",
-              description:
-                "Remove emails from people who don't want to be emailed",
+              description: "One-click unsubscribe from emails you never read.",
               content: <OnboardingBulkUnsubscriber />,
               videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
               active: !searchParams.step || searchParams.step === "1",
             },
             {
               title: "AI Personal Assistant",
-              description:
-                "How your AI personal assistant should handle your emails",
+              description: "Tell the assistant how to handle incoming emails.",
               content: <OnboardingAIEmailAssistant />,
               videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
               active: searchParams.step === "2",

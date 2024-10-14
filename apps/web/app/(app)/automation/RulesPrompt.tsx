@@ -40,7 +40,7 @@ const examplePrompts = [
   'Label pitch decks as "Pitch Deck" and forward them to john@investing.com',
   "Reply to cold emails by telling them to check out Inbox Zero. Then mark them as spam",
   'Label high priority emails as "High Priority"',
-  "If a founder asks to set up a call, send them my Cal link: https://cal.com/max",
+  "If a founder asks to set up a call, send them my Cal link: https://cal.com/example",
   "If someone asks to cancel a plan, ask to set up a call by sending my Cal link",
   'If a founder sends me an investor update, label it "Investor Update" and archive it',
   'If someone pitches me their startup, label it as "Investing", archive it, and respond with a friendly reply that I no longer have time to look at the email but if they get a warm intro, that\'s their best bet to get funding from me',
@@ -70,7 +70,7 @@ export function RulesPrompt() {
   );
 }
 
-export function RulesPromptForm({
+function RulesPromptForm({
   rulesPrompt,
   mutate,
 }: {
@@ -151,7 +151,7 @@ export function RulesPromptForm({
       <div className="sm:col-span-2">
         <CardHeader>
           <CardTitle>
-            How your AI personal assistant should handle your emails
+            How your AI personal assistant should handle incoming emails
           </CardTitle>
           <CardDescription>
             Write a prompt for your assistant to follow.
@@ -176,9 +176,8 @@ Feel free to add as many as you want:
 * Archive all marketing emails.
 * Label receipts as "Receipt" and forward them to jane@accounting.com.
 * Label emails that require a reply as "Reply Required".
-* If a customer asks to set up a call, send them my Cal link: https://cal.com/max
-* Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question.
-            `}
+* If a customer asks to set up a call, send them my Cal link: https://cal.com/example
+* Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question.`}
               />
 
               <div className="flex gap-2">

@@ -61,6 +61,9 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
 - Use React Hook Form with Zod for validation. The same validation should be done in the server action too. Example:
 
   ```tsx
+  import { Input } from "@/components/Input";
+  import { Button } from "@/components/ui/button";
+
   export const ProcessHistory = () => {
     const {
       register,
