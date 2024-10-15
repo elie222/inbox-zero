@@ -11,7 +11,7 @@ import { postRequest } from "@/utils/api";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ColdEmailSetting } from "@prisma/client";
 import { isError } from "@/utils/error";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import {
   type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
@@ -29,7 +29,7 @@ export function ColdEmailSettings() {
       {data && (
         <>
           <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
-          <div className="mt-2 space-x-2">
+          <div className="mt-2 flex items-center gap-2">
             <TestRules />
             <ColdEmailPromptModal
               coldEmailPrompt={data.coldEmailPrompt}
@@ -42,8 +42,12 @@ export function ColdEmailSettings() {
   );
 }
 
-export function ColdEmailForm(props: {
+export function ColdEmailForm({
+  coldEmailBlocker,
+  onSuccess,
+}: {
   coldEmailBlocker?: ColdEmailSetting | null;
+  onSuccess?: () => void;
 }) {
   const {
     control,
@@ -52,7 +56,7 @@ export function ColdEmailForm(props: {
   } = useForm<UpdateColdEmailSettingsBody>({
     resolver: zodResolver(updateColdEmailSettingsBody),
     defaultValues: {
-      coldEmailBlocker: props.coldEmailBlocker || ColdEmailSetting.DISABLED,
+      coldEmailBlocker: coldEmailBlocker || ColdEmailSetting.DISABLED,
     },
   });
 
@@ -71,6 +75,7 @@ export function ColdEmailForm(props: {
         });
       } else {
         toastSuccess({ description: "Settings updated!" });
+        onSuccess?.();
       }
     },
     [],

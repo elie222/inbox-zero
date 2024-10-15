@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PlayCircleIcon } from "lucide-react";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
@@ -7,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 
 export function Steps({
+  selectedStep,
   steps,
 }: {
+  selectedStep: number;
   steps: {
     title: string;
     description: string;
@@ -18,12 +21,23 @@ export function Steps({
   }[];
 }) {
   const router = useRouter();
+  const stepRefs = useRef<(HTMLLIElement | null)[]>([]);
+
+  useEffect(() => {
+    const stepIndex = selectedStep - 1;
+    if (stepIndex >= 0 && stepIndex < steps.length) {
+      stepRefs.current[stepIndex]?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [selectedStep, steps.length]);
 
   return (
     <ul role="list" className="space-y-6">
       {steps.map((step, stepIdx) => (
         <li
           key={stepIdx}
+          ref={(el) => {
+            if (el) stepRefs.current[stepIdx] = el;
+          }}
           className="relative flex gap-x-4"
           onClick={
             !step.active
@@ -51,7 +65,7 @@ export function Steps({
           <div
             className={cn(
               "flex-1 transition-opacity duration-300 ease-in-out",
-              step.active ? "opacity-100" : "opacity-20",
+              step.active ? "opacity-100" : "pointer-events-none opacity-20",
             )}
           >
             <div className="flex justify-between gap-4">

@@ -8,7 +8,7 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { BookOpenCheckIcon, SparklesIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
@@ -32,7 +32,7 @@ export function TestRules() {
       description="Test which emails are flagged as cold emails. We also check if the sender has emailed you before and if it includes unsubscribe links."
       content={<TestRulesContent />}
     >
-      <Button color="white" type="button">
+      <Button type="button" variant="outline">
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
         Test
       </Button>
