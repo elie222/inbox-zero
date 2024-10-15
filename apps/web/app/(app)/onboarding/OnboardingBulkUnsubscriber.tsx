@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,14 +18,18 @@ import {
   NewsletterStatsResponse,
 } from "@/app/api/user/stats/newsletters/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { ProgressBar } from "@tremor/react";
+import { ONE_MONTH_MS } from "@/utils/date";
 
 const useNewsletterStats = () => {
+  const now = useMemo(() => Date.now(), []);
   const params: NewsletterStatsQuery = {
     types: [],
     filters: [],
     orderBy: "unarchived",
-    limit: 3,
-    includeMissingUnsubscribe: true,
+    limit: 5,
+    includeMissingUnsubscribe: false,
+    fromDate: now - ONE_MONTH_MS,
   };
   const urlParams = new URLSearchParams(params as any);
   return useSWR<NewsletterStatsResponse, { error: string }>(
@@ -78,6 +82,10 @@ export function OnboardingBulkUnsubscriber() {
                 const name = splitIndex[0].trim();
                 const email = splitIndex[1].split(">")[0].trim();
 
+                const readPercentage = (row.readEmails / row.value) * 100;
+                const archivedEmails = row.value - row.inboxEmails;
+                const archivedPercentage = (archivedEmails / row.value) * 100;
+
                 return (
                   <TableRow key={row.name}>
                     <TableCell>
@@ -85,8 +93,22 @@ export function OnboardingBulkUnsubscriber() {
                       <div className="text-slate-500">{email}</div>
                     </TableCell>
                     <TableCell>{row.value}</TableCell>
-                    <TableCell>{row.inboxEmails}</TableCell>
-                    <TableCell>{row.readEmails}</TableCell>
+                    <TableCell>
+                      <ProgressBar
+                        value={readPercentage}
+                        label={`${Math.round(readPercentage)}%`}
+                        color="blue"
+                        className="w-[150px]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <ProgressBar
+                        value={archivedPercentage}
+                        label={`${Math.round(archivedPercentage)}%`}
+                        color="blue"
+                        className="w-[150px]"
+                      />
+                    </TableCell>
                     <TableCell>
                       <Button
                         disabled={unsubscribed.includes(row.name)}

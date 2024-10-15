@@ -11,7 +11,7 @@ export function Steps({
   selectedStep,
   steps,
 }: {
-  selectedStep: number;
+  selectedStep: number | undefined;
   steps: {
     title: string;
     description: string;
@@ -24,6 +24,7 @@ export function Steps({
   const stepRefs = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
+    if (!selectedStep) return;
     const stepIndex = selectedStep - 1;
     if (stepIndex >= 0 && stepIndex < steps.length) {
       stepRefs.current[stepIndex]?.scrollIntoView({ behavior: "smooth" });
