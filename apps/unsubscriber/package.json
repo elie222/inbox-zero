@@ -1,7 +1,7 @@
 {
   "name": "inbox-zero-unsubscriber",
   "version": "1.0.0",
-  "description": "",
+  "private": true,
   "main": "index.js",
   "scripts": {
     "start": "ts-node -r tsconfig-paths/register src/server.ts",
