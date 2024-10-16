@@ -58,7 +58,7 @@ To use the unsubscribe service, send a POST request to the `/unsubscribe` endpoi
 curl -X POST http://localhost:5000/unsubscribe \
 -H "Content-Type: application/json" \
 -d '{
-  "url": "https://example.com/unsubscribe",
+  "url": "https://example.com/unsubscribe"
 }'
 ```
 
