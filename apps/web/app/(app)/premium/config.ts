@@ -33,7 +33,7 @@ function discount(monthly: number, annually: number) {
 }
 
 const basicTier = {
-  name: "Basic",
+  name: "Unsubscriber",
   tiers: {
     monthly: PremiumTier.BASIC_MONTHLY,
     annually: PremiumTier.BASIC_ANNUALLY,
@@ -91,7 +91,7 @@ const proTier = {
 };
 
 const businessTier = {
-  name: "Business",
+  name: "AI Assistant",
   tiers: {
     monthly: PremiumTier.BUSINESS_MONTHLY,
     annually: PremiumTier.BUSINESS_ANNUALLY,
