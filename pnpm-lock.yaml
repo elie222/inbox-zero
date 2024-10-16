@@ -49,9 +49,6 @@ importers:
       '@fastify/cors':
         specifier: ^10.0.1
         version: 10.0.1
-      '@google/generative-ai':
-        specifier: ^0.21.0
-        version: 0.21.0
       ai:
         specifier: ^3.3.36
         version: 3.4.9(openai@4.67.3(encoding@0.1.13)(zod@3.23.8))(react@18.3.1)(solid-js@1.8.15)(sswr@2.1.0(svelte@4.2.12))(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))(zod@3.23.8)
@@ -2248,10 +2245,6 @@ packages:
 
   '@formkit/auto-animate@0.8.2':
     resolution: {integrity: sha512-SwPWfeRa5veb1hOIBMdzI+73te5puUBHmqqaF1Bu7FjvxlYSz/kJcZKSa9Cg60zL0uRNeJL2SbRxV6Jp6Q1nFQ==}
-
-  '@google/generative-ai@0.21.0':
-    resolution: {integrity: sha512-7XhUbtnlkSEZK15kN3t+tzIMxsbKm/dSkKBFalj+20NvPKe1kBY7mR2P7vuijEn+f06z5+A8bVGKO0v39cr6Wg==}
-    engines: {node: '>=18.0.0'}
 
   '@googleapis/gmail@12.0.0':
     resolution: {integrity: sha512-sMsgh7J4pRIzmgte4vPfcxBptKliquVXlc9nhIWvuDfdkEVkyP8yh5pkhAnZmStEF0I5iOI04zriAt4C98XhBw==}
@@ -13402,8 +13395,6 @@ snapshots:
   '@floating-ui/utils@0.2.2': {}
 
   '@formkit/auto-animate@0.8.2': {}
-
-  '@google/generative-ai@0.21.0': {}
 
   '@googleapis/gmail@12.0.0(encoding@0.1.13)':
     dependencies:
