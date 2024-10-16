@@ -4,7 +4,7 @@ import { z } from "zod";
 import { autoUnsubscribe } from "./main";
 import { env } from "./env";
 
-const server = fastify();
+const server = fastify({ logger: true });
 
 // Register CORS
 if (env.CORS_ORIGIN) {

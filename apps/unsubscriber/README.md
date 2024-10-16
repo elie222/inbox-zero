@@ -15,7 +15,6 @@ This service provides an automated solution for unsubscribing from email newslet
 - Node.js (v14 or later)
 - pnpm package manager
 - A Google AI API key
-- An OpenAI API key
 
 ## Installation
 
@@ -41,6 +40,14 @@ This service provides an automated solution for unsubscribing from email newslet
 
    Replace the API keys with your actual keys, and adjust the CORS_ORIGIN if needed.
    You can get a Google AI API Key here: https://aistudio.google.com/app/apikey
+
+4. Install Playwright and its dependencies:
+
+   ```bash
+   pnpm exec playwright install
+   ```
+
+   This command will install Playwright and its necessary browser binaries.
 
 ## Running the Service
 
