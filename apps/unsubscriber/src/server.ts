@@ -1,15 +1,18 @@
 import fastify from "fastify";
 import cors from "@fastify/cors";
-import { autoUnsubscribe } from "./main";
 import { z } from "zod";
+import { autoUnsubscribe } from "./main";
+import { env } from "./env";
 
 const server = fastify();
 
 // Register CORS
-server.register(cors, {
-  origin: process.env.CORS_ORIGIN,
-  methods: ["GET", "POST"],
-});
+if (env.CORS_ORIGIN) {
+  server.register(cors, {
+    origin: env.CORS_ORIGIN,
+    methods: ["GET", "POST"],
+  });
+}
 
 const unsubscribeSchema = z.object({
   url: z.string().url(),
@@ -42,11 +45,9 @@ server.post("/unsubscribe", async (request, reply) => {
 
 const start = async () => {
   try {
-    const port = process.env.PORT
-      ? Number.parseInt(process.env.PORT, 10)
-      : 5000;
-    await server.listen({ port, host: "0.0.0.0" });
-    console.log(`Server is running on ${port}`);
+    const port = env.PORT;
+    await server.listen({ port });
+    console.log(`Server is running at http://localhost:${port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

@@ -40,6 +40,7 @@ This service provides an automated solution for unsubscribing from email newslet
    ```
 
    Replace the API keys with your actual keys, and adjust the CORS_ORIGIN if needed.
+   You can get a Google AI API Key here: https://aistudio.google.com/app/apikey
 
 ## Running the Service
 

@@ -3,10 +3,7 @@ import type { Page, ElementHandle } from "playwright";
 import { z } from "zod";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
-
-import dotenv from "dotenv";
-
-dotenv.config();
+import { env } from "./env";
 
 const pageAnalysisSchema = z.object({
   actions: z.array(
@@ -207,7 +204,7 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     return false;
   }
 
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = env.NODE_ENV === "production";
   const browser = await chromium.launch({ headless: isProduction });
   const page = await browser.newPage();
 
