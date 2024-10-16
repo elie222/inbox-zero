@@ -101,7 +101,7 @@ function ProductHuntBadge() {
   return (
     <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
       <a
-        href="https://www.producthunt.com/posts/inbox-zero-5?utm_source=badge-top-post-badge&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
+        href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-top-post-badge&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
         target="_blank"
         rel="noreferrer"
       >

@@ -115,14 +115,21 @@ export function matchesStaticRule(
 
   if (!from && !to && !subject && !body) return false;
 
-  const fromMatch = from ? new RegExp(from).test(message.headers.from) : true;
-  const toMatch = to ? new RegExp(to).test(message.headers.to) : true;
+  const safeRegexTest = (pattern: string, text: string) => {
+    try {
+      return new RegExp(pattern).test(text);
+    } catch (error) {
+      console.error(`Invalid regex pattern: ${pattern}`, error);
+      return false;
+    }
+  };
+
+  const fromMatch = from ? safeRegexTest(from, message.headers.from) : true;
+  const toMatch = to ? safeRegexTest(to, message.headers.to) : true;
   const subjectMatch = subject
-    ? new RegExp(subject).test(message.headers.subject)
+    ? safeRegexTest(subject, message.headers.subject)
     : true;
-  const bodyMatch = body
-    ? new RegExp(body).test(message.textPlain || "")
-    : true;
+  const bodyMatch = body ? safeRegexTest(body, message.textPlain || "") : true;
 
   return fromMatch && toMatch && subjectMatch && bodyMatch;
 }

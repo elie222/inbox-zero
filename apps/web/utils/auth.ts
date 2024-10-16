@@ -9,7 +9,7 @@ import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
 
-const SCOPES = [
+export const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
   "https://www.googleapis.com/auth/userinfo.email",
 
@@ -96,9 +96,21 @@ export const getAuthOptions: (options?: {
       } else {
         // If the access token has expired, try to refresh it
         console.log(
-          `Token expired at: ${token.expires_at}. Attempting refresh.`,
+          `Token expired at: ${
+            token.expires_at
+              ? new Date((token.expires_at as number) * 1000).toISOString()
+              : "not set"
+          }. Attempting refresh.`,
         );
-        return await refreshAccessToken(token);
+        const refreshedToken = await refreshAccessToken(token);
+        console.log(
+          `Refresh attempt completed. New expiration: ${
+            refreshedToken.expires_at
+              ? new Date(refreshedToken.expires_at * 1000).toISOString()
+              : "undefined"
+          }`,
+        );
+        return refreshedToken;
       }
     },
     session: async ({ session, token }) => {
@@ -190,6 +202,10 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
     if (!response.ok) throw tokens;
 
     const expires_at = calculateExpiresAt(tokens.expires_in);
+    console.log(
+      `New token expires at: ${expires_at ? new Date(expires_at * 1000).toISOString() : "undefined"}`,
+    );
+
     await saveRefreshToken(
       { ...tokens, expires_at },
       {

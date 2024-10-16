@@ -12,7 +12,7 @@ import { captureException } from "@/utils/error";
 import {
   archiveAllSenderEmails,
   deleteEmails,
-} from "@/providers/QueueProvider";
+} from "@/utils/queue/email-actions";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
@@ -524,9 +524,9 @@ export function useNewsletterFilter() {
     Record<"unhandled" | "unsubscribed" | "autoArchived" | "approved", boolean>
   >({
     unhandled: true,
-    unsubscribed: false,
-    autoArchived: false,
-    approved: false,
+    unsubscribed: true,
+    autoArchived: true,
+    approved: true,
   });
 
   return {

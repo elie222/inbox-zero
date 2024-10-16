@@ -128,7 +128,7 @@ const TestRulesForm = () => {
           as="textarea"
           rows={3}
           name="message"
-          placeholder="Paste in email content or write your own. eg. Receipt from Stripe for $49"
+          placeholder="Paste in email content or write your own. e.g. Receipt from Stripe for $49"
           registerProps={register("message", { required: true })}
           error={errors.message}
         />

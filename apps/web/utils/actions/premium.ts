@@ -15,59 +15,64 @@ import {
 } from "@/app/api/lemon-squeezy/api";
 import { isAdmin } from "@/utils/admin";
 import { PremiumTier } from "@prisma/client";
-import type { ServerActionResponse } from "@/utils/error";
+import { withActionInstrumentation } from "@/utils/actions/middleware";
 
-export async function decrementUnsubscribeCreditAction(): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.email) return { error: "Not logged in" };
+export const decrementUnsubscribeCreditAction = withActionInstrumentation(
+  "decrementUnsubscribeCredit",
+  async () => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: {
-      premium: {
-        select: {
-          id: true,
-          unsubscribeCredits: true,
-          unsubscribeMonth: true,
-          lemonSqueezyRenewsAt: true,
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: {
+        premium: {
+          select: {
+            id: true,
+            unsubscribeCredits: true,
+            unsubscribeMonth: true,
+            lemonSqueezyRenewsAt: true,
+          },
         },
       },
-    },
-  });
-
-  if (!user) return { error: "User not found" };
-
-  const isUserPremium = isPremium(user.premium?.lemonSqueezyRenewsAt || null);
-  if (isUserPremium) return;
-
-  const currentMonth = new Date().getMonth() + 1;
-
-  // create premium row for user if it doesn't already exist
-  const premium = user.premium || (await createPremiumForUser(session.user.id));
-
-  if (
-    !premium?.unsubscribeMonth ||
-    premium?.unsubscribeMonth !== currentMonth
-  ) {
-    // reset the monthly credits
-    await prisma.premium.update({
-      where: { id: premium.id },
-      data: {
-        // reset and use a credit
-        unsubscribeCredits: env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS - 1,
-        unsubscribeMonth: currentMonth,
-      },
     });
-  } else {
-    if (!premium?.unsubscribeCredits || premium.unsubscribeCredits <= 0) return;
 
-    // decrement the monthly credits
-    await prisma.premium.update({
-      where: { id: premium.id },
-      data: { unsubscribeCredits: { decrement: 1 } },
-    });
-  }
-}
+    if (!user) return { error: "User not found" };
+
+    const isUserPremium = isPremium(user.premium?.lemonSqueezyRenewsAt || null);
+    if (isUserPremium) return;
+
+    const currentMonth = new Date().getMonth() + 1;
+
+    // create premium row for user if it doesn't already exist
+    const premium =
+      user.premium || (await createPremiumForUser(session.user.id));
+
+    if (
+      !premium?.unsubscribeMonth ||
+      premium?.unsubscribeMonth !== currentMonth
+    ) {
+      // reset the monthly credits
+      await prisma.premium.update({
+        where: { id: premium.id },
+        data: {
+          // reset and use a credit
+          unsubscribeCredits: env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS - 1,
+          unsubscribeMonth: currentMonth,
+        },
+      });
+    } else {
+      if (!premium?.unsubscribeCredits || premium.unsubscribeCredits <= 0)
+        return;
+
+      // decrement the monthly credits
+      await prisma.premium.update({
+        where: { id: premium.id },
+        data: { unsubscribeCredits: { decrement: 1 } },
+      });
+    }
+  },
+);
 
 export async function updateMultiAccountPremiumAction(
   emails: string[],
@@ -177,136 +182,152 @@ async function createPremiumForUser(userId: string) {
   });
 }
 
-export async function activateLicenseKeyAction(
-  licenseKey: string,
-): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.email) return { error: "Not logged in" };
+export const activateLicenseKeyAction = withActionInstrumentation(
+  "activateLicenseKey",
+  async (licenseKey: string) => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
 
-  const lemonSqueezyLicense = await activateLemonLicenseKey(
-    licenseKey,
-    `License for ${session.user.email}`,
-  );
+    const lemonSqueezyLicense = await activateLemonLicenseKey(
+      licenseKey,
+      `License for ${session.user.email}`,
+    );
 
-  if (lemonSqueezyLicense.error) {
-    return {
-      error: lemonSqueezyLicense.data?.error || "Error activating license",
-    };
-  }
-
-  const seats = {
-    [env.LICENSE_1_SEAT_VARIANT_ID || ""]: 1,
-    [env.LICENSE_3_SEAT_VARIANT_ID || ""]: 3,
-    [env.LICENSE_5_SEAT_VARIANT_ID || ""]: 5,
-    [env.LICENSE_10_SEAT_VARIANT_ID || ""]: 10,
-    [env.LICENSE_25_SEAT_VARIANT_ID || ""]: 25,
-  };
-
-  await upgradeToPremium({
-    userId: session.user.id,
-    tier: PremiumTier.LIFETIME,
-    lemonLicenseKey: licenseKey,
-    lemonLicenseInstanceId: lemonSqueezyLicense.data?.instance?.id,
-    emailAccountsAccess: seats[lemonSqueezyLicense.data?.meta.variant_id || ""],
-    lemonSqueezyCustomerId: lemonSqueezyLicense.data?.meta.customer_id || null,
-    lemonSqueezyOrderId: lemonSqueezyLicense.data?.meta.order_id || null,
-    lemonSqueezyProductId: lemonSqueezyLicense.data?.meta.product_id || null,
-    lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
-    lemonSqueezySubscriptionId: null,
-    lemonSqueezySubscriptionItemId: null,
-    lemonSqueezyRenewsAt: null,
-  });
-}
-
-export async function changePremiumStatusAction(
-  options: ChangePremiumStatusOptions,
-): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.email) return { error: "Not logged in" };
-  if (!isAdmin(session.user.email)) return { error: "Not admin" };
-
-  const userToUpgrade = await prisma.user.findUnique({
-    where: { email: options.email },
-    select: { id: true, premiumId: true },
-  });
-
-  if (!userToUpgrade) return { error: "User not found" };
-
-  const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
-
-  let lemonSqueezySubscriptionId: number | null = null;
-  let lemonSqueezySubscriptionItemId: number | null = null;
-  let lemonSqueezyOrderId: number | null = null;
-  let lemonSqueezyProductId: number | null = null;
-  let lemonSqueezyVariantId: number | null = null;
-
-  if (options.upgrade) {
-    if (options.lemonSqueezyCustomerId) {
-      const lemonCustomer = await getLemonCustomer(
-        options.lemonSqueezyCustomerId.toString(),
-      );
-      if (!lemonCustomer.data) return { error: "Lemon customer not found" };
-      const subscription = lemonCustomer.data.included?.find(
-        (i) => i.type === "subscriptions",
-      );
-      if (!subscription) return { error: "Subscription not found" };
-      lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
-      const attributes = subscription.attributes as any;
-      lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
-      lemonSqueezyProductId = Number.parseInt(attributes.product_id);
-      lemonSqueezyVariantId = Number.parseInt(attributes.variant_id);
-      lemonSqueezySubscriptionItemId = attributes.first_subscription_item.id
-        ? Number.parseInt(attributes.first_subscription_item.id)
-        : null;
+    if (lemonSqueezyLicense.error) {
+      return {
+        error: lemonSqueezyLicense.data?.error || "Error activating license",
+      };
     }
+
+    const seats = {
+      [env.LICENSE_1_SEAT_VARIANT_ID || ""]: 1,
+      [env.LICENSE_3_SEAT_VARIANT_ID || ""]: 3,
+      [env.LICENSE_5_SEAT_VARIANT_ID || ""]: 5,
+      [env.LICENSE_10_SEAT_VARIANT_ID || ""]: 10,
+      [env.LICENSE_25_SEAT_VARIANT_ID || ""]: 25,
+    };
 
     await upgradeToPremium({
-      userId: userToUpgrade.id,
-      tier: options.period,
-      lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || null,
-      lemonSqueezySubscriptionId,
-      lemonSqueezySubscriptionItemId,
-      lemonSqueezyOrderId,
-      lemonSqueezyProductId,
-      lemonSqueezyVariantId,
-      lemonSqueezyRenewsAt:
-        options.period === PremiumTier.PRO_ANNUALLY ||
-        options.period === PremiumTier.BUSINESS_ANNUALLY
-          ? new Date(+new Date() + ONE_MONTH * 12)
-          : options.period === PremiumTier.PRO_MONTHLY ||
-              options.period === PremiumTier.BUSINESS_MONTHLY ||
-              options.period === PremiumTier.COPILOT_MONTHLY
-            ? new Date(+new Date() + ONE_MONTH)
-            : null,
-      emailAccountsAccess: options.emailAccountsAccess,
+      userId: session.user.id,
+      tier: PremiumTier.LIFETIME,
+      lemonLicenseKey: licenseKey,
+      lemonLicenseInstanceId: lemonSqueezyLicense.data?.instance?.id,
+      emailAccountsAccess:
+        seats[lemonSqueezyLicense.data?.meta.variant_id || ""],
+      lemonSqueezyCustomerId:
+        lemonSqueezyLicense.data?.meta.customer_id || null,
+      lemonSqueezyOrderId: lemonSqueezyLicense.data?.meta.order_id || null,
+      lemonSqueezyProductId: lemonSqueezyLicense.data?.meta.product_id || null,
+      lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
+      lemonSqueezySubscriptionId: null,
+      lemonSqueezySubscriptionItemId: null,
+      lemonSqueezyRenewsAt: null,
     });
-  } else if (userToUpgrade) {
-    if (userToUpgrade.premiumId) {
-      await cancelPremium({
-        premiumId: userToUpgrade.premiumId,
-        lemonSqueezyEndsAt: new Date(),
+  },
+);
+
+export const changePremiumStatusAction = withActionInstrumentation(
+  "changePremiumStatus",
+  async (options: ChangePremiumStatusOptions) => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
+    if (!isAdmin(session.user.email)) return { error: "Not admin" };
+
+    const userToUpgrade = await prisma.user.findUnique({
+      where: { email: options.email },
+      select: { id: true, premiumId: true },
+    });
+
+    if (!userToUpgrade) return { error: "User not found" };
+
+    const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
+
+    let lemonSqueezySubscriptionId: number | null = null;
+    let lemonSqueezySubscriptionItemId: number | null = null;
+    let lemonSqueezyOrderId: number | null = null;
+    let lemonSqueezyProductId: number | null = null;
+    let lemonSqueezyVariantId: number | null = null;
+
+    if (options.upgrade) {
+      if (options.lemonSqueezyCustomerId) {
+        const lemonCustomer = await getLemonCustomer(
+          options.lemonSqueezyCustomerId.toString(),
+        );
+        if (!lemonCustomer.data) return { error: "Lemon customer not found" };
+        const subscription = lemonCustomer.data.included?.find(
+          (i) => i.type === "subscriptions",
+        );
+        if (!subscription) return { error: "Subscription not found" };
+        lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
+        const attributes = subscription.attributes as any;
+        lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
+        lemonSqueezyProductId = Number.parseInt(attributes.product_id);
+        lemonSqueezyVariantId = Number.parseInt(attributes.variant_id);
+        lemonSqueezySubscriptionItemId = attributes.first_subscription_item.id
+          ? Number.parseInt(attributes.first_subscription_item.id)
+          : null;
+      }
+
+      const getRenewsAt = (period: PremiumTier): Date | null => {
+        const now = new Date();
+        switch (period) {
+          case PremiumTier.PRO_ANNUALLY:
+          case PremiumTier.BUSINESS_ANNUALLY:
+          case PremiumTier.BASIC_ANNUALLY:
+            return new Date(now.getTime() + ONE_MONTH * 12);
+          case PremiumTier.PRO_MONTHLY:
+          case PremiumTier.BUSINESS_MONTHLY:
+          case PremiumTier.BASIC_MONTHLY:
+          case PremiumTier.COPILOT_MONTHLY:
+            return new Date(now.getTime() + ONE_MONTH);
+          default:
+            return null;
+        }
+      };
+
+      await upgradeToPremium({
+        userId: userToUpgrade.id,
+        tier: options.period,
+        lemonSqueezyCustomerId: options.lemonSqueezyCustomerId || null,
+        lemonSqueezySubscriptionId,
+        lemonSqueezySubscriptionItemId,
+        lemonSqueezyOrderId,
+        lemonSqueezyProductId,
+        lemonSqueezyVariantId,
+        lemonSqueezyRenewsAt: getRenewsAt(options.period),
+        emailAccountsAccess: options.emailAccountsAccess,
       });
-    } else {
-      return { error: "User not premium." };
+    } else if (userToUpgrade) {
+      if (userToUpgrade.premiumId) {
+        await cancelPremium({
+          premiumId: userToUpgrade.premiumId,
+          lemonSqueezyEndsAt: new Date(),
+        });
+      } else {
+        return { error: "User not premium." };
+      }
     }
-  }
-}
+  },
+);
 
-export async function claimPremiumAdminAction(): Promise<ServerActionResponse> {
-  const session = await auth();
-  if (!session?.user.id) return { error: "Not logged in" };
+export const claimPremiumAdminAction = withActionInstrumentation(
+  "claimPremiumAdmin",
+  async () => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { premium: { select: { id: true, admins: true } } },
-  });
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { premium: { select: { id: true, admins: true } } },
+    });
 
-  if (!user) return { error: "User not found" };
-  if (!user.premium?.id) return { error: "User does not have a premium" };
-  if (user.premium?.admins.length) return { error: "Already has admin" };
+    if (!user) return { error: "User not found" };
+    if (!user.premium?.id) return { error: "User does not have a premium" };
+    if (user.premium?.admins.length) return { error: "Already has admin" };
 
-  await prisma.premium.update({
-    where: { id: user.premium.id },
-    data: { admins: { connect: { id: session.user.id } } },
-  });
-}
+    await prisma.premium.update({
+      where: { id: user.premium.id },
+      data: { admins: { connect: { id: session.user.id } } },
+    });
+  },
+);

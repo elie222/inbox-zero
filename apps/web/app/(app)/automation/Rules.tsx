@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
-import { MoreHorizontalIcon, PenIcon, SparklesIcon } from "lucide-react";
+import { MoreHorizontalIcon, PenIcon, PlusIcon } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import {
   deleteRuleAction,
   setRuleAutomatedAction,
   setRuleRunOnThreadsAction,
+  setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
 import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
@@ -39,8 +40,9 @@ import { ruleTypeToString } from "@/utils/rule";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
-import { toastError } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
+import { Tooltip } from "@/components/Tooltip";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -48,10 +50,12 @@ export function Rules() {
     { error: string }
   >(`/api/user/rules`);
 
+  const hasRules = !!data?.length;
+
   return (
     <div>
       {/* only show once a rule has been created */}
-      {data && data.length > 0 && (
+      {hasRules && (
         <div className="my-2">
           <PremiumAlertWithData />
         </div>
@@ -59,7 +63,7 @@ export function Rules() {
 
       <Card>
         <LoadingContent loading={isLoading} error={error}>
-          {data?.length ? (
+          {hasRules ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -67,8 +71,16 @@ export function Rules() {
                   <TableHead>Condition</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Actions</TableHead>
-                  <TableHead className="text-center">Automated</TableHead>
-                  <TableHead className="text-center">Threads</TableHead>
+                  <TableHead className="text-center">
+                    <Tooltip content="When disabled, actions require manual approval in the Pending tab.">
+                      <span>Automated</span>
+                    </Tooltip>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Tooltip content="Apply rule to email threads">
+                      <span>Threads</span>
+                    </Tooltip>
+                  </TableHead>
                   {/* <TableHead className="text-right">Pending</TableHead>
               <TableHead className="text-right">Executed</TableHead> */}
                   <TableHead>
@@ -82,7 +94,7 @@ export function Rules() {
                   .map((rule) => (
                     <TableRow
                       key={rule.id}
-                      className={!rule.enabled ? "bg-gray-100 opacity-50" : ""}
+                      className={!rule.enabled ? "bg-gray-100 opacity-60" : ""}
                     >
                       <TableCell className="font-medium">
                         <Link href={`/automation/rule/${rule.id}`}>
@@ -93,6 +105,33 @@ export function Rules() {
                           )}
                           {rule.name}
                         </Link>
+
+                        {!rule.enabled && (
+                          <div>
+                            <Button
+                              size="xs"
+                              className="mt-2"
+                              onClick={async () => {
+                                const result = await setRuleEnabledAction({
+                                  ruleId: rule.id,
+                                  enabled: true,
+                                });
+                                if (isActionError(result)) {
+                                  toastError({
+                                    description: `There was an error enabling your rule. ${result.error}`,
+                                  });
+                                } else {
+                                  toastSuccess({
+                                    description: "Rule enabled!",
+                                  });
+                                }
+                                mutate();
+                              }}
+                            >
+                              Enable
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-pre-wrap">
                         {getInstructions(rule)}
@@ -106,10 +145,10 @@ export function Rules() {
                           enabled={rule.automate}
                           name="automate"
                           onChange={async () => {
-                            const result = await setRuleAutomatedAction(
-                              rule.id,
-                              !rule.automate,
-                            );
+                            const result = await setRuleAutomatedAction({
+                              ruleId: rule.id,
+                              automate: !rule.automate,
+                            });
                             if (isActionError(result)) {
                               toastError({
                                 description:
@@ -126,10 +165,10 @@ export function Rules() {
                           enabled={rule.runOnThreads}
                           name="runOnThreads"
                           onChange={async () => {
-                            const result = await setRuleRunOnThreadsAction(
-                              rule.id,
-                              !rule.runOnThreads,
-                            );
+                            const result = await setRuleRunOnThreadsAction({
+                              ruleId: rule.id,
+                              runOnThreads: !rule.runOnThreads,
+                            });
                             if (isActionError(result)) {
                               toastError({
                                 description:
@@ -176,9 +215,9 @@ export function Rules() {
                                   "Are you sure you want to delete this rule?",
                                 );
                                 if (yes) {
-                                  const result = await deleteRuleAction(
-                                    rule.id,
-                                  );
+                                  const result = await deleteRuleAction({
+                                    ruleId: rule.id,
+                                  });
 
                                   if (isActionError(result)) {
                                     toastError({
@@ -202,26 +241,27 @@ export function Rules() {
               </TableBody>
             </Table>
           ) : (
-            <>
-              <CardHeader>
-                <CardTitle>AI Personal Assistant</CardTitle>
-                <CardDescription>
-                  Set up intelligent automations to let our AI handle your
-                  emails for you.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <Link href="/automation?tab=prompt">
-                    <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
-                    Set Prompt
-                  </Link>
-                </Button>
-              </CardContent>
-            </>
+            <NoRules />
           )}
         </LoadingContent>
       </Card>
+
+      {hasRules && (
+        <div className="my-2 flex justify-end gap-2">
+          <Button asChild variant="outline">
+            <Link href="/automation?tab=prompt">
+              <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+              Add Rule via Prompt File
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/automation/create">
+              <PlusIcon className="mr-2 hidden h-4 w-4 md:block" />
+              Create Rule Manually
+            </Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -261,4 +301,32 @@ export function getInstructions(
     case RuleType.GROUP:
       return `Group: ${rule.group?.name || "MISSING"}`;
   }
+}
+
+function NoRules() {
+  return (
+    <>
+      <CardHeader>
+        <CardTitle>AI Personal Assistant</CardTitle>
+        <CardDescription>
+          Set up intelligent automations to let our AI handle your emails for
+          you.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2">
+          <Button asChild>
+            <Link href="/automation?tab=prompt">
+              <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+              Set Prompt
+            </Link>
+          </Button>
+
+          <Button type="button" variant="outline" asChild>
+            <Link href="/automation/create">Create a Rule Manually</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </>
+  );
 }

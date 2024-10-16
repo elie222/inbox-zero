@@ -5,6 +5,7 @@ import { client } from "@/sanity/lib/client";
 import imageUrlBuilder from "@sanity/image-url";
 import { Post } from "@/app/blog/post/[slug]/Post";
 import type { Post as PostType } from "@/app/blog/types";
+import { captureException } from "@/utils/error";
 
 export const revalidate = 60;
 
@@ -21,7 +22,20 @@ export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata,
 ) {
-  const post = await sanityFetch<PostType>({ query: postQuery, params });
+  const post = await sanityFetch<PostType | undefined>({
+    query: postQuery,
+    params,
+  });
+
+  if (!post) {
+    captureException(new Error("Post not found"), {
+      extra: {
+        params,
+        query: postQuery,
+      },
+    });
+    return {};
+  }
 
   const previousImages = (await parent).openGraph?.images || [];
 

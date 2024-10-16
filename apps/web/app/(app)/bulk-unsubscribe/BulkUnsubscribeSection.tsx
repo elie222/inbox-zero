@@ -39,6 +39,7 @@ import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import { SearchBar } from "@/app/(app)/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { BulkActions } from "@/app/(app)/bulk-unsubscribe/BulkActions";
+import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -158,9 +159,7 @@ export function BulkUnsubscribeSection({
           {Array.from(selected.values()).filter(Boolean).length > 0 ? (
             <BulkActions selected={selected} mutate={mutate} />
           ) : (
-            <Title className="hidden md:block">
-              One-click bulk unsubscribe from emailers
-            </Title>
+            <Title className="hidden md:block">Bulk Unsubscriber</Title>
           )}
 
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
@@ -175,6 +174,21 @@ export function BulkUnsubscribeSection({
               icon={<FilterIcon className="mr-2 h-4 w-4" />}
               keepOpenOnSelect
               columns={[
+                {
+                  label: "All",
+                  checked:
+                    filters.approved &&
+                    filters.autoArchived &&
+                    filters.unsubscribed &&
+                    filters.unhandled,
+                  setChecked: () =>
+                    setFilters({
+                      approved: true,
+                      autoArchived: true,
+                      unsubscribed: true,
+                      unhandled: true,
+                    }),
+                },
                 {
                   label: "Unhandled",
                   checked: filters.unhandled,
@@ -213,6 +227,8 @@ export function BulkUnsubscribeSection({
           </div>
         </div>
 
+        <ArchiveProgress />
+
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
           <div className="p-4">
             <Skeleton className="h-screen rounded" />
@@ -243,14 +259,10 @@ export function BulkUnsubscribeSection({
                 <div className="mt-2 px-6 pb-6">{extra}</div>
               </>
             ) : (
-              <div className="max-w-prose space-y-4 p-4 text-gray-700">
-                <p>No emails! If you'd like to see more, click `Filter`.</p>
-                <p>
-                  It's also possible you didn't accept Gmail permissions when
-                  signing in. To fix this, sign out and log back in to grant
-                  Gmail permissions again.
-                </p>
-              </div>
+              <p className="max-w-prose space-y-4 p-4 text-gray-700">
+                No emails found. To see more, adjust the filter options or click
+                the "Load More" button.
+              </p>
             )}
           </LoadingContent>
         )}

@@ -1,21 +1,23 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import { useAtomValue } from "jotai";
-import { LayersIcon } from "lucide-react";
+import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useModal, Modal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
-import { runAiRules } from "@/providers/QueueProvider";
+import { runAiRules } from "@/utils/queue/email-actions";
 import { aiQueueAtom } from "@/store/queue";
 import { sleep } from "@/utils/sleep";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/automation/SetDateDropdown";
 import { dateToSeconds } from "@/utils/date";
+import { Tooltip } from "@/components/Tooltip";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -39,30 +41,30 @@ export function BulkRunRules() {
 
   return (
     <div>
-      <Button type="button" variant="outline" onClick={openModal}>
-        <LayersIcon className="mr-2 h-4 w-4" />
-        Configure Bulk Run
-      </Button>
+      <Tooltip content="Select emails to process with AI">
+        <Button type="button" size="icon" variant="outline" onClick={openModal}>
+          <HistoryIcon className="size-4" />
+          <span className="sr-only">Select emails to process with AI</span>
+        </Button>
+      </Tooltip>
       <Modal
         isOpen={isModalOpen}
         hideModal={closeModal}
-        title="Run against all emails in inbox"
+        title="Process Existing Inbox Emails"
       >
         <LoadingContent loading={isLoading} error={error}>
           {data && (
             <>
               <SectionDescription className="mt-2">
-                If you want to select individual emails instead, go to the{" "}
-                {`"Early Access > Mail"`} page, mark the emails you want to run
-                rules on, and click the {`"Run AI Rules"`} button.
+                This feature applies AI processing to emails currently in your
+                inbox that haven't been handled by AI yet. Select a date range
+                to define which emails to process.
               </SectionDescription>
-              <SectionDescription className="mt-2">
-                This will not run on emails that already have an AI plan set.
-              </SectionDescription>
+
               {!!queue.size && (
                 <SectionDescription className="mt-2">
-                  There are {queue.size}/{totalThreads || queue.size} emails
-                  left to be processed.
+                  Processing progress: {totalThreads - queue.size}/
+                  {totalThreads} emails completed
                 </SectionDescription>
               )}
               <div className="mt-4">
@@ -99,7 +101,7 @@ export function BulkRunRules() {
                           );
                         }}
                       >
-                        Run AI On All Inbox Emails
+                        Process Emails
                       </Button>
                       {running && (
                         <Button
@@ -115,6 +117,32 @@ export function BulkRunRules() {
                   )}
                 </LoadingContent>
               </div>
+
+              <SectionDescription className="mt-4">
+                Note:
+                <ul className="mt-1 list-inside list-disc">
+                  <li>This only affects emails in your inbox.</li>
+                  <li>Emails already processed by AI will be skipped.</li>
+                </ul>
+              </SectionDescription>
+
+              <SectionDescription className="mt-4">
+                To process specific emails:
+                <ol className="mt-1 list-inside list-decimal">
+                  <li>
+                    Go to the{" "}
+                    <Link
+                      href="/mail"
+                      className="font-semibold hover:underline"
+                    >
+                      Mail
+                    </Link>{" "}
+                    page
+                  </li>
+                  <li>Select the desired emails</li>
+                  <li>Click the "Run AI Rules" button</li>
+                </ol>
+              </SectionDescription>
             </>
           )}
         </LoadingContent>

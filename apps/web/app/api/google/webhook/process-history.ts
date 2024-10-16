@@ -277,9 +277,8 @@ async function processHistoryItem(
   );
 
   try {
-    const [gmailMessage, gmailThread, hasExistingRule] = await Promise.all([
+    const [gmailMessage, hasExistingRule] = await Promise.all([
       getMessage(messageId, gmail, "full"),
-      getThread(threadId, gmail),
       prisma.executedRule.findUnique({
         where: {
           unique_user_thread_message: { userId: user.id, threadId, messageId },
@@ -287,6 +286,9 @@ async function processHistoryItem(
         select: { id: true },
       }),
     ]);
+
+    // fetch after getting the message to avoid rate limiting
+    const gmailThread = await getThread(threadId, gmail);
 
     const message = parseMessage(gmailMessage);
 
@@ -312,6 +314,8 @@ async function processHistoryItem(
     const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
 
     if (hasAutomationRules && hasAiAutomationAccess) {
+      console.log("Running rules...");
+
       await runRulesOnMessage({
         gmail,
         message,
@@ -328,6 +332,8 @@ async function processHistoryItem(
     );
 
     if (shouldRunBlocker) {
+      console.log("Running cold email blocker...");
+
       const hasPreviousEmail = await hasPreviousEmailsFromDomain(gmail, {
         from: message.headers.from,
         date: message.headers.date,

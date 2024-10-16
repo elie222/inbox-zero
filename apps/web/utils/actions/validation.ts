@@ -16,6 +16,12 @@ export const addGroupItemBody = z.object({
 });
 export type AddGroupItemBody = z.infer<typeof addGroupItemBody>;
 
+export const updateGroupPromptBody = z.object({
+  groupId: z.string(),
+  prompt: z.string().nullable(),
+});
+export type UpdateGroupPromptBody = z.infer<typeof updateGroupPromptBody>;
+
 // rules
 export const zodActionType = z.enum([
   ActionType.ARCHIVE,

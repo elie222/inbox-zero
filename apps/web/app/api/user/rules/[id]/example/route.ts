@@ -4,19 +4,20 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { getGmailClient } from "@/utils/gmail/client";
 import { fetchExampleMessages } from "@/app/api/user/rules/[id]/example/controller";
+import { SafeError } from "@/utils/error";
 
 export type ExamplesResponse = Awaited<ReturnType<typeof getExamples>>;
 
 async function getExamples(options: { ruleId: string }) {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) throw new SafeError("Not logged in");
 
   const rule = await prisma.rule.findUnique({
     where: { id: options.ruleId, userId: session.user.id },
     include: { group: { include: { items: true } } },
   });
 
-  if (!rule) throw new Error("Rule not found");
+  if (!rule) throw new SafeError("Rule not found");
 
   const gmail = getGmailClient(session);
 

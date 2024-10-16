@@ -84,7 +84,10 @@ function PendingTable({
     for (const id of Array.from(selected.keys())) {
       const p = pending.find((p) => p.id === id);
       if (!p) continue;
-      const result = await approvePlanAction(id, p.message);
+      const result = await approvePlanAction({
+        executedRuleId: id,
+        message: p.message,
+      });
       if (isActionError(result)) {
         toastError({
           description: "Unable to execute plan. " + result.error || "",
@@ -99,7 +102,7 @@ function PendingTable({
     for (const id of Array.from(selected.keys())) {
       const p = pending.find((p) => p.id === id);
       if (!p) continue;
-      const result = await rejectPlanAction(id);
+      const result = await rejectPlanAction({ executedRuleId: id });
       if (isActionError(result)) {
         toastError({
           description: "Error rejecting action. " + result.error || "",
@@ -214,7 +217,10 @@ function ExecuteButtons({
         variant="default"
         onClick={async () => {
           setIsApproving(true);
-          const result = await approvePlanAction(id, message);
+          const result = await approvePlanAction({
+            executedRuleId: id,
+            message,
+          });
           if (isActionError(result)) {
             toastError({
               description: "Error approving action. " + result.error || "",
@@ -233,7 +239,7 @@ function ExecuteButtons({
         variant="outline"
         onClick={async () => {
           setIsRejecting(true);
-          const result = await rejectPlanAction(id);
+          const result = await rejectPlanAction({ executedRuleId: id });
           if (isActionError(result)) {
             toastError({
               description: "Error rejecting action. " + result.error || "",

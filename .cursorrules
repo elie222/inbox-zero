@@ -5,7 +5,7 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
 - Prefer iteration and modularization over code duplication. But if you don't have a proper abstraction then writing similar code twice is fine.
 - Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
 - Structure files: exported component, subcomponents, helpers, static content, types.
-- Use kebab case for route directories (e.g., `api/hello-world/route`). Use PascalCase for components (eg. `components/Button.tsx`)
+- Use kebab case for route directories (e.g., `api/hello-world/route`). Use PascalCase for components (e.g. `components/Button.tsx`)
 - Shadcn components are in `components/ui`. All other components are in `components/`.
 - Colocate files in the folder they're used. Unless the component can be used in many places across the app. Then it can be placed in the `components` folder.
 - We use Turborepo with pnpm workspaces.
@@ -112,19 +112,23 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
 - This is the format of a server action. Example:
 
   ```typescript
-  export async function processHistoryAction(
-    unsafeData: ProcessHistoryOptions
-  ): Promise<ServerActionResponse> {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+  export const deactivateApiKeyAction = withActionInstrumentation(
+    "deactivateApiKey",
+    async (unsafeData: DeactivateApiKeyBody) => {
+      const session = await auth();
+      const userId = session?.user.id;
+      if (!userId) return { error: "Not logged in" };
 
-    const data = processHistorySchema.safeParse(unsafeData);
-    if (!data.success) return { error: "Invalid data" };
+      const { data, success, error } =
+        deactivateApiKeyBody.safeParse(unsafeData);
+      if (!success) return { error: error.message };
 
-    // perform action
-    await processHistory();
+      await prisma.apiKey.update({
+        where: { id: data.id, userId },
+        data: { isActive: false },
+      });
 
-    revalidatePath("/history");
-  }
+      revalidatePath("/settings");
+    }
+  );
   ```

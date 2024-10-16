@@ -6,6 +6,7 @@ import {
   type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
+import { SafeError } from "@/utils/error";
 
 export type UpdateColdEmailSettingsResponse = Awaited<
   ReturnType<typeof updateColdEmailSettings>
@@ -13,7 +14,7 @@ export type UpdateColdEmailSettingsResponse = Awaited<
 
 async function updateColdEmailSettings(options: UpdateColdEmailSettingsBody) {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) throw new SafeError("Not logged in");
 
   return await prisma.user.update({
     where: { email: session.user.email },

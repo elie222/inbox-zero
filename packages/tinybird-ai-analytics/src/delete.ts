@@ -3,7 +3,7 @@ const TINYBIRD_TOKEN = process.env.TINYBIRD_TOKEN;
 
 async function deleteFromDatasource(
   datasource: string,
-  deleteCondition: string, // eg. "userId='abc@example.com'"
+  deleteCondition: string, // e.g. "userId='abc@example.com'"
 ): Promise<unknown> {
   if (!TINYBIRD_BASE_URL || !TINYBIRD_TOKEN) {
     console.warn("TINYBIRD_BASE_URL or TINYBIRD_TOKEN missing");

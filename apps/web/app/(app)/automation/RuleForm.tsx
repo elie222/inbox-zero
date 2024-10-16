@@ -145,7 +145,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           label="Rule name"
           registerProps={register("name")}
           error={errors.name}
-          placeholder="eg. Label receipts"
+          placeholder="e.g. Label receipts"
         />
       </div>
 
@@ -175,7 +175,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="Instructions"
             registerProps={register("instructions")}
             error={errors.instructions}
-            placeholder='eg. Apply this rule to all "receipts"'
+            placeholder='e.g. Apply this rule to all "receipts"'
             tooltipText="The instructions that will be passed to the AI."
           />
         </div>
@@ -189,7 +189,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="From"
             registerProps={register("from")}
             error={errors.from}
-            placeholder="eg. elie@getinboxzero.com"
+            placeholder="e.g. elie@getinboxzero.com"
             tooltipText="Only apply this rule to emails from this address."
           />
           <Input
@@ -198,7 +198,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="To"
             registerProps={register("to")}
             error={errors.to}
-            placeholder="eg. elie@getinboxzero.com"
+            placeholder="e.g. elie@getinboxzero.com"
             tooltipText="Only apply this rule to emails sent to this address."
           />
           <Input
@@ -207,7 +207,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             label="Subject"
             registerProps={register("subject")}
             error={errors.subject}
-            placeholder="eg. Receipt for your purchase"
+            placeholder="e.g. Receipt for your purchase"
             tooltipText="Only apply this rule to emails with this subject."
           />
         </div>
@@ -261,7 +261,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         <div className="flex items-center justify-between">
                           <Label name={field.name} label={field.label} />
                           <div className="flex items-center space-x-2">
-                            <TooltipExplanation text="If enabled the AI will generate this value in real time when processing your emails. If you want the same value each time then set it here and disable real-time AI generation." />
+                            <TooltipExplanation text="Enable for AI-generated values unique to each email. Disable to use a fixed value you set here." />
                             <Toggle
                               name={`actions.${i}.${field.name}.ai`}
                               label="AI generated"
@@ -343,7 +343,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="If enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first.">
+        <Tooltip content="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first.">
           <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
         </Tooltip>
 
@@ -358,13 +358,13 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="Enable to run this rule on all emails, including threads. When disabled the rule only runs on individual emails.">
+        <Tooltip content="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation.">
           <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
         </Tooltip>
 
         <Toggle
           name="runOnThreads"
-          label="Run on threads"
+          label="Apply to threads"
           enabled={watch("runOnThreads") || false}
           onChange={(enabled) => {
             setValue("runOnThreads", enabled);

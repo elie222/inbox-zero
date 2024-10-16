@@ -18,7 +18,7 @@ export default function WelcomeUpgradePage() {
                   Spend 50% less time on email
                 </h2>
                 <p className="mt-2 font-cal text-2xl text-gray-900 sm:text-3xl">
-                  Join 7,000+ users that use Inbox Zero
+                  Join 8,000+ users that use Inbox Zero
                   <br />
                   to be more productive!
                 </p>

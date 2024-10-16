@@ -6,6 +6,7 @@ import {
   type SaveEmailUpdateSettingsBody,
   saveEmailUpdateSettingsBody,
 } from "@/app/api/user/settings/email-updates/validation";
+import { SafeError } from "@/utils/error";
 
 export type SaveEmailUpdateSettingsResponse = Awaited<
   ReturnType<typeof saveEmailUpdateSettings>
@@ -13,7 +14,7 @@ export type SaveEmailUpdateSettingsResponse = Awaited<
 
 async function saveEmailUpdateSettings(options: SaveEmailUpdateSettingsBody) {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user.email) throw new SafeError("Not logged in");
 
   return await prisma.user.update({
     where: { email: session.user.email },

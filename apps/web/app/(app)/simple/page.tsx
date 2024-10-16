@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { SimpleList } from "@/app/(app)/simple/SimpleList";
 import {
   getNextCategory,
@@ -52,9 +52,9 @@ export default async function SimplePage({
   if (!messages.length) {
     const next = getNextCategory(type);
     if (next) {
-      return redirect(`/simple?type=${next}`);
+      redirect(`/simple?type=${next}`, RedirectType.replace);
     } else {
-      return redirect(`/simple/completed`);
+      redirect(`/simple/completed`, RedirectType.replace);
     }
   }
 

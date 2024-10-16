@@ -10,6 +10,7 @@ import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import { refetchEmailListAtom } from "@/store/email";
 import { BetaBanner } from "@/app/(app)/mail/BetaBanner";
 import { ClientOnly } from "@/components/ClientOnly";
+import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 
 export default function Mail({
   searchParams,
@@ -70,6 +71,7 @@ export default function Mail({
 
   return (
     <>
+      <PermissionsCheck />
       <ClientOnly>
         <BetaBanner />
       </ClientOnly>

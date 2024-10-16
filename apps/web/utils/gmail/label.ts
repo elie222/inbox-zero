@@ -57,12 +57,18 @@ export async function archiveThread(options: {
   ]);
 
   if (archiveResult.status === "rejected") {
-    console.error("Failed to archive thread:", archiveResult.reason);
-    throw new Error("Failed to archive thread");
+    console.error(
+      `Failed to archive thread: ${threadId}`,
+      archiveResult.reason,
+    );
+    throw archiveResult.reason;
   }
 
   if (publishResult.status === "rejected") {
-    console.error("Failed to publish archive action:", publishResult.reason);
+    console.error(
+      `Failed to publish archive action: ${threadId}`,
+      publishResult.reason,
+    );
   }
 
   return archiveResult.value;
@@ -123,15 +129,30 @@ export async function markImportantMessage(options: {
   });
 }
 
-export async function createLabel(options: {
+export async function createLabel({
+  gmail,
+  name,
+}: {
   gmail: gmail_v1.Gmail;
   name: string;
 }) {
-  const { gmail, name } = options;
-  return gmail.users.labels.create({
-    userId: "me",
-    requestBody: { name },
-  });
+  try {
+    const createdLabel = await gmail.users.labels.create({
+      userId: "me",
+      requestBody: { name },
+    });
+    return createdLabel.data;
+  } catch (error) {
+    // May be happening due to a race condition where the label was created between the list and create?
+    if ((error as any).message?.includes("Label name exists or conflicts")) {
+      console.warn(`Label already exists: ${name}`);
+      const label = await getLabel({ gmail, name });
+      if (label) return label;
+      console.error(`Label not found: ${name}`);
+      throw error;
+    }
+    throw error;
+  }
 }
 
 export async function getLabels(gmail: gmail_v1.Gmail) {
@@ -155,5 +176,5 @@ export async function getOrCreateLabel(options: {
   const label = await getLabel({ gmail, name });
   if (label) return label;
   const createdLabel = await createLabel({ gmail, name });
-  return createdLabel.data;
+  return createdLabel;
 }

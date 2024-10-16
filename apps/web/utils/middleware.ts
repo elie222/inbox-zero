@@ -2,7 +2,14 @@ import { ZodError } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
 import type { StreamingTextResponse } from "ai";
 import { setUser } from "@sentry/nextjs";
-import { captureException, SafeError } from "@/utils/error";
+import {
+  captureException,
+  isGmailInsufficientPermissionsError,
+  isGmailQuotaExceededError,
+  isGmailRateLimitExceededError,
+  isOpenAIQuotaExceededError,
+  SafeError,
+} from "@/utils/error";
 import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -23,65 +30,59 @@ export function withError(handler: NextHandler): NextHandler {
           console.error(error);
         }
         return NextResponse.json(
-          { error: { issues: error.issues } },
+          { error: { issues: error.issues }, isKnownError: true },
           { status: 400 },
         );
       }
 
-      if ((error as any)?.errors?.[0]?.reason === "insufficientPermissions") {
-        console.error(
-          `User did not grant all Gmail permissions: ${req.url}:`,
-          error,
+      if (isGmailInsufficientPermissionsError(error)) {
+        console.warn(
+          `Gmail insufficient permissions error for url: ${req.url}`,
         );
-
-        try {
-          const session = await auth();
-          if (!session?.user.email)
-            return NextResponse.json({ error: "Not authenticated" });
-
-          const email = session.user.email;
-
-          setUser({ email });
-
-          await posthogCaptureEvent(
-            email,
-            "User did not grant all Gmail permissions",
-            { $set: { insufficientPermissions: true } },
-          );
-        } catch (error) {
-          console.error("Error saving event to PostHog:", error);
-          captureException(error, {
-            extra: { url: req.url, params, reason: "posthogError" },
-          });
-        }
-
-        captureException(error, {
-          extra: { url: req.url, params, reason: "insufficientPermissions" },
-        });
+        await logToPosthog(req, "Gmail Insufficient Permissions");
         return NextResponse.json(
           {
             error:
               "You must grant all Gmail permissions to use the app. Please log out and log in again to grant permissions.",
+            isKnownError: true,
           },
-          { status: 403 },
+          {
+            status: 403,
+          },
         );
       }
 
-      if ((error as any)?.errors?.[0]?.reason === "rateLimitExceeded") {
+      if (isGmailRateLimitExceededError(error)) {
+        console.warn(`Gmail rate limit exceeded for url: ${req.url}`);
+        await logToPosthog(req, "Gmail Rate Limit Exceeded");
         return NextResponse.json(
           {
-            error: `You have exceeded the Gmail rate limit. Please try again later. Error from Gmail: "${
-              (error as any)?.errors?.[0]?.message
-            }"`,
+            error: `You have exceeded the Gmail rate limit. Please try again later. Error from Gmail: "${(error as any)?.errors?.[0]?.message}"`,
+            isKnownError: true,
           },
-          { status: 403 },
+          { status: 429 },
         );
       }
 
-      if ((error as any)?.code === "insufficient_quota") {
+      if (isGmailQuotaExceededError(error)) {
+        console.warn(`Gmail quota exceeded for url: ${req.url}`);
+        await logToPosthog(req, "Gmail Quota Exceeded");
+        return NextResponse.json(
+          {
+            error: "You have exceeded the Gmail quota. Please try again later.",
+            isKnownError: true,
+          },
+          { status: 429 },
+        );
+      }
+
+      if (isOpenAIQuotaExceededError(error)) {
+        console.warn(`OpenAI quota exceeded for url: ${req.url}`);
+        await logToPosthog(req, "OpenAI Quota Exceeded");
         return NextResponse.json(
           {
             error: `OpenAI error: ${(error as any)?.error?.message}`,
+            isKnownError: true,
           },
           { status: 429 },
         );
@@ -92,7 +93,10 @@ export function withError(handler: NextHandler): NextHandler {
       }
 
       if (error instanceof SafeError) {
-        return NextResponse.json({ error: error.safeMessage }, { status: 400 });
+        return NextResponse.json(
+          { error: error.safeMessage, isKnownError: true },
+          { status: 400 },
+        );
       }
 
       console.error(`Unhandled error for url: ${req.url}:`, error);
@@ -115,4 +119,18 @@ function isErrorWithConfigAndHeaders(
     "config" in error &&
     "headers" in (error as { config: any }).config
   );
+}
+
+async function logToPosthog(req: NextRequest, eventName: string) {
+  try {
+    const session = await auth();
+    if (session?.user.email) {
+      setUser({ email: session.user.email });
+      await posthogCaptureEvent(session.user.email, eventName, {
+        $set: { url: req.url },
+      });
+    }
+  } catch (error) {
+    console.error("Error logging to PostHog:", error);
+  }
 }

@@ -9,31 +9,43 @@ export async function createFilter(options: {
 }) {
   const { gmail, from, addLabelIds, removeLabelIds } = options;
 
-  return gmail.users.settings.filters.create({
-    userId: "me",
-    requestBody: {
-      criteria: { from },
-      action: {
-        addLabelIds,
-        removeLabelIds,
+  try {
+    return await gmail.users.settings.filters.create({
+      userId: "me",
+      requestBody: {
+        criteria: { from },
+        action: {
+          addLabelIds,
+          removeLabelIds,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (isFilterExistsError(error)) return { status: 200 };
+    throw error;
+  }
 }
 
-export async function createAutoArchiveFilter(options: {
+export async function createAutoArchiveFilter({
+  gmail,
+  from,
+  gmailLabelId,
+}: {
   gmail: gmail_v1.Gmail;
   from: string;
   gmailLabelId?: string;
 }) {
-  const { gmail, from, gmailLabelId } = options;
-
-  return createFilter({
-    gmail,
-    from,
-    removeLabelIds: [INBOX_LABEL_ID],
-    addLabelIds: gmailLabelId ? [gmailLabelId] : undefined,
-  });
+  try {
+    return await createFilter({
+      gmail,
+      from,
+      removeLabelIds: [INBOX_LABEL_ID],
+      addLabelIds: gmailLabelId ? [gmailLabelId] : undefined,
+    });
+  } catch (error) {
+    if (isFilterExistsError(error)) return { status: 200 };
+    throw error;
+  }
 }
 
 export async function deleteFilter(options: {
@@ -47,4 +59,9 @@ export async function deleteFilter(options: {
 
 export async function getFiltersList(options: { gmail: gmail_v1.Gmail }) {
   return options.gmail.users.settings.filters.list({ userId: "me" });
+}
+
+function isFilterExistsError(error: unknown) {
+  const errorMessage = (error as any)?.errors?.[0]?.message;
+  return errorMessage === "Filter already exists";
 }

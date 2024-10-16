@@ -50,6 +50,7 @@ export const getGmailClientWithRefresh = async (
 
   if (session.expiryDate && session.expiryDate > Date.now()) return g;
 
+  // may throw `invalid_grant` error
   const tokens = await auth.refreshAccessToken();
 
   if (tokens.credentials.access_token !== session.accessToken) {

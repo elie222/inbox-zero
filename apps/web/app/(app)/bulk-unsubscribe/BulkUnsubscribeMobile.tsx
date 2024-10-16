@@ -2,6 +2,13 @@
 
 import type React from "react";
 import Link from "next/link";
+import { usePostHog } from "posthog-js/react";
+import {
+  ArchiveIcon,
+  BadgeCheckIcon,
+  EyeIcon,
+  MailMinusIcon,
+} from "lucide-react";
 import {
   useUnsubscribe,
   useApproveButton,
@@ -15,17 +22,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
-import { usePostHog } from "posthog-js/react";
 import type { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { NewsletterStatus } from "@prisma/client";
-import {
-  ArchiveIcon,
-  BadgeCheckIcon,
-  MailMinusIcon,
-  MoreVerticalIcon,
-} from "lucide-react";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { Badge } from "@/components/ui/badge";
 
@@ -82,13 +82,13 @@ export function BulkUnsubscribeRowMobile({
             {item.value} emails
           </Badge>
           <Badge
-            variant={badgeVariant(readPercentage, 50, 75)}
+            variant={badgeVariant(readPercentage, 50)}
             className="justify-center"
           >
             {readPercentage.toFixed(0)}% read
           </Badge>
           <Badge
-            variant={badgeVariant(archivedPercentage, 50, 75)}
+            variant={badgeVariant(archivedPercentage, 50)}
             className="justify-center"
           >
             {archivedPercentage.toFixed(0)}% archived
@@ -109,7 +109,7 @@ export function BulkUnsubscribeRowMobile({
             ) : (
               <BadgeCheckIcon className="mr-2 size-4" />
             )}
-            Keep
+            {item.status === NewsletterStatus.APPROVED ? "Approved" : "Keep"}
           </Button>
 
           <Button
@@ -135,7 +135,9 @@ export function BulkUnsubscribeRowMobile({
                 ) : (
                   <MailMinusIcon className="size-4" />
                 )}
-                Unsubscribe
+                {item.status === NewsletterStatus.UNSUBSCRIBED
+                  ? "Unsubscribed"
+                  : "Unsubscribe"}
               </span>
             </Link>
           </Button>
@@ -154,8 +156,8 @@ export function BulkUnsubscribeRowMobile({
             variant="secondary"
             onClick={() => onOpenNewsletter(item)}
           >
-            <MoreVerticalIcon className="mr-2 size-4" />
-            More
+            <EyeIcon className="mr-2 size-4" />
+            View
           </Button>
         </div>
       </CardContent>
@@ -166,9 +168,7 @@ export function BulkUnsubscribeRowMobile({
 function badgeVariant(
   value: number,
   cutoffBad: number,
-  cutoffGood: number,
 ): "green" | "red" | "outline" {
   if (value < cutoffBad) return "red";
-  if (value > cutoffGood) return "green";
   return "outline";
 }

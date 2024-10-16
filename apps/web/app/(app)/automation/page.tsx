@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { History } from "@/app/(app)/automation/History";
 import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,13 +16,18 @@ import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { Groups } from "@/app/(app)/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
+
+export const maxDuration = 300; // Applies to the actions
 
 export default async function AutomationPage() {
   const session = await auth();
-  if (!session?.user) throw new Error("Not logged in");
+  if (!session?.user) redirect("/login");
 
   return (
     <Suspense>
+      <PermissionsCheck />
+
       <Tabs defaultValue="prompt">
         <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
           <div className="w-full overflow-x-auto">

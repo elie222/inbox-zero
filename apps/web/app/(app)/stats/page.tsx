@@ -1,9 +1,13 @@
+import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { Stats } from "./Stats";
-import { redirectToWelcomeUpgrade } from "@/utils/premium/redirect-to-welcome-upgrade";
+import { checkAndRedirectForUpgrade } from "@/utils/premium/check-and-redirect-for-upgrade";
 
 export default async function StatsPage() {
-  const component = await redirectToWelcomeUpgrade();
-  if (component) return component;
-
-  return <Stats />;
+  await checkAndRedirectForUpgrade();
+  return (
+    <>
+      <PermissionsCheck />
+      <Stats />
+    </>
+  );
 }
