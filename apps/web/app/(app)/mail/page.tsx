@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -21,53 +21,66 @@ export default function Mail({
     ? { type: searchParams.type }
     : {};
 
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(
-    `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
-    {
+  const getKey = (
+    pageIndex: number,
+    previousPageData: ThreadsResponse | null,
+  ) => {
+    if (previousPageData && !previousPageData.nextPageToken) return null;
+    const queryParams = new URLSearchParams(query as Record<string, string>);
+    // Append nextPageToken for subsequent pages
+    if (pageIndex > 0 && previousPageData?.nextPageToken) {
+      queryParams.set("nextPageToken", previousPageData.nextPageToken);
+    }
+    return `/api/google/threads?${queryParams.toString()}`;
+  };
+
+  const { data, size, setSize, isLoading, error, mutate } =
+    useSWRInfinite<ThreadsResponse>(getKey, {
       keepPreviousData: true,
       dedupingInterval: 1_000,
-    },
-  );
+      revalidateOnFocus: false,
+    });
 
+  const allThreads = data ? data.flatMap((page) => page.threads) : [];
+  const isLoadingMore =
+    isLoading || (size > 0 && data && typeof data[size - 1] === "undefined");
+  const showLoadMore = data ? !!data[data.length - 1]?.nextPageToken : false;
+
+  // store `refetch` in the atom so we can refresh the list upon archive via command k
+  // TODO is this the best way to do this?
   const refetch = useCallback(
     (removedThreadIds?: string[]) => {
-      mutate(undefined, {
-        rollbackOnError: true,
-        optimisticData: (currentData) => {
-          if (!removedThreadIds)
-            return {
-              threads: currentData?.threads || [],
-              nextPageToken: undefined,
-            };
-          const threads =
-            currentData?.threads.filter(
+      mutate(
+        (currentData) => {
+          if (!currentData) return currentData;
+          if (!removedThreadIds) return currentData;
+
+          return currentData.map((page) => ({
+            ...page,
+            threads: page.threads.filter(
               (t) => !removedThreadIds.includes(t.id),
-            ) || [];
-          return { threads, nextPageToken: undefined };
+            ),
+          }));
         },
-        populateCache: (_, currentData) => {
-          if (!removedThreadIds)
-            return {
-              threads: currentData?.threads || [],
-              nextPageToken: undefined,
-            };
-          const threads =
-            currentData?.threads.filter(
-              (t) => !removedThreadIds.includes(t.id),
-            ) || [];
-          return { threads, nextPageToken: undefined };
+        {
+          rollbackOnError: true,
+          populateCache: true,
+          revalidate: false,
         },
-      });
+      );
     },
     [mutate],
   );
 
-  // store `refetch` in the atom so we can refresh the list upon archive via command k
-  // TODO is this the best way to do this?
+  // Set up the refetch function in the atom store
   const setRefetchEmailList = useSetAtom(refetchEmailListAtom);
   useEffect(() => {
     setRefetchEmailList({ refetch });
   }, [refetch, setRefetchEmailList]);
+
+  const handleLoadMore = useCallback(() => {
+    setSize((size) => size + 1);
+  }, [setSize]);
 
   return (
     <>
@@ -75,12 +88,15 @@ export default function Mail({
       <ClientOnly>
         <BetaBanner />
       </ClientOnly>
-      <LoadingContent loading={isLoading} error={error}>
-        {data && (
+      <LoadingContent loading={isLoading && !data} error={error}>
+        {allThreads && (
           <List
-            emails={data.threads}
+            emails={allThreads}
             refetch={refetch}
             type={searchParams.type}
+            showLoadMore={showLoadMore}
+            handleLoadMore={handleLoadMore}
+            isLoadingMore={isLoadingMore}
           />
         )}
       </LoadingContent>
