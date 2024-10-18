@@ -20,7 +20,7 @@ export function ActionButtons(props: {
   onPlanAiAction: () => void;
   onAiCategorize: () => void;
   onArchive: () => void;
-  refetch: () => void;
+  refetch: (threadId?: string) => void;
 }) {
   const session = useSession();
   const email = session.data?.user.email;
@@ -48,7 +48,7 @@ export function ActionButtons(props: {
   const onTrash = useCallback(async () => {
     setIsTrashing(true);
     await onTrashThread(threadId);
-    refetch();
+    refetch(threadId);
     setIsTrashing(false);
   }, [threadId, refetch]);
 

@@ -33,14 +33,25 @@ import {
 } from "@/utils/queue/email-actions";
 import { selectedEmailAtom } from "@/store/email";
 import { categorizeAction } from "@/utils/actions/categorize";
+import { Button } from "@/components/ui/button";
+import { ChevronsDownIcon } from "lucide-react";
+import { ButtonLoader } from "@/components/Loading";
 
-export function List(props: {
+export function List({
+  emails,
+  type,
+  refetch,
+  showLoadMore,
+  isLoadingMore,
+  handleLoadMore,
+}: {
   emails: Thread[];
   type?: string;
   refetch: (removedThreadIds?: string[]) => void;
+  showLoadMore?: boolean;
+  isLoadingMore?: boolean;
+  handleLoadMore?: () => void;
 }) {
-  const { emails, refetch } = props;
-
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "all";
 
@@ -106,6 +117,9 @@ export function List(props: {
       {emails.length ? (
         <EmailList
           threads={filteredEmails}
+          showLoadMore={showLoadMore}
+          isLoadingMore={isLoadingMore}
+          handleLoadMore={handleLoadMore}
           emptyMessage={
             <div className="px-2">
               {selectedTab === "planned" ? (
@@ -138,7 +152,7 @@ export function List(props: {
         <div className="mt-20">
           <Celebration
             message={
-              props.type === "inbox"
+              type === "inbox"
                 ? "You made it to Inbox Zero!"
                 : "All emails handled!"
             }
@@ -149,19 +163,23 @@ export function List(props: {
   );
 }
 
-export function EmailList(props: {
+export function EmailList({
+  threads = [],
+  emptyMessage,
+  hideActionBarWhenEmpty,
+  refetch = () => {},
+  showLoadMore,
+  isLoadingMore,
+  handleLoadMore,
+}: {
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
   refetch?: (removedThreadIds?: string[]) => void;
+  showLoadMore?: boolean;
+  isLoadingMore?: boolean;
+  handleLoadMore?: () => void;
 }) {
-  const {
-    threads = [],
-    emptyMessage,
-    hideActionBarWhenEmpty,
-    refetch = () => {},
-  } = props;
-
   const session = useSession();
   // if right panel is open
   const [openedRowId, setOpenedRowId] = useAtom(selectedEmailAtom);
@@ -474,6 +492,28 @@ export function EmailList(props: {
                   />
                 );
               })}
+              {showLoadMore && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="mb-2 w-full"
+                    size={"sm"}
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                  >
+                    {
+                      <>
+                        {isLoadingMore ? (
+                          <ButtonLoader />
+                        ) : (
+                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                        )}
+                        <span>Load more</span>
+                      </>
+                    }
+                  </Button>
+                </>
+              )}
             </ul>
           }
           right={
@@ -499,11 +539,14 @@ export function EmailList(props: {
   );
 }
 
-function ResizeGroup(props: {
+function ResizeGroup({
+  left,
+  right,
+}: {
   left: React.ReactNode;
   right?: React.ReactNode;
 }) {
-  if (!props.right) return props.left;
+  if (!right) return left;
 
   return (
     <ResizablePanelGroup direction="horizontal">
@@ -512,11 +555,11 @@ function ResizeGroup(props: {
         defaultSize={50}
         minSize={30}
       >
-        {props.left}
+        {left}
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={50} minSize={30}>
-        {props.right}
+        {right}
       </ResizablePanel>
     </ResizablePanelGroup>
   );
