@@ -178,24 +178,24 @@ async function performFallbackUnsubscribe(page: Page): Promise<boolean> {
 
   for (const selector of allSelectors) {
     try {
-      const elements = await page.$$(selector);
-      if (elements.length > 0) {
-        // Filter visible elements
-        const visibleElements = await Promise.all(
-          elements.map(async (el) => ((await el.isVisible()) ? el : null)),
-        );
-        const element = visibleElements.find((el) => el !== null) as
-          | ElementHandle<Element>
-          | undefined;
+      const locator = page.locator(selector);
+      const count = await locator.count();
 
-        if (element) {
-          await element.click({ timeout: ACTION_TIMEOUT });
+      if (count > 0) {
+        const visibleLocator = locator.filter({ hasText: /./ }).first();
+        const isVisible = await visibleLocator.isVisible();
+
+        if (isVisible) {
+          await visibleLocator.click({ timeout: ACTION_TIMEOUT });
           console.log(`Successfully clicked unsubscribe element: ${selector}`);
           return true;
         }
       }
     } catch (error) {
-      console.warn(`Error trying to click ${selector}:`, error);
+      console.warn(
+        `Error trying to click ${selector}:`,
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -204,10 +204,7 @@ async function performFallbackUnsubscribe(page: Page): Promise<boolean> {
 }
 
 export async function autoUnsubscribe(url: string): Promise<boolean> {
-  // Validate URL
-  try {
-    new URL(url);
-  } catch (err) {
+  if (!isValidUrl(url)) {
     console.error("Invalid URL provided:", url);
     return false;
   }
@@ -218,44 +215,34 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
 
   try {
     console.log(`Navigating to ${url}`);
-    await page.goto(url, { timeout: 30000 });
-    const initialContent = await page.content();
+    await page.goto(url, { timeout: 30_000, waitUntil: "networkidle" });
 
-    const truncatedContent =
-      initialContent.length > MAX_CONTENT_LENGTH
-        ? initialContent.substring(0, MAX_CONTENT_LENGTH)
-        : initialContent;
+    const initialContent = await page.content();
+    const truncatedContent = initialContent.slice(0, MAX_CONTENT_LENGTH);
 
     const analysis = await analyzePageWithAI(truncatedContent);
     console.log("AI analysis result:", JSON.stringify(analysis, null, 2));
 
+    let unsubscribeSuccess = false;
     if (analysis.actions.length > 0) {
       await performUnsubscribeActions(page, analysis.actions);
+      unsubscribeSuccess = true;
     } else {
       console.log("No actions determined by AI. Attempting fallback strategy.");
-      const fallbackSuccess = await performFallbackUnsubscribe(page);
-      if (!fallbackSuccess) {
-        console.log("Fallback strategy failed to find unsubscribe element.");
-        return false;
-      }
+      unsubscribeSuccess = await performFallbackUnsubscribe(page);
     }
 
-    // Wait for any redirects or page loads to complete
-    await page
-      .waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT })
-      .catch((error) => {
-        console.warn(
-          "Error waiting for network idle state after actions:",
-          error,
-        );
-      });
+    if (!unsubscribeSuccess) {
+      console.log("Failed to perform unsubscribe action.");
+      return false;
+    }
 
-    // Check for confirmation
-    const finalContent = await page.content();
-    const confirmationFound = analysis.confirmationIndicator
-      ? await page.$(analysis.confirmationIndicator).then(Boolean)
-      : finalContent.toLowerCase().includes("unsubscribed") ||
-        finalContent.toLowerCase().includes("successfully");
+    await waitForNetworkIdle(page);
+
+    const confirmationFound = await checkConfirmation(
+      page,
+      analysis.confirmationIndicator,
+    );
 
     if (confirmationFound) {
       console.log("Unsubscribe confirmation found.");
@@ -263,22 +250,63 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     }
 
     console.log("Unsubscribe action performed, but confirmation not found.");
-    // Only take screenshot if not in production
-    if (!isProduction) {
-      await page.screenshot({
-        path: "final-state-screenshot.png",
-        fullPage: true,
-      });
-    }
+    await takeScreenshotIfNotProduction(
+      page,
+      isProduction,
+      "final-state-screenshot.png",
+    );
     return false;
   } catch (error) {
     console.error("Error during unsubscribe process:", error);
-    // Only take screenshot if not in production
-    if (!isProduction) {
-      await page.screenshot({ path: "error-screenshot.png", fullPage: true });
-    }
+    await takeScreenshotIfNotProduction(
+      page,
+      isProduction,
+      "error-screenshot.png",
+    );
     return false;
   } finally {
     await browser.close();
   }
+}
+
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForNetworkIdle(page: Page) {
+  try {
+    await page.waitForLoadState("networkidle", {
+      timeout: NETWORK_IDLE_TIMEOUT,
+    });
+  } catch (error) {
+    console.warn("Error waiting for network idle state after actions:", error);
+  }
+}
+
+async function checkConfirmation(
+  page: Page,
+  confirmationIndicator: string | null,
+): Promise<boolean> {
+  if (confirmationIndicator)
+    return page.locator(confirmationIndicator).isVisible();
+
+  const finalContent = await page.content();
+  const lowercaseContent = finalContent.toLowerCase();
+  return (
+    lowercaseContent.includes("unsubscribed") ||
+    lowercaseContent.includes("successfully")
+  );
+}
+
+async function takeScreenshotIfNotProduction(
+  page: Page,
+  isProduction: boolean,
+  filename: string,
+) {
+  if (!isProduction) await page.screenshot({ path: filename, fullPage: true });
 }
