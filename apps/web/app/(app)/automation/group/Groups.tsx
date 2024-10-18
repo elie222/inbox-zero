@@ -102,7 +102,7 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                       Matching Emails
                     </Link>
                   </Button>
-                  <ViewGroupButton groupId={group.id} name={group.name} />
+                  <ViewGroupButton groupId={group.id} />
                 </div>
               </TableCell>
             </TableRow>

@@ -4,6 +4,7 @@ import useSWR, { type KeyedMutator } from "swr";
 import { PlusIcon, SparklesIcon, TrashIcon, PenIcon } from "lucide-react";
 import { useState, useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
+import { capitalCase } from "capital-case";
 import { toastSuccess, toastError } from "@/components/Toast";
 import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -19,7 +20,11 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { MessageText, SectionDescription } from "@/components/Typography";
+import {
+  MessageText,
+  PageHeading,
+  SectionDescription,
+} from "@/components/Typography";
 import {
   addGroupItemAction,
   deleteGroupAction,
@@ -40,15 +45,12 @@ import {
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
-import { capitalCase } from "capital-case";
 
 export function ViewGroupButton({
   groupId,
-  name,
   ButtonComponent,
 }: {
   groupId: string;
-  name: string;
   ButtonComponent?: React.ComponentType<{ onClick: () => void }>;
 }) {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -62,32 +64,24 @@ export function ViewGroupButton({
           Edit
         </Button>
       )}
-      <Modal
-        isOpen={isModalOpen}
-        hideModal={closeModal}
-        title={name}
-        size="4xl"
-      >
-        <div className="mt-2">
-          <ViewGroup groupId={groupId} groupName={name} onDelete={closeModal} />
-        </div>
+      <Modal isOpen={isModalOpen} hideModal={closeModal} size="4xl">
+        <ViewGroup groupId={groupId} onDelete={closeModal} />
       </Modal>
     </>
   );
 }
 
-function ViewGroup({
+export function ViewGroup({
   groupId,
-  groupName,
   onDelete,
 }: {
   groupId: string;
-  groupName: string;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );
+  const groupName = data?.group?.name;
 
   const [showAddItem, setShowAddItem] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -95,6 +89,7 @@ function ViewGroup({
 
   return (
     <div>
+      <PageHeading>{groupName}</PageHeading>
       {data?.group?.prompt && (
         <EditablePrompt
           groupId={groupId}
@@ -158,7 +153,7 @@ function ViewGroup({
                     description: `Failed to delete group. ${result.error}`,
                   });
                 } else {
-                  onDelete();
+                  onDelete?.();
                 }
                 mutate();
                 setIsDeleting(false);
@@ -213,7 +208,7 @@ function ViewGroup({
                               </Badge>
                               {item.value}
                             </TableCell>
-                            <TableCell className="py-2">
+                            <TableCell className="py-2 text-right">
                               <Button
                                 variant="outline"
                                 size="icon"
@@ -230,7 +225,7 @@ function ViewGroup({
                                   }
                                 }}
                               >
-                                <TrashIcon className="h-4 w-4" />
+                                <TrashIcon className="size-4" />
                               </Button>
                             </TableCell>
                           </TableRow>

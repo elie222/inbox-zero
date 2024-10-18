@@ -14,7 +14,7 @@ async function getGroupItems({
 }) {
   const group = await prisma.group.findUnique({
     where: { id: groupId, userId },
-    select: { prompt: true, items: true },
+    select: { name: true, prompt: true, items: true },
   });
   return { group };
 }
