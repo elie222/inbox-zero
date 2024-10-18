@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useSWRConfig } from "swr";
+import { useRouter } from "next/navigation";
 import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -119,6 +120,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
     resolver: zodResolver(createGroupBody),
   });
   const { mutate } = useSWRConfig();
+  const router = useRouter();
 
   const onSubmit: SubmitHandler<CreateGroupBody> = useCallback(
     async (data) => {
@@ -134,6 +136,8 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
       }
 
       mutate("/api/user/group");
+
+      router.push(`/automation/group/${result.id}`);
     },
     [closeModal, mutate],
   );
