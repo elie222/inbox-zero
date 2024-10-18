@@ -1,12 +1,29 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
+import useSWR from "swr";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
+import { TypographyH4 } from "@/components/Typography";
+import {
+  Table,
+  TableHeader,
+  TableHead,
+  TableRow,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
+import { isActionError } from "@/utils/error";
+import { handleActionCall } from "@/utils/server-action";
+import { toastError } from "@/components/Toast";
+import { RulesExamplesResponse } from "@/app/api/user/rules/examples/route";
+import { LoadingContent } from "@/components/LoadingContent";
+import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 
 const emailAssistantSchema = z.object({
   prompt: z.string().min(1, "Prompt is required"),
@@ -15,9 +32,23 @@ const emailAssistantSchema = z.object({
 type EmailAssistantInputs = z.infer<typeof emailAssistantSchema>;
 
 export function OnboardingAIEmailAssistant() {
+  const [prompt, setPrompt] = useState("");
+
+  // to show progress in the ui, we may want to show the rules first
+  // and show the examples after the rules are saved
+  const { data, isLoading, error } = useSWR<RulesExamplesResponse>(
+    prompt
+      ? `/api/user/rules/examples?rulesPrompt=${encodeURIComponent(prompt)}`
+      : null,
+  );
+
   return (
     <div className="space-y-6">
-      <EmailAssistantForm />
+      <EmailAssistantForm setPrompt={setPrompt} />
+
+      <LoadingContent loading={isLoading} error={error}>
+        {data && <EmailAssistantTestResults data={data} />}
+      </LoadingContent>
 
       <Suspense>
         <OnboardingNextButton />
@@ -30,7 +61,11 @@ const defaultPrompt = `* Label newsletters as "Newsletter" and archive them.
 * Label emails that require a reply as "Reply Required".
 * If a customer asks to set up a call, send them my calendar link: https://cal.com/example`;
 
-function EmailAssistantForm() {
+function EmailAssistantForm({
+  setPrompt,
+}: {
+  setPrompt: (prompt: string) => void;
+}) {
   const {
     register,
     handleSubmit,
@@ -43,9 +78,19 @@ function EmailAssistantForm() {
   });
 
   const onSubmit: SubmitHandler<EmailAssistantInputs> = async (data) => {
-    // TODO: Implement the submission logic here
-    console.log(data);
-    // You might want to call a server action here to process the prompt
+    setPrompt(data.prompt);
+
+    const result = await handleActionCall("saveRulesPromptAction", () =>
+      saveRulesPromptAction({ rulesPrompt: data.prompt }),
+    );
+
+    if (isActionError(result)) {
+      toastError({
+        title: "Error saving rules",
+        description: result.error,
+      });
+      return;
+    }
   };
 
   return (
@@ -62,8 +107,38 @@ ${defaultPrompt}`}
         error={errors.prompt}
       />
       <Button type="submit" loading={isSubmitting}>
-        Save
+        Test
       </Button>
     </form>
+  );
+}
+
+function EmailAssistantTestResults({ data }: { data: RulesExamplesResponse }) {
+  return (
+    <div>
+      <TypographyH4>
+        Here is how the AI assistant would have handled some of your previous
+        emails:
+      </TypographyH4>
+
+      <Card className="mt-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Email</TableHead>
+              <TableHead>Rule</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.matches.map((match) => (
+              <TableRow key={match.emailId}>
+                <TableCell>{match.emailId}</TableCell>
+                <TableCell>{match.rule}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
   );
 }
