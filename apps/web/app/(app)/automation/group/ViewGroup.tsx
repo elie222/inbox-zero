@@ -148,7 +148,7 @@ export function ViewGroup({
               ) : (
                 <TrashIcon className="mr-2 h-4 w-4" />
               )}
-              Delete Group
+              Delete
             </Button>
 
             {(groupName === GroupName.NEWSLETTER ||
@@ -176,7 +176,7 @@ export function ViewGroup({
                 ) : (
                   <SparklesIcon className="mr-2 h-4 w-4" />
                 )}
-                Regenerate Group
+                Regenerate
               </Button>
             )}
 
