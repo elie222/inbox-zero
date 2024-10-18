@@ -37,7 +37,14 @@ import { Button } from "@/components/ui/button";
 import { ChevronsDownIcon } from "lucide-react";
 import { ButtonLoader } from "@/components/Loading";
 
-export function List(props: {
+export function List({
+  emails,
+  type,
+  refetch,
+  showLoadMore,
+  isLoadingMore,
+  handleLoadMore,
+}: {
   emails: Thread[];
   type?: string;
   refetch: (removedThreadIds?: string[]) => void;
@@ -45,9 +52,6 @@ export function List(props: {
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const { emails, refetch, showLoadMore, handleLoadMore, isLoadingMore } =
-    props;
-
   const params = useSearchParams();
   const selectedTab = params.get("tab") || "all";
 
@@ -148,7 +152,7 @@ export function List(props: {
         <div className="mt-20">
           <Celebration
             message={
-              props.type === "inbox"
+              type === "inbox"
                 ? "You made it to Inbox Zero!"
                 : "All emails handled!"
             }
@@ -159,7 +163,15 @@ export function List(props: {
   );
 }
 
-export function EmailList(props: {
+export function EmailList({
+  threads = [],
+  emptyMessage,
+  hideActionBarWhenEmpty,
+  refetch = () => {},
+  showLoadMore,
+  isLoadingMore,
+  handleLoadMore,
+}: {
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
@@ -168,16 +180,6 @@ export function EmailList(props: {
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const {
-    threads = [],
-    emptyMessage,
-    hideActionBarWhenEmpty,
-    refetch = () => {},
-    showLoadMore,
-    isLoadingMore,
-    handleLoadMore,
-  } = props;
-
   const session = useSession();
   // if right panel is open
   const [openedRowId, setOpenedRowId] = useAtom(selectedEmailAtom);
@@ -537,11 +539,14 @@ export function EmailList(props: {
   );
 }
 
-function ResizeGroup(props: {
+function ResizeGroup({
+  left,
+  right,
+}: {
   left: React.ReactNode;
   right?: React.ReactNode;
 }) {
-  if (!props.right) return props.left;
+  if (!right) return left;
 
   return (
     <ResizablePanelGroup direction="horizontal">
@@ -550,11 +555,11 @@ function ResizeGroup(props: {
         defaultSize={50}
         minSize={30}
       >
-        {props.left}
+        {left}
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={50} minSize={30}>
-        {props.right}
+        {right}
       </ResizablePanel>
     </ResizablePanelGroup>
   );
