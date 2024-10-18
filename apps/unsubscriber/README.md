@@ -1,12 +1,12 @@
 # Unsubscribe Automation Service
 
-This service provides an automated solution for unsubscribing from email newsletters. It uses AI to analyze unsubscribe pages and performs automated actions to complete the unsubscribe process.
+This service provides an automated solution for unsubscribing from email newsletters. It exposes an API that can be used to handle unsubscribe requests programmatically. The service uses AI to analyze unsubscribe pages and performs automated actions to complete the unsubscribe process.
 
 ## Features
 
+- Exposes a RESTful API for handling unsubscribe requests
 - AI-powered analysis of unsubscribe pages
 - Automated web interactions using Playwright
-- RESTful API endpoint for triggering unsubscribe actions
 - Support for both OpenAI and Google AI models
 - CORS support for easy integration with frontend applications
 
