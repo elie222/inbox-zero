@@ -5,6 +5,7 @@ import { withError } from "@/utils/middleware";
 import { sendCompleteRegistrationEvent } from "@/utils/fb";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
+import { ONE_HOUR_MS } from "@/utils/date";
 
 export type CompleteRegistrationBody = {};
 
@@ -62,7 +63,6 @@ async function storePosthogSignupEvent(userId: string, email: string) {
     return;
   }
 
-  const ONE_HOUR_MS = 60 * 60 * 1000;
   const ONE_HOUR_AGO = new Date(Date.now() - ONE_HOUR_MS);
 
   if (userCreatedAt.createdAt < ONE_HOUR_AGO) {

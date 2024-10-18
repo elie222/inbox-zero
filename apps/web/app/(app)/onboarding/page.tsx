@@ -1,84 +1,71 @@
-"use client";
+import Link from "next/link";
+import { PageHeading, TypographyP } from "@/components/Typography";
+import { Steps } from "@/app/(app)/onboarding/Steps";
+import { OnboardingBulkUnsubscriber } from "@/app/(app)/onboarding/OnboardingBulkUnsubscriber";
+import { OnboardingColdEmailBlocker } from "@/app/(app)/onboarding/OnboardingColdEmailBlocker";
+import { OnboardingAIEmailAssistant } from "@/app/(app)/onboarding/OnboardingEmailAssistant";
+import { Button } from "@/components/ui/button";
+import { appHomePath } from "@/utils/config";
+import { env } from "@/env";
 
-import { Card } from "@/components/Card";
-import { Container } from "@/components/Container";
-import { Button } from "@/components/Button";
-import { PageHeading, SectionDescription } from "@/components/Typography";
-import { LabelItem } from "@/app/(app)/settings/LabelsSection";
-import { SubmitButtonWrapper } from "@/components/Form";
-
-const RECOMMENDED_LABELS = [
-  "Newsletter",
-  "Receipt",
-  "Calendar",
-  "Privacy policy update",
-  "Discount offering",
-];
-const OTHER_POTENTIAL_LABELS = [
-  "Server Down",
-  "Recruitment",
-  "Investment Opportunity",
-  "Support",
-  "Sales",
-  "Marketing",
-  "Product",
-  "Feedback",
-  "Bug",
-  "Feature Request",
-  "Complaint",
-  "Praise",
-  "Refund",
-  "Cancellation",
-  "Payment",
-  "Invoice",
-  "Reminder",
-  "Meeting",
-  "Event",
-  "Webinar",
-];
-
-// Send our ai the last 500 threads and have it return categories that are helpful
-
-export default function Onboarding() {
+export default function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: { step: string };
+}) {
   return (
-    <Container>
-      <div className="py-8">
-        <Card>
-          <PageHeading>Onboarding</PageHeading>
-          <div className="mt-2 max-w-prose">
-            <SectionDescription>
-              Inbox Zero categorizes emails to plan the right action. You can
-              customize categories in the settings to improve results.
-            </SectionDescription>
-          </div>
+    <div className="mx-auto mt-8 max-w-5xl">
+      <PageHeading>First steps to Inbox Zero</PageHeading>
+      <TypographyP>Get to know Inbox Zero and set up your account.</TypographyP>
 
-          <div className="mt-4">
-            <div className="grid grid-cols-4 items-center gap-x-4 gap-y-6">
-              <div className="">Category</div>
-              <div className="col-span-3 flex items-center space-x-2">
-                <div className="">Enabled</div>
-                <div className="">Description</div>
-              </div>
-            </div>
-            {RECOMMENDED_LABELS.map((label) => (
-              <LabelItem
-                key={label}
-                label={{ id: label, name: label }}
-                register={() => {}}
-                watch={() => {}}
-                setValue={() => {}}
-                errors={{}}
-              />
-            ))}
-
-            <SubmitButtonWrapper>
-              <div className="ml-auto">
-                <Button>Next</Button>
-              </div>
-            </SubmitButtonWrapper>
-          </div>
-        </Card>
+      <div className="my-8">
+        <Steps
+          selectedStep={
+            searchParams.step ? parseInt(searchParams.step) : undefined
+          }
+          steps={[
+            {
+              title: "Bulk Unsubscriber",
+              description: "One-click unsubscribe from emails you never read.",
+              content: <OnboardingBulkUnsubscriber />,
+              videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              active: !searchParams.step || searchParams.step === "1",
+            },
+            {
+              title: "AI Personal Assistant",
+              description: "Tell the assistant how to handle incoming emails.",
+              content: <OnboardingAIEmailAssistant />,
+              videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              active: searchParams.step === "2",
+            },
+            {
+              title: "Cold Emailer Blocker",
+              description:
+                "Stop salespeople filling your inbox with cold emails",
+              content: <OnboardingColdEmailBlocker />,
+              active: searchParams.step === "3",
+            },
+            {
+              title: "Continue",
+              description: "Get started with Inbox Zero",
+              content: (
+                <Button asChild>
+                  <Link
+                    href={
+                      env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED
+                        ? "/welcome-upgrade"
+                        : appHomePath
+                    }
+                  >
+                    Continue
+                  </Link>
+                </Button>
+              ),
+              active: searchParams.step === "4",
+            },
+          ]}
+        />
       </div>
-    </Container>
+    </div>
   );
 }

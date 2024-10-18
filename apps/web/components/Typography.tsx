@@ -61,6 +61,13 @@ const TypographyH3 = React.forwardRef<
 ));
 TypographyH3.displayName = "TypographyH3";
 
+const TypographyH4 = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h4 ref={ref} className={cn("font-cal text-lg", className)} {...props} />
+));
+TypographyH4.displayName = "TypographyH4";
 const TypographyP = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
@@ -88,6 +95,7 @@ export {
   PageHeading,
   SectionHeader,
   TypographyH3,
+  TypographyH4,
   SectionDescription,
   MessageText,
   TypographyP,

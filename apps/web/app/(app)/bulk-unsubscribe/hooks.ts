@@ -75,6 +75,10 @@ export function useUnsubscribe<T extends Row>({
   return {
     unsubscribeLoading,
     onUnsubscribe,
+    unsubscribeLink:
+      hasUnsubscribeAccess && item.lastUnsubscribeLink
+        ? cleanUnsubscribeLink(item.lastUnsubscribeLink) || "#"
+        : "#",
   };
 }
 

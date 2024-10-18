@@ -16,6 +16,7 @@ import {
 import { isAdmin } from "@/utils/admin";
 import { PremiumTier } from "@prisma/client";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 
 export const decrementUnsubscribeCreditAction = withActionInstrumentation(
   "decrementUnsubscribeCredit",
@@ -240,8 +241,6 @@ export const changePremiumStatusAction = withActionInstrumentation(
 
     if (!userToUpgrade) return { error: "User not found" };
 
-    const ONE_MONTH = 1000 * 60 * 60 * 24 * 30;
-
     let lemonSqueezySubscriptionId: number | null = null;
     let lemonSqueezySubscriptionItemId: number | null = null;
     let lemonSqueezyOrderId: number | null = null;
@@ -274,12 +273,12 @@ export const changePremiumStatusAction = withActionInstrumentation(
           case PremiumTier.PRO_ANNUALLY:
           case PremiumTier.BUSINESS_ANNUALLY:
           case PremiumTier.BASIC_ANNUALLY:
-            return new Date(now.getTime() + ONE_MONTH * 12);
+            return new Date(now.getTime() + ONE_YEAR_MS);
           case PremiumTier.PRO_MONTHLY:
           case PremiumTier.BUSINESS_MONTHLY:
           case PremiumTier.BASIC_MONTHLY:
           case PremiumTier.COPILOT_MONTHLY:
-            return new Date(now.getTime() + ONE_MONTH);
+            return new Date(now.getTime() + ONE_MONTH_MS);
           default:
             return null;
         }

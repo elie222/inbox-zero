@@ -58,13 +58,15 @@ export function BulkUnsubscribeRowMobile({
     mutate,
     posthog,
   });
-  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribe({
-    item,
-    hasUnsubscribeAccess,
-    mutate,
-    posthog,
-    refetchPremium,
-  });
+  const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
+    {
+      item,
+      hasUnsubscribeAccess,
+      mutate,
+      refetchPremium,
+      posthog,
+    },
+  );
   const { archiveAllLoading, onArchiveAll } = useArchiveAll({
     item,
     posthog,
@@ -117,15 +119,11 @@ export function BulkUnsubscribeRowMobile({
             variant={
               item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "default"
             }
-            asChild={!!item.lastUnsubscribeLink}
+            asChild
           >
             <Link
-              href={
-                hasUnsubscribeAccess && item.lastUnsubscribeLink
-                  ? cleanUnsubscribeLink(item.lastUnsubscribeLink) || "#"
-                  : "#"
-              }
-              target="_blank"
+              href={unsubscribeLink}
+              target={unsubscribeLink !== "#" ? "_blank" : undefined}
               onClick={onUnsubscribe}
               rel="noreferrer"
             >

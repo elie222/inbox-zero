@@ -9,6 +9,7 @@ import {
   MessageText,
   TypographyP,
   TypographyH3,
+  TypographyH4,
   TextLink,
 } from "@/components/Typography";
 import { Button } from "@/components/Button";
@@ -32,6 +33,7 @@ export default function Components() {
           <div className="underline">Typography</div>
           <PageHeading>PageHeading</PageHeading>
           <TypographyH3>TypographyH3</TypographyH3>
+          <TypographyH4>TypographyH4</TypographyH4>
           <SectionHeader>SectionHeader</SectionHeader>
           <SectionDescription>SectionDescription</SectionDescription>
           <MessageText>MessageText</MessageText>

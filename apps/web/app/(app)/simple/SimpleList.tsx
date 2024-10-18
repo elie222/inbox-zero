@@ -166,7 +166,10 @@ function SimpleListRow({
             asChild
             onClick={() => handleUnsubscribe(message.id)}
           >
-            <Link href={unsubscribeLink} target="_blank">
+            <Link
+              href={unsubscribeLink}
+              target={unsubscribeLink !== "#" ? "_blank" : undefined}
+            >
               <MailMinusIcon className="h-4 w-4" />
               <span className="sr-only">Unsubscribe</span>
             </Link>

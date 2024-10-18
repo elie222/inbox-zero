@@ -3,7 +3,7 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PenIcon } from "lucide-react";
 import { Modal, useModal } from "@/components/Modal";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import {
   type UpdateColdEmailSettingsBody,
@@ -29,7 +29,7 @@ export function ColdEmailPromptModal(props: {
 
   return (
     <>
-      <Button onClick={openModal} type="button" color="white">
+      <Button onClick={openModal} type="button" variant="outline">
         <PenIcon className="mr-2 h-4 w-4" />
         Edit Prompt
       </Button>
@@ -102,7 +102,7 @@ function ColdEmailPromptForm(props: {
       />
 
       <div className="mt-2">
-        <Button type="submit" size="lg" loading={isSubmitting}>
+        <Button type="submit" loading={isSubmitting}>
           Save
         </Button>
       </div>
