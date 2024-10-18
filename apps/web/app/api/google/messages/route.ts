@@ -4,12 +4,13 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { withError } from "@/utils/middleware";
+import { SafeError } from "@/utils/error";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
 async function getMessages() {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) throw new SafeError("Not authenticated");
 
   const gmail = getGmailClient(session);
 

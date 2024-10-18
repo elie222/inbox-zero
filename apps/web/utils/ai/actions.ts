@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
 import { ActionType, type ExecutedAction } from "@prisma/client";
 import type { PartialRecord } from "@/utils/types";

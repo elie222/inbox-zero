@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { getBatch } from "@/utils/gmail/batch";
 
 export async function getThread(threadId: string, gmail: gmail_v1.Gmail) {

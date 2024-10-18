@@ -13,7 +13,7 @@ export const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 8,
   [PremiumTier.BUSINESS_MONTHLY]: 24,
   [PremiumTier.BUSINESS_ANNUALLY]: 12,
-  [PremiumTier.COPILOT_MONTHLY]: 99,
+  [PremiumTier.COPILOT_MONTHLY]: 499,
   [PremiumTier.LIFETIME]: 299,
 };
 
@@ -33,7 +33,7 @@ function discount(monthly: number, annually: number) {
 }
 
 const basicTier = {
-  name: "Basic",
+  name: "Unsubscriber",
   tiers: {
     monthly: PremiumTier.BASIC_MONTHLY,
     annually: PremiumTier.BASIC_ANNUALLY,
@@ -91,7 +91,7 @@ const proTier = {
 };
 
 const businessTier = {
-  name: "Business",
+  name: "AI Assistant",
   tiers: {
     monthly: PremiumTier.BUSINESS_MONTHLY,
     annually: PremiumTier.BUSINESS_ANNUALLY,
@@ -143,11 +143,12 @@ const copilotTier = {
     annually: pricingAdditonalEmail.COPILOT_MONTHLY,
   },
   discount: { monthly: 0, annually: 0 },
-  description: "Tailored email strategy with monthly expert coaching",
+  description: "Expert human assistant to manage your email",
   features: [
     "Everything in Business",
-    "30-minute 1:1 monthly call to get your email under control",
-    "Full refund if not satisfied",
+    "Human assistant to manage your email daily",
+    "30-minute 1:1 monthly call",
+    "Full refund if not satisfied after first 3 days",
   ],
   cta: "Upgrade",
   mostPopular: false,

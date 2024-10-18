@@ -23,7 +23,7 @@ Inbox Zero is an open-source email app whose goal is to help you reach inbox zer
 
 ## Demo Video
 
-[![Inbox Zero demo](/video-thumbnail.png)](http://www.youtube.com/watch?v=kc_9WZ1ZWyg)
+[![Inbox Zero demo](/video-thumbnail.png)](http://www.youtube.com/watch?v=hfvKvTHBjG0)
 
 ## Key Features
 

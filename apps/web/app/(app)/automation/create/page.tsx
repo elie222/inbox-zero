@@ -33,7 +33,7 @@ export default function AutomationSettingsPage() {
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {
       if (data.prompt) {
-        const result = await createAutomationAction(data.prompt);
+        const result = await createAutomationAction({ prompt: data.prompt });
 
         if (isActionError(result)) {
           const existingRuleId = result.existingRuleId;
@@ -66,13 +66,14 @@ export default function AutomationSettingsPage() {
   return (
     <div className="mb-16 mt-6 md:mt-10">
       <PageHeading className="text-center">
-        Get started with AI Personal Assistant
+        Add a new rule to your AI Personal Assistant
       </PageHeading>
-      <SectionDescription className="text-center">
-        Set up intelligent automations to let our AI handle your emails for you.
+      <SectionDescription className="mx-auto max-w-prose text-center">
+        The easiest way to create rules is using the prompt screen, but if you
+        prefer, you can use this screen to add rules manually.
       </SectionDescription>
 
-      <div className="mx-auto mt-6 max-w-xl px-4 md:mt-16">
+      <div className="mx-auto mt-6 max-w-xl px-4 md:mt-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {typeof prompt === "string" ? (
             <>
@@ -85,7 +86,7 @@ export default function AutomationSettingsPage() {
                 as="textarea"
                 rows={4}
                 name="prompt"
-                placeholder={`eg. Forward receipts to alice@accountant.com.`}
+                placeholder={`e.g. Forward receipts to alice@accountant.com.`}
                 className="mt-2"
                 registerProps={register("prompt")}
                 error={errors.prompt}

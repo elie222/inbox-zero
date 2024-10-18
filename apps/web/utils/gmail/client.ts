@@ -1,4 +1,5 @@
-import { google } from "googleapis";
+import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
+import { people } from "@googleapis/people";
 import { saveRefreshToken } from "@/utils/auth";
 import { env } from "@/env";
 
@@ -8,29 +9,29 @@ type ClientOptions = {
 };
 
 const getClient = (session: ClientOptions) => {
-  const auth = new google.auth.OAuth2({
+  const googleAuth = new auth.OAuth2({
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
   });
   // not passing refresh_token when next-auth handles it
-  auth.setCredentials({
+  googleAuth.setCredentials({
     access_token: session.accessToken,
     refresh_token: session.refreshToken,
   });
 
-  return auth;
+  return googleAuth;
 };
 
 export const getGmailClient = (session: ClientOptions) => {
   const auth = getClient(session);
-  const gmail = google.gmail({ version: "v1", auth });
+  const g = gmail({ version: "v1", auth });
 
-  return gmail;
+  return g;
 };
 
 export const getContactsClient = (session: ClientOptions) => {
   const auth = getClient(session);
-  const contacts = google.people({ version: "v1", auth });
+  const contacts = people({ version: "v1", auth });
 
   return contacts;
 };
@@ -43,12 +44,13 @@ export const getGmailAccessToken = (session: ClientOptions) => {
 export const getGmailClientWithRefresh = async (
   session: ClientOptions & { refreshToken: string; expiryDate?: number | null },
   providerAccountId: string,
-) => {
+): Promise<gmail_v1.Gmail> => {
   const auth = getClient(session);
-  const gmail = google.gmail({ version: "v1", auth });
+  const g = gmail({ version: "v1", auth });
 
-  if (session.expiryDate && session.expiryDate > Date.now()) return gmail;
+  if (session.expiryDate && session.expiryDate > Date.now()) return g;
 
+  // may throw `invalid_grant` error
   const tokens = await auth.refreshAccessToken();
 
   if (tokens.credentials.access_token !== session.accessToken) {
@@ -66,5 +68,5 @@ export const getGmailClientWithRefresh = async (
     );
   }
 
-  return gmail;
+  return g;
 };

@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { createHash } from "crypto";
 import groupBy from "lodash/groupBy";
 import { getMessage } from "@/utils/gmail/message";

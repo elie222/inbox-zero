@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { inboxZeroLabels } from "@/utils/label";

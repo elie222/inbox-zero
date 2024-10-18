@@ -5,6 +5,7 @@ import { parseMessage } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import prisma from "@/utils/prisma";
+import { SafeError } from "@/utils/error";
 
 const LIMIT = 50;
 
@@ -13,7 +14,7 @@ export async function getExecutedRules(
   page: number,
 ) {
   const session = await auth();
-  if (!session?.user.email) throw new Error("Not authenticated");
+  if (!session?.user.email) throw new SafeError("Not authenticated");
 
   const where = { userId: session.user.id, status, rule: { isNot: null } };
 

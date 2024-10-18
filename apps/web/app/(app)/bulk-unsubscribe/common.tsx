@@ -4,7 +4,7 @@ import type React from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import {
   ArchiveIcon,
   ArchiveXIcon,
@@ -191,7 +191,9 @@ function UnsubscribeButton<T extends Row>({
         {unsubscribeLoading && <ButtonLoader />}
         <span className="hidden xl:block">Unsubscribe</span>
         <span className="block xl:hidden">
-          <MailMinusIcon className="size-4" />
+          <Tooltip content="Unsubscribe">
+            <MailMinusIcon className="size-4" />
+          </Tooltip>
         </span>
       </Link>
     </Button>
@@ -247,7 +249,9 @@ function AutoArchiveButton<T extends Row>({
         {autoArchiveLoading && <ButtonLoader />}
         <span className="hidden xl:block">Auto Archive</span>
         <span className="block xl:hidden">
-          <ArchiveIcon className="size-4" />
+          <Tooltip content="Auto Archive">
+            <ArchiveIcon className="size-4" />
+          </Tooltip>
         </span>
       </Button>
       <Separator orientation="vertical" className="h-[20px]" />
@@ -344,9 +348,11 @@ function ApproveButton<T extends Row>({
       disabled={!hasUnsubscribeAccess}
       loading={approveLoading}
     >
-      <span className="sr-only">Keep</span>
-      <span>
-        <BadgeCheckIcon className="size-4" />
+      <span className="hidden 2xl:block">Keep</span>
+      <span className="block 2xl:hidden">
+        <Tooltip content="Keep">
+          <BadgeCheckIcon className="size-4" />
+        </Tooltip>
       </span>
     </Button>
   );

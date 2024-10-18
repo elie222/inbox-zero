@@ -26,7 +26,9 @@ export const POST = withError(async (request: Request) => {
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
 
-  console.log("Webhook. Processing:", decodedData);
+  console.log(
+    `Webhook. Processing: ${decodedData.emailAddress} ${decodedData.historyId}`,
+  );
 
   return await processHistoryForUser(decodedData);
 });

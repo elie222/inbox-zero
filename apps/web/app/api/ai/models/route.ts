@@ -20,12 +20,12 @@ export const GET = withError(async () => {
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     select: { aiApiKey: true, aiProvider: true },
   });
 
-  if (!user.aiApiKey || user.aiProvider !== Provider.OPEN_AI)
+  if (!user || !user.aiApiKey || user.aiProvider !== Provider.OPEN_AI)
     return NextResponse.json([]);
 
   const result = await getOpenAiModels({ apiKey: user.aiApiKey });

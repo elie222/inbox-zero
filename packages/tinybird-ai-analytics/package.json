@@ -3,12 +3,12 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "@chronark/zod-bird": "0.3.9",
+    "@chronark/zod-bird": "0.3.10",
     "zod": "3.23.8"
   },
   "devDependencies": {
     "tsconfig": "workspace:*",
-    "@types/node": "22.5.4",
-    "typescript": "5.6.2"
+    "@types/node": "22.7.5",
+    "typescript": "5.6.3"
   }
 }

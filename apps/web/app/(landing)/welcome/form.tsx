@@ -79,7 +79,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        if (process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) {
+        if (env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED) {
           router.push("/welcome-upgrade");
         } else {
           // send to automation home if AI Automation is chosen

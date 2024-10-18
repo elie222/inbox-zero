@@ -29,10 +29,13 @@ export default async function WelcomePage({
   if (!session?.user.email) redirect("/login");
   if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) redirect(appHomePath);
 
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { completedOnboarding: true, utms: true },
   });
+
+  if (!user) redirect("/login");
+
   if (!searchParams.force && user.completedOnboarding) redirect(appHomePath);
 
   const questionIndex = searchParams.question

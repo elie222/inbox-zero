@@ -3,10 +3,12 @@ import { CheckCircleIcon } from "lucide-react";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { Loading } from "@/components/Loading";
+import { WelcomeUpgradeNav } from "@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav";
 
 export default function WelcomeUpgradePage() {
   return (
-    <div className="mt-8">
+    <>
+      <WelcomeUpgradeNav />
       <Suspense fallback={<Loading />}>
         <Pricing
           header={
@@ -16,7 +18,7 @@ export default function WelcomeUpgradePage() {
                   Spend 50% less time on email
                 </h2>
                 <p className="mt-2 font-cal text-2xl text-gray-900 sm:text-3xl">
-                  Join 7,000+ users that use Inbox Zero
+                  Join 8,000+ users that use Inbox Zero
                   <br />
                   to be more productive!
                 </p>
@@ -32,7 +34,7 @@ export default function WelcomeUpgradePage() {
         />
       </Suspense>
       <Footer />
-    </div>
+    </>
   );
 }
 

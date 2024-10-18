@@ -66,7 +66,7 @@ export function Hero(props: {
             <HeroVideoDialog
               className="block"
               animationStyle="top-in-bottom-out"
-              videoSrc="https://www.youtube.com/embed/kc_9WZ1ZWyg?autoplay=1"
+              videoSrc="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1"
               thumbnailSrc={props.image || "/images/newsletters.png"}
               thumbnailAlt="Bulk Unsubscriber Screenshot"
             />
@@ -116,7 +116,7 @@ function ProductHuntBadge() {
       </a>
 
       {/* <a
-        href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
+        href="https://www.producthunt.com/posts/inbox-zero-5?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
         target="_blank"
       >
         <img

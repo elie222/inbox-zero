@@ -13,6 +13,7 @@ import {
 import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { PremiumTier } from "@prisma/client";
 import { cancelledPremium, upgradedToPremium } from "@inboxzero/loops";
+import { SafeError } from "@/utils/error";
 
 export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
@@ -27,7 +28,7 @@ export const POST = withError(async (request: Request) => {
 
   // monthly/annual subscription
   if (payload.meta.event_name === "subscription_created") {
-    if (!userId) throw new Error("No userId provided");
+    if (!userId) throw new SafeError("No userId provided");
     return await subscriptionCreated({ payload, userId });
   }
 
@@ -36,7 +37,7 @@ export const POST = withError(async (request: Request) => {
 
   // lifetime plan
   if (payload.meta.event_name === "order_created" && isLifetimePlan) {
-    if (!userId) throw new Error("No userId provided");
+    if (!userId) throw new SafeError("No userId provided");
     return await lifetimeOrder({ payload, userId });
   }
 

@@ -5,10 +5,12 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { ColdEmailRejected } from "@/app/(app)/cold-email-blocker/ColdEmailRejected";
+import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 
 export default function ColdEmailBlockerPage() {
   return (
     <Suspense>
+      <PermissionsCheck />
       <div className="content-container">
         <PremiumAlertWithData className="mt-2" />
       </div>

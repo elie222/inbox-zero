@@ -18,7 +18,7 @@ type AIGeneratedArgs = Record<
 function getToolParametersForRule(actions: Action[]) {
   const actionsWithParameters = getActionsWithParameters(actions);
 
-  // handle duplicate keys. eg. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
+  // handle duplicate keys. e.g. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
   // this is quite an edge case but need to handle regardless for when it happens
   const typeCount: Record<string, number> = {};
   const parameters: Record<string, z.ZodObject<any>> = {};

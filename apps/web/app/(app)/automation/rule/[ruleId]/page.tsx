@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
@@ -11,8 +12,7 @@ export default async function RulePage({
   searchParams: { new: string };
 }) {
   const session = await auth();
-
-  if (!session?.user.email) throw new Error("Not logged in");
+  if (!session?.user) redirect("/login");
 
   const rule = await prisma.rule.findUnique({
     where: { id: params.ruleId, userId: session.user.id },

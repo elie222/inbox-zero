@@ -1,4 +1,4 @@
-import type { gmail_v1 } from "googleapis";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
 import { getLastEmail } from "@inboxzero/tinybird";
 import { sleep } from "@/utils/sleep";
