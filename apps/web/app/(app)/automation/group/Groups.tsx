@@ -87,19 +87,22 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                 {group._count.items}
               </TableCell>
               <TableCell>
-                <Link href={`/automation/rule/${group.rule?.id}`}>
-                  {group.rule ? (
-                    group.rule.name || `Rule ${group.rule.id}`
-                  ) : (
-                    <Button variant="outline" size="sm" asChild>
-                      <Link
-                        href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
-                      >
-                        Attach Rule
-                      </Link>
-                    </Button>
-                  )}
-                </Link>
+                {group.rule ? (
+                  <Link
+                    href={`/automation/rule/${group.rule.id}`}
+                    className="hover:underline"
+                  >
+                    {group.rule.name || `Rule ${group.rule.id}`}
+                  </Link>
+                ) : (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link
+                      href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
+                    >
+                      Attach
+                    </Link>
+                  </Button>
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex items-center justify-end gap-1">
