@@ -1,10 +1,11 @@
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { examples } from "@/app/(app)/automation/create/examples";
+import { RuleType } from "@prisma/client";
 
 export default function CreateRulePage({
   searchParams,
 }: {
-  searchParams: { example?: string; groupId?: string };
+  searchParams: { example?: string; groupId?: string; tab?: RuleType };
 }) {
   const rule =
     searchParams.example &&
@@ -17,7 +18,7 @@ export default function CreateRulePage({
           rule || {
             name: "",
             actions: [],
-            type: "AI",
+            type: searchParams.tab || "AI",
             groupId: searchParams.groupId,
           }
         }
