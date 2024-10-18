@@ -83,7 +83,7 @@ export function ViewGroup({
   onDelete,
 }: {
   groupId: string;
-  onDelete?: () => void;
+  onDelete: () => void;
 }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
@@ -114,6 +114,39 @@ export function ViewGroup({
               <PlusIcon className="mr-2 h-4 w-4" />
               Add Item
             </Button>
+
+            <Button
+              variant="outline"
+              disabled={isDeleting}
+              onClick={async () => {
+                const yes = confirm(
+                  "Are you sure you want to delete this group?",
+                );
+
+                if (!yes) return;
+
+                setIsDeleting(true);
+
+                const result = await deleteGroupAction(groupId);
+                if (isActionError(result)) {
+                  toastError({
+                    description: `Failed to delete group. ${result.error}`,
+                  });
+                } else {
+                  onDelete();
+                }
+                mutate();
+                setIsDeleting(false);
+              }}
+            >
+              {isDeleting ? (
+                <ButtonLoader />
+              ) : (
+                <TrashIcon className="mr-2 h-4 w-4" />
+              )}
+              Delete Group
+            </Button>
+
             {(groupName === GroupName.NEWSLETTER ||
               groupName === GroupName.RECEIPT ||
               data?.group?.prompt) && (
@@ -142,42 +175,11 @@ export function ViewGroup({
                 Regenerate Group
               </Button>
             )}
-            <Button
-              variant="outline"
-              disabled={isDeleting}
-              onClick={async () => {
-                const yes = confirm(
-                  "Are you sure you want to delete this group?",
-                );
-
-                if (!yes) return;
-
-                setIsDeleting(true);
-
-                const result = await deleteGroupAction(groupId);
-                if (isActionError(result)) {
-                  toastError({
-                    description: `Failed to delete group. ${result.error}`,
-                  });
-                } else {
-                  onDelete?.();
-                }
-                mutate();
-                setIsDeleting(false);
-              }}
-            >
-              {isDeleting ? (
-                <ButtonLoader />
-              ) : (
-                <TrashIcon className="mr-2 h-4 w-4" />
-              )}
-              Delete Group
-            </Button>
 
             <Button variant="outline" asChild>
               <Link href={`/automation/group/${groupId}/examples`}>
                 <MailIcon className="mr-2 size-4" />
-                Emails
+                Matches
               </Link>
             </Button>
           </>
