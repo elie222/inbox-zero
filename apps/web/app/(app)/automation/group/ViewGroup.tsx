@@ -88,7 +88,8 @@ export function ViewGroup({
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );
-  const groupName = data?.group?.name;
+  const group = data?.group;
+  const groupName = group?.name;
 
   const [showAddItem, setShowAddItem] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -97,15 +98,15 @@ export function ViewGroup({
   return (
     <div>
       <PageHeading>{groupName}</PageHeading>
-      {data?.group?.prompt && (
+      {group?.prompt && (
         <EditablePrompt
           groupId={groupId}
-          initialPrompt={data.group.prompt}
+          initialPrompt={group.prompt}
           onUpdate={mutate}
         />
       )}
 
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-0 sm:flex sm:items-center sm:justify-end">
+      <div className="sm:flex sm:items-center sm:justify-between">
         {showAddItem ? (
           <AddGroupItemForm
             groupId={groupId}
@@ -114,78 +115,100 @@ export function ViewGroup({
           />
         ) : (
           <>
-            <Button variant="outline" onClick={() => setShowAddItem(true)}>
-              <PlusIcon className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
-
-            <Button
-              variant="outline"
-              disabled={isDeleting}
-              onClick={async () => {
-                const yes = confirm(
-                  "Are you sure you want to delete this group?",
-                );
-
-                if (!yes) return;
-
-                setIsDeleting(true);
-
-                const result = await deleteGroupAction(groupId);
-                if (isActionError(result)) {
-                  toastError({
-                    description: `Failed to delete group. ${result.error}`,
-                  });
-                } else {
-                  onDelete();
-                }
-                mutate();
-                setIsDeleting(false);
-              }}
-            >
-              {isDeleting ? (
-                <ButtonLoader />
-              ) : (
-                <TrashIcon className="mr-2 h-4 w-4" />
-              )}
-              Delete
-            </Button>
-
-            {(groupName === GroupName.NEWSLETTER ||
-              groupName === GroupName.RECEIPT ||
-              data?.group?.prompt) && (
-              <Button
-                variant="outline"
-                disabled={isRegenerating}
-                onClick={async () => {
-                  setIsRegenerating(true);
-                  const result = await regenerateGroupAction(groupId);
-
-                  if (isActionError(result)) {
-                    toastError({
-                      description: `Failed to regenerate group. ${result.error}`,
-                    });
-                  } else {
-                    toastSuccess({ description: `Group items regenerated!` });
-                  }
-                  setIsRegenerating(false);
-                }}
-              >
-                {isRegenerating ? (
-                  <ButtonLoader />
-                ) : (
-                  <SparklesIcon className="mr-2 h-4 w-4" />
-                )}
-                Regenerate
+            {group?.rule ? (
+              <div className="text-sm">
+                <span>Rule: </span>
+                <Link
+                  href={`/automation/rule/${group.rule.id}`}
+                  className="hover:underline"
+                >
+                  {group.rule.name || `Rule ${group.rule.id}`}
+                </Link>
+              </div>
+            ) : (
+              <Button variant="outline" asChild className="w-full sm:w-auto">
+                <Link
+                  href={`/automation/rule/create?groupId=${groupId}&tab=GROUP`}
+                >
+                  Attach Rule
+                </Link>
               </Button>
             )}
 
-            <Button variant="outline" asChild>
-              <Link href={`/automation/group/${groupId}/examples`}>
-                <MailIcon className="mr-2 size-4" />
-                Matches
-              </Link>
-            </Button>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-0 sm:flex sm:items-center">
+              <Button variant="outline" onClick={() => setShowAddItem(true)}>
+                <PlusIcon className="mr-2 h-4 w-4" />
+                Add Item
+              </Button>
+
+              <Button
+                variant="outline"
+                disabled={isDeleting}
+                onClick={async () => {
+                  const yes = confirm(
+                    "Are you sure you want to delete this group?",
+                  );
+
+                  if (!yes) return;
+
+                  setIsDeleting(true);
+
+                  const result = await deleteGroupAction(groupId);
+                  if (isActionError(result)) {
+                    toastError({
+                      description: `Failed to delete group. ${result.error}`,
+                    });
+                  } else {
+                    onDelete();
+                  }
+                  mutate();
+                  setIsDeleting(false);
+                }}
+              >
+                {isDeleting ? (
+                  <ButtonLoader />
+                ) : (
+                  <TrashIcon className="mr-2 h-4 w-4" />
+                )}
+                Delete
+              </Button>
+
+              {(groupName === GroupName.NEWSLETTER ||
+                groupName === GroupName.RECEIPT ||
+                group?.prompt) && (
+                <Button
+                  variant="outline"
+                  disabled={isRegenerating}
+                  onClick={async () => {
+                    setIsRegenerating(true);
+                    const result = await regenerateGroupAction(groupId);
+
+                    if (isActionError(result)) {
+                      toastError({
+                        description: `Failed to regenerate group. ${result.error}`,
+                      });
+                    } else {
+                      toastSuccess({ description: `Group items regenerated!` });
+                    }
+                    setIsRegenerating(false);
+                  }}
+                >
+                  {isRegenerating ? (
+                    <ButtonLoader />
+                  ) : (
+                    <SparklesIcon className="mr-2 h-4 w-4" />
+                  )}
+                  Regenerate
+                </Button>
+              )}
+
+              <Button variant="outline" asChild>
+                <Link href={`/automation/group/${groupId}/examples`}>
+                  <MailIcon className="mr-2 size-4" />
+                  Matches
+                </Link>
+              </Button>
+            </div>
           </>
         )}
       </div>
@@ -198,7 +221,7 @@ export function ViewGroup({
         >
           {data && (
             <>
-              {data?.group?.items.length ? (
+              {group?.items.length ? (
                 <>
                   <Table>
                     <TableHeader>
@@ -208,7 +231,7 @@ export function ViewGroup({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data?.group?.items.map((item) => {
+                      {group?.items.map((item) => {
                         // within last 2 minutes
                         const isRecent =
                           new Date(item.createdAt) >
