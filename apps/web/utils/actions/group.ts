@@ -25,7 +25,6 @@ import { GroupName } from "@/utils/config";
 import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 import { UserAIFields } from "@/utils/llms/types";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
-import { z } from "zod";
 
 export const createGroupAction = withActionInstrumentation(
   "createGroup",
@@ -66,6 +65,8 @@ export const createGroupAction = withActionInstrumentation(
       }
 
       revalidatePath("/automation");
+
+      return { id: group.id };
     } catch (error) {
       if (isDuplicateError(error, "name"))
         return { error: "Group with this name already exists" };
