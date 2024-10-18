@@ -4,6 +4,16 @@ import { z } from "zod";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { env } from "./env";
+import { getModel } from "./llm";
+
+const MAX_CONTENT_LENGTH = 20_000; // Adjust based on API limitations
+const AI_TIMEOUT = 30_000;
+
+const NETWORK_IDLE_TIMEOUT = 10_000;
+const MAX_RETRIES = 3; // Limit retries to 3 to avoid infinite loops
+const RETRY_DELAY = 1_000; // Delay between retries in milliseconds
+const ACTION_TIMEOUT = 5_000; // Timeout for each action in milliseconds
+const ACTION_DELAY = 2_000; // Delay between actions in milliseconds
 
 const pageAnalysisSchema = z.object({
   actions: z.array(
@@ -19,14 +29,14 @@ const pageAnalysisSchema = z.object({
 type PageAnalysis = z.infer<typeof pageAnalysisSchema>;
 
 async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
-  const maxContentLength = 20000; // Adjust based on API limitations
-  let contentToAnalyze = pageContent;
-  if (contentToAnalyze.length > maxContentLength) {
+  const contentToAnalyze = pageContent.slice(0, MAX_CONTENT_LENGTH);
+  if (contentToAnalyze.length < pageContent.length) {
     console.warn(
-      `Page content exceeds ${maxContentLength} characters. Truncating...`,
+      `Page content exceeds ${MAX_CONTENT_LENGTH} characters. Truncated.`,
     );
-    contentToAnalyze = contentToAnalyze.substring(0, maxContentLength);
   }
+
+  const model = getModel("google");
 
   const prompt = `
     Analyze the following HTML content and determine the actions needed to unsubscribe from an email newsletter.
@@ -43,37 +53,24 @@ async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
     ${contentToAnalyze}
   `;
 
-  let analysisText: string;
   try {
-    const analysisPromise = generateText({
-      model: google("gemini-1.5-flash"),
-      prompt: prompt,
-    });
+    const { text: analysisText } = await Promise.race([
+      generateText({ model, prompt }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("AI analysis timeout")), AI_TIMEOUT),
+      ),
+    ]);
 
-    // Timeout if AI takes too long to respond
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("AI analysis timeout")), 30000),
-    );
-
-    const { text } = (await Promise.race([
-      analysisPromise,
-      timeoutPromise,
-    ])) as { text: string };
-    analysisText = text;
-  } catch (error) {
-    console.error("Error generating AI analysis:", error);
-    throw new Error("Failed to generate AI analysis");
-  }
-
-  try {
-    // Remove any markdown code block indicators
     const cleanedText = analysisText.replace(/```json\n?|\n?```/g, "").trim();
     const parsedAnalysis = JSON.parse(cleanedText);
     return pageAnalysisSchema.parse(parsedAnalysis);
   } catch (error) {
-    console.error("Error parsing AI response:", error);
-    console.error("Raw AI response:", analysisText);
-    throw new Error("Failed to parse AI response");
+    console.error("Error in AI analysis:", error);
+    console.error(
+      "Raw AI response:",
+      error instanceof Error ? error.message : String(error),
+    );
+    throw new Error("Failed to generate or parse AI analysis");
   }
 }
 
@@ -81,9 +78,6 @@ async function performUnsubscribeActions(
   page: Page,
   actions: PageAnalysis["actions"],
 ) {
-  // Limit retries to 3 to avoid infinite loops
-  const MAX_RETRIES = 3;
-
   for (const action of actions) {
     let retries = 0;
     while (retries < MAX_RETRIES) {
@@ -104,16 +98,18 @@ async function performUnsubscribeActions(
         switch (action.type) {
           case "click":
           case "submit":
-            await locator.click({ timeout: 5000 });
+            await locator.click({ timeout: ACTION_TIMEOUT });
             break;
           case "fill":
             if (action.value) {
-              await locator.fill(action.value, { timeout: 5000 });
+              await locator.fill(action.value, { timeout: ACTION_TIMEOUT });
             }
             break;
           case "select":
             if (action.value) {
-              await locator.selectOption(action.value, { timeout: 5000 });
+              await locator.selectOption(action.value, {
+                timeout: ACTION_TIMEOUT,
+              });
             }
             break;
         }
@@ -132,11 +128,11 @@ async function performUnsubscribeActions(
       }
 
       // Add delay between retries
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(RETRY_DELAY);
     }
 
     // Add delay between actions to mimic human behavior
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(ACTION_DELAY);
   }
 }
 
@@ -181,7 +177,7 @@ async function performFallbackUnsubscribe(page: Page): Promise<boolean> {
           | undefined;
 
         if (element) {
-          await element.click({ timeout: 5000 });
+          await element.click({ timeout: ACTION_TIMEOUT });
           console.log(`Successfully clicked unsubscribe element: ${selector}`);
           return true;
         }
@@ -213,10 +209,9 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
     await page.goto(url, { timeout: 30000 });
     const initialContent = await page.content();
 
-    const maxContentLength = 20000; // Adjust based on API limitations
     const truncatedContent =
-      initialContent.length > maxContentLength
-        ? initialContent.substring(0, maxContentLength)
+      initialContent.length > MAX_CONTENT_LENGTH
+        ? initialContent.substring(0, MAX_CONTENT_LENGTH)
         : initialContent;
 
     const analysis = await analyzePageWithAI(truncatedContent);
@@ -235,7 +230,7 @@ export async function autoUnsubscribe(url: string): Promise<boolean> {
 
     // Wait for any redirects or page loads to complete
     await page
-      .waitForLoadState("networkidle", { timeout: 10000 })
+      .waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT })
       .catch((error) => {
         console.warn(
           "Error waiting for network idle state after actions:",
