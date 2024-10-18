@@ -1,8 +1,7 @@
 import { chromium } from "playwright";
-import type { Page, ElementHandle } from "playwright";
+import type { Page, ElementHandle, Locator } from "playwright";
 import { z } from "zod";
 import { generateText } from "ai";
-import { google } from "@ai-sdk/google";
 import { env } from "./env";
 import { getModel } from "./llm";
 
@@ -85,54 +84,67 @@ async function performUnsubscribeActions(
         console.log(`Attempting action: ${action.type} on ${action.selector}`);
         const locator = page.locator(action.selector);
 
-        if ((await locator.count()) === 0) {
+        const [elementCount, isVisible] = await Promise.all([
+          locator.count(),
+          locator.isVisible(),
+        ]);
+
+        if (elementCount === 0) {
           console.warn(`Element not found: ${action.selector}`);
           break;
         }
 
-        if (!(await locator.isVisible())) {
+        if (!isVisible) {
           console.warn(`Element not visible: ${action.selector}`);
           break;
         }
 
-        switch (action.type) {
-          case "click":
-          case "submit":
-            await locator.click({ timeout: ACTION_TIMEOUT });
-            break;
-          case "fill":
-            if (action.value) {
-              await locator.fill(action.value, { timeout: ACTION_TIMEOUT });
-            }
-            break;
-          case "select":
-            if (action.value) {
-              await locator.selectOption(action.value, {
-                timeout: ACTION_TIMEOUT,
-              });
-            }
-            break;
-        }
+        await performAction(locator, action);
         console.log(`Action completed: ${action.type} on ${action.selector}`);
         break; // Success, exit retry loop
       } catch (error) {
         console.warn(
-          `Failed to perform action: ${action.type} on ${action.selector}. Retry ${retries + 1}/${MAX_RETRIES}. Error: ${error}`,
+          `Failed to perform action: ${action.type} on ${action.selector}. Retry ${
+            retries + 1
+          }/${MAX_RETRIES}. Error: ${error instanceof Error ? error.message : String(error)}`,
         );
         retries++;
         if (retries >= MAX_RETRIES) {
           console.error(
             `Max retries reached for action: ${action.type} on ${action.selector}`,
           );
+        } else {
+          await page.waitForTimeout(RETRY_DELAY);
         }
       }
-
-      // Add delay between retries
-      await page.waitForTimeout(RETRY_DELAY);
     }
 
     // Add delay between actions to mimic human behavior
     await page.waitForTimeout(ACTION_DELAY);
+  }
+}
+
+async function performAction(
+  locator: Locator,
+  action: PageAnalysis["actions"][number],
+) {
+  switch (action.type) {
+    case "click":
+    case "submit":
+      await locator.click({ timeout: ACTION_TIMEOUT });
+      break;
+    case "fill":
+      if (action.value) {
+        await locator.fill(action.value, { timeout: ACTION_TIMEOUT });
+      }
+      break;
+    case "select":
+      if (action.value) {
+        await locator.selectOption(action.value, { timeout: ACTION_TIMEOUT });
+      }
+      break;
+    default:
+      throw new Error(`Unsupported action type: ${action.type}`);
   }
 }
 
