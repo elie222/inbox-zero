@@ -19,7 +19,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { GroupsResponse } from "@/app/api/user/group/route";
-import { ViewGroupButton } from "@/app/(app)/automation/group/ViewGroup";
 import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroupModal";
 import { Button } from "@/components/ui/button";
 
@@ -68,15 +67,22 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
         <TableRow>
           <TableHead>Group</TableHead>
           <TableHead className="text-center">Group Items</TableHead>
-          <TableHead>Automation</TableHead>
-          <TableHead />
+          <TableHead>Rule</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {groups.map((group) => {
           return (
             <TableRow key={group.id}>
-              <TableCell className="font-medium">{group.name}</TableCell>
+              <TableCell className="font-medium">
+                <Link
+                  href={`/automation/group/${group.id}`}
+                  className="font-semibold"
+                >
+                  {group.name}
+                </Link>
+              </TableCell>
               <TableCell className="text-center">
                 {group._count.items}
               </TableCell>
@@ -89,7 +95,7 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                       <Link
                         href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
                       >
-                        Attach Automation
+                        Attach Rule
                       </Link>
                     </Button>
                   )}
@@ -102,7 +108,9 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                       Matching Emails
                     </Link>
                   </Button>
-                  <ViewGroupButton groupId={group.id} />
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/automation/group/${group.id}`}>View</Link>
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>

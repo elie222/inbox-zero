@@ -47,7 +47,6 @@ export function ExampleList({
               {!!matchingGroupItem && (
                 <Button
                   type="submit"
-                  variant="outline"
                   size="sm"
                   className="mt-4 text-wrap"
                   onClick={() => {

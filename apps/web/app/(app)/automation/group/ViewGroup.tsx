@@ -1,7 +1,13 @@
 "use client";
 
 import useSWR, { type KeyedMutator } from "swr";
-import { PlusIcon, SparklesIcon, TrashIcon, PenIcon } from "lucide-react";
+import {
+  PlusIcon,
+  SparklesIcon,
+  TrashIcon,
+  PenIcon,
+  MailIcon,
+} from "lucide-react";
 import { useState, useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { capitalCase } from "capital-case";
@@ -45,6 +51,7 @@ import {
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 export function ViewGroupButton({
   groupId,
@@ -98,7 +105,7 @@ export function ViewGroup({
         />
       )}
 
-      <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:justify-end">
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-0 sm:flex sm:items-center sm:justify-end">
         {showAddItem ? (
           <AddGroupItemForm groupId={groupId} mutate={mutate} />
         ) : (
@@ -165,6 +172,13 @@ export function ViewGroup({
                 <TrashIcon className="mr-2 h-4 w-4" />
               )}
               Delete Group
+            </Button>
+
+            <Button variant="outline" asChild>
+              <Link href={`/automation/group/${groupId}/examples`}>
+                <MailIcon className="mr-2 size-4" />
+                Emails
+              </Link>
             </Button>
           </>
         )}
