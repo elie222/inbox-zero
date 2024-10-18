@@ -8,7 +8,7 @@ import {
   PenIcon,
   MailIcon,
 } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, Dispatch, SetStateAction } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { capitalCase } from "capital-case";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -107,7 +107,11 @@ export function ViewGroup({
 
       <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-0 sm:flex sm:items-center sm:justify-end">
         {showAddItem ? (
-          <AddGroupItemForm groupId={groupId} mutate={mutate} />
+          <AddGroupItemForm
+            groupId={groupId}
+            mutate={mutate}
+            setShowAddItem={setShowAddItem}
+          />
         ) : (
           <>
             <Button variant="outline" onClick={() => setShowAddItem(true)}>
@@ -266,9 +270,11 @@ export function ViewGroup({
 const AddGroupItemForm = ({
   groupId,
   mutate,
+  setShowAddItem,
 }: {
   groupId: string;
   mutate: KeyedMutator<GroupItemsResponse>;
+  setShowAddItem: Dispatch<SetStateAction<boolean>>;
 }) => {
   const {
     register,
@@ -278,6 +284,10 @@ const AddGroupItemForm = ({
     resolver: zodResolver(addGroupItemBody),
     defaultValues: { groupId },
   });
+
+  const onClose = useCallback(() => {
+    setShowAddItem(false);
+  }, [setShowAddItem]);
 
   const onSubmit: SubmitHandler<AddGroupItemBody> = useCallback(
     async (data) => {
@@ -290,8 +300,9 @@ const AddGroupItemForm = ({
         toastSuccess({ description: `Item added to group!` });
       }
       mutate();
+      onClose();
     },
-    [mutate],
+    [mutate, onClose],
   );
 
   return (
@@ -317,8 +328,11 @@ const AddGroupItemForm = ({
         error={errors.value}
         className="min-w-[250px]"
       />
-      <Button type="submit" variant="outline" loading={isSubmitting}>
+      <Button type="submit" loading={isSubmitting}>
         Add
+      </Button>
+      <Button variant="outline" onClick={onClose}>
+        Cancel
       </Button>
     </form>
   );
