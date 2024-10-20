@@ -150,7 +150,8 @@ const copilotTier = {
     "30-minute 1:1 monthly call",
     "Full refund if not satisfied after first 3 days",
   ],
-  cta: "Upgrade",
+  cta: "Book a call",
+  ctaLink: env.NEXT_PUBLIC_CALL_LINK,
   mostPopular: false,
 };
 
@@ -164,6 +165,7 @@ export const tiers: {
   description: string;
   features: string[];
   cta: string;
+  ctaLink?: string;
   mostPopular?: boolean;
 }[] = [
   basicTier,
