@@ -13,7 +13,7 @@ export const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 8,
   [PremiumTier.BUSINESS_MONTHLY]: 24,
   [PremiumTier.BUSINESS_ANNUALLY]: 12,
-  [PremiumTier.COPILOT_MONTHLY]: 499,
+  [PremiumTier.COPILOT_MONTHLY]: 1500,
   [PremiumTier.LIFETIME]: 299,
 };
 
