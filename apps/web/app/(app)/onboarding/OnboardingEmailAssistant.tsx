@@ -24,6 +24,8 @@ import { toastError } from "@/components/Toast";
 import { RulesExamplesResponse } from "@/app/api/user/rules/examples/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
+import { Badge } from "@/components/ui/badge";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 const emailAssistantSchema = z.object({
   prompt: z.string().min(1, "Prompt is required"),
@@ -132,8 +134,20 @@ function EmailAssistantTestResults({ data }: { data: RulesExamplesResponse }) {
           <TableBody>
             {data.matches.map((match) => (
               <TableRow key={match.emailId}>
-                <TableCell>{match.emailId}</TableCell>
-                <TableCell>{match.rule}</TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{match.from}</p>
+                    <p className="text-base font-semibold">{match.subject}</p>
+                    <p className="line-clamp-2 text-sm text-gray-600">
+                      {decodeSnippet(match.snippet)}
+                    </p>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="green" className="text-center">
+                    {match.rule}
+                  </Badge>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
