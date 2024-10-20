@@ -1,12 +1,9 @@
-import Link from "next/link";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Steps } from "@/app/(app)/onboarding/Steps";
 import { OnboardingBulkUnsubscriber } from "@/app/(app)/onboarding/OnboardingBulkUnsubscriber";
 import { OnboardingColdEmailBlocker } from "@/app/(app)/onboarding/OnboardingColdEmailBlocker";
 import { OnboardingAIEmailAssistant } from "@/app/(app)/onboarding/OnboardingEmailAssistant";
-import { Button } from "@/components/ui/button";
-import { appHomePath } from "@/utils/config";
-import { env } from "@/env";
+import { OnboardingFinish } from "@/app/(app)/onboarding/OnboardingFinish";
 
 export default function OnboardingPage({
   searchParams,
@@ -48,19 +45,7 @@ export default function OnboardingPage({
             {
               title: "Continue",
               description: "Get started with Inbox Zero",
-              content: (
-                <Button asChild>
-                  <Link
-                    href={
-                      env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED
-                        ? "/welcome-upgrade"
-                        : appHomePath
-                    }
-                  >
-                    Continue
-                  </Link>
-                </Button>
-              ),
+              content: <OnboardingFinish />,
               active: searchParams.step === "4",
             },
           ]}
