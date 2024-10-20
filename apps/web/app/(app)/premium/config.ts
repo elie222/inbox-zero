@@ -24,7 +24,7 @@ export const pricingAdditonalEmail: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 6,
   [PremiumTier.BUSINESS_MONTHLY]: 8,
   [PremiumTier.BUSINESS_ANNUALLY]: 8,
-  [PremiumTier.COPILOT_MONTHLY]: 0,
+  [PremiumTier.COPILOT_MONTHLY]: 250,
   [PremiumTier.LIFETIME]: 59,
 };
 
