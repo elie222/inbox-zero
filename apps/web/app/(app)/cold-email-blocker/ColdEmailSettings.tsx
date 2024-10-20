@@ -94,22 +94,24 @@ export function ColdEmailForm({
       {
         value: ColdEmailSetting.ARCHIVE_AND_LABEL,
         label: "Archive & Label",
-        description: "Archive and label cold emails",
+        description: "Automatically archive and label cold emails",
       },
       {
         value: ColdEmailSetting.LABEL,
         label: "Label Only",
-        description: "Label cold emails as 'Cold Email', but keep in inbox",
+        description:
+          "Label cold emails as 'Cold Email', but keep them in my inbox",
       },
       {
         value: ColdEmailSetting.LIST,
-        label: "List in App",
-        description: "List cold emails in app. Make no changes to inbox.",
+        label: "List in Inbox Zero",
+        description:
+          "List cold emails in Inbox Zero. Make no changes to my inbox",
       },
       {
         value: ColdEmailSetting.DISABLED,
         label: "Turn Off",
-        description: "Disable cold email detection",
+        description: "Disable cold email blocker",
       },
     ],
     [],

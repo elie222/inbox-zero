@@ -36,15 +36,15 @@ export default function OnboardingPage({
             },
             {
               title: "AI Personal Assistant",
-              description: "Tell the assistant how to handle incoming emails.",
+              description:
+                "The AI assistant helps you handle incoming emails. You tell it what to do in plain English in the file below. Try the example below or enter your own.",
               content: <OnboardingAIEmailAssistant />,
               videoId: "1LSt3dyyZtQ",
               active: step === 2,
             },
             {
               title: "Cold Emailer Blocker",
-              description:
-                "Stop salespeople filling your inbox with cold emails",
+              description: "Block unsolicited sales emails",
               content: <OnboardingColdEmailBlocker step={3} />,
               active: step === 3,
             },

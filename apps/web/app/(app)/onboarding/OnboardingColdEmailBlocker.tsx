@@ -11,7 +11,7 @@ export function OnboardingColdEmailBlocker({ step }: { step: number }) {
       <ColdEmailForm
         buttonText="Next"
         onSuccess={() => {
-          router.push(`/onboarding?step=${step + 1}`);
+          router.push(`/onboarding?step=${step + 1}`, { scroll: false });
         }}
       />
     </div>
