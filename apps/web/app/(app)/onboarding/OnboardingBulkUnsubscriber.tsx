@@ -47,8 +47,8 @@ export function OnboardingBulkUnsubscriber() {
   const posthog = usePostHog();
 
   return (
-    <div className="relative">
-      <Card className="overflow-visible">
+    <>
+      <Card className="overflow-hidden">
         <LoadingContent loading={isLoading} error={error}>
           <Table>
             <TableHeader>
@@ -77,7 +77,7 @@ export function OnboardingBulkUnsubscriber() {
       <Suspense>
         <OnboardingNextButton />
       </Suspense>
-    </div>
+    </>
   );
 }
 

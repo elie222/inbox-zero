@@ -1,16 +1,15 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ColdEmailForm } from "@/app/(app)/cold-email-blocker/ColdEmailSettings";
 
-export function OnboardingColdEmailBlocker() {
+export function OnboardingColdEmailBlocker({ step }: { step: number }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const step = parseInt(searchParams.get("step") || "1");
 
   return (
     <div>
       <ColdEmailForm
+        buttonText="Next"
         onSuccess={() => {
           router.push(`/onboarding?step=${step + 1}`);
         }}

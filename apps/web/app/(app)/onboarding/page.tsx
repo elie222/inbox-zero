@@ -5,15 +5,21 @@ import { OnboardingColdEmailBlocker } from "@/app/(app)/onboarding/OnboardingCol
 import { OnboardingAIEmailAssistant } from "@/app/(app)/onboarding/OnboardingEmailAssistant";
 import { OnboardingFinish } from "@/app/(app)/onboarding/OnboardingFinish";
 
+export const maxDuration = 120;
+
 export default function OnboardingPage({
   searchParams,
 }: {
   searchParams: { step: string };
 }) {
   return (
-    <div className="mx-auto mt-8 max-w-5xl">
-      <PageHeading>First steps to Inbox Zero</PageHeading>
-      <TypographyP>Get to know Inbox Zero and set up your account.</TypographyP>
+    <div className="mx-auto mt-8 w-full max-w-5xl">
+      <div className="px-4 lg:px-0">
+        <PageHeading>First steps to Inbox Zero</PageHeading>
+        <TypographyP>
+          Get to know Inbox Zero and set up your account.
+        </TypographyP>
+      </div>
 
       <div className="my-8">
         <Steps
@@ -39,7 +45,7 @@ export default function OnboardingPage({
               title: "Cold Emailer Blocker",
               description:
                 "Stop salespeople filling your inbox with cold emails",
-              content: <OnboardingColdEmailBlocker />,
+              content: <OnboardingColdEmailBlocker step={3} />,
               active: searchParams.step === "3",
             },
             {

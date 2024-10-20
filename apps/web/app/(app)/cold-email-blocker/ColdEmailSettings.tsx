@@ -44,9 +44,11 @@ export function ColdEmailSettings() {
 
 export function ColdEmailForm({
   coldEmailBlocker,
+  buttonText,
   onSuccess,
 }: {
   coldEmailBlocker?: ColdEmailSetting | null;
+  buttonText?: string;
   onSuccess?: () => void;
 }) {
   const {
@@ -130,7 +132,7 @@ export function ColdEmailForm({
 
       <div className="mt-2">
         <Button type="submit" loading={isSubmitting}>
-          Save
+          {buttonText || "Save"}
         </Button>
       </div>
     </form>

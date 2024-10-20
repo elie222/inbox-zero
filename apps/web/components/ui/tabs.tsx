@@ -29,7 +29,7 @@ export function Tabs(props: {
   searchParam?: string;
 }) {
   const { children, className, searchParam = "tab", ...other } = props;
-  const searchParams = useSearchParams()!;
+  const searchParams = useSearchParams();
 
   const selected = searchParams.get(searchParam) || props.defaultValue;
 

@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/Badge";
 import { SectionDescription } from "@/components/Typography";
 import {
   Table,
@@ -17,15 +18,11 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
-import { isActionError } from "@/utils/error";
-import { handleActionCall } from "@/utils/server-action";
-import { toastError } from "@/components/Toast";
 import { RulesExamplesResponse } from "@/app/api/user/rules/examples/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
-import { Badge } from "@/components/ui/badge";
 import { decodeSnippet } from "@/utils/gmail/decode";
+import { Loading } from "@/components/Loading";
 
 const emailAssistantSchema = z.object({
   prompt: z.string().min(1, "Prompt is required"),
@@ -34,17 +31,12 @@ const emailAssistantSchema = z.object({
 type EmailAssistantInputs = z.infer<typeof emailAssistantSchema>;
 
 export function OnboardingAIEmailAssistant() {
-  const [prompt, setPrompt] = useState("");
+  const [showNextButton, setShowNextButton] = useState(false);
 
   return (
     <div className="space-y-6">
-      <EmailAssistantForm setPrompt={setPrompt} />
-
-      <EmailAssistantTestResults prompt={prompt} />
-
-      <Suspense>
-        <OnboardingNextButton />
-      </Suspense>
+      <EmailAssistantForm setShowNextButton={setShowNextButton} />
+      {showNextButton && <OnboardingNextButton />}
     </div>
   );
 }
@@ -54,10 +46,17 @@ const defaultPrompt = `* Label newsletters as "Newsletter" and archive them.
 * If a customer asks to set up a call, send them my calendar link: https://cal.com/example`;
 
 function EmailAssistantForm({
-  setPrompt,
+  setShowNextButton,
 }: {
-  setPrompt: (prompt: string) => void;
+  setShowNextButton: (show: boolean) => void;
 }) {
+  const [prompt, setPrompt] = useState("");
+  const { data, isLoading, error } = useSWR<RulesExamplesResponse>(
+    prompt
+      ? `/api/user/rules/examples?rulesPrompt=${encodeURIComponent(prompt)}`
+      : null,
+  );
+
   const {
     register,
     handleSubmit,
@@ -71,58 +70,81 @@ function EmailAssistantForm({
 
   const onSubmit: SubmitHandler<EmailAssistantInputs> = async (data) => {
     setPrompt(data.prompt);
+    setShowNextButton(true);
+    // const result = await handleActionCall("saveRulesPromptAction", () =>
+    //   saveRulesPromptAction({ rulesPrompt: data.prompt }),
+    // );
 
-    const result = await handleActionCall("saveRulesPromptAction", () =>
-      saveRulesPromptAction({ rulesPrompt: data.prompt }),
-    );
-
-    if (isActionError(result)) {
-      toastError({
-        title: "Error saving rules",
-        description: result.error,
-      });
-      return;
-    }
+    // if (isActionError(result)) {
+    //   toastError({
+    //     title: "Error saving rules",
+    //     description: result.error,
+    //   });
+    //   return;
+    // }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Input
-        type="text"
-        as="textarea"
-        rows={5}
-        name="prompt"
-        placeholder={`This is where you tell the AI assistant how to handle your emails. For example:
+    <div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Input
+          type="text"
+          as="textarea"
+          rows={5}
+          name="prompt"
+          placeholder={`This is where you tell the AI assistant how to handle your emails. For example:
 
 ${defaultPrompt}`}
-        registerProps={register("prompt")}
-        error={errors.prompt}
-      />
-      <Button type="submit" loading={isSubmitting}>
-        Test
-      </Button>
-    </form>
+          registerProps={register("prompt")}
+          error={errors.prompt}
+        />
+        <Button type="submit" loading={isSubmitting || isLoading}>
+          Test
+        </Button>
+      </form>
+
+      {!!prompt && (
+        <div className="mt-4">
+          <EmailAssistantTestResults
+            isLoading={isLoading}
+            error={error}
+            data={data}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
-function EmailAssistantTestResults({ prompt }: { prompt: string }) {
-  const { data, isLoading, error } = useSWR<RulesExamplesResponse>(
-    prompt
-      ? `/api/user/rules/examples?rulesPrompt=${encodeURIComponent(prompt)}`
-      : null,
-  );
-
-  if (!prompt) return null;
-
+function EmailAssistantTestResults({
+  isLoading,
+  error,
+  data,
+}: {
+  isLoading: boolean;
+  error?: any;
+  data?: RulesExamplesResponse;
+}) {
   return (
-    <div>
+    <>
       <SectionDescription>
         Here is how the AI assistant would have handled some of your previous
         emails:
       </SectionDescription>
 
       <Card className="mt-4">
-        <LoadingContent loading={isLoading} error={error}>
+        <LoadingContent
+          loading={isLoading}
+          error={error}
+          loadingComponent={
+            <div className="flex flex-col items-center justify-center pb-8">
+              <Loading />
+              <p className="text-sm text-gray-500">
+                Loading example matches... This may take a minute.
+              </p>
+            </div>
+          }
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -143,7 +165,7 @@ function EmailAssistantTestResults({ prompt }: { prompt: string }) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="green" className="text-center">
+                    <Badge color="green" className="text-center">
                       {match.rule}
                     </Badge>
                   </TableCell>
@@ -153,6 +175,6 @@ function EmailAssistantTestResults({ prompt }: { prompt: string }) {
           </Table>
         </LoadingContent>
       </Card>
-    </div>
+    </>
   );
 }

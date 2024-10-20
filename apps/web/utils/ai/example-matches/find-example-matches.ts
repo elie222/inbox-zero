@@ -41,6 +41,7 @@ Key guidelines:
 5. Aim for quality over quantity. Even a single high-confidence match is valuable.
 6. If no high-confidence matches are found for any rule, it's acceptable to return an empty result.
 7. Use the findExampleMatches tool to return only the high-confidence results.
+8. Aim for a few high-confidence matches per rule.
 
 Please proceed step-by-step, fetching emails and analyzing them to find only the most certain matches for the given rules. Remember, precision is crucial - only include matches you are absolutely sure about.`;
 

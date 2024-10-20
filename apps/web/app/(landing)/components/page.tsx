@@ -18,7 +18,6 @@ import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBasic } from "@/components/Alert";
 import { TestErrorButton } from "@/app/(landing)/components/TestError";
-import { testAction } from "./test-action";
 import { TestActionButton } from "@/app/(landing)/components/TestAction";
 
 export const maxDuration = 3;
