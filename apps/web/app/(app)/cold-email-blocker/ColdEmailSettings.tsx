@@ -80,7 +80,7 @@ export function ColdEmailForm({
         onSuccess?.();
       }
     },
-    [],
+    [onSuccess],
   );
 
   const onSubmitForm = handleSubmit(onSubmit);
