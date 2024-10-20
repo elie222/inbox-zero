@@ -9,6 +9,13 @@ import {
 } from "@/utils/actions/validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
+import {
+  rulesExamplesBody,
+  RulesExamplesBody,
+} from "@/utils/actions/validation";
+import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
+import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
+import { withActionInstrumentation } from "@/utils/actions/middleware";
 
 export async function createRuleAction(options: CreateRuleBody) {
   const session = await auth();
@@ -199,3 +206,39 @@ export async function updateRuleAction(options: UpdateRuleBody) {
     return { error: "Error updating rule." };
   }
 }
+
+export const getRuleExamplesAction = withActionInstrumentation(
+  "getRuleExamples",
+  async (unsafeData: RulesExamplesBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { success, error, data } = rulesExamplesBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
+
+    const gmail = getGmailClient(session);
+    const token = await getGmailAccessToken(session);
+
+    if (!token.token) return { error: "No access token" };
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        email: true,
+        aiModel: true,
+        aiProvider: true,
+        aiApiKey: true,
+      },
+    });
+    if (!user) return { error: "User not found" };
+
+    const { matches } = await aiFindExampleMatches(
+      user,
+      gmail,
+      token.token,
+      data.rulesPrompt,
+    );
+
+    return { matches };
+  },
+);

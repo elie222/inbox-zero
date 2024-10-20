@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
@@ -19,17 +17,19 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import type { RulesExamplesResponse } from "@/app/api/user/rules/examples/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Loading } from "@/components/Loading";
+import { getRuleExamplesAction } from "@/utils/actions/rule";
+import { isActionError } from "@/utils/error";
+import { toastError } from "@/components/Toast";
+import {
+  rulesExamplesBody,
+  RulesExamplesBody,
+} from "@/utils/actions/validation";
 
-const emailAssistantSchema = z.object({
-  prompt: z.string().min(1, "Prompt is required"),
-});
-
-type EmailAssistantInputs = z.infer<typeof emailAssistantSchema>;
+type RulesExamplesResponse = Awaited<ReturnType<typeof getRuleExamplesAction>>;
 
 export function OnboardingAIEmailAssistant() {
   const [showNextButton, setShowNextButton] = useState(false);
@@ -51,38 +51,33 @@ function EmailAssistantForm({
 }: {
   setShowNextButton: (show: boolean) => void;
 }) {
-  const [prompt, setPrompt] = useState("");
-  const { data, isLoading, error } = useSWR<RulesExamplesResponse>(
-    prompt
-      ? `/api/user/rules/examples?rulesPrompt=${encodeURIComponent(prompt)}`
-      : null,
-  );
+  const [data, setData] = useState<RulesExamplesResponse>();
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<EmailAssistantInputs>({
-    resolver: zodResolver(emailAssistantSchema),
+  } = useForm<RulesExamplesBody>({
+    resolver: zodResolver(rulesExamplesBody),
     defaultValues: {
-      prompt: defaultPrompt,
+      rulesPrompt: defaultPrompt,
     },
   });
 
-  const onSubmit: SubmitHandler<EmailAssistantInputs> = async (data) => {
-    setPrompt(data.prompt);
-    setShowNextButton(true);
-    // const result = await handleActionCall("saveRulesPromptAction", () =>
-    //   saveRulesPromptAction({ rulesPrompt: data.prompt }),
-    // );
+  const onSubmit: SubmitHandler<RulesExamplesBody> = async (data) => {
+    const result = await getRuleExamplesAction(data);
 
-    // if (isActionError(result)) {
-    //   toastError({
-    //     title: "Error saving rules",
-    //     description: result.error,
-    //   });
-    //   return;
-    // }
+    setShowNextButton(true);
+
+    if (isActionError(result)) {
+      toastError({
+        title: "Error getting rule examples",
+        description: result.error,
+      });
+      return;
+    } else if (result.success) {
+      setData(result);
+    }
   };
 
   return (
@@ -92,40 +87,34 @@ function EmailAssistantForm({
           type="text"
           as="textarea"
           rows={5}
-          name="prompt"
+          name="rulesPrompt"
           placeholder={`This is where you tell the AI assistant how to handle your emails. For example:
 
 ${defaultPrompt}`}
-          registerProps={register("prompt")}
-          error={errors.prompt}
+          registerProps={register("rulesPrompt")}
+          error={errors.rulesPrompt}
         />
-        <Button type="submit" loading={isSubmitting || isLoading}>
+        <Button type="submit" loading={isSubmitting}>
           Test
         </Button>
       </form>
 
-      {!!prompt && (
-        <div className="mt-4">
-          <EmailAssistantTestResults
-            isLoading={isLoading}
-            error={error}
-            data={data}
-          />
-        </div>
-      )}
+      <div className="mt-4">
+        <EmailAssistantTestResults isLoading={isSubmitting} data={data} />
+      </div>
     </div>
   );
 }
 
 function EmailAssistantTestResults({
   isLoading,
-  error,
   data,
 }: {
   isLoading: boolean;
-  error?: any;
   data?: RulesExamplesResponse;
 }) {
+  if (!data && !isLoading) return null;
+
   return (
     <>
       <SectionDescription>
@@ -136,7 +125,6 @@ function EmailAssistantTestResults({
       <Card className="mt-4">
         <LoadingContent
           loading={isLoading}
-          error={error}
           loadingComponent={
             <div className="flex flex-col items-center justify-center pb-8">
               <Loading />
@@ -154,7 +142,7 @@ function EmailAssistantTestResults({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.matches.map((match) => (
+              {data?.matches?.map((match) => (
                 <TableRow key={match.emailId}>
                   <TableCell>
                     <div className="space-y-1">
