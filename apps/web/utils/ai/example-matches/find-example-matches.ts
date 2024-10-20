@@ -105,9 +105,11 @@ Please proceed step-by-step, fetching emails and analyzing them to find only the
   }, []);
 
   return {
-    matches: matches.map((match) => ({
-      ...listedEmails[match.emailId],
-      rule: match.rule,
-    })),
+    matches: matches
+      .filter((match) => listedEmails[match.emailId])
+      .map((match) => ({
+        ...listedEmails[match.emailId],
+        rule: match.rule,
+      })),
   };
 }

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import type { SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/Input";
@@ -18,7 +19,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { RulesExamplesResponse } from "@/app/api/user/rules/examples/route";
+import type { RulesExamplesResponse } from "@/app/api/user/rules/examples/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 import { decodeSnippet } from "@/utils/gmail/decode";

@@ -6,12 +6,14 @@ import { useSearchParams } from "next/navigation";
 
 export function OnboardingNextButton() {
   const searchParams = useSearchParams();
-  const currentStep = parseInt(searchParams.get("step") || "1");
+  const stepParam = searchParams.get("step");
+  const currentStep = stepParam ? Number.parseInt(stepParam) : 1;
+  const nextStep = isNaN(currentStep) ? 2 : currentStep + 1;
 
   return (
     <div className="mt-4">
       <Button asChild>
-        <Link href={`/onboarding?step=${currentStep + 1}`} scroll={false}>
+        <Link href={`/onboarding?step=${nextStep}`} scroll={false}>
           Next
         </Link>
       </Button>

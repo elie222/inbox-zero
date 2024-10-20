@@ -45,7 +45,7 @@ export function RadioGroup<T extends string>({
             key={option.value}
             value={option.value}
             aria-label={option.label}
-            aria-description={option.description}
+            aria-describedby={option.description}
             className={cn(
               optionIdx === 0 ? "rounded-tl-md rounded-tr-md" : "",
               optionIdx === options.length - 1

@@ -46,6 +46,32 @@ export function OnboardingBulkUnsubscriber() {
 
   const posthog = usePostHog();
 
+  const sortedNewsletters = useMemo(() => {
+    return (
+      data?.newsletters
+        .map((row) => {
+          const readPercentage = (row.readEmails / row.value) * 100;
+
+          return {
+            ...row,
+            readPercentage,
+          };
+        })
+        // sort by lowest read percentage
+        // if tied, sort by most unread emails
+        .sort((a, b) => {
+          if (a.readPercentage === b.readPercentage) {
+            const aUnread = a.value - a.readEmails;
+            const bUnread = b.value - b.readEmails;
+            return bUnread - aUnread;
+          }
+
+          return a.readPercentage - b.readPercentage;
+        })
+        .slice(0, 5)
+    );
+  }, [data?.newsletters]);
+
   return (
     <>
       <Card className="overflow-hidden">
@@ -61,35 +87,14 @@ export function OnboardingBulkUnsubscriber() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.newsletters
-                .map((row) => {
-                  const readPercentage = (row.readEmails / row.value) * 100;
-
-                  return {
-                    ...row,
-                    readPercentage,
-                  };
-                })
-                // sort by lowest read percentage
-                // if tied, sort by most unread emails
-                .sort((a, b) => {
-                  if (a.readPercentage === b.readPercentage) {
-                    const aUnread = a.value - a.readEmails;
-                    const bUnread = b.value - b.readEmails;
-                    return bUnread - aUnread;
-                  }
-
-                  return a.readPercentage - b.readPercentage;
-                })
-                .slice(0, 5)
-                .map((row) => (
-                  <UnsubscribeRow
-                    key={row.name}
-                    row={row}
-                    posthog={posthog}
-                    mutate={mutate}
-                  />
-                ))}
+              {sortedNewsletters?.map((row) => (
+                <UnsubscribeRow
+                  key={row.name}
+                  row={row}
+                  posthog={posthog}
+                  mutate={mutate}
+                />
+              ))}
             </TableBody>
           </Table>
         </LoadingContent>
@@ -109,25 +114,28 @@ function UnsubscribeRow({
 }: {
   row: NewsletterStatsResponse["newsletters"][number];
   posthog: PostHog;
-  mutate: () => void;
+  mutate: () => Promise<any>;
 }) {
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
       item: row,
       hasUnsubscribeAccess: true,
-      mutate: () => Promise.resolve(),
+      mutate,
       refetchPremium: () => Promise.resolve(),
       posthog,
     },
   );
 
-  const splitIndex = row.name.split("<");
-  const name = splitIndex[0].trim();
-  const email = splitIndex[1].split(">")[0].trim();
+  const parseEmail = (name: string) => {
+    const match = name.match(/<(.+)>/);
+    return match ? match[1] : name;
+  };
+  const name = row.name.split("<")[0].trim();
+  const email = parseEmail(row.name);
 
-  const readPercentage = (row.readEmails / row.value) * 100;
+  const readPercentage = row.value ? (row.readEmails / row.value) * 100 : 0;
   const archivedEmails = row.value - row.inboxEmails;
-  const archivedPercentage = (archivedEmails / row.value) * 100;
+  const archivedPercentage = row.value ? (archivedEmails / row.value) * 100 : 0;
 
   const isUnsubscribed = row.status === NewsletterStatus.UNSUBSCRIBED;
 

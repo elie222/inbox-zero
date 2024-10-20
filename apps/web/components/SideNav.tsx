@@ -329,7 +329,7 @@ function Sidebar(props: { isMobile: boolean }) {
         </div>
       </Link>
       <nav className="flex flex-1 flex-col">
-        <ul role="list" className="flex flex-1 flex-col">
+        <ul className="flex flex-1 flex-col">
           <Transition
             as="div"
             show={showMailNav}
@@ -394,7 +394,7 @@ function Sidebar(props: { isMobile: boolean }) {
 function Links(props: { path: string; links: NavItem[] }) {
   return (
     <li>
-      <ul role="list" className="-mx-2 space-y-1">
+      <ul className="-mx-2 space-y-1">
         {props.links.map((item) => (
           <NavLink key={item.name} path={props.path} link={item} />
         ))}

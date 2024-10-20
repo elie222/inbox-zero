@@ -447,7 +447,6 @@ export function EmailList({
         <ResizeGroup
           left={
             <ul
-              role="list"
               className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
               ref={listRef}
             >

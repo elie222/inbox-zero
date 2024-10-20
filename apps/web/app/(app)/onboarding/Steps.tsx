@@ -31,10 +31,10 @@ export function Steps({
   }, [selectedStep, steps.length]);
 
   return (
-    <ul role="list" className="space-y-6">
+    <ul className="space-y-6">
       {steps.map((step, stepIdx) => (
         <li
-          key={stepIdx}
+          key={step.title}
           ref={(el) => {
             if (el) stepRefs.current[stepIdx] = el;
           }}

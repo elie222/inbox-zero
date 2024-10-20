@@ -10,9 +10,11 @@ export const maxDuration = 120;
 export default function OnboardingPage({
   searchParams,
 }: {
-  searchParams: { step: string };
+  searchParams: { step?: string };
 }) {
-  const step = searchParams.step ? parseInt(searchParams.step) : undefined;
+  const step = searchParams.step
+    ? Number.parseInt(searchParams.step)
+    : undefined;
 
   return (
     <div className="mx-auto mt-8 w-full max-w-5xl">
