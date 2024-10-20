@@ -4,6 +4,7 @@ import { OnboardingBulkUnsubscriber } from "@/app/(app)/onboarding/OnboardingBul
 import { OnboardingColdEmailBlocker } from "@/app/(app)/onboarding/OnboardingColdEmailBlocker";
 import { OnboardingAIEmailAssistant } from "@/app/(app)/onboarding/OnboardingEmailAssistant";
 import { OnboardingFinish } from "@/app/(app)/onboarding/OnboardingFinish";
+import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 
 export const maxDuration = 120;
 
@@ -18,6 +19,8 @@ export default function OnboardingPage({
 
   return (
     <div className="mx-auto mt-8 w-full max-w-5xl">
+      <PermissionsCheck />
+
       <div className="px-4 lg:px-0">
         <PageHeading>First steps to Inbox Zero</PageHeading>
         <TypographyP>
