@@ -1,6 +1,5 @@
 "use client";
 
-import { Fragment } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -20,18 +19,16 @@ import {
   CrownIcon,
   FileIcon,
   InboxIcon,
-  LightbulbIcon,
+  ListCheckIcon,
   type LucideIcon,
   MailsIcon,
   MessagesSquareIcon,
   PenIcon,
   PersonStandingIcon,
   RatioIcon,
-  RibbonIcon,
   SendIcon,
   ShieldCheckIcon,
   SparklesIcon,
-  StarIcon,
   Users2Icon,
   XIcon,
 } from "lucide-react";
@@ -123,6 +120,12 @@ export const navigation: NavItem[] = [
 
 const bottomLinks: NavItem[] = [
   {
+    name: "Onboarding",
+    href: "/onboarding",
+    icon: ListCheckIcon,
+    hideInMail: true,
+  },
+  {
     name: "User Guide",
     href: "https://docs.getinboxzero.com",
     target: "_blank",
@@ -142,13 +145,13 @@ const bottomLinks: NavItem[] = [
     ),
     hideInMail: true,
   },
-  {
-    name: "Feature Requests",
-    href: "/feature-requests",
-    target: "_blank",
-    icon: LightbulbIcon,
-    hideInMail: true,
-  },
+  // {
+  //   name: "Feature Requests",
+  //   href: "/feature-requests",
+  //   target: "_blank",
+  //   icon: LightbulbIcon,
+  //   hideInMail: true,
+  // },
   // {
   //   name: "Star on GitHub",
   //   href: "/github",
@@ -326,7 +329,7 @@ function Sidebar(props: { isMobile: boolean }) {
         </div>
       </Link>
       <nav className="flex flex-1 flex-col">
-        <ul role="list" className="flex flex-1 flex-col">
+        <ul className="flex flex-1 flex-col">
           <Transition
             as="div"
             show={showMailNav}
@@ -391,7 +394,7 @@ function Sidebar(props: { isMobile: boolean }) {
 function Links(props: { path: string; links: NavItem[] }) {
   return (
     <li>
-      <ul role="list" className="-mx-2 space-y-1">
+      <ul className="-mx-2 space-y-1">
         {props.links.map((item) => (
           <NavLink key={item.name} path={props.path} link={item} />
         ))}

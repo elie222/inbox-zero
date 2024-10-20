@@ -54,7 +54,9 @@ model User {
   about                     String?
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
-  completedOnboarding       Boolean   @default(false)
+  completedOnboarding       Boolean   @default(false) // deprecated
+  completedOnboardingAt     DateTime? // questions about the user. e.g. their role
+  completedAppOnboardingAt  DateTime? // how to use the app
   onboardingAnswers         Json?
   behaviorProfile           Json?
   lastLogin                 DateTime?

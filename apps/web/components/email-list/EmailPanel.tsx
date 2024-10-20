@@ -102,7 +102,7 @@ function EmailThread(props: {
 }) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
-      <ul role="list" className="space-y-2 sm:space-y-4">
+      <ul className="space-y-2 sm:space-y-4">
         {props.messages?.map((message) => (
           <EmailMessage
             key={message.id}

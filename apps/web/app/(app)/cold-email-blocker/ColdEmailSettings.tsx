@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { type SubmitHandler, useForm } from "react-hook-form";
+import { Controller, type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import type { UserResponse } from "@/app/api/user/me/route";
 import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
@@ -10,15 +10,15 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ColdEmailSetting } from "@prisma/client";
-import { Select } from "@/components/Select";
 import { isError } from "@/utils/error";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import {
   type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
 import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";
 import { ColdEmailPromptModal } from "@/app/(app)/cold-email-blocker/ColdEmailPromptModal";
+import { RadioGroup } from "@/components/RadioGroup";
 
 export function ColdEmailSettings() {
   const { data, isLoading, error, mutate } =
@@ -29,7 +29,7 @@ export function ColdEmailSettings() {
       {data && (
         <>
           <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
-          <div className="mt-2 space-x-2">
+          <div className="mt-2 flex items-center gap-2">
             <TestRules />
             <ColdEmailPromptModal
               coldEmailPrompt={data.coldEmailPrompt}
@@ -42,14 +42,24 @@ export function ColdEmailSettings() {
   );
 }
 
-function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
+export function ColdEmailForm({
+  coldEmailBlocker,
+  buttonText,
+  onSuccess,
+}: {
+  coldEmailBlocker?: ColdEmailSetting | null;
+  buttonText?: string;
+  onSuccess?: () => void;
+}) {
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<UpdateColdEmailSettingsBody>({
     resolver: zodResolver(updateColdEmailSettingsBody),
-    defaultValues: { coldEmailBlocker: props.coldEmailBlocker },
+    defaultValues: {
+      coldEmailBlocker: coldEmailBlocker || ColdEmailSetting.DISABLED,
+    },
   });
 
   const onSubmit: SubmitHandler<UpdateColdEmailSettingsBody> = useCallback(
@@ -67,48 +77,64 @@ function ColdEmailForm(props: { coldEmailBlocker?: ColdEmailSetting | null }) {
         });
       } else {
         toastSuccess({ description: "Settings updated!" });
+        onSuccess?.();
       }
     },
-    [],
+    [onSuccess],
   );
 
-  const options: { label: string; value: ColdEmailSetting }[] = useMemo(
+  const onSubmitForm = handleSubmit(onSubmit);
+
+  const options: {
+    value: ColdEmailSetting;
+    label: string;
+    description: string;
+  }[] = useMemo(
     () => [
       {
-        label: 'Archive and label as "Cold Email"',
         value: ColdEmailSetting.ARCHIVE_AND_LABEL,
+        label: "Archive & Label",
+        description: "Automatically archive and label cold emails",
       },
       {
-        label: 'Label as "Cold Email"',
         value: ColdEmailSetting.LABEL,
+        label: "Label Only",
+        description:
+          "Label cold emails as 'Cold Email', but keep them in my inbox",
       },
       {
-        label: "Only list here",
         value: ColdEmailSetting.LIST,
+        label: "List in Inbox Zero",
+        description:
+          "List cold emails in Inbox Zero. Make no changes to my inbox",
       },
       {
-        label: "Disabled",
         value: ColdEmailSetting.DISABLED,
+        label: "Turn Off",
+        description: "Disable cold email blocker",
       },
     ],
     [],
   );
 
-  const onSubmitForm = handleSubmit(onSubmit);
-
   return (
-    <form onSubmit={onSubmitForm} className="flex max-w-sm items-end space-x-2">
-      <Select
+    <form onSubmit={onSubmitForm} className="max-w-lg">
+      <Controller
         name="coldEmailBlocker"
-        label="How should we handle cold emails?"
-        options={options}
-        registerProps={register("coldEmailBlocker")}
-        error={errors.coldEmailBlocker}
+        control={control}
+        render={({ field }) => (
+          <RadioGroup
+            label="How should we handle cold emails?"
+            options={options}
+            {...field}
+            error={errors.coldEmailBlocker}
+          />
+        )}
       />
 
-      <div className="">
+      <div className="mt-2">
         <Button type="submit" loading={isSubmitting}>
-          Save
+          {buttonText || "Save"}
         </Button>
       </div>
     </form>

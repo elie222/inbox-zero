@@ -31,12 +31,12 @@ export default async function WelcomePage({
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { completedOnboarding: true, utms: true },
+    select: { completedOnboardingAt: true, utms: true },
   });
 
   if (!user) redirect("/login");
 
-  if (!searchParams.force && user.completedOnboarding) redirect(appHomePath);
+  if (!searchParams.force && user.completedOnboardingAt) redirect(appHomePath);
 
   const questionIndex = searchParams.question
     ? Number.parseInt(searchParams.question)
@@ -65,7 +65,7 @@ export default async function WelcomePage({
           <UTMs userId={session.user.id} />
         </Suspense>
       )}
-      {/* {!user.completedOnboarding && <SignUpEvent />} */}
+      {/* {!user.completedOnboardingAt && <SignUpEvent />} */}
       <SignUpEvent />
     </div>
   );

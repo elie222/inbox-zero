@@ -13,7 +13,7 @@ export const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 8,
   [PremiumTier.BUSINESS_MONTHLY]: 24,
   [PremiumTier.BUSINESS_ANNUALLY]: 12,
-  [PremiumTier.COPILOT_MONTHLY]: 499,
+  [PremiumTier.COPILOT_MONTHLY]: 1500,
   [PremiumTier.LIFETIME]: 299,
 };
 
@@ -24,7 +24,7 @@ export const pricingAdditonalEmail: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 6,
   [PremiumTier.BUSINESS_MONTHLY]: 8,
   [PremiumTier.BUSINESS_ANNUALLY]: 8,
-  [PremiumTier.COPILOT_MONTHLY]: 0,
+  [PremiumTier.COPILOT_MONTHLY]: 250,
   [PremiumTier.LIFETIME]: 59,
 };
 
@@ -150,7 +150,8 @@ const copilotTier = {
     "30-minute 1:1 monthly call",
     "Full refund if not satisfied after first 3 days",
   ],
-  cta: "Upgrade",
+  cta: "Book a call",
+  ctaLink: env.NEXT_PUBLIC_CALL_LINK,
   mostPopular: false,
 };
 
@@ -164,6 +165,7 @@ export const tiers: {
   description: string;
   features: string[];
   cta: string;
+  ctaLink?: string;
   mostPopular?: boolean;
 }[] = [
   basicTier,

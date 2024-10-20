@@ -157,18 +157,18 @@ function UnsubscribeButton<T extends Row>({
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
-  posthog: PostHog;
   refetchPremium: () => Promise<any>;
+  posthog: PostHog;
 }) {
-  const { unsubscribeLoading, onUnsubscribe } = useUnsubscribe({
-    item,
-    hasUnsubscribeAccess,
-    mutate,
-    posthog,
-    refetchPremium,
-  });
-
-  const isLink = hasUnsubscribeAccess && item.lastUnsubscribeLink;
+  const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
+    {
+      item,
+      hasUnsubscribeAccess,
+      mutate,
+      posthog,
+      refetchPremium,
+    },
+  );
 
   return (
     <Button
@@ -179,12 +179,8 @@ function UnsubscribeButton<T extends Row>({
       asChild
     >
       <Link
-        href={
-          isLink
-            ? cleanUnsubscribeLink(item.lastUnsubscribeLink || "") || ""
-            : ""
-        }
-        target={isLink ? "_blank" : undefined}
+        href={unsubscribeLink}
+        target={unsubscribeLink !== "#" ? "_blank" : undefined}
         onClick={onUnsubscribe}
         rel="noreferrer"
       >

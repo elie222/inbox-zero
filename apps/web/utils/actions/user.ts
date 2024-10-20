@@ -62,8 +62,21 @@ export const completedOnboardingAction = withActionInstrumentation(
     if (!session?.user.id) return { error: "Not logged in" };
 
     await prisma.user.update({
-      where: { id: session.user.id },
-      data: { completedOnboarding: true },
+      where: { id: session.user.id, completedOnboardingAt: null },
+      data: { completedOnboardingAt: new Date(), completedOnboarding: true },
+    });
+  },
+);
+
+export const completedAppOnboardingAction = withActionInstrumentation(
+  "completedAppOnboarding",
+  async () => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    await prisma.user.update({
+      where: { id: session.user.id, completedAppOnboardingAt: null },
+      data: { completedAppOnboardingAt: new Date() },
     });
   },
 );

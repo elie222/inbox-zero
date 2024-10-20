@@ -155,18 +155,24 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
             const user = session.data?.user;
 
-            const href = user
-              ? isCurrentPlan
-                ? "#"
-                : buildLemonUrl(
-                    attachUserInfo(tier.href[frequency.value], {
-                      id: user.id,
-                      email: user.email!,
-                      name: user.name,
-                    }),
-                    affiliateCode,
-                  )
-              : "/login?next=/premium";
+            function getHref(): string {
+              if (!user) return "/login?next=/premium";
+
+              if (isCurrentPlan) return "#";
+
+              if (tier.ctaLink) return tier.ctaLink;
+
+              return buildLemonUrl(
+                attachUserInfo(tier.href[frequency.value], {
+                  id: user.id,
+                  email: user.email!,
+                  name: user.name,
+                }),
+                affiliateCode,
+              );
+            }
+
+            const href = getHref();
 
             return (
               <div
@@ -222,10 +228,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
                   ) : (
                     <div className="mt-16" />
                   )}
-                  <ul
-                    role="list"
-                    className="mt-8 space-y-3 text-sm leading-6 text-gray-600"
-                  >
+                  <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
                     {tier.features.map((feature) => (
                       <li key={feature} className="flex gap-x-3">
                         <CheckIcon
@@ -295,10 +298,7 @@ function LifetimePricing(props: {
             </h4>
             <div className="h-px flex-auto bg-gray-100" />
           </div>
-          <ul
-            role="list"
-            className="mt-8 grid grid-cols-1 gap-4 text-sm leading-6 text-gray-600 sm:grid-cols-2 sm:gap-6"
-          >
+          <ul className="mt-8 grid grid-cols-1 gap-4 text-sm leading-6 text-gray-600 sm:grid-cols-2 sm:gap-6">
             {lifetimeFeatures.map((feature) => (
               <li key={feature} className="flex gap-x-3">
                 <CheckIcon
