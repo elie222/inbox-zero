@@ -12,6 +12,8 @@ export default function OnboardingPage({
 }: {
   searchParams: { step: string };
 }) {
+  const step = searchParams.step ? parseInt(searchParams.step) : undefined;
+
   return (
     <div className="mx-auto mt-8 w-full max-w-5xl">
       <div className="px-4 lg:px-0">
@@ -23,36 +25,34 @@ export default function OnboardingPage({
 
       <div className="my-8">
         <Steps
-          selectedStep={
-            searchParams.step ? parseInt(searchParams.step) : undefined
-          }
+          selectedStep={step}
           steps={[
             {
               title: "Bulk Unsubscriber",
               description: "One-click unsubscribe from emails you never read.",
               content: <OnboardingBulkUnsubscriber />,
               videoId: "T1rnooV4OYc",
-              active: !searchParams.step || searchParams.step === "1",
+              active: !step || step === 1,
             },
             {
               title: "AI Personal Assistant",
               description: "Tell the assistant how to handle incoming emails.",
               content: <OnboardingAIEmailAssistant />,
               videoId: "1LSt3dyyZtQ",
-              active: searchParams.step === "2",
+              active: step === 2,
             },
             {
               title: "Cold Emailer Blocker",
               description:
                 "Stop salespeople filling your inbox with cold emails",
               content: <OnboardingColdEmailBlocker step={3} />,
-              active: searchParams.step === "3",
+              active: step === 3,
             },
             {
               title: "Continue",
               description: "Get started with Inbox Zero",
               content: <OnboardingFinish />,
-              active: searchParams.step === "4",
+              active: step === 4,
             },
           ]}
         />

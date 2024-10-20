@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { usePostHog, PostHog } from "posthog-js/react";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
