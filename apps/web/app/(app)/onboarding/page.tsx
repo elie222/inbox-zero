@@ -28,14 +28,14 @@ export default function OnboardingPage({
               title: "Bulk Unsubscriber",
               description: "One-click unsubscribe from emails you never read.",
               content: <OnboardingBulkUnsubscriber />,
-              videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              videoId: "T1rnooV4OYc",
               active: !searchParams.step || searchParams.step === "1",
             },
             {
               title: "AI Personal Assistant",
               description: "Tell the assistant how to handle incoming emails.",
               content: <OnboardingAIEmailAssistant />,
-              videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              videoId: "1LSt3dyyZtQ",
               active: searchParams.step === "2",
             },
             {

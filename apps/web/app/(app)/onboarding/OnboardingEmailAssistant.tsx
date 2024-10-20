@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
-import { TypographyH4 } from "@/components/Typography";
+import { SectionDescription } from "@/components/Typography";
 import {
   Table,
   TableHeader,
@@ -36,21 +36,11 @@ type EmailAssistantInputs = z.infer<typeof emailAssistantSchema>;
 export function OnboardingAIEmailAssistant() {
   const [prompt, setPrompt] = useState("");
 
-  // to show progress in the ui, we may want to show the rules first
-  // and show the examples after the rules are saved
-  const { data, isLoading, error } = useSWR<RulesExamplesResponse>(
-    prompt
-      ? `/api/user/rules/examples?rulesPrompt=${encodeURIComponent(prompt)}`
-      : null,
-  );
-
   return (
     <div className="space-y-6">
       <EmailAssistantForm setPrompt={setPrompt} />
 
-      <LoadingContent loading={isLoading} error={error}>
-        {data && <EmailAssistantTestResults data={data} />}
-      </LoadingContent>
+      <EmailAssistantTestResults prompt={prompt} />
 
       <Suspense>
         <OnboardingNextButton />
@@ -115,43 +105,53 @@ ${defaultPrompt}`}
   );
 }
 
-function EmailAssistantTestResults({ data }: { data: RulesExamplesResponse }) {
+function EmailAssistantTestResults({ prompt }: { prompt: string }) {
+  const { data, isLoading, error } = useSWR<RulesExamplesResponse>(
+    prompt
+      ? `/api/user/rules/examples?rulesPrompt=${encodeURIComponent(prompt)}`
+      : null,
+  );
+
+  if (!prompt) return null;
+
   return (
     <div>
-      <TypographyH4>
+      <SectionDescription>
         Here is how the AI assistant would have handled some of your previous
         emails:
-      </TypographyH4>
+      </SectionDescription>
 
       <Card className="mt-4">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Rule</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.matches.map((match) => (
-              <TableRow key={match.emailId}>
-                <TableCell>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{match.from}</p>
-                    <p className="text-base font-semibold">{match.subject}</p>
-                    <p className="line-clamp-2 text-sm text-gray-600">
-                      {decodeSnippet(match.snippet)}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="green" className="text-center">
-                    {match.rule}
-                  </Badge>
-                </TableCell>
+        <LoadingContent loading={isLoading} error={error}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Email</TableHead>
+                <TableHead>Rule</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {data?.matches.map((match) => (
+                <TableRow key={match.emailId}>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{match.from}</p>
+                      <p className="text-base font-semibold">{match.subject}</p>
+                      <p className="line-clamp-2 text-sm text-gray-600">
+                        {decodeSnippet(match.snippet)}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="green" className="text-center">
+                      {match.rule}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </LoadingContent>
       </Card>
     </div>
   );

@@ -2,10 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { PlayCircleIcon } from "lucide-react";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 export function Steps({
   selectedStep,
@@ -16,7 +15,7 @@ export function Steps({
     title: string;
     description: string;
     content: React.ReactNode;
-    videoUrl?: string;
+    videoId?: string;
     active: boolean;
   }[];
 }) {
@@ -76,14 +75,13 @@ export function Steps({
               </div>
 
               <div className="flex items-center">
-                {step.videoUrl && (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(step.videoUrl, "_blank")}
-                  >
-                    <PlayCircleIcon className="mr-2 size-4" />
-                    Watch video
-                  </Button>
+                {step.videoId && (
+                  <OnboardingModal
+                    title={step.title}
+                    description="Watch a quick demo of the full feature in action."
+                    videoId={step.videoId}
+                    buttonProps={{ variant: "outline" }}
+                  />
                 )}
               </div>
             </div>
