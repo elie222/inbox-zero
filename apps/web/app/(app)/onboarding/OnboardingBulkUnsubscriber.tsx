@@ -23,6 +23,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ProgressBar } from "@tremor/react";
 import { ONE_MONTH_MS } from "@/utils/date";
 import { useUnsubscribe } from "@/app/(app)/bulk-unsubscribe/hooks";
+import { NewsletterStatus } from "@prisma/client";
 
 const useNewsletterStats = () => {
   const now = useMemo(() => Date.now(), []);
@@ -41,7 +42,7 @@ const useNewsletterStats = () => {
 };
 
 export function OnboardingBulkUnsubscriber() {
-  const { data, isLoading, error } = useNewsletterStats();
+  const { data, isLoading, error, mutate } = useNewsletterStats();
 
   const posthog = usePostHog();
 
@@ -61,7 +62,12 @@ export function OnboardingBulkUnsubscriber() {
             </TableHeader>
             <TableBody>
               {data?.newsletters.map((row) => (
-                <UnsubscribeRow key={row.name} row={row} posthog={posthog} />
+                <UnsubscribeRow
+                  key={row.name}
+                  row={row}
+                  posthog={posthog}
+                  mutate={mutate}
+                />
               ))}
             </TableBody>
           </Table>
@@ -78,11 +84,12 @@ export function OnboardingBulkUnsubscriber() {
 function UnsubscribeRow({
   row,
   posthog,
+  mutate,
 }: {
   row: NewsletterStatsResponse["newsletters"][number];
   posthog: PostHog;
+  mutate: () => void;
 }) {
-  const [unsubscribed, setUnsubscribed] = useState(false);
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
       item: row,
@@ -100,6 +107,8 @@ function UnsubscribeRow({
   const readPercentage = (row.readEmails / row.value) * 100;
   const archivedEmails = row.value - row.inboxEmails;
   const archivedPercentage = (archivedEmails / row.value) * 100;
+
+  const isUnsubscribed = row.status === NewsletterStatus.UNSUBSCRIBED;
 
   return (
     <TableRow key={row.name}>
@@ -125,17 +134,22 @@ function UnsubscribeRow({
         />
       </TableCell>
       <TableCell>
-        <Button disabled={unsubscribed} loading={unsubscribeLoading} asChild>
+        <Button
+          disabled={isUnsubscribed}
+          variant={isUnsubscribed ? "outline" : "default"}
+          loading={unsubscribeLoading}
+          asChild
+        >
           <Link
             href={unsubscribeLink}
             target={unsubscribeLink !== "#" ? "_blank" : undefined}
             rel="noreferrer"
             onClick={() => {
               onUnsubscribe();
-              setUnsubscribed(true);
+              mutate();
             }}
           >
-            {unsubscribed ? "Unsubscribed" : "Unsubscribe"}
+            {isUnsubscribed ? "Unsubscribed" : "Unsubscribe"}
           </Link>
         </Button>
       </TableCell>
