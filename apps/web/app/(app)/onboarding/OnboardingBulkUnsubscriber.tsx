@@ -38,6 +38,10 @@ const useNewsletterStats = () => {
   const urlParams = new URLSearchParams(params as any);
   return useSWR<NewsletterStatsResponse, { error: string }>(
     `/api/user/stats/newsletters?${urlParams}`,
+    {
+      refreshInterval: 3_000,
+      keepPreviousData: true,
+    },
   );
 };
 
@@ -76,27 +80,38 @@ export function OnboardingBulkUnsubscriber() {
     <>
       <Card className="overflow-hidden">
         <LoadingContent loading={isLoading} error={error}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Emails</TableHead>
-                <TableHead>Read</TableHead>
-                <TableHead>Archived</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedNewsletters?.map((row) => (
-                <UnsubscribeRow
-                  key={row.name}
-                  row={row}
-                  posthog={posthog}
-                  mutate={mutate}
-                />
-              ))}
-            </TableBody>
-          </Table>
+          {sortedNewsletters?.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Emails</TableHead>
+                  <TableHead>Read</TableHead>
+                  <TableHead>Archived</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedNewsletters.map((row) => (
+                  <UnsubscribeRow
+                    key={row.name}
+                    row={row}
+                    posthog={posthog}
+                    mutate={mutate}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="flex flex-col items-center justify-center px-4 py-8">
+              <p className="text-center text-base text-slate-700">
+                No emails found
+              </p>
+              <Button className="mt-4" onClick={() => mutate()}>
+                Reload
+              </Button>
+            </div>
+          )}
         </LoadingContent>
       </Card>
 

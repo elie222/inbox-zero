@@ -25,11 +25,6 @@ const copy: {
     subtitle:
       "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source.",
   },
-  "gmail-autopilot": {
-    title: "Gmail on Autopilot: Work Smarter, Not Harder",
-    subtitle:
-      "Let AI handle your emails, unsubscribe from newsletters, and block unwanted messages. Tools for a clutter-free inbox.",
-  },
 };
 
 // allow this to work for search engines while avoiding flickering text for users
