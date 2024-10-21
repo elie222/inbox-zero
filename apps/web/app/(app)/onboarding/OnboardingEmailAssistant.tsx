@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import Link from "next/link";
 import type { SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/Input";
@@ -31,12 +32,12 @@ import {
 
 type RulesExamplesResponse = Awaited<ReturnType<typeof getRuleExamplesAction>>;
 
-export function OnboardingAIEmailAssistant() {
+export function OnboardingAIEmailAssistant({ step }: { step: number }) {
   const [showNextButton, setShowNextButton] = useState(false);
 
   return (
     <div className="space-y-6">
-      <EmailAssistantForm setShowNextButton={setShowNextButton} />
+      <EmailAssistantForm setShowNextButton={setShowNextButton} step={step} />
       {showNextButton && <OnboardingNextButton />}
     </div>
   );
@@ -48,8 +49,10 @@ const defaultPrompt = `* Label newsletters as "Newsletter" and archive them.
 
 function EmailAssistantForm({
   setShowNextButton,
+  step,
 }: {
   setShowNextButton: (show: boolean) => void;
+  step: number;
 }) {
   const [data, setData] = useState<RulesExamplesResponse>();
 
@@ -94,9 +97,14 @@ ${defaultPrompt}`}
           registerProps={register("rulesPrompt")}
           error={errors.rulesPrompt}
         />
-        <Button type="submit" loading={isSubmitting}>
-          Test
-        </Button>
+        <div className="flex gap-2">
+          <Button type="submit" loading={isSubmitting}>
+            Test
+          </Button>
+          <Button variant="ghost" type="button" asChild>
+            <Link href={`/onboarding?step=${step + 1}`}>Skip</Link>
+          </Button>
+        </div>
       </form>
 
       <div className="mt-4">

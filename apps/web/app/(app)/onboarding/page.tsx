@@ -43,7 +43,7 @@ export default function OnboardingPage({
               title: "AI Personal Assistant",
               description:
                 "The AI assistant helps you handle incoming emails. You tell it what to do in plain English in the file below. Try the example below or enter your own.",
-              content: <OnboardingAIEmailAssistant />,
+              content: <OnboardingAIEmailAssistant step={2} />,
               videoId: "1LSt3dyyZtQ",
               active: step === 2,
             },
