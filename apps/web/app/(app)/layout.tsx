@@ -14,6 +14,7 @@ import { LastLogin } from "@/app/(app)/last-login";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { QueueInitializer } from "@/store/QueueInitializer";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const viewport = {
   themeColor: "#FFF",
@@ -38,22 +39,24 @@ export default async function AppLayout({
 
   return (
     <AppProviders>
-      <PostHogIdentify />
-      <TokenCheck />
-      <CommandK />
-      <QueueInitializer />
       <SideNavWithTopNav>
         <ErrorMessages />
         {children}
       </SideNavWithTopNav>
-      <AssessUser />
-      <SentryIdentify email={session.user.email} />
-      <Suspense>
-        <LastLogin email={session.user.email} />
-      </Suspense>
-      <Suspense>
-        <CrispWithNoSSR email={session.user.email} />
-      </Suspense>
+      <ErrorBoundary extra={{ component: "AppLayout" }}>
+        <PostHogIdentify />
+        <TokenCheck />
+        <CommandK />
+        <QueueInitializer />
+        <AssessUser />
+        <SentryIdentify email={session.user.email} />
+        <Suspense>
+          <LastLogin email={session.user.email} />
+        </Suspense>
+        <Suspense>
+          <CrispWithNoSSR email={session.user.email} />
+        </Suspense>
+      </ErrorBoundary>
     </AppProviders>
   );
 }
