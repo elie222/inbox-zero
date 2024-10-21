@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import useSWR from "swr";
 import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
 import { Button } from "@/components/Button";
-import type { UserResponse } from "@/app/api/user/me/route";
 import {
   hasAiAccess,
   hasColdEmailAccess,
@@ -15,9 +13,10 @@ import {
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { PremiumTier } from "@prisma/client";
+import { useUser } from "@/hooks/useUser";
 
 export function usePremium() {
-  const swrResponse = useSWR<UserResponse>("/api/user/me");
+  const swrResponse = useUser();
   const { data } = swrResponse;
 
   const premium = data?.premium;

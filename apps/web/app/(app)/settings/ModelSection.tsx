@@ -10,7 +10,6 @@ import { Input } from "@/components/Input";
 import { isError } from "@/utils/error";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { UserResponse } from "@/app/api/user/me/route";
 import { postRequest } from "@/utils/api";
 import {
   saveSettingsBody,
@@ -21,10 +20,10 @@ import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import { AlertError } from "@/components/Alert";
 import { modelOptions, Provider, providerOptions } from "@/utils/llms/config";
+import { useUser } from "@/hooks/useUser";
 
 export function ModelSection() {
-  const { data, isLoading, error, mutate } =
-    useSWR<UserResponse>("/api/user/me");
+  const { data, isLoading, error, mutate } = useUser();
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(data?.aiApiKey ? "/api/ai/models" : null);
 

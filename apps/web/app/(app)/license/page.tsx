@@ -2,14 +2,13 @@
 
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import useSWR from "swr";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { TopSection } from "@/components/TopSection";
 import { activateLicenseKeyAction } from "@/utils/actions/premium";
-import type { UserResponse } from "@/app/api/user/me/route";
 import { AlertBasic } from "@/components/Alert";
 import { handleActionResult } from "@/utils/server-action";
+import { useUser } from "@/hooks/useUser";
 
 type Inputs = { licenseKey: string };
 
@@ -20,7 +19,7 @@ export default function LicensePage({
 }) {
   const licenseKey = searchParams["license-key"];
 
-  const { data } = useSWR<UserResponse>("/api/user/me");
+  const { data } = useUser();
 
   return (
     <div>

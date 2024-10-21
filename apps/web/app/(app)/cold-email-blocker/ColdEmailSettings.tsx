@@ -2,8 +2,6 @@
 
 import { useCallback, useMemo } from "react";
 import { Controller, type SubmitHandler, useForm } from "react-hook-form";
-import useSWR from "swr";
-import type { UserResponse } from "@/app/api/user/me/route";
 import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -19,10 +17,10 @@ import {
 import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";
 import { ColdEmailPromptModal } from "@/app/(app)/cold-email-blocker/ColdEmailPromptModal";
 import { RadioGroup } from "@/components/RadioGroup";
+import { useUser } from "@/hooks/useUser";
 
 export function ColdEmailSettings() {
-  const { data, isLoading, error, mutate } =
-    useSWR<UserResponse>("/api/user/me");
+  const { data, isLoading, error, mutate } = useUser();
 
   return (
     <LoadingContent loading={isLoading} error={error}>

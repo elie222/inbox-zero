@@ -23,15 +23,14 @@ import { AlertBasic } from "@/components/Alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGmailSearchUrl } from "@/utils/url";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 import { SectionDescription } from "@/components/Typography";
-import type { UserResponse } from "@/app/api/user/me/route";
 import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { handleActionResult } from "@/utils/server-action";
+import { useUser } from "@/hooks/useUser";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -256,7 +255,7 @@ function OpenInGmailButton({
 }
 
 function NoColdEmails() {
-  const { data } = useSWR<UserResponse>("/api/user/me");
+  const { data } = useUser();
 
   if (!data?.coldEmailBlocker || data?.coldEmailBlocker === "DISABLED") {
     return (
