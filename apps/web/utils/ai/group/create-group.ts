@@ -34,7 +34,7 @@ const listEmailsTool = (gmail: gmail_v1.Gmail, accessToken: string) => ({
   }),
   execute: async ({ query }: { query: string | undefined }) => {
     const { messages } = await queryBatchMessages(gmail, accessToken, {
-      query,
+      query: `${query || ""} -label:sent`.trim(),
       maxResults: 20,
     });
 

@@ -11,11 +11,19 @@ export const findExampleMatchesSchema = z.object({
   matches: z
     .array(
       z.object({
-        emailId: z.string(),
-        rule: z.string(),
+        emailId: z.string().describe("The email ID of a matching email."),
+        rule: z.string().describe("The specific rule that the email matches."),
+        reason: z
+          .string()
+          .describe(
+            "Explanation of why this email is a definite match for the rule.",
+          ),
+        // isMatch: z.boolean().describe("Must be true. Only include if this is a definite match for the rule."),
       }),
     )
-    .describe("The emails that match the rules prompt."),
+    .describe(
+      "Only include emails that definitely match the rules. Do not include non-matches or uncertain matches.",
+    ),
 });
 
 export async function aiFindExampleMatches(
@@ -33,17 +41,26 @@ export async function aiFindExampleMatches(
 ${rulesPrompt}
 </rules>
 
-Key guidelines:
-1. Use the listEmails tool to fetch recent emails from the user's inbox.
-2. Analyze each email and determine if it matches any of the given rules with absolute certainty.
-3. For each matching email, provide the emailId and the specific rule it matches.
-4. Only return matches that you are 100% confident about. It's better to return no matches than to include uncertain ones.
-5. Aim for quality over quantity. Even a single high-confidence match is valuable.
-6. If no high-confidence matches are found for any rule, it's acceptable to return an empty result.
-7. Use the findExampleMatches tool to return only the high-confidence results.
-8. Aim for a few high-confidence matches per rule.
+Critical instructions:
+1. Analyze each email carefully. Only return matches you are absolutely certain follow these guidelines.
+2. Quality over quantity is crucial. It's better to return no matches than to include incorrect or uncertain ones.
+   - Only return matches that you are 100% confident about.
+   - Aim for a few high-confidence matches per rule.
+   - Even a single high-confidence match is valuable.
+3. You must strictly differentiate between emails that initiate an action and emails that confirm an action has already occurred. 
+  - If a rule mentions "asks to", "requests to", or similar phrases indicating initiation, only match emails that contain the initial request. Do not match confirmation emails for these rules.
+  - Confirmation emails (e.g., "Your meeting is scheduled") are not matches for rules about initiating actions, even if they relate to the same topic.
 
-Please proceed step-by-step, fetching emails and analyzing them to find only the most certain matches for the given rules. Remember, precision is crucial - only include matches you are absolutely sure about.`;
+Example:
+- Rule: "If a customer asks to set up a call, send them my calendar link"
+  - Match: An email saying "Can we schedule a call next week?"
+  - Do not match: An email saying "Your call is scheduled for Tuesday at 2 PM"
+
+Use the listEmails tool to fetch emails and the findExampleMatches tool to return results.
+If no high-confidence matches are found for any rule, it's acceptable to return an empty result.
+
+Please proceed step-by-step, fetching emails and analyzing them to find only the most certain matches for the given rules.
+Remember, precision is crucial - only include matches you are absolutely sure about.`;
 
   const listedEmails: Record<
     string,
@@ -57,7 +74,7 @@ Please proceed step-by-step, fetching emails and analyzing them to find only the
     }),
     execute: async ({ query }: { query: string | undefined }) => {
       const { messages } = await queryBatchMessages(gmail, accessToken, {
-        query,
+        query: `${query || ""} -label:sent`.trim(),
         maxResults: 20,
       });
 
@@ -103,6 +120,13 @@ Please proceed step-by-step, fetching emails and analyzing them to find only the
 
     return [...acc, ...typedArgs.matches];
   }, []);
+
+  console.log(
+    "🚀 ~ execute: ~ matches:",
+    JSON.stringify(listedEmails, null, 2),
+  );
+
+  console.log("🚀 ~ aiFindExampleMatches ~ matches:", matches);
 
   return {
     matches: matches

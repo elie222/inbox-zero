@@ -142,34 +142,42 @@ function EmailAssistantTestResults({
             </div>
           }
         >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Rule</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data?.matches?.map((match) => (
-                <TableRow key={match.emailId}>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{match.from}</p>
-                      <p className="text-base font-semibold">{match.subject}</p>
-                      <p className="line-clamp-2 text-sm text-gray-600">
-                        {decodeSnippet(match.snippet)}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge color="green" className="text-center">
-                      {match.rule}
-                    </Badge>
-                  </TableCell>
+          {data?.matches?.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Rule</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {data?.matches?.map((match) => (
+                  <TableRow key={match.emailId}>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">{match.from}</p>
+                        <p className="text-base font-semibold">
+                          {match.subject}
+                        </p>
+                        <p className="line-clamp-2 text-sm text-gray-600">
+                          {decodeSnippet(match.snippet)}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge color="green" className="text-center">
+                        {match.rule}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="p-4 text-center text-sm text-slate-500">
+              No matches found 😔
+            </p>
+          )}
         </LoadingContent>
       </Card>
     </>
