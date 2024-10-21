@@ -9,11 +9,10 @@ import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export const maxDuration = 120;
 
-export default function OnboardingPage({
-  searchParams,
-}: {
-  searchParams: { step?: string };
+export default async function OnboardingPage(props: {
+  searchParams: Promise<{ step?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const step = searchParams.step
     ? Number.parseInt(searchParams.step)
     : undefined;

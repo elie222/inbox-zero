@@ -10,8 +10,9 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string } },
+  props: { params: Promise<{ groupId: string }> },
 ) {
+  const params = await props.params;
   const { groupId } = params;
   const { searchParams } = new URL(request.url);
   const queryResult = groupEmailsQuerySchema.safeParse(

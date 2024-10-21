@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { cookies, headers } from "next/headers";
+import { cookies, headers, type UnsafeUnwrappedHeaders } from "next/headers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { sendCompleteRegistrationEvent } from "@/utils/fb";
@@ -14,11 +14,11 @@ export const POST = withError(async (_request: NextRequest) => {
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  const eventSourceUrl = headers().get("referer");
-  const userAgent = headers().get("user-agent");
+  const eventSourceUrl = (await headers()).get("referer");
+  const userAgent = (await headers()).get("user-agent");
   const ip = getIp();
 
-  const c = cookies();
+  const c = await cookies();
 
   const fbc = c.get("_fbc")?.value;
   const fbp = c.get("_fbp")?.value;
@@ -44,13 +44,18 @@ export const POST = withError(async (_request: NextRequest) => {
 
 function getIp() {
   const FALLBACK_IP_ADDRESS = "0.0.0.0";
-  const forwardedFor = headers().get("x-forwarded-for");
+  const forwardedFor = (headers() as unknown as UnsafeUnwrappedHeaders).get(
+    "x-forwarded-for",
+  );
 
   if (forwardedFor) {
     return forwardedFor.split(",")[0] ?? FALLBACK_IP_ADDRESS;
   }
 
-  return headers().get("x-real-ip") ?? FALLBACK_IP_ADDRESS;
+  return (
+    (headers() as unknown as UnsafeUnwrappedHeaders).get("x-real-ip") ??
+    FALLBACK_IP_ADDRESS
+  );
 }
 
 async function storePosthogSignupEvent(userId: string, email: string) {

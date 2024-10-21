@@ -1,4 +1,5 @@
 "use client";
+import { use } from "react";
 
 import Link from "next/link";
 import useSWR from "swr";
@@ -11,11 +12,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 
 export const dynamic = "force-dynamic";
 
-export default function RuleExamplesPage({
-  params,
-}: {
-  params: { ruleId: string };
+export default function RuleExamplesPage(props: {
+  params: Promise<{ ruleId: string }>;
 }) {
+  const params = use(props.params);
   const { data, isLoading, error } = useSWR<ExamplesResponse>(
     `/api/user/rules/${params.ruleId}/example`,
   );

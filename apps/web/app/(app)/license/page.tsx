@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, use } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
@@ -12,11 +12,10 @@ import { useUser } from "@/hooks/useUser";
 
 type Inputs = { licenseKey: string };
 
-export default function LicensePage({
-  searchParams,
-}: {
-  searchParams: { "license-key"?: string };
+export default function LicensePage(props: {
+  searchParams: Promise<{ "license-key"?: string }>;
 }) {
+  const searchParams = use(props.searchParams);
   const licenseKey = searchParams["license-key"];
 
   const { data } = useUser();

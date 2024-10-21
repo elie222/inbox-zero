@@ -4,13 +4,12 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { TopSection } from "@/components/TopSection";
 
-export default async function RulePage({
-  params,
-  searchParams,
-}: {
-  params: { ruleId: string };
-  searchParams: { new: string };
+export default async function RulePage(props: {
+  params: Promise<{ ruleId: string }>;
+  searchParams: Promise<{ new: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await auth();
   if (!session?.user) redirect("/login");
 

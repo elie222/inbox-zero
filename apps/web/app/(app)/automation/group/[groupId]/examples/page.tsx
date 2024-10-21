@@ -1,4 +1,5 @@
 "use client";
+import { use } from "react";
 
 import useSWR from "swr";
 import groupBy from "lodash/groupBy";
@@ -9,11 +10,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 
 export const dynamic = "force-dynamic";
 
-export default function RuleExamplesPage({
-  params,
-}: {
-  params: { groupId: string };
+export default function RuleExamplesPage(props: {
+  params: Promise<{ groupId: string }>;
 }) {
+  const params = use(props.params);
   const { data, isLoading, error } = useSWR<GroupEmailsResponse>(
     `/api/user/group/${params.groupId}/messages`,
   );

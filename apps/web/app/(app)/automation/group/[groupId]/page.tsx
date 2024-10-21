@@ -1,10 +1,14 @@
 "use client";
+import { use } from "react";
 
 import { useRouter } from "next/navigation";
 import { ViewGroup } from "@/app/(app)/automation/group/ViewGroup";
 import { Container } from "@/components/Container";
 
-export default function GroupPage({ params }: { params: { groupId: string } }) {
+export default function GroupPage(props: {
+  params: Promise<{ groupId: string }>;
+}) {
+  const params = use(props.params);
   const router = useRouter();
 
   return (

@@ -15,13 +15,14 @@ export async function generateStaticParams() {
 }
 
 type Props = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 export async function generateMetadata(
-  { params }: Props,
+  props: Props,
   parent: ResolvingMetadata,
 ) {
+  const params = await props.params;
   const post = await sanityFetch<PostType | undefined>({
     query: postQuery,
     params,
@@ -62,7 +63,8 @@ export async function generateMetadata(
 
 // Multiple versions of this page will be statically generated
 // using the `params` returned by `generateStaticParams`
-export default async function Page({ params }: Props) {
+export default async function Page(props: Props) {
+  const params = await props.params;
   const post = await sanityFetch<PostType>({ query: postQuery, params });
 
   return <Post post={post} />;
