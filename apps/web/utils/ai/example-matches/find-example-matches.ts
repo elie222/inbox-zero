@@ -121,13 +121,6 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
     return [...acc, ...typedArgs.matches];
   }, []);
 
-  console.log(
-    "🚀 ~ execute: ~ matches:",
-    JSON.stringify(listedEmails, null, 2),
-  );
-
-  console.log("🚀 ~ aiFindExampleMatches ~ matches:", matches);
-
   return {
     matches: matches
       .filter((match) => listedEmails[match.emailId])
