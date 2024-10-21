@@ -102,7 +102,9 @@ ${defaultPrompt}`}
             Test
           </Button>
           <Button variant="ghost" type="button" asChild>
-            <Link href={`/onboarding?step=${step + 1}`}>Skip</Link>
+            <Link href={`/onboarding?step=${step + 1}`} scroll={false}>
+              Skip
+            </Link>
           </Button>
         </div>
       </form>
