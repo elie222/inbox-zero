@@ -5,6 +5,7 @@ import { OnboardingColdEmailBlocker } from "@/app/(app)/onboarding/OnboardingCol
 import { OnboardingAIEmailAssistant } from "@/app/(app)/onboarding/OnboardingEmailAssistant";
 import { OnboardingFinish } from "@/app/(app)/onboarding/OnboardingFinish";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
+import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export const maxDuration = 120;
 
@@ -20,6 +21,7 @@ export default function OnboardingPage({
   return (
     <div className="mx-auto mt-8 w-full max-w-5xl">
       <PermissionsCheck />
+      <LoadStats loadBefore showToast={false} />
 
       <div className="px-4 lg:px-0">
         <PageHeading>First steps to Inbox Zero</PageHeading>

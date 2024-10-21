@@ -57,9 +57,7 @@ export default async function WelcomePage({
           </div>
         </div>
       </Card>
-      <Suspense>
-        <LoadStats loadBefore showToast={false} />
-      </Suspense>
+      <LoadStats loadBefore showToast={false} />
       {!user.utms && (
         <Suspense>
           <UTMs userId={session.user.id} />
