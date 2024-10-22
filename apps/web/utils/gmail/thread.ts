@@ -26,12 +26,14 @@ export async function getThreadsWithNextPageToken(
   labelIds: string[],
   gmail: gmail_v1.Gmail,
   maxResults = 100,
+  pageToken?: string,
 ) {
   const threads = await gmail.users.threads.list({
     userId: "me",
     q,
     labelIds,
     maxResults,
+    pageToken,
   });
 
   return {
