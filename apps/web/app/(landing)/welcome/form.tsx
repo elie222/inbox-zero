@@ -3,7 +3,11 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type PostHog, usePostHog } from "posthog-js/react";
+import {
+  type PostHog,
+  useFeatureFlagVariantKey,
+  usePostHog,
+} from "posthog-js/react";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -50,6 +54,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
     [posthog],
   );
 
+  const variant = useFeatureFlagVariantKey("app-onboarding");
+
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {
       const answer = data[name];
@@ -79,12 +85,25 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        router.push("/onboarding");
+        // a/b test
+        if (!variant || variant === "show") {
+          router.push("/onboarding");
+        } else {
+          router.push("/welcome-upgrade");
+        }
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
     },
-    [name, questionIndex, router, searchParams, submitPosthog, isFinalQuestion],
+    [
+      name,
+      questionIndex,
+      router,
+      searchParams,
+      submitPosthog,
+      isFinalQuestion,
+      variant,
+    ],
   );
 
   const question = survey.questions[questionIndex];
