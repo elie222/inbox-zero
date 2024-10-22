@@ -3,4 +3,4 @@
 import PQueue from "p-queue";
 
 // Avoid overwhelming Gmail API
-export const emailActionQueue = new PQueue({ concurrency: 3 });
+export const emailActionQueue = new PQueue({ concurrency: 1 });

@@ -143,7 +143,7 @@ async function autoArchive(
   await mutate();
   await decrementUnsubscribeCreditAction();
   await refetchPremium();
-  await archiveAllSenderEmails(name, () => {});
+  await archiveAllSenderEmails(name, () => {}, labelId);
 }
 
 export function useAutoArchive<T extends Row>({
@@ -182,6 +182,8 @@ export function useAutoArchive<T extends Row>({
       status: null,
     });
     await mutate();
+
+    setAutoArchiveLoading(false);
   }, [item.name, mutate, posthog, refetchPremium]);
 
   const onAutoArchiveAndLabel = useCallback(

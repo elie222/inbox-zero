@@ -12,27 +12,29 @@ import { emailActionQueue } from "@/utils/queue/email-action-queue";
 export const archiveEmails = async (
   threadIds: string[],
   refetch?: () => void,
+  labelId?: string,
 ) => {
-  addThreadsToQueue("archive", threadIds, refetch);
+  addThreadsToQueue({ actionType: "archive", threadIds, labelId, refetch });
 };
 
 export const markReadThreads = async (
   threadIds: string[],
   refetch: () => void,
 ) => {
-  addThreadsToQueue("markRead", threadIds, refetch);
+  addThreadsToQueue({ actionType: "markRead", threadIds, refetch });
 };
 
 export const deleteEmails = async (
   threadIds: string[],
   refetch: () => void,
 ) => {
-  addThreadsToQueue("delete", threadIds, refetch);
+  addThreadsToQueue({ actionType: "delete", threadIds, refetch });
 };
 
 export const archiveAllSenderEmails = async (
   from: string,
   onComplete: () => void,
+  labelId?: string,
 ) => {
   try {
     // 1. search gmail for messages from sender
@@ -45,7 +47,11 @@ export const archiveAllSenderEmails = async (
 
     // 2. archive messages
     if (data?.length) {
-      archiveEmails(data.map((t) => t.id).filter(isDefined), onComplete);
+      archiveEmails(
+        data.map((t) => t.id).filter(isDefined),
+        onComplete,
+        labelId,
+      );
     } else {
       onComplete();
     }
