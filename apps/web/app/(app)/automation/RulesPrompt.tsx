@@ -31,7 +31,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { handleActionCall } from "@/utils/server-action";
 
-const examplePrompts = [
+export const examplePrompts = [
   'Label newsletters as "Newsletter" and archive them',
   'Label marketing emails as "Marketing" and archive them',
   'Label emails that require a reply as "Reply Required"',
