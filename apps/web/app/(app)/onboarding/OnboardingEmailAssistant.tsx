@@ -27,7 +27,7 @@ import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import {
   rulesExamplesBody,
-  RulesExamplesBody,
+  type RulesExamplesBody,
 } from "@/utils/actions/validation";
 
 type RulesExamplesResponse = Awaited<ReturnType<typeof getRuleExamplesAction>>;

@@ -1,5 +1,5 @@
 import { withServerActionInstrumentation } from "@sentry/nextjs";
-import { ActionError, type ServerActionResponse } from "@/utils/error";
+import type { ActionError, ServerActionResponse } from "@/utils/error";
 
 // Utility type to ensure we're dealing with object types only
 type EnsureObject<T> = T extends object ? T : never;

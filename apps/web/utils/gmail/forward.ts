@@ -1,4 +1,4 @@
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 
 export const forwardEmailSubject = (subject: string) => {
   return `Fwd: ${subject}`;

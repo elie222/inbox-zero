@@ -3,7 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
 import type { Group, User } from "@prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 
 const GENERATE_GROUP_ITEMS = "generateGroupItems";
 const VERIFY_GROUP_ITEMS = "verifyGroupItems";

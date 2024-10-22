@@ -8,7 +8,12 @@ import {
   PenIcon,
   MailIcon,
 } from "lucide-react";
-import { useState, useCallback, Dispatch, SetStateAction } from "react";
+import {
+  useState,
+  useCallback,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { capitalCase } from "capital-case";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -47,7 +52,7 @@ import {
   type AddGroupItemBody,
   addGroupItemBody,
   updateGroupPromptBody,
-  UpdateGroupPromptBody,
+  type UpdateGroupPromptBody,
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";

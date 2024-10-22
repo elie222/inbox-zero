@@ -1,6 +1,6 @@
 "use client";
 
-import { type FieldError } from "react-hook-form";
+import type { FieldError } from "react-hook-form";
 import { Radio, RadioGroup as HeadlessRadioGroup } from "@headlessui/react";
 import { cn } from "@/utils";
 import { Label } from "@/components/Input";

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
 import type { User } from "@prisma/client";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import { queryBatchMessages } from "@/utils/gmail/message";
 
 const FIND_EXAMPLE_MATCHES = "findExampleMatches";

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { gmail_v1 } from "@googleapis/gmail";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import { findExampleMatchesSchema } from "@/utils/ai/example-matches/find-example-matches";
 
 vi.mock("server-only", () => ({}));
