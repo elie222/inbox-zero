@@ -18,7 +18,26 @@ export async function getThreads(
     labelIds,
     maxResults,
   });
-  return threads.data;
+  return threads.data || [];
+}
+
+export async function getThreadsWithNextPageToken(
+  q: string,
+  labelIds: string[],
+  gmail: gmail_v1.Gmail,
+  maxResults = 100,
+) {
+  const threads = await gmail.users.threads.list({
+    userId: "me",
+    q,
+    labelIds,
+    maxResults,
+  });
+
+  return {
+    threads: threads.data.threads || [],
+    nextPageToken: threads.data.nextPageToken,
+  };
 }
 
 export async function getThreadsBatch(
