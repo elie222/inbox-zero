@@ -28,19 +28,25 @@ export async function labelThread(options: {
   });
 }
 
-export async function archiveThread(options: {
+export async function archiveThread({
+  gmail,
+  threadId,
+  ownerEmail,
+  actionSource,
+  labelId,
+}: {
   gmail: gmail_v1.Gmail;
   threadId: string;
   ownerEmail: string;
   actionSource: TinybirdEmailAction["actionSource"];
+  labelId?: string;
 }) {
-  const { gmail, threadId, ownerEmail, actionSource } = options;
-
   const archivePromise = gmail.users.threads.modify({
     userId: "me",
     id: threadId,
     requestBody: {
       removeLabelIds: [INBOX_LABEL_ID],
+      ...(labelId ? { addLabelIds: [labelId] } : {}),
     },
   });
 
