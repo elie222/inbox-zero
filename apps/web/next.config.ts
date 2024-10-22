@@ -1,25 +1,16 @@
-import { fileURLToPath } from "node:url";
+import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
-import createJiti from "jiti";
 import withSerwistInit from "@serwist/next";
-
-const jiti = createJiti(fileURLToPath(import.meta.url));
-
 // Import env here to validate during build. Using jiti we can import .ts files :)
-jiti("./env");
+import "./env";
 
 const withMDX = nextMdx();
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
-  experimental: {
-    serverComponentsExternalPackages: ["@sentry/nextjs", "@sentry/node"],
-    instrumentationHook: true,
-  },
+  serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {
     remotePatterns: [
