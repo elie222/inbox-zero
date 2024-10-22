@@ -16,7 +16,7 @@ import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
-import { aiHomePath, appHomePath } from "@/utils/config";
+import { appHomePath } from "@/utils/config";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
