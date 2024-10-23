@@ -52,6 +52,8 @@ export function withActionInstrumentation<
 
       return result;
     } catch (error) {
+      console.error(`Error in action ${name}:`, error);
+
       // error is already captured by Sentry in `withServerActionInstrumentation`
       return {
         error: "An error occurred",
