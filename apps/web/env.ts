@@ -14,7 +14,7 @@ export const env = createEnv({
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),
-    BEDROCK_REGION: z.string().default("us-east-1"),
+    BEDROCK_REGION: z.string().default("us-west-2"),
     UPSTASH_REDIS_URL: z.string().min(1),
     UPSTASH_REDIS_TOKEN: z.string().min(1),
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
