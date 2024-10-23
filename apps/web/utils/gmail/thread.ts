@@ -21,13 +21,19 @@ export async function getThreads(
   return threads.data || [];
 }
 
-export async function getThreadsWithNextPageToken(
-  q: string,
-  labelIds: string[],
-  gmail: gmail_v1.Gmail,
+export async function getThreadsWithNextPageToken({
+  gmail,
+  q,
+  labelIds,
   maxResults = 100,
-  pageToken?: string,
-) {
+  pageToken,
+}: {
+  gmail: gmail_v1.Gmail;
+  q: string;
+  labelIds?: string[];
+  maxResults?: number;
+  pageToken?: string;
+}) {
   const threads = await gmail.users.threads.list({
     userId: "me",
     q,

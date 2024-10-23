@@ -3,7 +3,7 @@ import { extractEmailAddress } from "@/utils/email";
 import { getMessage } from "@/utils/gmail/message";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import type { MessageWithPayload } from "@/utils/types";
-import type { SenderMap } from "@/app/api/user/categorise/senders/types";
+import type { SenderMap } from "@/app/api/user/categorize/senders/types";
 
 export async function findSendersWithPagination(
   gmail: gmail_v1.Gmail,
@@ -19,7 +19,7 @@ export async function findSendersWithPagination(
       nextPageToken,
     );
 
-    senders.forEach(([sender, messages]) => {
+    Object.entries(senders).forEach(([sender, messages]) => {
       const existingMessages = allSenders.get(sender) ?? [];
       allSenders.set(sender, [...existingMessages, ...messages]);
     });
@@ -33,30 +33,38 @@ export async function findSendersWithPagination(
   return Array.from(allSenders);
 }
 
-async function findSenders(gmail: gmail_v1.Gmail, pageToken?: string) {
+export async function findSenders(
+  gmail: gmail_v1.Gmail,
+  pageToken?: string,
+  maxResults = 50,
+) {
   const senders: SenderMap = new Map();
 
-  const { threads, nextPageToken } = await getThreadsWithNextPageToken(
-    `-in:sent`,
-    [],
+  const { threads, nextPageToken } = await getThreadsWithNextPageToken({
+    q: `-in:sent`,
     gmail,
-    100,
+    maxResults,
     pageToken,
-  );
+  });
 
   for (const thread of threads) {
-    const firstMessage = thread.messages?.[0];
-    if (!firstMessage?.id) continue;
-    const message = await getMessage(firstMessage.id, gmail, "metadata");
+    if (!thread.id) continue;
+    try {
+      const message = await getMessage(thread.id, gmail, "metadata");
+      console.log("🚀 ~ message:", message.id);
 
-    const sender = extractSenderInfo(message);
-    if (sender) {
-      const existingMessages = senders.get(sender) ?? [];
-      senders.set(sender, [...existingMessages, message]);
+      const sender = extractSenderInfo(message);
+      if (sender) {
+        const existingMessages = senders.get(sender) ?? [];
+        senders.set(sender, [...existingMessages, message]);
+      }
+    } catch (error) {
+      if (isNotFoundError(error)) continue;
+      console.error("Error getting message", error);
     }
   }
 
-  return { senders: Array.from(senders), nextPageToken };
+  return { senders, nextPageToken };
 }
 
 function extractSenderInfo(message: MessageWithPayload) {
@@ -64,4 +72,18 @@ function extractSenderInfo(message: MessageWithPayload) {
   if (!fromHeader?.value) return null;
 
   return extractEmailAddress(fromHeader.value);
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "errors" in error &&
+    Array.isArray((error as any).errors) &&
+    (error as any).errors.some(
+      (e: any) =>
+        e.message === "Requested entity was not found." &&
+        e.reason === "notFound",
+    )
+  );
 }

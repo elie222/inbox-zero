@@ -74,8 +74,6 @@ export const categorizeSender = (
   contents: string[],
 ) => {
   // 1. check if the sender matches a hard coded pattern
-  // 1a. check if the sender is a newsletter
-  // 1b. check if the sender is a receipt
   // 2. if not, send the sender to the ai. do we want to do this in batches? to save on tokens?
   // we will need to send email contents too
   // // Check each rule

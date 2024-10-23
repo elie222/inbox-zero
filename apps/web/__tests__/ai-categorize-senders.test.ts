@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { aiCategoriseSenders } from "@/utils/ai/categorise-sender/ai-categorise-senders";
-import { SenderCategory } from "@/app/api/user/categorise/senders/categorise-sender";
+import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
+import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
 
 vi.mock("server-only", () => ({}));
 
-describe("aiCategoriseSenders", () => {
+describe("aiCategorizeSenders", () => {
   const user = {
     email: "user@test.com",
     aiProvider: null,
@@ -21,7 +21,7 @@ describe("aiCategoriseSenders", () => {
       "noreply@socialnetwork.com",
     ];
 
-    const result = await aiCategoriseSenders({ user, senders });
+    const result = await aiCategorizeSenders({ user, senders });
 
     expect(result).toHaveLength(senders.length);
     expect(result).toEqual(
@@ -54,7 +54,7 @@ describe("aiCategoriseSenders", () => {
   it("should handle empty senders list", async () => {
     const senders: string[] = [];
 
-    const result = await aiCategoriseSenders({ user, senders });
+    const result = await aiCategorizeSenders({ user, senders });
 
     expect(result).toEqual([]);
   });
@@ -64,7 +64,7 @@ describe("aiCategoriseSenders", () => {
       .filter((category) => category !== "unknown")
       .map((category) => `${category}@example.com`);
 
-    const result = await aiCategoriseSenders({ user, senders });
+    const result = await aiCategorizeSenders({ user, senders });
 
     expect(result).toHaveLength(senders.length);
 

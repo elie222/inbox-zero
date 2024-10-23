@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SenderCategory } from "@/app/api/user/categorise/senders/categorise-sender";
+import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
 import { chatCompletionTools } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
@@ -9,7 +9,7 @@ const categories = [
   "request_more_information",
 ];
 
-const categoriseSendersSchema = z.object({
+const categorizeSendersSchema = z.object({
   senders: z
     .array(
       z.object({
@@ -17,14 +17,19 @@ const categoriseSendersSchema = z.object({
         category: z
           .enum(categories as [string, ...string[]])
           .describe("The category of the sender"),
+        // confidence: z
+        //   .number()
+        //   .describe(
+        //     "The confidence score of the category. A value between 0 and 100.",
+        //   ),
       }),
     )
     .describe("An array of senders and their categories"),
 });
 
-type CategoriseSenders = z.infer<typeof categoriseSendersSchema>;
+type CategorizeSenders = z.infer<typeof categorizeSendersSchema>;
 
-export async function aiCategoriseSenders({
+export async function aiCategorizeSenders({
   user,
   senders,
 }: {
@@ -59,17 +64,17 @@ Remember, it's better to request more information than to categorize incorrectly
     system,
     prompt,
     tools: {
-      categoriseSenders: {
-        description: "Categorise senders",
-        parameters: categoriseSendersSchema,
+      categorizeSenders: {
+        description: "categorize senders",
+        parameters: categorizeSendersSchema,
       },
     },
     userEmail: user.email || "",
-    label: "Categorise senders",
+    label: "categorize senders",
   });
 
-  const result: CategoriseSenders["senders"] = aiResponse.toolCalls.find(
-    ({ toolName }) => toolName === "categoriseSenders",
+  const result: CategorizeSenders["senders"] = aiResponse.toolCalls.find(
+    ({ toolName }) => toolName === "categorizeSenders",
   )?.args.senders;
 
   return result;
