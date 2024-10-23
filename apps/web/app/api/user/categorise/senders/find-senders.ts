@@ -3,12 +3,13 @@ import { extractEmailAddress } from "@/utils/email";
 import { getMessage } from "@/utils/gmail/message";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import type { MessageWithPayload } from "@/utils/types";
+import type { SenderMap } from "@/app/api/user/categorise/senders/types";
 
 export async function findSendersWithPagination(
   gmail: gmail_v1.Gmail,
   maxPages: number,
 ) {
-  const allSenders = new Set<string>();
+  const allSenders: SenderMap = new Map();
   let nextPageToken: string | undefined = undefined;
   let currentPage = 0;
 
@@ -18,7 +19,10 @@ export async function findSendersWithPagination(
       nextPageToken,
     );
 
-    senders.forEach((sender) => allSenders.add(sender));
+    senders.forEach(([sender, messages]) => {
+      const existingMessages = allSenders.get(sender) ?? [];
+      allSenders.set(sender, [...existingMessages, ...messages]);
+    });
 
     if (!newNextPageToken) break; // No more pages
 
@@ -30,7 +34,7 @@ export async function findSendersWithPagination(
 }
 
 async function findSenders(gmail: gmail_v1.Gmail, pageToken?: string) {
-  const senders = new Set<string>();
+  const senders: SenderMap = new Map();
 
   const { threads, nextPageToken } = await getThreadsWithNextPageToken(
     `-in:sent`,
@@ -46,7 +50,10 @@ async function findSenders(gmail: gmail_v1.Gmail, pageToken?: string) {
     const message = await getMessage(firstMessage.id, gmail, "metadata");
 
     const sender = extractSenderInfo(message);
-    if (sender) senders.add(sender);
+    if (sender) {
+      const existingMessages = senders.get(sender) ?? [];
+      senders.set(sender, [...existingMessages, message]);
+    }
   }
 
   return { senders: Array.from(senders), nextPageToken };
