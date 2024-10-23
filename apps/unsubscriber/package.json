@@ -11,20 +11,20 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
-    "@types/dotenv": "^8.2.0",
-    "@types/node": "22.7.5",
-    "playwright": "^1.47.2",
+    "@types/dotenv": "^8.2.3",
+    "@types/node": "22.7.9",
+    "playwright": "^1.48.1",
     "tsx": "^4.19.1",
     "typescript": "5.6.3"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^0.0.29",
+    "@ai-sdk/amazon-bedrock": "^0.0.30",
     "@ai-sdk/anthropic": "^0.0.51",
-    "@ai-sdk/google": "^0.0.51",
-    "@ai-sdk/openai": "^0.0.66",
+    "@ai-sdk/google": "^0.0.52",
+    "@ai-sdk/openai": "^0.0.68",
     "@fastify/cors": "^10.0.1",
     "@t3-oss/env-core": "^0.11.1",
-    "ai": "^3.4.9",
+    "ai": "^3.4.18",
     "dotenv": "^16.4.5",
     "fastify": "^5.0.0",
     "zod": "^3.23.8"
