@@ -71,11 +71,10 @@ export const createRuleBody = z.object({
   // body: z.string().nullish(), // not in use atm
   // group
   groupId: z.string().nullish(),
-  categoryFilterType: z.enum([
-    CategoryFilterType.INCLUDE,
-    CategoryFilterType.EXCLUDE,
-  ]),
-  categoryFilter: z.array(z.string()),
+  categoryFilterType: z
+    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+    .nullish(),
+  categoryFilters: z.array(z.string()),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 

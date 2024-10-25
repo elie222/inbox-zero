@@ -9,7 +9,7 @@ import {
   INBOX_LABEL_ID,
   SENT_LABEL_ID,
 } from "@/utils/gmail/label";
-import type { RuleWithActions } from "@/utils/types";
+import type { RuleWithActionsAndCategories } from "@/utils/types";
 import { getMessage, hasPreviousEmailsFromDomain } from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -44,7 +44,7 @@ export async function processHistoryForUser(
           lastSyncedHistoryId: true,
           rules: {
             where: { enabled: true },
-            include: { actions: true },
+            include: { actions: true, categoryFilters: true },
           },
           coldEmailBlocker: true,
           coldEmailPrompt: true,
@@ -200,7 +200,7 @@ type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];
   email: string;
   gmail: gmail_v1.Gmail;
-  rules: RuleWithActions[];
+  rules: RuleWithActionsAndCategories[];
   hasAutomationRules: boolean;
   hasColdEmailAccess: boolean;
   hasAiAutomationAccess: boolean;

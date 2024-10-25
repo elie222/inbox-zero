@@ -187,8 +187,8 @@ model Rule {
   body    String?
 
   // only apply to (or do not apply to) senders in these categories
-  categoryFilterType CategoryFilterType
-  categoryFilter     Category[]
+  categoryFilterType CategoryFilterType?
+  categoryFilters    Category[]
 
   @@unique([name, userId])
 }

@@ -67,8 +67,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     resolver: zodResolver(createRuleBody),
     defaultValues: {
       ...rule,
-      categoryFilterType: rule.categoryFilterType,
-      categoryFilter: rule.categoryFilter,
     },
   });
 
@@ -206,13 +204,13 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 label: capitalCase(category),
                 value: category,
               }))}
-              selectedValues={new Set(watch("categoryFilter"))}
+              selectedValues={new Set(watch("categoryFilters"))}
               setSelectedValues={(selectedValues) => {
-                setValue("categoryFilter", Array.from(selectedValues));
+                setValue("categoryFilters", Array.from(selectedValues));
               }}
             />
-            {errors.categoryFilter?.message && (
-              <ErrorMessage message={errors.categoryFilter.message} />
+            {errors.categoryFilters?.message && (
+              <ErrorMessage message={errors.categoryFilters.message} />
             )}
           </div>
         </div>
