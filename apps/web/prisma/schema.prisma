@@ -90,6 +90,7 @@ model User {
   coldEmails    ColdEmail[]
   groups        Group[]
   apiKeys       ApiKey[]
+  categories    Category[]
 }
 
 model Premium {
@@ -283,6 +284,19 @@ model GroupItem {
   @@unique([groupId, type, value])
 }
 
+model Category {
+  id           String       @id @default(cuid())
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  name         String
+  description  String?
+  userId       String? // set to null for default categories
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailSenders Newsletter[]
+
+  @@unique([name, userId])
+}
+
 // Represents a sender (`email`) that a user can unsubscribe from,
 // or that our AI can mark as a cold email.
 // `Newsletter` is a bad name for this. Will rename this model in the future.
@@ -293,8 +307,10 @@ model Newsletter {
   email     String
   status    NewsletterStatus?
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
 
   @@unique([email, userId])
   @@index([userId, status])

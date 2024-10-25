@@ -30,7 +30,7 @@ export async function findSendersWithPagination(
     currentPage++;
   }
 
-  return Array.from(allSenders);
+  return { senders: allSenders, nextPageToken };
 }
 
 export async function findSenders(
@@ -51,7 +51,6 @@ export async function findSenders(
     if (!thread.id) continue;
     try {
       const message = await getMessage(thread.id, gmail, "metadata");
-      console.log("🚀 ~ message:", message.id);
 
       const sender = extractSenderInfo(message);
       if (sender) {
@@ -71,7 +70,7 @@ function extractSenderInfo(message: MessageWithPayload) {
   const fromHeader = message.payload?.headers?.find((h) => h.name === "From");
   if (!fromHeader?.value) return null;
 
-  return extractEmailAddress(fromHeader.value);
+  return fromHeader.value;
 }
 
 function isNotFoundError(error: unknown): boolean {

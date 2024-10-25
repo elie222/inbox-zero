@@ -2,7 +2,11 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import uniq from "lodash/uniq";
 import { queryBatchMessagesPages } from "@/utils/gmail/message";
 
-const newsletterSenders = ["@substack.com", "@mail.beehiiv.com", "@ghost.io"];
+export const newsletterSenders = [
+  "@substack.com",
+  "@mail.beehiiv.com",
+  "@ghost.io",
+];
 const ignoreList = ["@github.com", "@google.com", "@gmail.com", "@slack.com"];
 
 export async function findNewsletters(

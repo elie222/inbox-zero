@@ -1,5 +1,6 @@
 "use server";
 
+import uniq from "lodash/uniq";
 import { categorize } from "@/app/api/ai/categorize/controller";
 import {
   type CategorizeBodyWithHtml,
@@ -14,6 +15,9 @@ import prisma from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
+import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
+import { defaultReceiptSenders } from "@/utils/ai/group/find-receipts";
+import { newsletterSenders } from "@/utils/ai/group/find-newsletters";
 
 export const categorizeAction = withActionInstrumentation(
   "categorize",
@@ -82,14 +86,107 @@ export const categorizeSendersAction = withActionInstrumentation(
 
     if (!user) return { error: "User not found" };
 
-    const sendersResult = await findSenders(gmail);
+    // TODO: fetch from gmail, run ai, then fetch from gmail,...
+    // we can run ai and gmail fetch in parallel
 
-    const senders = Array.from(sendersResult.senders.keys());
-    console.log("🚀 ~ senders:", senders);
+    const sendersResult = await findSenders(gmail, undefined, 100);
+    // const sendersResult = await findSendersWithPagination(gmail, 5);
 
-    const result = await aiCategorizeSenders({ user, senders });
-    console.log("🚀 ~ result:", result);
+    const senders = uniq(Array.from(sendersResult.senders.keys()));
 
-    return result;
+    // remove senders we've already categorized
+    const existingSenders = await prisma.newsletter.findMany({
+      where: { email: { in: senders }, userId: u.id },
+      select: { email: true },
+    });
+
+    const sendersToCategorize = senders.filter(
+      (sender) => !existingSenders.some((s) => s.email === sender),
+    );
+
+    const categorizedSenders =
+      preCategorizeSendersWithStaticRules(sendersToCategorize);
+
+    const sendersToCategorizeWithAi = categorizedSenders
+      .filter((sender) => !sender.category)
+      .map((sender) => sender.sender);
+
+    const aiResults = await aiCategorizeSenders({
+      user,
+      senders: sendersToCategorizeWithAi,
+    });
+
+    // get user categories
+    const categories = await prisma.category.findMany({
+      where: { OR: [{ userId: u.id }, { userId: null }] },
+      select: { id: true, name: true },
+    });
+
+    const results = [...categorizedSenders, ...aiResults];
+
+    for (const result of results) {
+      if (!result.category) continue;
+      let category = categories.find((c) => c.name === result.category);
+
+      if (!category) {
+        // create category
+        const newCategory = await prisma.category.create({
+          data: { name: result.category, userId: u.id },
+        });
+        category = newCategory;
+        categories.push(category);
+      }
+
+      // save category
+      await prisma.newsletter.upsert({
+        where: { email_userId: { email: result.sender, userId: u.id } },
+        update: { categoryId: category.id },
+        create: {
+          email: result.sender,
+          userId: u.id,
+          categoryId: category.id,
+        },
+      });
+    }
+
+    return results;
   },
 );
+
+// Use static rules to categorize senders if we can, before sending to LLM
+function preCategorizeSendersWithStaticRules(
+  senders: string[],
+): { sender: string; category: SenderCategory | undefined }[] {
+  return senders.map((sender) => {
+    // if the sender is @gmail.com, @yahoo.com, etc.
+    // then mark as "Unknown" (LLM will categorize these as "Personal")
+    const personalEmailDomains = [
+      "gmail.com",
+      "googlemail.com",
+      "yahoo.com",
+      "hotmail.com",
+      "outlook.com",
+      "aol.com",
+    ];
+
+    if (personalEmailDomains.some((domain) => sender.includes(`@${domain}>`)))
+      return { sender, category: SenderCategory.UNKNOWN };
+
+    // newsletters
+    if (
+      sender.toLowerCase().includes("newsletter") ||
+      newsletterSenders.some((newsletter) => sender.includes(newsletter))
+    )
+      return { sender, category: SenderCategory.NEWSLETTER };
+
+    // support
+    if (sender.toLowerCase().includes("support"))
+      return { sender, category: SenderCategory.SUPPORT };
+
+    // receipts
+    if (defaultReceiptSenders.some((receipt) => sender.includes(receipt)))
+      return { sender, category: SenderCategory.RECEIPT };
+
+    return { sender, category: undefined };
+  });
+}

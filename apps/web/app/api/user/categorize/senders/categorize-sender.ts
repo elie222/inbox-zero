@@ -1,24 +1,99 @@
 export const SenderCategory = {
   UNKNOWN: "unknown",
+  // Emails that don't fit any other category or can't be classified
+
   NEWSLETTER: "newsletter",
+  // "Weekly Tech Digest from TechCrunch"
+  // "Monthly Fitness Tips from GymPro"
+  // "Daily News Roundup from The New York Times"
+
   MARKETING: "marketing",
+  // "50% Off Summer Sale at Fashion Store"
+  // "New Product Launch: Try Our Latest Gadget"
+  // "Limited Time Offer: Join Our Premium Membership"
+
   RECEIPT: "receipt",
-  FINANCE: "finance",
+  // "Your Amazon.com order confirmation"
+  // "Receipt for your recent purchase at Apple Store"
+  // "Payment confirmation for your Netflix subscription"
+
+  BANKING: "banking",
+  // "Your monthly statement from Chase Bank"
+  // "Important update about your savings account"
+  // "Fraud alert: Unusual activity detected on your card"
+
   LEGAL: "legal",
+  // "Updates to our Terms of Service"
+  // "Important information about your lawsuit"
+  // "Contract for your review and signature"
+
   SUPPORT: "support",
+  // "Your support ticket #12345 has been resolved"
+  // "Follow-up on your recent customer service inquiry"
+  // "Troubleshooting guide for your recent issue"
+
   PERSONAL: "personal",
+  // "Hey, want to grab coffee this weekend?"
+  // "Photos from last night's dinner"
+  // "Happy birthday wishes from Mom"
+
   WORK: "work",
+  // "Meeting agenda for tomorrow's team sync"
+  // "Quarterly performance review reminder"
+  // "New project kickoff: Action items"
+
   SOCIAL: "social",
-  TRANSACTIONAL: "transactional",
+  // "John Smith tagged you in a photo on Facebook"
+  // "New connection request on LinkedIn"
+  // "Your friend's status update on Instagram"
+
   EDUCATIONAL: "educational",
+  // "Your course schedule for the upcoming semester"
+  // "Reminder: Assignment due next week"
+  // "New learning resources available in your online class"
+
   TRAVEL: "travel",
+  // "Your flight itinerary for upcoming trip"
+  // "Hotel reservation confirmation"
+  // "Travel insurance policy for your vacation"
+
   HEALTH: "health",
+  // "Reminder: Your dental appointment is tomorrow"
+  // "Lab test results are now available"
+  // "Your prescription is ready for pickup"
+
   GOVERNMENT: "government",
+  // "Important update about your tax return"
+  // "Voter registration information"
+  // "Census Bureau: Please complete your survey"
+
   CHARITY: "charity",
+  // "Thank you for your recent donation"
+  // "Volunteer opportunity: Help at our upcoming event"
+  // "Impact report: See how your contributions helped"
+
   ENTERTAINMENT: "entertainment",
+  // "New movies available on your streaming service"
+  // "Exclusive preview of our upcoming video game release"
+
+  EVENTS: "events",
+  // "Invitation to Sarah's wedding"
+  // "Reminder: Community BBQ this Saturday"
+  // "Conference schedule and registration information"
+
+  SHOPPING: "shopping",
+  // "Your wishlist items are now on sale"
+  // "New arrivals at your favorite store"
+  // "Shipping update: Your package is on its way"
+
+  ACCOUNT: "account",
+  // "Password reset for your account"
+  // "Security alert: New login detected"
+  // "Your account settings have been updated"
 } as const;
 
-type SenderCategory = (typeof SenderCategory)[keyof typeof SenderCategory];
+export type SenderCategory =
+  (typeof SenderCategory)[keyof typeof SenderCategory];
 
 interface CategoryRule {
   category: SenderCategory;
@@ -50,64 +125,9 @@ const rules: CategoryRule[] = [
     patterns: [/marketing@/i, /promotions@/i, /offers@/i, /sales@/i],
     keywords: ["offer", "discount", "sale", "limited time", "exclusive"],
   },
-  // {
-  //   category: SenderCategory.CUSTOMER_SERVICE,
-  //   patterns: [/support@/i, /help@/i, /customerservice@/i, /care@/i],
-  //   keywords: ["ticket", "case", "inquiry", "support"],
-  // },
   {
     category: SenderCategory.LEGAL,
     patterns: [/legal@/i, /compliance@/i, /notices@/i],
     keywords: ["agreement", "terms", "policy", "compliance"],
   },
-  {
-    category: SenderCategory.FINANCE,
-    patterns: [/billing@/i, /payments@/i, /accounting@/i, /invoice@/i],
-    keywords: ["payment", "invoice", "receipt", "statement", "bill"],
-  },
 ];
-
-export const categorizeSender = (
-  email: string,
-  name: string,
-  subjectLines: string[],
-  contents: string[],
-) => {
-  // 1. check if the sender matches a hard coded pattern
-  // 2. if not, send the sender to the ai. do we want to do this in batches? to save on tokens?
-  // we will need to send email contents too
-  // // Check each rule
-  // const matchedRule = rules.find((rule) => {
-  //   // Check email patterns
-  //   const hasMatchingPattern = rule.patterns.some((pattern) =>
-  //     pattern.test(email.toLowerCase()),
-  //   );
-  //   if (hasMatchingPattern) return true;
-  //   // Check keywords in subject lines
-  //   if (rule.keywords && subjectLines.length > 0) {
-  //     const hasMatchingKeyword = subjectLines.some((subject) =>
-  //       rule.keywords!.some((keyword) =>
-  //         subject.toLowerCase().includes(keyword.toLowerCase()),
-  //       ),
-  //     );
-  //     if (hasMatchingKeyword) return true;
-  //   }
-  //   return false;
-  // });
-  // if (matchedRule) {
-  //   return matchedRule.category;
-  // }
-  // // Check for personal email indicators
-  // const personalIndicators = [
-  //   // No company domain
-  //   !/.com|.org|.net|.edu|.gov/i.test(email),
-  //   // Uses a personal email service
-  //   /@gmail.|@yahoo.|@hotmail.|@outlook./i.test(email),
-  //   // Display name looks like a person's name (basic check)
-  //   /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(name),
-  // ];
-  // if (personalIndicators.filter(Boolean).length >= 2) {
-  //   return SenderCategory.PERSONAL;
-  // }
-  // return SenderCategory.UNKNOWN;
-};

@@ -7,7 +7,11 @@ import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { generalizeSubject } from "@/utils/string";
 
 // Predefined lists of receipt senders and subjects
-const defaultReceiptSenders = ["invoice+statements", "receipt@", "invoice@"];
+export const defaultReceiptSenders = [
+  "invoice+statements",
+  "receipt@",
+  "invoice@",
+];
 const defaultReceiptSubjects = [
   "Invoice #",
   "Payment Receipt",
