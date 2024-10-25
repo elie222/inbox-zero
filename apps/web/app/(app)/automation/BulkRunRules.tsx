@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import useSWR from "swr";
 import { useAtomValue } from "jotai";
 import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,15 +17,13 @@ import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/automation/SetDateDropdown";
 import { dateToSeconds } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
+import { useThreads } from "@/hooks/useThreads";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
   const [totalThreads, setTotalThreads] = useState(0);
 
-  const query: ThreadsQuery = { type: "inbox" };
-  const { data, isLoading, error } = useSWR<ThreadsResponse>(
-    `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
-  );
+  const { data, isLoading, error } = useThreads({ type: "inbox" });
 
   const queue = useAtomValue(aiQueueAtom);
 

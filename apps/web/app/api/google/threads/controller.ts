@@ -33,17 +33,23 @@ export async function getThreads(query: ThreadsQuery) {
 
   if (!accessToken) throw new SafeError("Missing access token");
 
+  function getQuery() {
+    if (query.q) {
+      return query.q;
+    } else if (query.fromEmail) {
+      return `from:${query.fromEmail}`;
+    } else if (query.type === "archive") {
+      return `-label:${INBOX_LABEL_ID}`;
+    } else {
+      return undefined;
+    }
+  }
+
   const gmailThreads = await gmail.users.threads.list({
     userId: "me",
     labelIds: getLabelIds(query.type),
     maxResults: query.limit || 50,
-    q:
-      query.q ||
-      (query.fromEmail
-        ? `from:${query.fromEmail}`
-        : query.type === "archive"
-          ? `-label:${INBOX_LABEL_ID}`
-          : undefined),
+    q: getQuery(),
     pageToken: query.nextPageToken || undefined,
   });
 
