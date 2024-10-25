@@ -27,7 +27,7 @@ import {
   SectionDescription,
   TypographyH3,
 } from "@/components/Typography";
-import { ActionType, RuleType } from "@prisma/client";
+import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -52,6 +52,8 @@ import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
+import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -63,7 +65,11 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     formState: { errors, isSubmitting },
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
-    defaultValues: rule,
+    defaultValues: {
+      ...rule,
+      categoryFilterType: rule.categoryFilterType,
+      categoryFilter: rule.categoryFilter,
+    },
   });
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
@@ -178,6 +184,37 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             placeholder='e.g. Apply this rule to all "receipts"'
             tooltipText="The instructions that will be passed to the AI."
           />
+
+          <div className="space-y-2">
+            <div className="w-fit">
+              <Select
+                name="categoryFilterType"
+                label="Only apply rule to emails from these categories"
+                options={[
+                  { label: "Include", value: CategoryFilterType.INCLUDE },
+                  { label: "Exclude", value: CategoryFilterType.EXCLUDE },
+                ]}
+                registerProps={register("categoryFilterType")}
+                error={errors.categoryFilterType}
+              />
+            </div>
+
+            <MultiSelectFilter
+              title="Categories"
+              maxDisplayedValues={8}
+              options={Object.values(SenderCategory).map((category) => ({
+                label: capitalCase(category),
+                value: category,
+              }))}
+              selectedValues={new Set(watch("categoryFilter"))}
+              setSelectedValues={(selectedValues) => {
+                setValue("categoryFilter", Array.from(selectedValues));
+              }}
+            />
+            {errors.categoryFilter?.message && (
+              <ErrorMessage message={errors.categoryFilter.message} />
+            )}
+          </div>
         </div>
       )}
 

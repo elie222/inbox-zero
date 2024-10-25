@@ -186,6 +186,10 @@ model Rule {
   subject String?
   body    String?
 
+  // only apply to (or do not apply to) senders in these categories
+  categoryFilterType CategoryFilterType
+  categoryFilter     Category[]
+
   @@unique([name, userId])
 }
 
@@ -293,6 +297,7 @@ model Category {
   userId       String? // set to null for default categories
   user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailSenders Newsletter[]
+  rules        Rule[]
 
   @@unique([name, userId])
 }
@@ -422,4 +427,9 @@ enum GroupItemType {
   FROM
   SUBJECT
   BODY
+}
+
+enum CategoryFilterType {
+  INCLUDE
+  EXCLUDE
 }
