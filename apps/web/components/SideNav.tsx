@@ -29,6 +29,7 @@ import {
   SendIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  TagIcon,
   Users2Icon,
   XIcon,
 } from "lucide-react";
@@ -53,6 +54,11 @@ export const navigation: NavItem[] = [
     name: "AI Personal Assistant",
     href: "/automation",
     icon: SparklesIcon,
+  },
+  {
+    name: "Smart Categories",
+    href: "/smart-categories",
+    icon: TagIcon,
   },
   {
     name: "Cold Email Blocker",

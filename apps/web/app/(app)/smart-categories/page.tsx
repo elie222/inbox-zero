@@ -3,8 +3,18 @@ import { KanbanBoard } from "@/components/kanban/KanbanBoard";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
+import { isDefined } from "@/utils/types";
 
 export const dynamic = "force-dynamic";
+
+const CATEGORY_ORDER = [
+  "unknown",
+  "request_more_information",
+  "newsletter",
+  "marketing",
+  "receipts",
+  "support",
+];
 
 export default async function CategoriesPage() {
   const session = await auth();
@@ -24,11 +34,19 @@ export default async function CategoriesPage() {
 
   if (!categories.length) return <div className="p-4">No categories found</div>;
 
+  // Order categories
+  const orderedCategories = [
+    ...CATEGORY_ORDER.map((name) =>
+      categories.find((c) => c.name === name),
+    ).filter(isDefined),
+    ...categories.filter((c) => !CATEGORY_ORDER.includes(c.name)),
+  ];
+
   return (
     <div className="p-4">
       <ClientOnly>
         <KanbanBoard
-          categories={categories.map((c) => ({
+          categories={orderedCategories.map((c) => ({
             id: c.id,
             title: capitalCase(c.name),
           }))}

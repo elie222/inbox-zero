@@ -5,6 +5,7 @@ import { cva } from "class-variance-authority";
 import { GripVertical } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { EmailCell } from "@/components/EmailCell";
 
 export interface Task {
   id: UniqueIdentifier;
@@ -66,14 +67,14 @@ export function TaskCard({ task, isOverlay }: TaskCardProps) {
       })}
     >
       <CardHeader className="space-between relative flex flex-row items-center border-b-2 border-secondary px-3 py-3">
-        <p className="mr-auto text-sm">{task.content}</p>
+        <EmailCell emailAddress={task.content} className="mr-auto text-sm" />
         <Button
           variant={"ghost"}
           {...attributes}
           {...listeners}
           className="-mr-2 h-auto cursor-grab p-1 text-secondary-foreground/50"
         >
-          <span className="sr-only">Move task</span>
+          <span className="sr-only">Move email</span>
           <GripVertical />
         </Button>
       </CardHeader>

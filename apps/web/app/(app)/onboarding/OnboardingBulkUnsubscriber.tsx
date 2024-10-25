@@ -24,6 +24,7 @@ import { ProgressBar } from "@tremor/react";
 import { ONE_MONTH_MS } from "@/utils/date";
 import { useUnsubscribe } from "@/app/(app)/bulk-unsubscribe/hooks";
 import { NewsletterStatus } from "@prisma/client";
+import { EmailCell } from "@/components/EmailCell";
 
 const useNewsletterStats = () => {
   const now = useMemo(() => Date.now(), []);
@@ -141,13 +142,6 @@ function UnsubscribeRow({
     },
   );
 
-  const parseEmail = (name: string) => {
-    const match = name.match(/<(.+)>/);
-    return match ? match[1] : name;
-  };
-  const name = row.name.split("<")[0].trim();
-  const email = parseEmail(row.name);
-
   const readPercentage = row.value ? (row.readEmails / row.value) * 100 : 0;
   const archivedEmails = row.value - row.inboxEmails;
   const archivedPercentage = row.value ? (archivedEmails / row.value) * 100 : 0;
@@ -157,8 +151,7 @@ function UnsubscribeRow({
   return (
     <TableRow key={row.name}>
       <TableCell>
-        <div>{name}</div>
-        <div className="text-slate-500">{email}</div>
+        <EmailCell emailAddress={row.name} />
       </TableCell>
       <TableCell>{row.value}</TableCell>
       <TableCell>

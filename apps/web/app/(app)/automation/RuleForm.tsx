@@ -188,6 +188,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
               <Select
                 name="categoryFilterType"
                 label="Only apply rule to emails from these categories"
+                tooltipText="This helps the AI be more accurate and produce better results."
                 options={[
                   { label: "Include", value: CategoryFilterType.INCLUDE },
                   { label: "Exclude", value: CategoryFilterType.EXCLUDE },
