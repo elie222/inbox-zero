@@ -344,6 +344,9 @@ importers:
       novel:
         specifier: 0.3.1
         version: 0.3.1(@types/react@18.3.12)(immer@10.1.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      nuqs:
+        specifier: ^2.0.4
+        version: 2.0.4(next@14.2.15(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       openai:
         specifier: ^4.68.3
         version: 4.68.3(encoding@0.1.13)(zod@3.23.8)
@@ -8703,6 +8706,9 @@ packages:
     resolution: {integrity: sha512-7PujJ3Te6GGg9lG1nfw5jYCPV6/BsoAT0nCQwb6w+ROuromXYxI6jc/CQSlD82Z/OUMSBX1SoaqhTE+vXiLQzQ==}
     engines: {node: '>=4.0.0'}
 
+  mitt@3.0.1:
+    resolution: {integrity: sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==}
+
   mkdirp-classic@0.5.3:
     resolution: {integrity: sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==}
 
@@ -8943,6 +8949,21 @@ packages:
 
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
+
+  nuqs@2.0.4:
+    resolution: {integrity: sha512-d0GQCOHW9o04slcTe9nfTgskCT/09K5pOMXu671Y8p7d/48KEKJLzZjklWXIt3pFjYaplErMZpXiLiYo0w8uQQ==}
+    peerDependencies:
+      '@remix-run/react': '>= 2'
+      next: '>= 14.2.0'
+      react: '>= 18.2.0'
+      react-router-dom: '>= 6'
+    peerDependenciesMeta:
+      '@remix-run/react':
+        optional: true
+      next:
+        optional: true
+      react-router-dom:
+        optional: true
 
   nwsapi@2.2.12:
     resolution: {integrity: sha512-qXDmcVlZV4XRtKFzddidpfVP4oMSGhga+xdMc25mv8kaLUHtgzCDhUxkrN8exkGdTlLNaXj7CV3GtON7zuGZ+w==}
@@ -21509,6 +21530,8 @@ snapshots:
       stream-each: 1.2.3
       through2: 3.0.2
 
+  mitt@3.0.1: {}
+
   mkdirp-classic@0.5.3: {}
 
   mkdirp@0.5.6:
@@ -21782,6 +21805,13 @@ snapshots:
   nth-check@2.1.1:
     dependencies:
       boolbase: 1.0.0
+
+  nuqs@2.0.4(next@14.2.15(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+    dependencies:
+      mitt: 3.0.1
+      react: 18.3.1
+    optionalDependencies:
+      next: 14.2.15(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
   nwsapi@2.2.12: {}
 

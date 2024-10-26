@@ -294,7 +294,8 @@ model Category {
   updatedAt    DateTime     @updatedAt
   name         String
   description  String?
-  userId       String? // set to null for default categories
+  color        String
+  userId       String? // set to null for default categories // TODO: maybe force this to be not null, so that each user can choose the categories they care about, and can also change descriptions. e.g. Support could have a different meaning if you're running a company or if you're a customer.
   user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailSenders Newsletter[]
   rules        Rule[]

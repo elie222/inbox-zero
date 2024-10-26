@@ -14,11 +14,10 @@ export function useThreads({
   refreshInterval?: number;
 }) {
   const params: ThreadsQuery = {
-    fromEmail: fromEmail ? encodeURIComponent(fromEmail) : undefined,
+    fromEmail,
     limit,
     type,
   };
-
   const url = `/api/google/threads?${new URLSearchParams(params as any).toString()}`;
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
     refreshInterval,

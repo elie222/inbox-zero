@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import uniq from "lodash/uniq";
 import { categorize } from "@/app/api/ai/categorize/controller";
 import {
@@ -18,6 +19,8 @@ import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
 import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
 import { defaultReceiptSenders } from "@/utils/ai/group/find-receipts";
 import { newsletterSenders } from "@/utils/ai/group/find-newsletters";
+import { getRandomColor } from "@/utils/colors";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 export const categorizeAction = withActionInstrumentation(
   "categorize",
@@ -131,7 +134,11 @@ export const categorizeSendersAction = withActionInstrumentation(
       if (!category) {
         // create category
         const newCategory = await prisma.category.create({
-          data: { name: result.category, userId: u.id },
+          data: {
+            name: result.category,
+            userId: u.id,
+            color: getRandomColor(),
+          },
         });
         category = newCategory;
         categories.push(category);
@@ -190,3 +197,23 @@ function preCategorizeSendersWithStaticRules(
     return { sender, category: undefined };
   });
 }
+
+export const changeSenderCategoryAction = withActionInstrumentation(
+  "changeSenderCategory",
+  async ({ sender, categoryId }: { sender: string; categoryId: string }) => {
+    const session = await auth();
+    if (!session) return { error: "Not authenticated" };
+
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId, userId: session.user.id },
+    });
+    if (!category) return { error: "Category not found" };
+
+    await prisma.newsletter.update({
+      where: { email_userId: { email: sender, userId: session.user.id } },
+      data: { categoryId },
+    });
+
+    revalidatePath("/smart-categories");
+  },
+);

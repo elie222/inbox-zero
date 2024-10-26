@@ -97,6 +97,7 @@
     "node-email-reply-parser": "^0.1.4",
     "nodemailer": "^6.9.15",
     "novel": "0.3.1",
+    "nuqs": "^2.0.4",
     "openai": "^4.68.3",
     "p-queue": "^8.0.1",
     "p-retry": "^6.2.0",
