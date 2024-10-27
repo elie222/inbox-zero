@@ -214,10 +214,9 @@ function AllEmails({
   fromEmail: string;
   refreshInterval?: number;
 }) {
-  const url = `/api/google/threads?fromEmail=${encodeURIComponent(
+  const { data, isLoading, error, mutate } = useThreads({
     fromEmail,
-  )}&type=all`;
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
+    type: "all",
     refreshInterval,
   });
 
