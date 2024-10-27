@@ -1,6 +1,5 @@
 import useSWR from "swr";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
-import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 
 export function useThreads({
   fromEmail,
@@ -13,12 +12,13 @@ export function useThreads({
   limit?: number;
   refreshInterval?: number;
 }) {
-  const params: ThreadsQuery = {
-    fromEmail,
-    limit,
-    type,
-  };
-  const url = `/api/google/threads?${new URLSearchParams(params as any).toString()}`;
+  const searchParams = new URLSearchParams();
+  if (fromEmail) searchParams.set("fromEmail", fromEmail);
+  if (limit) searchParams.set("limit", limit.toString());
+  if (type) searchParams.set("type", type);
+
+  const url = `/api/google/threads?${searchParams.toString()}`;
+  console.log("🚀 ~ url:", url);
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
     refreshInterval,
   });
