@@ -92,6 +92,13 @@ export const rulesExamplesBody = z.object({
 });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
+// categories
+export const createCategoryBody = z.object({
+  name: z.string(),
+  description: z.string().nullish(),
+});
+export type CreateCategoryBody = z.infer<typeof createCategoryBody>;
+
 // api key
 export const createApiKeyBody = z.object({ name: z.string().nullish() });
 export type CreateApiKeyBody = z.infer<typeof createApiKeyBody>;

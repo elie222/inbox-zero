@@ -23,6 +23,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
+import {
+  createCategoryBody,
+  CreateCategoryBody,
+} from "@/utils/actions/validation";
 
 export const categorizeAction = withActionInstrumentation(
   "categorize",
@@ -293,5 +297,28 @@ export const changeSenderCategoryAction = withActionInstrumentation(
     });
 
     revalidatePath("/smart-categories");
+  },
+);
+
+export const createCategoryAction = withActionInstrumentation(
+  "createCategory",
+  async (unsafeData: CreateCategoryBody) => {
+    const session = await auth();
+    if (!session) return { error: "Not authenticated" };
+
+    const { success, data, error } = createCategoryBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
+
+    const category = await prisma.category.create({
+      data: {
+        userId: session.user.id,
+        name: data.name,
+        description: data.description,
+      },
+    });
+
+    revalidatePath("/smart-categories");
+
+    return { id: category.id };
   },
 );

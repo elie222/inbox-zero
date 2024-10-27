@@ -60,11 +60,6 @@ export const navigation: NavItem[] = [
     href: "/smart-categories",
     icon: TagIcon,
   },
-  {
-    name: "Cold Email Blocker",
-    href: "/cold-email-blocker",
-    icon: ShieldCheckIcon,
-  },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
     : [
@@ -74,6 +69,11 @@ export const navigation: NavItem[] = [
           icon: MailsIcon,
         },
       ]),
+  {
+    name: "Cold Email Blocker",
+    href: "/cold-email-blocker",
+    icon: ShieldCheckIcon,
+  },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
     : [
@@ -83,45 +83,6 @@ export const navigation: NavItem[] = [
           icon: BarChartBigIcon,
         },
       ]),
-  // ...(NEXT_PUBLIC_DISABLE_TINYBIRD
-  //   ? []
-  //   : [
-  //       {
-  //         name: "New Senders",
-  //         href: "/new-senders",
-  //         icon: Users2Icon,
-  //       },
-  //     ]),
-  // {
-  //   name: "Mail (Alpha)",
-  //   href: "/mail",
-  //   icon: InboxIcon,
-  // },
-  // {
-  //   name: "Send Email",
-  //   href: "/compose",
-  //   icon: SendIcon,
-  // },
-  // {
-  //   name: "Early Access",
-  //   href: "/request-access?type=early-access",
-  //   icon: RibbonIcon,
-  // },
-  // {
-  //   name: "No reply",
-  //   href: "/no-reply",
-  //   icon: ChatBubbleBottomCenterTextIcon,
-  // },
-  // {
-  //   name: "Filters",
-  //   href: "/filters",
-  //   icon: ChartBarIcon,
-  // },
-  // {
-  //   name: "Bulk Archive",
-  //   href: "/bulk-archive",
-  //   icon: ArchiveBoxArrowDownIcon,
-  // },
 ];
 
 const bottomLinks: NavItem[] = [
@@ -151,20 +112,6 @@ const bottomLinks: NavItem[] = [
     ),
     hideInMail: true,
   },
-  // {
-  //   name: "Feature Requests",
-  //   href: "/feature-requests",
-  //   target: "_blank",
-  //   icon: LightbulbIcon,
-  //   hideInMail: true,
-  // },
-  // {
-  //   name: "Star on GitHub",
-  //   href: "/github",
-  //   target: "_blank",
-  //   icon: StarIcon,
-  //   hideInMail: true,
-  // },
   { name: "Premium", href: "/premium", icon: CrownIcon },
   { name: "Settings", href: "/settings", icon: CogIcon },
 ];
@@ -197,19 +144,16 @@ const bottomMailLinks: NavItem[] = [
     name: "Personal",
     icon: PersonStandingIcon,
     href: "?type=CATEGORY_PERSONAL",
-    // count: 972,
   },
   {
     name: "Social",
     icon: Users2Icon,
     href: "?type=CATEGORY_SOCIAL",
-    // count: 972,
   },
   {
     name: "Updates",
     icon: AlertCircleIcon,
     href: "?type=CATEGORY_UPDATES",
-    // count: 342,
   },
   {
     name: "Forums",

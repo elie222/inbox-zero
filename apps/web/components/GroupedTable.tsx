@@ -45,7 +45,21 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: Pick<Category, "id" | "name">[];
 }) {
-  const groupedEmails = groupBy(emailGroups, (group) => group.category?.name);
+  const groupedEmails = useMemo(() => {
+    const grouped = groupBy(
+      emailGroups,
+      (group) => group.category?.name || "Uncategorized",
+    );
+
+    // Add empty arrays for categories without any emails
+    categories.forEach((category) => {
+      if (!grouped[category.name]) {
+        grouped[category.name] = [];
+      }
+    });
+
+    return grouped;
+  }, [emailGroups, categories]);
 
   const [collapsed, setCollapsed] = useQueryState("collapsed", {
     parse: (value) => value.split(","),
