@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
-import { chatCompletionTools } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
+import type { UserAIFields } from "@/utils/llms/types";
+import type { User } from "@prisma/client";
 
 const categories = [
   ...Object.values(SenderCategory).filter((c) => c !== "unknown"),
@@ -11,32 +11,27 @@ const categories = [
 ];
 
 const categorizeSendersSchema = z.object({
-  senders: z
-    .array(
-      z.object({
-        sender: z.string().describe("The email address of the sender"),
-        category: z
-          .enum(categories as [string, ...string[]])
-          .describe("The category of the sender"),
-        // confidence: z
-        //   .number()
-        //   .describe(
-        //     "The confidence score of the category. A value between 0 and 100.",
-        //   ),
-      }),
-    )
-    .describe("An array of senders and their categories"),
+  senders: z.array(
+    z.object({
+      rationale: z.string().describe("Keep it short."),
+      sender: z.string(),
+      category: z.string(), // not using enum, because sometimes the ai creates new categories, which throws an error. we prefer to handle this ourselves
+    }),
+  ),
 });
-
-type CategorizeSenders = z.infer<typeof categorizeSendersSchema>;
 
 export async function aiCategorizeSenders({
   user,
   senders,
 }: {
   user: Pick<User, "email"> & UserAIFields;
-  senders: string[];
-}) {
+  senders: { emailAddress: string; snippet: string }[];
+}): Promise<
+  {
+    category?: string;
+    sender: string;
+  }[]
+> {
   if (senders.length === 0) return [];
 
   const system = `You are an AI assistant specializing in email management and organization.
@@ -46,8 +41,20 @@ Provide accurate categorizations to help users efficiently manage their inbox.`;
   const prompt = `Categorize the following email senders:
 
 <senders>
-${senders.map((sender) => `* ${sender}`).join("\n")}
+${senders
+  .map(
+    ({ emailAddress, snippet }) => `
+<sender>
+  <email>${emailAddress}</email>
+  <snippet>${snippet}</snippet>
+</sender>`,
+  )
+  .join("\n")}
 </senders>
+
+<categories>
+${categories.map((category) => `* ${category}`).join("\n")}
+</categories>
 
 Instructions:
 1. Analyze each sender's name and email address for clues about their category.
@@ -58,40 +65,51 @@ Instructions:
 
 Remember, it's better to request more information than to categorize incorrectly.`;
 
-  const aiResponse = await chatCompletionTools({
+  const aiResponse = await chatCompletionObject({
     userAi: user,
     system,
     prompt,
-    tools: {
-      categorizeSenders: {
-        description: "categorize senders",
-        parameters: categorizeSendersSchema,
-      },
-    },
+    schema: categorizeSendersSchema,
     userEmail: user.email || "",
-    label: "categorize senders",
+    usageLabel: "categorize senders",
   });
 
-  const result: CategorizeSenders["senders"] = aiResponse.toolCalls.find(
-    ({ toolName }) => toolName === "categorizeSenders",
-  )?.args.senders;
+  const matchedSenders = matchSendersWithFullEmail(
+    aiResponse.object.senders,
+    senders.map((s) => s.emailAddress),
+  );
 
-  // match up emails with full email
-  // this is done so that the LLM can return less text in the response
-  // and also so that we can match sure the senders it's returning are part of the input (and it didn't hallucinate)
-  // NOTE: if there are two senders with the same email address (but different names), it will only return one of them
-  const sendersWithFullEmail = result
+  // filter out any senders that don't have a valid category
+  return matchedSenders.map((r) => {
+    if (!categories.includes(r.category)) {
+      return {
+        category: undefined,
+        sender: r.sender,
+      };
+    }
+
+    return r;
+  });
+}
+
+// match up emails with full email
+// this is done so that the LLM can return less text in the response
+// and also so that we can match sure the senders it's returning are part of the input (and it didn't hallucinate)
+// NOTE: if there are two senders with the same email address (but different names), it will only return one of them
+function matchSendersWithFullEmail(
+  aiResponseSenders: z.infer<typeof categorizeSendersSchema>["senders"],
+  originalSenders: string[],
+) {
+  return aiResponseSenders
     .map((r) => {
-      const sender = senders.find((s) => s.includes(r.sender));
+      const sender = originalSenders.find((s) => s.includes(r.sender));
 
-      if (!sender) return undefined;
+      if (!sender) return;
 
       return {
-        ...r,
+        category: r.category,
         sender,
       };
     })
     .filter(isDefined);
-
-  return sendersWithFullEmail;
 }

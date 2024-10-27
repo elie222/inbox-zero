@@ -19,8 +19,10 @@ import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
 import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
 import { defaultReceiptSenders } from "@/utils/ai/group/find-receipts";
 import { newsletterSenders } from "@/utils/ai/group/find-newsletters";
-import { getRandomColor } from "@/utils/colors";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
+import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
+import { isDefined } from "@/utils/types";
 
 export const categorizeAction = withActionInstrumentation(
   "categorize",
@@ -73,7 +75,9 @@ export const categorizeAction = withActionInstrumentation(
 export const categorizeSendersAction = withActionInstrumentation(
   "categorizeSenders",
   async () => {
-    const { gmail, user: u, error } = await getSessionAndGmailClient();
+    console.log("categorizeSendersAction");
+
+    const { gmail, user: u, error, session } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
 
@@ -95,12 +99,18 @@ export const categorizeSendersAction = withActionInstrumentation(
     const sendersResult = await findSenders(gmail, undefined, 100);
     // const sendersResult = await findSendersWithPagination(gmail, 5);
 
+    console.log("sendersResult", Array.from(sendersResult.senders.keys()));
+
+    console.log(`Found ${sendersResult.senders.size} senders`);
+
     const senders = uniq(Array.from(sendersResult.senders.keys()));
+
+    console.log(`Found ${senders.length} unique senders`);
 
     // remove senders we've already categorized
     const existingSenders = await prisma.newsletter.findMany({
       where: { email: { in: senders }, userId: u.id },
-      select: { email: true },
+      select: { email: true, category: { select: { name: true } } },
     });
 
     const sendersToCategorize = senders.filter(
@@ -114,9 +124,16 @@ export const categorizeSendersAction = withActionInstrumentation(
       .filter((sender) => !sender.category)
       .map((sender) => sender.sender);
 
+    console.log(
+      `Found ${sendersToCategorizeWithAi.length} senders to categorize with AI`,
+    );
+
     const aiResults = await aiCategorizeSenders({
       user,
-      senders: sendersToCategorizeWithAi,
+      senders: sendersToCategorizeWithAi.map((sender) => ({
+        emailAddress: sender,
+        snippet: sendersResult.senders.get(sender)?.[0]?.snippet || "",
+      })),
     });
 
     // get user categories
@@ -127,8 +144,10 @@ export const categorizeSendersAction = withActionInstrumentation(
 
     const results = [...categorizedSenders, ...aiResults];
 
-    for (const result of results) {
-      if (!result.category) continue;
+    async function saveResult(result: { sender: string; category?: string }) {
+      if (!result.category) return;
+      // console.log("🚀 ~ saveResult ~ result:", result);
+      const userId = u?.id!;
       let category = categories.find((c) => c.name === result.category);
 
       if (!category) {
@@ -136,8 +155,8 @@ export const categorizeSendersAction = withActionInstrumentation(
         const newCategory = await prisma.category.create({
           data: {
             name: result.category,
-            userId: u.id,
-            color: getRandomColor(),
+            userId,
+            // color: getRandomColor(),
           },
         });
         category = newCategory;
@@ -146,17 +165,76 @@ export const categorizeSendersAction = withActionInstrumentation(
 
       // save category
       await prisma.newsletter.upsert({
-        where: { email_userId: { email: result.sender, userId: u.id } },
+        where: { email_userId: { email: result.sender, userId } },
         update: { categoryId: category.id },
         create: {
           email: result.sender,
-          userId: u.id,
+          userId,
           categoryId: category.id,
         },
       });
     }
 
-    return results;
+    for (const result of results) {
+      await saveResult(result);
+    }
+
+    // categorize unknown senders
+    // TODO: this will take a while. so probably break this out, or stream results as they come in
+    const unknownSenders = [
+      ...results,
+      ...existingSenders.map((s) => ({
+        sender: s.email,
+        category: s.category?.name,
+      })),
+    ].filter(
+      (r) =>
+        !r.category ||
+        r.category === SenderCategory.UNKNOWN ||
+        r.category === "request_more_information",
+    );
+
+    console.log(
+      `Found ${unknownSenders.length} unknown senders to categorize with AI`,
+    );
+
+    for (const sender of unknownSenders) {
+      const messages = sendersResult.senders.get(sender.sender);
+
+      let previousEmails =
+        messages?.map((m) => m.snippet).filter(isDefined) || [];
+
+      if (previousEmails.length === 0) {
+        const threadsFromSender = await getThreadsFromSender(
+          gmail,
+          sender.sender,
+          3,
+        );
+        const threads = await getThreadsBatch(
+          threadsFromSender.map((t) => t.id).filter(isDefined),
+          session.accessToken!,
+        );
+
+        previousEmails = threads
+          .flatMap(
+            (t) => t.messages?.map((m) => m.snippet).filter(isDefined) || [],
+          )
+          .filter(isDefined);
+      }
+
+      const aiResult = await aiCategorizeSender({
+        user,
+        sender: sender.sender,
+        previousEmails,
+      });
+
+      if (aiResult) {
+        await saveResult({
+          sender: sender.sender,
+          category: aiResult.category,
+        });
+      }
+    }
   },
 );
 

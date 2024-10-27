@@ -61,16 +61,22 @@ export async function getThreadsBatch(
   return batch;
 }
 
-export async function getThreadsFromSenders(
+export async function getThreadsFromSender(
   gmail: gmail_v1.Gmail,
-  senders: string[],
-) {
-  if (!senders.length) return [];
-  const query = senders.map((sender) => `(from:${sender})`).join(" OR ");
+  sender: string,
+  limit: number,
+): Promise<
+  Array<{
+    id?: string | null;
+    threadId?: string | null;
+  }>
+> {
+  const query = `from:${sender}`;
   const response = await gmail.users.messages.list({
     userId: "me",
     q: query,
+    maxResults: limit,
   });
 
-  return response.data.messages;
+  return response.data.messages || [];
 }

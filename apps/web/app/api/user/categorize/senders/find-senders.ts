@@ -1,5 +1,4 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { extractEmailAddress } from "@/utils/email";
 import { getMessage } from "@/utils/gmail/message";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import type { MessageWithPayload } from "@/utils/types";

@@ -67,7 +67,7 @@ export const SenderCategory = {
   // "Voter registration information"
   // "Census Bureau: Please complete your survey"
 
-  CHARITY: "charity",
+  // CHARITY: "charity",
   // "Thank you for your recent donation"
   // "Volunteer opportunity: Help at our upcoming event"
   // "Impact report: See how your contributions helped"

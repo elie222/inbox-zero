@@ -21,7 +21,10 @@ describe("aiCategorizeSenders", () => {
       "noreply@socialnetwork.com",
     ];
 
-    const result = await aiCategorizeSenders({ user, senders });
+    const result = await aiCategorizeSenders({
+      user,
+      senders: senders.map((sender) => ({ emailAddress: sender, snippet: "" })),
+    });
 
     expect(result).toHaveLength(senders.length);
     expect(result).toEqual(
@@ -52,9 +55,7 @@ describe("aiCategorizeSenders", () => {
   }, 15_000); // Increased timeout for AI call
 
   it("should handle empty senders list", async () => {
-    const senders: string[] = [];
-
-    const result = await aiCategorizeSenders({ user, senders });
+    const result = await aiCategorizeSenders({ user, senders: [] });
 
     expect(result).toEqual([]);
   });
@@ -64,7 +65,10 @@ describe("aiCategorizeSenders", () => {
       .filter((category) => category !== "unknown")
       .map((category) => `${category}@example.com`);
 
-    const result = await aiCategorizeSenders({ user, senders });
+    const result = await aiCategorizeSenders({
+      user,
+      senders: senders.map((sender) => ({ emailAddress: sender, snippet: "" })),
+    });
 
     expect(result).toHaveLength(senders.length);
 
