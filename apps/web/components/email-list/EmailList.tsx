@@ -7,6 +7,7 @@ import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useAtom } from "jotai";
+import { ChevronsDownIcon } from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { isActionError } from "@/utils/error";
@@ -32,9 +33,8 @@ import {
   runAiRules,
 } from "@/utils/queue/email-actions";
 import { selectedEmailAtom } from "@/store/email";
-import { categorizeAction } from "@/utils/actions/categorize";
+import { categorizeEmailAction } from "@/utils/actions/categorize";
 import { Button } from "@/components/ui/button";
-import { ChevronsDownIcon } from "lucide-react";
 import { ButtonLoader } from "@/components/Loading";
 
 export function List({
@@ -235,7 +235,7 @@ export function EmailList({
 
           if (!message) return;
 
-          const result = await categorizeAction({
+          const result = await categorizeEmailAction({
             from: message.headers.from,
             subject: message.headers.subject,
             textPlain: message.textPlain || null,

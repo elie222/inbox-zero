@@ -53,7 +53,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
-import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
+import { SenderCategory } from "@/utils/categories";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {

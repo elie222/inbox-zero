@@ -7,6 +7,10 @@ import {
   type CategorizeBodyWithHtml,
   categorizeBodyWithHtml,
 } from "@/app/api/ai/categorize/validation";
+import {
+  type CreateCategoryBody,
+  createCategoryBody,
+} from "@/utils/actions/validation";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { emailToContent } from "@/utils/mail";
@@ -16,20 +20,16 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
-import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
+import { SenderCategory } from "@/utils/categories";
 import { defaultReceiptSenders } from "@/utils/ai/group/find-receipts";
 import { newsletterSenders } from "@/utils/ai/group/find-newsletters";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
-import {
-  createCategoryBody,
-  CreateCategoryBody,
-} from "@/utils/actions/validation";
 
-export const categorizeAction = withActionInstrumentation(
-  "categorize",
+export const categorizeEmailAction = withActionInstrumentation(
+  "categorizeEmail",
   async (unsafeData: CategorizeBodyWithHtml) => {
     const { gmail, user: u, error } = await getSessionAndGmailClient();
     if (error) return { error };

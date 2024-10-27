@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
-import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
+import { SenderCategory } from "@/utils/categories";
 
 vi.mock("server-only", () => ({}));
 

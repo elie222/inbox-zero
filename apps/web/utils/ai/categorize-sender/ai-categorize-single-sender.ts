@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SenderCategory } from "@/app/api/user/categorize/senders/categorize-sender";
+import { SenderCategory } from "@/utils/categories";
 import { chatCompletionObject } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
