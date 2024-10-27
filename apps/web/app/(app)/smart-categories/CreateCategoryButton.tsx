@@ -75,20 +75,19 @@ function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
         type="text"
         name="name"
         label="Name"
-        // placeholder="e.g. Customers, Candidates, Recruiters"
         registerProps={register("name", { required: true })}
         error={errors.name}
       />
-      {/* <Input
+      <Input
         type="text"
         as="textarea"
-        rows={3}
+        rows={2}
         name="description"
         label="Description (Optional)"
-        placeholder="Describe the category (e.g., 'Customers', or 'Marketing emails')"
+        explainText="Additional information used by the AI to categorize senders"
         registerProps={register("description")}
         error={errors.description}
-      /> */}
+      />
       <Button type="submit" loading={isSubmitting}>
         Create
       </Button>
