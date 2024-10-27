@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { Category, User } from "@prisma/client";
+import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
 const categorizeSenderSchema = z.object({
   rationale: z.string().describe("Keep it short."),
@@ -21,7 +22,7 @@ export async function aiCategorizeSender({
   user: Pick<User, "email"> & UserAIFields;
   sender: string;
   previousEmails: string[];
-  categories: string[];
+  categories: Pick<Category, "name" | "description">[];
 }) {
   console.log("aiCategorizeSender", { sender, previousEmails });
 
@@ -46,7 +47,7 @@ ${email}
 </previous_emails>
 
 Categories:
-${categories.map((category) => `- ${category}`).join("\n")}
+${formatCategoriesForPrompt(categories)}
 
 Instructions:
 1. Analyze the sender's name and email address for clues about their category.
@@ -66,7 +67,8 @@ If there's any significant uncertainty, use "Unknown".`;
     usageLabel: "categorize sender",
   });
 
-  if (!categories.includes(aiResponse.object.category)) return null;
+  if (!categories.find((c) => c.name === aiResponse.object.category))
+    return null;
 
   return aiResponse.object;
 }

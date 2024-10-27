@@ -2,7 +2,8 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
 import type { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { Category, User } from "@prisma/client";
+import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
 // const categories = [
 //   ...Object.values(SenderCategory).filter((c) => c !== "Unknown"),
@@ -26,7 +27,7 @@ export async function aiCategorizeSenders({
 }: {
   user: Pick<User, "email"> & UserAIFields;
   senders: { emailAddress: string; snippet: string }[];
-  categories: string[];
+  categories: Pick<Category, "name" | "description">[];
 }): Promise<
   {
     category?: string;
@@ -54,7 +55,7 @@ ${senders
 </senders>
 
 <categories>
-${categories.map((category) => `* ${category}`).join("\n")}
+${formatCategoriesForPrompt(categories)}
 </categories>
 
 Instructions:
@@ -82,7 +83,7 @@ Remember, it's better to request more information than to categorize incorrectly
 
   // filter out any senders that don't have a valid category
   return matchedSenders.map((r) => {
-    if (!categories.includes(r.category)) {
+    if (!categories.find((c) => c.name === r.category)) {
       return {
         category: undefined,
         sender: r.sender,

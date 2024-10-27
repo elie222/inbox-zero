@@ -142,7 +142,7 @@ export const categorizeSendersAction = withActionInstrumentation(
         emailAddress: sender,
         snippet: sendersResult.senders.get(sender)?.[0]?.snippet || "",
       })),
-      categories: categories.map((c) => c.name),
+      categories,
     });
 
     const results = [...categorizedSenders, ...aiResults];
@@ -228,7 +228,7 @@ export const categorizeSendersAction = withActionInstrumentation(
         user,
         sender: sender.sender,
         previousEmails,
-        categories: categories.map((c) => c.name),
+        categories,
       });
 
       if (aiResult) {
