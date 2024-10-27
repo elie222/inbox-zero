@@ -53,7 +53,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
-import { SenderCategory } from "@/utils/categories";
+import { senderCategory } from "@/utils/categories";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -201,9 +201,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             <MultiSelectFilter
               title="Categories"
               maxDisplayedValues={8}
-              options={Object.values(SenderCategory).map((category) => ({
-                label: capitalCase(category),
-                value: category,
+              // TODO: load sender categories from backend
+              options={Object.values(senderCategory).map((category) => ({
+                label: capitalCase(category.label),
+                value: category.label,
               }))}
               selectedValues={new Set(watch("categoryFilters"))}
               setSelectedValues={(selectedValues) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SparklesIcon, TagsIcon } from "lucide-react";
+import { InfoIcon, SparklesIcon, TagsIcon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { TypographyH4 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { SenderCategory } from "@/utils/categories";
+import { senderCategory } from "@/utils/categories";
 import { createCategoriesAction } from "@/utils/actions/categorize";
 import { cn } from "@/utils";
 import { Category } from "@prisma/client";
@@ -19,6 +19,7 @@ import { categorizeSendersAction } from "@/utils/actions/categorize";
 import { toast } from "sonner";
 import { handleActionCall } from "@/utils/server-action";
 import { isActionError } from "@/utils/error";
+import { Tooltip } from "@/components/Tooltip";
 
 export function SetUpCategories({
   userCategories,
@@ -26,7 +27,7 @@ export function SetUpCategories({
   userCategories: Category[];
 }) {
   const [categories, setCategories] = useState<Map<string, boolean>>(
-    new Map(Object.values(SenderCategory).map((c) => [c, true])),
+    new Map(Object.values(senderCategory).map((c) => [c.label, c.enabled])),
   );
   const [isCreating, setIsCreating] = useState(false);
   const [isCategorizing, setIsCategorizing] = useState(false);
@@ -51,41 +52,58 @@ export function SetUpCategories({
 
             <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {Array.from(categories.entries()).map(
-                ([category, isSelected]) => (
-                  <Card
-                    key={category}
-                    className={cn(
-                      "flex items-center justify-between p-2",
-                      !isSelected && "opacity-25",
-                    )}
-                  >
-                    <span className="mr-2 text-sm">{category}</span>
-                    {isSelected ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setCategories(
-                            new Map(categories.entries()).set(category, false),
-                          )
-                        }
-                      >
-                        Remove
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          setCategories(
-                            new Map(categories.entries()).set(category, true),
-                          )
-                        }
-                      >
-                        Add
-                      </Button>
-                    )}
-                  </Card>
-                ),
+                ([category, isSelected]) => {
+                  const description = Object.values(senderCategory).find(
+                    (c) => c.label === category,
+                  )?.description;
+
+                  return (
+                    <Card
+                      key={category}
+                      className={cn(
+                        "flex items-center justify-between p-2",
+                        !isSelected && "opacity-25",
+                      )}
+                    >
+                      <span className="mr-2 flex items-center gap-2 text-sm">
+                        {category}
+
+                        {description && (
+                          <Tooltip content={description}>
+                            <InfoIcon className="size-4" />
+                          </Tooltip>
+                        )}
+                      </span>
+                      {isSelected ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setCategories(
+                              new Map(categories.entries()).set(
+                                category,
+                                false,
+                              ),
+                            )
+                          }
+                        >
+                          Remove
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setCategories(
+                              new Map(categories.entries()).set(category, true),
+                            )
+                          }
+                        >
+                          Add
+                        </Button>
+                      )}
+                    </Card>
+                  );
+                },
               )}
             </div>
 

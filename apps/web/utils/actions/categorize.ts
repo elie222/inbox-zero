@@ -20,7 +20,7 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
-import { SenderCategory } from "@/utils/categories";
+import { senderCategory, SenderCategory } from "@/utils/categories";
 import { defaultReceiptSenders } from "@/utils/ai/group/find-receipts";
 import { newsletterSenders } from "@/utils/ai/group/find-newsletters";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -192,7 +192,7 @@ export const categorizeSendersAction = withActionInstrumentation(
     ].filter(
       (r) =>
         !r.category ||
-        r.category === SenderCategory.UNKNOWN ||
+        r.category === senderCategory.UNKNOWN.label ||
         r.category === "RequestMoreInformation",
     );
 
@@ -243,6 +243,7 @@ export const categorizeSendersAction = withActionInstrumentation(
   },
 );
 
+// TODO: what if user doesn't have all these categories set up?
 // Use static rules to categorize senders if we can, before sending to LLM
 function preCategorizeSendersWithStaticRules(
   senders: string[],
@@ -260,22 +261,22 @@ function preCategorizeSendersWithStaticRules(
     ];
 
     if (personalEmailDomains.some((domain) => sender.includes(`@${domain}>`)))
-      return { sender, category: SenderCategory.UNKNOWN };
+      return { sender, category: senderCategory.UNKNOWN.label };
 
     // newsletters
     if (
       sender.toLowerCase().includes("newsletter") ||
       newsletterSenders.some((newsletter) => sender.includes(newsletter))
     )
-      return { sender, category: SenderCategory.NEWSLETTER };
+      return { sender, category: senderCategory.NEWSLETTER.label };
 
     // support
     if (sender.toLowerCase().includes("support"))
-      return { sender, category: SenderCategory.SUPPORT };
+      return { sender, category: senderCategory.SUPPORT.label };
 
     // receipts
     if (defaultReceiptSenders.some((receipt) => sender.includes(receipt)))
-      return { sender, category: SenderCategory.RECEIPT };
+      return { sender, category: senderCategory.RECEIPT.label };
 
     return { sender, category: undefined };
   });

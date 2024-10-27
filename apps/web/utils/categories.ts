@@ -1,96 +1,117 @@
-export const SenderCategory = {
-  UNKNOWN: "Unknown",
-  // Emails that don't fit any other category or can't be classified
-
-  NEWSLETTER: "Newsletter",
-  // "Weekly Tech Digest from TechCrunch"
-  // "Monthly Fitness Tips from GymPro"
-  // "Daily News Roundup from The New York Times"
-
-  MARKETING: "Marketing",
-  // "50% Off Summer Sale at Fashion Store"
-  // "New Product Launch: Try Our Latest Gadget"
-  // "Limited Time Offer: Join Our Premium Membership"
-
-  RECEIPT: "Receipt",
-  // "Your Amazon.com order confirmation"
-  // "Receipt for your recent purchase at Apple Store"
-  // "Payment confirmation for your Netflix subscription"
-
-  BANKING: "Banking",
-  // "Your monthly statement from Chase Bank"
-  // "Important update about your savings account"
-  // "Fraud alert: Unusual activity detected on your card"
-
-  LEGAL: "Legal",
-  // "Updates to our Terms of Service"
-  // "Important information about your lawsuit"
-  // "Contract for your review and signature"
-
-  SUPPORT: "Support",
-  // "Your support ticket #12345 has been resolved"
-  // "Follow-up on your recent customer service inquiry"
-  // "Troubleshooting guide for your recent issue"
-
-  PERSONAL: "Personal",
-  // "Hey, want to grab coffee this weekend?"
-  // "Photos from last night's dinner"
-  // "Happy birthday wishes from Mom"
-
-  WORK: "Work",
-  // "Meeting agenda for tomorrow's team sync"
-  // "Quarterly performance review reminder"
-  // "New project kickoff: Action items"
-
-  SOCIAL: "Social",
-  // "John Smith tagged you in a photo on Facebook"
-  // "New connection request on LinkedIn"
-  // "Your friend's status update on Instagram"
-
-  EDUCATIONAL: "Educational",
-  // "Your course schedule for the upcoming semester"
-  // "Reminder: Assignment due next week"
-  // "New learning resources available in your online class"
-
-  TRAVEL: "Travel",
-  // "Your flight itinerary for upcoming trip"
-  // "Hotel reservation confirmation"
-  // "Travel insurance policy for your vacation"
-
-  HEALTH: "Health",
-  // "Reminder: Your dental appointment is tomorrow"
-  // "Lab test results are now available"
-  // "Your prescription is ready for pickup"
-
-  GOVERNMENT: "Government",
-  // "Important update about your tax return"
-  // "Voter registration information"
-  // "Census Bureau: Please complete your survey"
-
-  // CHARITY: "charity",
-  // "Thank you for your recent donation"
-  // "Volunteer opportunity: Help at our upcoming event"
-  // "Impact report: See how your contributions helped"
-
-  ENTERTAINMENT: "Entertainment",
-  // "New movies available on your streaming service"
-  // "Exclusive preview of our upcoming video game release"
-
-  EVENTS: "Events",
-  // "Invitation to Sarah's wedding"
-  // "Reminder: Community BBQ this Saturday"
-  // "Conference schedule and registration information"
-
-  SHOPPING: "Shopping",
-  // "Your wishlist items are now on sale"
-  // "New arrivals at your favorite store"
-  // "Shipping update: Your package is on its way"
-
-  ACCOUNT: "Account",
-  // "Password reset for your account"
-  // "Security alert: New login detected"
-  // "Your account settings have been updated"
+export const senderCategory = {
+  UNKNOWN: {
+    label: "Unknown",
+    enabled: true,
+    description:
+      "Emails that don't fit any other category or can't be classified",
+  },
+  NEWSLETTER: {
+    label: "Newsletter",
+    enabled: true,
+    description: "Newsletters",
+  },
+  MARKETING: {
+    label: "Marketing",
+    enabled: true,
+    description:
+      "Promotional emails, sales announcements, product launches, and marketing campaigns",
+  },
+  RECEIPT: {
+    label: "Receipt",
+    enabled: true,
+    description:
+      "Purchase confirmations, order receipts, and payment confirmations",
+  },
+  BANKING: {
+    label: "Banking",
+    enabled: true,
+    description:
+      "Bank statements, account updates, fraud alerts, and financial notifications",
+  },
+  LEGAL: {
+    label: "Legal",
+    enabled: true,
+    description:
+      "Terms of service updates, legal notices, contracts, and legal communications",
+  },
+  SUPPORT: {
+    label: "Support",
+    enabled: true,
+    description: "Customer service responses",
+  },
+  PERSONAL: {
+    label: "Personal",
+    enabled: true,
+    description: "Personal communications from friends and family",
+  },
+  WORK: {
+    label: "Work",
+    enabled: true,
+    description: "Work-related communications",
+  },
+  SOCIAL: {
+    label: "Social",
+    enabled: true,
+    description: "Notifications from social media platforms",
+  },
+  TRAVEL: {
+    label: "Travel",
+    enabled: true,
+    description:
+      "Flight itineraries, hotel reservations, and travel-related documents",
+  },
+  EVENTS: {
+    label: "Events",
+    enabled: true,
+    description:
+      "Event invitations, reminders, schedules, and registration information",
+  },
+  ACCOUNT: {
+    label: "Account",
+    enabled: true,
+    description:
+      "Account security notifications, password resets, and settings updates",
+  },
+  SHOPPING: {
+    label: "Shopping",
+    enabled: true,
+    description:
+      "Shopping updates, wishlist notifications, shipping updates, and retail communications",
+  },
+  EDUCATIONAL: {
+    label: "Educational",
+    enabled: false,
+    description: "Courses and educational resources",
+  },
+  HEALTH: {
+    label: "Health",
+    enabled: false,
+    description:
+      "Medical appointments, lab results, prescriptions, and health-related notifications",
+  },
+  GOVERNMENT: {
+    label: "Government",
+    enabled: false,
+    description:
+      "Tax information, voter registration, government surveys, and official communications",
+  },
+  ENTERTAINMENT: {
+    label: "Entertainment",
+    enabled: false,
+    description:
+      "Updates from streaming services, gaming platforms, and entertainment providers",
+  },
 } as const;
 
-export type SenderCategory =
-  (typeof SenderCategory)[keyof typeof SenderCategory];
+export type SenderCategoryKey = keyof typeof senderCategory;
+export type SenderCategoryValue = (typeof senderCategory)[SenderCategoryKey];
+export type SenderCategory = SenderCategoryValue["label"];
+
+export const getEnabledCategories = () => {
+  return Object.entries(senderCategory)
+    .filter(([_, value]) => value.enabled)
+    .map(([key, value]) => ({
+      key,
+      ...value,
+    }));
+};

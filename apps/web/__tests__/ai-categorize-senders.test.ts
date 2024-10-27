@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
-import { SenderCategory } from "@/utils/categories";
+import { getEnabledCategories } from "@/utils/categories";
 
 vi.mock("server-only", () => ({}));
 
@@ -24,7 +24,7 @@ describe("aiCategorizeSenders", () => {
     const result = await aiCategorizeSenders({
       user,
       senders: senders.map((sender) => ({ emailAddress: sender, snippet: "" })),
-      categories: Object.values(SenderCategory),
+      categories: getEnabledCategories().map((c) => c.label),
     });
 
     expect(result).toHaveLength(senders.length);
@@ -66,14 +66,14 @@ describe("aiCategorizeSenders", () => {
   });
 
   it("should categorize senders for all valid SenderCategory values", async () => {
-    const senders = Object.values(SenderCategory)
-      .filter((category) => category !== "Unknown")
-      .map((category) => `${category}@example.com`);
+    const senders = getEnabledCategories()
+      .filter((category) => category.label !== "Unknown")
+      .map((category) => `${category.label}@example.com`);
 
     const result = await aiCategorizeSenders({
       user,
       senders: senders.map((sender) => ({ emailAddress: sender, snippet: "" })),
-      categories: Object.values(SenderCategory),
+      categories: getEnabledCategories().map((c) => c.label),
     });
 
     expect(result).toHaveLength(senders.length);
