@@ -1,14 +1,13 @@
 import { z } from "zod";
-import { SenderCategory } from "@/utils/categories";
 import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
 
-const categories = [
-  ...Object.values(SenderCategory).filter((c) => c !== "unknown"),
-  "request_more_information",
-];
+// const categories = [
+//   ...Object.values(SenderCategory).filter((c) => c !== "Unknown"),
+//   "RequestMoreInformation",
+// ];
 
 const categorizeSendersSchema = z.object({
   senders: z.array(
@@ -23,9 +22,11 @@ const categorizeSendersSchema = z.object({
 export async function aiCategorizeSenders({
   user,
   senders,
+  categories,
 }: {
   user: Pick<User, "email"> & UserAIFields;
   senders: { emailAddress: string; snippet: string }[];
+  categories: string[];
 }): Promise<
   {
     category?: string;
@@ -59,9 +60,9 @@ ${categories.map((category) => `* ${category}`).join("\n")}
 Instructions:
 1. Analyze each sender's name and email address for clues about their category.
 2. If the sender's category is clear, assign it confidently.
-3. If you're unsure or if multiple categories could apply, respond with "request_more_information".
-4. If requesting more information, use "request_more_information" as the value.
-5. For individual senders, you'll want to "request_more_information". For example, rachel.smith@company.com, we don't know if their a customer, or sending us marketing, or something else.
+3. If you're unsure or if multiple categories could apply, respond with "RequestMoreInformation".
+4. If requesting more information, use "RequestMoreInformation" as the value.
+5. For individual senders, you'll want to "RequestMoreInformation". For example, rachel.smith@company.com, we don't know if their a customer, or sending us marketing, or something else.
 
 Remember, it's better to request more information than to categorize incorrectly.`;
 

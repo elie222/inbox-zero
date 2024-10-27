@@ -4,16 +4,17 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
 import { isDefined } from "@/utils/types";
+import { getUserCategories } from "@/utils/category.server";
 
 export const dynamic = "force-dynamic";
 
 const CATEGORY_ORDER = [
-  "unknown",
-  "request_more_information",
-  "newsletter",
-  "marketing",
-  "receipts",
-  "support",
+  "Unknown",
+  "RequestMoreInformation",
+  "Newsletter",
+  "Marketing",
+  "Receipts",
+  "Support",
 ];
 
 export default async function CategoriesPage() {
@@ -22,10 +23,7 @@ export default async function CategoriesPage() {
   if (!email) throw new Error("Not authenticated");
 
   const [categories, senders] = await Promise.all([
-    prisma.category.findMany({
-      where: { OR: [{ userId: session.user.id }, { userId: null }] },
-      select: { id: true, name: true },
-    }),
+    getUserCategories(session.user.id),
     prisma.newsletter.findMany({
       where: { userId: session.user.id, categoryId: { not: null } },
       select: { id: true, email: true, categoryId: true },

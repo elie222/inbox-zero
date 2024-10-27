@@ -27,6 +27,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
+import { getUserCategories } from "@/utils/category.server";
 
 export const categorizeEmailAction = withActionInstrumentation(
   "categorizeEmail",
@@ -112,10 +113,13 @@ export const categorizeSendersAction = withActionInstrumentation(
     console.log(`Found ${senders.length} unique senders`);
 
     // remove senders we've already categorized
-    const existingSenders = await prisma.newsletter.findMany({
-      where: { email: { in: senders }, userId: u.id },
-      select: { email: true, category: { select: { name: true } } },
-    });
+    const [existingSenders, categories] = await Promise.all([
+      prisma.newsletter.findMany({
+        where: { email: { in: senders }, userId: u.id },
+        select: { email: true, category: { select: { name: true } } },
+      }),
+      getUserCategories(u.id),
+    ]);
 
     const sendersToCategorize = senders.filter(
       (sender) => !existingSenders.some((s) => s.email === sender),
@@ -138,12 +142,7 @@ export const categorizeSendersAction = withActionInstrumentation(
         emailAddress: sender,
         snippet: sendersResult.senders.get(sender)?.[0]?.snippet || "",
       })),
-    });
-
-    // get user categories
-    const categories = await prisma.category.findMany({
-      where: { OR: [{ userId: u.id }, { userId: null }] },
-      select: { id: true, name: true },
+      categories: categories.map((c) => c.name),
     });
 
     const results = [...categorizedSenders, ...aiResults];
@@ -195,7 +194,7 @@ export const categorizeSendersAction = withActionInstrumentation(
       (r) =>
         !r.category ||
         r.category === SenderCategory.UNKNOWN ||
-        r.category === "request_more_information",
+        r.category === "RequestMoreInformation",
     );
 
     console.log(
@@ -230,6 +229,7 @@ export const categorizeSendersAction = withActionInstrumentation(
         user,
         sender: sender.sender,
         previousEmails,
+        categories: categories.map((c) => c.name),
       });
 
       if (aiResult) {
@@ -300,6 +300,18 @@ export const changeSenderCategoryAction = withActionInstrumentation(
   },
 );
 
+export const createCategoriesAction = withActionInstrumentation(
+  "createCategories",
+  async (categories: string[]) => {
+    const session = await auth();
+    if (!session) return { error: "Not authenticated" };
+
+    for (const category of categories) {
+      await createCategory(session.user.id, { name: category });
+    }
+  },
+);
+
 export const createCategoryAction = withActionInstrumentation(
   "createCategory",
   async (unsafeData: CreateCategoryBody) => {
@@ -309,23 +321,27 @@ export const createCategoryAction = withActionInstrumentation(
     const { success, data, error } = createCategoryBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    try {
-      const category = await prisma.category.create({
-        data: {
-          userId: session.user.id,
-          name: data.name,
-          description: data.description,
-        },
-      });
-
-      revalidatePath("/smart-categories");
-
-      return { id: category.id };
-    } catch (error) {
-      if (isDuplicateError(error, "name"))
-        return { error: "Category with this name already exists" };
-
-      throw error;
-    }
+    return await createCategory(session.user.id, data);
   },
 );
+
+async function createCategory(userId: string, newCategory: CreateCategoryBody) {
+  try {
+    const category = await prisma.category.create({
+      data: {
+        userId,
+        name: newCategory.name,
+        description: newCategory.description,
+      },
+    });
+
+    revalidatePath("/smart-categories");
+
+    return { id: category.id };
+  } catch (error) {
+    if (isDuplicateError(error, "name"))
+      return { error: "Category with this name already exists" };
+
+    throw error;
+  }
+}

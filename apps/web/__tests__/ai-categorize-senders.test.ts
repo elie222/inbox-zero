@@ -24,6 +24,7 @@ describe("aiCategorizeSenders", () => {
     const result = await aiCategorizeSenders({
       user,
       senders: senders.map((sender) => ({ emailAddress: sender, snippet: "" })),
+      categories: Object.values(SenderCategory),
     });
 
     expect(result).toHaveLength(senders.length);
@@ -47,27 +48,32 @@ describe("aiCategorizeSenders", () => {
     );
     expect(supportResult?.category).toBe("support");
 
-    // The unknown sender might be categorized as "request_more_information"
+    // The unknown sender might be categorized as "RequestMoreInformation"
     const unknownResult = result.find(
       (r) => r.sender === "unknown@example.com",
     );
-    expect(unknownResult?.category).toBe("request_more_information");
+    expect(unknownResult?.category).toBe("RequestMoreInformation");
   }, 15_000); // Increased timeout for AI call
 
   it("should handle empty senders list", async () => {
-    const result = await aiCategorizeSenders({ user, senders: [] });
+    const result = await aiCategorizeSenders({
+      user,
+      senders: [],
+      categories: [],
+    });
 
     expect(result).toEqual([]);
   });
 
   it("should categorize senders for all valid SenderCategory values", async () => {
     const senders = Object.values(SenderCategory)
-      .filter((category) => category !== "unknown")
+      .filter((category) => category !== "Unknown")
       .map((category) => `${category}@example.com`);
 
     const result = await aiCategorizeSenders({
       user,
       senders: senders.map((sender) => ({ emailAddress: sender, snippet: "" })),
+      categories: Object.values(SenderCategory),
     });
 
     expect(result).toHaveLength(senders.length);

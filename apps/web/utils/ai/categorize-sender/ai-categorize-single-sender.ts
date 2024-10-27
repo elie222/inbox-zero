@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { SenderCategory } from "@/utils/categories";
 import { chatCompletionObject } from "@/utils/llms";
 import { UserAIFields } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
@@ -17,14 +16,14 @@ export async function aiCategorizeSender({
   user,
   sender,
   previousEmails,
+  categories,
 }: {
   user: Pick<User, "email"> & UserAIFields;
   sender: string;
   previousEmails: string[];
+  categories: string[];
 }) {
   console.log("aiCategorizeSender", { sender, previousEmails });
-
-  const categories: string[] = Object.values(SenderCategory);
 
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to categorize an email sender based on their name, email address, and content from previous emails.
@@ -53,10 +52,10 @@ Instructions:
 1. Analyze the sender's name and email address for clues about their category.
 2. Review the content of previous emails to gain more context about the sender's relationship with the user.
 3. If the sender's category is clear based on the available information, assign it confidently.
-4. If you're still unsure or if multiple categories could apply, respond with "unknown".
+4. If you're still unsure or if multiple categories could apply, respond with "Unknown".
 
 Remember, only categorize the sender if you are highly confident based on the available information.
-If there's any significant uncertainty, use "unknown".`;
+If there's any significant uncertainty, use "Unknown".`;
 
   const aiResponse = await chatCompletionObject({
     userAi: user,
