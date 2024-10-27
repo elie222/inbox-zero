@@ -149,7 +149,6 @@ export const categorizeSendersAction = withActionInstrumentation(
 
     async function saveResult(result: { sender: string; category?: string }) {
       if (!result.category) return;
-      // console.log("🚀 ~ saveResult ~ result:", result);
       const userId = u?.id!;
       let category = categories.find((c) => c.name === result.category);
 
@@ -239,6 +238,8 @@ export const categorizeSendersAction = withActionInstrumentation(
         });
       }
     }
+
+    revalidatePath("/smart-categories");
   },
 );
 
@@ -309,6 +310,8 @@ export const createCategoriesAction = withActionInstrumentation(
     for (const category of categories) {
       await createCategory(session.user.id, { name: category });
     }
+
+    revalidatePath("/smart-categories");
   },
 );
 
@@ -321,7 +324,9 @@ export const createCategoryAction = withActionInstrumentation(
     const { success, data, error } = createCategoryBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    return await createCategory(session.user.id, data);
+    await createCategory(session.user.id, data);
+
+    revalidatePath("/smart-categories");
   },
 );
 
@@ -334,8 +339,6 @@ async function createCategory(userId: string, newCategory: CreateCategoryBody) {
         description: newCategory.description,
       },
     });
-
-    revalidatePath("/smart-categories");
 
     return { id: category.id };
   } catch (error) {

@@ -61,7 +61,7 @@ export function GroupedTable({
     return grouped;
   }, [emailGroups, categories]);
 
-  const [collapsed, setCollapsed] = useQueryState("collapsed", {
+  const [expanded, setExpanded] = useQueryState("expanded", {
     parse: (value) => value.split(","),
     serialize: (value) => value.join(","),
   });
@@ -149,23 +149,23 @@ export function GroupedTable({
     <Table>
       <TableBody>
         {Object.entries(groupedEmails).map(([category, senders]) => {
-          const isCategoryCollapsed = collapsed?.includes(category);
+          const isCategoryExpanded = expanded?.includes(category);
 
           return (
             <Fragment key={category}>
               <GroupRow
                 category={category}
                 count={senders.length}
-                isCollapsed={!!isCategoryCollapsed}
+                isExpanded={!!isCategoryExpanded}
                 onToggle={() => {
-                  setCollapsed((prev) =>
-                    isCategoryCollapsed
+                  setExpanded((prev) =>
+                    isCategoryExpanded
                       ? (prev || []).filter((c) => c !== category)
                       : [...(prev || []), category],
                   );
                 }}
               />
-              {!isCategoryCollapsed &&
+              {isCategoryExpanded &&
                 senders.map((sender) => {
                   const row = table
                     .getRowModel()
@@ -207,12 +207,12 @@ export function GroupedTable({
 function GroupRow({
   category,
   count,
-  isCollapsed,
+  isExpanded,
   onToggle,
 }: {
   category: string;
   count: number;
-  isCollapsed: boolean;
+  isExpanded: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -222,7 +222,7 @@ function GroupRow({
           <ChevronRight
             className={cn(
               "mr-2 h-4 w-4 transform transition-all duration-300 ease-in-out",
-              isCollapsed ? "rotate-0" : "rotate-90",
+              isExpanded ? "rotate-90" : "rotate-0",
             )}
           />
           {category}

@@ -36,7 +36,7 @@ export default async function CategoriesPage() {
         <CreateCategoryButton />
       </TopBar>
 
-      {senders.length > 0 || categories.length > 0 ? (
+      {senders.length > 0 ? (
         <ClientOnly>
           <GroupedTable
             emailGroups={sortBy(senders, (sender) => sender.category?.name).map(
@@ -49,7 +49,7 @@ export default async function CategoriesPage() {
           />
         </ClientOnly>
       ) : (
-        <SetUpCategories />
+        <SetUpCategories userCategories={categories} />
       )}
     </NuqsAdapter>
   );
