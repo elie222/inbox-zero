@@ -12,7 +12,7 @@ import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
 import { emailToContent } from "@/utils/mail";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { truncate } from "@/utils/string";
-import prisma from "@/utils/prisma";
+import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
@@ -309,16 +309,23 @@ export const createCategoryAction = withActionInstrumentation(
     const { success, data, error } = createCategoryBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    const category = await prisma.category.create({
-      data: {
-        userId: session.user.id,
-        name: data.name,
-        description: data.description,
-      },
-    });
+    try {
+      const category = await prisma.category.create({
+        data: {
+          userId: session.user.id,
+          name: data.name,
+          description: data.description,
+        },
+      });
 
-    revalidatePath("/smart-categories");
+      revalidatePath("/smart-categories");
 
-    return { id: category.id };
+      return { id: category.id };
+    } catch (error) {
+      if (isDuplicateError(error, "name"))
+        return { error: "Category with this name already exists" };
+
+      throw error;
+    }
   },
 );
