@@ -309,7 +309,14 @@ export const createCategoriesAction = withActionInstrumentation(
     if (!session) return { error: "Not authenticated" };
 
     for (const category of categories) {
-      await createCategory(session.user.id, { name: category });
+      const description = Object.values(senderCategory).find(
+        (c) => c.label === category,
+      )?.description;
+
+      await createCategory(session.user.id, {
+        name: category,
+        description,
+      });
     }
 
     revalidatePath("/smart-categories");
