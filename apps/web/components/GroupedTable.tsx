@@ -1,7 +1,8 @@
 "use client";
 
-import React, { Fragment, useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { useQueryState } from "nuqs";
+import { useAtomValue } from "jotai";
 import groupBy from "lodash/groupBy";
 import {
   useReactTable,
@@ -29,6 +30,8 @@ import {
 import { changeSenderCategoryAction } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
+import { createInAiCategorizeSenderQueueSelector } from "@/store/ai-categorize-sender-queue";
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 type EmailGroup = {
   address: string;
@@ -217,34 +220,15 @@ export function SendersTable({
       },
       {
         accessorKey: "category",
-        cell: ({ row }) => (
-          <Select
-            defaultValue={row.original.category?.id.toString() || ""}
-            onValueChange={async (value) => {
-              const result = await changeSenderCategoryAction({
-                sender: row.original.address,
-                categoryId: value,
-              });
-
-              if (isActionError(result)) {
-                toastError({ description: result.error });
-              } else {
-                toastSuccess({ description: "Category changed" });
-              }
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ),
+        cell: ({ row }) => {
+          return (
+            <SelectCategoryCell
+              sender={row.original.address}
+              senderCategory={row.original.category}
+              categories={categories}
+            />
+          );
+        },
       },
     ],
     [categories],
@@ -374,5 +358,59 @@ function ExpandedRows({ sender }: { sender: string }) {
         </TableRow>
       ))}
     </>
+  );
+}
+
+function SelectCategoryCell({
+  sender,
+  senderCategory,
+  categories,
+}: {
+  sender: string;
+  senderCategory: Pick<Category, "id" | "name"> | null;
+  categories: Pick<Category, "id" | "name">[];
+}) {
+  const selector = useMemo(
+    () => createInAiCategorizeSenderQueueSelector(sender),
+    [sender],
+  );
+  const inQueue = useAtomValue(selector);
+
+  if (inQueue) {
+    return (
+      <span className="flex items-center text-muted-foreground">
+        <LoadingMiniSpinner />
+        <span className="ml-2">Categorizing...</span>
+      </span>
+    );
+  }
+
+  return (
+    <Select
+      defaultValue={senderCategory?.id.toString() || ""}
+      onValueChange={async (value) => {
+        const result = await changeSenderCategoryAction({
+          sender,
+          categoryId: value,
+        });
+
+        if (isActionError(result)) {
+          toastError({ description: result.error });
+        } else {
+          toastSuccess({ description: "Category changed" });
+        }
+      }}
+    >
+      <SelectTrigger className="w-[180px]">
+        <SelectValue placeholder="Select category" />
+      </SelectTrigger>
+      <SelectContent>
+        {categories.map((category) => (
+          <SelectItem key={category.id} value={category.id.toString()}>
+            {category.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

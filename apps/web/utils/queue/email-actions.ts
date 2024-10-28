@@ -2,12 +2,12 @@
 
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { EmailForAction } from "@/utils/ai/actions";
-import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/queue";
+import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/ai-queue";
 import { addThreadsToQueue } from "@/store/archive-queue";
 import type { Thread } from "@/components/email-list/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
-import { emailActionQueue } from "@/utils/queue/email-action-queue";
+import { aiQueue } from "@/utils/queue/ai-queue";
 
 export const archiveEmails = async (
   threadIds: string[],
@@ -66,9 +66,10 @@ export const archiveAllSenderEmails = async (
 
 export const runAiRules = async (threadsArray: Thread[], force: boolean) => {
   const threads = threadsArray.filter(isDefined);
-  pushToAiQueueAtom(threads.map((t) => t.id));
+  const threadIds = threads.map((t) => t.id);
+  pushToAiQueueAtom(threadIds);
 
-  emailActionQueue.addAll(
+  aiQueue.addAll(
     threads.map((thread) => async () => {
       const message = threadToRunRulesEmail(thread);
       if (!message) return;

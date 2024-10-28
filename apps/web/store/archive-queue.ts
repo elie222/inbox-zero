@@ -88,6 +88,22 @@ export const addThreadsToQueue = ({
   processQueue({ threads, refetch });
 };
 
+function removeThreadFromQueue(threadId: string, actionType: ActionType) {
+  jotaiStore.set(queueAtom, (prev) => {
+    const remainingThreads = Object.fromEntries(
+      Object.entries(prev.activeThreads).filter(
+        ([_key, value]) =>
+          !(value.threadId === threadId && value.actionType === actionType),
+      ),
+    );
+
+    return {
+      ...prev,
+      activeThreads: remainingThreads,
+    };
+  });
+}
+
 export function processQueue({
   threads,
   refetch,
@@ -119,22 +135,7 @@ export function processQueue({
           );
 
           // remove completed thread from activeThreads
-          jotaiStore.set(queueAtom, (prev) => {
-            const remainingThreads = Object.fromEntries(
-              Object.entries(prev.activeThreads).filter(
-                ([_key, value]) =>
-                  !(
-                    value.threadId === threadId &&
-                    value.actionType === actionType
-                  ),
-              ),
-            );
-
-            return {
-              ...prev,
-              activeThreads: remainingThreads,
-            };
-          });
+          removeThreadFromQueue(threadId, actionType);
         },
     ),
   );

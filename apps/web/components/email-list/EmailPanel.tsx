@@ -10,7 +10,7 @@ import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { createInAiQueueSelector } from "@/store/queue";
+import { createInAiQueueSelector } from "@/store/ai-queue";
 import { Card } from "@/components/Card";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 import type { ParsedMessage } from "@/utils/types";
