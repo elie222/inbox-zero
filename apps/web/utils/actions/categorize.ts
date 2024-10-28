@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import uniq from "lodash/uniq";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { categorize } from "@/app/api/ai/categorize/controller";
 import {
   type CategorizeBodyWithHtml,
@@ -27,6 +28,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
+import { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
 
 export const categorizeEmailAction = withActionInstrumentation(
@@ -155,32 +157,14 @@ export const categorizeSendersAction = withActionInstrumentation(
 
     async function saveResult(result: { sender: string; category?: string }) {
       if (!result.category) return;
-      const userId = u?.id!;
-      let category = categories.find((c) => c.name === result.category);
-
-      if (!category) {
-        // create category
-        const newCategory = await prisma.category.create({
-          data: {
-            name: result.category,
-            userId,
-            // color: getRandomColor(),
-          },
-        });
-        category = newCategory;
-        categories.push(category);
-      }
-
-      // save category
-      await prisma.newsletter.upsert({
-        where: { email_userId: { email: result.sender, userId } },
-        update: { categoryId: category.id },
-        create: {
-          email: result.sender,
-          userId,
-          categoryId: category.id,
-        },
+      const { newCategory } = await updateSenderCategory({
+        sender: result.sender,
+        categories,
+        categoryName: result.category,
+        userId: u?.id!,
       });
+
+      if (newCategory) categories.push(newCategory);
     }
 
     for (const result of results) {
@@ -213,21 +197,11 @@ export const categorizeSendersAction = withActionInstrumentation(
         messages?.map((m) => m.snippet).filter(isDefined) || [];
 
       if (previousEmails.length === 0) {
-        const threadsFromSender = await getThreadsFromSender(
+        previousEmails = await getPreviousEmails(
           gmail,
           sender.sender,
-          3,
-        );
-        const threads = await getThreadsBatch(
-          threadsFromSender.map((t) => t.id).filter(isDefined),
           session.accessToken!,
         );
-
-        previousEmails = threads
-          .flatMap(
-            (t) => t.messages?.map((m) => m.snippet).filter(isDefined) || [],
-          )
-          .filter(isDefined);
       }
 
       const aiResult = await aiCategorizeSender({
@@ -248,6 +222,116 @@ export const categorizeSendersAction = withActionInstrumentation(
     revalidatePath("/smart-categories");
   },
 );
+
+export const categorizeSenderAction = withActionInstrumentation(
+  "categorizeSender",
+  async (senderAddress: string) => {
+    console.log("categorizeSenderAction");
+
+    const { gmail, user: u, error, session } = await getSessionAndGmailClient();
+    if (error) return { error };
+    if (!gmail) return { error: "Could not load Gmail" };
+    if (!session?.accessToken) return { error: "No access token" };
+
+    const user = await prisma.user.findUnique({
+      where: { id: u.id },
+      select: {
+        email: true,
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+      },
+    });
+
+    if (!user) return { error: "User not found" };
+
+    const categories = await getUserCategories(u.id);
+
+    const previousEmails = await getPreviousEmails(
+      gmail,
+      senderAddress,
+      session.accessToken!,
+    );
+
+    const aiResult = await aiCategorizeSender({
+      user,
+      sender: senderAddress,
+      previousEmails,
+      categories,
+    });
+
+    if (aiResult) {
+      await updateSenderCategory({
+        sender: senderAddress,
+        categories,
+        categoryName: aiResult.category,
+        userId: u.id,
+      });
+    }
+
+    revalidatePath("/smart-categories");
+  },
+);
+
+async function getPreviousEmails(
+  gmail: gmail_v1.Gmail,
+  sender: string,
+  accessToken: string,
+) {
+  const threadsFromSender = await getThreadsFromSender(gmail, sender, 3);
+  const threads = await getThreadsBatch(
+    threadsFromSender.map((t) => t.id).filter(isDefined),
+    accessToken,
+  );
+
+  const previousEmails = threads
+    .flatMap((t) => t.messages?.map((m) => m.snippet).filter(isDefined) || [])
+    .filter(isDefined);
+
+  return previousEmails;
+}
+
+async function updateSenderCategory({
+  userId,
+  sender,
+  categories,
+  categoryName,
+}: {
+  userId: string;
+  sender: string;
+  categories: { id: string; name: string }[];
+  categoryName: string;
+}) {
+  let category = categories.find((c) => c.name === categoryName);
+  let newCategory: Category | undefined;
+
+  if (!category) {
+    // create category
+    newCategory = await prisma.category.create({
+      data: {
+        name: categoryName,
+        userId,
+        // color: getRandomColor(),
+      },
+    });
+    category = newCategory;
+  }
+
+  // save category
+  await prisma.newsletter.upsert({
+    where: { email_userId: { email: sender, userId } },
+    update: { categoryId: category.id },
+    create: {
+      email: sender,
+      userId,
+      categoryId: category.id,
+    },
+  });
+
+  return {
+    newCategory,
+  };
+}
 
 // TODO: what if user doesn't have all these categories set up?
 // Use static rules to categorize senders if we can, before sending to LLM
