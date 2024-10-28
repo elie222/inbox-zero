@@ -165,40 +165,103 @@ export function GroupedTable({
                   );
                 }}
               />
-              {isCategoryExpanded &&
-                senders.map((sender) => {
-                  const row = table
-                    .getRowModel()
-                    .rows.find((r) => r.original.address === sender.address);
-                  if (!row) return null;
-                  return (
-                    <Fragment key={row.id}>
-                      <TableRow>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            style={{
-                              width:
-                                (cell.column.columnDef.meta as any)?.size ||
-                                "auto",
-                            }}
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                      {row.getIsExpanded() && (
-                        <ExpandedRows sender={row.original.address} />
-                      )}
-                    </Fragment>
-                  );
-                })}
+              {isCategoryExpanded && (
+                <SenderRows table={table} senders={senders} />
+              )}
             </Fragment>
           );
         })}
+      </TableBody>
+    </Table>
+  );
+}
+
+export function SendersTable({
+  senders,
+  categories,
+}: {
+  senders: EmailGroup[];
+  categories: Pick<Category, "id" | "name">[];
+}) {
+  const columns: ColumnDef<EmailGroup>[] = useMemo(
+    () => [
+      {
+        id: "expander",
+        cell: ({ row }) => {
+          return row.getCanExpand() ? (
+            <button onClick={row.getToggleExpandedHandler()} className="p-2">
+              <ChevronRight
+                className={cn(
+                  "h-4 w-4 transform transition-all duration-300 ease-in-out",
+                  row.getIsExpanded() ? "rotate-90" : "rotate-0",
+                )}
+              />
+            </button>
+          ) : null;
+        },
+        meta: { size: "20px" },
+      },
+      {
+        accessorKey: "address",
+        cell: ({ row }) => (
+          <div className="flex items-center justify-between">
+            <EmailCell
+              emailAddress={row.original.address}
+              className="flex gap-2"
+            />
+          </div>
+        ),
+      },
+      {
+        accessorKey: "preview",
+      },
+      {
+        accessorKey: "category",
+        cell: ({ row }) => (
+          <Select
+            defaultValue={row.original.category?.id.toString() || ""}
+            onValueChange={async (value) => {
+              const result = await changeSenderCategoryAction({
+                sender: row.original.address,
+                categoryId: value,
+              });
+
+              if (isActionError(result)) {
+                toastError({ description: result.error });
+              } else {
+                toastSuccess({ description: "Category changed" });
+              }
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id.toString()}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
+      },
+    ],
+    [categories],
+  );
+
+  const table = useReactTable({
+    data: senders,
+    columns,
+    getRowCanExpand: () => true,
+    getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+  });
+
+  return (
+    <Table>
+      <TableBody>
+        <SenderRows table={table} senders={senders} />
       </TableBody>
     </Table>
   );
@@ -231,6 +294,38 @@ function GroupRow({
       </TableCell>
     </TableRow>
   );
+}
+
+function SenderRows({
+  table,
+  senders,
+}: {
+  table: ReturnType<typeof useReactTable<EmailGroup>>;
+  senders: EmailGroup[];
+}) {
+  return senders.map((sender) => {
+    const row = table
+      .getRowModel()
+      .rows.find((r) => r.original.address === sender.address);
+    if (!row) return null;
+    return (
+      <Fragment key={row.id}>
+        <TableRow>
+          {row.getVisibleCells().map((cell) => (
+            <TableCell
+              key={cell.id}
+              style={{
+                width: (cell.column.columnDef.meta as any)?.size || "auto",
+              }}
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          ))}
+        </TableRow>
+        {row.getIsExpanded() && <ExpandedRows sender={row.original.address} />}
+      </Fragment>
+    );
+  });
 }
 
 function ExpandedRows({ sender }: { sender: string }) {

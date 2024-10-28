@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { ClientOnly } from "@/components/ClientOnly";
-import { GroupedTable } from "@/components/GroupedTable";
+import { SendersTable } from "@/components/GroupedTable";
 import { LoadingContent } from "@/components/LoadingContent";
 import { UncategorizedSendersResponse } from "@/app/api/user/categorize/senders/uncategorized/route";
 import { Category } from "@prisma/client";
@@ -19,8 +19,8 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
   return (
     <LoadingContent loading={isLoading} error={error}>
       <ClientOnly>
-        <GroupedTable
-          emailGroups={
+        <SendersTable
+          senders={
             data?.uncategorizedSenders.map((sender) => ({
               address: sender,
               category: null,
