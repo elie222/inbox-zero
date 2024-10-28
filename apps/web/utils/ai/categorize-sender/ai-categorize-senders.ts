@@ -73,7 +73,7 @@ Remember, it's better to request more information than to categorize incorrectly
     prompt,
     schema: categorizeSendersSchema,
     userEmail: user.email || "",
-    usageLabel: "categorize senders",
+    usageLabel: "Categorize senders bulk",
   });
 
   const matchedSenders = matchSendersWithFullEmail(

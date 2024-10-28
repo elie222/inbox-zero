@@ -5,12 +5,11 @@ import type { Category, User } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
 const categorizeSenderSchema = z.object({
-  rationale: z.string().describe("Keep it short."),
+  rationale: z.string().describe("Keep it short. 1-2 sentences max."),
   category: z.string(),
   possibleCategories: z
     .array(z.string())
-    .describe("Possible categories when the main category is unknown")
-    .optional(),
+    .describe("Possible categories when the main category is unknown"),
 });
 
 export async function aiCategorizeSender({
@@ -50,13 +49,13 @@ Categories:
 ${formatCategoriesForPrompt(categories)}
 
 Instructions:
-1. Analyze the sender's name and email address for clues about their category.
+1. Analyze the sender's name, email address for clues about their category.
 2. Review the content of previous emails to gain more context about the sender's relationship with the user.
 3. If the sender's category is clear based on the available information, assign it confidently.
-4. If you're still unsure or if multiple categories could apply, respond with "Unknown".
+4. If you're still unsure or if multiple categories could apply, respond with "Unknown" and include possible categories.
 
-Remember, only categorize the sender if you are highly confident based on the available information.
-If there's any significant uncertainty, use "Unknown".`;
+Only categorize the sender if you are highly confident it fits one of the categories.
+If there's any uncertainty, use "Unknown". If it could fit multiple categories, use "Unknown".`;
 
   const aiResponse = await chatCompletionObject({
     userAi: user,
@@ -64,7 +63,7 @@ If there's any significant uncertainty, use "Unknown".`;
     prompt,
     schema: categorizeSenderSchema,
     userEmail: user.email || "",
-    usageLabel: "categorize sender",
+    usageLabel: "Categorize sender",
   });
 
   if (!categories.find((c) => c.name === aiResponse.object.category))

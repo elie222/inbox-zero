@@ -15,7 +15,7 @@ async function getUncategorizedSenders({
   email: string;
   userId: string;
 }) {
-  const result = await getSenders({ ownerEmail: email });
+  const result = await getSenders({ ownerEmail: email, limit: 200 });
   const allSenders = result.data.map((sender) => sender.from);
 
   const existingSenders = await prisma.newsletter.findMany({
