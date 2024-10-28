@@ -126,3 +126,7 @@ async function findReceiptSubjects(gmail: gmail_v1.Gmail, accessToken: string) {
     (message) => message.from,
   );
 }
+
+export function isReceiptSender(sender: string) {
+  return defaultReceiptSenders.some((receipt) => sender.includes(receipt));
+}

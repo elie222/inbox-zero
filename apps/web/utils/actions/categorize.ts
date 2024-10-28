@@ -22,8 +22,8 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
 import { senderCategory, type SenderCategory } from "@/utils/categories";
-import { defaultReceiptSenders } from "@/utils/ai/group/find-receipts";
-import { newsletterSenders } from "@/utils/ai/group/find-newsletters";
+import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
+import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
@@ -360,19 +360,10 @@ function preCategorizeSendersWithStaticRules(
     if (personalEmailDomains.some((domain) => sender.includes(`@${domain}>`)))
       return { sender, category: senderCategory.UNKNOWN.label };
 
-    // newsletters
-    if (
-      sender.toLowerCase().includes("newsletter") ||
-      newsletterSenders.some((newsletter) => sender.includes(newsletter))
-    )
+    if (isNewsletterSender(sender))
       return { sender, category: senderCategory.NEWSLETTER.label };
 
-    // support
-    if (sender.toLowerCase().includes("support"))
-      return { sender, category: senderCategory.SUPPORT.label };
-
-    // receipts
-    if (defaultReceiptSenders.some((receipt) => sender.includes(receipt)))
+    if (isReceiptSender(sender))
       return { sender, category: senderCategory.RECEIPT.label };
 
     return { sender, category: undefined };

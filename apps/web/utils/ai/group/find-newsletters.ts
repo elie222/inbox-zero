@@ -28,3 +28,10 @@ export async function findNewsletters(
       .filter((from) => !ignoreList.find((ignore) => from.includes(ignore))),
   );
 }
+
+export function isNewsletterSender(sender: string) {
+  return (
+    sender.toLowerCase().includes("newsletter") ||
+    newsletterSenders.some((newsletter) => sender.includes(newsletter))
+  );
+}
