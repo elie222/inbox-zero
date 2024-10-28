@@ -7,40 +7,53 @@ import { isActionError } from "@/utils/error";
 import { categorizeSenderAction } from "@/utils/actions/categorize";
 import { aiQueue } from "@/utils/queue/ai-queue";
 
-export const aiCategorizeSenderQueueAtom = atom<Set<string>>(new Set([]));
+type CategorizationStatus = "pending" | "processing" | "completed";
+
+interface QueueItem {
+  status: CategorizationStatus;
+  categoryId?: string;
+}
+
+export const aiCategorizeSenderQueueAtom = atom<Map<string, QueueItem>>(
+  new Map(),
+);
 
 export const pushToAiCategorizeSenderQueueAtom = (pushIds: string[]) => {
   jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
-    const newIds = new Set(prev);
-    pushIds.forEach((id) => newIds.add(id));
-    return newIds;
+    const newQueue = new Map(prev);
+    pushIds.forEach((id) => {
+      if (!newQueue.has(id)) {
+        newQueue.set(id, { status: "pending" });
+      }
+    });
+    return newQueue;
   });
 
   processAiCategorizeSenderQueue({ senders: pushIds });
 };
 
-const removeFromAiCategorizeSenderQueueAtom = (removeId: string) => {
-  jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
-    const remainingSenders = new Set(prev);
-    remainingSenders.delete(removeId);
-    return remainingSenders;
-  });
-};
-
-export const createInAiCategorizeSenderQueueSelector = (id: string) => {
+export const getAiCategorizationQueueItemSelector = (id: string) => {
   return atom((get) => {
-    const ids = get(aiCategorizeSenderQueueAtom);
-    return ids.has(id);
+    const queue = get(aiCategorizeSenderQueueAtom);
+    return queue.get(id);
   });
 };
 
-export const isAiCategorizeSenderQueueEmptySelector = atom((get) => {
-  const ids = get(aiCategorizeSenderQueueAtom);
-  return ids.size === 0;
+export const hasProcessingItemsSelector = atom((get) => {
+  const queue = get(aiCategorizeSenderQueueAtom);
+  return Array.from(queue.values()).some(
+    (item) => item.status === "processing",
+  );
 });
 
 function processAiCategorizeSenderQueue({ senders }: { senders: string[] }) {
   const tasks = senders.map((sender) => async () => {
+    jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
+      const newQueue = new Map(prev);
+      newQueue.set(sender, { status: "processing" });
+      return newQueue;
+    });
+
     await pRetry(
       async (attemptCount) => {
         console.log(
@@ -50,16 +63,22 @@ function processAiCategorizeSenderQueue({ senders }: { senders: string[] }) {
 
         const result = await categorizeSenderAction(sender);
 
-        // when API returns a rate limit error, throw an error so it can be retried
         if (isActionError(result)) {
           await sleep(exponentialBackoff(attemptCount, 1_000));
           throw new Error(result.error);
         }
+
+        jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
+          const newQueue = new Map(prev);
+          newQueue.set(sender, {
+            status: "completed",
+            categoryId: result.categoryId || undefined,
+          });
+          return newQueue;
+        });
       },
       { retries: 3 },
     );
-
-    removeFromAiCategorizeSenderQueueAtom(sender);
   });
 
   aiQueue.addAll(tasks);

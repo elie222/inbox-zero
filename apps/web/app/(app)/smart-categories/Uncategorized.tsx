@@ -11,7 +11,7 @@ import { Category } from "@prisma/client";
 import { TopBar } from "@/components/TopBar";
 import { toastError } from "@/components/Toast";
 import {
-  isAiCategorizeSenderQueueEmptySelector,
+  hasProcessingItemsSelector,
   pushToAiCategorizeSenderQueueAtom,
 } from "@/store/ai-categorize-sender-queue";
 import { useAtomValue } from "jotai";
@@ -25,13 +25,13 @@ function useSenders() {
 export function Uncategorized({ categories }: { categories: Category[] }) {
   const { data, isLoading, error } = useSenders();
 
-  const isEmpty = useAtomValue(isAiCategorizeSenderQueueEmptySelector);
+  const hasProcessingItems = useAtomValue(hasProcessingItemsSelector);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
       <TopBar>
         <Button
-          loading={!isEmpty}
+          loading={hasProcessingItems}
           onClick={async () => {
             if (!data?.uncategorizedSenders.length) {
               toastError({ description: "No senders to categorize" });

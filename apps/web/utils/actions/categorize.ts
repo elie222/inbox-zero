@@ -261,15 +261,21 @@ export const categorizeSenderAction = withActionInstrumentation(
     });
 
     if (aiResult) {
-      await updateSenderCategory({
+      const { newsletter } = await updateSenderCategory({
         sender: senderAddress,
         categories,
         categoryName: aiResult.category,
         userId: u.id,
       });
+
+      revalidatePath("/smart-categories");
+
+      return { categoryId: newsletter.categoryId };
+    } else {
+      console.error(`No AI result for sender: ${senderAddress}`);
     }
 
-    revalidatePath("/smart-categories");
+    return { categoryId: undefined };
   },
 );
 
@@ -318,7 +324,7 @@ async function updateSenderCategory({
   }
 
   // save category
-  await prisma.newsletter.upsert({
+  const newsletter = await prisma.newsletter.upsert({
     where: { email_userId: { email: sender, userId } },
     update: { categoryId: category.id },
     create: {
@@ -330,6 +336,7 @@ async function updateSenderCategory({
 
   return {
     newCategory,
+    newsletter,
   };
 }
 

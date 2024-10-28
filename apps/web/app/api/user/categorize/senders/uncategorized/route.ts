@@ -23,7 +23,7 @@ async function getUncategorizedSenders({
   let pagesFetched = 0;
 
   const stopAfterSenders = 20;
-  const maxPages = 3;
+  const maxPages = 1;
   const perPage = 100;
 
   while (

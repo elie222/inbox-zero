@@ -30,7 +30,7 @@ import {
 import { changeSenderCategoryAction } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
-import { createInAiCategorizeSenderQueueSelector } from "@/store/ai-categorize-sender-queue";
+import { getAiCategorizationQueueItemSelector } from "@/store/ai-categorize-sender-queue";
 import { LoadingMiniSpinner } from "@/components/Loading";
 
 type EmailGroup = {
@@ -371,12 +371,12 @@ function SelectCategoryCell({
   categories: Pick<Category, "id" | "name">[];
 }) {
   const selector = useMemo(
-    () => createInAiCategorizeSenderQueueSelector(sender),
+    () => getAiCategorizationQueueItemSelector(sender),
     [sender],
   );
-  const inQueue = useAtomValue(selector);
+  const item = useAtomValue(selector);
 
-  if (inQueue) {
+  if (item?.status && item?.status !== "completed") {
     return (
       <span className="flex items-center text-muted-foreground">
         <LoadingMiniSpinner />
@@ -387,7 +387,7 @@ function SelectCategoryCell({
 
   return (
     <Select
-      defaultValue={senderCategory?.id.toString() || ""}
+      defaultValue={item?.categoryId || senderCategory?.id.toString() || ""}
       onValueChange={async (value) => {
         const result = await changeSenderCategoryAction({
           sender,
