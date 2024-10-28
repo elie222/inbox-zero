@@ -7,7 +7,7 @@ import {
   trashThreadAction,
   markReadThreadAction,
 } from "@/utils/actions/mail";
-import { isActionError, ServerActionResponse } from "@/utils/error";
+import { isActionError, type ServerActionResponse } from "@/utils/error";
 import { exponentialBackoff, sleep } from "@/utils/sleep";
 
 type ActionType = "archive" | "delete" | "markRead";

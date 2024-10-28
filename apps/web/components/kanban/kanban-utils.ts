@@ -1,6 +1,6 @@
-import { Active, DataRef, Over } from "@dnd-kit/core";
-import { ColumnDragData } from "./BoardColumn";
-import { TaskDragData } from "./TaskCard";
+import type { Active, DataRef, Over } from "@dnd-kit/core";
+import type { ColumnDragData } from "./BoardColumn";
+import type { TaskDragData } from "./TaskCard";
 
 type DraggableData = ColumnDragData | TaskDragData;
 

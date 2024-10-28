@@ -8,12 +8,12 @@ import {
   useReactTable,
   getCoreRowModel,
   getExpandedRowModel,
-  ColumnDef,
+  type ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
 import { ChevronRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { Category } from "@prisma/client";
+import type { Category } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { Skeleton } from "@/components/ui/skeleton";

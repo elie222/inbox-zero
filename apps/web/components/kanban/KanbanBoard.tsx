@@ -15,8 +15,8 @@ import {
   useSensor,
   useSensors,
   KeyboardSensor,
-  Announcements,
-  UniqueIdentifier,
+  type Announcements,
+  type UniqueIdentifier,
   TouchSensor,
   MouseSensor,
 } from "@dnd-kit/core";

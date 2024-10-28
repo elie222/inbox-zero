@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import type { Category, User } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 

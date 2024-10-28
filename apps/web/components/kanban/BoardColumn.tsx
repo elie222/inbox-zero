@@ -4,7 +4,7 @@ import { useDndContext, type UniqueIdentifier } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cva } from "class-variance-authority";
 import { GripVertical } from "lucide-react";
-import { Task, TaskCard } from "./TaskCard";
+import { type Task, TaskCard } from "./TaskCard";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area";

@@ -21,14 +21,14 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
-import { senderCategory, SenderCategory } from "@/utils/categories";
+import { senderCategory, type SenderCategory } from "@/utils/categories";
 import { defaultReceiptSenders } from "@/utils/ai/group/find-receipts";
 import { newsletterSenders } from "@/utils/ai/group/find-newsletters";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
-import { Category } from "@prisma/client";
+import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
 
 export const categorizeEmailAction = withActionInstrumentation(

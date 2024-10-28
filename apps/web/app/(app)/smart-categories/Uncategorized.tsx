@@ -1,24 +1,27 @@
 "use client";
 
 import useSWR from "swr";
+import { useAtomValue } from "jotai";
 import { SparklesIcon } from "lucide-react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { SendersTable } from "@/components/GroupedTable";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
-import { UncategorizedSendersResponse } from "@/app/api/user/categorize/senders/uncategorized/route";
-import { Category } from "@prisma/client";
+import type { UncategorizedSendersResponse } from "@/app/api/user/categorize/senders/uncategorized/route";
+import type { Category } from "@prisma/client";
 import { TopBar } from "@/components/TopBar";
 import { toastError } from "@/components/Toast";
 import {
   hasProcessingItemsSelector,
   pushToAiCategorizeSenderQueueAtom,
 } from "@/store/ai-categorize-sender-queue";
-import { useAtomValue } from "jotai";
 
 function useSenders() {
   return useSWR<UncategorizedSendersResponse>(
     "/api/user/categorize/senders/uncategorized",
+    {
+      revalidateOnFocus: false,
+    },
   );
 }
 

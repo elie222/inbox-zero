@@ -1,58 +1,42 @@
 import { NextResponse } from "next/server";
-import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
-import { gmail_v1 } from "@googleapis/gmail";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
+import { getSenders } from "@inboxzero/tinybird";
+import prisma from "@/utils/prisma";
 
 export type UncategorizedSendersResponse = Awaited<
   ReturnType<typeof getUncategorizedSenders>
 >;
 
 async function getUncategorizedSenders({
-  gmail,
-  accessToken,
+  email,
   userId,
 }: {
-  gmail: gmail_v1.Gmail;
-  accessToken: string;
+  email: string;
   userId: string;
 }) {
-  let uncategorizedSenders: string[] = [];
-  let pageToken: string | undefined;
-  let pagesFetched = 0;
+  const result = await getSenders({ ownerEmail: email });
+  const allSenders = result.data.map((sender) => sender.from);
 
-  const stopAfterSenders = 20;
-  const maxPages = 1;
-  const perPage = 100;
+  const existingSenders = await prisma.newsletter.findMany({
+    where: {
+      email: { in: allSenders },
+      userId,
+    },
+    select: {
+      email: true,
+    },
+  });
 
-  while (
-    uncategorizedSenders.length < stopAfterSenders &&
-    pagesFetched < maxPages
-  ) {
-    console.log(`Fetching page ${pagesFetched}`);
-    const senders = await findSenders(gmail, accessToken, pageToken, perPage);
-    pageToken = senders.nextPageToken || undefined;
-    pagesFetched++;
+  // Create a Set of existing sender emails for faster lookup
+  const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
 
-    const existingSenders = await prisma.newsletter.findMany({
-      where: {
-        email: { in: Array.from(senders.senders.keys()) },
-        userId,
-      },
-      select: { email: true, categoryId: true },
-    });
+  // Filter out senders that already exist in the database
+  const uncategorizedSenders = allSenders.filter(
+    (email) => !existingSenderEmails.has(email),
+  );
 
-    const newUncategorizedSenders = Array.from(senders.senders.keys()).filter(
-      (sender) => !existingSenders.some((s) => s.email === sender),
-    );
-
-    uncategorizedSenders = uncategorizedSenders.concat(newUncategorizedSenders);
-
-    if (!pageToken) break; // Exit if there are no more pages
-  }
-
-  return { uncategorizedSenders: uncategorizedSenders };
+  return { uncategorizedSenders };
 }
 
 export const GET = withError(async () => {
@@ -64,8 +48,7 @@ export const GET = withError(async () => {
     return NextResponse.json({ error: "No access token" });
 
   const result = await getUncategorizedSenders({
-    gmail,
-    accessToken: session.accessToken,
+    email: user.email,
     userId: user.id,
   });
 
