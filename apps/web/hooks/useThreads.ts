@@ -18,7 +18,6 @@ export function useThreads({
   if (type) searchParams.set("type", type);
 
   const url = `/api/google/threads?${searchParams.toString()}`;
-  console.log("🚀 ~ url:", url);
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
     refreshInterval,
   });

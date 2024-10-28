@@ -1,11 +1,12 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { getMessage } from "@/utils/gmail/message";
+import { getMessagesBatch } from "@/utils/gmail/message";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
-import type { MessageWithPayload } from "@/utils/types";
+import { isDefined } from "@/utils/types";
 import type { SenderMap } from "@/app/api/user/categorize/senders/types";
 
 export async function findSendersWithPagination(
   gmail: gmail_v1.Gmail,
+  accessToken: string,
   maxPages: number,
 ) {
   const allSenders: SenderMap = new Map();
@@ -15,6 +16,7 @@ export async function findSendersWithPagination(
   while (currentPage < maxPages) {
     const { senders, nextPageToken: newNextPageToken } = await findSenders(
       gmail,
+      accessToken,
       nextPageToken,
     );
 
@@ -34,6 +36,7 @@ export async function findSendersWithPagination(
 
 export async function findSenders(
   gmail: gmail_v1.Gmail,
+  accessToken: string,
   pageToken?: string,
   maxResults = 50,
 ) {
@@ -46,30 +49,18 @@ export async function findSenders(
     pageToken,
   });
 
-  for (const thread of threads) {
-    if (!thread.id) continue;
-    try {
-      const message = await getMessage(thread.id, gmail, "metadata");
+  const messageIds = threads.map((t) => t.id).filter(isDefined);
+  const messages = await getMessagesBatch(messageIds, accessToken);
 
-      const sender = extractSenderInfo(message);
-      if (sender) {
-        const existingMessages = senders.get(sender) ?? [];
-        senders.set(sender, [...existingMessages, message]);
-      }
-    } catch (error) {
-      if (isNotFoundError(error)) continue;
-      console.error("Error getting message", error);
+  for (const message of messages) {
+    const sender = message.headers.from;
+    if (sender) {
+      const existingMessages = senders.get(sender) ?? [];
+      senders.set(sender, [...existingMessages, message]);
     }
   }
 
   return { senders, nextPageToken };
-}
-
-function extractSenderInfo(message: MessageWithPayload) {
-  const fromHeader = message.payload?.headers?.find((h) => h.name === "From");
-  if (!fromHeader?.value) return null;
-
-  return fromHeader.value;
 }
 
 function isNotFoundError(error: unknown): boolean {

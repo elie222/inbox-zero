@@ -14,14 +14,9 @@ import { Button } from "@/components/ui/button";
 import { senderCategory } from "@/utils/categories";
 import { createCategoriesAction } from "@/utils/actions/categorize";
 import { cn } from "@/utils";
-import { Category } from "@prisma/client";
 import { Tooltip } from "@/components/Tooltip";
 
-export function SetUpCategories({
-  userCategories,
-}: {
-  userCategories: Category[];
-}) {
+export function SetUpCategories() {
   const [categories, setCategories] = useState<Map<string, boolean>>(
     new Map(Object.values(senderCategory).map((c) => [c.label, c.enabled])),
   );

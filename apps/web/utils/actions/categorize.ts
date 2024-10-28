@@ -85,6 +85,7 @@ export const categorizeSendersAction = withActionInstrumentation(
     const { gmail, user: u, error, session } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
+    if (!session?.accessToken) return { error: "No access token" };
 
     const user = await prisma.user.findUnique({
       where: { id: u.id },
@@ -101,7 +102,12 @@ export const categorizeSendersAction = withActionInstrumentation(
     // TODO: fetch from gmail, run ai, then fetch from gmail,...
     // we can run ai and gmail fetch in parallel
 
-    const sendersResult = await findSenders(gmail, undefined, 100);
+    const sendersResult = await findSenders(
+      gmail,
+      session.accessToken,
+      undefined,
+      100,
+    );
     // const sendersResult = await findSendersWithPagination(gmail, 5);
 
     console.log("sendersResult", Array.from(sendersResult.senders.keys()));
