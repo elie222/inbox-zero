@@ -1,7 +1,8 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { PlayIcon } from "lucide-react";
-import { useWindowSize } from "usehooks-ts";
 import { useModal } from "@/components/Modal";
 import { YouTubeVideo } from "@/components/YouTubeVideo";
 import { Button } from "@/components/ui/button";
@@ -86,3 +87,29 @@ export function OnboardingModalDialog({
     </Dialog>
   );
 }
+
+export const useOnboarding = (feature: string) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [hasViewedOnboarding, setHasViewedOnboarding] = useLocalStorage(
+    `viewed${feature}Onboarding`,
+    false,
+  );
+
+  useEffect(() => {
+    if (!hasViewedOnboarding) {
+      setIsOpen(true);
+      setHasViewedOnboarding(true);
+    }
+  }, [setHasViewedOnboarding, hasViewedOnboarding]);
+
+  const onClose = useCallback(() => {
+    setIsOpen(false);
+  }, [setIsOpen]);
+
+  return {
+    isOpen,
+    hasViewedOnboarding,
+    setIsOpen,
+    onClose,
+  };
+};

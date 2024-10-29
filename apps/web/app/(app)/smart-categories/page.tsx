@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Uncategorized } from "@/app/(app)/smart-categories/Uncategorized";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
+import { SmartCategoriesOnboarding } from "@/app/(app)/smart-categories/SmartCategoriesOnboarding";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -102,6 +103,10 @@ export default async function CategoriesPage() {
           </TabsContent>
         </Tabs>
       </Suspense>
+
+      <ClientOnly>
+        <SmartCategoriesOnboarding />
+      </ClientOnly>
     </NuqsAdapter>
   );
 }
