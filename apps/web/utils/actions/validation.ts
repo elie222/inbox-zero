@@ -74,7 +74,7 @@ export const createRuleBody = z.object({
   categoryFilterType: z
     .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
     .nullish(),
-  categoryFilters: z.array(z.string()),
+  categoryFilters: z.array(z.string()).nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
