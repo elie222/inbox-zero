@@ -9,10 +9,8 @@ import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@prisma/client";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
-import {
-  archiveAllSenderEmails,
-  deleteEmails,
-} from "@/utils/queue/email-actions";
+import { archiveAllSenderEmails } from "@/utils/queue/email-actions";
+import { deleteEmails } from "@/store/archive-queue";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";

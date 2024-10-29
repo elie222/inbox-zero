@@ -53,7 +53,7 @@ export default async function CategoriesPage() {
             <CreateCategoryButton />
           </TopBar>
 
-          <TabsContent value="categories">
+          <TabsContent value="categories" className="m-0">
             {senders.length > 0 || categories.length > 0 ? (
               <>
                 {senders.length === 0 && (

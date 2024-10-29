@@ -16,7 +16,7 @@ import {
 import { navigation } from "@/components/SideNav";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { refetchEmailListAtom, selectedEmailAtom } from "@/store/email";
-import { archiveEmails } from "@/utils/queue/email-actions";
+import { archiveEmails } from "@/store/archive-queue";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);

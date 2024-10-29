@@ -11,7 +11,7 @@ import {
   type ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { ChevronRight } from "lucide-react";
+import { ArchiveIcon, ChevronRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import type { Category } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
@@ -32,6 +32,11 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import { getAiCategorizationQueueItemSelector } from "@/store/ai-categorize-sender-queue";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { Button } from "@/components/ui/button";
+import {
+  addToArchiveSenderQueue,
+  createArchiveSenderStatusAtom,
+} from "@/store/archive-sender-queue";
 
 type EmailGroup = {
   address: string;
@@ -73,7 +78,6 @@ export function GroupedTable({
     () => [
       {
         id: "expander",
-        // header: () => null,
         cell: ({ row }) => {
           return row.getCanExpand() ? (
             <button onClick={row.getToggleExpandedHandler()} className="p-2">
@@ -90,7 +94,6 @@ export function GroupedTable({
       },
       {
         accessorKey: "address",
-        // header: "Email Address",
         cell: ({ row }) => (
           <div className="flex items-center justify-between">
             <EmailCell
@@ -102,11 +105,12 @@ export function GroupedTable({
       },
       {
         accessorKey: "preview",
-        // header: "Preview",
+        cell: ({ row }) => {
+          return <ArchiveStatusCell sender={row.original.address} />;
+        },
       },
       {
         accessorKey: "date",
-        // header: "Date",
         cell: ({ row }) => (
           <Select
             defaultValue={row.original.category?.id.toString() || ""}
@@ -154,6 +158,12 @@ export function GroupedTable({
         {Object.entries(groupedEmails).map(([category, senders]) => {
           const isCategoryExpanded = expanded?.includes(category);
 
+          const onArchiveAll = async () => {
+            for (const sender of senders) {
+              await addToArchiveSenderQueue(sender.address);
+            }
+          };
+
           return (
             <Fragment key={category}>
               <GroupRow
@@ -167,6 +177,7 @@ export function GroupedTable({
                       : [...(prev || []), category],
                   );
                 }}
+                onArchiveAll={onArchiveAll}
               />
               {isCategoryExpanded && (
                 <SenderRows table={table} senders={senders} />
@@ -256,25 +267,37 @@ function GroupRow({
   count,
   isExpanded,
   onToggle,
+  onArchiveAll,
 }: {
   category: string;
   count: number;
   isExpanded: boolean;
   onToggle: () => void;
+  onArchiveAll: () => void;
 }) {
   return (
-    <TableRow className="h-8 cursor-pointer bg-gray-50" onClick={onToggle}>
-      <TableCell colSpan={4} className="py-1 text-sm font-medium text-gray-700">
+    <TableRow className="h-8 cursor-pointer bg-gray-50">
+      <TableCell
+        colSpan={3}
+        className="py-1 text-sm font-medium text-gray-700"
+        onClick={onToggle}
+      >
         <div className="flex items-center">
           <ChevronRight
             className={cn(
-              "mr-2 h-4 w-4 transform transition-all duration-300 ease-in-out",
+              "mr-2 size-4 transform transition-all duration-300 ease-in-out",
               isExpanded ? "rotate-90" : "rotate-0",
             )}
           />
           {category}
           <span className="ml-2 text-xs text-gray-500">({count})</span>
         </div>
+      </TableCell>
+      <TableCell className="flex justify-end py-1">
+        <Button variant="outline" size="xs" onClick={onArchiveAll}>
+          <ArchiveIcon className="mr-2 size-4" />
+          Archive all
+        </Button>
       </TableCell>
     </TableRow>
   );
@@ -413,4 +436,28 @@ function SelectCategoryCell({
       </SelectContent>
     </Select>
   );
+}
+
+function ArchiveStatusCell({ sender }: { sender: string }) {
+  const selector = useMemo(
+    () => createArchiveSenderStatusAtom(sender),
+    [sender],
+  );
+  const status = useAtomValue(selector);
+
+  switch (status?.status) {
+    case "completed":
+      return <span className="text-green-500">Archived</span>;
+    case "processing":
+      return (
+        <span className="text-blue-500">
+          Archiving... {status.threadsTotal - status.threadIds.length} /{" "}
+          {status.threadsTotal}
+        </span>
+      );
+    case "pending":
+      return <span className="text-muted-foreground">Pending...</span>;
+    default:
+      return null;
+  }
 }

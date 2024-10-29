@@ -26,16 +26,16 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import {
-  archiveEmails,
-  deleteEmails,
-  markReadThreads,
-  runAiRules,
-} from "@/utils/queue/email-actions";
+import { runAiRules } from "@/utils/queue/email-actions";
 import { selectedEmailAtom } from "@/store/email";
 import { categorizeEmailAction } from "@/utils/actions/categorize";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
+import {
+  archiveEmails,
+  deleteEmails,
+  markReadThreads,
+} from "@/store/archive-queue";
 
 export function List({
   emails,
@@ -457,7 +457,7 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads([thread.id], refetch);
+                  markReadThreads([thread.id], () => refetch([thread.id]));
                 };
 
                 return (

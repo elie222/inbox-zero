@@ -59,16 +59,16 @@ const actionMap: Record<ActionType, ActionFunction> = {
   markRead: (threadId: string) => markReadThreadAction(threadId, true),
 };
 
-export const addThreadsToQueue = ({
+const addThreadsToQueue = ({
   actionType,
   threadIds,
   labelId,
-  refetch,
+  onSuccess,
 }: {
   actionType: ActionType;
   threadIds: string[];
   labelId?: string;
-  refetch?: () => void;
+  onSuccess?: (threadId: string) => void;
 }) => {
   const threads = Object.fromEntries(
     threadIds.map((threadId) => [
@@ -85,7 +85,29 @@ export const addThreadsToQueue = ({
     totalThreads: prev.totalThreads + Object.keys(threads).length,
   }));
 
-  processQueue({ threads, refetch });
+  processQueue({ threads, onSuccess });
+};
+
+export const archiveEmails = async (
+  threadIds: string[],
+  onSuccess: (threadId: string) => void,
+  labelId?: string,
+) => {
+  addThreadsToQueue({ actionType: "archive", threadIds, labelId, onSuccess });
+};
+
+export const markReadThreads = async (
+  threadIds: string[],
+  onSuccess: (threadId: string) => void,
+) => {
+  addThreadsToQueue({ actionType: "markRead", threadIds, onSuccess });
+};
+
+export const deleteEmails = async (
+  threadIds: string[],
+  onSuccess: (threadId: string) => void,
+) => {
+  addThreadsToQueue({ actionType: "delete", threadIds, onSuccess });
 };
 
 function removeThreadFromQueue(threadId: string, actionType: ActionType) {
@@ -106,10 +128,10 @@ function removeThreadFromQueue(threadId: string, actionType: ActionType) {
 
 export function processQueue({
   threads,
-  refetch,
+  onSuccess,
 }: {
   threads: Record<string, QueueItem>;
-  refetch?: () => void;
+  onSuccess?: (threadId: string) => void;
 }) {
   emailActionQueue.addAll(
     Object.entries(threads).map(
@@ -129,7 +151,7 @@ export function processQueue({
                 await sleep(exponentialBackoff(attemptCount, 1_000));
                 throw new Error(result.error);
               }
-              refetch?.();
+              onSuccess?.(threadId);
             },
             { retries: 3 },
           );

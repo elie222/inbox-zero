@@ -3,33 +3,11 @@
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/ai-queue";
-import { addThreadsToQueue } from "@/store/archive-queue";
 import type { Thread } from "@/components/email-list/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { aiQueue } from "@/utils/queue/ai-queue";
-
-export const archiveEmails = async (
-  threadIds: string[],
-  refetch?: () => void,
-  labelId?: string,
-) => {
-  addThreadsToQueue({ actionType: "archive", threadIds, labelId, refetch });
-};
-
-export const markReadThreads = async (
-  threadIds: string[],
-  refetch: () => void,
-) => {
-  addThreadsToQueue({ actionType: "markRead", threadIds, refetch });
-};
-
-export const deleteEmails = async (
-  threadIds: string[],
-  refetch: () => void,
-) => {
-  addThreadsToQueue({ actionType: "delete", threadIds, refetch });
-};
+import { archiveEmails } from "@/store/archive-queue";
 
 export const archiveAllSenderEmails = async (
   from: string,
