@@ -7,9 +7,9 @@ import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-c
 const categorizeSenderSchema = z.object({
   rationale: z.string().describe("Keep it short. 1-2 sentences max."),
   category: z.string(),
-  possibleCategories: z
-    .array(z.string())
-    .describe("Possible categories when the main category is unknown"),
+  // possibleCategories: z
+  //   .array(z.string())
+  //   .describe("Possible categories when the main category is unknown"),
 });
 
 export async function aiCategorizeSender({
@@ -51,11 +51,9 @@ ${formatCategoriesForPrompt(categories)}
 Instructions:
 1. Analyze the sender's name, email address for clues about their category.
 2. Review the content of previous emails to gain more context about the sender's relationship with the user.
-3. If the sender's category is clear based on the available information, assign it confidently.
-4. If you're still unsure or if multiple categories could apply, respond with "Unknown" and include possible categories.
-
-Only categorize the sender if you are highly confident it fits one of the categories.
-If there's any uncertainty, use "Unknown". If it could fit multiple categories, use "Unknown".`;
+3. If the sender's category is clear based on the available information, assign it.
+4. If you're not certain, respond with "Unknown".
+5. If multiple categories are possible, respond with "Unknown".`;
 
   const aiResponse = await chatCompletionObject({
     userAi: user,

@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Uncategorized } from "@/app/(app)/smart-categories/Uncategorized";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export default async function CategoriesPage() {
   const session = await auth();
