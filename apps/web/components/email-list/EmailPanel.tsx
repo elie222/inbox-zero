@@ -10,7 +10,6 @@ import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { createInAiQueueSelector } from "@/store/ai-queue";
 import { Card } from "@/components/Card";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 import type { ParsedMessage } from "@/utils/types";
@@ -19,6 +18,7 @@ import {
   forwardEmailSubject,
   forwardEmailText,
 } from "@/utils/gmail/forward";
+import { useIsInAiQueue } from "@/store/ai-queue";
 
 export function EmailPanel(props: {
   row: Thread;
@@ -34,11 +34,7 @@ export function EmailPanel(props: {
   rejectPlan: (thread: Thread) => Promise<void>;
   refetch: () => void;
 }) {
-  const inAiQueueSelector = useMemo(
-    () => createInAiQueueSelector(props.row.id),
-    [props.row.id],
-  );
-  const isPlanning = useAtomValue(inAiQueueSelector);
+  const isPlanning = useIsInAiQueue(props.row.id);
 
   const lastMessage = props.row.messages?.[props.row.messages.length - 1];
 
