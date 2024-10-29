@@ -15,26 +15,33 @@ async function getUncategorizedSenders({
   email: string;
   userId: string;
 }) {
-  const result = await getSenders({ ownerEmail: email, limit: 200 });
-  const allSenders = result.data.map((sender) => sender.from);
+  let uncategorizedSenders: string[] = [];
+  let offset = 0;
+  const limit = 200;
 
-  const existingSenders = await prisma.newsletter.findMany({
-    where: {
-      email: { in: allSenders },
-      userId,
-    },
-    select: {
-      email: true,
-    },
-  });
+  while (uncategorizedSenders.length === 0) {
+    const result = await getSenders({ ownerEmail: email, limit, offset });
+    const allSenders = result.data.map((sender) => sender.from);
 
-  // Create a Set of existing sender emails for faster lookup
-  const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
+    const existingSenders = await prisma.newsletter.findMany({
+      where: {
+        email: { in: allSenders },
+        userId,
+      },
+      select: { email: true },
+    });
 
-  // Filter out senders that already exist in the database
-  const uncategorizedSenders = allSenders.filter(
-    (email) => !existingSenderEmails.has(email),
-  );
+    const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
+
+    uncategorizedSenders = allSenders.filter(
+      (email) => !existingSenderEmails.has(email),
+    );
+
+    // Break the loop if no more senders are available
+    if (allSenders.length < limit) break;
+
+    offset += limit;
+  }
 
   return { uncategorizedSenders };
 }

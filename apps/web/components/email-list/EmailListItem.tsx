@@ -6,7 +6,6 @@ import {
   useMemo,
 } from "react";
 import Link from "next/link";
-import { useAtomValue } from "jotai";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { PlanBadge } from "@/components/PlanBadge";
@@ -17,7 +16,7 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { createInAiQueueSelector } from "@/store/ai-queue";
+import { useIsInAiQueue } from "@/store/ai-queue";
 import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -65,11 +64,7 @@ export const EmailListItem = forwardRef(
       [onSelected, props.thread.id],
     );
 
-    const inAiQueueSelector = useMemo(
-      () => createInAiQueueSelector(props.thread.id),
-      [props.thread.id],
-    );
-    const isPlanning = useAtomValue(inAiQueueSelector);
+    const isPlanning = useIsInAiQueue(props.thread.id);
 
     if (!lastMessage) return null;
 

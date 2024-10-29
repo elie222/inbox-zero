@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useAtomValue } from "jotai";
 import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useModal, Modal } from "@/components/Modal";
@@ -11,13 +10,13 @@ import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/utils/queue/email-actions";
-import { aiQueueAtom } from "@/store/ai-queue";
 import { sleep } from "@/utils/sleep";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/automation/SetDateDropdown";
 import { dateToSeconds } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
 import { useThreads } from "@/hooks/useThreads";
+import { useAiQueueState } from "@/store/ai-queue";
 
 export function BulkRunRules() {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -25,7 +24,7 @@ export function BulkRunRules() {
 
   const { data, isLoading, error } = useThreads({ type: "inbox" });
 
-  const queue = useAtomValue(aiQueueAtom);
+  const queue = useAiQueueState();
 
   const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
 

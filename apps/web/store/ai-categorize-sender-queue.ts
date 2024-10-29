@@ -1,4 +1,5 @@
-import { atom } from "jotai";
+import { useMemo } from "react";
+import { atom, useAtomValue } from "jotai";
 import pRetry from "p-retry";
 import { jotaiStore } from "@/store";
 import { exponentialBackoff } from "@/utils/sleep";
@@ -14,9 +15,7 @@ interface QueueItem {
   categoryId?: string;
 }
 
-export const aiCategorizeSenderQueueAtom = atom<Map<string, QueueItem>>(
-  new Map(),
-);
+const aiCategorizeSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
 
 export const pushToAiCategorizeSenderQueueAtom = (pushIds: string[]) => {
   jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
@@ -32,19 +31,26 @@ export const pushToAiCategorizeSenderQueueAtom = (pushIds: string[]) => {
   processAiCategorizeSenderQueue({ senders: pushIds });
 };
 
-export const getAiCategorizationQueueItemSelector = (id: string) => {
-  return atom((get) => {
-    const queue = get(aiCategorizeSenderQueueAtom);
-    return queue.get(id);
-  });
+const aiCategorizationQueueItemAtom = atom((get) => {
+  const queue = get(aiCategorizeSenderQueueAtom);
+  return (id: string) => queue.get(id);
+});
+
+export const useAiCategorizationQueueItem = (id: string) => {
+  const getItem = useAtomValue(aiCategorizationQueueItemAtom);
+  return useMemo(() => getItem(id), [id]);
 };
 
-export const hasProcessingItemsSelector = atom((get) => {
+const hasProcessingItemsAtom = atom((get) => {
   const queue = get(aiCategorizeSenderQueueAtom);
   return Array.from(queue.values()).some(
     (item) => item.status === "processing",
   );
 });
+
+export const useHasProcessingItems = () => {
+  return useAtomValue(hasProcessingItemsAtom);
+};
 
 function processAiCategorizeSenderQueue({ senders }: { senders: string[] }) {
   const tasks = senders.map((sender) => async () => {

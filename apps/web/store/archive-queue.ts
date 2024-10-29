@@ -9,6 +9,7 @@ import {
 } from "@/utils/actions/mail";
 import { isActionError, type ServerActionResponse } from "@/utils/error";
 import { exponentialBackoff, sleep } from "@/utils/sleep";
+import { useAtomValue } from "jotai";
 
 type ActionType = "archive" | "delete" | "markRead";
 
@@ -40,12 +41,16 @@ const createStorage = () => {
 };
 
 // Create atoms with localStorage persistence
-export const queueAtom = atomWithStorage(
+const queueAtom = atomWithStorage(
   "gmailActionQueue",
   { activeThreads: {}, totalThreads: 0 },
   createStorage(),
   { getOnInit: true },
 );
+
+export function useQueueState() {
+  return useAtomValue(queueAtom);
+}
 
 type ActionFunction = (
   threadId: string,

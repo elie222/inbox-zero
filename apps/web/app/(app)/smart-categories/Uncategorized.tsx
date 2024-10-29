@@ -12,9 +12,11 @@ import type { Category } from "@prisma/client";
 import { TopBar } from "@/components/TopBar";
 import { toastError } from "@/components/Toast";
 import {
-  hasProcessingItemsSelector,
+  useHasProcessingItems,
   pushToAiCategorizeSenderQueueAtom,
 } from "@/store/ai-categorize-sender-queue";
+import { SectionDescription } from "@/components/Typography";
+import { useMemo } from "react";
 
 function useSenders() {
   return useSWR<UncategorizedSendersResponse>(
@@ -28,7 +30,16 @@ function useSenders() {
 export function Uncategorized({ categories }: { categories: Category[] }) {
   const { data, isLoading, error } = useSenders();
 
-  const hasProcessingItems = useAtomValue(hasProcessingItemsSelector);
+  const hasProcessingItems = useHasProcessingItems();
+
+  const senders = useMemo(
+    () =>
+      data?.uncategorizedSenders.map((sender) => ({
+        address: sender,
+        category: null,
+      })) || [],
+    [data?.uncategorizedSenders],
+  );
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -49,15 +60,13 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
         </Button>
       </TopBar>
       <ClientOnly>
-        <SendersTable
-          senders={
-            data?.uncategorizedSenders.map((sender) => ({
-              address: sender,
-              category: null,
-            })) || []
-          }
-          categories={categories}
-        />
+        {senders.length ? (
+          <SendersTable senders={senders} categories={categories} />
+        ) : (
+          <SectionDescription className="p-4">
+            No senders left to categorize!
+          </SectionDescription>
+        )}
       </ClientOnly>
     </LoadingContent>
   );

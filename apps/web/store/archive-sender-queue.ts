@@ -1,8 +1,9 @@
-import { atom } from "jotai";
+import { atom, useAtomValue } from "jotai";
 import { jotaiStore } from "@/store";
 import { archiveEmails } from "./archive-queue";
 import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
+import { useMemo } from "react";
 
 type ArchiveStatus = "pending" | "processing" | "completed";
 
@@ -12,7 +13,7 @@ interface QueueItem {
   threadsTotal: number;
 }
 
-export const archiveSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
+const archiveSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
 
 export async function addToArchiveSenderQueue(
   sender: string,
@@ -89,12 +90,15 @@ export async function addToArchiveSenderQueue(
   }
 }
 
-export const createArchiveSenderStatusAtom = (sender: string) =>
-  atom((get) => {
-    const queue = get(archiveSenderQueueAtom);
-    const item = queue.get(sender);
-    return item;
-  });
+const archiveSenderStatusAtom = atom((get) => {
+  const queue = get(archiveSenderQueueAtom);
+  return (sender: string) => queue.get(sender);
+});
+
+export const useArchiveSenderStatus = (sender: string) => {
+  const getStatus = useAtomValue(archiveSenderStatusAtom);
+  return useMemo(() => getStatus(sender), [sender]);
+};
 
 async function fetchSenderThreads(sender: string) {
   const url = `/api/google/threads/basic?from=${encodeURIComponent(sender)}&labelId=INBOX`;

@@ -1,13 +1,12 @@
 "use client";
 
-import { useAtomValue } from "jotai";
 import { useEffect } from "react";
-import { processQueue, queueAtom } from "@/store/archive-queue";
+import { processQueue, useQueueState } from "@/store/archive-queue";
 
 let isInitialized = false;
 
 function useInitializeQueues() {
-  const queueState = useAtomValue(queueAtom);
+  const queueState = useQueueState();
 
   useEffect(() => {
     if (!isInitialized) {

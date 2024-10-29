@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Uncategorized } from "@/app/(app)/smart-categories/Uncategorized";
+import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
+import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -42,6 +44,12 @@ export default async function CategoriesPage() {
 
   return (
     <NuqsAdapter>
+      <PermissionsCheck />
+
+      <ClientOnly>
+        <ArchiveProgress />
+      </ClientOnly>
+
       <Suspense>
         <Tabs defaultValue="categories">
           <TopBar className="items-center">

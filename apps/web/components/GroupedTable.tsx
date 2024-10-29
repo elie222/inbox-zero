@@ -30,12 +30,12 @@ import {
 import { changeSenderCategoryAction } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
-import { getAiCategorizationQueueItemSelector } from "@/store/ai-categorize-sender-queue";
+import { useAiCategorizationQueueItem } from "@/store/ai-categorize-sender-queue";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import {
   addToArchiveSenderQueue,
-  createArchiveSenderStatusAtom,
+  useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
 
 type EmailGroup = {
@@ -393,11 +393,7 @@ function SelectCategoryCell({
   senderCategory: Pick<Category, "id" | "name"> | null;
   categories: Pick<Category, "id" | "name">[];
 }) {
-  const selector = useMemo(
-    () => getAiCategorizationQueueItemSelector(sender),
-    [sender],
-  );
-  const item = useAtomValue(selector);
+  const item = useAiCategorizationQueueItem(sender);
 
   if (item?.status && item?.status !== "completed") {
     return (
@@ -439,11 +435,7 @@ function SelectCategoryCell({
 }
 
 function ArchiveStatusCell({ sender }: { sender: string }) {
-  const selector = useMemo(
-    () => createArchiveSenderStatusAtom(sender),
-    [sender],
-  );
-  const status = useAtomValue(selector);
+  const status = useArchiveSenderStatus(sender);
 
   switch (status?.status) {
     case "completed":

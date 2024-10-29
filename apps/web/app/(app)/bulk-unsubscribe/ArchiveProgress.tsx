@@ -1,12 +1,13 @@
+"use client";
+
 import { memo, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAtomValue } from "jotai";
 import { ProgressBar } from "@tremor/react";
-import { queueAtom, resetTotalThreads } from "@/store/archive-queue";
+import { resetTotalThreads, useQueueState } from "@/store/archive-queue";
 import { cn } from "@/utils";
 
 export const ArchiveProgress = memo(() => {
-  const { totalThreads, activeThreads } = useAtomValue(queueAtom);
+  const { totalThreads, activeThreads } = useQueueState();
 
   // Make sure activeThreads is an object as this was causing an error.
   const threadsRemaining = Object.values(activeThreads || {}).length;
@@ -22,7 +23,7 @@ export const ArchiveProgress = memo(() => {
     }
   }, [isCompleted]);
 
-  if (!totalThreads) return null;
+  if (!totalThreads) return <div>empty</div>;
 
   return (
     <div className="px-4 py-2">

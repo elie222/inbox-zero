@@ -1,7 +1,12 @@
-import { atom } from "jotai";
+import { atom, useAtomValue } from "jotai";
 import { jotaiStore } from "@/store";
+import { useMemo } from "react";
 
-export const aiQueueAtom = atom<Set<string>>(new Set([]));
+const aiQueueAtom = atom<Set<string>>(new Set([]));
+
+export const useAiQueueState = () => {
+  return useAtomValue(aiQueueAtom);
+};
 
 export const pushToAiQueueAtom = (pushIds: string[]) => {
   jotaiStore.set(aiQueueAtom, (prev) => {
@@ -19,9 +24,12 @@ export const removeFromAiQueueAtom = (removeId: string) => {
   });
 };
 
-export const createInAiQueueSelector = (id: string) => {
-  return atom((get) => {
-    const ids = get(aiQueueAtom);
-    return ids.has(id);
-  });
+const isInAiQueueAtom = atom((get) => {
+  const ids = get(aiQueueAtom);
+  return (id: string) => ids.has(id);
+});
+
+export const useIsInAiQueue = (id: string) => {
+  const isInQueue = useAtomValue(isInAiQueueAtom);
+  return useMemo(() => isInQueue(id), [id]);
 };
