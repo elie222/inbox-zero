@@ -23,7 +23,7 @@ export const ArchiveProgress = memo(() => {
     }
   }, [isCompleted]);
 
-  if (!totalThreads) return <div>empty</div>;
+  if (!totalThreads) return null;
 
   return (
     <div className="px-4 py-2">
