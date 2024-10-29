@@ -272,11 +272,26 @@ export function EmailList({
   const onArchive = useCallback(
     (thread: Thread) => {
       const threadIds = [thread.id];
-      toast.promise(() => archiveEmails(threadIds, () => refetch(threadIds)), {
-        loading: "Archiving...",
-        success: "Archived!",
-        error: "There was an error archiving the email :(",
-      });
+      toast.promise(
+        async () => {
+          await new Promise<void>((resolve, reject) => {
+            archiveEmails(
+              threadIds,
+              undefined,
+              (threadId) => {
+                refetch([threadId]);
+                resolve();
+              },
+              reject,
+            );
+          });
+        },
+        {
+          loading: "Archiving...",
+          success: "Archived!",
+          error: "There was an error archiving the email :(",
+        },
+      );
     },
     [refetch],
   );
@@ -342,7 +357,17 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => id);
 
-        archiveEmails(threadIds, () => refetch(threadIds));
+        await new Promise<void>((resolve, reject) => {
+          archiveEmails(
+            threadIds,
+            undefined,
+            () => {
+              refetch(threadIds);
+              resolve();
+            },
+            reject,
+          );
+        });
       },
       {
         loading: "Archiving emails...",
@@ -359,7 +384,16 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => id);
 
-        deleteEmails(threadIds, () => refetch(threadIds));
+        await new Promise<void>((resolve, reject) => {
+          deleteEmails(
+            threadIds,
+            () => {
+              refetch(threadIds);
+              resolve();
+            },
+            reject,
+          );
+        });
       },
       {
         loading: "Deleting emails...",

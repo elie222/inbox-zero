@@ -64,11 +64,13 @@ const addThreadsToQueue = ({
   threadIds,
   labelId,
   onSuccess,
+  onError,
 }: {
   actionType: ActionType;
   threadIds: string[];
   labelId?: string;
   onSuccess?: (threadId: string) => void;
+  onError?: (threadId: string) => void;
 }) => {
   const threads = Object.fromEntries(
     threadIds.map((threadId) => [
@@ -85,29 +87,38 @@ const addThreadsToQueue = ({
     totalThreads: prev.totalThreads + Object.keys(threads).length,
   }));
 
-  processQueue({ threads, onSuccess });
+  processQueue({ threads, onSuccess, onError });
 };
 
 export const archiveEmails = async (
   threadIds: string[],
+  labelId: string | undefined,
   onSuccess: (threadId: string) => void,
-  labelId?: string,
+  onError?: (threadId: string) => void,
 ) => {
-  addThreadsToQueue({ actionType: "archive", threadIds, labelId, onSuccess });
+  addThreadsToQueue({
+    actionType: "archive",
+    threadIds,
+    labelId,
+    onSuccess,
+    onError,
+  });
 };
 
 export const markReadThreads = async (
   threadIds: string[],
   onSuccess: (threadId: string) => void,
+  onError?: (threadId: string) => void,
 ) => {
-  addThreadsToQueue({ actionType: "markRead", threadIds, onSuccess });
+  addThreadsToQueue({ actionType: "markRead", threadIds, onSuccess, onError });
 };
 
 export const deleteEmails = async (
   threadIds: string[],
   onSuccess: (threadId: string) => void,
+  onError?: (threadId: string) => void,
 ) => {
-  addThreadsToQueue({ actionType: "delete", threadIds, onSuccess });
+  addThreadsToQueue({ actionType: "delete", threadIds, onSuccess, onError });
 };
 
 function removeThreadFromQueue(threadId: string, actionType: ActionType) {
@@ -129,32 +140,39 @@ function removeThreadFromQueue(threadId: string, actionType: ActionType) {
 export function processQueue({
   threads,
   onSuccess,
+  onError,
 }: {
   threads: Record<string, QueueItem>;
   onSuccess?: (threadId: string) => void;
+  onError?: (threadId: string) => void;
 }) {
   emailActionQueue.addAll(
     Object.entries(threads).map(
       ([_key, { threadId, actionType, labelId }]) =>
         async () => {
-          await pRetry(
-            async (attemptCount) => {
-              console.log(
-                `Queue: ${actionType}. Processing ${threadId}` +
-                  (attemptCount > 1 ? ` (attempt ${attemptCount})` : ""),
-              );
+          try {
+            await pRetry(
+              async (attemptCount) => {
+                console.log(
+                  `Queue: ${actionType}. Processing ${threadId}` +
+                    (attemptCount > 1 ? ` (attempt ${attemptCount})` : ""),
+                );
 
-              const result = await actionMap[actionType](threadId, labelId);
+                const result = await actionMap[actionType](threadId, labelId);
 
-              // when Gmail API returns a rate limit error, throw an error so it can be retried
-              if (isActionError(result)) {
-                await sleep(exponentialBackoff(attemptCount, 1_000));
-                throw new Error(result.error);
-              }
-              onSuccess?.(threadId);
-            },
-            { retries: 3 },
-          );
+                // when Gmail API returns a rate limit error, throw an error so it can be retried
+                if (isActionError(result)) {
+                  await sleep(exponentialBackoff(attemptCount, 1_000));
+                  throw new Error(result.error);
+                }
+                onSuccess?.(threadId);
+              },
+              { retries: 3 },
+            );
+          } catch (error) {
+            // all retries failed
+            onError?.(threadId);
+          }
 
           // remove completed thread from activeThreads
           removeThreadFromQueue(threadId, actionType);

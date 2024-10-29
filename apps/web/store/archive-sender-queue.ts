@@ -14,7 +14,12 @@ interface QueueItem {
 
 export const archiveSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
 
-export async function addToArchiveSenderQueue(sender: string) {
+export async function addToArchiveSenderQueue(
+  sender: string,
+  labelId?: string,
+  onSuccess?: (totalThreads: number) => void,
+  onError?: (sender: string) => void,
+) {
   // Add sender with pending status
   jotaiStore.set(archiveSenderQueueAtom, (prev) => {
     // Skip if sender is already in queue
@@ -41,26 +46,38 @@ export async function addToArchiveSenderQueue(sender: string) {
     });
 
     // Add threads to archive queue
-    await archiveEmails(threadIds, (threadId) => {
-      const senderItem = jotaiStore.get(archiveSenderQueueAtom).get(sender);
-      if (!senderItem) return;
+    await archiveEmails(
+      threadIds,
+      labelId,
+      (threadId) => {
+        const senderItem = jotaiStore.get(archiveSenderQueueAtom).get(sender);
+        if (!senderItem) return;
 
-      // Remove archived thread from the list
-      const newThreadIds = senderItem.threadIds.filter((id) => id !== threadId);
-
-      const updatedSender: QueueItem = {
-        threadIds: newThreadIds,
+        // Remove archived thread from the list
+        const newThreadIds = senderItem.threadIds.filter(
+          (id) => id !== threadId,
+        );
         // If all threads are archived, mark as completed
-        status: newThreadIds.length > 0 ? "processing" : "completed",
-        threadsTotal: senderItem.threadsTotal,
-      };
+        const newStatus = newThreadIds.length > 0 ? "processing" : "completed";
 
-      jotaiStore.set(archiveSenderQueueAtom, (prev) => {
-        const newQueue = new Map(prev);
-        newQueue.set(sender, updatedSender);
-        return newQueue;
-      });
-    });
+        const updatedSender: QueueItem = {
+          threadIds: newThreadIds,
+          status: newStatus,
+          threadsTotal: senderItem.threadsTotal,
+        };
+
+        jotaiStore.set(archiveSenderQueueAtom, (prev) => {
+          const newQueue = new Map(prev);
+          newQueue.set(sender, updatedSender);
+          return newQueue;
+        });
+
+        if (newStatus === "completed") {
+          onSuccess?.(senderItem.threadsTotal);
+        }
+      },
+      onError,
+    );
   } catch (error) {
     // Remove sender from queue on error
     jotaiStore.set(archiveSenderQueueAtom, (prev) => {

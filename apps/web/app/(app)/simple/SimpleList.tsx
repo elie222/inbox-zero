@@ -104,7 +104,7 @@ export function SimpleList(props: {
             startTransition(() => {
               onSetHandled(toArchive);
 
-              archiveEmails(toArchive, () => {});
+              archiveEmails(toArchive, undefined, () => {});
 
               if (props.nextPageToken) {
                 router.push(

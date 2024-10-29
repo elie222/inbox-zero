@@ -31,7 +31,7 @@ export function CommandK() {
   const onArchive = React.useCallback(() => {
     if (selectedEmail) {
       const threadIds = [selectedEmail];
-      archiveEmails(threadIds, () => {
+      archiveEmails(threadIds, undefined, () => {
         return refreshEmailList?.refetch(threadIds);
       });
       setSelectedEmail(undefined);
