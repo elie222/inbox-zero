@@ -2,7 +2,7 @@
 
 import useSWRInfinite from "swr/infinite";
 import { useMemo, useCallback } from "react";
-import { ChevronsDownIcon, SparklesIcon } from "lucide-react";
+import { ChevronsDownIcon, SparklesIcon, StopCircleIcon } from "lucide-react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { SendersTable } from "@/components/GroupedTable";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -14,6 +14,7 @@ import { toastError } from "@/components/Toast";
 import {
   useHasProcessingItems,
   pushToAiCategorizeSenderQueueAtom,
+  stopAiCategorizeSenderQueue,
 } from "@/store/ai-categorize-sender-queue";
 import { SectionDescription } from "@/components/Typography";
 import { ButtonLoader } from "@/components/Loading";
@@ -77,20 +78,34 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
   return (
     <LoadingContent loading={!senderAddresses && isLoading}>
       <TopBar>
-        <Button
-          loading={hasProcessingItems}
-          onClick={async () => {
-            if (!senderAddresses.length) {
-              toastError({ description: "No senders to categorize" });
-              return;
-            }
+        <div className="flex gap-2">
+          <Button
+            loading={hasProcessingItems}
+            onClick={async () => {
+              if (!senderAddresses.length) {
+                toastError({ description: "No senders to categorize" });
+                return;
+              }
 
-            pushToAiCategorizeSenderQueueAtom(senderAddresses);
-          }}
-        >
-          <SparklesIcon className="mr-2 size-4" />
-          Categorize all with AI
-        </Button>
+              pushToAiCategorizeSenderQueueAtom(senderAddresses);
+            }}
+          >
+            <SparklesIcon className="mr-2 size-4" />
+            Categorize all with AI
+          </Button>
+
+          {hasProcessingItems && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                stopAiCategorizeSenderQueue();
+              }}
+            >
+              <StopCircleIcon className="mr-2 size-4" />
+              Stop
+            </Button>
+          )}
+        </div>
       </TopBar>
       <ClientOnly>
         {senders.length ? (

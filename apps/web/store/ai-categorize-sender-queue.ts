@@ -31,6 +31,11 @@ export const pushToAiCategorizeSenderQueueAtom = (pushIds: string[]) => {
   processAiCategorizeSenderQueue({ senders: pushIds });
 };
 
+export const stopAiCategorizeSenderQueue = () => {
+  jotaiStore.set(aiCategorizeSenderQueueAtom, new Map());
+  aiQueue.clear();
+};
+
 const aiCategorizationQueueItemAtom = atom((get) => {
   const queue = get(aiCategorizeSenderQueueAtom);
   return queue;
