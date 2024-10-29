@@ -539,7 +539,7 @@ export function EmailList({
                         {isLoadingMore ? (
                           <ButtonLoader />
                         ) : (
-                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                          <ChevronsDownIcon className="mr-2 size-4" />
                         )}
                         <span>Load more</span>
                       </>

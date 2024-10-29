@@ -1,8 +1,8 @@
 "use client";
 
-import useSWR from "swr";
-import { useAtomValue } from "jotai";
-import { SparklesIcon } from "lucide-react";
+import useSWRInfinite from "swr/infinite";
+import { useMemo, useCallback } from "react";
+import { ChevronsDownIcon, SparklesIcon } from "lucide-react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { SendersTable } from "@/components/GroupedTable";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -16,43 +16,76 @@ import {
   pushToAiCategorizeSenderQueueAtom,
 } from "@/store/ai-categorize-sender-queue";
 import { SectionDescription } from "@/components/Typography";
-import { useMemo } from "react";
+import { ButtonLoader } from "@/components/Loading";
 
 function useSenders() {
-  return useSWR<UncategorizedSendersResponse>(
-    "/api/user/categorize/senders/uncategorized",
-    {
+  const getKey = (
+    pageIndex: number,
+    previousPageData: UncategorizedSendersResponse | null,
+  ) => {
+    // Reached the end
+    if (previousPageData && !previousPageData.nextOffset) return null;
+
+    const baseUrl = "/api/user/categorize/senders/uncategorized";
+    const offset = pageIndex === 0 ? 0 : previousPageData?.nextOffset;
+
+    return `${baseUrl}?offset=${offset}`;
+  };
+
+  const { data, size, setSize, isLoading } =
+    useSWRInfinite<UncategorizedSendersResponse>(getKey, {
       revalidateOnFocus: false,
-    },
-  );
+      revalidateFirstPage: false,
+      persistSize: true,
+      revalidateOnMount: true,
+    });
+
+  const loadMore = useCallback(() => {
+    setSize(size + 1);
+  }, [setSize, size]);
+
+  // Combine all senders from all pages
+  const allSenders = useMemo(() => {
+    if (!data) return [];
+    return data.flatMap((page) => page.uncategorizedSenders);
+  }, [data]);
+
+  // Check if there's more data to load by looking at the last page
+  const hasMore = !!data?.[data.length - 1]?.nextOffset;
+
+  return {
+    data: allSenders,
+    loadMore,
+    isLoading,
+    hasMore,
+  };
 }
 
 export function Uncategorized({ categories }: { categories: Category[] }) {
-  const { data, isLoading, error } = useSenders();
-
+  const { data: senderAddresses, loadMore, isLoading, hasMore } = useSenders();
   const hasProcessingItems = useHasProcessingItems();
 
   const senders = useMemo(
     () =>
-      data?.uncategorizedSenders.map((sender) => ({
-        address: sender,
+      senderAddresses.map((address) => ({
+        address,
         category: null,
-      })) || [],
-    [data?.uncategorizedSenders],
+      })),
+    [senderAddresses],
   );
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent loading={!senderAddresses && isLoading}>
       <TopBar>
         <Button
           loading={hasProcessingItems}
           onClick={async () => {
-            if (!data?.uncategorizedSenders.length) {
+            if (!senderAddresses.length) {
               toastError({ description: "No senders to categorize" });
               return;
             }
 
-            pushToAiCategorizeSenderQueueAtom(data.uncategorizedSenders);
+            pushToAiCategorizeSenderQueueAtom(senderAddresses);
           }}
         >
           <SparklesIcon className="mr-2 size-4" />
@@ -61,11 +94,29 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
       </TopBar>
       <ClientOnly>
         {senders.length ? (
-          <SendersTable senders={senders} categories={categories} />
+          <>
+            <SendersTable senders={senders} categories={categories} />
+            {hasMore && (
+              <Button
+                variant="outline"
+                className="mx-2 mb-4 mt-2 w-full"
+                onClick={loadMore}
+              >
+                {isLoading ? (
+                  <ButtonLoader />
+                ) : (
+                  <ChevronsDownIcon className="mr-2 size-4" />
+                )}
+                Load More
+              </Button>
+            )}
+          </>
         ) : (
-          <SectionDescription className="p-4">
-            No senders left to categorize!
-          </SectionDescription>
+          !isLoading && (
+            <SectionDescription className="p-4">
+              No senders left to categorize!
+            </SectionDescription>
+          )
         )}
       </ClientOnly>
     </LoadingContent>
