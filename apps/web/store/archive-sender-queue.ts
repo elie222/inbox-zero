@@ -97,7 +97,7 @@ const archiveSenderStatusAtom = atom((get) => {
 
 export const useArchiveSenderStatus = (sender: string) => {
   const getStatus = useAtomValue(archiveSenderStatusAtom);
-  return useMemo(() => getStatus(sender), [sender]);
+  return useMemo(() => getStatus(sender), [getStatus, sender]);
 };
 
 async function fetchSenderThreads(sender: string) {

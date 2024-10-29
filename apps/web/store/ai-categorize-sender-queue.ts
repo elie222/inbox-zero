@@ -33,12 +33,12 @@ export const pushToAiCategorizeSenderQueueAtom = (pushIds: string[]) => {
 
 const aiCategorizationQueueItemAtom = atom((get) => {
   const queue = get(aiCategorizeSenderQueueAtom);
-  return (id: string) => queue.get(id);
+  return queue;
 });
 
 export const useAiCategorizationQueueItem = (id: string) => {
-  const getItem = useAtomValue(aiCategorizationQueueItemAtom);
-  return useMemo(() => getItem(id), [id]);
+  const queue = useAtomValue(aiCategorizationQueueItemAtom);
+  return useMemo(() => queue.get(id), [queue, id]);
 };
 
 const hasProcessingItemsAtom = atom((get) => {

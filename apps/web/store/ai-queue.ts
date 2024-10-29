@@ -30,6 +30,6 @@ const isInAiQueueAtom = atom((get) => {
 });
 
 export const useIsInAiQueue = (id: string) => {
-  const isInQueue = useAtomValue(isInAiQueueAtom);
-  return useMemo(() => isInQueue(id), [id]);
+  const queue = useAtomValue(isInAiQueueAtom);
+  return useMemo(() => queue(id), [queue, id]);
 };
