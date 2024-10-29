@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useMemo } from "react";
 import { useQueryState } from "nuqs";
-import { useAtomValue } from "jotai";
 import groupBy from "lodash/groupBy";
 import {
   useReactTable,
@@ -37,6 +37,7 @@ import {
   addToArchiveSenderQueue,
   useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
+import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 
 type EmailGroup = {
   address: string;
@@ -95,12 +96,18 @@ export function GroupedTable({
       {
         accessorKey: "address",
         cell: ({ row }) => (
-          <div className="flex items-center justify-between">
-            <EmailCell
-              emailAddress={row.original.address}
-              className="flex gap-2"
-            />
-          </div>
+          <Link
+            href={getGmailSearchUrl(row.original.address)}
+            target="_blank"
+            className="hover:underline"
+          >
+            <div className="flex items-center justify-between">
+              <EmailCell
+                emailAddress={row.original.address}
+                className="flex gap-2"
+              />
+            </div>
+          </Link>
         ),
       },
       {
@@ -373,7 +380,15 @@ function ExpandedRows({ sender }: { sender: string }) {
       {data.threads.map((thread) => (
         <TableRow key={thread.id} className="bg-muted/50">
           <TableCell />
-          <TableCell>{thread.messages[0].headers.subject}</TableCell>
+          <TableCell>
+            <Link
+              href={getGmailUrl(thread.id, sender)}
+              target="_blank"
+              className="hover:underline"
+            >
+              {thread.messages[0].headers.subject}
+            </Link>
+          </TableCell>
           <TableCell>{decodeSnippet(thread.messages[0].snippet)}</TableCell>
           <TableCell className="text-nowrap">
             {formatShortDate(new Date(thread.messages[0].headers.date))}
