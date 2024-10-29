@@ -1,8 +1,8 @@
 const faqs = [
   {
-    question: "Do you store my emails?",
+    question: "Can I still use Inbox Zero alongside my current email client?",
     answer:
-      "We store a hashed version of your emails for our analytics feature. As our code is open-source you can check our code to see this for yourself. For full data privacy you can self-host your own instance of Inbox Zero.",
+      "Yes! Inbox Zero is intended to be used alongside your existing email client.",
   },
   {
     question: "Is the code open-source?",
@@ -46,11 +46,6 @@ const faqs = [
         us. We{"'"}re happy to hear how we can improve your email experience.
       </>
     ),
-  },
-  {
-    question: "Can I still use Inbox Zero alongside my current email client?",
-    answer:
-      "Yes! Inbox Zero is intended to be used alongside your existing email client.",
   },
   {
     question: "Which email providers does Inbox Zero support?",
