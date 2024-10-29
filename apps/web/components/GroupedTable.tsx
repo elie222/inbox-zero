@@ -439,7 +439,15 @@ function ArchiveStatusCell({ sender }: { sender: string }) {
 
   switch (status?.status) {
     case "completed":
-      return <span className="text-green-500">Archived</span>;
+      if (status.threadsTotal) {
+        return (
+          <span className="text-green-500">
+            Archived {status.threadsTotal} emails!
+          </span>
+        );
+      } else {
+        return <span className="text-gray-500">Archived</span>;
+      }
     case "processing":
       return (
         <span className="text-blue-500">
