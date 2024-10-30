@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { JSXElementConstructor, ReactElement } from "react";
 import { nanoid } from "nanoid";
 import StatsUpdateEmail, { type StatsUpdateEmailProps } from "../emails/stats";
@@ -31,7 +32,7 @@ const sendEmail = async ({
     from: "Inbox Zero <elie@getinboxzero.com>",
     to: test ? "delivered@resend.dev" : to,
     subject,
-    react,
+    react: react as any,
     headers: {
       ...(listUnsubscribe
         ? {
