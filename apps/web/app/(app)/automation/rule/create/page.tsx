@@ -1,6 +1,6 @@
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { examples } from "@/app/(app)/automation/create/examples";
-import { RuleType } from "@prisma/client";
+import type { RuleType } from "@prisma/client";
 
 export default async function CreateRulePage(props: {
   searchParams: Promise<{ example?: string; groupId?: string; tab?: RuleType }>;

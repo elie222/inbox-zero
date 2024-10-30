@@ -15,7 +15,7 @@ import {
 import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
-import { GroupItemType, Prisma, User } from "@prisma/client";
+import { GroupItemType, type Prisma, type User } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import {
   NEWSLETTER_GROUP_ID,
@@ -23,7 +23,7 @@ import {
 } from "@/app/(app)/automation/create/examples";
 import { GroupName } from "@/utils/config";
 import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
-import { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields } from "@/utils/llms/types";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 
 export const createGroupAction = withActionInstrumentation(

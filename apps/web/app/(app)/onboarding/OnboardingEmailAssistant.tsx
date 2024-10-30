@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import type { SubmitHandler } from "react-hook-form";
@@ -27,8 +27,9 @@ import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import {
   rulesExamplesBody,
-  RulesExamplesBody,
+  type RulesExamplesBody,
 } from "@/utils/actions/validation";
+import { examplePrompts } from "@/app/(app)/automation/RulesPrompt";
 
 type RulesExamplesResponse = Awaited<ReturnType<typeof getRuleExamplesAction>>;
 
@@ -59,6 +60,8 @@ function EmailAssistantForm({
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<RulesExamplesBody>({
     resolver: zodResolver(rulesExamplesBody),
@@ -83,13 +86,25 @@ function EmailAssistantForm({
     }
   };
 
+  const addExamplePrompt = useCallback(
+    (example: string) => {
+      setValue(
+        "rulesPrompt",
+        `${getValues("rulesPrompt")}\n* ${example.trim()}`.trim(),
+      );
+    },
+    [setValue, getValues],
+  );
+
+  const [showExamples, setShowExamples] = useState(false);
+
   return (
     <div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           type="text"
           as="textarea"
-          rows={5}
+          rows={6}
           name="rulesPrompt"
           placeholder={`This is where you tell the AI assistant how to handle your emails. For example:
 
@@ -97,11 +112,34 @@ ${defaultPrompt}`}
           registerProps={register("rulesPrompt")}
           error={errors.rulesPrompt}
         />
+
+        {showExamples && (
+          <div className="grid gap-2 lg:grid-cols-2">
+            {examplePrompts.slice(0, 10).map((example) => (
+              <Button
+                key={example}
+                variant="outline"
+                className="h-auto w-full justify-start text-wrap py-2 text-left"
+                onClick={() => addExamplePrompt(example)}
+              >
+                {example}
+              </Button>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2">
           <Button type="submit" loading={isSubmitting}>
             Test
           </Button>
-          <Button variant="ghost" type="button" asChild>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => setShowExamples(!showExamples)}
+          >
+            {showExamples ? "Hide" : "Examples"}
+          </Button>
+          <Button variant="outline" type="button" asChild>
             <Link href={`/onboarding?step=${step + 1}`} scroll={false}>
               Skip
             </Link>

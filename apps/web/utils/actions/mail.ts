@@ -25,7 +25,7 @@ const isStatusOk = (status: number) => status >= 200 && status < 300;
 
 export const archiveThreadAction = withActionInstrumentation(
   "archiveThread",
-  async (threadId: string) => {
+  async (threadId: string, labelId?: string) => {
     const { gmail, user, error } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
@@ -35,6 +35,7 @@ export const archiveThreadAction = withActionInstrumentation(
       threadId,
       ownerEmail: user.email,
       actionSource: "user",
+      labelId,
     });
 
     if (!isStatusOk(res.status)) return { error: "Failed to archive thread" };

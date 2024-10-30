@@ -11,7 +11,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import {
   rulesExamplesBody,
-  RulesExamplesBody,
+  type RulesExamplesBody,
 } from "@/utils/actions/validation";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";

@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import Link from "next/link";
-import { usePostHog, PostHog } from "posthog-js/react";
+import { usePostHog, type PostHog } from "posthog-js/react";
 import { Suspense, useMemo } from "react";
 import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButton";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
+import type {
   NewsletterStatsQuery,
   NewsletterStatsResponse,
 } from "@/app/api/user/stats/newsletters/route";

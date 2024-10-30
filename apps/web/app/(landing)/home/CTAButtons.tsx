@@ -15,7 +15,7 @@ export function CTAButtons() {
       }}
       color="blue"
     >
-      Get Started
+      Get Started for Free
     </Button>
   );
 }

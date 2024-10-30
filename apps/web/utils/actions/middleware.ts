@@ -1,5 +1,5 @@
 import { withServerActionInstrumentation } from "@sentry/nextjs";
-import { ActionError, type ServerActionResponse } from "@/utils/error";
+import type { ActionError, ServerActionResponse } from "@/utils/error";
 
 // Utility type to ensure we're dealing with object types only
 type EnsureObject<T> = T extends object ? T : never;
@@ -52,6 +52,8 @@ export function withActionInstrumentation<
 
       return result;
     } catch (error) {
+      console.error(`Error in action ${name}:`, error);
+
       // error is already captured by Sentry in `withServerActionInstrumentation`
       return {
         error: "An error occurred",

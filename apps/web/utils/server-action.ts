@@ -2,7 +2,7 @@
 
 import { toastError, toastSuccess } from "@/components/Toast";
 import {
-  ActionError,
+  type ActionError,
   type ServerActionResponse,
   captureException,
   isActionError,

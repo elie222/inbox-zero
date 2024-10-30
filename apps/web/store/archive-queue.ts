@@ -1,4 +1,5 @@
 import { atomWithStorage, createJSONStorage } from "jotai/utils";
+import pRetry from "p-retry";
 import { jotaiStore } from "@/store";
 import { emailActionQueue } from "@/utils/queue/email-action-queue";
 import {
@@ -6,98 +7,140 @@ import {
   trashThreadAction,
   markReadThreadAction,
 } from "@/utils/actions/mail";
+import { isActionError, ServerActionResponse } from "@/utils/error";
+import { exponentialBackoff, sleep } from "@/utils/sleep";
 
-type QueueType = "archive" | "delete" | "markRead";
+type ActionType = "archive" | "delete" | "markRead";
+
+type QueueItem = {
+  threadId: string;
+  actionType: ActionType;
+  labelId?: string;
+};
 
 type QueueState = {
-  activeThreadIds: Record<string, boolean>;
+  activeThreads: Record<`${ActionType}-${string}`, QueueItem>;
   totalThreads: number;
 };
 
-function getInitialState(): QueueState {
-  return { activeThreadIds: {}, totalThreads: 0 };
-}
-
-// some users were somehow getting null for activeThreadIds, this should fix it
+// some users were somehow getting null for activeThreads, this should fix it
 const createStorage = () => {
+  if (typeof window === "undefined") return;
   const storage = createJSONStorage<QueueState>(() => localStorage);
   return {
     ...storage,
     getItem: (key: string, initialValue: QueueState) => {
       const storedValue = storage.getItem(key, initialValue);
       return {
-        activeThreadIds: storedValue.activeThreadIds || {},
+        activeThreads: storedValue.activeThreads || {},
         totalThreads: storedValue.totalThreads || 0,
       };
     },
   };
 };
 
-// Create atoms with localStorage persistence for each queue type
-export const queueAtoms = {
-  archive: atomWithStorage("archiveQueue", getInitialState(), createStorage()),
-  delete: atomWithStorage("deleteQueue", getInitialState(), createStorage()),
-  markRead: atomWithStorage(
-    "markReadQueue",
-    getInitialState(),
-    createStorage(),
-  ),
-};
+// Create atoms with localStorage persistence
+export const queueAtom = atomWithStorage(
+  "gmailActionQueue",
+  { activeThreads: {}, totalThreads: 0 },
+  createStorage(),
+  { getOnInit: true },
+);
 
-type ActionFunction = (threadId: string, ...args: any[]) => Promise<any>;
+type ActionFunction = (
+  threadId: string,
+  labelId?: string,
+) => Promise<ServerActionResponse<{}>>;
 
-const actionMap: Record<QueueType, ActionFunction> = {
-  archive: archiveThreadAction,
+const actionMap: Record<ActionType, ActionFunction> = {
+  archive: (threadId: string, labelId?: string) =>
+    archiveThreadAction(threadId, labelId),
   delete: trashThreadAction,
   markRead: (threadId: string) => markReadThreadAction(threadId, true),
 };
 
-export const addThreadsToQueue = (
-  queueType: QueueType,
-  threadIds: string[],
-  refetch?: () => void,
-) => {
-  const queueAtom = queueAtoms[queueType];
+export const addThreadsToQueue = ({
+  actionType,
+  threadIds,
+  labelId,
+  refetch,
+}: {
+  actionType: ActionType;
+  threadIds: string[];
+  labelId?: string;
+  refetch?: () => void;
+}) => {
+  const threads = Object.fromEntries(
+    threadIds.map((threadId) => [
+      `${actionType}-${threadId}`,
+      { threadId, actionType, labelId },
+    ]),
+  );
 
   jotaiStore.set(queueAtom, (prev) => ({
-    activeThreadIds: {
-      ...prev.activeThreadIds,
-      ...Object.fromEntries(threadIds.map((id) => [id, true])),
+    activeThreads: {
+      ...prev.activeThreads,
+      ...threads,
     },
-    totalThreads: prev.totalThreads + threadIds.length,
+    totalThreads: prev.totalThreads + Object.keys(threads).length,
   }));
 
-  processQueue(queueType, threadIds, refetch);
+  processQueue({ threads, refetch });
 };
 
-export function processQueue(
-  queueType: QueueType,
-  threadIds: string[],
-  refetch?: () => void,
-) {
-  const queueAtom = queueAtoms[queueType];
-  const action = actionMap[queueType];
-
+export function processQueue({
+  threads,
+  refetch,
+}: {
+  threads: Record<string, QueueItem>;
+  refetch?: () => void;
+}) {
   emailActionQueue.addAll(
-    threadIds.map((threadId) => async () => {
-      await action(threadId);
+    Object.entries(threads).map(
+      ([_key, { threadId, actionType, labelId }]) =>
+        async () => {
+          await pRetry(
+            async (attemptCount) => {
+              console.log(
+                `Queue: ${actionType}. Processing ${threadId}` +
+                  (attemptCount > 1 ? ` (attempt ${attemptCount})` : ""),
+              );
 
-      // remove completed thread from activeThreadIds
-      jotaiStore.set(queueAtom, (prev) => {
-        const { [threadId]: _, ...remainingThreads } = prev.activeThreadIds;
-        return {
-          ...prev,
-          activeThreadIds: remainingThreads,
-        };
-      });
+              const result = await actionMap[actionType](threadId, labelId);
 
-      refetch?.();
-    }),
+              // when Gmail API returns a rate limit error, throw an error so it can be retried
+              if (isActionError(result)) {
+                await sleep(exponentialBackoff(attemptCount, 1_000));
+                throw new Error(result.error);
+              }
+              refetch?.();
+            },
+            { retries: 3 },
+          );
+
+          // remove completed thread from activeThreads
+          jotaiStore.set(queueAtom, (prev) => {
+            const remainingThreads = Object.fromEntries(
+              Object.entries(prev.activeThreads).filter(
+                ([_key, value]) =>
+                  !(
+                    value.threadId === threadId &&
+                    value.actionType === actionType
+                  ),
+              ),
+            );
+
+            return {
+              ...prev,
+              activeThreads: remainingThreads,
+            };
+          });
+        },
+    ),
   );
 }
 
-export const resetTotalThreads = (queueType: QueueType) => {
-  const queueAtom = queueAtoms[queueType];
+export const resetTotalThreads = () => {
   jotaiStore.set(queueAtom, (prev) => ({
     ...prev,
     totalThreads: 0,

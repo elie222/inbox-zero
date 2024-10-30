@@ -5,7 +5,7 @@ import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 import type { UserAIFields } from "@/utils/llms/types";
 import {
   ExecutedRuleStatus,
-  Prisma,
+  type Prisma,
   type Rule,
   RuleType,
   type User,
