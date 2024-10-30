@@ -48,24 +48,23 @@ export function usePremium() {
 }
 
 function PremiumAlert({
-  plan = "Inbox Zero Business",
+  plan = "Inbox Zero AI",
   showSetApiKey,
   className,
 }: {
-  plan?: "Inbox Zero Business" | "Inbox Zero Pro";
+  plan?: "Inbox Zero AI" | "Inbox Zero Pro";
   showSetApiKey: boolean;
   className?: string;
 }) {
   const { PremiumModal, openModal } = usePremiumModal();
 
   return (
-    <>
+    <div className={className}>
       <AlertWithButton
         title="Premium"
-        className={className}
         description={
           <>
-            This is a premium feature. Upgrade to {plan}
+            This is a premium feature. Upgrade to the {plan}
             {showSetApiKey ? (
               <>
                 {" "}
@@ -88,7 +87,7 @@ function PremiumAlert({
         variant="blue"
       />
       <PremiumModal />
-    </>
+    </div>
   );
 }
 
@@ -121,7 +120,7 @@ export function PremiumTooltip(props: {
     <Tooltip
       contentComponent={<PremiumTooltipContent openModal={props.openModal} />}
     >
-      <div>{props.children}</div>
+      <span>{props.children}</span>
     </Tooltip>
   );
 }

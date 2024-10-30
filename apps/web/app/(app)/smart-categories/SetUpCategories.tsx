@@ -26,12 +26,10 @@ export function SetUpCategories() {
     <Card className="m-4">
       <CardHeader>
         <CardTitle>Set up categories</CardTitle>
-        <CardDescription>
-          Categorize your email senders to make your inbox easier to manage.
-        </CardDescription>
-        <CardDescription>
-          This makes the AI assistant more accurate and predictable, and allows
-          you to bulk archive emails from many senders at once.
+        <CardDescription className="max-w-2xl">
+          Automatically categorize who emails you for better inbox management
+          and smarter automation. This allows you to bulk archive by category
+          and optimize AI automation based on sender types.
         </CardDescription>
       </CardHeader>
 

@@ -30,6 +30,7 @@ import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
 import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
+import { hasAiAccess } from "@/utils/premium";
 
 export const categorizeEmailAction = withActionInstrumentation(
   "categorizeEmail",
@@ -96,10 +97,18 @@ export const categorizeSendersAction = withActionInstrumentation(
         aiProvider: true,
         aiModel: true,
         aiApiKey: true,
+        premium: { select: { aiAutomationAccess: true } },
       },
     });
 
     if (!user) return { error: "User not found" };
+
+    const userHasAiAccess = hasAiAccess(
+      user.premium?.aiAutomationAccess,
+      user.aiApiKey,
+    );
+
+    if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
     // TODO: fetch from gmail, run ai, then fetch from gmail,...
     // we can run ai and gmail fetch in parallel
@@ -240,10 +249,18 @@ export const categorizeSenderAction = withActionInstrumentation(
         aiProvider: true,
         aiModel: true,
         aiApiKey: true,
+        premium: { select: { aiAutomationAccess: true } },
       },
     });
 
     if (!user) return { error: "User not found" };
+
+    const userHasAiAccess = hasAiAccess(
+      user.premium?.aiAutomationAccess,
+      user.aiApiKey,
+    );
+
+    if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
     const categories = await getUserCategories(u.id);
 

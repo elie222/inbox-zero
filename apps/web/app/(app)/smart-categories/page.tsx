@@ -22,6 +22,7 @@ import { Uncategorized } from "@/app/(app)/smart-categories/Uncategorized";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 import { SmartCategoriesOnboarding } from "@/app/(app)/smart-categories/SmartCategoriesOnboarding";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -50,6 +51,8 @@ export default async function CategoriesPage() {
       <ClientOnly>
         <ArchiveProgress />
       </ClientOnly>
+
+      <PremiumAlertWithData className="mx-2 mt-2 sm:mx-4" />
 
       <Suspense>
         <Tabs defaultValue="categories">
