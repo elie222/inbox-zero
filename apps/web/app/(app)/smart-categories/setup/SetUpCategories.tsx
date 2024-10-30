@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/router";
 import { InfoIcon, TagsIcon } from "lucide-react";
 import {
   Card,
@@ -21,6 +22,7 @@ export function SetUpCategories() {
     new Map(Object.values(senderCategory).map((c) => [c.label, c.enabled])),
   );
   const [isCreating, setIsCreating] = useState(false);
+  const router = useRouter();
 
   return (
     <Card className="m-4">
@@ -98,6 +100,7 @@ export function SetUpCategories() {
                 .map(([category]) => category);
               await createCategoriesAction(selectedCategories);
               setIsCreating(false);
+              router.push("/smart-categories");
             }}
           >
             <TagsIcon className="mr-2 h-4 w-4" />
