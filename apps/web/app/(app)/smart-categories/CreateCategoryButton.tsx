@@ -4,8 +4,8 @@ import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
-import { Modal, useModal } from "@/components/Modal";
-import { Button } from "@/components/ui/button";
+import { useModal } from "@/components/Modal";
+import { Button, ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {
@@ -21,14 +21,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export function CreateCategoryButton() {
+export function CreateCategoryButton({
+  buttonProps,
+}: {
+  buttonProps?: ButtonProps;
+}) {
   const { isModalOpen, openModal, closeModal, setIsModalOpen } = useModal();
 
   return (
     <div>
-      <Button onClick={openModal}>
-        <PlusIcon className="mr-2 size-4" />
-        Create category
+      <Button onClick={openModal} {...buttonProps}>
+        {buttonProps?.children ?? (
+          <>
+            <PlusIcon className="mr-2 size-4" />
+            Create category
+          </>
+        )}
       </Button>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

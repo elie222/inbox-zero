@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { InfoIcon, TagsIcon } from "lucide-react";
+import { PenIcon, TagsIcon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { senderCategory } from "@/utils/categories";
 import { createCategoriesAction } from "@/utils/actions/categorize";
 import { cn } from "@/utils";
-import { Tooltip } from "@/components/Tooltip";
+import { CreateCategoryButton } from "@/app/(app)/smart-categories/CreateCategoryButton";
 
 export function SetUpCategories() {
   const [categories, setCategories] = useState<Map<string, boolean>>(
@@ -36,9 +36,9 @@ export function SetUpCategories() {
       </CardHeader>
 
       <CardContent>
-        <TypographyH4>Select categories</TypographyH4>
+        <TypographyH4>Choose categories</TypographyH4>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
           {Array.from(categories.entries()).map(([category, isSelected]) => {
             const description = Object.values(senderCategory).find(
               (c) => c.label === category,
@@ -48,19 +48,16 @@ export function SetUpCategories() {
               <Card
                 key={category}
                 className={cn(
-                  "flex items-center justify-between p-2",
-                  !isSelected && "opacity-25",
+                  "flex items-center justify-between gap-2 p-4",
+                  !isSelected && "bg-gray-50",
                 )}
               >
-                <span className="mr-2 flex items-center gap-2 text-sm">
-                  {category}
-
-                  {description && (
-                    <Tooltip content={description}>
-                      <InfoIcon className="size-4" />
-                    </Tooltip>
-                  )}
-                </span>
+                <div>
+                  <div className="text-sm">{category}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {description}
+                  </div>
+                </div>
                 {isSelected ? (
                   <Button
                     size="sm"
@@ -90,7 +87,18 @@ export function SetUpCategories() {
           })}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 flex gap-2">
+          <CreateCategoryButton
+            buttonProps={{
+              variant: "outline",
+              children: (
+                <>
+                  <PenIcon className="mr-2 size-4" />
+                  Add your own
+                </>
+              ),
+            }}
+          />
           <Button
             loading={isCreating}
             onClick={async () => {

@@ -44,11 +44,6 @@ export const senderCategory = {
     enabled: true,
     description: "Personal communications from friends and family",
   },
-  WORK: {
-    label: "Work",
-    enabled: true,
-    description: "Work-related communications",
-  },
   SOCIAL: {
     label: "Social",
     enabled: true,
@@ -74,9 +69,14 @@ export const senderCategory = {
   },
   SHOPPING: {
     label: "Shopping",
-    enabled: true,
+    enabled: false,
     description:
       "Shopping updates, wishlist notifications, shipping updates, and retail communications",
+  },
+  WORK: {
+    label: "Work",
+    enabled: false,
+    description: "Work-related communications",
   },
   EDUCATIONAL: {
     label: "Educational",
