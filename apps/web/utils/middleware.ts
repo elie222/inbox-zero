@@ -14,9 +14,9 @@ import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-export type NextHandler = (
+type NextHandler = (
   req: NextRequest,
-  { params }: { params: Record<string, string | undefined> },
+  options?: { params: Record<string, string | undefined> },
 ) => Promise<NextResponse | StreamingTextResponse>;
 
 export function withError(handler: NextHandler): NextHandler {
