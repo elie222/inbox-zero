@@ -28,7 +28,8 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
-import type { Category } from "@prisma/client";
+import type { Category, User } from "@prisma/client";
+import type { UserAIFields } from "@/utils/llms/types";
 import { getUserCategories } from "@/utils/category.server";
 import { hasAiAccess } from "@/utils/premium";
 
@@ -245,6 +246,7 @@ export const categorizeSenderAction = withActionInstrumentation(
     const user = await prisma.user.findUnique({
       where: { id: u.id },
       select: {
+        id: true,
         email: true,
         aiProvider: true,
         aiModel: true,
@@ -262,39 +264,55 @@ export const categorizeSenderAction = withActionInstrumentation(
 
     if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
-    const categories = await getUserCategories(u.id);
-
-    const previousEmails = await getPreviousEmails(
-      gmail,
+    const result = await categorizeSender(
       senderAddress,
+      user,
+      gmail,
       session.accessToken!,
     );
 
-    const aiResult = await aiCategorizeSender({
-      user,
-      sender: senderAddress,
-      previousEmails,
-      categories,
-    });
+    revalidatePath("/smart-categories");
 
-    if (aiResult) {
-      const { newsletter } = await updateSenderCategory({
-        sender: senderAddress,
-        categories,
-        categoryName: aiResult.category,
-        userId: u.id,
-      });
-
-      revalidatePath("/smart-categories");
-
-      return { categoryId: newsletter.categoryId };
-    } else {
-      console.error(`No AI result for sender: ${senderAddress}`);
-    }
-
-    return { categoryId: undefined };
+    return result;
   },
 );
+
+export async function categorizeSender(
+  senderAddress: string,
+  user: Pick<User, "id" | "email"> & UserAIFields,
+  gmail: gmail_v1.Gmail,
+  accessToken: string,
+) {
+  const categories = await getUserCategories(user.id);
+
+  const previousEmails = await getPreviousEmails(
+    gmail,
+    senderAddress,
+    accessToken,
+  );
+
+  const aiResult = await aiCategorizeSender({
+    user,
+    sender: senderAddress,
+    previousEmails,
+    categories,
+  });
+
+  if (aiResult) {
+    const { newsletter } = await updateSenderCategory({
+      sender: senderAddress,
+      categories,
+      categoryName: aiResult.category,
+      userId: user.id,
+    });
+
+    return { categoryId: newsletter.categoryId };
+  } else {
+    console.error(`No AI result for sender: ${senderAddress}`);
+  }
+
+  return { categoryId: undefined };
+}
 
 async function getPreviousEmails(
   gmail: gmail_v1.Gmail,

@@ -22,6 +22,7 @@ import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
+import { categorizeSender } from "@/utils/actions/categorize";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -160,6 +161,7 @@ export async function processHistoryForUser(
         history: history.data.history,
         email,
         gmail,
+        accessToken: account.access_token,
         hasAutomationRules,
         rules: account.user.rules,
         hasColdEmailAccess: userHasColdEmailAccess,
@@ -203,6 +205,7 @@ type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];
   email: string;
   gmail: gmail_v1.Gmail;
+  accessToken: string;
   rules: RuleWithActionsAndCategories[];
   hasAutomationRules: boolean;
   hasColdEmailAccess: boolean;
@@ -261,6 +264,7 @@ async function processHistoryItem(
   m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
+    accessToken,
     user,
     hasColdEmailAccess,
     hasAutomationRules,
@@ -352,6 +356,17 @@ async function processHistoryItem(
         gmail,
         user,
       });
+    }
+
+    // categorize a sender if we haven't already
+    // this is used for category filters in ai rules
+    const sender = message.headers.from;
+    const existingSender = await prisma.newsletter.findUnique({
+      where: { email_userId: { email: sender, userId: user.id } },
+      select: { category: true },
+    });
+    if (!existingSender?.category) {
+      await categorizeSender(sender, user, gmail, accessToken);
     }
 
     if (hasAutomationRules && hasAiAutomationAccess) {
