@@ -558,11 +558,11 @@ importers:
         specifier: 22.8.4
         version: 22.8.4
       '@types/react':
-        specifier: 18.3.12
-        version: 18.3.12
+        specifier: npm:types-react@19.0.0-alpha.3
+        version: types-react@19.0.0-alpha.3
       '@types/react-dom':
-        specifier: 18.3.1
-        version: 18.3.1
+        specifier: npm:types-react-dom@19.0.0-alpha.3
+        version: types-react-dom@19.0.0-alpha.3
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
@@ -5245,9 +5245,6 @@ packages:
 
   '@types/react-copy-to-clipboard@5.0.7':
     resolution: {integrity: sha512-Gft19D+as4M+9Whq1oglhmK49vqPhcLzk8WfvfLvaYMIPYanyfLy0+CwFucMJfdKoSFyySPmkkWn8/E6voQXjQ==}
-
-  '@types/react-dom@18.3.1':
-    resolution: {integrity: sha512-qW1Mfv8taImTthu4KoXgDfLuk4bydU6Q/TkADnDWWHwi4NX4BR+LWfTp2sVmTqRrsHvyDDTelgelxJ+SsejKKQ==}
 
   '@types/react-is@18.3.0':
     resolution: {integrity: sha512-KZJpHUkAdzyKj/kUHJDc6N7KyidftICufJfOFpiG6haL/BDQNQt5i4n1XDUL/nDZAtGLHDSWRYpLzKTAKSvX6w==}
@@ -17200,10 +17197,6 @@ snapshots:
   '@types/prop-types@15.7.5': {}
 
   '@types/react-copy-to-clipboard@5.0.7':
-    dependencies:
-      '@types/react': 18.3.12
-
-  '@types/react-dom@18.3.1':
     dependencies:
       '@types/react': 18.3.12
 
