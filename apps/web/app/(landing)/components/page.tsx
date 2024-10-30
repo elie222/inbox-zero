@@ -1,3 +1,5 @@
+"use client";
+
 import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
 import { Card } from "@/components/Card";
@@ -19,10 +21,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBasic } from "@/components/Alert";
 import { TestErrorButton } from "@/app/(landing)/components/TestError";
 import { TestActionButton } from "@/app/(landing)/components/TestAction";
+import {
+  MultiSelectFilter,
+  useMultiSelectFilter,
+} from "@/components/MultiSelectFilter";
 
 export const maxDuration = 3;
 
 export default function Components() {
+  const { selectedValues, setSelectedValues } = useMultiSelectFilter([
+    "alerts",
+  ]);
+
   return (
     <Container>
       <div className="space-y-8 py-8">
@@ -140,6 +150,23 @@ export default function Components() {
               title="Alert title blue"
               description="Alert description"
               variant="blue"
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">MultiSelectFilter</div>
+          <div className="mt-4">
+            <MultiSelectFilter
+              title="Categories"
+              options={[
+                { label: "Receipts", value: "receipts" },
+                { label: "Newsletters", value: "newsletters" },
+                { label: "Updates", value: "updates" },
+                { label: "Alerts", value: "alerts" },
+              ]}
+              selectedValues={selectedValues}
+              setSelectedValues={setSelectedValues}
             />
           </div>
         </div>

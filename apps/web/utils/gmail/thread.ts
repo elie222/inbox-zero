@@ -18,7 +18,34 @@ export async function getThreads(
     labelIds,
     maxResults,
   });
-  return threads.data;
+  return threads.data || [];
+}
+
+export async function getThreadsWithNextPageToken({
+  gmail,
+  q,
+  labelIds,
+  maxResults = 100,
+  pageToken,
+}: {
+  gmail: gmail_v1.Gmail;
+  q: string;
+  labelIds?: string[];
+  maxResults?: number;
+  pageToken?: string;
+}) {
+  const threads = await gmail.users.threads.list({
+    userId: "me",
+    q,
+    labelIds,
+    maxResults,
+    pageToken,
+  });
+
+  return {
+    threads: threads.data.threads || [],
+    nextPageToken: threads.data.nextPageToken,
+  };
 }
 
 export async function getThreadsBatch(
@@ -34,16 +61,22 @@ export async function getThreadsBatch(
   return batch;
 }
 
-export async function getThreadsFromSenders(
+export async function getThreadsFromSender(
   gmail: gmail_v1.Gmail,
-  senders: string[],
-) {
-  if (!senders.length) return [];
-  const query = senders.map((sender) => `(from:${sender})`).join(" OR ");
+  sender: string,
+  limit: number,
+): Promise<
+  Array<{
+    id?: string | null;
+    threadId?: string | null;
+  }>
+> {
+  const query = `from:${sender}`;
   const response = await gmail.users.messages.list({
     userId: "me",
     q: query,
+    maxResults: limit,
   });
 
-  return response.data.messages;
+  return response.data.messages || [];
 }

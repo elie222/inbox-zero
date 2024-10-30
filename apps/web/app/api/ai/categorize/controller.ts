@@ -2,10 +2,10 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
-import type { CategoriseBody } from "@/app/api/ai/categorise/validation";
+import type { CategorizeBody } from "@/app/api/ai/categorize/validation";
 import { truncate } from "@/utils/string";
 
-export type CategoriseResponse = Awaited<ReturnType<typeof categorise>>;
+export type CategorizeResponse = Awaited<ReturnType<typeof categorize>>;
 
 const aiResponseSchema = z.object({
   requiresMoreInformation: z.boolean(),
@@ -29,8 +29,8 @@ const aiResponseSchema = z.object({
     .optional(),
 });
 
-async function aiCategorise(
-  body: CategoriseBody & { content: string } & UserAIFields,
+async function aicategorize(
+  body: CategorizeBody & { content: string } & UserAIFields,
   expanded: boolean,
   userEmail: string,
 ) {
@@ -90,8 +90,8 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
   return response;
 }
 
-export async function categorise(
-  body: CategoriseBody & { content: string } & UserAIFields,
+export async function categorize(
+  body: CategorizeBody & { content: string } & UserAIFields,
   options: { email: string },
 ): Promise<{ category: string } | undefined> {
   // 1. check redis cache
@@ -100,11 +100,11 @@ export async function categorise(
     threadId: body.threadId,
   });
   if (existingCategory) return existingCategory;
-  // 2. ai categorise
-  let category = await aiCategorise(body, false, options.email);
+  // 2. ai categorize
+  let category = await aicategorize(body, false, options.email);
   if (category.object.requiresMoreInformation) {
     console.log("Not enough information, expanding email and trying again");
-    category = await aiCategorise(body, true, options.email);
+    category = await aicategorize(body, true, options.email);
   }
 
   if (!category.object.category) return;

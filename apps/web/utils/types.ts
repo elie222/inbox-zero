@@ -9,9 +9,12 @@ export function isDefined<T>(value: T | undefined | null): value is T {
   return value !== undefined && value !== null;
 }
 
-// export type RuleWithActions = Rule & { actions: Action[] };
 export type RuleWithActions = Prisma.RuleGetPayload<{
   include: { actions: true };
+}>;
+
+export type RuleWithActionsAndCategories = Prisma.RuleGetPayload<{
+  include: { actions: true; categoryFilters: true };
 }>;
 
 export type BatchError = {

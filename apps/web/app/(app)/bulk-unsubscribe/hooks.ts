@@ -9,10 +9,8 @@ import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@prisma/client";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
-import {
-  archiveAllSenderEmails,
-  deleteEmails,
-} from "@/utils/queue/email-actions";
+import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
+import { deleteEmails } from "@/store/archive-queue";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
@@ -29,7 +27,7 @@ async function unsubscribeAndArchive(
   await mutate();
   await decrementUnsubscribeCreditAction();
   await refetchPremium();
-  await archiveAllSenderEmails(newsletterEmail, () => {});
+  await addToArchiveSenderQueue(newsletterEmail);
 }
 
 export function useUnsubscribe<T extends Row>({
@@ -143,7 +141,7 @@ async function autoArchive(
   await mutate();
   await decrementUnsubscribeCreditAction();
   await refetchPremium();
-  await archiveAllSenderEmails(name, () => {}, labelId);
+  await addToArchiveSenderQueue(name, labelId);
 }
 
 export function useAutoArchive<T extends Row>({
@@ -307,14 +305,25 @@ export function useBulkApprove<T extends Row>({
 async function archiveAll(name: string, onFinish: () => void) {
   toast.promise(
     async () => {
-      const data = await archiveAllSenderEmails(name, onFinish);
-      return data.length;
+      const threadsArchived = await new Promise<number>((resolve, reject) => {
+        addToArchiveSenderQueue(
+          name,
+          undefined,
+          (totalThreads) => {
+            onFinish();
+            resolve(totalThreads);
+          },
+          reject,
+        );
+      });
+
+      return threadsArchived;
     },
     {
       loading: `Archiving all emails from ${name}`,
       success: (data) =>
         data
-          ? `Archiving ${data} emails from ${name}...`
+          ? `Archived ${data} emails from ${name}`
           : `No emails to archive from ${name}`,
       error: `There was an error archiving the emails from ${name} :(`,
     },
@@ -373,7 +382,16 @@ async function deleteAllFromSender(name: string, onFinish: () => void) {
 
       // 2. delete messages
       if (data?.length) {
-        deleteEmails(data.map((t) => t.id).filter(isDefined), onFinish);
+        await new Promise<void>((resolve, reject) => {
+          deleteEmails(
+            data.map((t) => t.id).filter(isDefined),
+            () => {
+              onFinish();
+              resolve();
+            },
+            reject,
+          );
+        });
       }
 
       return data.length;

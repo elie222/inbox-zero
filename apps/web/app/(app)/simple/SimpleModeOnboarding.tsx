@@ -1,21 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useLocalStorage } from "usehooks-ts";
 import { OnboardingModalDialog } from "@/components/OnboardingModal";
+import { useOnboarding } from "@/components/OnboardingModal";
 
 export function SimpleModeOnboarding() {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-
-  const [viewedSimpleModeOnboarding, setViewedSimpleModeOnboarding] =
-    useLocalStorage("viewedSimpleModeOnboarding", false);
-
-  useEffect(() => {
-    if (!viewedSimpleModeOnboarding) {
-      setIsOpen(true);
-      setViewedSimpleModeOnboarding(true);
-    }
-  }, [setViewedSimpleModeOnboarding, viewedSimpleModeOnboarding]);
+  const { isOpen, setIsOpen } = useOnboarding("SimpleMode");
 
   return (
     <OnboardingModalDialog

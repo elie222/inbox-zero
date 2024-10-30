@@ -27,7 +27,7 @@ import {
   SectionDescription,
   TypographyH3,
 } from "@/components/Typography";
-import { ActionType, RuleType } from "@prisma/client";
+import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -52,6 +52,8 @@ import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
+import { senderCategory } from "@/utils/categories";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -63,7 +65,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     formState: { errors, isSubmitting },
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
-    defaultValues: rule,
+    defaultValues: {
+      ...rule,
+    },
   });
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
@@ -178,6 +182,39 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             placeholder='e.g. Apply this rule to all "receipts"'
             tooltipText="The instructions that will be passed to the AI."
           />
+
+          <div className="space-y-2">
+            <div className="w-fit">
+              <Select
+                name="categoryFilterType"
+                label="Only apply rule to emails from these categories"
+                tooltipText="This helps the AI be more accurate and produce better results."
+                options={[
+                  { label: "Include", value: CategoryFilterType.INCLUDE },
+                  { label: "Exclude", value: CategoryFilterType.EXCLUDE },
+                ]}
+                registerProps={register("categoryFilterType")}
+                error={errors.categoryFilterType}
+              />
+            </div>
+
+            <MultiSelectFilter
+              title="Categories"
+              maxDisplayedValues={8}
+              // TODO: load sender categories from backend
+              options={Object.values(senderCategory).map((category) => ({
+                label: capitalCase(category.label),
+                value: category.label,
+              }))}
+              selectedValues={new Set(watch("categoryFilters"))}
+              setSelectedValues={(selectedValues) => {
+                setValue("categoryFilters", Array.from(selectedValues));
+              }}
+            />
+            {errors.categoryFilters?.message && (
+              <ErrorMessage message={errors.categoryFilters.message} />
+            )}
+          </div>
         </div>
       )}
 

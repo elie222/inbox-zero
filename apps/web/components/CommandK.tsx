@@ -16,7 +16,7 @@ import {
 import { navigation } from "@/components/SideNav";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { refetchEmailListAtom, selectedEmailAtom } from "@/store/email";
-import { archiveEmails } from "@/utils/queue/email-actions";
+import { archiveEmails } from "@/store/archive-queue";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
@@ -31,7 +31,7 @@ export function CommandK() {
   const onArchive = React.useCallback(() => {
     if (selectedEmail) {
       const threadIds = [selectedEmail];
-      archiveEmails(threadIds, () => {
+      archiveEmails(threadIds, undefined, () => {
         return refreshEmailList?.refetch(threadIds);
       });
       setSelectedEmail(undefined);

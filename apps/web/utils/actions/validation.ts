@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GroupItemType } from "@prisma/client";
+import { CategoryFilterType, GroupItemType } from "@prisma/client";
 import { ActionType, RuleType } from "@prisma/client";
 
 // groups
@@ -71,6 +71,10 @@ export const createRuleBody = z.object({
   // body: z.string().nullish(), // not in use atm
   // group
   groupId: z.string().nullish(),
+  categoryFilterType: z
+    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+    .nullish(),
+  categoryFilters: z.array(z.string()).nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
@@ -87,6 +91,13 @@ export const rulesExamplesBody = z.object({
   rulesPrompt: z.string(),
 });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
+
+// categories
+export const createCategoryBody = z.object({
+  name: z.string(),
+  description: z.string().nullish(),
+});
+export type CreateCategoryBody = z.infer<typeof createCategoryBody>;
 
 // api key
 export const createApiKeyBody = z.object({ name: z.string().nullish() });

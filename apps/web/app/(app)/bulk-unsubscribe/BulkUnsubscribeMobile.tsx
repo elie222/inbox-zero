@@ -26,7 +26,6 @@ import type { RowProps } from "@/app/(app)/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { NewsletterStatus } from "@prisma/client";
-import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { Badge } from "@/components/ui/badge";
 
 export function BulkUnsubscribeMobile({
