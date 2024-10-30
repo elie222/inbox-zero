@@ -90,6 +90,14 @@ const PUBLIC_DOMAINS = new Set([
   "hotmail.com",
   "outlook.com",
   "aol.com",
+  "icloud.com",
+  "@me.com",
+  "protonmail.com",
+  "zoho.com",
+  "yandex.com",
+  "fastmail.com",
+  "gmx.com",
+  "@hey.com",
 ]);
 
 export async function hasPreviousEmailsFromSenderOrDomain(
