@@ -59,8 +59,8 @@ importers:
         specifier: ^0.11.1
         version: 0.11.1(typescript@5.6.3)(zod@3.23.8)
       ai:
-        specifier: ^3.4.27
-        version: 3.4.27(openai@4.68.4(encoding@0.1.13)(zod@3.23.8))(react@19.0.0-rc-65a56d0e-20241020)(solid-js@1.8.15)(sswr@2.1.0(svelte@4.2.12))(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))(zod@3.23.8)
+        specifier: ^3.4.29
+        version: 3.4.29(openai@4.69.0(encoding@0.1.13)(zod@3.23.8))(react@19.0.0-rc-65a56d0e-20241020)(solid-js@1.8.15)(sswr@2.1.0(svelte@4.2.12))(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))(zod@3.23.8)
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
@@ -252,8 +252,8 @@ importers:
         specifier: ^1.0.14
         version: 1.0.14(next@15.0.2(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020)(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))
       ai:
-        specifier: ^3.4.27
-        version: 3.4.27(openai@4.68.4(encoding@0.1.13)(zod@3.23.8))(react@19.0.0-rc-65a56d0e-20241020)(solid-js@1.8.15)(sswr@2.1.0(svelte@4.2.12))(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))(zod@3.23.8)
+        specifier: ^3.4.29
+        version: 3.4.29(openai@4.69.0(encoding@0.1.13)(zod@3.23.8))(react@19.0.0-rc-65a56d0e-20241020)(solid-js@1.8.15)(sswr@2.1.0(svelte@4.2.12))(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))(zod@3.23.8)
       bull:
         specifier: ^4.16.3
         version: 4.16.3
@@ -345,11 +345,11 @@ importers:
         specifier: 0.3.1
         version: 0.3.1(immer@10.1.1)(react-dom@19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020)(types-react@19.0.0-alpha.3)
       nuqs:
-        specifier: ^2.0.4
-        version: 2.0.4(next@15.0.2(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020)
+        specifier: ^2.1.0
+        version: 2.1.0(next@15.0.2(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020)
       openai:
-        specifier: ^4.68.4
-        version: 4.68.4(encoding@0.1.13)(zod@3.23.8)
+        specifier: ^4.69.0
+        version: 4.69.0(encoding@0.1.13)(zod@3.23.8)
       p-queue:
         specifier: ^8.0.1
         version: 8.0.1
@@ -357,8 +357,8 @@ importers:
         specifier: ^6.2.0
         version: 6.2.0
       posthog-js:
-        specifier: ^1.177.0
-        version: 1.177.0
+        specifier: ^1.178.0
+        version: 1.178.0
       posthog-node:
         specifier: ^4.2.1
         version: 4.2.1
@@ -372,8 +372,8 @@ importers:
         specifier: 19.0.0-rc-65a56d0e-20241020
         version: 19.0.0-rc-65a56d0e-20241020
       react-day-picker:
-        specifier: 8.10.1
-        version: 8.10.1(date-fns@4.1.0)(react@19.0.0-rc-65a56d0e-20241020)
+        specifier: 9.2.1
+        version: 9.2.1(react@19.0.0-rc-65a56d0e-20241020)
       react-dom:
         specifier: 19.0.0-rc-65a56d0e-20241020
         version: 19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020)
@@ -433,8 +433,8 @@ importers:
         specifier: ^16.0.1
         version: 16.0.1(@testing-library/dom@10.2.0)(react-dom@19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020)(types-react-dom@19.0.0-alpha.3)(types-react@19.0.0-alpha.3)
       '@types/diff':
-        specifier: ^5.2.3
-        version: 5.2.3
+        specifier: ^6.0.0
+        version: 6.0.0
       '@types/he':
         specifier: ^1.2.3
         version: 1.2.3
@@ -1678,6 +1678,9 @@ packages:
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
+
+  '@date-fns/tz@1.1.2':
+    resolution: {integrity: sha512-Xmg2cPmOPQieCLAdf62KtFPU9y7wbQDq1OAzrs/bEQFvhtCPXDiks1CHDE/sTXReRfh/MICVkw/vY6OANHUGiA==}
 
   '@daybrush/utils@1.13.0':
     resolution: {integrity: sha512-ALK12C6SQNNHw1enXK+UO8bdyQ+jaWNQ1Af7Z3FNxeAwjYhQT7do+TRE4RASAJ3ObaS2+TJ7TXR3oz2Gzbw0PQ==}
@@ -5116,8 +5119,8 @@ packages:
   '@types/diff-match-patch@1.0.36':
     resolution: {integrity: sha512-xFdR6tkm0MWvBfO8xXCSsinYxHcqkQUlcHeSpMC2ukzOb6lwQAfDmW+Qt0AvlGd8HpsS28qKsB+oPeJn9I39jg==}
 
-  '@types/diff@5.2.3':
-    resolution: {integrity: sha512-K0Oqlrq3kQMaO2RhfrNQX5trmt+XLyom88zS0u84nnIcLvFnRUMRRHmrGny5GSM+kNO9IZLARsdQHDzkhAgmrQ==}
+  '@types/diff@6.0.0':
+    resolution: {integrity: sha512-dhVCYGv3ZSbzmQaBSagrv1WJ6rXCdkyTcDyoNu1MD8JohI7pR7k8wdZEm+mvdxRKXyHVwckFzWU1vJc+Z29MlA==}
 
   '@types/dotenv@8.2.3':
     resolution: {integrity: sha512-g2FXjlDX/cYuc5CiQvyU/6kkbP1JtmGzh0obW50zD7OKeILVL0NSpPWLXVfqoAGQjom2/SLLx9zHq0KXvD6mbw==}
@@ -5700,8 +5703,8 @@ packages:
     resolution: {integrity: sha512-4I7Td01quW/RpocfNayFdFVk1qSuoh0E7JrbRJ16nH01HhKFQ88INq9Sd+nd72zqRySlr9BmDA8xlEJ6vJMrYA==}
     engines: {node: '>=8'}
 
-  ai@3.4.27:
-    resolution: {integrity: sha512-xM5EuCSnqnZ2+3VeIkghj5Tgu+SttOkUHsCBhZrspt7EqI1+kesEeLxJMk/9vLpb9jakF4Fd0+P7wirUPRWDRg==}
+  ai@3.4.29:
+    resolution: {integrity: sha512-kkQEbskeYb8uCuVDSDlqHo5kDeD9So/v3/9VHtCXwhU63BGcp0oSJdtRQRXsREK4cBGzieTvEKwhsM2j3vQYwA==}
     engines: {node: '>=18'}
     peerDependencies:
       openai: ^4.42.0
@@ -9140,8 +9143,8 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
-  nuqs@2.0.4:
-    resolution: {integrity: sha512-d0GQCOHW9o04slcTe9nfTgskCT/09K5pOMXu671Y8p7d/48KEKJLzZjklWXIt3pFjYaplErMZpXiLiYo0w8uQQ==}
+  nuqs@2.1.0:
+    resolution: {integrity: sha512-bJvw3g7PlXkJTmVNRFL0RIcHi9etF5/rIkMv7li3mqLwRz6iVUIVoRwJzqY5XCNe18qS3wRxfeYzOJ/sYrh6Rg==}
     peerDependencies:
       '@remix-run/react': '>= 2'
       next: '>= 14.2.0'
@@ -9243,8 +9246,8 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
-  openai@4.68.4:
-    resolution: {integrity: sha512-LRinV8iU9VQplkr25oZlyrsYGPGasIwYN8KFMAAFTHHLHjHhejtJ5BALuLFrkGzY4wfbKhOhuT+7lcHZ+F3iEA==}
+  openai@4.69.0:
+    resolution: {integrity: sha512-S3hOHSkk609KqwgH+7dwFrSvO3Gm3Nk0YWGyPHNscoMH/Y2tH1qunMi7gtZnLbUv4/N1elqCp6bDior2401kCQ==}
     hasBin: true
     peerDependencies:
       zod: ^3.23.8
@@ -9608,8 +9611,8 @@ packages:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
 
-  posthog-js@1.177.0:
-    resolution: {integrity: sha512-0Qt3qTkyfsFW89bveqEzYhhX8YRNFAES9OqhzuxbvbHId/PSyxx/Pzgmgp+N5k45lon3ibwYRAbTlQ4yQacODQ==}
+  posthog-js@1.178.0:
+    resolution: {integrity: sha512-ILD4flNh72d5dycc4ZouKORlaVr+pDzl5TlZr1JgP0NBAoduHjhE7XZYwk7zdYkry7u0qAIpfv2306zJCW2vGg==}
 
   posthog-node@4.2.1:
     resolution: {integrity: sha512-l+fsjYEkTik3m/G0pE7gMr4qBJP84LhK779oQm6MBzhBGpd4By4qieTW+4FUAlNCyzQTynn3Nhsa50c0IELSxQ==}
@@ -9896,6 +9899,12 @@ packages:
     peerDependencies:
       date-fns: ^2.28.0 || ^3.0.0
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
+
+  react-day-picker@9.2.1:
+    resolution: {integrity: sha512-rCoK4oJi9NBXt1nNdQFSa7gBG+hWsqVCtoLFLxvMzkVxDp+rSqsuUQ0LccJyLigwp/hX8XnAokTsT03+5lbjyA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: '>=16.8.0'
 
   react-dom-confetti@0.2.0:
     resolution: {integrity: sha512-+XRTi+WlCrcRN2dTjdEopOaPFtS7hpaHRRQ0sHiVRGqpchKz4QVh3i+6eLEEpNHYpN2VgPmhjvJ/vnjmUYhlIQ==}
@@ -13422,6 +13431,8 @@ snapshots:
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
+
+  '@date-fns/tz@1.1.2': {}
 
   '@daybrush/utils@1.13.0': {}
 
@@ -17067,7 +17078,7 @@ snapshots:
 
   '@types/diff-match-patch@1.0.36': {}
 
-  '@types/diff@5.2.3': {}
+  '@types/diff@6.0.0': {}
 
   '@types/dotenv@8.2.3':
     dependencies:
@@ -17776,7 +17787,7 @@ snapshots:
       clean-stack: 2.2.0
       indent-string: 4.0.0
 
-  ai@3.4.27(openai@4.68.4(encoding@0.1.13)(zod@3.23.8))(react@19.0.0-rc-65a56d0e-20241020)(solid-js@1.8.15)(sswr@2.1.0(svelte@4.2.12))(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))(zod@3.23.8):
+  ai@3.4.29(openai@4.69.0(encoding@0.1.13)(zod@3.23.8))(react@19.0.0-rc-65a56d0e-20241020)(solid-js@1.8.15)(sswr@2.1.0(svelte@4.2.12))(svelte@4.2.12)(vue@3.4.19(typescript@5.6.3))(zod@3.23.8):
     dependencies:
       '@ai-sdk/provider': 0.0.26
       '@ai-sdk/provider-utils': 1.0.22(zod@3.23.8)
@@ -17792,7 +17803,7 @@ snapshots:
       secure-json-parse: 2.7.0
       zod-to-json-schema: 3.23.5(zod@3.23.8)
     optionalDependencies:
-      openai: 4.68.4(encoding@0.1.13)(zod@3.23.8)
+      openai: 4.69.0(encoding@0.1.13)(zod@3.23.8)
       react: 19.0.0-rc-65a56d0e-20241020
       sswr: 2.1.0(svelte@4.2.12)
       svelte: 4.2.12
@@ -22060,7 +22071,7 @@ snapshots:
     dependencies:
       boolbase: 1.0.0
 
-  nuqs@2.0.4(next@15.0.2(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020):
+  nuqs@2.1.0(next@15.0.2(@babel/core@7.24.7)(@opentelemetry/api@1.9.0)(react-dom@19.0.0-rc-65a56d0e-20241020(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020))(react@19.0.0-rc-65a56d0e-20241020):
     dependencies:
       mitt: 3.0.1
       react: 19.0.0-rc-65a56d0e-20241020
@@ -22158,7 +22169,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@4.68.4(encoding@0.1.13)(zod@3.23.8):
+  openai@4.69.0(encoding@0.1.13)(zod@3.23.8):
     dependencies:
       '@types/node': 18.17.17
       '@types/node-fetch': 2.6.5
@@ -22544,7 +22555,7 @@ snapshots:
     dependencies:
       xtend: 4.0.2
 
-  posthog-js@1.177.0:
+  posthog-js@1.178.0:
     dependencies:
       core-js: 3.38.1
       fflate: 0.4.8
@@ -22830,8 +22841,9 @@ snapshots:
       date-fns: 3.6.0
       react: 19.0.0-rc-65a56d0e-20241020
 
-  react-day-picker@8.10.1(date-fns@4.1.0)(react@19.0.0-rc-65a56d0e-20241020):
+  react-day-picker@9.2.1(react@19.0.0-rc-65a56d0e-20241020):
     dependencies:
+      '@date-fns/tz': 1.1.2
       date-fns: 4.1.0
       react: 19.0.0-rc-65a56d0e-20241020
 
