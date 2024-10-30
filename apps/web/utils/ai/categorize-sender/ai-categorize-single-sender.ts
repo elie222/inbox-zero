@@ -43,6 +43,8 @@ ${email}
 </email_snippet ${index + 1}>`,
   )
   .join("\n")}
+
+${previousEmails.length === 0 ? "No previous emails found" : ""}
 </previous_emails>
 
 Categories:
