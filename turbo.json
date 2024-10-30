@@ -37,6 +37,7 @@
         "RESEND_AUDIENCE_ID",
         "CRON_SECRET",
         "LOOPS_API_SECRET",
+        "API_KEY_SALT",
         "ADMINS",
 
         "NEXT_PUBLIC_LEMON_STORE_ID",
