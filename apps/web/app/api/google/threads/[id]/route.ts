@@ -26,7 +26,7 @@ async function getThread(query: ThreadQuery, gmail: gmail_v1.Gmail) {
 }
 
 export const GET = withError(async (_request, { params }) => {
-  const query = threadQuery.parse(params);
+  const query = threadQuery.parse(await params);
 
   const session = await auth();
   if (!session?.user.email)

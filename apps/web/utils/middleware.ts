@@ -14,12 +14,15 @@ import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-type NextHandler = (
+type NextHandler<TContext extends Record<string, any>, TResponse = void> = (
   req: NextRequest,
-  options?: { params: Record<string, string | undefined> },
-) => Promise<NextResponse | StreamingTextResponse>;
+  context: { params: Promise<TContext> },
+) => Promise<NextResponse<TResponse> | StreamingTextResponse>;
 
-export function withError(handler: NextHandler): NextHandler {
+export function withError<
+  TContext extends Record<string, any>,
+  TResponse = void,
+>(handler: NextHandler<TContext, TResponse>): NextHandler<TContext, TResponse> {
   return async (req, params) => {
     try {
       return await handler(req, params);
