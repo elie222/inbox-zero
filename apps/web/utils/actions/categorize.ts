@@ -139,6 +139,8 @@ export const categorizeSendersAction = withActionInstrumentation(
       getUserCategories(u.id),
     ]);
 
+    if (categories.length === 0) return { error: "No categories found" };
+
     const sendersToCategorize = senders.filter(
       (sender) => !existingSenders.some((s) => s.email === sender),
     );
@@ -284,6 +286,8 @@ export async function categorizeSender(
   accessToken: string,
 ) {
   const categories = await getUserCategories(user.id);
+
+  if (categories.length === 0) return { categoryId: undefined };
 
   const previousEmails = await getPreviousEmails(
     gmail,
