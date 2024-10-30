@@ -316,18 +316,6 @@ async function processHistoryItem(
 
     const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
 
-    if (hasAutomationRules && hasAiAutomationAccess) {
-      console.log("Running rules...");
-
-      await runRulesOnMessage({
-        gmail,
-        message,
-        rules,
-        user,
-        isThread,
-      });
-    }
-
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       user.coldEmailBlocker,
       hasColdEmailAccess,
@@ -363,6 +351,18 @@ async function processHistoryItem(
         },
         gmail,
         user,
+      });
+    }
+
+    if (hasAutomationRules && hasAiAutomationAccess) {
+      console.log("Running rules...");
+
+      await runRulesOnMessage({
+        gmail,
+        message,
+        rules,
+        user,
+        isThread,
       });
     }
   } catch (error: any) {
