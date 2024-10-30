@@ -20,7 +20,8 @@ export function CategorizeWithAiButton() {
       <PremiumTooltip showTooltip={!hasAiAccess} openModal={openPremiumModal}>
         <Button
           type="button"
-          disabled={isCategorizing || !hasAiAccess}
+          loading={isCategorizing}
+          disabled={!hasAiAccess}
           onClick={async () => {
             if (isCategorizing) return;
             toast.promise(
@@ -51,7 +52,6 @@ export function CategorizeWithAiButton() {
               },
             );
           }}
-          loading={isCategorizing}
         >
           <SparklesIcon className="mr-2 size-4" />
           Categorize Senders with AI

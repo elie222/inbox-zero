@@ -18,6 +18,8 @@ import {
 } from "@/store/ai-categorize-sender-queue";
 import { SectionDescription } from "@/components/Typography";
 import { ButtonLoader } from "@/components/Loading";
+import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 function useSenders() {
   const getKey = (
@@ -63,6 +65,9 @@ function useSenders() {
 }
 
 export function Uncategorized({ categories }: { categories: Category[] }) {
+  const { hasAiAccess } = usePremium();
+  const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
+
   const { data: senderAddresses, loadMore, isLoading, hasMore } = useSenders();
   const hasProcessingItems = useHasProcessingItems();
 
@@ -79,20 +84,26 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
     <LoadingContent loading={!senderAddresses && isLoading}>
       <TopBar>
         <div className="flex gap-2">
-          <Button
-            loading={hasProcessingItems}
-            onClick={async () => {
-              if (!senderAddresses.length) {
-                toastError({ description: "No senders to categorize" });
-                return;
-              }
-
-              pushToAiCategorizeSenderQueueAtom(senderAddresses);
-            }}
+          <PremiumTooltip
+            showTooltip={!hasAiAccess}
+            openModal={openPremiumModal}
           >
-            <SparklesIcon className="mr-2 size-4" />
-            Categorize all with AI
-          </Button>
+            <Button
+              loading={hasProcessingItems}
+              disabled={!hasAiAccess}
+              onClick={async () => {
+                if (!senderAddresses.length) {
+                  toastError({ description: "No senders to categorize" });
+                  return;
+                }
+
+                pushToAiCategorizeSenderQueueAtom(senderAddresses);
+              }}
+            >
+              <SparklesIcon className="mr-2 size-4" />
+              Categorize all with AI
+            </Button>
+          </PremiumTooltip>
 
           {hasProcessingItems && (
             <Button
@@ -134,6 +145,7 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
           )
         )}
       </ClientOnly>
+      <PremiumModal />
     </LoadingContent>
   );
 }
