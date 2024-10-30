@@ -106,12 +106,3 @@ export const senderCategory = {
 export type SenderCategoryKey = keyof typeof senderCategory;
 export type SenderCategoryValue = (typeof senderCategory)[SenderCategoryKey];
 export type SenderCategory = SenderCategoryValue["label"];
-
-export const getEnabledCategories = () => {
-  return Object.entries(senderCategory)
-    .filter(([_, value]) => value.enabled)
-    .map(([key, value]) => ({
-      key,
-      ...value,
-    }));
-};
