@@ -10,7 +10,10 @@ import {
   SENT_LABEL_ID,
 } from "@/utils/gmail/label";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
-import { getMessage, hasPreviousEmailsFromDomain } from "@/utils/gmail/message";
+import {
+  getMessage,
+  hasPreviousEmailsFromSenderOrDomain,
+} from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
@@ -334,11 +337,14 @@ async function processHistoryItem(
     if (shouldRunBlocker) {
       console.log("Running cold email blocker...");
 
-      const hasPreviousEmail = await hasPreviousEmailsFromDomain(gmail, {
-        from: message.headers.from,
-        date: message.headers.date,
-        threadId,
-      });
+      const hasPreviousEmail = await hasPreviousEmailsFromSenderOrDomain(
+        gmail,
+        {
+          from: message.headers.from,
+          date: message.headers.date,
+          threadId,
+        },
+      );
 
       const content = emailToContent({
         textHtml: message.textHtml || null,
