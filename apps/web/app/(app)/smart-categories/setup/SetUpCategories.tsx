@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PenIcon, TagsIcon } from "lucide-react";
 import {
@@ -13,16 +13,65 @@ import {
 import { TypographyH4 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { senderCategory } from "@/utils/categories";
-import { createCategoriesAction } from "@/utils/actions/categorize";
+import {
+  createCategoriesAction,
+  deleteCategoryAction,
+} from "@/utils/actions/categorize";
 import { cn } from "@/utils";
 import { CreateCategoryButton } from "@/app/(app)/smart-categories/CreateCategoryButton";
+import type { Category } from "@prisma/client";
 
-export function SetUpCategories() {
-  const [categories, setCategories] = useState<Map<string, boolean>>(
-    new Map(Object.values(senderCategory).map((c) => [c.label, c.enabled])),
-  );
+type CardCategory = Pick<Category, "id" | "name" | "description"> & {
+  enabled?: boolean;
+  isDefault?: boolean;
+};
+
+const defaultCategories = Object.values(senderCategory).map((c) => ({
+  id: c.name,
+  name: c.name,
+  description: c.description,
+  enabled: c.enabled,
+  isDefault: true,
+}));
+
+export function SetUpCategories({
+  existingCategories,
+}: {
+  existingCategories: CardCategory[];
+}) {
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
+
+  const defaultCategoriesWithoutExisting = defaultCategories.filter(
+    (c) => !existingCategories.some((existing) => existing.name === c.name),
+  );
+
+  const combinedCategories = [
+    ...defaultCategoriesWithoutExisting,
+    ...existingCategories,
+  ];
+
+  const [categories, setCategories] = useState<Map<string, boolean>>(
+    new Map(
+      combinedCategories.map((c) => [c.name, !c.isDefault || !!c.enabled]),
+    ),
+  );
+
+  // Update categories when existingCategories changes
+  useEffect(() => {
+    setCategories((prevCategories) => {
+      const newCategories = new Map(prevCategories);
+
+      // Enable any new categories from existingCategories that aren't in the current map
+      existingCategories.forEach((category) => {
+        if (!prevCategories.has(category.name)) {
+          newCategories.set(category.name, true);
+        }
+      });
+
+      return newCategories;
+    });
+  }, [existingCategories]);
 
   return (
     <Card className="m-4">
@@ -39,50 +88,28 @@ export function SetUpCategories() {
         <TypographyH4>Choose categories</TypographyH4>
 
         <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from(categories.entries()).map(([category, isSelected]) => {
-            const description = Object.values(senderCategory).find(
-              (c) => c.label === category,
-            )?.description;
-
+          {combinedCategories.map((category) => {
             return (
-              <Card
-                key={category}
-                className={cn(
-                  "flex items-center justify-between gap-2 p-4",
-                  !isSelected && "bg-gray-50",
-                )}
-              >
-                <div>
-                  <div className="text-sm">{category}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {description}
-                  </div>
-                </div>
-                {isSelected ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setCategories(
-                        new Map(categories.entries()).set(category, false),
-                      )
-                    }
-                  >
-                    Remove
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      setCategories(
-                        new Map(categories.entries()).set(category, true),
-                      )
-                    }
-                  >
-                    Add
-                  </Button>
-                )}
-              </Card>
+              <CategoryCard
+                key={category.name}
+                category={category}
+                isEnabled={categories.get(category.name) ?? false}
+                onAdd={() =>
+                  setCategories(
+                    new Map(categories.entries()).set(category.name, true),
+                  )
+                }
+                onRemove={async () => {
+                  if (category.isDefault) {
+                    setCategories(
+                      new Map(categories.entries()).set(category.name, false),
+                    );
+                  } else {
+                    // delete category
+                    await deleteCategoryAction(category.id);
+                  }
+                }}
+              />
             );
           })}
         </div>
@@ -116,6 +143,43 @@ export function SetUpCategories() {
           </Button>
         </div>
       </CardContent>
+    </Card>
+  );
+}
+
+function CategoryCard({
+  category,
+  isEnabled,
+  onAdd,
+  onRemove,
+}: {
+  category: CardCategory;
+  isEnabled: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Card
+      className={cn(
+        "flex items-center justify-between gap-2 p-4",
+        !isEnabled && "bg-gray-50",
+      )}
+    >
+      <div>
+        <div className="text-sm">{category.name}</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {category.description}
+        </div>
+      </div>
+      {isEnabled ? (
+        <Button size="sm" variant="outline" onClick={onRemove}>
+          Remove
+        </Button>
+      ) : (
+        <Button size="sm" onClick={onAdd}>
+          Add
+        </Button>
+      )}
     </Card>
   );
 }

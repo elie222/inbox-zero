@@ -194,7 +194,7 @@ export const categorizeSendersAction = withActionInstrumentation(
     ].filter(
       (r) =>
         !r.category ||
-        r.category === senderCategory.UNKNOWN.label ||
+        r.category === senderCategory.UNKNOWN.name ||
         r.category === "RequestMoreInformation",
     );
 
@@ -397,13 +397,13 @@ function preCategorizeSendersWithStaticRules(
     ];
 
     if (personalEmailDomains.some((domain) => sender.includes(`@${domain}>`)))
-      return { sender, category: senderCategory.UNKNOWN.label };
+      return { sender, category: senderCategory.UNKNOWN.name };
 
     if (isNewsletterSender(sender))
-      return { sender, category: senderCategory.NEWSLETTER.label };
+      return { sender, category: senderCategory.NEWSLETTER.name };
 
     if (isReceiptSender(sender))
-      return { sender, category: senderCategory.RECEIPT.label };
+      return { sender, category: senderCategory.RECEIPT.name };
 
     return { sender, category: undefined };
   });
@@ -437,7 +437,7 @@ export const createCategoriesAction = withActionInstrumentation(
 
     for (const category of categories) {
       const description = Object.values(senderCategory).find(
-        (c) => c.label === category,
+        (c) => c.name === category,
       )?.description;
 
       await createCategory(session.user.id, {
@@ -460,6 +460,20 @@ export const createCategoryAction = withActionInstrumentation(
     if (!success) return { error: error.message };
 
     await createCategory(session.user.id, data);
+
+    revalidatePath("/smart-categories");
+  },
+);
+
+export const deleteCategoryAction = withActionInstrumentation(
+  "deleteCategory",
+  async (categoryId: string) => {
+    const session = await auth();
+    if (!session) return { error: "Not authenticated" };
+
+    await prisma.category.delete({
+      where: { id: categoryId, userId: session.user.id },
+    });
 
     revalidatePath("/smart-categories");
   },

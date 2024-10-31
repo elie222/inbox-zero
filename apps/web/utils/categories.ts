@@ -1,102 +1,102 @@
 export const senderCategory = {
   UNKNOWN: {
-    label: "Unknown",
+    name: "Unknown",
     enabled: true,
     description:
       "Emails that don't fit any other category or can't be classified",
   },
   NEWSLETTER: {
-    label: "Newsletter",
+    name: "Newsletter",
     enabled: true,
     description: "Newsletters",
   },
   MARKETING: {
-    label: "Marketing",
+    name: "Marketing",
     enabled: true,
     description:
       "Promotional emails, sales announcements, product launches, and marketing campaigns",
   },
   RECEIPT: {
-    label: "Receipt",
+    name: "Receipt",
     enabled: true,
     description:
       "Purchase confirmations, order receipts, and payment confirmations",
   },
   BANKING: {
-    label: "Banking",
+    name: "Banking",
     enabled: true,
     description:
       "Bank statements, account updates, fraud alerts, and financial notifications",
   },
   LEGAL: {
-    label: "Legal",
+    name: "Legal",
     enabled: true,
     description:
       "Terms of service updates, legal notices, contracts, and legal communications",
   },
   SUPPORT: {
-    label: "Support",
+    name: "Support",
     enabled: true,
     description: "Customer service responses",
   },
   PERSONAL: {
-    label: "Personal",
+    name: "Personal",
     enabled: true,
     description: "Personal communications from friends and family",
   },
   SOCIAL: {
-    label: "Social",
+    name: "Social",
     enabled: true,
     description: "Notifications from social media platforms",
   },
   TRAVEL: {
-    label: "Travel",
+    name: "Travel",
     enabled: true,
     description:
       "Flight itineraries, hotel reservations, and travel-related documents",
   },
   EVENTS: {
-    label: "Events",
+    name: "Events",
     enabled: true,
     description:
       "Event invitations, reminders, schedules, and registration information",
   },
   ACCOUNT: {
-    label: "Account",
+    name: "Account",
     enabled: true,
     description:
       "Account security notifications, password resets, and settings updates",
   },
   SHOPPING: {
-    label: "Shopping",
+    name: "Shopping",
     enabled: false,
     description:
       "Shopping updates, wishlist notifications, shipping updates, and retail communications",
   },
   WORK: {
-    label: "Work",
+    name: "Work",
     enabled: false,
     description: "Work-related communications",
   },
   EDUCATIONAL: {
-    label: "Educational",
+    name: "Educational",
     enabled: false,
     description: "Courses and educational resources",
   },
   HEALTH: {
-    label: "Health",
+    name: "Health",
     enabled: false,
     description:
       "Medical appointments, lab results, prescriptions, and health-related notifications",
   },
   GOVERNMENT: {
-    label: "Government",
+    name: "Government",
     enabled: false,
     description:
       "Tax information, voter registration, government surveys, and official communications",
   },
   ENTERTAINMENT: {
-    label: "Entertainment",
+    name: "Entertainment",
     enabled: false,
     description:
       "Updates from streaming services, gaming platforms, and entertainment providers",
@@ -105,4 +105,4 @@ export const senderCategory = {
 
 export type SenderCategoryKey = keyof typeof senderCategory;
 export type SenderCategoryValue = (typeof senderCategory)[SenderCategoryKey];
-export type SenderCategory = SenderCategoryValue["label"];
+export type SenderCategory = SenderCategoryValue["name"];
