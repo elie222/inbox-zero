@@ -430,19 +430,16 @@ export const changeSenderCategoryAction = withActionInstrumentation(
 
 export const createCategoriesAction = withActionInstrumentation(
   "createCategories",
-  async (categories: string[]) => {
+  async (categoryNames: string[]) => {
     const session = await auth();
     if (!session) return { error: "Not authenticated" };
 
-    for (const category of categories) {
+    for (const name of categoryNames) {
       const description = Object.values(defaultCategory).find(
-        (c) => c.name === category,
+        (c) => c.name === name,
       )?.description;
 
-      await createCategory(session.user.id, {
-        name: category,
-        description,
-      });
+      await upsertCategory(session.user.id, { name, description });
     }
 
     revalidatePath("/smart-categories");
@@ -458,7 +455,7 @@ export const createCategoryAction = withActionInstrumentation(
     const { success, data, error } = createCategoryBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    await createCategory(session.user.id, data);
+    await upsertCategory(session.user.id, data);
 
     revalidatePath("/smart-categories");
   },
@@ -478,17 +475,29 @@ export const deleteCategoryAction = withActionInstrumentation(
   },
 );
 
-async function createCategory(userId: string, newCategory: CreateCategoryBody) {
+async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
   try {
-    const category = await prisma.category.create({
-      data: {
-        userId,
-        name: newCategory.name,
-        description: newCategory.description,
-      },
-    });
+    if (newCategory.id) {
+      const category = await prisma.category.update({
+        where: { id: newCategory.id, userId },
+        data: {
+          name: newCategory.name,
+          description: newCategory.description,
+        },
+      });
 
-    return { id: category.id };
+      return { id: category.id };
+    } else {
+      const category = await prisma.category.create({
+        data: {
+          userId,
+          name: newCategory.name,
+          description: newCategory.description,
+        },
+      });
+
+      return { id: category.id };
+    }
   } catch (error) {
     if (isDuplicateError(error, "name"))
       return { error: "Category with this name already exists" };

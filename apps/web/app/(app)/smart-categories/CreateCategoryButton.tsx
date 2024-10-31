@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { Category } from "@prisma/client";
 
 type ExampleCategory = {
   name: string;
@@ -101,20 +102,46 @@ export function CreateCategoryButton({
         )}
       </Button>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Category</DialogTitle>
-          </DialogHeader>
-
-          <CreateCategoryForm closeModal={closeModal} />
-        </DialogContent>
-      </Dialog>
+      <CreateCategoryDialog
+        isOpen={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        closeModal={closeModal}
+      />
     </div>
   );
 }
 
-function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
+export function CreateCategoryDialog({
+  category,
+  isOpen,
+  onOpenChange,
+  closeModal,
+}: {
+  category?: Pick<Category, "id" | "name" | "description">;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  closeModal: () => void;
+}) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Category</DialogTitle>
+        </DialogHeader>
+
+        <CreateCategoryForm category={category} closeModal={closeModal} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreateCategoryForm({
+  category,
+  closeModal,
+}: {
+  category?: Pick<Category, "id" | "name" | "description">;
+  closeModal: () => void;
+}) {
   const {
     register,
     handleSubmit,
@@ -122,6 +149,11 @@ function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
     setValue,
   } = useForm<CreateCategoryBody>({
     resolver: zodResolver(createCategoryBody),
+    defaultValues: {
+      id: category?.id,
+      name: category?.name,
+      description: category?.description,
+    },
   });
 
   const handleExampleClick = useCallback(
@@ -186,7 +218,7 @@ function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
         </div>
       </div>
       <Button type="submit" loading={isSubmitting}>
-        Create
+        {category ? "Update" : "Create"}
       </Button>
     </form>
   );

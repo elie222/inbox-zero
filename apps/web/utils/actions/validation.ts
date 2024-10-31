@@ -94,6 +94,7 @@ export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
 // categories
 export const createCategoryBody = z.object({
+  id: z.string().nullish(),
   name: z.string(),
   description: z.string().nullish(),
 });

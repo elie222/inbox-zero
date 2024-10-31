@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import uniqBy from "lodash/uniqBy";
 import { useRouter } from "next/navigation";
-import { PenIcon, TagsIcon } from "lucide-react";
+import { useQueryState } from "nuqs";
+import { PenIcon, PlusIcon, TagsIcon, TrashIcon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -19,7 +20,10 @@ import {
   deleteCategoryAction,
 } from "@/utils/actions/categorize";
 import { cn } from "@/utils";
-import { CreateCategoryButton } from "@/app/(app)/smart-categories/CreateCategoryButton";
+import {
+  CreateCategoryButton,
+  CreateCategoryDialog,
+} from "@/app/(app)/smart-categories/CreateCategoryButton";
 import type { Category } from "@prisma/client";
 
 type CardCategory = Pick<Category, "id" | "name" | "description"> & {
@@ -42,6 +46,8 @@ export function SetUpCategories({
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useQueryState("categoryId");
 
   const combinedCategories = uniqBy(
     [
@@ -86,76 +92,90 @@ export function SetUpCategories({
   }, [existingCategories]);
 
   return (
-    <Card className="m-4">
-      <CardHeader>
-        <CardTitle>Set up categories</CardTitle>
-        <CardDescription className="max-w-2xl">
-          Automatically categorize who emails you for better inbox management
-          and smarter automation. This allows you to bulk archive by category
-          and optimize AI automation based on sender types.
-        </CardDescription>
-      </CardHeader>
+    <>
+      <Card className="m-4">
+        <CardHeader>
+          <CardTitle>Set up categories</CardTitle>
+          <CardDescription className="max-w-2xl">
+            Automatically categorize who emails you for better inbox management
+            and smarter automation. This allows you to bulk archive by category
+            and optimize AI automation based on sender types.
+          </CardDescription>
+        </CardHeader>
 
-      <CardContent>
-        <TypographyH4>Choose categories</TypographyH4>
+        <CardContent>
+          <TypographyH4>Choose categories</TypographyH4>
 
-        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-          {combinedCategories.map((category) => {
-            return (
-              <CategoryCard
-                key={category.name}
-                category={category}
-                isEnabled={categories.get(category.name) ?? false}
-                onAdd={() =>
-                  setCategories(
-                    new Map(categories.entries()).set(category.name, true),
-                  )
-                }
-                onRemove={async () => {
-                  if (category.isDefault) {
+          <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {combinedCategories.map((category) => {
+              return (
+                <CategoryCard
+                  key={category.name}
+                  category={category}
+                  isEnabled={categories.get(category.name) ?? false}
+                  onAdd={() =>
                     setCategories(
-                      new Map(categories.entries()).set(category.name, false),
-                    );
-                  } else {
-                    // delete category
-                    await deleteCategoryAction(category.id);
+                      new Map(categories.entries()).set(category.name, true),
+                    )
                   }
-                }}
-              />
-            );
-          })}
-        </div>
+                  onRemove={async () => {
+                    if (category.isDefault) {
+                      setCategories(
+                        new Map(categories.entries()).set(category.name, false),
+                      );
+                    } else {
+                      await deleteCategoryAction(category.id);
+                    }
+                  }}
+                  onEdit={() => setSelectedCategoryId(category.id)}
+                />
+              );
+            })}
+          </div>
 
-        <div className="mt-4 flex gap-2">
-          <CreateCategoryButton
-            buttonProps={{
-              variant: "outline",
-              children: (
-                <>
-                  <PenIcon className="mr-2 size-4" />
-                  Add your own
-                </>
-              ),
-            }}
-          />
-          <Button
-            loading={isCreating}
-            onClick={async () => {
-              setIsCreating(true);
-              const selectedCategories = Array.from(categories.entries())
-                .filter(([, isSelected]) => isSelected)
-                .map(([category]) => category);
-              await createCategoriesAction(selectedCategories);
-              setIsCreating(false);
-              router.push("/smart-categories");
-            }}
-          >
-            <TagsIcon className="mr-2 h-4 w-4" />
-            Create Categories
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="mt-4 flex gap-2">
+            <CreateCategoryButton
+              buttonProps={{
+                variant: "outline",
+                children: (
+                  <>
+                    <PenIcon className="mr-2 size-4" />
+                    Add your own
+                  </>
+                ),
+              }}
+            />
+            <Button
+              loading={isCreating}
+              onClick={async () => {
+                setIsCreating(true);
+                const selectedCategories = Array.from(categories.entries())
+                  .filter(([, isSelected]) => isSelected)
+                  .map(([category]) => category);
+                await createCategoriesAction(selectedCategories);
+                setIsCreating(false);
+                router.push("/smart-categories");
+              }}
+            >
+              <TagsIcon className="mr-2 h-4 w-4" />
+              {existingCategories.length > 0 ? "Save" : "Create categories"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      <CreateCategoryDialog
+        isOpen={selectedCategoryId !== null}
+        onOpenChange={(open) =>
+          setSelectedCategoryId(open ? selectedCategoryId : null)
+        }
+        closeModal={() => setSelectedCategoryId(null)}
+        category={
+          selectedCategoryId
+            ? combinedCategories.find((c) => c.id === selectedCategoryId)
+            : undefined
+        }
+      />
+    </>
   );
 }
 
@@ -164,11 +184,13 @@ function CategoryCard({
   isEnabled,
   onAdd,
   onRemove,
+  onEdit,
 }: {
   category: CardCategory;
   isEnabled: boolean;
   onAdd: () => void;
   onRemove: () => void;
+  onEdit: () => void;
 }) {
   return (
     <Card
@@ -184,12 +206,20 @@ function CategoryCard({
         </div>
       </div>
       {isEnabled ? (
-        <Button size="sm" variant="outline" onClick={onRemove}>
-          Remove
-        </Button>
+        <div className="flex gap-1">
+          <Button size="iconSm" variant="ghost" onClick={onEdit}>
+            <PenIcon className="size-4" />
+            <span className="sr-only">Edit</span>
+          </Button>
+          <Button size="iconSm" variant="ghost" onClick={onRemove}>
+            <TrashIcon className="size-4" />
+            <span className="sr-only">Remove</span>
+          </Button>
+        </div>
       ) : (
-        <Button size="sm" onClick={onAdd}>
-          Add
+        <Button size="iconSm" variant="outline" onClick={onAdd}>
+          <PlusIcon className="size-4" />
+          <span className="sr-only">Add</span>
         </Button>
       )}
     </Card>
