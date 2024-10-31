@@ -12,7 +12,7 @@ async function main() {
       `https://api.lemonsqueezy.com/v1/subscription-items?page[number]=${page}&page[size]=${BATCH_SIZE}`,
     );
 
-    res.data.forEach((item: any) => {
+    for (const item of res.data) {
       if (item.attributes.quantity > 1) {
         console.log(
           item.attributes.quantity,
@@ -20,7 +20,7 @@ async function main() {
           item.attributes.subscription_id,
         );
       }
-    });
+    }
 
     if (res.data.length < BATCH_SIZE) break;
   }

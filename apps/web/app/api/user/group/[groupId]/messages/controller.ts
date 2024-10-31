@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 import groupBy from "lodash/groupBy";
 import { getMessage } from "@/utils/gmail/message";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
@@ -173,10 +173,9 @@ async function fetchPaginatedGroupMessages(
           groupItemsHash: paginationState.groupItemsHash,
         };
         break;
-      } else {
-        paginationState.chunkIndex++;
-        paginationState.pageToken = undefined;
       }
+      paginationState.chunkIndex++;
+      paginationState.pageToken = undefined;
     }
   };
 

@@ -34,7 +34,7 @@ export function LargestEmails(props: { refreshInterval: number }) {
   const { data, isLoading, error, mutate } = useSWRImmutable<
     LargestEmailsResponse,
     { error: string }
-  >(`/api/user/stats/largest-emails`, {
+  >("/api/user/stats/largest-emails", {
     refreshInterval: props.refreshInterval,
   });
 

@@ -289,7 +289,7 @@ async function safeCreateRule(
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
       const rule = await createRule(
-        { ...result, name: result.name + " - " + Date.now() },
+        { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
         groupId,
       );
@@ -315,7 +315,7 @@ async function safeUpdateRule(
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
       const rule = await createRule(
-        { ...result, name: result.name + " - " + Date.now() },
+        { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
         groupId,
       );
@@ -357,11 +357,11 @@ async function getGroupId(
         const result = await createNewsletterGroupAction();
         if (isActionError(result)) {
           return result;
-        } else if (!result) {
-          return { error: "Error creating newsletter group" };
-        } else {
-          groupId = result.id;
         }
+        if (!result) {
+          return { error: "Error creating newsletter group" };
+        }
+        groupId = result.id;
       }
     } else if (result.condition.group === GroupName.RECEIPT) {
       const receiptsGroup = groups.find((g) =>
@@ -381,11 +381,11 @@ async function getGroupId(
         const result = await createReceiptGroupAction();
         if (isActionError(result)) {
           return result;
-        } else if (!result) {
-          return { error: "Error creating receipt group" };
-        } else {
-          groupId = result.id;
         }
+        if (!result) {
+          return { error: "Error creating receipt group" };
+        }
+        groupId = result.id;
       }
     }
   }

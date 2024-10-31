@@ -262,17 +262,23 @@ export function HtmlEmail(props: { html: string }) {
         // sometimes we see minimal scrollbar, so add a buffer
         const BUFFER = 5;
 
-        event.currentTarget.style.height =
+        event.currentTarget.style.height = `${
           event.currentTarget.contentWindow.document.documentElement
-            .scrollHeight +
-          BUFFER +
-          "px";
+            .scrollHeight + BUFFER
+        }px`;
       }
     },
     [],
   );
 
-  return <iframe srcDoc={srcDoc} onLoad={onLoad} className="h-full w-full" />;
+  return (
+    <iframe
+      srcDoc={srcDoc}
+      onLoad={onLoad}
+      className="h-full w-full"
+      title="Email content preview"
+    />
+  );
 }
 
 function PlainEmail(props: { text: string }) {

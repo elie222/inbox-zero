@@ -10,7 +10,7 @@ export default function GlobalError({ error }: any) {
   }, [error]);
 
   return (
-    <html>
+    <html lang="en">
       <body className="p-4">
         <ErrorDisplay error={{ error: error?.message }} />
       </body>

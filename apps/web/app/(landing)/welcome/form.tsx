@@ -8,6 +8,7 @@ import {
   useFeatureFlagVariantKey,
   usePostHog,
 } from "posthog-js/react";
+import type { Properties } from "posthog-js";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -42,13 +43,13 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
 
   const name =
     questionIndex === 0
-      ? `$survey_response`
+      ? "$survey_response"
       : (`$survey_response_${questionIndex}` as const);
 
   const isFinalQuestion = questionIndex === survey.questions.length - 1;
 
   const submitPosthog = useCallback(
-    (responses: {}) => {
+    (responses: Properties) => {
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
     },
     [posthog],
@@ -65,9 +66,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         setShowOtherInput(true);
         setValue(name, "");
         return;
-      } else {
-        setShowOtherInput(false);
       }
+      setShowOtherInput(false);
 
       const newSeachParams = new URLSearchParams(searchParams);
       newSeachParams.set("question", (questionIndex + 1).toString());
@@ -101,6 +101,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       router,
       searchParams,
       submitPosthog,
+      setValue,
       isFinalQuestion,
       variant,
     ],
@@ -200,7 +201,7 @@ function SkipOnboardingButton({
   router,
 }: {
   searchParams: URLSearchParams;
-  submitPosthog: (responses: {}) => void;
+  submitPosthog: (responses: Properties) => void;
   posthog: PostHog;
   router: AppRouterInstance;
 }) {
@@ -227,11 +228,15 @@ function SkipOnboardingButton({
 }
 
 function getResponses(seachParams: URLSearchParams): Record<string, string> {
-  const responses = survey.questions.reduce((acc, _q, i) => {
-    const name =
-      i === 0 ? `$survey_response` : (`$survey_response_${i}` as const);
-    return { ...acc, [name]: seachParams.get(name) };
-  }, {});
+  const responses = survey.questions.reduce(
+    (acc, _q, i) => {
+      const name =
+        i === 0 ? "$survey_response" : (`$survey_response_${i}` as const);
+      acc[name] = seachParams.get(name) ?? "";
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
   return responses;
 }

@@ -4,7 +4,7 @@ export function withRetry<T>(
   delay = 20,
 ) {
   return async (...args: any[]) => {
-    let lastError;
+    let lastError: unknown;
     for (let i = 0; i < retries; i++) {
       try {
         return await fn(...args);

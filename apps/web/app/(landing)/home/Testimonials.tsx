@@ -93,7 +93,7 @@ const testimonials: {
         },
       },
       {
-        body: `SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email.`,
+        body: "SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email.",
         author: {
           name: "Alex Bass",
           handle: "alexhbass",

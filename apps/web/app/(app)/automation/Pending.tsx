@@ -90,7 +90,7 @@ function PendingTable({
       });
       if (isActionError(result)) {
         toastError({
-          description: "Unable to execute plan. " + result.error || "",
+          description: `Unable to execute plan. ${result.error}` || "",
         });
       }
       mutate();
@@ -105,7 +105,7 @@ function PendingTable({
       const result = await rejectPlanAction({ executedRuleId: id });
       if (isActionError(result)) {
         toastError({
-          description: "Error rejecting action. " + result.error || "",
+          description: `Error rejecting action. ${result.error}` || "",
         });
       }
       mutate();
@@ -223,7 +223,7 @@ function ExecuteButtons({
           });
           if (isActionError(result)) {
             toastError({
-              description: "Error approving action. " + result.error || "",
+              description: `Error approving action. ${result.error}` || "",
             });
           }
           mutate();
@@ -242,7 +242,7 @@ function ExecuteButtons({
           const result = await rejectPlanAction({ executedRuleId: id });
           if (isActionError(result)) {
             toastError({
-              description: "Error rejecting action. " + result.error || "",
+              description: `Error rejecting action. ${result.error}` || "",
             });
           }
           mutate();

@@ -471,45 +471,42 @@ export function HeaderButton(props: {
 }
 
 function GroupsSubMenu({ sender }: { sender: string }) {
-  const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
+  const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");
 
   return (
     <DropdownMenuSubContent>
-      {data && (
-        <>
-          {data.groups.length ? (
-            data?.groups.map((group) => {
-              return (
-                <DropdownMenuItem
-                  key={group.id}
-                  onClick={async () => {
-                    const result = await addGroupItemAction({
-                      groupId: group.id,
-                      type: "FROM",
-                      value: sender,
-                    });
+      {data &&
+        (data.groups.length ? (
+          data?.groups.map((group) => {
+            return (
+              <DropdownMenuItem
+                key={group.id}
+                onClick={async () => {
+                  const result = await addGroupItemAction({
+                    groupId: group.id,
+                    type: "FROM",
+                    value: sender,
+                  });
 
-                    if (isActionError(result)) {
-                      toastError({
-                        description: `Failed to add ${sender} to ${group.name}. ${result.error}`,
-                      });
-                    } else {
-                      toastSuccess({
-                        title: "Success!",
-                        description: `Added ${sender} to ${group.name}`,
-                      });
-                    }
-                  }}
-                >
-                  {group.name}
-                </DropdownMenuItem>
-              );
-            })
-          ) : (
-            <DropdownMenuItem>{`You don't have any groups yet.`}</DropdownMenuItem>
-          )}
-        </>
-      )}
+                  if (isActionError(result)) {
+                    toastError({
+                      description: `Failed to add ${sender} to ${group.name}. ${result.error}`,
+                    });
+                  } else {
+                    toastSuccess({
+                      title: "Success!",
+                      description: `Added ${sender} to ${group.name}`,
+                    });
+                  }
+                }}
+              >
+                {group.name}
+              </DropdownMenuItem>
+            );
+          })
+        ) : (
+          <DropdownMenuItem>{`You don't have any groups yet.`}</DropdownMenuItem>
+        ))}
       {isLoading && <DropdownMenuItem>Loading...</DropdownMenuItem>}
       {error && <DropdownMenuItem>Error loading groups</DropdownMenuItem>}
       <DropdownMenuSeparator />

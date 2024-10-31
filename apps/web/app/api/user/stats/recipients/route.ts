@@ -28,7 +28,7 @@ async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
 
   const res = await gmail.users.messages.list({
     userId: "me",
-    q: `in:sent`,
+    q: "in:sent",
     maxResults: 50,
   });
 

@@ -40,9 +40,9 @@ export function SimpleEmailStateProvider(props: { children: React.ReactNode }) {
   const onSetHandled = useCallback((ids: string[]) => {
     setState((prev) => {
       const newHandled = { ...prev.handled };
-      ids.forEach((id) => {
+      for (const id of ids) {
         newHandled[id] = true;
-      });
+      }
       return { ...prev, handled: newHandled };
     });
   }, []);
@@ -50,9 +50,9 @@ export function SimpleEmailStateProvider(props: { children: React.ReactNode }) {
   const onSetToHandleLater = useCallback((ids: string[]) => {
     setState((prev) => {
       const newToHandleLater = { ...prev.toHandleLater };
-      ids.forEach((id) => {
+      for (const id of ids) {
         newToHandleLater[id] = true;
-      });
+      }
       return { ...prev, toHandleLater: newToHandleLater };
     });
   }, []);

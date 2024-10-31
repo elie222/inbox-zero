@@ -117,7 +117,7 @@ export function SimpleList(props: {
                   ][0];
 
                 if (props.type === lastCategory) {
-                  router.push(`/simple/completed`);
+                  router.push("/simple/completed");
                 } else {
                   const next = getNextCategory(props.type);
                   router.push(`/simple?type=${next}`);

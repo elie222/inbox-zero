@@ -16,8 +16,7 @@ export const GET = withError(async () => {
   const expirationDate = await watchEmails(session.user.id, gmail);
   if (expirationDate) {
     return NextResponse.json({ expirationDate });
-  } else {
-    console.error("Error watching inbox");
-    return NextResponse.json({ error: "Error watching inbox" });
   }
+  console.error("Error watching inbox");
+  return NextResponse.json({ error: "Error watching inbox" });
 });

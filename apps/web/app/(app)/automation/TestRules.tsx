@@ -57,7 +57,7 @@ export function TestRulesContent() {
       dedupingInterval: 1_000,
     },
   );
-  const { data: rules } = useSWR<RulesResponse>(`/api/user/rules`);
+  const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
 
   const session = useSession();
   const email = session.data?.user.email;
@@ -139,7 +139,7 @@ const TestRulesForm = () => {
       </form>
       {testResult && (
         <div className="mt-4">
-          <TestResult result={testResult} />
+          <TestResultDisplay result={testResult} />
         </div>
       )}
     </div>
@@ -194,7 +194,7 @@ function TestRulesContentRow(props: {
         </div>
         {!!testResult && (
           <div className="mt-4">
-            <TestResult result={testResult} />
+            <TestResultDisplay result={testResult} />
           </div>
         )}
       </TableCell>
@@ -202,7 +202,7 @@ function TestRulesContentRow(props: {
   );
 }
 
-function TestResult({ result }: { result: TestResult }) {
+function TestResultDisplay({ result }: { result: TestResult }) {
   if (!result) return null;
 
   if (!result.rule) {
