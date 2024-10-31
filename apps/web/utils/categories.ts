@@ -3,7 +3,7 @@ export const defaultCategory = {
     name: "Unknown",
     enabled: true,
     description:
-      "Emails that don't fit any other category or can't be classified",
+      "Senders that don't fit any other category or can't be classified",
   },
   NEWSLETTER: {
     name: "Newsletter",
@@ -14,7 +14,7 @@ export const defaultCategory = {
     name: "Marketing",
     enabled: true,
     description:
-      "Promotional emails, sales announcements, product launches, and marketing campaigns",
+      "Promotional content,  product launches, and marketing campaigns",
   },
   RECEIPT: {
     name: "Receipt",
@@ -26,7 +26,7 @@ export const defaultCategory = {
     name: "Banking",
     enabled: true,
     description:
-      "Bank statements, account updates, fraud alerts, and financial notifications",
+      "Financial institutions, banks, and payment services that send statements and alerts",
   },
   LEGAL: {
     name: "Legal",
@@ -37,7 +37,7 @@ export const defaultCategory = {
   SUPPORT: {
     name: "Support",
     enabled: true,
-    description: "Customer service responses",
+    description: "Customer service and support",
   },
   PERSONAL: {
     name: "Personal",
@@ -47,13 +47,12 @@ export const defaultCategory = {
   SOCIAL: {
     name: "Social",
     enabled: true,
-    description: "Notifications from social media platforms",
+    description: "Social media platforms and their notification systems",
   },
   TRAVEL: {
     name: "Travel",
     enabled: true,
-    description:
-      "Flight itineraries, hotel reservations, and travel-related documents",
+    description: "Airlines, hotels, booking services, and travel agencies",
   },
   EVENTS: {
     name: "Events",
@@ -76,30 +75,32 @@ export const defaultCategory = {
   WORK: {
     name: "Work",
     enabled: false,
-    description: "Work-related communications",
+    description:
+      "Professional contacts, colleagues, and work-related communications",
   },
   EDUCATIONAL: {
     name: "Educational",
     enabled: false,
-    description: "Courses and educational resources",
+    description:
+      "Educational institutions, online learning platforms, and course providers",
   },
   HEALTH: {
     name: "Health",
     enabled: false,
     description:
-      "Medical appointments, lab results, prescriptions, and health-related notifications",
+      "Healthcare providers, medical offices, and health service platforms",
   },
   GOVERNMENT: {
     name: "Government",
     enabled: false,
     description:
-      "Tax information, voter registration, government surveys, and official communications",
+      "Government agencies, departments, and official communication channels",
   },
   ENTERTAINMENT: {
     name: "Entertainment",
     enabled: false,
     description:
-      "Updates from streaming services, gaming platforms, and entertainment providers",
+      "Streaming services, gaming platforms, and entertainment providers",
   },
 } as const;
 
