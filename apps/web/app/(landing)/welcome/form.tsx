@@ -149,7 +149,6 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
                 name={name}
                 registerProps={register(name)}
                 error={errors[name]}
-                placeholder="Role"
               />
             )}
           </div>
