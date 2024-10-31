@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import uniqBy from "lodash/uniqBy";
 import { useRouter } from "next/navigation";
 import { PenIcon, TagsIcon } from "lucide-react";
 import {
@@ -42,14 +43,25 @@ export function SetUpCategories({
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
 
-  const defaultCategoriesWithoutExisting = defaultCategories.filter(
-    (c) => !existingCategories.some((existing) => existing.name === c.name),
-  );
+  const combinedCategories = uniqBy(
+    [
+      ...defaultCategories.map((c) => {
+        const existing = existingCategories.find((e) => e.name === c.name);
 
-  const combinedCategories = [
-    ...defaultCategoriesWithoutExisting,
-    ...existingCategories,
-  ];
+        if (existing) {
+          return {
+            ...existing,
+            enabled: true,
+            isDefault: false,
+          };
+        }
+
+        return c;
+      }),
+      ...existingCategories,
+    ],
+    (c) => c.name,
+  );
 
   const [categories, setCategories] = useState<Map<string, boolean>>(
     new Map(
