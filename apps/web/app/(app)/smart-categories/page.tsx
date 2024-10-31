@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { PenIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -22,6 +24,7 @@ import { Uncategorized } from "@/app/(app)/smart-categories/Uncategorized";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -64,7 +67,15 @@ export default async function CategoriesPage() {
               <TabsTrigger value="uncategorized">Uncategorized</TabsTrigger>
             </TabsList>
 
-            <CreateCategoryButton />
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/smart-categories/setup">
+                  <PenIcon className="mr-2 size-4" />
+                  Edit
+                </Link>
+              </Button>
+              <CreateCategoryButton />
+            </div>
           </TopBar>
 
           <TabsContent value="categories" className="m-0">
