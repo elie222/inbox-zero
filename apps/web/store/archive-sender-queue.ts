@@ -1,7 +1,7 @@
 import { atom, useAtomValue } from "jotai";
 import { jotaiStore } from "@/store";
 import { archiveEmails } from "./archive-queue";
-import { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { useMemo } from "react";
 
