@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { TypographyH4 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { senderCategory } from "@/utils/categories";
+import { defaultCategory } from "@/utils/categories";
 import {
   createCategoriesAction,
   deleteCategoryAction,
@@ -26,7 +26,7 @@ type CardCategory = Pick<Category, "id" | "name" | "description"> & {
   isDefault?: boolean;
 };
 
-const defaultCategories = Object.values(senderCategory).map((c) => ({
+const defaultCategories = Object.values(defaultCategory).map((c) => ({
   id: c.name,
   name: c.name,
   description: c.description,
@@ -63,11 +63,11 @@ export function SetUpCategories({
       const newCategories = new Map(prevCategories);
 
       // Enable any new categories from existingCategories that aren't in the current map
-      existingCategories.forEach((category) => {
+      for (const category of existingCategories) {
         if (!prevCategories.has(category.name)) {
           newCategories.set(category.name, true);
         }
-      });
+      }
 
       return newCategories;
     });

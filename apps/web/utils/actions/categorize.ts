@@ -21,7 +21,7 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
-import { senderCategory, type SenderCategory } from "@/utils/categories";
+import { defaultCategory, type SenderCategory } from "@/utils/categories";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -194,7 +194,7 @@ export const categorizeSendersAction = withActionInstrumentation(
     ].filter(
       (r) =>
         !r.category ||
-        r.category === senderCategory.UNKNOWN.name ||
+        r.category === defaultCategory.UNKNOWN.name ||
         r.category === "RequestMoreInformation",
     );
 
@@ -396,13 +396,13 @@ function preCategorizeSendersWithStaticRules(
     ];
 
     if (personalEmailDomains.some((domain) => sender.includes(`@${domain}>`)))
-      return { sender, category: senderCategory.UNKNOWN.name };
+      return { sender, category: defaultCategory.UNKNOWN.name };
 
     if (isNewsletterSender(sender))
-      return { sender, category: senderCategory.NEWSLETTER.name };
+      return { sender, category: defaultCategory.NEWSLETTER.name };
 
     if (isReceiptSender(sender))
-      return { sender, category: senderCategory.RECEIPT.name };
+      return { sender, category: defaultCategory.RECEIPT.name };
 
     return { sender, category: undefined };
   });
@@ -435,7 +435,7 @@ export const createCategoriesAction = withActionInstrumentation(
     if (!session) return { error: "Not authenticated" };
 
     for (const category of categories) {
-      const description = Object.values(senderCategory).find(
+      const description = Object.values(defaultCategory).find(
         (c) => c.name === category,
       )?.description;
 

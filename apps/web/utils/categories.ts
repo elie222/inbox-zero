@@ -1,4 +1,4 @@
-export const senderCategory = {
+export const defaultCategory = {
   UNKNOWN: {
     name: "Unknown",
     enabled: true,
@@ -103,6 +103,6 @@ export const senderCategory = {
   },
 } as const;
 
-export type SenderCategoryKey = keyof typeof senderCategory;
-export type SenderCategoryValue = (typeof senderCategory)[SenderCategoryKey];
+export type SenderCategoryKey = keyof typeof defaultCategory;
+export type SenderCategoryValue = (typeof defaultCategory)[SenderCategoryKey];
 export type SenderCategory = SenderCategoryValue["name"];

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
-import { senderCategory } from "@/utils/categories";
+import { defaultCategory } from "@/utils/categories";
 
 vi.mock("server-only", () => ({}));
 
@@ -88,10 +88,10 @@ describe("aiCategorizeSenders", () => {
 });
 
 const getEnabledCategories = () => {
-  return Object.entries(senderCategory)
+  return Object.entries(defaultCategory)
     .filter(([_, value]) => value.enabled)
     .map(([_, value]) => ({
-      name: value.label,
+      name: value.name,
       description: value.description,
     }));
 };

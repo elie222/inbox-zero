@@ -53,7 +53,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
-import { senderCategory } from "@/utils/categories";
+import { useCategories } from "@/hooks/useCategories";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -73,7 +73,11 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, data: gmailLabelsData, isLoading, mutate } = useLabels();
-
+  const {
+    categories,
+    isLoading: categoriesLoading,
+    error: categoriesError,
+  } = useCategories();
   const router = useRouter();
 
   const posthog = usePostHog();
@@ -198,22 +202,23 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
               />
             </div>
 
-            <MultiSelectFilter
-              title="Categories"
-              maxDisplayedValues={8}
-              // TODO: load sender categories from backend
-              options={Object.values(senderCategory).map((category) => ({
-                label: capitalCase(category.label),
-                value: category.label,
-              }))}
-              selectedValues={new Set(watch("categoryFilters"))}
-              setSelectedValues={(selectedValues) => {
-                setValue("categoryFilters", Array.from(selectedValues));
-              }}
-            />
-            {errors.categoryFilters?.message && (
-              <ErrorMessage message={errors.categoryFilters.message} />
-            )}
+            <LoadingContent loading={categoriesLoading} error={categoriesError}>
+              <MultiSelectFilter
+                title="Categories"
+                maxDisplayedValues={8}
+                options={categories.map((category) => ({
+                  label: capitalCase(category.name),
+                  value: category.id,
+                }))}
+                selectedValues={new Set(watch("categoryFilters"))}
+                setSelectedValues={(selectedValues) => {
+                  setValue("categoryFilters", Array.from(selectedValues));
+                }}
+              />
+              {errors.categoryFilters?.message && (
+                <ErrorMessage message={errors.categoryFilters.message} />
+              )}
+            </LoadingContent>
           </div>
         </div>
       )}
