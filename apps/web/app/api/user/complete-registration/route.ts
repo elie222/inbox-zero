@@ -7,7 +7,7 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { ONE_HOUR_MS } from "@/utils/date";
 
-export type CompleteRegistrationBody = {};
+export type CompleteRegistrationBody = Record<string, never>;
 
 export const POST = withError(async (_request: NextRequest) => {
   const session = await auth();

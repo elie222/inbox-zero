@@ -11,7 +11,9 @@ export const useAiQueueState = () => {
 export const pushToAiQueueAtom = (pushIds: string[]) => {
   jotaiStore.set(aiQueueAtom, (prev) => {
     const newIds = new Set(prev);
-    pushIds.forEach((id) => newIds.add(id));
+    for (const id of pushIds) {
+      newIds.add(id);
+    }
     return newIds;
   });
 };
