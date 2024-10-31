@@ -128,7 +128,7 @@ ${stringifyEmail(email, 3000)}`;
     system,
     tools: {
       apply_rule: {
-        description: `Apply the rule with the given arguments`,
+        description: "Apply the rule with the given arguments",
         parameters: z.object(parameters),
       },
     },

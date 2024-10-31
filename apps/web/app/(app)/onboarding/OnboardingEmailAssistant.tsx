@@ -81,7 +81,8 @@ function EmailAssistantForm({
         description: result.error,
       });
       return;
-    } else if (result.success) {
+    }
+    if (result.success) {
       setData(result);
     }
   };

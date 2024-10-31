@@ -26,7 +26,7 @@ export function useExecutePlan(refetch: () => void) {
       });
       if (isActionError(result)) {
         toastError({
-          description: "Unable to execute plan. " + result.error || "",
+          description: `Unable to execute plan. ${result.error || ""}`,
         });
       } else {
         toastSuccess({ description: "Executed!" });
@@ -49,7 +49,7 @@ export function useExecutePlan(refetch: () => void) {
         });
         if (isActionError(result)) {
           toastError({
-            description: "Error rejecting plan. " + result.error || "",
+            description: `Error rejecting plan. ${result.error || ""}`,
           });
         } else {
           toastSuccess({ description: "Plan rejected" });

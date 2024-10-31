@@ -140,7 +140,8 @@ export const createPredefinedGroupAction = withActionInstrumentation(
   async (groupId: string) => {
     if (groupId === NEWSLETTER_GROUP_ID) {
       return await createNewsletterGroupAction();
-    } else if (groupId === RECEIPT_GROUP_ID) {
+    }
+    if (groupId === RECEIPT_GROUP_ID) {
       return await createReceiptGroupAction();
     }
 

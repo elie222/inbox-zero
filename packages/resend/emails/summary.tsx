@@ -60,7 +60,7 @@ export default function SummaryEmail(props: SummaryEmailProps) {
             <Section className="mt-8">
               <Link href={baseUrl} className="text-[15px]">
                 <Img
-                  src={`https://www.getinboxzero.com/icon.png`}
+                  src={"https://www.getinboxzero.com/icon.png"}
                   width="40"
                   height="40"
                   alt="Inbox Zero"

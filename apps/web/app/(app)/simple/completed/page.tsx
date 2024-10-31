@@ -23,7 +23,7 @@ export default async function SimpleCompletedPage() {
         <div className="text-center font-cal text-2xl leading-10 text-gray-900">
           <p>
             🥳 Great job!
-            {!!threads.length && <> Here are the emails you set aside!</>}
+            {!!threads.length && " Here are the emails you set aside!"}
           </p>
         </div>
 

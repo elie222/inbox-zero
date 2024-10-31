@@ -130,6 +130,7 @@ function OpenInGmailButton({
 }) {
   return (
     <button
+      type="button"
       className="ml-2 text-gray-700 hover:text-gray-900"
       onClick={() => {
         window.open(getGmailUrl(messageId, userEmail), "_blank");
@@ -148,7 +149,7 @@ export function TablePagination({ totalPages }: { totalPages: number }) {
       const params = new URLSearchParams(searchParams);
       params.set("page", value.toString());
       const asString = params.toString();
-      return asString ? "?" + asString : "";
+      return asString ? `?${asString}` : "";
     },
     [searchParams],
   );

@@ -59,7 +59,7 @@ export function CreateGroupModalButton(props: {
                       description: `There was an error creating the group. ${result.error}`,
                     });
                   } else {
-                    toastSuccess({ description: `Group created!` });
+                    toastSuccess({ description: "Group created!" });
                     closeModal();
                   }
                   setNewsletterLoading(false);
@@ -82,7 +82,7 @@ export function CreateGroupModalButton(props: {
                       description: `There was an error creating the group. ${result.error}`,
                     });
                   } else {
-                    toastSuccess({ description: `Group created!` });
+                    toastSuccess({ description: "Group created!" });
                     closeModal();
                   }
                   setReceiptsLoading(false);
@@ -131,7 +131,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
           description: `There was an error creating the group. ${result.error}`,
         });
       } else {
-        toastSuccess({ description: `Group created!` });
+        toastSuccess({ description: "Group created!" });
         closeModal();
       }
 
@@ -139,7 +139,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
 
       router.push(`/automation/group/${result.id}`);
     },
-    [closeModal, mutate],
+    [closeModal, mutate, router.push],
   );
 
   return (

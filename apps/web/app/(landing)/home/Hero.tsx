@@ -50,12 +50,8 @@ export function Hero(props: {
               {props.title || "Stop wasting half your day in Gmail"}
             </HeroText>
             <HeroSubtitle>
-              {props.subtitle || (
-                <>
-                  Automate your email with AI, bulk unsubscribe from
-                  newsletters, and block cold emails. Open-source.
-                </>
-              )}
+              {props.subtitle ||
+                "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source."}
             </HeroSubtitle>
             <CTAButtons />
           </div>

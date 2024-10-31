@@ -3,4 +3,4 @@ export async function sleep(ms: number) {
 }
 
 export const exponentialBackoff = (retryCount: number, ms: number) =>
-  Math.pow(2, retryCount) * ms;
+  2 ** retryCount * ms;

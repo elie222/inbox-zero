@@ -70,7 +70,14 @@ export function useUnsubscribe<T extends Row>({
     }
 
     setUnsubscribeLoading(false);
-  }, [hasUnsubscribeAccess, item.name, mutate, posthog, refetchPremium]);
+  }, [
+    hasUnsubscribeAccess,
+    item.name,
+    item.status,
+    mutate,
+    refetchPremium,
+    posthog,
+  ]);
 
   return {
     unsubscribeLoading,
@@ -171,7 +178,7 @@ export function useAutoArchive<T extends Row>({
     posthog.capture("Clicked Auto Archive");
 
     setAutoArchiveLoading(false);
-  }, [item.name, mutate, posthog, refetchPremium]);
+  }, [item.name, mutate, refetchPremium, hasUnsubscribeAccess, posthog]);
 
   const onDisableAutoArchive = useCallback(async () => {
     setAutoArchiveLoading(true);
@@ -184,7 +191,7 @@ export function useAutoArchive<T extends Row>({
     await mutate();
 
     setAutoArchiveLoading(false);
-  }, [item.name, mutate, posthog, refetchPremium]);
+  }, [item.name, item.autoArchived?.id, mutate]);
 
   const onAutoArchiveAndLabel = useCallback(
     async (labelId: string) => {
@@ -196,7 +203,7 @@ export function useAutoArchive<T extends Row>({
 
       setAutoArchiveLoading(false);
     },
-    [item.name, mutate, posthog, refetchPremium],
+    [item.name, mutate, refetchPremium, hasUnsubscribeAccess],
   );
 
   return {
@@ -233,7 +240,7 @@ export function useBulkAutoArchive<T extends Row>({
 
       setBulkAutoArchiveLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, posthog, refetchPremium],
+    [hasUnsubscribeAccess, mutate, refetchPremium],
   );
 
   return {
@@ -467,7 +474,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         if (!nextItem) return;
         setSelectedRow(nextItem);
         return;
-      } else if (e.key === "Enter") {
+      }
+      if (e.key === "Enter") {
         // open modal
         e.preventDefault();
         onOpenNewsletter(item);
@@ -488,7 +496,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         await decrementUnsubscribeCreditAction();
         await refetchPremium();
         return;
-      } else if (e.key === "u") {
+      }
+      if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
@@ -501,7 +510,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         await decrementUnsubscribeCreditAction();
         await refetchPremium();
         return;
-      } else if (e.key === "a") {
+      }
+      if (e.key === "a") {
         // approve
         e.preventDefault();
         await setNewsletterStatusAction({

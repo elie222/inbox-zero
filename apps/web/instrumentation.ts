@@ -1,6 +1,6 @@
 /* eslint-disable no-process-env */
 import * as Sentry from "@sentry/nextjs";
-import { env } from "process";
+import { env } from "node:process";
 
 export function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {

@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, scryptSync } from "crypto";
+import { createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
 
 // don't store the text in plain text in our database to increase user privacy.
 // use a deterministic encryption algorithm so that we can perform analytics on the data
