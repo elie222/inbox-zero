@@ -18,7 +18,18 @@
       "*.config.*",
       "*.json",
       "tsconfig.json",
-      ".turbo"
+      ".turbo",
+      ".next"
+    ]
+  },
+  "files": {
+    "ignore": [
+      "node_modules/*",
+      "*.config.*",
+      "*.json",
+      "tsconfig.json",
+      ".turbo",
+      ".next"
     ]
   }
 }
