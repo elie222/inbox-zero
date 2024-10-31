@@ -16,7 +16,7 @@ import { TypographyH4 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { defaultCategory } from "@/utils/categories";
 import {
-  createCategoriesAction,
+  upsertDefaultCategoriesAction,
   deleteCategoryAction,
 } from "@/utils/actions/categorize";
 import { cn } from "@/utils";
@@ -65,6 +65,8 @@ export function SetUpCategories({
         return {
           ...c,
           id: undefined,
+          // only enable on first set up
+          enabled: c.enabled && !existingCategories.length,
         };
       }),
       ...existingCategories,
@@ -79,6 +81,7 @@ export function SetUpCategories({
   );
 
   // Update categories when existingCategories changes
+  // This is a bit messy that we need to do this
   useEffect(() => {
     setCategories((prevCategories) => {
       const newCategories = new Map(prevCategories);
@@ -87,6 +90,15 @@ export function SetUpCategories({
       for (const category of existingCategories) {
         if (!prevCategories.has(category.name)) {
           newCategories.set(category.name, true);
+        }
+      }
+
+      // Disable any categories that aren't in existingCategories
+      if (existingCategories.length) {
+        for (const category of prevCategories.keys()) {
+          if (!existingCategories.some((c) => c.name === category)) {
+            newCategories.set(category, false);
+          }
         }
       }
 
@@ -152,10 +164,15 @@ export function SetUpCategories({
               loading={isCreating}
               onClick={async () => {
                 setIsCreating(true);
-                const selectedCategories = Array.from(categories.entries())
-                  .filter(([, isSelected]) => isSelected)
-                  .map(([category]) => category);
-                await createCategoriesAction(selectedCategories);
+                const upsertCategories = Array.from(categories.entries()).map(
+                  ([name, enabled]) => ({
+                    id: combinedCategories.find((c) => c.name === name)?.id,
+                    name,
+                    enabled,
+                  }),
+                );
+
+                await upsertDefaultCategoriesAction(upsertCategories);
                 setIsCreating(false);
                 router.push("/smart-categories");
               }}

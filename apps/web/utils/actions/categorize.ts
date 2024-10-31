@@ -428,18 +428,22 @@ export const changeSenderCategoryAction = withActionInstrumentation(
   },
 );
 
-export const createCategoriesAction = withActionInstrumentation(
-  "createCategories",
-  async (categoryNames: string[]) => {
+export const upsertDefaultCategoriesAction = withActionInstrumentation(
+  "upsertDefaultCategories",
+  async (categories: { id?: string; name: string; enabled: boolean }[]) => {
     const session = await auth();
     if (!session) return { error: "Not authenticated" };
 
-    for (const name of categoryNames) {
+    for (const { id, name, enabled } of categories) {
       const description = Object.values(defaultCategory).find(
         (c) => c.name === name,
       )?.description;
 
-      await upsertCategory(session.user.id, { name, description });
+      if (enabled) {
+        await upsertCategory(session.user.id, { name, description });
+      } else {
+        if (id) await deleteCategory(session.user.id, id);
+      }
     }
 
     revalidatePath("/smart-categories");
@@ -467,13 +471,15 @@ export const deleteCategoryAction = withActionInstrumentation(
     const session = await auth();
     if (!session) return { error: "Not authenticated" };
 
-    await prisma.category.delete({
-      where: { id: categoryId, userId: session.user.id },
-    });
+    await deleteCategory(session.user.id, categoryId);
 
     revalidatePath("/smart-categories");
   },
 );
+
+async function deleteCategory(userId: string, categoryId: string) {
+  await prisma.category.delete({ where: { id: categoryId, userId } });
+}
 
 async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
   try {
