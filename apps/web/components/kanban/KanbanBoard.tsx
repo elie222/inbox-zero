@@ -139,7 +139,8 @@ export function KanbanBoard({
         return `Picked up Column ${startColumn?.title} at position: ${
           startColumnIdx + 1
         } of ${columnsId.length}`;
-      } else if (active.data.current?.type === "Task") {
+      }
+      if (active.data.current?.type === "Task") {
         pickedUpTaskColumn.current = active.data.current.task.columnId;
         const { tasksInColumn, taskPosition, column } = getDraggingTaskData(
           active.id,
@@ -163,7 +164,8 @@ export function KanbanBoard({
         return `Column ${active.data.current.column.title} was moved over ${
           over.data.current.column.title
         } at position ${overColumnIdx + 1} of ${columnsId.length}`;
-      } else if (
+      }
+      if (
         active.data.current?.type === "Task" &&
         over.data.current?.type === "Task"
       ) {
@@ -199,7 +201,8 @@ export function KanbanBoard({
         } was dropped into position ${overColumnPosition + 1} of ${
           columnsId.length
         }`;
-      } else if (
+      }
+      if (
         active.data.current?.type === "Task" &&
         over.data.current?.type === "Task"
       ) {

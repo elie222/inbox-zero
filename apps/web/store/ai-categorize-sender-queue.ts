@@ -20,11 +20,11 @@ const aiCategorizeSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
 export const pushToAiCategorizeSenderQueueAtom = (pushIds: string[]) => {
   jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
     const newQueue = new Map(prev);
-    pushIds.forEach((id) => {
+    for (const id of pushIds) {
       if (!newQueue.has(id)) {
         newQueue.set(id, { status: "pending" });
       }
-    });
+    }
     return newQueue;
   });
 
@@ -68,8 +68,7 @@ function processAiCategorizeSenderQueue({ senders }: { senders: string[] }) {
     await pRetry(
       async (attemptCount) => {
         console.log(
-          `Queue: aiCategorizeSender. Processing ${sender}` +
-            (attemptCount > 1 ? ` (attempt ${attemptCount})` : ""),
+          `Queue: aiCategorizeSender. Processing ${sender}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
         );
 
         const result = await categorizeSenderAction(sender);

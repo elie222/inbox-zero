@@ -141,7 +141,7 @@ function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
           description: `There was an error creating the category. ${result.error}`,
         });
       } else {
-        toastSuccess({ description: `Category created!` });
+        toastSuccess({ description: "Category created!" });
         closeModal();
       }
     },

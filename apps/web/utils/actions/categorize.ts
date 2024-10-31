@@ -311,9 +311,8 @@ export async function categorizeSender(
     });
 
     return { categoryId: newsletter.categoryId };
-  } else {
-    console.error(`No AI result for sender: ${senderAddress}`);
   }
+  console.error(`No AI result for sender: ${senderAddress}`);
 
   return { categoryId: undefined };
 }
