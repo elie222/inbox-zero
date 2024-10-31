@@ -20,6 +20,9 @@ import { SectionDescription } from "@/components/Typography";
 import { ButtonLoader } from "@/components/Loading";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { Toggle } from "@/components/Toggle";
+import { setAutoCategorizeAction } from "@/utils/actions/categorize";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 function useSenders() {
   const getKey = (
@@ -64,7 +67,13 @@ function useSenders() {
   };
 }
 
-export function Uncategorized({ categories }: { categories: Category[] }) {
+export function Uncategorized({
+  categories,
+  autoCategorizeSenders,
+}: {
+  categories: Category[];
+  autoCategorizeSenders: boolean;
+}) {
   const { hasAiAccess } = usePremium();
   const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
 
@@ -117,6 +126,16 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
             </Button>
           )}
         </div>
+
+        <div className="flex items-center">
+          <div className="mr-1">
+            <TooltipExplanation
+              size="sm"
+              text="Automatically categorize new senders when they email you"
+            />
+          </div>
+          <AutoCategorizeToggle autoCategorizeSenders={autoCategorizeSenders} />
+        </div>
       </TopBar>
       <ClientOnly>
         {senders.length ? (
@@ -147,5 +166,22 @@ export function Uncategorized({ categories }: { categories: Category[] }) {
       </ClientOnly>
       <PremiumModal />
     </LoadingContent>
+  );
+}
+
+function AutoCategorizeToggle({
+  autoCategorizeSenders,
+}: {
+  autoCategorizeSenders: boolean;
+}) {
+  return (
+    <Toggle
+      name="autoCategorizeSenders"
+      label="Auto categorize"
+      enabled={autoCategorizeSenders}
+      onChange={async (enabled) => {
+        await setAutoCategorizeAction(enabled);
+      }}
+    />
   );
 }

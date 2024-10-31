@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import { HelpCircleIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -36,7 +36,6 @@ import {
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
-import { Tooltip } from "@/components/Tooltip";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
@@ -383,9 +382,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first.">
-          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
-        </Tooltip>
+        <TooltipExplanation
+          size="md"
+          text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
+        />
 
         <Toggle
           name="automate"
@@ -398,9 +398,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation.">
-          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
-        </Tooltip>
+        <TooltipExplanation
+          size="md"
+          text="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation."
+        />
 
         <Toggle
           name="runOnThreads"

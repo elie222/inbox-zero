@@ -62,6 +62,7 @@ export async function processHistoryForUser(
               aiAutomationAccess: true,
             },
           },
+          autoCategorizeSenders: true,
         },
       },
     },
@@ -175,6 +176,7 @@ export async function processHistoryForUser(
           aiApiKey: account.user.aiApiKey,
           coldEmailPrompt: account.user.coldEmailPrompt,
           coldEmailBlocker: account.user.coldEmailBlocker,
+          autoCategorizeSenders: account.user.autoCategorizeSenders,
         },
       });
     } else {
@@ -212,7 +214,12 @@ type ProcessHistoryOptions = {
   hasAiAutomationAccess: boolean;
   user: Pick<
     User,
-    "id" | "email" | "about" | "coldEmailPrompt" | "coldEmailBlocker"
+    | "id"
+    | "email"
+    | "about"
+    | "coldEmailPrompt"
+    | "coldEmailBlocker"
+    | "autoCategorizeSenders"
   > &
     UserAIFields;
 };
@@ -360,13 +367,15 @@ async function processHistoryItem(
 
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
-    const sender = message.headers.from;
-    const existingSender = await prisma.newsletter.findUnique({
-      where: { email_userId: { email: sender, userId: user.id } },
-      select: { category: true },
-    });
-    if (!existingSender?.category) {
-      await categorizeSender(sender, user, gmail, accessToken);
+    if (user.autoCategorizeSenders) {
+      const sender = message.headers.from;
+      const existingSender = await prisma.newsletter.findUnique({
+        where: { email_userId: { email: sender, userId: user.id } },
+        select: { category: true },
+      });
+      if (!existingSender?.category) {
+        await categorizeSender(sender, user, gmail, accessToken);
+      }
     }
 
     if (hasAutomationRules && hasAiAutomationAccess) {

@@ -412,7 +412,7 @@ export const changeSenderCategoryAction = withActionInstrumentation(
   "changeSenderCategory",
   async ({ sender, categoryId }: { sender: string; categoryId: string }) => {
     const session = await auth();
-    if (!session) return { error: "Not authenticated" };
+    if (!session?.user) return { error: "Not authenticated" };
 
     const category = await prisma.category.findUnique({
       where: { id: categoryId, userId: session.user.id },
@@ -432,7 +432,7 @@ export const upsertDefaultCategoriesAction = withActionInstrumentation(
   "upsertDefaultCategories",
   async (categories: { id?: string; name: string; enabled: boolean }[]) => {
     const session = await auth();
-    if (!session) return { error: "Not authenticated" };
+    if (!session?.user) return { error: "Not authenticated" };
 
     for (const { id, name, enabled } of categories) {
       const description = Object.values(defaultCategory).find(
@@ -454,7 +454,7 @@ export const createCategoryAction = withActionInstrumentation(
   "createCategory",
   async (unsafeData: CreateCategoryBody) => {
     const session = await auth();
-    if (!session) return { error: "Not authenticated" };
+    if (!session?.user) return { error: "Not authenticated" };
 
     const { success, data, error } = createCategoryBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
@@ -469,7 +469,7 @@ export const deleteCategoryAction = withActionInstrumentation(
   "deleteCategory",
   async (categoryId: string) => {
     const session = await auth();
-    if (!session) return { error: "Not authenticated" };
+    if (!session?.user) return { error: "Not authenticated" };
 
     await deleteCategory(session.user.id, categoryId);
 
@@ -511,3 +511,18 @@ async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
     throw error;
   }
 }
+
+export const setAutoCategorizeAction = withActionInstrumentation(
+  "setAutoCategorize",
+  async (autoCategorizeSenders: boolean) => {
+    const session = await auth();
+    if (!session?.user) return { error: "Not authenticated" };
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { autoCategorizeSenders },
+    });
+
+    return { autoCategorizeSenders };
+  },
+);

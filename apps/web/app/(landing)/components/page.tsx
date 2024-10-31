@@ -25,6 +25,7 @@ import {
   MultiSelectFilter,
   useMultiSelectFilter,
 } from "@/components/MultiSelectFilter";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export const maxDuration = 3;
 
@@ -151,6 +152,14 @@ export default function Components() {
               description="Alert description"
               variant="blue"
             />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">TooltipExplanation</div>
+          <div className="mt-4 flex flex-col gap-2">
+            <TooltipExplanation size="sm" text="Sm explanation tooltip" />
+            <TooltipExplanation size="md" text="Md explanation tooltip" />
           </div>
         </div>
 
