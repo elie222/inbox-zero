@@ -26,13 +26,13 @@ import {
 } from "@/app/(app)/smart-categories/CreateCategoryButton";
 import type { Category } from "@prisma/client";
 
-type CardCategory = Pick<Category, "id" | "name" | "description"> & {
+type CardCategory = Pick<Category, "name" | "description"> & {
+  id?: string;
   enabled?: boolean;
   isDefault?: boolean;
 };
 
 const defaultCategories = Object.values(defaultCategory).map((c) => ({
-  id: c.name,
   name: c.name,
   description: c.description,
   enabled: c.enabled,
@@ -46,8 +46,8 @@ export function SetUpCategories({
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
-  const [selectedCategoryId, setSelectedCategoryId] =
-    useQueryState("categoryId");
+  const [selectedCategoryName, setSelectedCategoryName] =
+    useQueryState("categoryName");
 
   const combinedCategories = uniqBy(
     [
@@ -62,7 +62,10 @@ export function SetUpCategories({
           };
         }
 
-        return c;
+        return {
+          ...c,
+          id: undefined,
+        };
       }),
       ...existingCategories,
     ],
@@ -119,15 +122,15 @@ export function SetUpCategories({
                     )
                   }
                   onRemove={async () => {
-                    if (category.isDefault) {
+                    if (category.id) {
+                      await deleteCategoryAction(category.id);
+                    } else {
                       setCategories(
                         new Map(categories.entries()).set(category.name, false),
                       );
-                    } else {
-                      await deleteCategoryAction(category.id);
                     }
                   }}
-                  onEdit={() => setSelectedCategoryId(category.id)}
+                  onEdit={() => setSelectedCategoryName(category.name)}
                 />
               );
             })}
@@ -164,14 +167,14 @@ export function SetUpCategories({
         </CardContent>
       </Card>
       <CreateCategoryDialog
-        isOpen={selectedCategoryId !== null}
+        isOpen={selectedCategoryName !== null}
         onOpenChange={(open) =>
-          setSelectedCategoryId(open ? selectedCategoryId : null)
+          setSelectedCategoryName(open ? selectedCategoryName : null)
         }
-        closeModal={() => setSelectedCategoryId(null)}
+        closeModal={() => setSelectedCategoryName(null)}
         category={
-          selectedCategoryId
-            ? combinedCategories.find((c) => c.id === selectedCategoryId)
+          selectedCategoryName
+            ? combinedCategories.find((c) => c.name === selectedCategoryName)
             : undefined
         }
       />

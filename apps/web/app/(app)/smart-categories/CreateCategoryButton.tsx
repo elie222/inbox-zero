@@ -117,7 +117,7 @@ export function CreateCategoryDialog({
   onOpenChange,
   closeModal,
 }: {
-  category?: Pick<Category, "id" | "name" | "description">;
+  category?: Pick<Category, "name" | "description">;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   closeModal: () => void;
@@ -139,7 +139,7 @@ function CreateCategoryForm({
   category,
   closeModal,
 }: {
-  category?: Pick<Category, "id" | "name" | "description">;
+  category?: Pick<Category, "name" | "description"> & { id?: string };
   closeModal: () => void;
 }) {
   const {
