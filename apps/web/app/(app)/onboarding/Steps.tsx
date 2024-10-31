@@ -52,9 +52,7 @@ export function Steps({
             onKeyDown={
               !step.active
                 ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      handleNavigation();
-                    }
+                    if (e.key === "Enter" || e.key === " ") handleNavigation();
                   }
                 : undefined
             }

@@ -139,7 +139,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
 
       router.push(`/automation/group/${result.id}`);
     },
-    [closeModal, mutate, router.push],
+    [closeModal, mutate, router],
   );
 
   return (
