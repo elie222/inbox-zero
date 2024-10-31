@@ -193,7 +193,7 @@ export function ViewGroup({
                         description: `Failed to regenerate group. ${result.error}`,
                       });
                     } else {
-                      toastSuccess({ description: `Group items regenerated!` });
+                      toastSuccess({ description: "Group items regenerated!" });
                     }
                     setIsRegenerating(false);
                   }}
@@ -224,71 +224,68 @@ export function ViewGroup({
           error={error}
           loadingComponent={<Skeleton className="h-24 rounded" />}
         >
-          {data && (
-            <>
-              {group?.items.length ? (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Sender</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {group?.items.map((item) => {
-                        // within last 2 minutes
-                        const isRecent =
-                          new Date(item.createdAt) >
-                          new Date(Date.now() - 1000 * 60 * 2);
+          {data &&
+            (group?.items.length ? (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sender</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {group?.items.map((item) => {
+                      // within last 2 minutes
+                      const isRecent =
+                        new Date(item.createdAt) >
+                        new Date(Date.now() - 1000 * 60 * 2);
 
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              {isRecent && (
-                                <Badge variant="green" className="mr-2">
-                                  New!
-                                </Badge>
-                              )}
-
-                              <Badge variant="secondary" className="mr-2">
-                                {capitalCase(item.type)}
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            {isRecent && (
+                              <Badge variant="green" className="mr-2">
+                                New!
                               </Badge>
-                              {item.value}
-                            </TableCell>
-                            <TableCell className="py-2 text-right">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={async () => {
-                                  const result = await deleteGroupItemAction(
-                                    item.id,
-                                  );
-                                  if (isActionError(result)) {
-                                    toastError({
-                                      description: `Failed to remove ${item.value} from group. ${result.error}`,
-                                    });
-                                  } else {
-                                    mutate();
-                                  }
-                                }}
-                              >
-                                <TrashIcon className="size-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </>
-              ) : (
-                <MessageText className="mt-4">
-                  There are no senders in this group.
-                </MessageText>
-              )}
-            </>
-          )}
+                            )}
+
+                            <Badge variant="secondary" className="mr-2">
+                              {capitalCase(item.type)}
+                            </Badge>
+                            {item.value}
+                          </TableCell>
+                          <TableCell className="py-2 text-right">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={async () => {
+                                const result = await deleteGroupItemAction(
+                                  item.id,
+                                );
+                                if (isActionError(result)) {
+                                  toastError({
+                                    description: `Failed to remove ${item.value} from group. ${result.error}`,
+                                  });
+                                } else {
+                                  mutate();
+                                }
+                              }}
+                            >
+                              <TrashIcon className="size-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </>
+            ) : (
+              <MessageText className="mt-4">
+                There are no senders in this group.
+              </MessageText>
+            ))}
         </LoadingContent>
       </div>
     </div>
@@ -325,7 +322,7 @@ const AddGroupItemForm = ({
           description: `Failed to add ${data.value} to ${data.groupId}. ${result.error}`,
         });
       } else {
-        toastSuccess({ description: `Item added to group!` });
+        toastSuccess({ description: "Item added to group!" });
       }
       mutate();
       onClose();
@@ -393,6 +390,7 @@ function EditablePrompt({
       <SectionDescription>
         Prompt: {initialPrompt}
         <button
+          type="button"
           onClick={() => setIsEditing(true)}
           className="ml-2 opacity-0 transition-opacity group-hover:opacity-100"
         >
@@ -438,7 +436,7 @@ function UpdatePromptForm({
         onUpdate();
       }
     },
-    [groupId, onUpdate],
+    [onUpdate, onFinishEditing],
   );
 
   return (

@@ -20,7 +20,6 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
       data: { watchEmailsExpirationDate: expirationDate },
     });
     return expirationDate;
-  } else {
-    console.error("Error watching inbox", res.data);
   }
+  console.error("Error watching inbox", res.data);
 }

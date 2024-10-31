@@ -11,7 +11,7 @@ export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
   const sentEmails = await options.gmail.users.messages.list({
     userId: "me",
-    q: `in:sent`,
+    q: "in:sent",
     maxResults: 50,
   });
 

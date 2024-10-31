@@ -196,22 +196,21 @@ export function EmailList({
   // if checkbox for a row has been checked
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
-  const onSetSelectedRow = useCallback(
-    (id: string) => {
-      setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
-    },
-    [setSelectedRows],
-  );
+  const onSetSelectedRow = useCallback((id: string) => {
+    setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
+  }, []);
 
   const isAllSelected = useMemo(() => {
     return threads.every((thread) => selectedRows[thread.id]);
   }, [threads, selectedRows]);
 
   const onToggleSelectAll = useCallback(() => {
-    threads.forEach((thread) => {
-      setSelectedRows((s) => ({ ...s, [thread.id]: !isAllSelected }));
-    });
-  }, [threads, isAllSelected]);
+    const newState = { ...selectedRows };
+    for (const thread of threads) {
+      newState[thread.id] = !isAllSelected;
+    }
+    setSelectedRows(newState);
+  }, [threads, isAllSelected, selectedRows]);
 
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
     {},
@@ -247,13 +246,13 @@ export function EmailList({
 
           if (isActionError(result)) {
             setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
-            throw new Error(`There was an error categorizing the email.`);
-          } else if (!result) {
-            throw new Error("The request did not complete");
-          } else {
-            // setCategory(res);
-            refetch();
+            throw new Error("There was an error categorizing the email.");
           }
+          if (!result) {
+            throw new Error("The request did not complete");
+          }
+          // setCategory(res);
+          refetch();
           setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
 
           return result?.category;
@@ -492,26 +491,24 @@ export function EmailList({
                 );
               })}
               {showLoadMore && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="mb-2 w-full"
-                    size={"sm"}
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                  >
-                    {
-                      <>
-                        {isLoadingMore ? (
-                          <ButtonLoader />
-                        ) : (
-                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
-                        )}
-                        <span>Load more</span>
-                      </>
-                    }
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  className="mb-2 w-full"
+                  size={"sm"}
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {
+                    <>
+                      {isLoadingMore ? (
+                        <ButtonLoader />
+                      ) : (
+                        <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                      )}
+                      <span>Load more</span>
+                    </>
+                  }
+                </Button>
               )}
             </ul>
           }

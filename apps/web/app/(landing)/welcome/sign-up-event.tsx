@@ -6,8 +6,8 @@ import type { CompleteRegistrationBody } from "@/app/api/user/complete-registrat
 
 export const SignUpEvent = () => {
   useEffect(() => {
-    postRequest<{}, CompleteRegistrationBody>(
-      `/api/user/complete-registration`,
+    postRequest<void, CompleteRegistrationBody>(
+      "/api/user/complete-registration",
       {},
     );
   }, []);

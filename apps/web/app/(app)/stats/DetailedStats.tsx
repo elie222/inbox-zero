@@ -71,7 +71,7 @@ export function DetailedStats(props: {
                         setChecked: () =>
                           setVisibleBars({
                             ...visibleBars,
-                            ["all"]: !visibleBars.all,
+                            all: !visibleBars.all,
                           }),
                       },
                       {
@@ -80,7 +80,7 @@ export function DetailedStats(props: {
                         setChecked: () =>
                           setVisibleBars({
                             ...visibleBars,
-                            ["read"]: !visibleBars.read,
+                            read: !visibleBars.read,
                           }),
                       },
                       {
@@ -89,7 +89,7 @@ export function DetailedStats(props: {
                         setChecked: () =>
                           setVisibleBars({
                             ...visibleBars,
-                            ["unread"]: !visibleBars.unread,
+                            unread: !visibleBars.unread,
                           }),
                       },
                       {
@@ -98,7 +98,7 @@ export function DetailedStats(props: {
                         setChecked: () =>
                           setVisibleBars({
                             ...visibleBars,
-                            ["unarchived"]: !visibleBars.unarchived,
+                            unarchived: !visibleBars.unarchived,
                           }),
                       },
                       {
@@ -107,7 +107,7 @@ export function DetailedStats(props: {
                         setChecked: () =>
                           setVisibleBars({
                             ...visibleBars,
-                            ["archived"]: !visibleBars.archived,
+                            archived: !visibleBars.archived,
                           }),
                       },
                       {
@@ -116,7 +116,7 @@ export function DetailedStats(props: {
                         setChecked: () =>
                           setVisibleBars({
                             ...visibleBars,
-                            ["sent"]: !visibleBars.sent,
+                            sent: !visibleBars.sent,
                           }),
                       },
                     ]}

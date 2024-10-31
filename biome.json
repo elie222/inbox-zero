@@ -6,7 +6,14 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noArrayIndexKey": "off"
+      }
     }
   },
   "formatter": {
@@ -29,7 +36,8 @@
       "*.json",
       "tsconfig.json",
       ".turbo",
-      ".next"
+      ".next",
+      "sw.js"
     ]
   }
 }

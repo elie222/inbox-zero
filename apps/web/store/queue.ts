@@ -5,7 +5,9 @@ export const aiQueueAtom = atom<Set<string>>(new Set([]));
 export const pushToAiQueueAtom = (pushIds: string[]) => {
   const currentIds = jotaiStore.get(aiQueueAtom);
   const newIds = new Set(currentIds);
-  pushIds.forEach((id) => newIds.add(id));
+  for (const id of pushIds) {
+    newIds.add(id);
+  }
   jotaiStore.set(aiQueueAtom, newIds);
 };
 export const removeFromAiQueueAtom = (removeId: string) => {

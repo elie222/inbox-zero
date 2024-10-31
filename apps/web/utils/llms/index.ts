@@ -42,28 +42,27 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
         model,
         llmModel: createAnthropic({ apiKey: aiApiKey })(model),
       };
-    } else {
-      if (!env.BEDROCK_ACCESS_KEY)
-        throw new Error("BEDROCK_ACCESS_KEY is not set");
-      if (!env.BEDROCK_SECRET_KEY)
-        throw new Error("BEDROCK_SECRET_KEY is not set");
-
-      const model = aiModel || Model.CLAUDE_3_5_SONNET_BEDROCK;
-
-      return {
-        provider: Provider.ANTHROPIC,
-        model,
-        llmModel: createAmazonBedrock({
-          bedrockOptions: {
-            region: env.BEDROCK_REGION,
-            credentials: {
-              accessKeyId: env.BEDROCK_ACCESS_KEY,
-              secretAccessKey: env.BEDROCK_SECRET_KEY,
-            },
-          },
-        })(model),
-      };
     }
+    if (!env.BEDROCK_ACCESS_KEY)
+      throw new Error("BEDROCK_ACCESS_KEY is not set");
+    if (!env.BEDROCK_SECRET_KEY)
+      throw new Error("BEDROCK_SECRET_KEY is not set");
+
+    const model = aiModel || Model.CLAUDE_3_5_SONNET_BEDROCK;
+
+    return {
+      provider: Provider.ANTHROPIC,
+      model,
+      llmModel: createAmazonBedrock({
+        bedrockOptions: {
+          region: env.BEDROCK_REGION,
+          credentials: {
+            accessKeyId: env.BEDROCK_ACCESS_KEY,
+            secretAccessKey: env.BEDROCK_SECRET_KEY,
+          },
+        },
+      })(model),
+    };
   }
 
   throw new Error("AI provider not supported");

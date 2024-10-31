@@ -244,6 +244,7 @@ function OpenInGmailButton({
 }) {
   return (
     <button
+      type="button"
       className="ml-2 text-gray-700 hover:text-gray-900"
       onClick={() => {
         window.open(getGmailSearchUrl(from, userEmail), "_blank");

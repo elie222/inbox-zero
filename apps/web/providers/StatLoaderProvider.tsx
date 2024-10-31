@@ -45,9 +45,9 @@ class StatLoader {
 
     if (options.showToast) {
       if (isError(res)) {
-        toastError({ description: `Error loading stats.` });
+        toastError({ description: "Error loading stats." });
       } else {
-        toastSuccess({ description: `Stats loaded!` });
+        toastSuccess({ description: "Stats loaded!" });
       }
     }
 

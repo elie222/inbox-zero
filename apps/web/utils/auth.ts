@@ -87,31 +87,31 @@ export const getAuthOptions: (options?: {
         token.user = user;
 
         return token;
-      } else if (
+      }
+      if (
         token.expires_at &&
         Date.now() < (token.expires_at as number) * 1000
       ) {
         // If the access token has not expired yet, return it
         return token;
-      } else {
-        // If the access token has expired, try to refresh it
-        console.log(
-          `Token expired at: ${
-            token.expires_at
-              ? new Date((token.expires_at as number) * 1000).toISOString()
-              : "not set"
-          }. Attempting refresh.`,
-        );
-        const refreshedToken = await refreshAccessToken(token);
-        console.log(
-          `Refresh attempt completed. New expiration: ${
-            refreshedToken.expires_at
-              ? new Date(refreshedToken.expires_at * 1000).toISOString()
-              : "undefined"
-          }`,
-        );
-        return refreshedToken;
       }
+      // If the access token has expired, try to refresh it
+      console.log(
+        `Token expired at: ${
+          token.expires_at
+            ? new Date((token.expires_at as number) * 1000).toISOString()
+            : "not set"
+        }. Attempting refresh.`,
+      );
+      const refreshedToken = await refreshAccessToken(token);
+      console.log(
+        `Refresh attempt completed. New expiration: ${
+          refreshedToken.expires_at
+            ? new Date(refreshedToken.expires_at * 1000).toISOString()
+            : "undefined"
+        }`,
+      );
+      return refreshedToken;
     },
     session: async ({ session, token }) => {
       session.user = {

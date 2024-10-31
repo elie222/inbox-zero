@@ -7,7 +7,7 @@ import {
   trashThreadAction,
   markReadThreadAction,
 } from "@/utils/actions/mail";
-import { isActionError, ServerActionResponse } from "@/utils/error";
+import { isActionError, type ServerActionResponse } from "@/utils/error";
 import { exponentialBackoff, sleep } from "@/utils/sleep";
 
 type ActionType = "archive" | "delete" | "markRead";
@@ -50,7 +50,7 @@ export const queueAtom = atomWithStorage(
 type ActionFunction = (
   threadId: string,
   labelId?: string,
-) => Promise<ServerActionResponse<{}>>;
+) => Promise<ServerActionResponse<{ success: boolean }>>;
 
 const actionMap: Record<ActionType, ActionFunction> = {
   archive: (threadId: string, labelId?: string) =>
@@ -102,8 +102,7 @@ export function processQueue({
           await pRetry(
             async (attemptCount) => {
               console.log(
-                `Queue: ${actionType}. Processing ${threadId}` +
-                  (attemptCount > 1 ? ` (attempt ${attemptCount})` : ""),
+                `Queue: ${actionType}. Processing ${threadId}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
               );
 
               const result = await actionMap[actionType](threadId, labelId);

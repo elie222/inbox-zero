@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
@@ -63,10 +63,9 @@ export const POST = withError(async (request: Request) => {
   if (payload.meta.event_name === "order_created") {
     if (isLifetimeSeatPlan) {
       return await lifetimeSeatOrder({ payload, premiumId });
-    } else {
-      // license plan - not handled here
-      return NextResponse.json({ ok: true });
     }
+    // license plan - not handled here
+    return NextResponse.json({ ok: true });
   }
 
   // renewal

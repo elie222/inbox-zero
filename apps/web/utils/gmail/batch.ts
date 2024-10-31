@@ -17,9 +17,9 @@ export async function getBatch(
   }
 
   let batchRequestBody = "";
-  ids.forEach((id) => {
+  for (const id of ids) {
     batchRequestBody += `--batch_boundary\nContent-Type: application/http\n\nGET ${endpoint}/${id}\n\n`;
-  });
+  }
   batchRequestBody += "--batch_boundary--";
 
   const res = await fetch("https://gmail.googleapis.com/batch/gmail/v1", {

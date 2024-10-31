@@ -217,6 +217,7 @@ function LabelsSectionFormInner(props: {
                   {recommendedLabelsToCreate.map((label) => (
                     <button
                       key={label}
+                      type="button"
                       className="group"
                       onClick={async () => {
                         const res = await createLabelAction({ name: label });

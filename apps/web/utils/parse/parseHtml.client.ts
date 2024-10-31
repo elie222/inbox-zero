@@ -11,13 +11,13 @@ export function findUnsubscribeLink(html?: string | null): string | undefined {
   let unsubscribeLink: string | undefined;
 
   const links = doc.querySelectorAll("a");
-  links.forEach((element) => {
+  for (const element of links) {
     const text = element.textContent?.toLowerCase() ?? "";
     if (containsUnsubscribeKeyword(text)) {
       unsubscribeLink = element.getAttribute("href") ?? undefined;
       return;
     }
-  });
+  }
 
   if (!unsubscribeLink) {
     // If unsubscribe link not found in direct anchor tags, check for text nodes containing unsubscribe text
@@ -52,8 +52,8 @@ export function findCtaLink(
   let ctaLink: string | undefined;
 
   const links = doc.querySelectorAll("a");
-  links.forEach((element) => {
-    if (!element.textContent) return;
+  for (const element of links) {
+    if (!element.textContent) continue;
     if (containsCtaKeyword(element.textContent.toLowerCase())) {
       // capitalise first letter
       ctaText =
@@ -62,7 +62,7 @@ export function findCtaLink(
       ctaLink = element.getAttribute("href") ?? undefined;
       return;
     }
-  });
+  }
 
   if (ctaLink && !ctaLink.startsWith("http") && !ctaLink.startsWith("mailto:"))
     ctaLink = `https://${ctaLink}`;
@@ -100,10 +100,8 @@ export function isMarketingEmail(html: string) {
 
 export function cleanUnsubscribeLink(unsubscribeLink?: string) {
   // remove < > from start and end of unsubscribeLink
-  if (unsubscribeLink?.startsWith("<"))
-    unsubscribeLink = unsubscribeLink.slice(1);
-  if (unsubscribeLink?.endsWith(">"))
-    unsubscribeLink = unsubscribeLink.slice(0, -1);
-
-  return unsubscribeLink;
+  let cleanedLink = unsubscribeLink;
+  if (cleanedLink?.startsWith("<")) cleanedLink = cleanedLink.slice(1);
+  if (cleanedLink?.endsWith(">")) cleanedLink = cleanedLink.slice(0, -1);
+  return cleanedLink;
 }

@@ -98,17 +98,17 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           toastError({ description: res.error });
         } else if (!res.rule) {
           toastError({
-            description: `There was an error updating the rule.`,
+            description: "There was an error updating the rule.",
           });
         } else {
-          toastSuccess({ description: `Saved!` });
+          toastSuccess({ description: "Saved!" });
           posthog.capture("User updated AI rule", {
             ruleType: body.type,
             actions: body.actions.map((action) => action.type),
             automate: body.automate,
             runOnThreads: body.runOnThreads,
           });
-          router.push(`/automation?tab=rules`);
+          router.push("/automation?tab=rules");
         }
       } else {
         const res = await createRuleAction(body);
@@ -118,10 +118,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           toastError({ description: res.error });
         } else if (!res.rule) {
           toastError({
-            description: `There was an error creating the rule.`,
+            description: "There was an error creating the rule.",
           });
         } else {
-          toastSuccess({ description: `Created!` });
+          toastSuccess({ description: "Created!" });
           posthog.capture("User created AI rule", {
             ruleType: body.type,
             actions: body.actions.map((action) => action.type),
@@ -129,11 +129,11 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             runOnThreads: body.runOnThreads,
           });
           router.replace(`/automation/rule/${res.rule.id}`);
-          router.push(`/automation?tab=rules`);
+          router.push("/automation?tab=rules");
         }
       }
     },
-    [gmailLabelsData?.labels, rule.type, router],
+    [gmailLabelsData?.labels, router, posthog],
   );
 
   return (
@@ -238,9 +238,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       value: action,
                     }))}
                     registerProps={register(`actions.${i}.type`)}
-                    error={
-                      errors["actions"]?.[i]?.["type"] as FieldError | undefined
-                    }
+                    error={errors.actions?.[i]?.type as FieldError | undefined}
                   />
 
                   <Button
@@ -313,10 +311,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           />
                         )}
 
-                        {errors["actions"]?.[i]?.[field.name]?.message ? (
+                        {errors.actions?.[i]?.[field.name]?.message ? (
                           <ErrorMessage
                             message={
-                              errors["actions"]?.[i]?.[field.name]?.message!
+                              errors.actions?.[i]?.[field.name]?.message!
                             }
                           />
                         ) : null}
@@ -408,7 +406,7 @@ function GroupsTab(props: {
 }) {
   const { setValue } = props;
   const { data, isLoading, error, mutate } =
-    useSWR<GroupsResponse>(`/api/user/group`);
+    useSWR<GroupsResponse>("/api/user/group");
   const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
 
   useEffect(() => {
@@ -462,7 +460,7 @@ function GroupsTab(props: {
                   value: group.id,
                 }))}
                 registerProps={props.registerProps}
-                error={props.errors["groupId"]}
+                error={props.errors.groupId}
               />
             </div>
           )}
