@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import { PlusIcon } from "lucide-react";
+import { ExternalLinkIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -194,7 +194,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
               <div className="w-fit">
                 <Select
                   name="categoryFilterType"
-                  label="Only apply rule to emails from these categories"
+                  label="Optional: Only apply rule to emails from these categories"
                   tooltipText="This helps the AI be more accurate and produce better results."
                   options={[
                     { label: "Include", value: CategoryFilterType.INCLUDE },
@@ -225,6 +225,13 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   <ErrorMessage message={errors.categoryFilters.message} />
                 )}
               </LoadingContent>
+
+              <Button asChild variant="ghost" size="sm" className="ml-2">
+                <Link href="/smart-categories/setup" target="_blank">
+                  Create new category
+                  <ExternalLinkIcon className="ml-1.5 size-4" />
+                </Link>
+              </Button>
             </div>
           )}
         </div>
