@@ -10,6 +10,7 @@ export const env = createEnv({
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
+    GROQ_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),

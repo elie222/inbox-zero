@@ -67,6 +67,9 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   }
 
   if (provider === Provider.GROQ) {
+    if (!aiApiKey && !env.GROQ_API_KEY) {
+      throw new Error("GROQ API key is not set");
+    }
     const model = aiModel || Model.LLAMA_3_70B_GROQ;
     return {
       provider: Provider.GROQ,
