@@ -24,7 +24,7 @@ import {
 } from "@/utils/error";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
-  const provider = aiProvider || Provider.GROQ;
+  const provider = aiProvider || Provider.ANTHROPIC;
 
   if (provider === Provider.OPEN_AI) {
     const model = aiModel || Model.GPT_4O;
