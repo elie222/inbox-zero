@@ -33,6 +33,7 @@ import {
   Users2Icon,
   XIcon,
 } from "lucide-react";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
@@ -49,7 +50,7 @@ type NavItem = {
 
 const NEXT_PUBLIC_DISABLE_TINYBIRD = env.NEXT_PUBLIC_DISABLE_TINYBIRD;
 
-export const navigation: NavItem[] = [
+const navigationItems: NavItem[] = [
   {
     name: "AI Personal Assistant",
     href: "/automation",
@@ -84,6 +85,14 @@ export const navigation: NavItem[] = [
         },
       ]),
 ];
+
+export const useNavigation = () => {
+  const showSmartCategories = useFeatureFlagEnabled("smart-categories");
+
+  return navigationItems.filter((item) =>
+    item.href === "/smart-categories" ? showSmartCategories : true,
+  );
+};
 
 const bottomLinks: NavItem[] = [
   {
@@ -270,6 +279,8 @@ function Sidebar(props: { isMobile: boolean }) {
   const activePath = `?${params.toString()}`;
 
   const { onOpen } = useComposeModal();
+
+  const navigation = useNavigation();
 
   return (
     <div
