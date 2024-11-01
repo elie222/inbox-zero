@@ -10,6 +10,7 @@ import { ActionBar } from "@/app/(app)/stats/ActionBar";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { TextLink } from "@/components/Typography";
+import { TopBar } from "@/components/TopBar";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -52,7 +53,7 @@ export function BulkUnsubscribe() {
 
   return (
     <div>
-      <div className="top-0 z-10 flex flex-col justify-between gap-1 border-b bg-white px-2 py-2 shadow sm:sticky sm:flex-row sm:px-4">
+      <TopBar sticky>
         <OnboardingModal
           title="Getting started with Bulk Unsubscribe"
           description={
@@ -79,7 +80,7 @@ export function BulkUnsubscribe() {
           />
           <LoadStatsButton />
         </div>
-      </div>
+      </TopBar>
 
       <div className="my-2 sm:mx-4 sm:my-4">
         <BulkUnsubscribeSection

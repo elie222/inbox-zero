@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -13,7 +14,6 @@ import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
 } from "@/utils/actions/group";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type CreateGroupBody,
   createGroupBody,

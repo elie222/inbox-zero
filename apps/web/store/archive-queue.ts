@@ -9,6 +9,7 @@ import {
 } from "@/utils/actions/mail";
 import { isActionError, type ServerActionResponse } from "@/utils/error";
 import { exponentialBackoff, sleep } from "@/utils/sleep";
+import { useAtomValue } from "jotai";
 
 type ActionType = "archive" | "delete" | "markRead";
 
@@ -40,12 +41,16 @@ const createStorage = () => {
 };
 
 // Create atoms with localStorage persistence
-export const queueAtom = atomWithStorage(
+const queueAtom = atomWithStorage(
   "gmailActionQueue",
   { activeThreads: {}, totalThreads: 0 },
   createStorage(),
   { getOnInit: true },
 );
+
+export function useQueueState() {
+  return useAtomValue(queueAtom);
+}
 
 type ActionFunction = (
   threadId: string,
@@ -59,16 +64,18 @@ const actionMap: Record<ActionType, ActionFunction> = {
   markRead: (threadId: string) => markReadThreadAction(threadId, true),
 };
 
-export const addThreadsToQueue = ({
+const addThreadsToQueue = ({
   actionType,
   threadIds,
   labelId,
-  refetch,
+  onSuccess,
+  onError,
 }: {
   actionType: ActionType;
   threadIds: string[];
   labelId?: string;
-  refetch?: () => void;
+  onSuccess?: (threadId: string) => void;
+  onError?: (threadId: string) => void;
 }) => {
   const threads = Object.fromEntries(
     threadIds.map((threadId) => [
@@ -85,55 +92,94 @@ export const addThreadsToQueue = ({
     totalThreads: prev.totalThreads + Object.keys(threads).length,
   }));
 
-  processQueue({ threads, refetch });
+  processQueue({ threads, onSuccess, onError });
 };
+
+export const archiveEmails = async (
+  threadIds: string[],
+  labelId: string | undefined,
+  onSuccess: (threadId: string) => void,
+  onError?: (threadId: string) => void,
+) => {
+  addThreadsToQueue({
+    actionType: "archive",
+    threadIds,
+    labelId,
+    onSuccess,
+    onError,
+  });
+};
+
+export const markReadThreads = async (
+  threadIds: string[],
+  onSuccess: (threadId: string) => void,
+  onError?: (threadId: string) => void,
+) => {
+  addThreadsToQueue({ actionType: "markRead", threadIds, onSuccess, onError });
+};
+
+export const deleteEmails = async (
+  threadIds: string[],
+  onSuccess: (threadId: string) => void,
+  onError?: (threadId: string) => void,
+) => {
+  addThreadsToQueue({ actionType: "delete", threadIds, onSuccess, onError });
+};
+
+function removeThreadFromQueue(threadId: string, actionType: ActionType) {
+  jotaiStore.set(queueAtom, (prev) => {
+    const remainingThreads = Object.fromEntries(
+      Object.entries(prev.activeThreads).filter(
+        ([_key, value]) =>
+          !(value.threadId === threadId && value.actionType === actionType),
+      ),
+    );
+
+    return {
+      ...prev,
+      activeThreads: remainingThreads,
+    };
+  });
+}
 
 export function processQueue({
   threads,
-  refetch,
+  onSuccess,
+  onError,
 }: {
   threads: Record<string, QueueItem>;
-  refetch?: () => void;
+  onSuccess?: (threadId: string) => void;
+  onError?: (threadId: string) => void;
 }) {
   emailActionQueue.addAll(
     Object.entries(threads).map(
       ([_key, { threadId, actionType, labelId }]) =>
         async () => {
-          await pRetry(
-            async (attemptCount) => {
-              console.log(
-                `Queue: ${actionType}. Processing ${threadId}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
-              );
+          try {
+            await pRetry(
+              async (attemptCount) => {
+                console.log(
+                  `Queue: ${actionType}. Processing ${threadId}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
+                );
 
-              const result = await actionMap[actionType](threadId, labelId);
+                const result = await actionMap[actionType](threadId, labelId);
 
-              // when Gmail API returns a rate limit error, throw an error so it can be retried
-              if (isActionError(result)) {
-                await sleep(exponentialBackoff(attemptCount, 1_000));
-                throw new Error(result.error);
-              }
-              refetch?.();
-            },
-            { retries: 3 },
-          );
+                // when Gmail API returns a rate limit error, throw an error so it can be retried
+                if (isActionError(result)) {
+                  await sleep(exponentialBackoff(attemptCount, 1_000));
+                  throw new Error(result.error);
+                }
+                onSuccess?.(threadId);
+              },
+              { retries: 3 },
+            );
+          } catch (error) {
+            // all retries failed
+            onError?.(threadId);
+          }
 
           // remove completed thread from activeThreads
-          jotaiStore.set(queueAtom, (prev) => {
-            const remainingThreads = Object.fromEntries(
-              Object.entries(prev.activeThreads).filter(
-                ([_key, value]) =>
-                  !(
-                    value.threadId === threadId &&
-                    value.actionType === actionType
-                  ),
-              ),
-            );
-
-            return {
-              ...prev,
-              activeThreads: remainingThreads,
-            };
-          });
+          removeThreadFromQueue(threadId, actionType);
         },
     ),
   );

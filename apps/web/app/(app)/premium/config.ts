@@ -175,7 +175,7 @@ export const tiers: {
 ];
 
 export const lifetimeFeatures = [
-  "Everything in Inbox Zero Business",
+  "Everything in Inbox Zero AI",
   "Priority support",
   "$100 of AI credits",
   "Early access to new features",

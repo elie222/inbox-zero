@@ -4,6 +4,7 @@ import { ErrorMessage, ExplainText, Label } from "@/components/Input";
 interface SelectProps<T> {
   name: string;
   label: string;
+  tooltipText?: string;
   options: Array<{ label: string; value: T }>;
   explainText?: string;
   error?: FieldError;
@@ -16,7 +17,13 @@ export function Select<T extends string | number = string>(
 ) {
   return (
     <div>
-      {props.label ? <Label name={props.name} label={props.label} /> : null}
+      {props.label ? (
+        <Label
+          name={props.name}
+          label={props.label}
+          tooltipText={props.tooltipText}
+        />
+      ) : null}
       <select
         id={props.name}
         name={props.name}

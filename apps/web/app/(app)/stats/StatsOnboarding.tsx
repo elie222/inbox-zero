@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useLocalStorage } from "usehooks-ts";
 import { ArchiveIcon, Layers3Icon, BarChartBigIcon } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/Card";
 import {
   Dialog,
@@ -12,21 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useOnboarding } from "@/components/OnboardingModal";
 
 export function StatsOnboarding() {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-
-  const [viewedStatsOnboarding, setViewedStatsOnboarding] = useLocalStorage(
-    "viewedStatsOnboarding",
-    false,
-  );
-
-  useEffect(() => {
-    if (!viewedStatsOnboarding) {
-      setIsOpen(true);
-      setViewedStatsOnboarding(true);
-    }
-  }, [setViewedStatsOnboarding, viewedStatsOnboarding]);
+  const { isOpen, setIsOpen, onClose } = useOnboarding("Stats");
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -54,13 +41,7 @@ export function StatsOnboarding() {
           </Card>
         </div>
         <div>
-          <Button
-            full
-            size="xl"
-            onClick={() => {
-              setIsOpen(false);
-            }}
-          >
+          <Button className="w-full" onClick={onClose}>
             Get Started
           </Button>
         </div>

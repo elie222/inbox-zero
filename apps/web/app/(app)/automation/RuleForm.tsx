@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import { HelpCircleIcon, PlusIcon } from "lucide-react";
+import { ExternalLinkIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -27,7 +27,7 @@ import {
   SectionDescription,
   TypographyH3,
 } from "@/components/Typography";
-import { ActionType, RuleType } from "@prisma/client";
+import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -36,7 +36,6 @@ import {
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
-import { Tooltip } from "@/components/Tooltip";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
@@ -52,6 +51,9 @@ import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
+import { useCategories } from "@/hooks/useCategories";
+import { useSmartCategoriesEnabled } from "@/hooks/useFeatureFlags";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -69,7 +71,11 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, data: gmailLabelsData, isLoading, mutate } = useLabels();
-
+  const {
+    categories,
+    isLoading: categoriesLoading,
+    error: categoriesError,
+  } = useCategories();
   const router = useRouter();
 
   const posthog = usePostHog();
@@ -136,6 +142,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     [gmailLabelsData?.labels, router, posthog],
   );
 
+  const showSmartCategories = useSmartCategoriesEnabled();
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mt-4">
@@ -178,6 +186,52 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             placeholder='e.g. Apply this rule to all "receipts"'
             tooltipText="The instructions that will be passed to the AI."
           />
+
+          {showSmartCategories && (
+            <div className="space-y-2">
+              <div className="w-fit">
+                <Select
+                  name="categoryFilterType"
+                  label="Optional: Only apply rule to emails from these categories"
+                  tooltipText="This helps the AI be more accurate and produce better results."
+                  options={[
+                    { label: "Include", value: CategoryFilterType.INCLUDE },
+                    { label: "Exclude", value: CategoryFilterType.EXCLUDE },
+                  ]}
+                  registerProps={register("categoryFilterType")}
+                  error={errors.categoryFilterType}
+                />
+              </div>
+
+              <LoadingContent
+                loading={categoriesLoading}
+                error={categoriesError}
+              >
+                <MultiSelectFilter
+                  title="Categories"
+                  maxDisplayedValues={8}
+                  options={categories.map((category) => ({
+                    label: capitalCase(category.name),
+                    value: category.id,
+                  }))}
+                  selectedValues={new Set(watch("categoryFilters"))}
+                  setSelectedValues={(selectedValues) => {
+                    setValue("categoryFilters", Array.from(selectedValues));
+                  }}
+                />
+                {errors.categoryFilters?.message && (
+                  <ErrorMessage message={errors.categoryFilters.message} />
+                )}
+              </LoadingContent>
+
+              <Button asChild variant="ghost" size="sm" className="ml-2">
+                <Link href="/smart-categories/setup" target="_blank">
+                  Create new category
+                  <ExternalLinkIcon className="ml-1.5 size-4" />
+                </Link>
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -341,9 +395,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first.">
-          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
-        </Tooltip>
+        <TooltipExplanation
+          size="md"
+          text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
+        />
 
         <Toggle
           name="automate"
@@ -356,9 +411,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation.">
-          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
-        </Tooltip>
+        <TooltipExplanation
+          size="md"
+          text="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation."
+        />
 
         <Toggle
           name="runOnThreads"

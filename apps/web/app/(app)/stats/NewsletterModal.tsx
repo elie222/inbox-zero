@@ -30,6 +30,7 @@ import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import { usePostHog } from "posthog-js/react";
+import { useThreads } from "@/hooks/useThreads";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
@@ -109,7 +110,7 @@ export function NewsletterModal(props: {
   );
 }
 
-function EmailsChart(props: {
+function useSenderEmails(props: {
   fromEmail: string;
   dateRange?: DateRange | undefined;
   period: ZodPeriod;
@@ -125,6 +126,17 @@ function EmailsChart(props: {
   >(`/api/user/stats/sender-emails/?${new URLSearchParams(params as any)}`, {
     refreshInterval: props.refreshInterval,
   });
+
+  return { data, isLoading, error };
+}
+
+function EmailsChart(props: {
+  fromEmail: string;
+  dateRange?: DateRange | undefined;
+  period: ZodPeriod;
+  refreshInterval?: number;
+}) {
+  const { data, isLoading, error } = useSenderEmails(props);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -171,8 +183,8 @@ function UnarchivedEmails({
   fromEmail: string;
   refreshInterval?: number;
 }) {
-  const url = `/api/google/threads?fromEmail=${encodeURIComponent(fromEmail)}`;
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
+  const { data, isLoading, error, mutate } = useThreads({
+    fromEmail,
     refreshInterval,
   });
 
@@ -202,10 +214,9 @@ function AllEmails({
   fromEmail: string;
   refreshInterval?: number;
 }) {
-  const url = `/api/google/threads?fromEmail=${encodeURIComponent(
+  const { data, isLoading, error, mutate } = useThreads({
     fromEmail,
-  )}&type=all`;
-  const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
+    type: "all",
     refreshInterval,
   });
 

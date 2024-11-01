@@ -57,7 +57,7 @@ export const runRulesAction = withActionInstrumentation(
         aiApiKey: true,
         rules: {
           where: { enabled: true },
-          include: { actions: true },
+          include: { actions: true, categoryFilters: true },
         },
       },
     });
@@ -116,7 +116,7 @@ export const testAiAction = withActionInstrumentation(
         aiApiKey: true,
         rules: {
           where: { enabled: true },
-          include: { actions: true },
+          include: { actions: true, categoryFilters: true },
         },
       },
     });
@@ -160,7 +160,7 @@ export const testAiCustomContentAction = withActionInstrumentation(
         aiApiKey: true,
         rules: {
           where: { enabled: true },
-          include: { actions: true },
+          include: { actions: true, categoryFilters: true },
         },
       },
     });

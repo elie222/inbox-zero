@@ -11,7 +11,7 @@ import {
   saveRulesPromptAction,
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
-import { captureException, isActionError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import {
   Card,
   CardContent,

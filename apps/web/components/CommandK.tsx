@@ -13,10 +13,10 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
-import { navigation } from "@/components/SideNav";
+import { useNavigation } from "@/components/SideNav";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { refetchEmailListAtom, selectedEmailAtom } from "@/store/email";
-import { archiveEmails } from "@/utils/queue/email-actions";
+import { archiveEmails } from "@/store/archive-queue";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
@@ -31,7 +31,7 @@ export function CommandK() {
   const onArchive = React.useCallback(() => {
     if (selectedEmail) {
       const threadIds = [selectedEmail];
-      archiveEmails(threadIds, () => {
+      archiveEmails(threadIds, undefined, () => {
         return refreshEmailList?.refetch(threadIds);
       });
       setSelectedEmail(undefined);
@@ -67,6 +67,8 @@ export function CommandK() {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, [onArchive, onOpenComposeModal]);
+
+  const navigation = useNavigation();
 
   return (
     <>
