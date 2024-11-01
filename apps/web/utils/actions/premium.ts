@@ -78,7 +78,7 @@ export const decrementUnsubscribeCreditAction = withActionInstrumentation(
 export async function updateMultiAccountPremiumAction(
   emails: string[],
 ): Promise<
-  | void
+  | undefined
   | { error: string; warning?: string }
   | { error?: string; warning: string }
 > {

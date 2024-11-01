@@ -15,10 +15,10 @@ export function OpenMultipleGmailButton({
     <Button
       variant="outline"
       onClick={() => {
-        threadIds.forEach((threadId) => {
+        for (const threadId of threadIds) {
           const url = getGmailUrl(threadId, userEmail);
           window.open(url, "_blank");
-        });
+        }
       }}
     >
       Open each in new tab

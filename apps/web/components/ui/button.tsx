@@ -31,7 +31,8 @@ const buttonVariants = cva(
         xs: "h-6 rounded-sm px-1.5 text-xs",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        icon: "h-10 w-10 flex-shrink-0",
+        iconSm: "h-8 w-8 flex-shrink-0",
       },
       loading: {
         true: "opacity-50 cursor-not-allowed",

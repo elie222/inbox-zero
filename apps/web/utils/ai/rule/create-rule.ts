@@ -8,7 +8,8 @@ export async function aiCreateRule(
   user: UserAIFields,
   userEmail: string,
 ) {
-  const system = `You are an AI assistant that helps people manage their emails.`;
+  const system =
+    "You are an AI assistant that helps people manage their emails.";
   const prompt = `Generate a rule for these instructions:\n${instructions}`;
 
   const aiResponse = await chatCompletionTools({

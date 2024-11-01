@@ -5,7 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { isColdEmail } from "@/app/api/ai/cold-email/controller";
-import { hasPreviousEmailsFromDomain } from "@/utils/gmail/message";
+import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
 import { getGmailClient } from "@/utils/gmail/client";
 import { emailToContent } from "@/utils/mail";
 
@@ -43,7 +43,7 @@ async function checkColdEmail(
 
   const hasPreviousEmail =
     body.email.date && body.email.threadId
-      ? await hasPreviousEmailsFromDomain(gmail, {
+      ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
           from: body.email.from,
           date: body.email.date,
           threadId: body.email.threadId,

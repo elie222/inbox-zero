@@ -103,9 +103,9 @@ describe("aiPromptToRules", () => {
     });
 
     // Validate each rule against the schema
-    result.forEach((rule) => {
+    for (const rule of result) {
       expect(() => createRuleSchema.parse(rule)).not.toThrow();
-    });
+    }
   }, 15_000);
 
   it("should handle errors gracefully", async () => {

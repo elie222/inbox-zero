@@ -54,7 +54,7 @@ export default async function SimplePage({
     if (next) {
       redirect(`/simple?type=${next}`, RedirectType.replace);
     } else {
-      redirect(`/simple/completed`, RedirectType.replace);
+      redirect("/simple/completed", RedirectType.replace);
     }
   }
 

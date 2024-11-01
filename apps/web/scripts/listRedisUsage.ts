@@ -28,12 +28,11 @@ async function scanUsageKeys() {
 
   const totalCost = costs.reduce((acc, { cost }) => acc + cost, 0);
 
-  costs
-    .sort((a, b) => a.cost - b.cost)
-    .forEach(({ email, cost, data }) => {
-      // if (cost > 10)
-      console.log(email, cost, data);
-    });
+  const sortedCosts = costs.sort((a, b) => a.cost - b.cost);
+  for (const { email, cost, data } of sortedCosts) {
+    // if (cost > 10)
+    console.log(email, cost, data);
+  }
 
   console.log("totalCost:", totalCost);
 }

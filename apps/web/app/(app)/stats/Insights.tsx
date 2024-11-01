@@ -7,7 +7,7 @@ export function Insights() {
   const { data, isLoading, error } = useSWR<
     InsightsResponse,
     { error: string }
-  >(`/api/user/stats/insights`);
+  >("/api/user/stats/insights");
   const [isVisible, setIsVisible] = useState(true);
 
   if (!isVisible || isLoading || error || !data?.result.lowReadEmails.length)

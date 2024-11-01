@@ -90,7 +90,7 @@ export const ComposeEmailForm = (props: {
 
   const onSubmit: SubmitHandler<SendEmailBody> = useCallback(
     async (data) => {
-      data = {
+      const enrichedData = {
         ...data,
         messageText: data.messageText + props.replyingToEmail?.messageText,
         messageHtml:
@@ -99,23 +99,28 @@ export const ComposeEmailForm = (props: {
       try {
         const res = await postRequest<SendEmailResponse, SendEmailBody>(
           "/api/google/messages/send",
-          data,
+          enrichedData,
         );
         if (isError(res))
           toastError({
-            description: `There was an error sending the email :(`,
+            description: "There was an error sending the email :(",
           });
-        else toastSuccess({ description: `Email sent!` });
+        else toastSuccess({ description: "Email sent!" });
 
         onSuccess?.();
       } catch (error) {
         console.error(error);
-        toastError({ description: `There was an error sending the email :(` });
+        toastError({ description: "There was an error sending the email :(" });
       }
 
       refetch?.();
     },
-    [refetch, onSuccess],
+    [
+      refetch,
+      onSuccess,
+      props.replyingToEmail?.messageHtml,
+      props.replyingToEmail?.messageText,
+    ],
   );
 
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -154,7 +159,7 @@ export const ComposeEmailForm = (props: {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {props.replyingToEmail?.to && !editReply ? (
-        <button onClick={() => setEditReply(true)}>
+        <button type="button" onClick={() => setEditReply(true)}>
           <span className="text-green-500">Draft</span> to{" "}
           {extractNameFromEmail(props.replyingToEmail.to)}
         </button>
@@ -308,7 +313,8 @@ export const ComposeEmailForm = (props: {
               keydown: (_view, event) => handleCommandNavigation(event),
             },
             attributes: {
-              class: `prose-lg prose-stone dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full`,
+              class:
+                "prose-lg prose-stone dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full",
             },
           }}
         >
@@ -320,7 +326,9 @@ export const ComposeEmailForm = (props: {
               <EditorCommandItem
                 value={item.title}
                 onCommand={(val) => item.command?.(val)}
-                className={`flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent`}
+                className={
+                  "flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent"
+                }
                 key={item.title}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">

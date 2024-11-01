@@ -6,7 +6,6 @@ import {
   useMemo,
 } from "react";
 import Link from "next/link";
-import { useAtomValue } from "jotai";
 import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { PlanBadge } from "@/components/PlanBadge";
@@ -17,7 +16,7 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { createInAiQueueSelector } from "@/store/queue";
+import { useIsInAiQueue } from "@/store/ai-queue";
 import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -55,8 +54,8 @@ export const EmailListItem = forwardRef(
       return lastMessage?.labelIds?.includes("UNREAD");
     }, [lastMessage?.labelIds]);
 
-    const preventPropagation: MouseEventHandler<HTMLSpanElement> = useCallback(
-      (e) => e.stopPropagation(),
+    const preventPropagation = useCallback(
+      (e: React.MouseEvent | React.KeyboardEvent) => e.stopPropagation(),
       [],
     );
 
@@ -65,11 +64,7 @@ export const EmailListItem = forwardRef(
       [onSelected, props.thread.id],
     );
 
-    const inAiQueueSelector = useMemo(
-      () => createInAiQueueSelector(props.thread.id),
-      [props.thread.id],
-    );
-    const isPlanning = useAtomValue(inAiQueueSelector);
+    const isPlanning = useIsInAiQueue(props.thread.id);
 
     if (!lastMessage) return null;
 
@@ -88,6 +83,12 @@ export const EmailListItem = forwardRef(
             "bg-gray-100": !isUnread && !props.selected && !props.opened,
           })}
           onClick={props.onClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              props.onClick(e as any);
+            }
+          }}
         >
           <div className="px-4">
             <div className="mx-auto flex">
@@ -103,6 +104,7 @@ export const EmailListItem = forwardRef(
                 <div
                   className="flex items-center pl-1"
                   onClick={preventPropagation}
+                  onKeyDown={preventPropagation}
                 >
                   <Checkbox
                     checked={!!props.selected}
@@ -151,6 +153,7 @@ export const EmailListItem = forwardRef(
                     className="absolute right-0 z-20 hidden group-hover:block"
                     // prevent email panel being opened when clicking on action buttons
                     onClick={preventPropagation}
+                    onKeyDown={preventPropagation}
                   >
                     <ActionButtons
                       threadId={thread.id!}

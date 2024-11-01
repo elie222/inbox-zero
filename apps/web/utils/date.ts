@@ -20,15 +20,14 @@ export function formatShortDate(
 
   if (isToday) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } else {
-    const formattedDate = date.toLocaleDateString([], {
-      month: "short",
-      day: "numeric",
-      year: options.includeYear ? "numeric" : undefined,
-    });
-
-    return options.lowercase ? formattedDate : formattedDate.toUpperCase();
   }
+  const formattedDate = date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: options.includeYear ? "numeric" : undefined,
+  });
+
+  return options.lowercase ? formattedDate : formattedDate.toUpperCase();
 }
 
 export function dateToSeconds(date: Date) {

@@ -49,7 +49,7 @@ async function watchAllEmails() {
       console.log(`Watching emails for ${user.email}`);
 
       const userHasAiAccess = hasAiAccess(
-        user.premium.coldEmailBlockerAccess,
+        user.premium.aiAutomationAccess,
         user.aiApiKey,
       );
       const userHasColdEmailAccess = hasColdEmailAccess(

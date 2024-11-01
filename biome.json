@@ -6,7 +6,15 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off",
+        "noUselessElse": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noArrayIndexKey": "off"
+      }
     }
   },
   "formatter": {
@@ -18,7 +26,19 @@
       "*.config.*",
       "*.json",
       "tsconfig.json",
-      ".turbo"
+      ".turbo",
+      ".next"
+    ]
+  },
+  "files": {
+    "ignore": [
+      "node_modules/*",
+      "*.config.*",
+      "*.json",
+      "tsconfig.json",
+      ".turbo",
+      ".next",
+      "sw.js"
     ]
   }
 }

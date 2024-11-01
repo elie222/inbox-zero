@@ -17,7 +17,7 @@ import { Button as HoverButton } from "@/components/Button";
 import { extractNameFromEmail } from "@/utils/email";
 import { Tooltip } from "@/components/Tooltip";
 import type { ParsedMessage } from "@/utils/types";
-import { archiveEmails } from "@/utils/queue/email-actions";
+import { archiveEmails } from "@/store/archive-queue";
 import { Summary } from "@/app/(app)/simple/Summary";
 import { getGmailUrl } from "@/utils/url";
 import {
@@ -104,7 +104,7 @@ export function SimpleList(props: {
             startTransition(() => {
               onSetHandled(toArchive);
 
-              archiveEmails(toArchive, () => {});
+              archiveEmails(toArchive, undefined, () => {});
 
               if (props.nextPageToken) {
                 router.push(
@@ -117,7 +117,7 @@ export function SimpleList(props: {
                   ][0];
 
                 if (props.type === lastCategory) {
-                  router.push(`/simple/completed`);
+                  router.push("/simple/completed");
                 } else {
                   const next = getNextCategory(props.type);
                   router.push(`/simple?type=${next}`);

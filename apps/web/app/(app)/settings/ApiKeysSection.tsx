@@ -44,7 +44,7 @@ export async function ApiKeysSection() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>

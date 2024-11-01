@@ -43,16 +43,15 @@ export async function upgradeToPremium(options: {
       data,
       select: { users: { select: { email: true } } },
     });
-  } else {
-    return await prisma.premium.create({
-      data: {
-        users: { connect: { id: options.userId } },
-        admins: { connect: { id: options.userId } },
-        ...data,
-      },
-      select: { users: { select: { email: true } } },
-    });
   }
+  return await prisma.premium.create({
+    data: {
+      users: { connect: { id: options.userId } },
+      admins: { connect: { id: options.userId } },
+      ...data,
+    },
+    select: { users: { select: { email: true } } },
+  });
 }
 
 export async function extendPremium(options: {

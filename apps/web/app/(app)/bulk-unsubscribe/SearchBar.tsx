@@ -31,7 +31,7 @@ export function SearchBar({
     throttle((value: string) => {
       onSearch(value.trim());
     }, 300),
-    [onSearch],
+    [],
   );
 
   watch((data) => {

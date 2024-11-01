@@ -140,7 +140,7 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
                   setChecked: () =>
                     setFilters({
                       ...filters,
-                      ["unhandled"]: !filters.unhandled,
+                      unhandled: !filters.unhandled,
                     }),
                 },
                 {
@@ -149,7 +149,7 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
                   setChecked: () =>
                     setFilters({
                       ...filters,
-                      ["autoArchived"]: !filters.autoArchived,
+                      autoArchived: !filters.autoArchived,
                     }),
                 },
                 {
@@ -158,14 +158,14 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
                   setChecked: () =>
                     setFilters({
                       ...filters,
-                      ["unsubscribed"]: !filters.unsubscribed,
+                      unsubscribed: !filters.unsubscribed,
                     }),
                 },
                 {
                   label: "Approved",
                   checked: filters.approved,
                   setChecked: () =>
-                    setFilters({ ...filters, ["approved"]: !filters.approved }),
+                    setFilters({ ...filters, approved: !filters.approved }),
                 },
               ]}
             />

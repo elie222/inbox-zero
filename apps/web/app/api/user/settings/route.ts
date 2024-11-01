@@ -25,11 +25,9 @@ async function saveAISettings(options: SaveSettingsBody) {
         if (options.aiApiKey) {
           // use anthropic if api key set
           return Model.CLAUDE_3_5_SONNET_ANTHROPIC;
-        } else {
-          // use bedrock if no api key set
-          return Model.CLAUDE_3_5_SONNET_BEDROCK;
         }
-
+        // use bedrock if no api key set
+        return Model.CLAUDE_3_5_SONNET_BEDROCK;
       // ollama does not have api key
       case Provider.OLLAMA:
         return Model.OLLAMA_MODEL;

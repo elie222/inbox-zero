@@ -23,7 +23,7 @@ import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroup
 import { Button } from "@/components/ui/button";
 
 export function Groups() {
-  const { data, isLoading, error } = useSWR<GroupsResponse>(`/api/user/group`);
+  const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");
 
   return (
     <Card>

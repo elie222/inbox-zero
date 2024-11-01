@@ -59,7 +59,7 @@ const BulkArchiveForm = () => {
     );
 
     if (isError(res))
-      toastError({ description: `Error performing bulk archive.` });
+      toastError({ description: "Error performing bulk archive." });
     else toastSuccess({ description: `Archived ${res.count} emails!` });
   }, []);
 

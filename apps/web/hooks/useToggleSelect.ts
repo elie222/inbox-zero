@@ -10,10 +10,10 @@ export function useToggleSelect(items: { id: string }[]) {
   const onToggleSelectAll = useCallback(() => {
     const allSelected = items.every((item) => selected.get(item.id));
 
-    items.forEach((item) => {
+    for (const item of items) {
       setSelected((prev) => new Map(prev).set(item.id, !allSelected));
-    });
-  }, [items]);
+    }
+  }, [items, selected]);
 
   return { selected, isAllSelected, onToggleSelect, onToggleSelectAll };
 }

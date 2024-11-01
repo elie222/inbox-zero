@@ -13,7 +13,7 @@ import { extractDomainFromEmail } from "@/utils/email";
 export async function getMessage(
   messageId: string,
   gmail: gmail_v1.Gmail,
-  format?: "full",
+  format?: "full" | "metadata",
 ): Promise<MessageWithPayload> {
   const message = await gmail.users.messages.get({
     userId: "me",
@@ -84,15 +84,38 @@ export async function hasPreviousEmailsFromSender(
   return hasPreviousEmail;
 }
 
-export async function hasPreviousEmailsFromDomain(
+const PUBLIC_DOMAINS = new Set([
+  "gmail.com",
+  "yahoo.com",
+  "hotmail.com",
+  "outlook.com",
+  "aol.com",
+  "icloud.com",
+  "@me.com",
+  "protonmail.com",
+  "zoho.com",
+  "yandex.com",
+  "fastmail.com",
+  "gmx.com",
+  "@hey.com",
+]);
+
+export async function hasPreviousEmailsFromSenderOrDomain(
   gmail: gmail_v1.Gmail,
   options: { from: string; date: string; threadId: string },
 ) {
   const domain = extractDomainFromEmail(options.from);
+  if (!domain) return hasPreviousEmailsFromSender(gmail, options);
+
+  // For public email providers (gmail, yahoo, etc), search by full email address
+  // For company domains, search by domain to catch emails from different people at same company
+  const searchTerm = PUBLIC_DOMAINS.has(domain.toLowerCase())
+    ? options.from
+    : domain;
 
   return hasPreviousEmailsFromSender(gmail, {
     ...options,
-    from: domain || options.from,
+    from: searchTerm,
   });
 }
 

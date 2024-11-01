@@ -19,7 +19,6 @@ export interface ModalProps {
   title?: string;
   size?: "xl" | "2xl" | "4xl" | "6xl";
   padding?: "sm" | "none";
-  backdropClass?: string;
 }
 
 export function useModal() {
@@ -30,10 +29,18 @@ export function useModal() {
   return { isModalOpen, openModal, closeModal, setIsModalOpen };
 }
 
-export function Modal(props: ModalProps) {
+export function Modal({
+  isOpen,
+  children,
+  padding,
+  fullWidth,
+  size,
+  title,
+  hideModal,
+}: ModalProps) {
   return (
-    <Transition appear show={props.isOpen} as="div">
-      <Dialog as="div" className="relative z-50" onClose={props.hideModal}>
+    <Transition appear show={isOpen} as="div">
+      <Dialog as="div" className="relative z-50" onClose={hideModal}>
         <TransitionChild
           as="div"
           enter="ease-out duration-300"
@@ -43,12 +50,7 @@ export function Modal(props: ModalProps) {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div
-            className={cn(
-              "fixed inset-0 bg-black bg-opacity-25",
-              props.backdropClass,
-            )}
-          />
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
         </TransitionChild>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -64,27 +66,24 @@ export function Modal(props: ModalProps) {
               className={clsx(
                 "w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all",
                 {
-                  "p-6": props.padding === "sm",
-                  "p-10": !props.padding,
+                  "p-6": padding === "sm",
+                  "p-10": !padding,
                   "sm:w-full sm:max-w-xl":
-                    !props.fullWidth && (!props.size || props.size === "xl"),
-                  "sm:w-full sm:max-w-2xl":
-                    !props.fullWidth && props.size === "2xl",
-                  "sm:w-full sm:max-w-4xl":
-                    !props.fullWidth && props.size === "4xl",
-                  "sm:w-full sm:max-w-6xl":
-                    !props.fullWidth && props.size === "6xl",
-                  "sm:w-full sm:max-w-full": props.fullWidth,
+                    !fullWidth && (!size || size === "xl"),
+                  "sm:w-full sm:max-w-2xl": !fullWidth && size === "2xl",
+                  "sm:w-full sm:max-w-4xl": !fullWidth && size === "4xl",
+                  "sm:w-full sm:max-w-6xl": !fullWidth && size === "6xl",
+                  "sm:w-full sm:max-w-full": fullWidth,
                 },
               )}
             >
               <DialogPanel>
-                {props.title && (
+                {title && (
                   <DialogTitle as="h3" className="font-cal text-xl leading-6">
-                    {props.title}
+                    {title}
                   </DialogTitle>
                 )}
-                {props.children}
+                {children}
               </DialogPanel>
             </TransitionChild>
           </div>

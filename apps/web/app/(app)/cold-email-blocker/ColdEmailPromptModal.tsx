@@ -79,9 +79,9 @@ function ColdEmailPromptForm(props: {
       });
 
       if (isErrorMessage(res)) {
-        toastError({ description: `Error updating cold email prompt.` });
+        toastError({ description: "Error updating cold email prompt." });
       } else {
-        toastSuccess({ description: `Prompt updated!` });
+        toastSuccess({ description: "Prompt updated!" });
         onSuccess();
       }
     },

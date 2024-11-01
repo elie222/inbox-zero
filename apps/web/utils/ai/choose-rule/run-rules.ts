@@ -1,10 +1,16 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { ParsedMessage, RuleWithActions } from "@/utils/types";
+import {
+  isDefined,
+  type ParsedMessage,
+  type RuleWithActionsAndCategories,
+} from "@/utils/types";
 import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
 import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 import type { UserAIFields } from "@/utils/llms/types";
 import {
+  CategoryFilterType,
   ExecutedRuleStatus,
+  type Newsletter,
   type Prisma,
   type Rule,
   RuleType,
@@ -16,6 +22,7 @@ import {
 } from "@/utils/ai/choose-rule/choose-and-execute";
 import { emailToContent } from "@/utils/mail";
 import type { ActionItem } from "@/utils/ai/actions";
+import prisma from "@/utils/prisma";
 
 export type TestResult = {
   rule?: Rule | null;
@@ -32,7 +39,7 @@ export async function runRulesOnMessage({
 }: {
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
-  rules: RuleWithActions[];
+  rules: RuleWithActionsAndCategories[];
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
 }): Promise<{ handled: boolean }> {
@@ -40,9 +47,12 @@ export async function runRulesOnMessage({
   // 2. Check if a group rule matches
   // 3. Check if an ai rule matches
 
-  const applicableRules = isThread
-    ? rules.filter((r) => r.runOnThreads)
-    : rules;
+  const applicableRules = await getApplicableRules({
+    rules,
+    message,
+    isThread,
+    userId: user.id,
+  });
 
   // static rules
   const staticRule = await handleStaticRule({
@@ -108,6 +118,53 @@ export async function runRulesOnMessage({
   return { handled: false };
 }
 
+async function getApplicableRules({
+  rules,
+  message,
+  isThread,
+  userId,
+}: {
+  rules: RuleWithActionsAndCategories[];
+  message: ParsedMessage;
+  isThread: boolean;
+  userId: string;
+}) {
+  let sender: Pick<Newsletter, "categoryId"> | null = null;
+
+  const applicableRules = await Promise.all(
+    rules.map(async (rule) => {
+      if (isThread && !rule.runOnThreads) return null;
+
+      // check category filter
+      if (rule.categoryFilterType && rule.categoryFilters.length > 0) {
+        // lazy fetch sender
+        if (!sender) {
+          sender = await prisma.newsletter.findUnique({
+            where: { email_userId: { email: message.headers.from, userId } },
+            select: { categoryId: true },
+          });
+        }
+
+        const isIncluded = rule.categoryFilters.some(
+          (c) => c.id === sender?.categoryId,
+        );
+
+        if (
+          (rule.categoryFilterType === CategoryFilterType.INCLUDE &&
+            !isIncluded) ||
+          (rule.categoryFilterType === CategoryFilterType.EXCLUDE && isIncluded)
+        ) {
+          return null;
+        }
+      }
+
+      return rule;
+    }),
+  );
+
+  return applicableRules.filter(isDefined);
+}
+
 async function saveSkippedExecutedRule({
   userId,
   threadId,
@@ -145,7 +202,7 @@ export async function testRulesOnMessage({
 }: {
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
-  rules: RuleWithActions[];
+  rules: RuleWithActionsAndCategories[];
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
 }): Promise<TestResult> {

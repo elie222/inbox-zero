@@ -44,7 +44,7 @@ export async function loadTinybirdEmails(
 
   while (pages < MAX_PAGES) {
     console.log("After Page", pages);
-    let res;
+    let res: Awaited<ReturnType<typeof saveBatch>>;
     try {
       res = await saveBatch({
         ownerEmail,
@@ -71,7 +71,7 @@ export async function loadTinybirdEmails(
     nextPageToken = res.data.nextPageToken ?? undefined;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
-    else pages++;
+    pages++;
   }
 
   console.log("Completed emails after:", after);
@@ -83,7 +83,7 @@ export async function loadTinybirdEmails(
 
   while (pages < MAX_PAGES) {
     console.log("Before Page", pages);
-    let res;
+    let res: Awaited<ReturnType<typeof saveBatch>>;
     try {
       res = await saveBatch({
         ownerEmail,
@@ -109,7 +109,7 @@ export async function loadTinybirdEmails(
     nextPageToken = res.data.nextPageToken ?? undefined;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
-    else pages++;
+    pages++;
   }
 
   console.log("Completed emails before:", before);

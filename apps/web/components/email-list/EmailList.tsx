@@ -7,6 +7,7 @@ import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useAtom } from "jotai";
+import { ChevronsDownIcon } from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { isActionError } from "@/utils/error";
@@ -25,17 +26,16 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { runAiRules } from "@/utils/queue/email-actions";
+import { selectedEmailAtom } from "@/store/email";
+import { categorizeEmailAction } from "@/utils/actions/categorize";
+import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import {
   archiveEmails,
   deleteEmails,
   markReadThreads,
-  runAiRules,
-} from "@/utils/queue/email-actions";
-import { selectedEmailAtom } from "@/store/email";
-import { categorizeAction } from "@/utils/actions/categorize";
-import { Button } from "@/components/ui/button";
-import { ChevronsDownIcon } from "lucide-react";
-import { ButtonLoader } from "@/components/Loading";
+} from "@/store/archive-queue";
 
 export function List({
   emails,
@@ -196,22 +196,21 @@ export function EmailList({
   // if checkbox for a row has been checked
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
-  const onSetSelectedRow = useCallback(
-    (id: string) => {
-      setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
-    },
-    [setSelectedRows],
-  );
+  const onSetSelectedRow = useCallback((id: string) => {
+    setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
+  }, []);
 
   const isAllSelected = useMemo(() => {
     return threads.every((thread) => selectedRows[thread.id]);
   }, [threads, selectedRows]);
 
   const onToggleSelectAll = useCallback(() => {
-    threads.forEach((thread) => {
-      setSelectedRows((s) => ({ ...s, [thread.id]: !isAllSelected }));
-    });
-  }, [threads, isAllSelected]);
+    const newState = { ...selectedRows };
+    for (const thread of threads) {
+      newState[thread.id] = !isAllSelected;
+    }
+    setSelectedRows(newState);
+  }, [threads, isAllSelected, selectedRows]);
 
   const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
     {},
@@ -235,7 +234,7 @@ export function EmailList({
 
           if (!message) return;
 
-          const result = await categorizeAction({
+          const result = await categorizeEmailAction({
             from: message.headers.from,
             subject: message.headers.subject,
             textPlain: message.textPlain || null,
@@ -247,13 +246,13 @@ export function EmailList({
 
           if (isActionError(result)) {
             setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
-            throw new Error(`There was an error categorizing the email.`);
-          } else if (!result) {
-            throw new Error("The request did not complete");
-          } else {
-            // setCategory(res);
-            refetch();
+            throw new Error("There was an error categorizing the email.");
           }
+          if (!result) {
+            throw new Error("The request did not complete");
+          }
+          // setCategory(res);
+          refetch();
           setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
 
           return result?.category;
@@ -272,11 +271,26 @@ export function EmailList({
   const onArchive = useCallback(
     (thread: Thread) => {
       const threadIds = [thread.id];
-      toast.promise(() => archiveEmails(threadIds, () => refetch(threadIds)), {
-        loading: "Archiving...",
-        success: "Archived!",
-        error: "There was an error archiving the email :(",
-      });
+      toast.promise(
+        async () => {
+          await new Promise<void>((resolve, reject) => {
+            archiveEmails(
+              threadIds,
+              undefined,
+              (threadId) => {
+                refetch([threadId]);
+                resolve();
+              },
+              reject,
+            );
+          });
+        },
+        {
+          loading: "Archiving...",
+          success: "Archived!",
+          error: "There was an error archiving the email :(",
+        },
+      );
     },
     [refetch],
   );
@@ -342,7 +356,17 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => id);
 
-        archiveEmails(threadIds, () => refetch(threadIds));
+        await new Promise<void>((resolve, reject) => {
+          archiveEmails(
+            threadIds,
+            undefined,
+            () => {
+              refetch(threadIds);
+              resolve();
+            },
+            reject,
+          );
+        });
       },
       {
         loading: "Archiving emails...",
@@ -359,7 +383,16 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => id);
 
-        deleteEmails(threadIds, () => refetch(threadIds));
+        await new Promise<void>((resolve, reject) => {
+          deleteEmails(
+            threadIds,
+            () => {
+              refetch(threadIds);
+              resolve();
+            },
+            reject,
+          );
+        });
       },
       {
         loading: "Deleting emails...",
@@ -457,7 +490,7 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads([thread.id], refetch);
+                  markReadThreads([thread.id], () => refetch([thread.id]));
                 };
 
                 return (
@@ -492,26 +525,24 @@ export function EmailList({
                 );
               })}
               {showLoadMore && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="mb-2 w-full"
-                    size={"sm"}
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                  >
-                    {
-                      <>
-                        {isLoadingMore ? (
-                          <ButtonLoader />
-                        ) : (
-                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
-                        )}
-                        <span>Load more</span>
-                      </>
-                    }
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  className="mb-2 w-full"
+                  size={"sm"}
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {
+                    <>
+                      {isLoadingMore ? (
+                        <ButtonLoader />
+                      ) : (
+                        <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                      )}
+                      <span>Load more</span>
+                    </>
+                  }
+                </Button>
               )}
             </ul>
           }

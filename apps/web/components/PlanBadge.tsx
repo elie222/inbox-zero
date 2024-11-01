@@ -150,10 +150,12 @@ function getActionLabel(type: ActionType) {
 
 function getActionMessage(action: ExecutedAction): string {
   switch (action.type) {
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: <explanation>
     case ActionType.LABEL:
       if (action.label) return `Label as ${action.label}`;
     case ActionType.REPLY:
     case ActionType.SEND_EMAIL:
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause: <explanation>
     case ActionType.FORWARD:
       if (action.to)
         return `${getActionLabel(action.type)} to ${action.to}${

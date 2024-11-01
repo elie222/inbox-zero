@@ -11,7 +11,7 @@ import {
   saveRulesPromptAction,
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
-import { captureException, isActionError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import {
   Card,
   CardContent,
@@ -58,7 +58,7 @@ export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
     RulesPromptResponse,
     { error: string }
-  >(`/api/user/rules/prompt`);
+  >("/api/user/rules/prompt");
 
   return (
     <LoadingContent loading={isLoading} error={error}>

@@ -10,7 +10,7 @@ export default function NoReplyPage() {
   const { data, isLoading, error, mutate } = useSWR<
     NoReplyResponse,
     { error: string }
-  >(`/api/user/no-reply`);
+  >("/api/user/no-reply");
 
   return (
     <div>

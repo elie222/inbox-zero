@@ -153,7 +153,7 @@ function MultiAccountForm({
       const emails = data.emailAddresses.map((e) => e.email);
       const result = await updateMultiAccountPremiumAction(emails);
 
-      if (result && result.warning)
+      if (result?.warning)
         toastInfo({ title: "Warning", description: result.warning });
       else handleActionResult(result, "Users updated!");
     },

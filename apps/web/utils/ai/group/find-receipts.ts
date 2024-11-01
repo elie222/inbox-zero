@@ -7,7 +7,11 @@ import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { generalizeSubject } from "@/utils/string";
 
 // Predefined lists of receipt senders and subjects
-const defaultReceiptSenders = ["invoice+statements", "receipt@", "invoice@"];
+export const defaultReceiptSenders = [
+  "invoice+statements",
+  "receipt@",
+  "invoice@",
+];
 const defaultReceiptSubjects = [
   "Invoice #",
   "Payment Receipt",
@@ -121,4 +125,8 @@ async function findReceiptSubjects(gmail: gmail_v1.Gmail, accessToken: string) {
     })),
     (message) => message.from,
   );
+}
+
+export function isReceiptSender(sender: string) {
+  return defaultReceiptSenders.some((receipt) => sender.includes(receipt));
 }

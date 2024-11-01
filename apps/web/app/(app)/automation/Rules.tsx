@@ -48,7 +48,7 @@ export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
     RulesResponse,
     { error: string }
-  >(`/api/user/rules`);
+  >("/api/user/rules");
 
   const hasRules = !!data?.length;
 
@@ -151,9 +151,7 @@ export function Rules() {
                             });
                             if (isActionError(result)) {
                               toastError({
-                                description:
-                                  "There was an error updating your rule. " +
-                                  result.error,
+                                description: `There was an error updating your rule. ${result.error}`,
                               });
                             }
                             mutate();
@@ -171,9 +169,7 @@ export function Rules() {
                             });
                             if (isActionError(result)) {
                               toastError({
-                                description:
-                                  "There was an error updating your rule. " +
-                                  result.error,
+                                description: `There was an error updating your rule. ${result.error}`,
                               });
                             }
                             mutate();
@@ -221,9 +217,7 @@ export function Rules() {
 
                                   if (isActionError(result)) {
                                     toastError({
-                                      description:
-                                        "There was an error deleting your rule. " +
-                                        result.error,
+                                      description: `There was an error deleting your rule. ${result.error}`,
                                     });
                                   }
 
@@ -293,11 +287,12 @@ export function getInstructions(
   switch (rule.type) {
     case RuleType.AI:
       return rule.instructions;
-    case RuleType.STATIC:
+    case RuleType.STATIC: {
       const from = rule.from ? `From: ${rule.from}` : "";
       const subject = rule.subject ? `Subject: ${rule.subject}` : "";
       // let body = rule.body ? `Body: ${rule.body}` : "";
       return `${from} ${subject}`.trim();
+    }
     case RuleType.GROUP:
       return `Group: ${rule.group?.name || "MISSING"}`;
   }

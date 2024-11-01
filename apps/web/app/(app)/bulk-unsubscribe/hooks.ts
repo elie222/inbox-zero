@@ -9,10 +9,8 @@ import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@prisma/client";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
-import {
-  archiveAllSenderEmails,
-  deleteEmails,
-} from "@/utils/queue/email-actions";
+import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
+import { deleteEmails } from "@/store/archive-queue";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
@@ -29,7 +27,7 @@ async function unsubscribeAndArchive(
   await mutate();
   await decrementUnsubscribeCreditAction();
   await refetchPremium();
-  await archiveAllSenderEmails(newsletterEmail, () => {});
+  await addToArchiveSenderQueue(newsletterEmail);
 }
 
 export function useUnsubscribe<T extends Row>({
@@ -70,7 +68,14 @@ export function useUnsubscribe<T extends Row>({
     }
 
     setUnsubscribeLoading(false);
-  }, [hasUnsubscribeAccess, item.name, mutate, posthog, refetchPremium]);
+  }, [
+    hasUnsubscribeAccess,
+    item.name,
+    item.status,
+    mutate,
+    refetchPremium,
+    posthog,
+  ]);
 
   return {
     unsubscribeLoading,
@@ -143,7 +148,7 @@ async function autoArchive(
   await mutate();
   await decrementUnsubscribeCreditAction();
   await refetchPremium();
-  await archiveAllSenderEmails(name, () => {}, labelId);
+  await addToArchiveSenderQueue(name, labelId);
 }
 
 export function useAutoArchive<T extends Row>({
@@ -171,7 +176,7 @@ export function useAutoArchive<T extends Row>({
     posthog.capture("Clicked Auto Archive");
 
     setAutoArchiveLoading(false);
-  }, [item.name, mutate, posthog, refetchPremium]);
+  }, [item.name, mutate, refetchPremium, hasUnsubscribeAccess, posthog]);
 
   const onDisableAutoArchive = useCallback(async () => {
     setAutoArchiveLoading(true);
@@ -184,7 +189,7 @@ export function useAutoArchive<T extends Row>({
     await mutate();
 
     setAutoArchiveLoading(false);
-  }, [item.name, mutate, posthog, refetchPremium]);
+  }, [item.name, item.autoArchived?.id, mutate]);
 
   const onAutoArchiveAndLabel = useCallback(
     async (labelId: string) => {
@@ -196,7 +201,7 @@ export function useAutoArchive<T extends Row>({
 
       setAutoArchiveLoading(false);
     },
-    [item.name, mutate, posthog, refetchPremium],
+    [item.name, mutate, refetchPremium, hasUnsubscribeAccess],
   );
 
   return {
@@ -233,7 +238,7 @@ export function useBulkAutoArchive<T extends Row>({
 
       setBulkAutoArchiveLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, posthog, refetchPremium],
+    [hasUnsubscribeAccess, mutate, refetchPremium],
   );
 
   return {
@@ -307,14 +312,25 @@ export function useBulkApprove<T extends Row>({
 async function archiveAll(name: string, onFinish: () => void) {
   toast.promise(
     async () => {
-      const data = await archiveAllSenderEmails(name, onFinish);
-      return data.length;
+      const threadsArchived = await new Promise<number>((resolve, reject) => {
+        addToArchiveSenderQueue(
+          name,
+          undefined,
+          (totalThreads) => {
+            onFinish();
+            resolve(totalThreads);
+          },
+          reject,
+        );
+      });
+
+      return threadsArchived;
     },
     {
       loading: `Archiving all emails from ${name}`,
       success: (data) =>
         data
-          ? `Archiving ${data} emails from ${name}...`
+          ? `Archived ${data} emails from ${name}`
           : `No emails to archive from ${name}`,
       error: `There was an error archiving the emails from ${name} :(`,
     },
@@ -373,7 +389,16 @@ async function deleteAllFromSender(name: string, onFinish: () => void) {
 
       // 2. delete messages
       if (data?.length) {
-        deleteEmails(data.map((t) => t.id).filter(isDefined), onFinish);
+        await new Promise<void>((resolve, reject) => {
+          deleteEmails(
+            data.map((t) => t.id).filter(isDefined),
+            () => {
+              onFinish();
+              resolve();
+            },
+            reject,
+          );
+        });
       }
 
       return data.length;
@@ -467,7 +492,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         if (!nextItem) return;
         setSelectedRow(nextItem);
         return;
-      } else if (e.key === "Enter") {
+      }
+      if (e.key === "Enter") {
         // open modal
         e.preventDefault();
         onOpenNewsletter(item);
@@ -488,7 +514,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         await decrementUnsubscribeCreditAction();
         await refetchPremium();
         return;
-      } else if (e.key === "u") {
+      }
+      if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
@@ -501,7 +528,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         await decrementUnsubscribeCreditAction();
         await refetchPremium();
         return;
-      } else if (e.key === "a") {
+      }
+      if (e.key === "a") {
         // approve
         e.preventDefault();
         await setNewsletterStatusAction({

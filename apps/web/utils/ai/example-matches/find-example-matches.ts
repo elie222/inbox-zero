@@ -34,7 +34,8 @@ export async function aiFindExampleMatches(
 ) {
   console.log(`findExampleMatches. rulesPrompt: ${rulesPrompt}`);
 
-  const system = `You are an AI assistant specializing in email management and organization. Your task is to find example emails that match the given rules with high confidence.`;
+  const system =
+    "You are an AI assistant specializing in email management and organization. Your task is to find example emails that match the given rules with high confidence.";
 
   const prompt = `Find high-confidence example matches for the rules prompt:
 <rules>
@@ -85,9 +86,9 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
         snippet: message.snippet,
       }));
 
-      results.forEach((result) => {
+      for (const result of results) {
         listedEmails[result.emailId] = result;
-      });
+      }
 
       return results;
     },
@@ -117,8 +118,7 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
     z.infer<typeof findExampleMatchesSchema>["matches"]
   >((acc, { args }) => {
     const typedArgs = args as z.infer<typeof findExampleMatchesSchema>;
-
-    return [...acc, ...typedArgs.matches];
+    return acc.concat(typedArgs.matches);
   }, []);
 
   return {

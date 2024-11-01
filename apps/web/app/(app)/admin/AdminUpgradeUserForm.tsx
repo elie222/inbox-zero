@@ -29,7 +29,7 @@ export const AdminUpgradeUserForm = () => {
   const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
     async (data) => {
       const result = await changePremiumStatusAction(data);
-      handleActionResult(result, data.upgrade ? `Upgraded!` : `Downgraded!`);
+      handleActionResult(result, data.upgrade ? "Upgraded!" : "Downgraded!");
     },
     [],
   );
