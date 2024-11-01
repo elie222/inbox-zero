@@ -1,7 +1,7 @@
 // Based on: https://magicui.design/docs/components/hero-video-dialog
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { Play, XIcon } from "lucide-react";
@@ -81,21 +81,24 @@ export default function HeroVideoDialog({
 
   const posthog = usePostHog();
 
+  const handleOpenVideo = useCallback(() => {
+    setIsVideoOpen(true);
+    posthog.capture("Landing Page Video Clicked");
+  }, [posthog]);
+
   return (
     <div className={cn("relative", className)}>
       <div
         className="group relative cursor-pointer"
-        onClick={() => {
-          setIsVideoOpen(true);
-          posthog.capture("Landing Page Video Clicked");
+        onClick={handleOpenVideo}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") handleOpenVideo();
         }}
       >
         <div className="relative -m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
           <Image
             src={thumbnailSrc}
             alt={thumbnailAlt}
-            // width={1920}
-            // height={1080}
             width={2432}
             height={1442}
             className="rounded-md shadow ring-1 ring-gray-900/10 transition-all duration-200 ease-out group-hover:brightness-[0.9]"
@@ -104,7 +107,9 @@ export default function HeroVideoDialog({
         <div className="absolute inset-0 flex scale-[0.9] items-center justify-center rounded-2xl transition-all duration-200 ease-out group-hover:scale-100">
           <div className="flex size-28 items-center justify-center rounded-full bg-blue-500/10 backdrop-blur-md">
             <div
-              className={`relative flex size-20 scale-100 items-center justify-center rounded-full bg-gradient-to-b from-blue-500/30 to-blue-500 shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2]`}
+              className={
+                "relative flex size-20 scale-100 items-center justify-center rounded-full bg-gradient-to-b from-blue-500/30 to-blue-500 shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2]"
+              }
             >
               <Play
                 className="size-8 scale-100 fill-white text-white transition-transform duration-200 ease-out group-hover:scale-105"
@@ -138,9 +143,10 @@ export default function HeroVideoDialog({
                 <iframe
                   src={videoSrc}
                   className="size-full rounded-lg"
+                  title="Video content"
                   allowFullScreen
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                ></iframe>
+                />
               </div>
             </motion.div>
           </motion.div>

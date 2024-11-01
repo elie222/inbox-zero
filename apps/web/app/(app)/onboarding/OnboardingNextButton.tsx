@@ -8,7 +8,7 @@ export function OnboardingNextButton() {
   const searchParams = useSearchParams();
   const stepParam = searchParams.get("step");
   const currentStep = stepParam ? Number.parseInt(stepParam) : 1;
-  const nextStep = isNaN(currentStep) ? 2 : currentStep + 1;
+  const nextStep = Number.isNaN(currentStep) ? 2 : currentStep + 1;
 
   return (
     <div className="mt-4">

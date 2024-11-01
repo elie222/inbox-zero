@@ -13,7 +13,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
-import { navigation } from "@/components/SideNav";
+import { useNavigation } from "@/components/SideNav";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { refetchEmailListAtom, selectedEmailAtom } from "@/store/email";
 import { archiveEmails } from "@/store/archive-queue";
@@ -67,6 +67,8 @@ export function CommandK() {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, [onArchive, onOpenComposeModal]);
+
+  const navigation = useNavigation();
 
   return (
     <>

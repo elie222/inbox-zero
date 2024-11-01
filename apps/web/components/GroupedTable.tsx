@@ -61,11 +61,11 @@ export function GroupedTable({
     );
 
     // Add empty arrays for categories without any emails
-    categories.forEach((category) => {
+    for (const category of categories) {
       if (!grouped[category.name]) {
         grouped[category.name] = [];
       }
-    });
+    }
 
     return grouped;
   }, [emailGroups, categories]);
@@ -81,7 +81,11 @@ export function GroupedTable({
         id: "expander",
         cell: ({ row }) => {
           return row.getCanExpand() ? (
-            <button onClick={row.getToggleExpandedHandler()} className="p-2">
+            <button
+              type="button"
+              onClick={row.getToggleExpandedHandler()}
+              className="p-2"
+            >
               <ChevronRight
                 className={cn(
                   "h-4 w-4 transform transition-all duration-300 ease-in-out",
@@ -210,7 +214,11 @@ export function SendersTable({
         id: "expander",
         cell: ({ row }) => {
           return row.getCanExpand() ? (
-            <button onClick={row.getToggleExpandedHandler()} className="p-2">
+            <button
+              type="button"
+              onClick={row.getToggleExpandedHandler()}
+              className="p-2"
+            >
               <ChevronRight
                 className={cn(
                   "h-4 w-4 transform transition-all duration-300 ease-in-out",
@@ -460,9 +468,8 @@ function ArchiveStatusCell({ sender }: { sender: string }) {
             Archived {status.threadsTotal} emails!
           </span>
         );
-      } else {
-        return <span className="text-gray-500">Archived</span>;
       }
+      return <span className="text-gray-500">Archived</span>;
     case "processing":
       return (
         <span className="text-blue-500">

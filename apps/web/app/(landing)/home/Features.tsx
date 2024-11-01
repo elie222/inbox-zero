@@ -1,5 +1,6 @@
 "use client";
 
+import { useLandingPageVariant } from "@/hooks/useFeatureFlags";
 import clsx from "clsx";
 import {
   BarChart2Icon,
@@ -16,7 +17,6 @@ import {
   ListStartIcon,
 } from "lucide-react";
 import Image from "next/image";
-import { useFeatureFlagVariantKey } from "posthog-js/react";
 
 export function FeaturesPrivacy() {
   return (
@@ -137,7 +137,7 @@ const featuresAutomations = [
 ];
 
 export function FeaturesAutomation() {
-  const variant = useFeatureFlagVariantKey("landing-page-features");
+  const variant = useLandingPageVariant();
 
   const variants: Record<
     string,
@@ -193,7 +193,7 @@ const featuresColdEmailBlocker = [
 ];
 
 export function FeaturesColdEmailBlocker() {
-  const variant = useFeatureFlagVariantKey("landing-page-features");
+  const variant = useLandingPageVariant();
 
   const variants: Record<
     string,
@@ -284,7 +284,7 @@ const featuresUnsubscribe = [
 ];
 
 export function FeaturesUnsubscribe() {
-  const variant = useFeatureFlagVariantKey("landing-page-features");
+  const variant = useLandingPageVariant();
 
   const variants: Record<
     string,

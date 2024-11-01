@@ -58,7 +58,7 @@ export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
     RulesPromptResponse,
     { error: string }
-  >(`/api/user/rules/prompt`);
+  >("/api/user/rules/prompt");
 
   return (
     <LoadingContent loading={isLoading} error={error}>

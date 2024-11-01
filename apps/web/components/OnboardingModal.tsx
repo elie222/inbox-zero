@@ -104,7 +104,7 @@ export const useOnboarding = (feature: string) => {
 
   const onClose = useCallback(() => {
     setIsOpen(false);
-  }, [setIsOpen]);
+  }, []);
 
   return {
     isOpen,

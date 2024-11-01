@@ -15,7 +15,7 @@ type EnsureObject<T> = T extends object ? T : never;
 export function withActionInstrumentation<
   Args extends any[],
   Result extends object | undefined = undefined,
-  Err = {},
+  Err extends object = Record<string, unknown>,
 >(
   name: string,
   action: (...args: Args) => Promise<ServerActionResponse<Result, Err>>,
@@ -24,13 +24,7 @@ export function withActionInstrumentation<
   return async (
     ...args: Args
   ): Promise<
-    ServerActionResponse<
-      // If Result is undefined, return {}, otherwise ensure it's an object
-      (Result extends undefined ? {} : EnsureObject<Result>) & {
-        success: boolean;
-      },
-      Err
-    >
+    ServerActionResponse<EnsureObject<Result> & { success: boolean }, Err>
   > => {
     try {
       const result = await withServerActionInstrumentation(
@@ -41,11 +35,19 @@ export function withActionInstrumentation<
         async () => {
           const res = await action(...args);
 
-          // We return success: true to indicate that the action completed successfully
-          // If there's a timeout, then this won't be called, so the client can see there's been an error
+          if (!res) {
+            return { success: true } as EnsureObject<Result> & {
+              success: boolean;
+            };
+          }
+
+          if ("error" in res) return res;
+
           return {
             success: true,
-            ...(res as Result extends undefined ? {} : EnsureObject<Result>),
+            ...res,
+          } as unknown as EnsureObject<Result> & {
+            success: true;
           };
         },
       );

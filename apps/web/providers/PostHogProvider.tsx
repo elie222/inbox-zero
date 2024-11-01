@@ -16,8 +16,8 @@ export function PostHogPageview(): JSX.Element {
   useEffect(() => {
     if (pathname) {
       let url = window.origin + pathname;
-      if (searchParams && searchParams.toString()) {
-        url = url + `?${searchParams.toString()}`;
+      if (searchParams?.toString()) {
+        url = `${url}?${searchParams.toString()}`;
       }
       posthog.capture("$pageview", {
         $current_url: url,
@@ -45,6 +45,7 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
   posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
     api_host: env.NEXT_PUBLIC_POSTHOG_API_HOST, // https://posthog.com/docs/advanced/proxy/nextjs
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
+    opt_in_site_apps: true,
   });
 }
 

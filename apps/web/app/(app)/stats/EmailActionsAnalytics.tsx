@@ -11,7 +11,7 @@ export function EmailActionsAnalytics() {
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/email-actions`);
+  >("/api/user/stats/email-actions");
 
   return (
     <LoadingContent

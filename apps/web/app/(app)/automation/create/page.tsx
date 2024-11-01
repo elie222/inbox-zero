@@ -45,8 +45,7 @@ export default function AutomationSettingsPage() {
             router.push(`/automation/rule/${existingRuleId}`);
           } else {
             toastError({
-              description:
-                "There was an error creating your automation. " + result.error,
+              description: `There was an error creating your automation. ${result.error}`,
             });
           }
         } else if (!result) {
@@ -86,7 +85,7 @@ export default function AutomationSettingsPage() {
                 as="textarea"
                 rows={4}
                 name="prompt"
-                placeholder={`e.g. Forward receipts to alice@accountant.com.`}
+                placeholder={"e.g. Forward receipts to alice@accountant.com."}
                 className="mt-2"
                 registerProps={register("prompt")}
                 error={errors.prompt}

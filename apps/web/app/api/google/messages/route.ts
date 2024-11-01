@@ -10,7 +10,7 @@ export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
 async function getMessages() {
   const session = await auth();
-  if (!session) throw new SafeError("Not authenticated");
+  if (!session?.user) throw new SafeError("Not authenticated");
 
   const gmail = getGmailClient(session);
 

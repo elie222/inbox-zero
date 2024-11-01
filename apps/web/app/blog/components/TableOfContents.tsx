@@ -18,21 +18,21 @@ export function TableOfContents({ body }: TableOfContentsProps) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
+        for (const entry of entries) {
           if (entry.isIntersecting) {
             setActiveId(entry.target.id);
           }
-        });
+        }
       },
       { rootMargin: "-50% 0% -50% 0%" },
     );
 
-    headings.forEach((heading) => {
+    for (const heading of headings) {
       const text = extractTextFromPortableTextBlock(heading);
       const id = slugify(text);
       const element = document.getElementById(id);
       if (element) observer.observe(element);
-    });
+    }
 
     return () => observer.disconnect();
   }, [headings]);

@@ -4,8 +4,8 @@ import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
-import { Modal, useModal } from "@/components/Modal";
-import { Button } from "@/components/ui/button";
+import { useModal } from "@/components/Modal";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {
@@ -20,38 +20,149 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { Category } from "@prisma/client";
 
-export function CreateCategoryButton() {
+type ExampleCategory = {
+  name: string;
+  description: string;
+};
+
+const EXAMPLE_CATEGORIES: ExampleCategory[] = [
+  {
+    name: "Team",
+    description:
+      "Internal team members with @company.com email addresses, including employees and colleagues within our organization",
+  },
+  {
+    name: "Customer",
+    description:
+      "Email addresses belonging to customers, including those reaching out for support or engaging with customer success",
+  },
+  {
+    name: "Candidate",
+    description:
+      "Job applicants, potential hires, and candidates in your interview pipeline",
+  },
+  {
+    name: "Job Application",
+    description:
+      "Companies, hiring platforms, and recruiters you've applied to or are interviewing with for positions",
+  },
+  {
+    name: "Investor",
+    description:
+      "Current and potential investors, investment firms, and venture capital contacts",
+  },
+  {
+    name: "Founder",
+    description:
+      "Startup founders, entrepreneurs, and potential portfolio companies seeking investment or partnerships",
+  },
+  {
+    name: "Vendor",
+    description:
+      "Service providers, suppliers, and business partners who provide products or services to your company",
+  },
+  {
+    name: "Server Error",
+    description: "Automated monitoring services and error reporting systems",
+  },
+  {
+    name: "Press",
+    description:
+      "Journalists, media outlets, PR agencies, and industry publications seeking interviews or coverage",
+  },
+  {
+    name: "Conference",
+    description:
+      "Event organizers, conference coordinators, and speaking opportunity contacts for industry events",
+  },
+  {
+    name: "Nonprofit",
+    description:
+      "Charitable organizations, NGOs, social impact organizations, and philanthropic foundations",
+  },
+];
+
+export function CreateCategoryButton({
+  buttonProps,
+}: {
+  buttonProps?: ButtonProps;
+}) {
   const { isModalOpen, openModal, closeModal, setIsModalOpen } = useModal();
 
   return (
     <div>
-      <Button onClick={openModal}>
-        <PlusIcon className="mr-2 size-4" />
-        Create category
+      <Button onClick={openModal} {...buttonProps}>
+        {buttonProps?.children ?? (
+          <>
+            <PlusIcon className="mr-2 size-4" />
+            Create category
+          </>
+        )}
       </Button>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Category</DialogTitle>
-          </DialogHeader>
-
-          <CreateCategoryForm closeModal={closeModal} />
-        </DialogContent>
-      </Dialog>
+      <CreateCategoryDialog
+        isOpen={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        closeModal={closeModal}
+      />
     </div>
   );
 }
 
-function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
+export function CreateCategoryDialog({
+  category,
+  isOpen,
+  onOpenChange,
+  closeModal,
+}: {
+  category?: Pick<Category, "name" | "description">;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  closeModal: () => void;
+}) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Category</DialogTitle>
+        </DialogHeader>
+
+        <CreateCategoryForm category={category} closeModal={closeModal} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreateCategoryForm({
+  category,
+  closeModal,
+}: {
+  category?: Pick<Category, "name" | "description"> & { id?: string };
+  closeModal: () => void;
+}) {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    setValue,
   } = useForm<CreateCategoryBody>({
     resolver: zodResolver(createCategoryBody),
+    defaultValues: {
+      id: category?.id,
+      name: category?.name,
+      description: category?.description,
+    },
   });
+
+  const handleExampleClick = useCallback(
+    (category: ExampleCategory) => {
+      setValue("name", category.name);
+      setValue("description", category.description);
+    },
+    [setValue],
+  );
 
   const onSubmit: SubmitHandler<CreateCategoryBody> = useCallback(
     async (data) => {
@@ -62,7 +173,7 @@ function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
           description: `There was an error creating the category. ${result.error}`,
         });
       } else {
-        toastSuccess({ description: `Category created!` });
+        toastSuccess({ description: "Category created!" });
         closeModal();
       }
     },
@@ -88,8 +199,26 @@ function CreateCategoryForm({ closeModal }: { closeModal: () => void }) {
         registerProps={register("description")}
         error={errors.description}
       />
+
+      <div className="rounded border border-gray-200 bg-gray-50 p-3">
+        <div className="text-xs font-medium">Examples</div>
+        <div className="mt-1 flex flex-wrap gap-2">
+          {EXAMPLE_CATEGORIES.map((category) => (
+            <Button
+              key={category.name}
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => handleExampleClick(category)}
+            >
+              <PlusIcon className="mr-1 size-2" />
+              {category.name}
+            </Button>
+          ))}
+        </div>
+      </div>
       <Button type="submit" loading={isSubmitting}>
-        Create
+        {category ? "Update" : "Create"}
       </Button>
     </form>
   );

@@ -21,14 +21,15 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
-import { senderCategory, type SenderCategory } from "@/utils/categories";
+import { defaultCategory, type SenderCategory } from "@/utils/categories";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
-import type { Category } from "@prisma/client";
+import type { Category, User } from "@prisma/client";
+import type { UserAIFields } from "@/utils/llms/types";
 import { getUserCategories } from "@/utils/category.server";
 import { hasAiAccess } from "@/utils/premium";
 
@@ -138,6 +139,8 @@ export const categorizeSendersAction = withActionInstrumentation(
       getUserCategories(u.id),
     ]);
 
+    if (categories.length === 0) return { error: "No categories found" };
+
     const sendersToCategorize = senders.filter(
       (sender) => !existingSenders.some((s) => s.email === sender),
     );
@@ -191,7 +194,7 @@ export const categorizeSendersAction = withActionInstrumentation(
     ].filter(
       (r) =>
         !r.category ||
-        r.category === senderCategory.UNKNOWN.label ||
+        r.category === defaultCategory.UNKNOWN.name ||
         r.category === "RequestMoreInformation",
     );
 
@@ -245,6 +248,7 @@ export const categorizeSenderAction = withActionInstrumentation(
     const user = await prisma.user.findUnique({
       where: { id: u.id },
       select: {
+        id: true,
         email: true,
         aiProvider: true,
         aiModel: true,
@@ -262,39 +266,56 @@ export const categorizeSenderAction = withActionInstrumentation(
 
     if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
-    const categories = await getUserCategories(u.id);
-
-    const previousEmails = await getPreviousEmails(
-      gmail,
+    const result = await categorizeSender(
       senderAddress,
+      user,
+      gmail,
       session.accessToken!,
     );
 
-    const aiResult = await aiCategorizeSender({
-      user,
-      sender: senderAddress,
-      previousEmails,
-      categories,
-    });
+    revalidatePath("/smart-categories");
 
-    if (aiResult) {
-      const { newsletter } = await updateSenderCategory({
-        sender: senderAddress,
-        categories,
-        categoryName: aiResult.category,
-        userId: u.id,
-      });
-
-      revalidatePath("/smart-categories");
-
-      return { categoryId: newsletter.categoryId };
-    } else {
-      console.error(`No AI result for sender: ${senderAddress}`);
-    }
-
-    return { categoryId: undefined };
+    return result;
   },
 );
+
+export async function categorizeSender(
+  senderAddress: string,
+  user: Pick<User, "id" | "email"> & UserAIFields,
+  gmail: gmail_v1.Gmail,
+  accessToken: string,
+) {
+  const categories = await getUserCategories(user.id);
+
+  if (categories.length === 0) return { categoryId: undefined };
+
+  const previousEmails = await getPreviousEmails(
+    gmail,
+    senderAddress,
+    accessToken,
+  );
+
+  const aiResult = await aiCategorizeSender({
+    user,
+    sender: senderAddress,
+    previousEmails,
+    categories,
+  });
+
+  if (aiResult) {
+    const { newsletter } = await updateSenderCategory({
+      sender: senderAddress,
+      categories,
+      categoryName: aiResult.category,
+      userId: user.id,
+    });
+
+    return { categoryId: newsletter.categoryId };
+  }
+  console.error(`No AI result for sender: ${senderAddress}`);
+
+  return { categoryId: undefined };
+}
 
 async function getPreviousEmails(
   gmail: gmail_v1.Gmail,
@@ -375,13 +396,13 @@ function preCategorizeSendersWithStaticRules(
     ];
 
     if (personalEmailDomains.some((domain) => sender.includes(`@${domain}>`)))
-      return { sender, category: senderCategory.UNKNOWN.label };
+      return { sender, category: defaultCategory.UNKNOWN.name };
 
     if (isNewsletterSender(sender))
-      return { sender, category: senderCategory.NEWSLETTER.label };
+      return { sender, category: defaultCategory.NEWSLETTER.name };
 
     if (isReceiptSender(sender))
-      return { sender, category: senderCategory.RECEIPT.label };
+      return { sender, category: defaultCategory.RECEIPT.name };
 
     return { sender, category: undefined };
   });
@@ -391,7 +412,7 @@ export const changeSenderCategoryAction = withActionInstrumentation(
   "changeSenderCategory",
   async ({ sender, categoryId }: { sender: string; categoryId: string }) => {
     const session = await auth();
-    if (!session) return { error: "Not authenticated" };
+    if (!session?.user) return { error: "Not authenticated" };
 
     const category = await prisma.category.findUnique({
       where: { id: categoryId, userId: session.user.id },
@@ -407,21 +428,22 @@ export const changeSenderCategoryAction = withActionInstrumentation(
   },
 );
 
-export const createCategoriesAction = withActionInstrumentation(
-  "createCategories",
-  async (categories: string[]) => {
+export const upsertDefaultCategoriesAction = withActionInstrumentation(
+  "upsertDefaultCategories",
+  async (categories: { id?: string; name: string; enabled: boolean }[]) => {
     const session = await auth();
-    if (!session) return { error: "Not authenticated" };
+    if (!session?.user) return { error: "Not authenticated" };
 
-    for (const category of categories) {
-      const description = Object.values(senderCategory).find(
-        (c) => c.label === category,
+    for (const { id, name, enabled } of categories) {
+      const description = Object.values(defaultCategory).find(
+        (c) => c.name === name,
       )?.description;
 
-      await createCategory(session.user.id, {
-        name: category,
-        description,
-      });
+      if (enabled) {
+        await upsertCategory(session.user.id, { name, description });
+      } else {
+        if (id) await deleteCategory(session.user.id, id);
+      }
     }
 
     revalidatePath("/smart-categories");
@@ -432,28 +454,56 @@ export const createCategoryAction = withActionInstrumentation(
   "createCategory",
   async (unsafeData: CreateCategoryBody) => {
     const session = await auth();
-    if (!session) return { error: "Not authenticated" };
+    if (!session?.user) return { error: "Not authenticated" };
 
     const { success, data, error } = createCategoryBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    await createCategory(session.user.id, data);
+    await upsertCategory(session.user.id, data);
 
     revalidatePath("/smart-categories");
   },
 );
 
-async function createCategory(userId: string, newCategory: CreateCategoryBody) {
-  try {
-    const category = await prisma.category.create({
-      data: {
-        userId,
-        name: newCategory.name,
-        description: newCategory.description,
-      },
-    });
+export const deleteCategoryAction = withActionInstrumentation(
+  "deleteCategory",
+  async (categoryId: string) => {
+    const session = await auth();
+    if (!session?.user) return { error: "Not authenticated" };
 
-    return { id: category.id };
+    await deleteCategory(session.user.id, categoryId);
+
+    revalidatePath("/smart-categories");
+  },
+);
+
+async function deleteCategory(userId: string, categoryId: string) {
+  await prisma.category.delete({ where: { id: categoryId, userId } });
+}
+
+async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
+  try {
+    if (newCategory.id) {
+      const category = await prisma.category.update({
+        where: { id: newCategory.id, userId },
+        data: {
+          name: newCategory.name,
+          description: newCategory.description,
+        },
+      });
+
+      return { id: category.id };
+    } else {
+      const category = await prisma.category.create({
+        data: {
+          userId,
+          name: newCategory.name,
+          description: newCategory.description,
+        },
+      });
+
+      return { id: category.id };
+    }
   } catch (error) {
     if (isDuplicateError(error, "name"))
       return { error: "Category with this name already exists" };
@@ -461,3 +511,18 @@ async function createCategory(userId: string, newCategory: CreateCategoryBody) {
     throw error;
   }
 }
+
+export const setAutoCategorizeAction = withActionInstrumentation(
+  "setAutoCategorize",
+  async (autoCategorizeSenders: boolean) => {
+    const session = await auth();
+    if (!session?.user) return { error: "Not authenticated" };
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { autoCategorizeSenders },
+    });
+
+    return { autoCategorizeSenders };
+  },
+);

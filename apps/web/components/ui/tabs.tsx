@@ -45,7 +45,7 @@ export function Tabs(props: {
 
       const asString = params.toString();
 
-      return pathname + (asString ? "?" + asString : "");
+      return pathname + (asString ? `?${asString}` : "");
     },
     [searchParams, props.defaultValue, pathname, searchParam],
   );

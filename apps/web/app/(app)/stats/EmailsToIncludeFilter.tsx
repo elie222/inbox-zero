@@ -40,24 +40,23 @@ export function EmailsToIncludeFilter(props: {
         {
           label: "Read",
           checked: types.read,
-          setChecked: () => setTypes({ ...types, ["read"]: !types.read }),
+          setChecked: () => setTypes({ ...types, read: !types.read }),
         },
         {
           label: "Unread",
           checked: types.unread,
-          setChecked: () => setTypes({ ...types, ["unread"]: !types.unread }),
+          setChecked: () => setTypes({ ...types, unread: !types.unread }),
         },
         {
           label: "Unarchived",
           checked: types.unarchived,
           setChecked: () =>
-            setTypes({ ...types, ["unarchived"]: !types.unarchived }),
+            setTypes({ ...types, unarchived: !types.unarchived }),
         },
         {
           label: "Archived",
           checked: types.archived,
-          setChecked: () =>
-            setTypes({ ...types, ["archived"]: !types.archived }),
+          setChecked: () => setTypes({ ...types, archived: !types.archived }),
         },
       ]}
     />

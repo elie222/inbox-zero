@@ -3,11 +3,8 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  type PostHog,
-  useFeatureFlagVariantKey,
-  usePostHog,
-} from "posthog-js/react";
+import { type PostHog, usePostHog } from "posthog-js/react";
+import type { Properties } from "posthog-js";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -18,6 +15,7 @@ import {
 } from "@/utils/actions/user";
 import { appHomePath } from "@/utils/config";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { useAppOnboardingVariant } from "@/hooks/useFeatureFlags";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -42,19 +40,19 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
 
   const name =
     questionIndex === 0
-      ? `$survey_response`
+      ? "$survey_response"
       : (`$survey_response_${questionIndex}` as const);
 
   const isFinalQuestion = questionIndex === survey.questions.length - 1;
 
   const submitPosthog = useCallback(
-    (responses: {}) => {
+    (responses: Properties) => {
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
     },
     [posthog],
   );
 
-  const variant = useFeatureFlagVariantKey("app-onboarding");
+  const variant = useAppOnboardingVariant();
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {
@@ -65,9 +63,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         setShowOtherInput(true);
         setValue(name, "");
         return;
-      } else {
-        setShowOtherInput(false);
       }
+      setShowOtherInput(false);
 
       const newSeachParams = new URLSearchParams(searchParams);
       newSeachParams.set("question", (questionIndex + 1).toString());
@@ -101,6 +98,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       router,
       searchParams,
       submitPosthog,
+      setValue,
       isFinalQuestion,
       variant,
     ],
@@ -149,7 +147,6 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
                 name={name}
                 registerProps={register(name)}
                 error={errors[name]}
-                placeholder="Role"
               />
             )}
           </div>
@@ -201,7 +198,7 @@ function SkipOnboardingButton({
   router,
 }: {
   searchParams: URLSearchParams;
-  submitPosthog: (responses: {}) => void;
+  submitPosthog: (responses: Properties) => void;
   posthog: PostHog;
   router: AppRouterInstance;
 }) {
@@ -228,11 +225,15 @@ function SkipOnboardingButton({
 }
 
 function getResponses(seachParams: URLSearchParams): Record<string, string> {
-  const responses = survey.questions.reduce((acc, _q, i) => {
-    const name =
-      i === 0 ? `$survey_response` : (`$survey_response_${i}` as const);
-    return { ...acc, [name]: seachParams.get(name) };
-  }, {});
+  const responses = survey.questions.reduce(
+    (acc, _q, i) => {
+      const name =
+        i === 0 ? "$survey_response" : (`$survey_response_${i}` as const);
+      acc[name] = seachParams.get(name) ?? "";
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
   return responses;
 }

@@ -1,117 +1,109 @@
-export const senderCategory = {
+export const defaultCategory = {
   UNKNOWN: {
-    label: "Unknown",
+    name: "Unknown",
     enabled: true,
     description:
-      "Emails that don't fit any other category or can't be classified",
+      "Senders that don't fit any other category or can't be classified",
   },
   NEWSLETTER: {
-    label: "Newsletter",
+    name: "Newsletter",
     enabled: true,
     description: "Newsletters",
   },
   MARKETING: {
-    label: "Marketing",
+    name: "Marketing",
     enabled: true,
     description:
-      "Promotional emails, sales announcements, product launches, and marketing campaigns",
+      "Promotional content,  product launches, and marketing campaigns",
   },
   RECEIPT: {
-    label: "Receipt",
+    name: "Receipt",
     enabled: true,
     description:
       "Purchase confirmations, order receipts, and payment confirmations",
   },
   BANKING: {
-    label: "Banking",
+    name: "Banking",
     enabled: true,
     description:
-      "Bank statements, account updates, fraud alerts, and financial notifications",
+      "Financial institutions, banks, and payment services that send statements and alerts",
   },
   LEGAL: {
-    label: "Legal",
+    name: "Legal",
     enabled: true,
     description:
       "Terms of service updates, legal notices, contracts, and legal communications",
   },
   SUPPORT: {
-    label: "Support",
+    name: "Support",
     enabled: true,
-    description: "Customer service responses",
+    description: "Customer service and support",
   },
   PERSONAL: {
-    label: "Personal",
+    name: "Personal",
     enabled: true,
     description: "Personal communications from friends and family",
   },
-  WORK: {
-    label: "Work",
-    enabled: true,
-    description: "Work-related communications",
-  },
   SOCIAL: {
-    label: "Social",
+    name: "Social",
     enabled: true,
-    description: "Notifications from social media platforms",
+    description: "Social media platforms and their notification systems",
   },
   TRAVEL: {
-    label: "Travel",
+    name: "Travel",
     enabled: true,
-    description:
-      "Flight itineraries, hotel reservations, and travel-related documents",
+    description: "Airlines, hotels, booking services, and travel agencies",
   },
   EVENTS: {
-    label: "Events",
+    name: "Events",
     enabled: true,
     description:
       "Event invitations, reminders, schedules, and registration information",
   },
   ACCOUNT: {
-    label: "Account",
+    name: "Account",
     enabled: true,
     description:
       "Account security notifications, password resets, and settings updates",
   },
   SHOPPING: {
-    label: "Shopping",
-    enabled: true,
+    name: "Shopping",
+    enabled: false,
     description:
       "Shopping updates, wishlist notifications, shipping updates, and retail communications",
   },
-  EDUCATIONAL: {
-    label: "Educational",
+  WORK: {
+    name: "Work",
     enabled: false,
-    description: "Courses and educational resources",
+    description:
+      "Professional contacts, colleagues, and work-related communications",
+  },
+  EDUCATIONAL: {
+    name: "Educational",
+    enabled: false,
+    description:
+      "Educational institutions, online learning platforms, and course providers",
   },
   HEALTH: {
-    label: "Health",
+    name: "Health",
     enabled: false,
     description:
-      "Medical appointments, lab results, prescriptions, and health-related notifications",
+      "Healthcare providers, medical offices, and health service platforms",
   },
   GOVERNMENT: {
-    label: "Government",
+    name: "Government",
     enabled: false,
     description:
-      "Tax information, voter registration, government surveys, and official communications",
+      "Government agencies, departments, and official communication channels",
   },
   ENTERTAINMENT: {
-    label: "Entertainment",
+    name: "Entertainment",
     enabled: false,
     description:
-      "Updates from streaming services, gaming platforms, and entertainment providers",
+      "Streaming services, gaming platforms, and entertainment providers",
   },
 } as const;
 
-export type SenderCategoryKey = keyof typeof senderCategory;
-export type SenderCategoryValue = (typeof senderCategory)[SenderCategoryKey];
-export type SenderCategory = SenderCategoryValue["label"];
-
-export const getEnabledCategories = () => {
-  return Object.entries(senderCategory)
-    .filter(([_, value]) => value.enabled)
-    .map(([key, value]) => ({
-      key,
-      ...value,
-    }));
-};
+export type SenderCategoryKey = keyof typeof defaultCategory;
+export type SenderCategoryValue = (typeof defaultCategory)[SenderCategoryKey];
+export type SenderCategory = SenderCategoryValue["name"];

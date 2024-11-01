@@ -71,7 +71,7 @@ export async function getThreadsFromSender(
     threadId?: string | null;
   }>
 > {
-  const query = `from:${sender}`;
+  const query = `from:${sender} -label:sent`;
   const response = await gmail.users.messages.list({
     userId: "me",
     q: query,

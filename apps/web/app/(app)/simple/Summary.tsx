@@ -19,6 +19,7 @@ export function Summary({
     body: { textHtml, textPlain },
   });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: textPlain triggers summary update
   useEffect(() => {
     // we send the data via the body instead
     complete("");

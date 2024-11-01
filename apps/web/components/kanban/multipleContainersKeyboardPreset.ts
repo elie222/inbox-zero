@@ -26,7 +26,7 @@ export const coordinateGetter: KeyboardCoordinateGetter = (
 
     const filteredContainers: DroppableContainer[] = [];
 
-    droppableContainers.getEnabled().forEach((entry) => {
+    for (const entry of droppableContainers.getEnabled()) {
       if (!entry || entry?.disabled) {
         return;
       }
@@ -81,7 +81,7 @@ export const coordinateGetter: KeyboardCoordinateGetter = (
           }
           break;
       }
-    });
+    }
     const collisions = closestCorners({
       active,
       collisionRect: collisionRect,

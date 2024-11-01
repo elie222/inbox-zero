@@ -36,13 +36,14 @@ export async function getThreads(query: ThreadsQuery) {
   function getQuery() {
     if (query.q) {
       return query.q;
-    } else if (query.fromEmail) {
-      return `from:${query.fromEmail}`;
-    } else if (query.type === "archive") {
-      return `-label:${INBOX_LABEL_ID}`;
-    } else {
-      return undefined;
     }
+    if (query.fromEmail) {
+      return `from:${query.fromEmail}`;
+    }
+    if (query.type === "archive") {
+      return `-label:${INBOX_LABEL_ID}`;
+    }
+    return undefined;
   }
 
   const gmailThreads = await gmail.users.threads.list({

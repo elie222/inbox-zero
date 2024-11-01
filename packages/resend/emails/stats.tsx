@@ -62,7 +62,7 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
             <Section className="mt-8">
               <Link href={baseUrl} className="text-[15px]">
                 <Img
-                  src={`https://www.getinboxzero.com/icon.png`}
+                  src={"https://www.getinboxzero.com/icon.png"}
                   width="40"
                   height="40"
                   alt="Inbox Zero"
@@ -72,7 +72,7 @@ export default function StatsUpdateEmail(props: StatsUpdateEmailProps) {
             </Section>
 
             <Section>
-              <Heading className="text-black text-[24px] font-normal text-center p-0 my-[30px] mx-0 text-center">
+              <Heading className="text-black text-[24px] font-normal text-center p-0 my-[30px] mx-0">
                 Your weekly email stats from Inbox Zero
               </Heading>
 

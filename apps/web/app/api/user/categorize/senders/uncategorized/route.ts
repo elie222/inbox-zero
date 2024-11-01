@@ -68,7 +68,7 @@ export const GET = withError(async (request: Request) => {
     return NextResponse.json({ error: "No access token" });
 
   const url = new URL(request.url);
-  const offset = parseInt(url.searchParams.get("offset") || "0");
+  const offset = Number.parseInt(url.searchParams.get("offset") || "0");
 
   const result = await getUncategorizedSenders({
     email: user.email,

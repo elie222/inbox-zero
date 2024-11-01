@@ -10,7 +10,10 @@ import {
   SENT_LABEL_ID,
 } from "@/utils/gmail/label";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
-import { getMessage, hasPreviousEmailsFromDomain } from "@/utils/gmail/message";
+import {
+  getMessage,
+  hasPreviousEmailsFromSenderOrDomain,
+} from "@/utils/gmail/message";
 import { getThread } from "@/utils/gmail/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
@@ -19,6 +22,7 @@ import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
+import { categorizeSender } from "@/utils/actions/categorize";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -58,6 +62,7 @@ export async function processHistoryForUser(
               aiAutomationAccess: true,
             },
           },
+          autoCategorizeSenders: true,
         },
       },
     },
@@ -157,6 +162,7 @@ export async function processHistoryForUser(
         history: history.data.history,
         email,
         gmail,
+        accessToken: account.access_token,
         hasAutomationRules,
         rules: account.user.rules,
         hasColdEmailAccess: userHasColdEmailAccess,
@@ -170,6 +176,7 @@ export async function processHistoryForUser(
           aiApiKey: account.user.aiApiKey,
           coldEmailPrompt: account.user.coldEmailPrompt,
           coldEmailBlocker: account.user.coldEmailBlocker,
+          autoCategorizeSenders: account.user.autoCategorizeSenders,
         },
       });
     } else {
@@ -200,13 +207,19 @@ type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];
   email: string;
   gmail: gmail_v1.Gmail;
+  accessToken: string;
   rules: RuleWithActionsAndCategories[];
   hasAutomationRules: boolean;
   hasColdEmailAccess: boolean;
   hasAiAutomationAccess: boolean;
   user: Pick<
     User,
-    "id" | "email" | "about" | "coldEmailPrompt" | "coldEmailBlocker"
+    | "id"
+    | "email"
+    | "about"
+    | "coldEmailPrompt"
+    | "coldEmailBlocker"
+    | "autoCategorizeSenders"
   > &
     UserAIFields;
 };
@@ -258,6 +271,7 @@ async function processHistoryItem(
   m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
+    accessToken,
     user,
     hasColdEmailAccess,
     hasAutomationRules,
@@ -313,18 +327,6 @@ async function processHistoryItem(
 
     const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
 
-    if (hasAutomationRules && hasAiAutomationAccess) {
-      console.log("Running rules...");
-
-      await runRulesOnMessage({
-        gmail,
-        message,
-        rules,
-        user,
-        isThread,
-      });
-    }
-
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       user.coldEmailBlocker,
       hasColdEmailAccess,
@@ -334,11 +336,14 @@ async function processHistoryItem(
     if (shouldRunBlocker) {
       console.log("Running cold email blocker...");
 
-      const hasPreviousEmail = await hasPreviousEmailsFromDomain(gmail, {
-        from: message.headers.from,
-        date: message.headers.date,
-        threadId,
-      });
+      const hasPreviousEmail = await hasPreviousEmailsFromSenderOrDomain(
+        gmail,
+        {
+          from: message.headers.from,
+          date: message.headers.date,
+          threadId,
+        },
+      );
 
       const content = emailToContent({
         textHtml: message.textHtml || null,
@@ -357,6 +362,31 @@ async function processHistoryItem(
         },
         gmail,
         user,
+      });
+    }
+
+    // categorize a sender if we haven't already
+    // this is used for category filters in ai rules
+    if (user.autoCategorizeSenders) {
+      const sender = message.headers.from;
+      const existingSender = await prisma.newsletter.findUnique({
+        where: { email_userId: { email: sender, userId: user.id } },
+        select: { category: true },
+      });
+      if (!existingSender?.category) {
+        await categorizeSender(sender, user, gmail, accessToken);
+      }
+    }
+
+    if (hasAutomationRules && hasAiAutomationAccess) {
+      console.log("Running rules...");
+
+      await runRulesOnMessage({
+        gmail,
+        message,
+        rules,
+        user,
+        isThread,
       });
     }
   } catch (error: any) {

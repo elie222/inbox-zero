@@ -89,8 +89,8 @@ export interface ParsedMessageHeaders {
   to: string;
   cc?: string;
   date: string;
-  ["message-id"]?: string;
-  ["reply-to"]?: string;
+  "message-id"?: string;
+  "reply-to"?: string;
   references?: string;
-  ["list-unsubscribe"]?: string;
+  "list-unsubscribe"?: string;
 }

@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import { HelpCircleIcon, PlusIcon } from "lucide-react";
+import { ExternalLinkIcon, PlusIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -36,7 +36,6 @@ import {
 import { actionInputs } from "@/utils/actionType";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
-import { Tooltip } from "@/components/Tooltip";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
@@ -53,7 +52,8 @@ import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
-import { senderCategory } from "@/utils/categories";
+import { useCategories } from "@/hooks/useCategories";
+import { useSmartCategoriesEnabled } from "@/hooks/useFeatureFlags";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -65,15 +65,17 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     formState: { errors, isSubmitting },
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
-    defaultValues: {
-      ...rule,
-    },
+    defaultValues: rule,
   });
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, data: gmailLabelsData, isLoading, mutate } = useLabels();
-
+  const {
+    categories,
+    isLoading: categoriesLoading,
+    error: categoriesError,
+  } = useCategories();
   const router = useRouter();
 
   const posthog = usePostHog();
@@ -102,17 +104,17 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           toastError({ description: res.error });
         } else if (!res.rule) {
           toastError({
-            description: `There was an error updating the rule.`,
+            description: "There was an error updating the rule.",
           });
         } else {
-          toastSuccess({ description: `Saved!` });
+          toastSuccess({ description: "Saved!" });
           posthog.capture("User updated AI rule", {
             ruleType: body.type,
             actions: body.actions.map((action) => action.type),
             automate: body.automate,
             runOnThreads: body.runOnThreads,
           });
-          router.push(`/automation?tab=rules`);
+          router.push("/automation?tab=rules");
         }
       } else {
         const res = await createRuleAction(body);
@@ -122,10 +124,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           toastError({ description: res.error });
         } else if (!res.rule) {
           toastError({
-            description: `There was an error creating the rule.`,
+            description: "There was an error creating the rule.",
           });
         } else {
-          toastSuccess({ description: `Created!` });
+          toastSuccess({ description: "Created!" });
           posthog.capture("User created AI rule", {
             ruleType: body.type,
             actions: body.actions.map((action) => action.type),
@@ -133,12 +135,14 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             runOnThreads: body.runOnThreads,
           });
           router.replace(`/automation/rule/${res.rule.id}`);
-          router.push(`/automation?tab=rules`);
+          router.push("/automation?tab=rules");
         }
       }
     },
-    [gmailLabelsData?.labels, rule.type, router],
+    [gmailLabelsData?.labels, router, posthog],
   );
+
+  const showSmartCategories = useSmartCategoriesEnabled();
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -183,38 +187,51 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             tooltipText="The instructions that will be passed to the AI."
           />
 
-          <div className="space-y-2">
-            <div className="w-fit">
-              <Select
-                name="categoryFilterType"
-                label="Only apply rule to emails from these categories"
-                tooltipText="This helps the AI be more accurate and produce better results."
-                options={[
-                  { label: "Include", value: CategoryFilterType.INCLUDE },
-                  { label: "Exclude", value: CategoryFilterType.EXCLUDE },
-                ]}
-                registerProps={register("categoryFilterType")}
-                error={errors.categoryFilterType}
-              />
-            </div>
+          {showSmartCategories && (
+            <div className="space-y-2">
+              <div className="w-fit">
+                <Select
+                  name="categoryFilterType"
+                  label="Optional: Only apply rule to emails from these categories"
+                  tooltipText="This helps the AI be more accurate and produce better results."
+                  options={[
+                    { label: "Include", value: CategoryFilterType.INCLUDE },
+                    { label: "Exclude", value: CategoryFilterType.EXCLUDE },
+                  ]}
+                  registerProps={register("categoryFilterType")}
+                  error={errors.categoryFilterType}
+                />
+              </div>
 
-            <MultiSelectFilter
-              title="Categories"
-              maxDisplayedValues={8}
-              // TODO: load sender categories from backend
-              options={Object.values(senderCategory).map((category) => ({
-                label: capitalCase(category.label),
-                value: category.label,
-              }))}
-              selectedValues={new Set(watch("categoryFilters"))}
-              setSelectedValues={(selectedValues) => {
-                setValue("categoryFilters", Array.from(selectedValues));
-              }}
-            />
-            {errors.categoryFilters?.message && (
-              <ErrorMessage message={errors.categoryFilters.message} />
-            )}
-          </div>
+              <LoadingContent
+                loading={categoriesLoading}
+                error={categoriesError}
+              >
+                <MultiSelectFilter
+                  title="Categories"
+                  maxDisplayedValues={8}
+                  options={categories.map((category) => ({
+                    label: capitalCase(category.name),
+                    value: category.id,
+                  }))}
+                  selectedValues={new Set(watch("categoryFilters"))}
+                  setSelectedValues={(selectedValues) => {
+                    setValue("categoryFilters", Array.from(selectedValues));
+                  }}
+                />
+                {errors.categoryFilters?.message && (
+                  <ErrorMessage message={errors.categoryFilters.message} />
+                )}
+              </LoadingContent>
+
+              <Button asChild variant="ghost" size="sm" className="ml-2">
+                <Link href="/smart-categories/setup" target="_blank">
+                  Create new category
+                  <ExternalLinkIcon className="ml-1.5 size-4" />
+                </Link>
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -275,9 +292,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       value: action,
                     }))}
                     registerProps={register(`actions.${i}.type`)}
-                    error={
-                      errors["actions"]?.[i]?.["type"] as FieldError | undefined
-                    }
+                    error={errors.actions?.[i]?.type as FieldError | undefined}
                   />
 
                   <Button
@@ -350,10 +365,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           />
                         )}
 
-                        {errors["actions"]?.[i]?.[field.name]?.message ? (
+                        {errors.actions?.[i]?.[field.name]?.message ? (
                           <ErrorMessage
                             message={
-                              errors["actions"]?.[i]?.[field.name]?.message!
+                              errors.actions?.[i]?.[field.name]?.message!
                             }
                           />
                         ) : null}
@@ -380,9 +395,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first.">
-          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
-        </Tooltip>
+        <TooltipExplanation
+          size="md"
+          text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
+        />
 
         <Toggle
           name="automate"
@@ -395,9 +411,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <Tooltip content="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation.">
-          <HelpCircleIcon className="h-5 w-5 cursor-pointer" />
-        </Tooltip>
+        <TooltipExplanation
+          size="md"
+          text="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation."
+        />
 
         <Toggle
           name="runOnThreads"
@@ -445,7 +462,7 @@ function GroupsTab(props: {
 }) {
   const { setValue } = props;
   const { data, isLoading, error, mutate } =
-    useSWR<GroupsResponse>(`/api/user/group`);
+    useSWR<GroupsResponse>("/api/user/group");
   const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
 
   useEffect(() => {
@@ -499,7 +516,7 @@ function GroupsTab(props: {
                   value: group.id,
                 }))}
                 registerProps={props.registerProps}
-                error={props.errors["groupId"]}
+                error={props.errors.groupId}
               />
             </div>
           )}

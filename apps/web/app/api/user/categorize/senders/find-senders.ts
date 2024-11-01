@@ -20,10 +20,10 @@ export async function findSendersWithPagination(
       nextPageToken,
     );
 
-    Object.entries(senders).forEach(([sender, messages]) => {
+    for (const [sender, messages] of Object.entries(senders)) {
       const existingMessages = allSenders.get(sender) ?? [];
       allSenders.set(sender, [...existingMessages, ...messages]);
-    });
+    }
 
     if (!newNextPageToken) break; // No more pages
 
@@ -43,7 +43,7 @@ export async function findSenders(
   const senders: SenderMap = new Map();
 
   const { threads, nextPageToken } = await getThreadsWithNextPageToken({
-    q: `-in:sent`,
+    q: "-in:sent",
     gmail,
     maxResults,
     pageToken,

@@ -92,7 +92,7 @@ export function withError<
       }
 
       if (isErrorWithConfigAndHeaders(error)) {
-        delete error.config.headers;
+        error.config.headers = undefined;
       }
 
       if (error instanceof SafeError) {
