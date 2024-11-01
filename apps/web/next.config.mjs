@@ -149,11 +149,7 @@ const nextConfig = {
       {
         source: "/ingest/:path*",
         destination: "https://app.posthog.com/:path*",
-      },
-      {
-        source: "/site_app/:path*",
-        destination: "https://app.posthog.com/site_app/:path*",
-      },
+      }
     ];
   },
   async headers() {
