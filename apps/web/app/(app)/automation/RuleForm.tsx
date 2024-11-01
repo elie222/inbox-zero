@@ -65,9 +65,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     formState: { errors, isSubmitting },
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
-    defaultValues: {
-      ...rule,
-    },
+    defaultValues: rule,
   });
 
   const { append, remove } = useFieldArray({ control, name: "actions" });
