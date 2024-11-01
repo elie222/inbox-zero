@@ -28,6 +28,8 @@ async function saveAISettings(options: SaveSettingsBody) {
         }
         // use bedrock if no api key set
         return Model.CLAUDE_3_5_SONNET_BEDROCK;
+      case Provider.GROQ:
+        return Model.LLAMA_3_70B_GROQ;
       default:
         throw new Error("Invalid AI provider");
     }

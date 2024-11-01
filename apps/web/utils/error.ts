@@ -101,7 +101,27 @@ export function isOpenAIRetryError(error: unknown): boolean {
   );
 }
 
-// we don't want to capture these errors in Sentry
+export function isGroqInvalidApiKeyError(error: APICallError): boolean {
+  return (
+    error.message.includes("Invalid API key") ||
+    error.message.includes("Authentication failed")
+  );
+}
+
+export function isGroqRateLimitError(error: APICallError): boolean {
+  return (
+    error.message.includes("Rate limit exceeded") ||
+    error.message.includes("Too many requests")
+  );
+}
+
+export function isGroqQuotaExceededError(error: APICallError): boolean {
+  return (
+    error.message.includes("Quota exceeded") ||
+    error.message.includes("Usage limit exceeded")
+  );
+}
+
 export function isKnownApiError(error: unknown): boolean {
   return (
     isGmailInsufficientPermissionsError(error) ||
@@ -113,6 +133,9 @@ export function isKnownApiError(error: unknown): boolean {
         isInvalidOpenAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
         isOpenAIRetryError(error) ||
-        isAnthropicInsufficientBalanceError(error)))
+        isAnthropicInsufficientBalanceError(error) ||
+        isGroqInvalidApiKeyError(error) ||
+        isGroqRateLimitError(error) ||
+        isGroqQuotaExceededError(error)))
   );
 }

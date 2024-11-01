@@ -8,6 +8,7 @@ import {
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGroq } from "@ai-sdk/groq";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -23,7 +24,7 @@ import {
 } from "@/utils/error";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
-  const provider = aiProvider || Provider.ANTHROPIC;
+  const provider = aiProvider || Provider.GROQ;
 
   if (provider === Provider.OPEN_AI) {
     const model = aiModel || Model.GPT_4O;
@@ -62,6 +63,15 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
           },
         },
       })(model),
+    };
+  }
+
+  if (provider === Provider.GROQ) {
+    const model = aiModel || Model.LLAMA_3_70B_GROQ;
+    return {
+      provider: Provider.GROQ,
+      model,
+      llmModel: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(model),
     };
   }
 
