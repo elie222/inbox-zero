@@ -53,6 +53,7 @@ import { createLabelAction } from "@/utils/actions/mail";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
+import { useSmartCategoriesEnabled } from "@/hooks/useFeatureFlags";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -143,6 +144,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     [gmailLabelsData?.labels, router, posthog],
   );
 
+  const showSmartCategories = useSmartCategoriesEnabled();
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mt-4">
@@ -186,39 +189,44 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             tooltipText="The instructions that will be passed to the AI."
           />
 
-          <div className="space-y-2">
-            <div className="w-fit">
-              <Select
-                name="categoryFilterType"
-                label="Only apply rule to emails from these categories"
-                tooltipText="This helps the AI be more accurate and produce better results."
-                options={[
-                  { label: "Include", value: CategoryFilterType.INCLUDE },
-                  { label: "Exclude", value: CategoryFilterType.EXCLUDE },
-                ]}
-                registerProps={register("categoryFilterType")}
-                error={errors.categoryFilterType}
-              />
-            </div>
+          {showSmartCategories && (
+            <div className="space-y-2">
+              <div className="w-fit">
+                <Select
+                  name="categoryFilterType"
+                  label="Only apply rule to emails from these categories"
+                  tooltipText="This helps the AI be more accurate and produce better results."
+                  options={[
+                    { label: "Include", value: CategoryFilterType.INCLUDE },
+                    { label: "Exclude", value: CategoryFilterType.EXCLUDE },
+                  ]}
+                  registerProps={register("categoryFilterType")}
+                  error={errors.categoryFilterType}
+                />
+              </div>
 
-            <LoadingContent loading={categoriesLoading} error={categoriesError}>
-              <MultiSelectFilter
-                title="Categories"
-                maxDisplayedValues={8}
-                options={categories.map((category) => ({
-                  label: capitalCase(category.name),
-                  value: category.id,
-                }))}
-                selectedValues={new Set(watch("categoryFilters"))}
-                setSelectedValues={(selectedValues) => {
-                  setValue("categoryFilters", Array.from(selectedValues));
-                }}
-              />
-              {errors.categoryFilters?.message && (
-                <ErrorMessage message={errors.categoryFilters.message} />
-              )}
-            </LoadingContent>
-          </div>
+              <LoadingContent
+                loading={categoriesLoading}
+                error={categoriesError}
+              >
+                <MultiSelectFilter
+                  title="Categories"
+                  maxDisplayedValues={8}
+                  options={categories.map((category) => ({
+                    label: capitalCase(category.name),
+                    value: category.id,
+                  }))}
+                  selectedValues={new Set(watch("categoryFilters"))}
+                  setSelectedValues={(selectedValues) => {
+                    setValue("categoryFilters", Array.from(selectedValues));
+                  }}
+                />
+                {errors.categoryFilters?.message && (
+                  <ErrorMessage message={errors.categoryFilters.message} />
+                )}
+              </LoadingContent>
+            </div>
+          )}
         </div>
       )}
 

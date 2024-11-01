@@ -33,11 +33,11 @@ import {
   Users2Icon,
   XIcon,
 } from "lucide-react";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { env } from "@/env";
+import { useSmartCategoriesEnabled } from "@/hooks/useFeatureFlags";
 
 type NavItem = {
   name: string;
@@ -87,7 +87,7 @@ const navigationItems: NavItem[] = [
 ];
 
 export const useNavigation = () => {
-  const showSmartCategories = useFeatureFlagEnabled("smart-categories");
+  const showSmartCategories = useSmartCategoriesEnabled();
 
   return navigationItems.filter((item) =>
     item.href === "/smart-categories" ? showSmartCategories : true,
