@@ -12,21 +12,21 @@
   },
   "devDependencies": {
     "@types/dotenv": "^8.2.3",
-    "@types/node": "22.7.9",
-    "playwright": "^1.48.1",
-    "tsx": "^4.19.1",
+    "@types/node": "22.8.6",
+    "playwright": "^1.48.2",
+    "tsx": "^4.19.2",
     "typescript": "5.6.3"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^0.0.30",
-    "@ai-sdk/anthropic": "^0.0.51",
-    "@ai-sdk/google": "^0.0.52",
-    "@ai-sdk/openai": "^0.0.68",
+    "@ai-sdk/amazon-bedrock": "^0.0.34",
+    "@ai-sdk/anthropic": "^0.0.53",
+    "@ai-sdk/google": "^0.0.55",
+    "@ai-sdk/openai": "^0.0.71",
     "@fastify/cors": "^10.0.1",
     "@t3-oss/env-core": "^0.11.1",
-    "ai": "^3.4.18",
+    "ai": "^3.4.31",
     "dotenv": "^16.4.5",
-    "fastify": "^5.0.0",
+    "fastify": "^5.1.0",
     "zod": "^3.23.8"
   }
 }
