@@ -96,6 +96,35 @@ export function isOpenAIRetryError(error: unknown): boolean {
   );
 }
 
+export function isOllamaInvalidApiKeyError(error: APICallError): boolean {
+  return (
+    error.message.includes("Invalid API key") ||
+    error.message.includes("Authentication failed")
+  );
+}
+
+export function isOllamaRateLimitError(error: APICallError): boolean {
+  return (
+    error.message.includes("Rate limit exceeded") ||
+    error.message.includes("Too many requests")
+  );
+}
+
+export function isOllamaQuotaExceededError(error: APICallError): boolean {
+  return (
+    error.message.includes("Quota exceeded") ||
+    error.message.includes("Usage limit exceeded")
+  );
+}
+
+function isKnownOllamaError(error: APICallError): boolean {
+  return (
+    isOllamaInvalidApiKeyError(error) ||
+    isOllamaRateLimitError(error) ||
+    isOllamaQuotaExceededError(error)
+  );
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
@@ -108,6 +137,7 @@ export function isKnownApiError(error: unknown): boolean {
         isInvalidOpenAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
         isOpenAIRetryError(error) ||
-        isAnthropicInsufficientBalanceError(error)))
+        isAnthropicInsufficientBalanceError(error) ||
+        isKnownOllamaError(error)))
   );
 }
