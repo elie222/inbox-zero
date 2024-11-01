@@ -6,15 +6,15 @@
     "dev": "email dev --port 3010"
   },
   "dependencies": {
-    "@react-email/components": "^0.0.25",
-    "nanoid": "^5.0.7",
+    "@react-email/components": "^0.0.26",
+    "nanoid": "^5.0.8",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-email": "3.0.1",
+    "react-email": "3.0.2",
     "resend": "^4.0.0"
   },
   "devDependencies": {
-    "@types/node": "22.7.9",
+    "@types/node": "22.8.6",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "tsconfig": "workspace:*",
