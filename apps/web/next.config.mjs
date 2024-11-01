@@ -155,23 +155,8 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // To prevent the "strict MIME type checking" error from breaking PostHog Early Access and Vercel Speed Insights
-        source: "/(site_app|_vercel)/:path*",
-        headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "none",
-          },
-        ],
-      },
-      {
-        // Keep security headers for all other routes
         source: "/(.*)",
         headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
           {
             key: "X-Frame-Options",
             value: "DENY",
