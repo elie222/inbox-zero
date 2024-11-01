@@ -3,11 +3,7 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  type PostHog,
-  useFeatureFlagVariantKey,
-  usePostHog,
-} from "posthog-js/react";
+import { type PostHog, usePostHog } from "posthog-js/react";
 import type { Properties } from "posthog-js";
 import { survey } from "@/app/(landing)/welcome/survey";
 import { Button } from "@/components/ui/button";
@@ -19,6 +15,7 @@ import {
 } from "@/utils/actions/user";
 import { appHomePath } from "@/utils/config";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { useAppOnboardingVariant } from "@/hooks/useFeatureFlags";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -55,7 +52,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
     [posthog],
   );
 
-  const variant = useFeatureFlagVariantKey("app-onboarding");
+  const variant = useAppOnboardingVariant();
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {

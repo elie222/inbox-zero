@@ -1,5 +1,16 @@
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import {
+  useFeatureFlagEnabled,
+  useFeatureFlagVariantKey,
+} from "posthog-js/react";
 
 export function useSmartCategoriesEnabled() {
   return useFeatureFlagEnabled("smart-categories");
+}
+
+export function useLandingPageVariant() {
+  return useFeatureFlagVariantKey("landing-page-features");
+}
+
+export function useAppOnboardingVariant() {
+  return useFeatureFlagVariantKey("app-onboarding");
 }
