@@ -38,6 +38,9 @@ import {
   useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
 import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
+import { MessageText } from "@/components/Typography";
+
+const COLUMNS = 4;
 
 type EmailGroup = {
   address: string;
@@ -325,6 +328,16 @@ function SenderRows({
   table: ReturnType<typeof useReactTable<EmailGroup>>;
   senders: EmailGroup[];
 }) {
+  if (!senders.length) {
+    return (
+      <TableRow>
+        <TableCell colSpan={COLUMNS}>
+          <MessageText>This category is empty</MessageText>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   return senders.map((sender) => {
     const row = table
       .getRowModel()
@@ -361,7 +374,7 @@ function ExpandedRows({ sender }: { sender: string }) {
   if (isLoading) {
     return (
       <TableRow>
-        <TableCell colSpan={4}>
+        <TableCell colSpan={COLUMNS}>
           <Skeleton className="h-10 w-full" />
         </TableCell>
       </TableRow>
@@ -371,7 +384,7 @@ function ExpandedRows({ sender }: { sender: string }) {
   if (error) {
     return (
       <TableRow>
-        <TableCell colSpan={4}>Error loading emails</TableCell>
+        <TableCell colSpan={COLUMNS}>Error loading emails</TableCell>
       </TableRow>
     );
   }
@@ -379,7 +392,7 @@ function ExpandedRows({ sender }: { sender: string }) {
   if (!data?.threads.length) {
     return (
       <TableRow>
-        <TableCell colSpan={4}>No emails found</TableCell>
+        <TableCell colSpan={COLUMNS}>No emails found</TableCell>
       </TableRow>
     );
   }
