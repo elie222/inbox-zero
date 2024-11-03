@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
+import {
+  aiCategorizeSenders,
+  REQUEST_MORE_INFORMATION_CATEGORY,
+} from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { defaultCategory } from "@/utils/categories";
 
 vi.mock("server-only", () => ({}));
@@ -41,18 +44,20 @@ describe("aiCategorizeSenders", () => {
     const newsletterResult = result.find(
       (r) => r.sender === "newsletter@company.com",
     );
-    expect(newsletterResult?.category).toBe("newsletter");
+    expect(newsletterResult?.category).toBe("Newsletter");
 
     const supportResult = result.find(
       (r) => r.sender === "support@service.com",
     );
-    expect(supportResult?.category).toBe("support");
+    expect(supportResult?.category).toBe("Support");
 
-    // The unknown sender might be categorized as "RequestMoreInformation"
+    // The unknown sender might be categorized as "Unknown"
     const unknownResult = result.find(
       (r) => r.sender === "unknown@example.com",
     );
-    expect(unknownResult?.category).toBe("RequestMoreInformation");
+    expect([REQUEST_MORE_INFORMATION_CATEGORY, "Unknown"]).toContain(
+      unknownResult?.category,
+    );
   }, 15_000); // Increased timeout for AI call
 
   it("should handle empty senders list", async () => {

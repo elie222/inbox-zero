@@ -19,7 +19,10 @@ import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { truncate } from "@/utils/string";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
-import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
+import {
+  aiCategorizeSenders,
+  REQUEST_MORE_INFORMATION_CATEGORY,
+} from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { findSenders } from "@/app/api/user/categorize/senders/find-senders";
 import { defaultCategory, type SenderCategory } from "@/utils/categories";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
@@ -195,7 +198,7 @@ export const categorizeSendersAction = withActionInstrumentation(
       (r) =>
         !r.category ||
         r.category === defaultCategory.UNKNOWN.name ||
-        r.category === "RequestMoreInformation",
+        r.category === REQUEST_MORE_INFORMATION_CATEGORY,
     );
 
     console.log(

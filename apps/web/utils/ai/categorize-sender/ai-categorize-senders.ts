@@ -5,10 +5,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import type { Category, User } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
-// const categories = [
-//   ...Object.values(SenderCategory).filter((c) => c !== "Unknown"),
-//   "RequestMoreInformation",
-// ];
+export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
 
 const categorizeSendersSchema = z.object({
   senders: z.array(
@@ -61,11 +58,10 @@ ${formatCategoriesForPrompt(categories)}
 Instructions:
 1. Analyze each sender's name and email address for clues about their category.
 2. If the sender's category is clear, assign it confidently.
-3. If you're unsure or if multiple categories could apply, respond with "RequestMoreInformation".
-4. If requesting more information, use "RequestMoreInformation" as the value.
-5. For individual senders, you'll want to "RequestMoreInformation". For example, rachel.smith@company.com, we don't know if their a customer, or sending us marketing, or something else.
+3. If you're unsure or if multiple categories could apply, respond with "Unknown".
+4. To request more information, respond with "${REQUEST_MORE_INFORMATION_CATEGORY}".
 
-Remember, it's better to request more information than to categorize incorrectly.`;
+Remember, it's better to respond with "Unknown" than to categorize incorrectly.`;
 
   const aiResponse = await chatCompletionObject({
     userAi: user,
