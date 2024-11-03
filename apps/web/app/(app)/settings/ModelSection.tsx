@@ -18,7 +18,7 @@ import {
 import type { SaveSettingsResponse } from "@/app/api/user/settings/route";
 import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
-import { AlertError } from "@/components/Alert";
+import { AlertBasic, AlertError } from "@/components/Alert";
 import { modelOptions, Provider, providerOptions } from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
 
@@ -112,6 +112,14 @@ function ModelSectionForm(props: {
 
   const globalError = (errors as any)[""];
 
+  const modelSelectOptions =
+    aiProvider === Provider.OPEN_AI && watch("aiApiKey")
+      ? props.models?.map((m) => ({
+          label: m.id,
+          value: m.id,
+        })) || []
+      : modelOptions[aiProvider ?? Provider.ANTHROPIC];
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Select
@@ -125,14 +133,7 @@ function ModelSectionForm(props: {
       <Select
         name="aiModel"
         label="Model"
-        options={
-          aiProvider === Provider.OPEN_AI && watch("aiApiKey")
-            ? props.models?.map((m) => ({
-                label: m.id,
-                value: m.id,
-              })) || []
-            : modelOptions[aiProvider ?? Provider.ANTHROPIC]
-        }
+        options={modelSelectOptions}
         registerProps={register("aiModel")}
         error={errors.aiModel}
       />
@@ -148,6 +149,21 @@ function ModelSectionForm(props: {
       {globalError && (
         <AlertError title="Error saving" description={globalError.message} />
       )}
+
+      {watch("aiProvider") === Provider.OPEN_AI &&
+        watch("aiApiKey") &&
+        modelSelectOptions.length === 0 &&
+        (props.aiApiKey ? (
+          <AlertError
+            title="Invalid API Key"
+            description="We couldn't validate your API key. Please try again."
+          />
+        ) : (
+          <AlertBasic
+            title="API Key"
+            description="Click Save to view available models for your API key."
+          />
+        ))}
 
       <Button type="submit" loading={isSubmitting}>
         Save
