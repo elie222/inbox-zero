@@ -13,8 +13,8 @@ export const Model = {
 } as const;
 
 export const providerOptions = [
-  { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Anthropic", value: Provider.ANTHROPIC },
+  { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Groq", value: Provider.GROQ },
 ];
 
