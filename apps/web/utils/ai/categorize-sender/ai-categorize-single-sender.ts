@@ -36,6 +36,7 @@ Previous emails from this sender:
 
 <previous_emails>
 ${previousEmails
+  .slice(0, 3)
   .map(
     (email, index) => `
 <email_snippet ${index + 1}>

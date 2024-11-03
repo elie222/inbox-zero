@@ -163,7 +163,8 @@ export const categorizeSendersAction = withActionInstrumentation(
       user,
       senders: sendersToCategorizeWithAi.map((sender) => ({
         emailAddress: sender,
-        snippet: sendersResult.senders.get(sender)?.[0]?.snippet || "",
+        snippets:
+          sendersResult.senders.get(sender)?.map((m) => m.snippet) || [],
       })),
       categories,
     });

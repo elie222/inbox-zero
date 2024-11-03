@@ -23,7 +23,7 @@ export async function aiCategorizeSenders({
   categories,
 }: {
   user: Pick<User, "email"> & UserAIFields;
-  senders: { emailAddress: string; snippet: string }[];
+  senders: { emailAddress: string; snippets: string[] }[];
   categories: Pick<Category, "name" | "description">[];
 }): Promise<
   {
@@ -42,10 +42,10 @@ Provide accurate categorizations to help users efficiently manage their inbox.`;
 <senders>
 ${senders
   .map(
-    ({ emailAddress, snippet }) => `
+    ({ emailAddress, snippets }) => `
 <sender>
   <email>${emailAddress}</email>
-  <snippet>${snippet}</snippet>
+  <snippets>${snippets.map((s) => `* ${s}`).join("\n")}</snippets>
 </sender>`,
   )
   .join("\n")}

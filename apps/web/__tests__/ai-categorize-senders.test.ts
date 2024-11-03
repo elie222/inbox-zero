@@ -19,27 +19,27 @@ const testUser = {
 const testSenders = [
   {
     emailAddress: "newsletter@company.com",
-    snippet: "Latest updates and news from our company",
+    snippets: ["Latest updates and news from our company"],
     expectedCategory: "Newsletter",
   },
   {
     emailAddress: "support@service.com",
-    snippet: "Your ticket #1234 has been updated",
+    snippets: ["Your ticket #1234 has been updated"],
     expectedCategory: "Support",
   },
   {
     emailAddress: "unknown@example.com",
-    snippet: "",
+    snippets: [],
     expectedCategory: "Unknown",
   },
   {
     emailAddress: "sales@business.com",
-    snippet: "Special offer: 20% off our enterprise plan",
+    snippets: ["Special offer: 20% off our enterprise plan"],
     expectedCategory: "Marketing",
   },
   {
     emailAddress: "noreply@socialnetwork.com",
-    snippet: "John Smith mentioned you in a comment",
+    snippets: ["John Smith mentioned you in a comment"],
     expectedCategory: "Social",
   },
 ];
@@ -91,7 +91,7 @@ describe("AI Sender Categorization", () => {
         user: testUser,
         senders: senders.map((sender) => ({
           emailAddress: sender,
-          snippet: "",
+          snippets: [],
         })),
         categories: getEnabledCategories(),
       });
@@ -109,11 +109,11 @@ describe("AI Sender Categorization", () => {
 
   describe("Single Sender Categorization", () => {
     it("should categorize individual senders with snippets", async () => {
-      for (const { emailAddress, snippet, expectedCategory } of testSenders) {
+      for (const { emailAddress, snippets, expectedCategory } of testSenders) {
         const result = await aiCategorizeSender({
           user: testUser,
           sender: emailAddress,
-          previousEmails: [snippet],
+          previousEmails: snippets,
           categories: getEnabledCategories(),
         });
 
@@ -157,11 +157,11 @@ describe("AI Sender Categorization", () => {
 
       // Run individual categorizations and pair with senders
       const singleResults = await Promise.all(
-        testSenders.map(async ({ emailAddress, snippet }) => {
+        testSenders.map(async ({ emailAddress, snippets }) => {
           const result = await aiCategorizeSender({
             user: testUser,
             sender: emailAddress,
-            previousEmails: [snippet],
+            previousEmails: snippets,
             categories: getEnabledCategories(),
           });
           return {
