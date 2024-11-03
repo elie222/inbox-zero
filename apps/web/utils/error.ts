@@ -122,14 +122,6 @@ export function isGroqQuotaExceededError(error: APICallError): boolean {
   );
 }
 
-function isKnownGroqError(error: APICallError): boolean {
-  return (
-    isGroqInvalidApiKeyError(error) ||
-    isGroqRateLimitError(error) ||
-    isGroqQuotaExceededError(error)
-  );
-}
-
 export function isKnownApiError(error: unknown): boolean {
   return (
     isGmailInsufficientPermissionsError(error) ||
@@ -141,7 +133,6 @@ export function isKnownApiError(error: unknown): boolean {
         isInvalidOpenAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
         isOpenAIRetryError(error) ||
-        isAnthropicInsufficientBalanceError(error) ||
-        isKnownGroqError(error)))
+        isAnthropicInsufficientBalanceError(error)))
   );
 }
