@@ -52,8 +52,7 @@ function useSenders() {
 
   // Combine all senders from all pages
   const allSenders = useMemo(() => {
-    if (!data) return [];
-    return data.flatMap((page) => page.uncategorizedSenders);
+    return data?.flatMap((page) => page.uncategorizedSenders);
   }, [data]);
 
   // Check if there's more data to load by looking at the last page
@@ -82,7 +81,7 @@ export function Uncategorized({
 
   const senders = useMemo(
     () =>
-      senderAddresses.map((address) => ({
+      senderAddresses?.map((address) => ({
         address,
         category: null,
       })),
@@ -101,7 +100,7 @@ export function Uncategorized({
               loading={hasProcessingItems}
               disabled={!hasAiAccess}
               onClick={async () => {
-                if (!senderAddresses.length) {
+                if (!senderAddresses?.length) {
                   toastError({ description: "No senders to categorize" });
                   return;
                 }
@@ -138,7 +137,7 @@ export function Uncategorized({
         </div>
       </TopBar>
       <ClientOnly>
-        {senders.length ? (
+        {senders?.length ? (
           <>
             <SendersTable senders={senders} categories={categories} />
             {hasMore && (
