@@ -137,7 +137,10 @@ export const categorizeSendersAction = withActionInstrumentation(
     const [existingSenders, categories] = await Promise.all([
       prisma.newsletter.findMany({
         where: { email: { in: senders }, userId: u.id },
-        select: { email: true, category: { select: { name: true } } },
+        select: {
+          email: true,
+          category: { select: { name: true, description: true } },
+        },
       }),
       getUserCategories(u.id),
     ]);
