@@ -19,6 +19,14 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["@sentry/nextjs", "@sentry/node"],
     instrumentationHook: true,
+    turbo: {
+      rules: {
+        "*.svg": {
+          loaders: ["@svgr/webpack"],
+          as: "*.js",
+        },
+      },
+    },
   },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {
@@ -149,7 +157,7 @@ const nextConfig = {
       {
         source: "/ingest/:path*",
         destination: "https://app.posthog.com/:path*",
-      }
+      },
     ];
   },
   async headers() {
