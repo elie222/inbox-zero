@@ -40,7 +40,7 @@ export default async function CategoriesPage() {
       select: {
         id: true,
         email: true,
-        category: { select: { id: true, name: true } },
+        category: { select: { id: true, description: true, name: true } },
       },
     }),
     getUserCategories(session.user.id),
