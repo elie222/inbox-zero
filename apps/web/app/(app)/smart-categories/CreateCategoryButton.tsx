@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Category } from "@prisma/client";
+import { MessageText } from "@/components/Typography";
 
 type ExampleCategory = {
   name: string;
@@ -217,6 +218,15 @@ function CreateCategoryForm({
           ))}
         </div>
       </div>
+
+      {category && (
+        <MessageText>
+          Note: editing a category name/description only impacts future
+          categorization. Existing email addresses in this category will not be
+          affected.
+        </MessageText>
+      )}
+
       <Button type="submit" loading={isSubmitting}>
         {category ? "Update" : "Create"}
       </Button>

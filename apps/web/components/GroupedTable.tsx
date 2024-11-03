@@ -11,7 +11,7 @@ import {
   type ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { ArchiveIcon, ChevronRight } from "lucide-react";
+import { ArchiveIcon, ChevronRight, PencilIcon } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import type { Category } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
@@ -39,12 +39,13 @@ import {
 } from "@/store/archive-sender-queue";
 import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
+import { CreateCategoryDialog } from "@/app/(app)/smart-categories/CreateCategoryButton";
 
 const COLUMNS = 4;
 
 type EmailGroup = {
   address: string;
-  category: Pick<Category, "id" | "name"> | null;
+  category: Pick<Category, "id" | "name" | "description"> | null;
   meta?: {
     width?: string;
   };
@@ -55,7 +56,7 @@ export function GroupedTable({
   categories,
 }: {
   emailGroups: EmailGroup[];
-  categories: Pick<Category, "id" | "name">[];
+  categories: Pick<Category, "id" | "name" | "description">[];
 }) {
   const groupedEmails = useMemo(() => {
     const grouped = groupBy(
@@ -166,41 +167,64 @@ export function GroupedTable({
     getExpandedRowModel: getExpandedRowModel(),
   });
 
+  const [selectedCategoryName, setSelectedCategoryName] =
+    useQueryState("categoryName");
+
   return (
-    <Table>
-      <TableBody>
-        {Object.entries(groupedEmails).map(([category, senders]) => {
-          const isCategoryExpanded = expanded?.includes(category);
+    <>
+      <Table>
+        <TableBody>
+          {Object.entries(groupedEmails).map(([category, senders]) => {
+            const isCategoryExpanded = expanded?.includes(category);
 
-          const onArchiveAll = async () => {
-            for (const sender of senders) {
-              await addToArchiveSenderQueue(sender.address);
-            }
-          };
+            const onArchiveAll = async () => {
+              for (const sender of senders) {
+                await addToArchiveSenderQueue(sender.address);
+              }
+            };
 
-          return (
-            <Fragment key={category}>
-              <GroupRow
-                category={category}
-                count={senders.length}
-                isExpanded={!!isCategoryExpanded}
-                onToggle={() => {
-                  setExpanded((prev) =>
-                    isCategoryExpanded
-                      ? (prev || []).filter((c) => c !== category)
-                      : [...(prev || []), category],
-                  );
-                }}
-                onArchiveAll={onArchiveAll}
-              />
-              {isCategoryExpanded && (
-                <SenderRows table={table} senders={senders} />
-              )}
-            </Fragment>
-          );
-        })}
-      </TableBody>
-    </Table>
+            const onEditCategory = () => {
+              setSelectedCategoryName(category);
+            };
+
+            return (
+              <Fragment key={category}>
+                <GroupRow
+                  category={category}
+                  count={senders.length}
+                  isExpanded={!!isCategoryExpanded}
+                  onToggle={() => {
+                    setExpanded((prev) =>
+                      isCategoryExpanded
+                        ? (prev || []).filter((c) => c !== category)
+                        : [...(prev || []), category],
+                    );
+                  }}
+                  onArchiveAll={onArchiveAll}
+                  onEditCategory={onEditCategory}
+                />
+                {isCategoryExpanded && (
+                  <SenderRows table={table} senders={senders} />
+                )}
+              </Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
+
+      <CreateCategoryDialog
+        isOpen={selectedCategoryName !== null}
+        onOpenChange={(open) =>
+          setSelectedCategoryName(open ? selectedCategoryName : null)
+        }
+        closeModal={() => setSelectedCategoryName(null)}
+        category={
+          selectedCategoryName
+            ? categories.find((c) => c.name === selectedCategoryName)
+            : undefined
+        }
+      />
+    </>
   );
 }
 
@@ -286,12 +310,14 @@ function GroupRow({
   isExpanded,
   onToggle,
   onArchiveAll,
+  onEditCategory,
 }: {
   category: string;
   count: number;
   isExpanded: boolean;
   onToggle: () => void;
   onArchiveAll: () => void;
+  onEditCategory: () => void;
 }) {
   return (
     <TableRow className="h-8 cursor-pointer bg-gray-50">
@@ -311,7 +337,11 @@ function GroupRow({
           <span className="ml-2 text-xs text-gray-500">({count})</span>
         </div>
       </TableCell>
-      <TableCell className="flex justify-end py-1">
+      <TableCell className="flex justify-end gap-1.5 py-1">
+        <Button variant="ghost" size="xs" onClick={onEditCategory}>
+          <PencilIcon className="size-4" />
+          <span className="sr-only">Edit</span>
+        </Button>
         <Button variant="outline" size="xs" onClick={onArchiveAll}>
           <ArchiveIcon className="mr-2 size-4" />
           Archive all
