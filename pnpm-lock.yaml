@@ -90,17 +90,17 @@ importers:
   apps/web:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: ^0.0.30
-        version: 0.0.30(zod@3.23.8)
+        specifier: ^0.0.34
+        version: 0.0.34(zod@3.23.8)
       '@ai-sdk/anthropic':
-        specifier: ^0.0.51
-        version: 0.0.51(zod@3.23.8)
+        specifier: ^0.0.53
+        version: 0.0.53(zod@3.23.8)
       '@ai-sdk/groq':
         specifier: ^0.0.3
         version: 0.0.3(zod@3.23.8)
       '@ai-sdk/openai':
-        specifier: ^0.0.68
-        version: 0.0.68(zod@3.23.8)
+        specifier: ^0.0.71
+        version: 0.0.71(zod@3.23.8)
       '@asteasolutions/zod-to-openapi':
         specifier: ^7.2.0
         version: 7.2.0(zod@3.23.8)
@@ -619,20 +619,8 @@ packages:
     resolution: {integrity: sha512-1Yjs2SvM8TflER/OD3cOjhWWOZb58A2t7wpE2S9XfBYTiIl+XFhQG2bjy4Pu1I+EAlCNUzRDYDdFwFYUKvXcIA==}
     engines: {node: '>=0.10.0'}
 
-  '@ai-sdk/amazon-bedrock@0.0.30':
-    resolution: {integrity: sha512-LFo9hJBQXkOVYIxjWG0BFAbesURdTIfaCFD0k/JnhhguvhoDbTdceIPSl2ckL47nwErgNevDVHfgJI9kbvICKA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.0.0
-
   '@ai-sdk/amazon-bedrock@0.0.34':
     resolution: {integrity: sha512-4ylq302A+HFF0yKbfP0UoSCQcF5DoXxPOnBxn5QT+rp+/L0RwfH3gxKFYk3kw8dPJkKJcXliBvh71LOlXKHkSw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.0.0
-
-  '@ai-sdk/anthropic@0.0.51':
-    resolution: {integrity: sha512-XPLBvdwdMlNAvGMyfsDgrCDXN2Wz7M+wfCJthqiwdiKHmq2jDLGdt0ZCAozgxxW28HVzMfJlFjuyECiA5Le3YA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.0.0
@@ -655,26 +643,11 @@ packages:
     peerDependencies:
       zod: ^3.0.0
 
-  '@ai-sdk/openai@0.0.68':
-    resolution: {integrity: sha512-WSzB7qpBTrnYvFbnBBmIsw1G8GM04JRMr+I7B5T7msgZfleG4cTvVrn9A1HeHHw9TmbKiaCKJrEZH4V0lb7jNQ==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.0.0
-
   '@ai-sdk/openai@0.0.71':
     resolution: {integrity: sha512-ds7u3sWEnKyHxM3lAL9xTs72228HEKcPZCAEFaxmgrexKPJe2tyLBtvS/Kg39SPKPtY9EeaKqi/nbx1AmnXK6A==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.0.0
-
-  '@ai-sdk/provider-utils@1.0.20':
-    resolution: {integrity: sha512-ngg/RGpnA00eNOWEtXHenpX1MsM2QshQh4QJFjUfwcqHpM5kTfG7je7Rc3HcEDP+OkRVv2GF+X4fC1Vfcnl8Ow==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.0.0
-    peerDependenciesMeta:
-      zod:
-        optional: true
 
   '@ai-sdk/provider-utils@1.0.22':
     resolution: {integrity: sha512-YHK2rpj++wnLVc9vPGzGFP3Pjeld2MwhKinetA0zKXOoHAT/Jit5O8kZsxcSlJPu9wvcGT1UGZEjZrtO7PfFOQ==}
@@ -684,10 +657,6 @@ packages:
     peerDependenciesMeta:
       zod:
         optional: true
-
-  '@ai-sdk/provider@0.0.24':
-    resolution: {integrity: sha512-XMsNGJdGO+L0cxhhegtqZ8+T6nn4EoShS819OvCgI2kLbYTIvk0GWFGD0AXJmxkxs3DrpsJxKAFukFR7bvTkgQ==}
-    engines: {node: '>=18'}
 
   '@ai-sdk/provider@0.0.26':
     resolution: {integrity: sha512-dQkfBDs2lTYpKM8389oopPdQgIU007GQyCbuPPrV+K6MtSII3HBfE0stUIMXUb44L+LK1t6GXPP7wjSzjO6uKg==}
@@ -8589,11 +8558,6 @@ packages:
     resolution: {integrity: sha512-zoTNyBafxG0+F5PP3T3j1PKMr7gedriSdYRhLFLRFCz0OnQfQ6BkVk9peXVF30hz633Bw0Zh5McleOrXPjWYCQ==}
     engines: {node: '>=18'}
 
-  nanoid@3.3.6:
-    resolution: {integrity: sha512-BGcqMMJuToF7i1rt+2PWSNVnWIkGCU78jBG3RxO/bZlnZPK2Cmi2QaffxGO/2RvWi9sL+FAiRiXMgsyxQ1DIDA==}
-    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
   nanoid@3.3.7:
     resolution: {integrity: sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -11396,15 +11360,6 @@ snapshots:
 
   '@aashutoshrathi/word-wrap@1.2.6': {}
 
-  '@ai-sdk/amazon-bedrock@0.0.30(zod@3.23.8)':
-    dependencies:
-      '@ai-sdk/provider': 0.0.24
-      '@ai-sdk/provider-utils': 1.0.20(zod@3.23.8)
-      '@aws-sdk/client-bedrock-runtime': 3.669.0
-      zod: 3.23.8
-    transitivePeerDependencies:
-      - aws-crt
-
   '@ai-sdk/amazon-bedrock@0.0.34(zod@3.23.8)':
     dependencies:
       '@ai-sdk/provider': 0.0.26
@@ -11413,12 +11368,6 @@ snapshots:
       zod: 3.23.8
     transitivePeerDependencies:
       - aws-crt
-
-  '@ai-sdk/anthropic@0.0.51(zod@3.23.8)':
-    dependencies:
-      '@ai-sdk/provider': 0.0.24
-      '@ai-sdk/provider-utils': 1.0.20(zod@3.23.8)
-      zod: 3.23.8
 
   '@ai-sdk/anthropic@0.0.53(zod@3.23.8)':
     dependencies:
@@ -11436,12 +11385,11 @@ snapshots:
     dependencies:
       '@ai-sdk/provider': 0.0.26
       '@ai-sdk/provider-utils': 1.0.22(zod@3.23.8)
-      zod: 3.23.8
 
-  '@ai-sdk/openai@0.0.68(zod@3.23.8)':
+  '@ai-sdk/openai@0.0.71(zod@3.23.8)':
     dependencies:
-      '@ai-sdk/provider': 0.0.24
-      '@ai-sdk/provider-utils': 1.0.20(zod@3.23.8)
+      '@ai-sdk/provider': 0.0.26
+      '@ai-sdk/provider-utils': 1.0.22(zod@3.23.8)
       zod: 3.23.8
 
   '@ai-sdk/openai@0.0.71(zod@3.23.8)':
@@ -11452,25 +11400,12 @@ snapshots:
 
   '@ai-sdk/provider-utils@1.0.20(zod@3.23.8)':
     dependencies:
-      '@ai-sdk/provider': 0.0.24
-      eventsource-parser: 1.1.2
-      nanoid: 3.3.6
-      secure-json-parse: 2.7.0
-    optionalDependencies:
-      zod: 3.23.8
-
-  '@ai-sdk/provider-utils@1.0.22(zod@3.23.8)':
-    dependencies:
       '@ai-sdk/provider': 0.0.26
       eventsource-parser: 1.1.2
       nanoid: 3.3.7
       secure-json-parse: 2.7.0
     optionalDependencies:
       zod: 3.23.8
-
-  '@ai-sdk/provider@0.0.24':
-    dependencies:
-      json-schema: 0.4.0
 
   '@ai-sdk/provider@0.0.26':
     dependencies:
@@ -18615,7 +18550,7 @@ snapshots:
       '@typescript-eslint/parser': 8.8.1(eslint@8.57.1)(typescript@5.6.3)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint@8.57.1))(eslint@8.57.1)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.8.0(eslint@8.57.1)
       eslint-plugin-react: 7.35.0(eslint@8.57.1)
@@ -18664,7 +18599,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.1):
+  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint@8.57.1))(eslint@8.57.1):
     dependencies:
       debug: 4.3.6
       enhanced-resolve: 5.15.0
@@ -18699,7 +18634,7 @@ snapshots:
       '@typescript-eslint/parser': 8.8.1(eslint@8.57.1)(typescript@5.6.3)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@8.8.1(eslint@8.57.1)(typescript@5.6.3))(eslint@8.57.1))(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -21236,8 +21171,6 @@ snapshots:
       thenify-all: 1.6.0
 
   nano-pubsub@3.0.0: {}
-
-  nanoid@3.3.6: {}
 
   nanoid@3.3.7: {}
 
