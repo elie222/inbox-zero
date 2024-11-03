@@ -59,7 +59,4 @@ export const ErrorType = {
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
   OPENAI_RETRY_ERROR: "OpenAI retry error",
   ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
-  GROQ_INVALID_API_KEY: "Groq invalid API key",
-  GROQ_RATE_LIMIT_ERROR: "Groq rate limit error",
-  GROQ_QUOTA_EXCEEDED: "Groq quota exceeded",
 };
