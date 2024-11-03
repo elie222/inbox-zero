@@ -339,6 +339,7 @@ function SenderRows({
               style={{
                 width: (cell.column.columnDef.meta as any)?.size || "auto",
               }}
+              className="py-1"
             >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
             </TableCell>
@@ -387,8 +388,8 @@ function ExpandedRows({ sender }: { sender: string }) {
     <>
       {data.threads.map((thread) => (
         <TableRow key={thread.id} className="bg-muted/50">
-          <TableCell />
-          <TableCell>
+          <TableCell className="py-3" />
+          <TableCell className="py-3">
             <Link
               href={getGmailUrl(thread.id, sender)}
               target="_blank"
@@ -397,8 +398,10 @@ function ExpandedRows({ sender }: { sender: string }) {
               {thread.messages[0].headers.subject}
             </Link>
           </TableCell>
-          <TableCell>{decodeSnippet(thread.messages[0].snippet)}</TableCell>
-          <TableCell className="text-nowrap">
+          <TableCell className="py-3">
+            {decodeSnippet(thread.messages[0].snippet)}
+          </TableCell>
+          <TableCell className="text-nowrap py-3">
             {formatShortDate(new Date(thread.messages[0].headers.date))}
           </TableCell>
         </TableRow>
