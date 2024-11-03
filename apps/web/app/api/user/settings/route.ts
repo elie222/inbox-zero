@@ -20,6 +20,8 @@ async function saveAISettings(options: SaveSettingsBody) {
   function getModel() {
     switch (aiProvider) {
       case Provider.OPEN_AI:
+        if (!options.aiApiKey)
+          throw new SafeError("OpenAI requires an API key");
         return options.aiModel;
       case Provider.ANTHROPIC:
         if (options.aiApiKey) {
@@ -29,12 +31,10 @@ async function saveAISettings(options: SaveSettingsBody) {
         // use bedrock if no api key set
         return Model.CLAUDE_3_5_SONNET_BEDROCK;
       case Provider.GROQ:
-        if (!options.aiApiKey) {
-          throw new Error("GROQ requires an API key");
-        }
+        if (!options.aiApiKey) throw new SafeError("GROQ requires an API key");
         return Model.LLAMA_3_70B_GROQ;
       default:
-        throw new Error("Invalid AI provider");
+        throw new SafeError("Invalid AI provider");
     }
   }
 

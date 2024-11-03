@@ -19,7 +19,7 @@ export default function RequestAccessPage() {
         </div>
       </Card>
 
-      {/* <Card className="mx-auto mt-2 w-full max-w-2xl sm:mt-8">
+      <Card className="mx-auto mt-2 w-full max-w-2xl sm:mt-8">
         <PageHeading>Early Access</PageHeading>
 
         <div className="mt-2 max-w-prose">
@@ -32,7 +32,7 @@ export default function RequestAccessPage() {
             Feedback Form
           </Button>
         </div>
-      </Card> */}
+      </Card>
 
       {/* <Card className="mx-auto mt-2 w-full max-w-2xl sm:mt-8">
         <PageHeading>Email Client (Beta)</PageHeading>
