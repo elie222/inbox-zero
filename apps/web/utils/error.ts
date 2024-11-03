@@ -31,13 +31,8 @@ export function captureException(
   sentryCaptureException(error, additionalInfo);
 }
 
-export type ActionError<E extends object = Record<string, unknown>> = {
-  error: string;
-} & E;
-export type ServerActionResponse<
-  T,
-  E extends object = Record<string, unknown>,
-> = ActionError<E> | T;
+export type ActionError<E = {}> = { error: string } & E;
+export type ServerActionResponse<T, E = {}> = ActionError<E> | T;
 
 export function isActionError(error: any): error is ActionError {
   return error && typeof error === "object" && "error" in error && error.error;
@@ -101,27 +96,7 @@ export function isOpenAIRetryError(error: unknown): boolean {
   );
 }
 
-export function isGroqInvalidApiKeyError(error: APICallError): boolean {
-  return (
-    error.message.includes("Invalid API key") ||
-    error.message.includes("Authentication failed")
-  );
-}
-
-export function isGroqRateLimitError(error: APICallError): boolean {
-  return (
-    error.message.includes("Rate limit exceeded") ||
-    error.message.includes("Too many requests")
-  );
-}
-
-export function isGroqQuotaExceededError(error: APICallError): boolean {
-  return (
-    error.message.includes("Quota exceeded") ||
-    error.message.includes("Usage limit exceeded")
-  );
-}
-
+// we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
     isGmailInsufficientPermissionsError(error) ||
