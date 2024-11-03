@@ -99,7 +99,7 @@ function ModelSectionForm(props: {
 
       if (isError(res)) {
         toastError({
-          description: `There was an error updating the settings. ${res.error}`,
+          description: "There was an error updating the settings.",
         });
       } else {
         toastSuccess({ description: "Settings updated!" });

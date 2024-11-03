@@ -250,29 +250,5 @@ async function handleError(error: unknown, userEmail: string) {
         error.message,
       );
     }
-
-    if (isGroqInvalidApiKeyError(error)) {
-      return await addUserErrorMessage(
-        userEmail,
-        ErrorType.GROQ_INVALID_API_KEY,
-        error.message,
-      );
-    }
-
-    if (isGroqRateLimitError(error)) {
-      return await addUserErrorMessage(
-        userEmail,
-        ErrorType.GROQ_RATE_LIMIT_ERROR,
-        error.message,
-      );
-    }
-
-    if (isGroqQuotaExceededError(error)) {
-      return await addUserErrorMessage(
-        userEmail,
-        ErrorType.GROQ_QUOTA_EXCEEDED,
-        error.message,
-      );
-    }
   }
 }
