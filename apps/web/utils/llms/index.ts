@@ -17,9 +17,6 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
   isAnthropicInsufficientBalanceError,
-  isGroqInvalidApiKeyError,
-  isGroqQuotaExceededError,
-  isGroqRateLimitError,
   isIncorrectOpenAIAPIKeyError,
   isInvalidOpenAIModelError,
   isOpenAIAPIKeyDeactivatedError,
