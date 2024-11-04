@@ -23,38 +23,29 @@ export async function aiCategorizeSender({
   previousEmails: string[];
   categories: Pick<Category, "name" | "description">[];
 }) {
-  console.log("aiCategorizeSender", { sender, previousEmails });
+  console.log("aiCategorizeSender");
 
   const system = `You are an AI assistant specializing in email management and organization.
-Your task is to categorize an email sender based on their name, email address, and content from previous emails.
+Your task is to categorize an email accounts based on their name, email address, and content from previous emails.
 Provide an accurate categorization to help users efficiently manage their inbox.`;
 
-  const prompt = `Categorize the following email sender:
+  const prompt = `Categorize the following email account:
 ${sender}
 
-Previous emails from this sender:
-
-<previous_emails>
+Previous emails from them:
 ${previousEmails
   .slice(0, 3)
-  .map(
-    (email, index) => `
-<email_snippet ${index + 1}>
-${email}
-</email_snippet ${index + 1}>`,
-  )
+  .map((email) => `* ${email}`)
   .join("\n")}
-
 ${previousEmails.length === 0 ? "No previous emails found" : ""}
-</previous_emails>
 
 Categories:
 ${formatCategoriesForPrompt(categories)}
 
 Instructions:
-1. Analyze the sender's name, email address for clues about their category.
-2. Review the content of previous emails to gain more context about the sender's relationship with the user.
-3. If the sender's category is clear based on the available information, assign it.
+1. Analyze the sender's name and email address for clues about their category.
+2. Review the content of previous emails to gain more context about the account's relationship with us.
+3. If the category is clear, assign it.
 4. If you're not certain, respond with "Unknown".
 5. If multiple categories are possible, respond with "Unknown".`;
 

@@ -45,7 +45,11 @@ ${senders
     ({ emailAddress, snippets }) => `
 <sender>
   <email>${emailAddress}</email>
-  <snippets>${snippets.map((s) => `* ${s}`).join("\n")}</snippets>
+  <snippets>${
+    snippets.length
+      ? snippets.map((s) => `* ${s}`).join("\n")
+      : "No emails available"
+  }</snippets>
 </sender>`,
   )
   .join("\n")}

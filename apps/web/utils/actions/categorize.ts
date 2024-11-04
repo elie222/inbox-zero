@@ -84,6 +84,21 @@ export const categorizeEmailAction = withActionInstrumentation(
   },
 );
 
+async function saveResult(
+  result: { sender: string; category?: string },
+  categories: { id: string; name: string }[],
+  userId: string,
+) {
+  if (!result.category) return;
+  const { newCategory } = await updateSenderCategory({
+    sender: result.sender,
+    categories,
+    categoryName: result.category,
+    userId,
+  });
+  if (newCategory) categories.push(newCategory);
+}
+
 export const categorizeSendersAction = withActionInstrumentation(
   "categorizeSenders",
   async () => {
@@ -125,7 +140,7 @@ export const categorizeSendersAction = withActionInstrumentation(
     );
     // const sendersResult = await findSendersWithPagination(gmail, 5);
 
-    console.log("sendersResult", Array.from(sendersResult.senders.keys()));
+    // console.log("sendersResult", Array.from(sendersResult.senders.keys()));
 
     console.log(`Found ${sendersResult.senders.size} senders`);
 
@@ -174,20 +189,8 @@ export const categorizeSendersAction = withActionInstrumentation(
 
     const results = [...categorizedSenders, ...aiResults];
 
-    async function saveResult(result: { sender: string; category?: string }) {
-      if (!result.category) return;
-      const { newCategory } = await updateSenderCategory({
-        sender: result.sender,
-        categories,
-        categoryName: result.category,
-        userId: u?.id!,
-      });
-
-      if (newCategory) categories.push(newCategory);
-    }
-
     for (const result of results) {
-      await saveResult(result);
+      await saveResult(result, categories, u.id);
     }
 
     // categorize unknown senders
@@ -231,14 +234,108 @@ export const categorizeSendersAction = withActionInstrumentation(
       });
 
       if (aiResult) {
-        await saveResult({
-          sender: sender.sender,
-          category: aiResult.category,
-        });
+        await saveResult(
+          {
+            sender: sender.sender,
+            category: aiResult.category,
+          },
+          categories,
+          u.id,
+        );
       }
     }
 
     revalidatePath("/smart-categories");
+  },
+);
+
+export const fastCategorizeSendersAction = withActionInstrumentation(
+  "fastCategorizeSenders",
+  async (senderAddresses: string[]) => {
+    console.log("fastCategorizeSendersAction");
+
+    const { gmail, user: u, error, session } = await getSessionAndGmailClient();
+    if (error) return { error };
+    if (!gmail) return { error: "Could not load Gmail" };
+    if (!session?.accessToken) return { error: "No access token" };
+
+    const user = await prisma.user.findUnique({
+      where: { id: u.id },
+      select: {
+        email: true,
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+        premium: { select: { aiAutomationAccess: true } },
+      },
+    });
+
+    if (!user) return { error: "User not found" };
+
+    // check if user has AI access
+    const userHasAiAccess = hasAiAccess(
+      user.premium?.aiAutomationAccess,
+      user.aiApiKey,
+    );
+
+    if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
+
+    const senders = uniq(senderAddresses);
+
+    console.log(`Found ${senders.length} unique senders`);
+
+    const categories = await getUserCategories(u.id);
+
+    if (categories.length === 0) return { error: "No categories found" };
+
+    // pre-categorize senders with static rules
+    const categorizedSenders = preCategorizeSendersWithStaticRules(senders);
+
+    const sendersToCategorizeWithAi = categorizedSenders
+      .filter((sender) => !sender.category)
+      .map((sender) => sender.sender);
+
+    console.log(
+      `Found ${sendersToCategorizeWithAi.length} senders to categorize with AI`,
+    );
+
+    // fetch snippets for each sender
+    const sendersWithSnippets: Map<string, string[]> = new Map();
+
+    for (const sender of sendersToCategorizeWithAi) {
+      const previousEmails = await getPreviousEmails(
+        gmail,
+        sender,
+        session.accessToken,
+      );
+      sendersWithSnippets.set(sender, previousEmails);
+    }
+
+    // categorize senders with AI
+    const aiResults = await aiCategorizeSenders({
+      user,
+      senders: sendersToCategorizeWithAi.map((sender) => ({
+        emailAddress: sender,
+        snippets: sendersWithSnippets.get(sender) || [],
+      })),
+      categories,
+    });
+
+    const results: Record<string, string | undefined> = {};
+
+    for (const result of [...categorizedSenders, ...aiResults]) {
+      results[result.sender] = result.category;
+    }
+
+    for (const [sender, category] of Object.entries(results)) {
+      await saveResult({ sender, category }, categories, u.id);
+    }
+
+    revalidatePath("/smart-categories");
+
+    console.log("results", JSON.stringify(results, null, 2));
+
+    return { results };
   },
 );
 

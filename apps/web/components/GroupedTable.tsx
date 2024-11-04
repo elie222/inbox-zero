@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 import { useQueryState } from "nuqs";
+import { useSession } from "next-auth/react";
 import groupBy from "lodash/groupBy";
 import {
   useReactTable,
@@ -58,6 +59,9 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: Pick<Category, "id" | "name" | "description">[];
 }) {
+  const session = useSession();
+  const userId = session.data?.user.id || "";
+
   const groupedEmails = useMemo(() => {
     const grouped = groupBy(
       emailGroups,
@@ -105,7 +109,7 @@ export function GroupedTable({
         accessorKey: "address",
         cell: ({ row }) => (
           <Link
-            href={getGmailSearchUrl(row.original.address)}
+            href={getGmailSearchUrl(row.original.address, userId)}
             target="_blank"
             className="hover:underline"
           >
@@ -156,7 +160,7 @@ export function GroupedTable({
         ),
       },
     ],
-    [categories],
+    [categories, userId],
   );
 
   const table = useReactTable({
@@ -204,7 +208,7 @@ export function GroupedTable({
                   onEditCategory={onEditCategory}
                 />
                 {isCategoryExpanded && (
-                  <SenderRows table={table} senders={senders} />
+                  <SenderRows table={table} senders={senders} userId={userId} />
                 )}
               </Fragment>
             );
@@ -231,9 +235,11 @@ export function GroupedTable({
 export function SendersTable({
   senders,
   categories,
+  userId,
 }: {
   senders: EmailGroup[];
   categories: Pick<Category, "id" | "name">[];
+  userId: string;
 }) {
   const columns: ColumnDef<EmailGroup>[] = useMemo(
     () => [
@@ -298,7 +304,7 @@ export function SendersTable({
   return (
     <Table>
       <TableBody>
-        <SenderRows table={table} senders={senders} />
+        <SenderRows table={table} senders={senders} userId={userId} />
       </TableBody>
     </Table>
   );
@@ -354,9 +360,11 @@ function GroupRow({
 function SenderRows({
   table,
   senders,
+  userId,
 }: {
   table: ReturnType<typeof useReactTable<EmailGroup>>;
   senders: EmailGroup[];
+  userId: string;
 }) {
   if (!senders.length) {
     return (
@@ -388,13 +396,15 @@ function SenderRows({
             </TableCell>
           ))}
         </TableRow>
-        {row.getIsExpanded() && <ExpandedRows sender={row.original.address} />}
+        {row.getIsExpanded() && (
+          <ExpandedRows sender={row.original.address} userId={userId} />
+        )}
       </Fragment>
     );
   });
 }
 
-function ExpandedRows({ sender }: { sender: string }) {
+function ExpandedRows({ sender, userId }: { sender: string; userId: string }) {
   const { data, isLoading, error } = useThreads({
     fromEmail: sender,
     limit: 5,
@@ -434,7 +444,7 @@ function ExpandedRows({ sender }: { sender: string }) {
           <TableCell className="py-3" />
           <TableCell className="py-3">
             <Link
-              href={getGmailUrl(thread.id, sender)}
+              href={getGmailUrl(thread.id, userId)}
               target="_blank"
               className="hover:underline"
             >
