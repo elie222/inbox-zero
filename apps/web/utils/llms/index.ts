@@ -4,6 +4,7 @@ import {
   type CoreTool,
   generateObject,
   generateText,
+  RetryError,
   streamText,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -222,7 +223,7 @@ async function handleError(error: unknown, userEmail: string) {
       );
     }
 
-    if (isOpenAIRetryError(error)) {
+    if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
       return await addUserErrorMessage(
         userEmail,
         ErrorType.OPENAI_RETRY_ERROR,

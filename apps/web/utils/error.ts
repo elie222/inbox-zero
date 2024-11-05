@@ -71,10 +71,6 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
 }
 
-export function isOpenAIQuotaExceededError(error: unknown): boolean {
-  return (error as any)?.code === "insufficient_quota";
-}
-
 export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
   return error.message.includes("Incorrect API key provided");
 }
@@ -99,11 +95,8 @@ export function isAnthropicInsufficientBalanceError(
 
 // Handling OpenAI retry errors on their own because this will be related to the user's own API quota,
 // rather than an error on our side (as we default to Anthropic atm).
-export function isOpenAIRetryError(error: unknown): boolean {
-  return (
-    RetryError.isInstance(error) &&
-    error.message.includes("You exceeded your current quota")
-  );
+export function isOpenAIRetryError(error: RetryError): boolean {
+  return error.message.includes("You exceeded your current quota");
 }
 
 // we don't want to capture these errors in Sentry
@@ -112,13 +105,12 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailInsufficientPermissionsError(error) ||
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
-    isOpenAIQuotaExceededError(error) ||
     (APICallError.isInstance(error) &&
       (isIncorrectOpenAIAPIKeyError(error) ||
         isInvalidOpenAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
-        isOpenAIRetryError(error) ||
-        isAnthropicInsufficientBalanceError(error)))
+        isAnthropicInsufficientBalanceError(error))) ||
+    (RetryError.isInstance(error) && isOpenAIRetryError(error))
   );
 }
 
@@ -156,12 +148,11 @@ export function checkCommonErrors(
     };
   }
 
-  if (isOpenAIQuotaExceededError(error)) {
+  if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
     console.warn(`OpenAI quota exceeded for url: ${url}`);
-    const errorMessage = (error as any)?.error?.message ?? "Unknown error";
     return {
       type: "OpenAI Quota Exceeded",
-      message: `OpenAI error: ${errorMessage}`,
+      message: `OpenAI error: ${error.message}`,
       code: 429,
     };
   }
