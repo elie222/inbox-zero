@@ -34,38 +34,37 @@ export async function aiCategorizeSenders({
   if (senders.length === 0) return [];
 
   const system = `You are an AI assistant specializing in email management and organization.
-Your task is to categorize email senders based on their names, email addresses, and any available content patterns.
+Your task is to categorize email accounts based on their names, email addresses, and emails they've sent us.
 Provide accurate categorizations to help users efficiently manage their inbox.`;
 
-  const prompt = `Categorize the following email senders:
+  const prompt = `Categorize the following email accounts:
 
-<senders>
-${senders
-  .map(
-    ({ emailAddress, snippets }) => `
-<sender>
-  <email>${emailAddress}</email>
-  <snippets>${
+  ${senders
+    .map(
+      ({ emailAddress, snippets }) => `
+  Email: ${emailAddress}
+  ${
     snippets.length
-      ? snippets.map((s) => `* ${s}`).join("\n")
+      ? `Recent emails from this sender:\n${snippets.map((s) => `• ${s}`).join("\n")}`
       : "No emails available"
-  }</snippets>
-</sender>`,
-  )
-  .join("\n")}
-</senders>
+  }
+  ---`,
+    )
+    .join("\n\n")}
 
-<categories>
+Categories:
 ${formatCategoriesForPrompt(categories)}
-</categories>
 
 Instructions:
-1. Analyze each sender's name and email address for clues about their category.
-2. If the sender's category is clear, assign it confidently.
-3. If you're unsure or if multiple categories could apply, respond with "Unknown".
-4. To request more information, respond with "${REQUEST_MORE_INFORMATION_CATEGORY}".
+1. Analyze each sender's email address and their recent emails for categorization.
+2. If the sender's category is clear, assign it.
+3. Use "Unknown" if the category is unclear or multiple categories could apply.
+4. Use "${REQUEST_MORE_INFORMATION_CATEGORY}" if more context is needed.
 
-Remember, it's better to respond with "Unknown" than to categorize incorrectly.`;
+Remember:
+- Accuracy is more important than completeness
+- Only use the categories provided above
+- Respond with "Unknown" if unsure`;
 
   const aiResponse = await chatCompletionObject({
     userAi: user,

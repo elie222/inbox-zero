@@ -29,7 +29,7 @@ import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
-import { getThreadsBatch, getThreadsFromSender } from "@/utils/gmail/thread";
+import { getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
 import type { Category, User } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -219,11 +219,7 @@ export const categorizeSendersAction = withActionInstrumentation(
         messages?.map((m) => m.snippet).filter(isDefined) || [];
 
       if (previousEmails.length === 0) {
-        previousEmails = await getPreviousEmails(
-          gmail,
-          sender.sender,
-          session.accessToken!,
-        );
+        previousEmails = await getPreviousEmails(gmail, sender.sender);
       }
 
       const aiResult = await aiCategorizeSender({
@@ -303,11 +299,7 @@ export const fastCategorizeSendersAction = withActionInstrumentation(
     const sendersWithSnippets: Map<string, string[]> = new Map();
 
     for (const sender of sendersToCategorizeWithAi) {
-      const previousEmails = await getPreviousEmails(
-        gmail,
-        sender,
-        session.accessToken,
-      );
+      const previousEmails = await getPreviousEmails(gmail, sender);
       sendersWithSnippets.set(sender, previousEmails);
     }
 
@@ -393,11 +385,7 @@ export async function categorizeSender(
 
   if (categories.length === 0) return { categoryId: undefined };
 
-  const previousEmails = await getPreviousEmails(
-    gmail,
-    senderAddress,
-    accessToken,
-  );
+  const previousEmails = await getPreviousEmails(gmail, senderAddress);
 
   const aiResult = await aiCategorizeSender({
     user,
@@ -421,19 +409,11 @@ export async function categorizeSender(
   return { categoryId: undefined };
 }
 
-async function getPreviousEmails(
-  gmail: gmail_v1.Gmail,
-  sender: string,
-  accessToken: string,
-) {
+async function getPreviousEmails(gmail: gmail_v1.Gmail, sender: string) {
   const threadsFromSender = await getThreadsFromSender(gmail, sender, 3);
-  const threads = await getThreadsBatch(
-    threadsFromSender.map((t) => t.id).filter(isDefined),
-    accessToken,
-  );
 
-  const previousEmails = threads
-    .flatMap((t) => t.messages?.map((m) => m.snippet).filter(isDefined) || [])
+  const previousEmails = threadsFromSender
+    .map((t) => t?.snippet)
     .filter(isDefined);
 
   return previousEmails;

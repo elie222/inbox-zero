@@ -69,14 +69,15 @@ export async function getThreadsFromSender(
   Array<{
     id?: string | null;
     threadId?: string | null;
+    snippet?: string | null;
   }>
 > {
-  const query = `from:${sender} -label:sent`;
-  const response = await gmail.users.messages.list({
+  const query = `from:${sender} -label:sent -label:draft`;
+  const response = await gmail.users.threads.list({
     userId: "me",
     q: query,
     maxResults: limit,
   });
 
-  return response.data.messages || [];
+  return response.data.threads || [];
 }

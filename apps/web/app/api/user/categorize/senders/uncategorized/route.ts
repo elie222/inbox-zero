@@ -35,6 +35,7 @@ async function getUncategorizedSenders({
       where: {
         email: { in: allSenders },
         userId,
+        category: { isNot: null },
       },
       select: { email: true },
     });
