@@ -132,6 +132,9 @@ export async function processHistoryForUser(
       account.providerAccountId,
     );
 
+    // couldn't refresh the token
+    if (!gmail) return NextResponse.json({ ok: true });
+
     const startHistoryId =
       options?.startHistoryId ||
       Math.max(

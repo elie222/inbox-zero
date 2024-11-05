@@ -7,12 +7,13 @@ import {
   groupEmailsQuerySchema,
   type GroupEmailsResult,
 } from "@/app/api/v1/group/[groupId]/emails/validation";
+import { withError } from "@/utils/middleware";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { groupId: string } },
-) {
+export const GET = withError(async (request: NextRequest, { params }) => {
   const { groupId } = params;
+  if (!groupId)
+    return NextResponse.json({ error: "Missing groupId" }, { status: 400 });
+
   const { searchParams } = new URL(request.url);
   const queryResult = groupEmailsQuerySchema.safeParse(
     Object.fromEntries(searchParams),
@@ -55,6 +56,13 @@ export async function GET(
     account.providerAccountId,
   );
 
+  if (!gmail) {
+    return NextResponse.json(
+      { error: "Error refreshing Gmail access token" },
+      { status: 401 },
+    );
+  }
+
   const { pageToken, from, to } = queryResult.data;
 
   const { messages, nextPageToken } = await getGroupEmails({
@@ -72,7 +80,7 @@ export async function GET(
   };
 
   return NextResponse.json(result);
-}
+});
 
 async function getUserFromApiKey(secretKey: string) {
   const hashedKey = hashApiKey(secretKey);

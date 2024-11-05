@@ -100,6 +100,9 @@ async function watchAllEmails() {
         account.providerAccountId,
       );
 
+      // couldn't refresh the token
+      if (!gmail) continue;
+
       await watchEmails(user.id, gmail);
     } catch (error) {
       console.error(`Error for user ${user.id}`);
