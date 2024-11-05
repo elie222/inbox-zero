@@ -68,7 +68,7 @@ export function Uncategorized({
   );
 
   const session = useSession();
-  const userId = session.data?.user.id || "";
+  const userEmail = session.data?.user?.email || "";
 
   return (
     <LoadingContent loading={!senderAddresses && isLoading}>
@@ -158,7 +158,7 @@ export function Uncategorized({
             <SendersTable
               senders={senders}
               categories={categories}
-              userId={userId}
+              userEmail={userEmail}
             />
             {hasMore && (
               <Button
