@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import type { gmail_v1 } from "@googleapis/gmail";
-import uniq from "lodash/uniq";
-import uniqBy from "lodash/uniqBy";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
@@ -294,22 +292,14 @@ async function regenerateNewsletterGroup(
 ) {
   const newsletters = await findNewsletters(gmail, token);
 
-  const newItems = newsletters.filter(
-    (newItem) =>
-      !existingGroup.items.find(
-        (item) => item.value === newItem && item.type === GroupItemType.FROM,
-      ),
-  );
+  const items = newsletters.map((item) => ({
+    type: GroupItemType.FROM,
+    value: item,
+    groupId: existingGroup.id,
+  }));
+  const newItems = filterOutExisting(items, existingGroup.items);
 
-  const uniqueNewItems = uniq(newItems);
-
-  await createGroupItems(
-    uniqueNewItems.map((item) => ({
-      type: GroupItemType.FROM,
-      value: item,
-      groupId: existingGroup.id,
-    })),
-  );
+  await createGroupItems(newItems);
 
   revalidatePath("/automation");
 }
@@ -320,23 +310,11 @@ async function regenerateReceiptGroup(
   token: string,
 ) {
   const receipts = await findReceipts(gmail, token);
-
-  const newItems = receipts.filter(
-    (newItem) =>
-      !existingGroup.items.find(
-        (item) => item.value === newItem.value && item.type === newItem.type,
-      ),
-  );
-
-  const uniqueNewItems = uniqBy(
-    newItems,
-    (item) => `${item.value}-${item.type}`,
-  );
+  const newItems = filterOutExisting(receipts, existingGroup.items);
 
   await createGroupItems(
-    uniqueNewItems.map((item) => ({
-      type: GroupItemType.FROM,
-      value: item.value,
+    newItems.map((item) => ({
+      ...item,
       groupId: existingGroup.id,
     })),
   );
@@ -355,6 +333,18 @@ async function createGroupItems(
 
     throw error;
   }
+}
+
+function filterOutExisting<T extends { type: GroupItemType; value: string }>(
+  newItems: T[],
+  existingItems: { type: GroupItemType; value: string }[],
+) {
+  return newItems.filter(
+    (newItem) =>
+      !existingItems.find(
+        (item) => item.value === newItem.value && item.type === newItem.type,
+      ),
+  );
 }
 
 export const deleteGroupAction = withActionInstrumentation(

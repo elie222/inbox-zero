@@ -64,7 +64,7 @@ export function withActionInstrumentation<
               captureException(error, { extra: { actionName: name } });
 
               return {
-                error: "Duplicate item error :(",
+                error: "Duplicate item error",
                 success: false,
               } as unknown as ActionError<Err>;
             }
