@@ -11,8 +11,8 @@ export const saveSettingsBody = z
     if (!val.aiApiKey && val.aiProvider !== Provider.ANTHROPIC) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "API key is required for non-default providers",
-        path: ["aiProvider"],
+        message: "You must provide an API key for this provider",
+        path: ["aiApiKey"],
       });
     }
   });
