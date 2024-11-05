@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import type { gmail_v1 } from "@googleapis/gmail";
+import uniq from "lodash/uniq";
+import uniqBy from "lodash/uniqBy";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
@@ -299,13 +301,15 @@ async function regenerateNewsletterGroup(
       ),
   );
 
-  await prisma.groupItem.createMany({
-    data: newItems.map((item) => ({
+  const uniqueNewItems = uniq(newItems);
+
+  await createGroupItems(
+    uniqueNewItems.map((item) => ({
       type: GroupItemType.FROM,
       value: item,
       groupId: existingGroup.id,
     })),
-  });
+  );
 
   revalidatePath("/automation");
 }
@@ -324,15 +328,33 @@ async function regenerateReceiptGroup(
       ),
   );
 
-  await prisma.groupItem.createMany({
-    data: newItems.map((item) => ({
+  const uniqueNewItems = uniqBy(
+    newItems,
+    (item) => `${item.value}-${item.type}`,
+  );
+
+  await createGroupItems(
+    uniqueNewItems.map((item) => ({
       type: GroupItemType.FROM,
       value: item.value,
       groupId: existingGroup.id,
     })),
-  });
+  );
 
   revalidatePath("/automation");
+}
+
+async function createGroupItems(
+  data: { groupId: string; type: GroupItemType; value: string }[],
+) {
+  try {
+    return await prisma.groupItem.createMany({ data });
+  } catch (error) {
+    if (isDuplicateError(error))
+      captureException(error, { extra: { items: data } });
+
+    throw error;
+  }
 }
 
 export const deleteGroupAction = withActionInstrumentation(

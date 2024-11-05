@@ -1,10 +1,14 @@
-import { withServerActionInstrumentation } from "@sentry/nextjs";
+import {
+  captureException,
+  withServerActionInstrumentation,
+} from "@sentry/nextjs";
 import {
   checkCommonErrors,
   type ActionError,
   type ServerActionResponse,
 } from "@/utils/error";
 import { logErrorToPosthog } from "@/utils/error.server";
+import { isDuplicateError } from "@/utils/prisma";
 
 // Utility type to ensure we're dealing with object types only
 type EnsureObject<T> = T extends object ? T : never;
@@ -56,6 +60,15 @@ export function withActionInstrumentation<
               success: true;
             };
           } catch (error) {
+            if (isDuplicateError(error)) {
+              captureException(error, { extra: { actionName: name } });
+
+              return {
+                error: "Duplicate item error :(",
+                success: false,
+              } as unknown as ActionError<Err>;
+            }
+
             // don't throw known errors to Sentry
             const apiError = checkCommonErrors(error, name);
             if (apiError) {
