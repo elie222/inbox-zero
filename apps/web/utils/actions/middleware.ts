@@ -1,5 +1,10 @@
 import { withServerActionInstrumentation } from "@sentry/nextjs";
-import type { ActionError, ServerActionResponse } from "@/utils/error";
+import {
+  checkCommonErrors,
+  logErrorToPosthog,
+  type ActionError,
+  type ServerActionResponse,
+} from "@/utils/error";
 
 // Utility type to ensure we're dealing with object types only
 type EnsureObject<T> = T extends object ? T : never;
@@ -33,22 +38,37 @@ export function withActionInstrumentation<
           recordResponse: options?.recordResponse ?? true,
         },
         async () => {
-          const res = await action(...args);
+          try {
+            const res = await action(...args);
 
-          if (!res) {
-            return { success: true } as EnsureObject<Result> & {
-              success: boolean;
+            if (!res) {
+              return { success: true } as EnsureObject<Result> & {
+                success: boolean;
+              };
+            }
+
+            if ("error" in res) return res;
+
+            return {
+              success: true,
+              ...res,
+            } as unknown as EnsureObject<Result> & {
+              success: true;
             };
+          } catch (error) {
+            // don't throw known errors to Sentry
+            const apiError = checkCommonErrors(error, name);
+            if (apiError) {
+              await logErrorToPosthog("action", name, apiError.type);
+
+              return {
+                error: apiError.message,
+                success: false,
+              } as unknown as ActionError<Err>;
+            }
+
+            throw error;
           }
-
-          if ("error" in res) return res;
-
-          return {
-            success: true,
-            ...res,
-          } as unknown as EnsureObject<Result> & {
-            success: true;
-          };
         },
       );
 

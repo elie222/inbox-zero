@@ -3,10 +3,17 @@ import {
   setUser,
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
+import { posthogCaptureEvent } from "@/utils/posthog";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
   error: { issues: { code: string; message: string }[] };
+};
+export type ApiErrorType = {
+  type: string;
+  message?: string;
+  code: number;
 };
 
 export function isError(value: any): value is ErrorMessage | ZodError {
@@ -115,4 +122,69 @@ export function isKnownApiError(error: unknown): boolean {
         isOpenAIRetryError(error) ||
         isAnthropicInsufficientBalanceError(error)))
   );
+}
+
+export function checkCommonErrors(
+  error: unknown,
+  url: string,
+): ApiErrorType | null {
+  if (isGmailInsufficientPermissionsError(error)) {
+    console.warn(`Gmail insufficient permissions error for url: ${url}`);
+    return {
+      type: "Gmail Insufficient Permissions",
+      message:
+        "You must grant all Gmail permissions to use the app. Please log out and log in again to grant permissions.",
+      code: 403,
+    };
+  }
+
+  if (isGmailRateLimitExceededError(error)) {
+    console.warn(`Gmail rate limit exceeded for url: ${url}`);
+    const errorMessage =
+      (error as any)?.errors?.[0]?.message ?? "Unknown error";
+    return {
+      type: "Gmail Rate Limit Exceeded",
+      message: `Gmail error: ${errorMessage}`,
+      code: 429,
+    };
+  }
+
+  if (isGmailQuotaExceededError(error)) {
+    console.warn(`Gmail quota exceeded for url: ${url}`);
+    return {
+      type: "Gmail Quota Exceeded",
+      message: "You have exceeded the Gmail quota. Please try again later.",
+      code: 429,
+    };
+  }
+
+  if (isOpenAIQuotaExceededError(error)) {
+    console.warn(`OpenAI quota exceeded for url: ${url}`);
+    const errorMessage = (error as any)?.error?.message ?? "Unknown error";
+    return {
+      type: "OpenAI Quota Exceeded",
+      message: `OpenAI error: ${errorMessage}`,
+      code: 429,
+    };
+  }
+
+  return null;
+}
+
+export async function logErrorToPosthog(
+  type: "api" | "action",
+  url: string,
+  errorType: string,
+) {
+  try {
+    const session = await auth();
+    if (session?.user.email) {
+      setUser({ email: session.user.email });
+      await posthogCaptureEvent(session.user.email, errorType, {
+        $set: { type, url },
+      });
+    }
+  } catch (error) {
+    console.error("Error logging to PostHog:", error);
+  }
 }
