@@ -45,7 +45,6 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
   posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
     api_host: env.NEXT_PUBLIC_POSTHOG_API_HOST, // https://posthog.com/docs/advanced/proxy/nextjs
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
-    opt_in_site_apps: true,
   });
 }
 
