@@ -12,7 +12,7 @@ export async function logErrorToPosthog(
     if (session?.user.email) {
       setUser({ email: session.user.email });
       await posthogCaptureEvent(session.user.email, errorType, {
-        $set: { type, url },
+        $set: { isError: true, type, url },
       });
     }
   } catch (error) {
