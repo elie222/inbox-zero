@@ -1,10 +1,10 @@
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import {
   checkCommonErrors,
-  logErrorToPosthog,
   type ActionError,
   type ServerActionResponse,
 } from "@/utils/error";
+import { logErrorToPosthog } from "@/utils/error.server";
 
 // Utility type to ensure we're dealing with object types only
 type EnsureObject<T> = T extends object ? T : never;

@@ -1,13 +1,9 @@
 import { ZodError } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
 import type { StreamingTextResponse } from "ai";
-import {
-  captureException,
-  checkCommonErrors,
-  logErrorToPosthog,
-  SafeError,
-} from "@/utils/error";
+import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { logErrorToPosthog } from "@/utils/error.server";
 
 export type NextHandler = (
   req: NextRequest,
