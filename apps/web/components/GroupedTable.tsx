@@ -12,7 +12,14 @@ import {
   type ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { ArchiveIcon, ChevronRight, PencilIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ChevronRight,
+  MoreVerticalIcon,
+  PencilIcon,
+  TagIcon,
+  TagsIcon,
+} from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import type { Category } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
@@ -41,6 +48,17 @@ import {
 import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
 import { CreateCategoryDialog } from "@/app/(app)/smart-categories/CreateCategoryButton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useLabels, type UserLabel } from "@/hooks/useLabels";
+import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 
 const COLUMNS = 4;
 
@@ -172,6 +190,8 @@ export function GroupedTable({
   const [selectedCategoryName, setSelectedCategoryName] =
     useQueryState("categoryName");
 
+  const { userLabels: labels } = useLabels();
+
   return (
     <>
       <Table>
@@ -204,6 +224,7 @@ export function GroupedTable({
                   }}
                   onArchiveAll={onArchiveAll}
                   onEditCategory={onEditCategory}
+                  labels={labels}
                 />
                 {isCategoryExpanded && (
                   <SenderRows
@@ -316,6 +337,7 @@ function GroupRow({
   category,
   count,
   isExpanded,
+  labels,
   onToggle,
   onArchiveAll,
   onEditCategory,
@@ -323,6 +345,7 @@ function GroupRow({
   category: string;
   count: number;
   isExpanded: boolean;
+  labels: UserLabel[];
   onToggle: () => void;
   onArchiveAll: () => void;
   onEditCategory: () => void;
@@ -346,10 +369,44 @@ function GroupRow({
         </div>
       </TableCell>
       <TableCell className="flex justify-end gap-1.5 py-1">
-        <Button variant="ghost" size="xs" onClick={onEditCategory}>
-          <PencilIcon className="size-4" />
-          <span className="sr-only">Edit</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="xs">
+              <MoreVerticalIcon className="size-4" />
+              <span className="sr-only">More</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEditCategory}>
+              <PencilIcon className="mr-2 size-4" />
+              Edit Prompt
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <ArchiveIcon className="mr-2 size-4" />
+              Auto archive
+            </DropdownMenuItem>
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <TagsIcon className="mr-2 size-4" />
+                <span>Auto archive and label</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <LabelsSubMenu labels={labels} onClick={(labelId) => {}} />
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <TagIcon className="mr-2 size-4" />
+                <span>Auto label</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <LabelsSubMenu labels={labels} onClick={(labelId) => {}} />
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button variant="outline" size="xs" onClick={onArchiveAll}>
           <ArchiveIcon className="mr-2 size-4" />
           Archive all
