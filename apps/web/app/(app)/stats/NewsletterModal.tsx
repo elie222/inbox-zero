@@ -85,7 +85,7 @@ export function NewsletterModal(props: {
               <MoreDropdown
                 item={newsletter}
                 userEmail={email || ""}
-                userGmailLabels={userLabels}
+                labels={userLabels}
                 posthog={posthog}
               />
             </div>

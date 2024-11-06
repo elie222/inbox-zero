@@ -139,7 +139,7 @@ export function BulkUnsubscribeSection({
         item={item}
         userEmail={userEmail}
         onOpenNewsletter={onOpenNewsletter}
-        userGmailLabels={userLabels}
+        labels={userLabels}
         mutate={mutate}
         selected={selectedRow?.name === item.name}
         onSelectRow={() => setSelectedRow(item)}

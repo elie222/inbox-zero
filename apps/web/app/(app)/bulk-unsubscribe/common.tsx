@@ -4,7 +4,6 @@ import type React from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
-import type { gmail_v1 } from "@googleapis/gmail";
 import {
   ArchiveIcon,
   ArchiveXIcon,
@@ -38,18 +37,16 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { LabelsResponse } from "@/app/api/google/labels/route";
 import {
   PremiumTooltip,
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@prisma/client";
-import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
-import { isActionError, isErrorMessage } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import { getGmailSearchUrl } from "@/utils/url";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import {
@@ -59,6 +56,8 @@ import {
   useArchiveAll,
   useDeleteAllFromSender,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
+import { LabelsSubMenu } from "@/components/LabelsSubMenu";
+import type { UserLabel } from "@/hooks/useLabels";
 
 export function ActionCell<T extends Row>({
   item,
@@ -66,7 +65,7 @@ export function ActionCell<T extends Row>({
   mutate,
   refetchPremium,
   onOpenNewsletter,
-  userGmailLabels,
+  labels,
   openPremiumModal,
   userEmail,
 }: {
@@ -76,7 +75,7 @@ export function ActionCell<T extends Row>({
   refetchPremium: () => Promise<any>;
   onOpenNewsletter: (row: T) => void;
   selected: boolean;
-  userGmailLabels: LabelsResponse["labels"];
+  labels: UserLabel[];
   openPremiumModal: () => void;
   userEmail: string;
 }) {
@@ -114,7 +113,7 @@ export function ActionCell<T extends Row>({
           mutate={mutate}
           posthog={posthog}
           refetchPremium={refetchPremium}
-          userGmailLabels={userGmailLabels}
+          labels={labels}
         />
       </Tooltip>
       <Tooltip
@@ -140,7 +139,7 @@ export function ActionCell<T extends Row>({
         onOpenNewsletter={onOpenNewsletter}
         item={item}
         userEmail={userEmail}
-        userGmailLabels={userGmailLabels}
+        labels={labels}
         posthog={posthog}
       />
     </>
@@ -202,14 +201,14 @@ function AutoArchiveButton<T extends Row>({
   mutate,
   posthog,
   refetchPremium,
-  userGmailLabels,
+  labels,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
-  userGmailLabels: LabelsResponse["labels"];
+  labels: UserLabel[];
 }) {
   const {
     autoArchiveLoading,
@@ -292,7 +291,7 @@ function AutoArchiveButton<T extends Row>({
 
           <DropdownMenuLabel>Auto Archive and Label</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {userGmailLabels?.map((label) => {
+          {labels.map((label) => {
             return (
               <DropdownMenuItem
                 key={label.id}
@@ -305,7 +304,7 @@ function AutoArchiveButton<T extends Row>({
               </DropdownMenuItem>
             );
           })}
-          {!userGmailLabels?.length && (
+          {!labels.length && (
             <DropdownMenuItem>
               You do not have any labels. Create one in Gmail first to auto
               label emails.
@@ -358,13 +357,13 @@ export function MoreDropdown<T extends Row>({
   onOpenNewsletter,
   item,
   userEmail,
-  userGmailLabels,
+  labels,
   posthog,
 }: {
   onOpenNewsletter?: (row: T) => void;
   item: T;
   userEmail: string;
-  userGmailLabels: LabelsResponse["labels"];
+  labels: UserLabel[];
   posthog: PostHog;
 }) {
   const { archiveAllLoading, onArchiveAll } = useArchiveAll({
@@ -414,7 +413,23 @@ export function MoreDropdown<T extends Row>({
             <span>Label future emails</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
-            <LabelsSubMenu sender={item.name} labels={userGmailLabels} />
+            <LabelsSubMenu
+              labels={labels}
+              onClick={async (label) => {
+                const res = await createFilterAction(item.name, label.id);
+                if (isActionError(res)) {
+                  toastError({
+                    title: "Error",
+                    description: `Failed to add ${item.name} to ${label.name}. ${res.error}`,
+                  });
+                } else {
+                  toastSuccess({
+                    title: "Success!",
+                    description: `Added ${item.name} to ${label.name}`,
+                  });
+                }
+              }}
+            />
           </DropdownMenuPortal>
         </DropdownMenuSub>
 
@@ -516,53 +531,6 @@ function GroupsSubMenu({ sender }: { sender: string }) {
           <span>New Group</span>
         </Link>
       </DropdownMenuItem>
-    </DropdownMenuSubContent>
-  );
-}
-
-function LabelsSubMenu({
-  sender,
-  labels,
-}: {
-  sender: string;
-  labels: gmail_v1.Schema$Label[] | undefined;
-}) {
-  return (
-    <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
-      {labels?.length ? (
-        labels.map((label) => {
-          return (
-            <DropdownMenuItem
-              key={label.id}
-              onClick={async () => {
-                if (label.id) {
-                  const res = await createFilterAction(sender, label.id);
-                  if (isErrorMessage(res)) {
-                    toastError({
-                      title: "Error",
-                      description: `Failed to add ${sender} to ${label.name}. ${res.error}`,
-                    });
-                  } else {
-                    toastSuccess({
-                      title: "Success!",
-                      description: `Added ${sender} to ${label.name}`,
-                    });
-                  }
-                } else {
-                  toastError({
-                    title: "Error",
-                    description: `Failed to add ${sender} to ${label.name}`,
-                  });
-                }
-              }}
-            >
-              {label.name}
-            </DropdownMenuItem>
-          );
-        })
-      ) : (
-        <DropdownMenuItem>{`You don't have any labels yet.`}</DropdownMenuItem>
-      )}
     </DropdownMenuSubContent>
   );
 }

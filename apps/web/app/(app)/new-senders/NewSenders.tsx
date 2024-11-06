@@ -24,10 +24,10 @@ import {
   useBulkUnsubscribeShortcuts,
 } from "@/app/(app)/bulk-unsubscribe/hooks";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";
-import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
+import type { UserLabel } from "@/hooks/useLabels";
 import { ShortcutTooltip } from "@/app/(app)/bulk-unsubscribe/ShortcutTooltip";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import {
@@ -194,7 +194,7 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
                       firstEmail={item.firstEmail}
                       numberOfEmails={item.numberOfEmails}
                       onOpenNewsletter={onOpenNewsletter}
-                      userGmailLabels={userLabels}
+                      labels={userLabels}
                       mutate={mutate}
                       selected={selectedRow?.name === item.name}
                       onSelectRow={() => {
@@ -281,14 +281,14 @@ function NewSenderRow({
   hasUnsubscribeAccess,
   mutate,
   userEmail,
-  userGmailLabels,
+  labels,
 }: {
   item: Row;
   firstEmail: { from: string; subject: string; timestamp: number };
   userEmail: string;
   numberOfEmails: number;
   onOpenNewsletter: (row: Row) => void;
-  userGmailLabels: LabelsResponse["labels"];
+  labels: UserLabel[];
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;
@@ -321,7 +321,7 @@ function NewSenderRow({
           refetchPremium={refetchPremium}
           onOpenNewsletter={onOpenNewsletter}
           selected={selected}
-          userGmailLabels={userGmailLabels}
+          labels={labels}
           openPremiumModal={openPremiumModal}
         />
       </TableCell>

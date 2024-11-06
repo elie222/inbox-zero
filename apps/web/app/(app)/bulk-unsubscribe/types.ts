@@ -1,6 +1,6 @@
-import type { LabelsResponse } from "@/app/api/google/labels/route";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import type { NewsletterStatus } from "@prisma/client";
+import type { UserLabel } from "@/hooks/useLabels";
 
 export type Row = {
   name: string;
@@ -14,7 +14,7 @@ type Newsletter = NewsletterStatsResponse["newsletters"][number];
 export interface RowProps {
   item: Newsletter;
   onOpenNewsletter: (row: Newsletter) => void;
-  userGmailLabels: LabelsResponse["labels"];
+  labels: UserLabel[];
   userEmail: string;
   mutate: () => Promise<any>;
   selected: boolean;
