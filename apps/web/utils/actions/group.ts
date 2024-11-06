@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { gmail_v1 } from "@googleapis/gmail";
+import uniqBy from "lodash/uniqBy";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
@@ -339,12 +340,14 @@ function filterOutExisting<T extends { type: GroupItemType; value: string }>(
   newItems: T[],
   existingItems: { type: GroupItemType; value: string }[],
 ) {
-  return newItems.filter(
+  const filtered = newItems.filter(
     (newItem) =>
       !existingItems.find(
         (item) => item.value === newItem.value && item.type === newItem.type,
       ),
   );
+
+  return uniqBy(filtered, (item) => `${item.value}-${item.type}`);
 }
 
 export const deleteGroupAction = withActionInstrumentation(
