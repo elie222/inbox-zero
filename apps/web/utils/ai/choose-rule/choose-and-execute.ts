@@ -37,7 +37,9 @@ export async function chooseRuleAndExecute(
   const plannedAct = await chooseRule(options);
 
   console.log(
-    `Planned act: ${plannedAct.rule?.name} ${plannedAct.actionItems}`,
+    `Planned act: ${plannedAct.rule?.name}. Actions: ${plannedAct.actionItems
+      ?.map((action) => action.type)
+      .join(", ")}`,
   );
 
   // no rule to apply to this thread
