@@ -20,7 +20,9 @@ export async function executeAct({
   email: EmailForAction;
   userEmail: string;
 }) {
-  console.log(`Executing act: ${executedRule.id}`);
+  console.log(
+    `Executing act: ${executedRule.id} for rule ${executedRule.ruleId}`,
+  );
 
   async function labelActed() {
     const label = await getOrCreateLabel({
