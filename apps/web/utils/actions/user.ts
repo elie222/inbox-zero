@@ -47,6 +47,7 @@ export const deleteAccountAction = withActionInstrumentation(
         deleteLoopsContact(session.user.email),
         deleteResendContact({ email: session.user.email }),
         unwatchEmails({
+          userId: session.user.id,
           access_token: session.accessToken ?? null,
           refresh_token: null,
         }),

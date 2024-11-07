@@ -31,16 +31,26 @@ async function unwatch(gmail: gmail_v1.Gmail) {
   await gmail.users.stop({ userId: "me" });
 }
 
-export async function unwatchEmails(session: {
+export async function unwatchEmails({
+  userId,
+  access_token,
+  refresh_token,
+}: {
+  userId: string;
   access_token: string | null;
   refresh_token: string | null;
 }) {
   try {
     const gmail = getGmailClient({
-      accessToken: session.access_token ?? undefined,
-      refreshToken: session.refresh_token ?? undefined,
+      accessToken: access_token ?? undefined,
+      refreshToken: refresh_token ?? undefined,
     });
     await unwatch(gmail);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { watchEmailsExpirationDate: null },
+    });
   } catch (error) {
     console.error("Error unwatching emails", error);
     captureException(error);
