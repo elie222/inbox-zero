@@ -20,7 +20,7 @@ export async function executeAct({
   email: EmailForAction;
   userEmail: string;
 }) {
-  console.log("Executing act:", executedRule.id);
+  console.log(`Executing act: ${executedRule.id}`);
 
   async function labelActed() {
     const label = await getOrCreateLabel({
@@ -37,11 +37,25 @@ export async function executeAct({
     });
   }
 
+  await prisma.executedRule.update({
+    where: { id: executedRule.id },
+    data: { status: ExecutedRuleStatus.APPLYING },
+  });
+
+  for (const action of executedRule.actionItems) {
+    try {
+      await runActionFunction(gmail, email, action, userEmail);
+    } catch (error) {
+      await prisma.executedRule.update({
+        where: { id: executedRule.id },
+        data: { status: ExecutedRuleStatus.ERROR },
+      });
+      throw error;
+    }
+  }
+
   await Promise.allSettled([
-    ...executedRule.actionItems.map(async (action) => {
-      return runActionFunction(gmail, email, action, userEmail);
-    }),
-    prisma.executedRule.update({
+    await prisma.executedRule.update({
       where: { id: executedRule.id },
       data: { status: ExecutedRuleStatus.APPLIED },
     }),

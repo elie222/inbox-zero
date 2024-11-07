@@ -413,9 +413,11 @@ enum FeatureAccess {
 
 enum ExecutedRuleStatus {
   APPLIED
+  APPLYING
   REJECTED
   PENDING
   SKIPPED
+  ERROR
 }
 
 enum RuleType {
