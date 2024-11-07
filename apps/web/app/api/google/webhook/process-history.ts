@@ -307,6 +307,12 @@ async function processHistoryItem(
       }),
     ]);
 
+    // if the rule has already been executed, skip
+    if (hasExistingRule) {
+      console.log("Skipping. Rule already exists.");
+      return;
+    }
+
     // fetch after getting the message to avoid rate limiting
     const gmailThread = await getThread(threadId, gmail);
 
@@ -323,11 +329,6 @@ async function processHistoryItem(
       console.log(
         `Skipping. Blocked unsubscribed email. email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
       );
-      return;
-    }
-
-    if (hasExistingRule) {
-      console.log("Skipping. Rule already exists.");
       return;
     }
 
