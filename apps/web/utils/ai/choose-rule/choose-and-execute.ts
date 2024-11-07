@@ -15,7 +15,6 @@ type ChooseRuleAndExecuteOptions = ChooseRuleOptions & {
   email: EmailForLLM & EmailForAction;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   gmail: gmail_v1.Gmail;
-  forceExecute?: boolean;
   isTest: boolean;
 };
 
@@ -31,7 +30,7 @@ export async function chooseRuleAndExecute(
   actionItems?: ActionItem[];
   reason?: string;
 }> {
-  const { rules, email, user, forceExecute, gmail, isTest } = options;
+  const { rules, email, user, gmail, isTest } = options;
 
   if (!rules.length) return { handled: false };
 
@@ -55,8 +54,7 @@ export async function chooseRuleAndExecute(
         plannedAct,
       );
 
-  const shouldExecute =
-    executedRule && (plannedAct.rule?.automate || forceExecute);
+  const shouldExecute = !!(executedRule && plannedAct.rule?.automate);
 
   if (shouldExecute) {
     await executeAct({
