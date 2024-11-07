@@ -229,7 +229,7 @@ model ExecutedRule {
   updatedAt DateTime           @updatedAt
   threadId  String
   messageId String
-  status    ExecutedRuleStatus @default(APPLIED) // if APPLIED then the rule was executed
+  status    ExecutedRuleStatus
   automated Boolean
   reason    String?
 
