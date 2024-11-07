@@ -23,6 +23,7 @@ import { captureException } from "@/utils/error";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 import { categorizeSender } from "@/utils/actions/categorize";
+import { unwatchEmails } from "@/app/api/google/watch/controller";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -79,6 +80,7 @@ export async function processHistoryForUser(
 
   if (!premium) {
     console.log(`Google webhook: Account not premium. email: ${email}`);
+    await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }
 
@@ -95,6 +97,7 @@ export async function processHistoryForUser(
     console.debug(
       `Google webhook: does not have hasAiOrColdEmailAccess. email: ${email}`,
     );
+    await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }
 

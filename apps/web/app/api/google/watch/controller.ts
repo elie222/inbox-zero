@@ -2,6 +2,8 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { env } from "@/env";
+import { getGmailClient } from "@/utils/gmail/client";
+import { captureException } from "@/utils/error";
 
 export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.watch({
@@ -22,4 +24,25 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
     return expirationDate;
   }
   console.error("Error watching inbox", res.data);
+}
+
+async function unwatch(gmail: gmail_v1.Gmail) {
+  console.log("Unwatching emails");
+  await gmail.users.stop({ userId: "me" });
+}
+
+export async function unwatchEmails(session: {
+  access_token: string | null;
+  refresh_token: string | null;
+}) {
+  try {
+    const gmail = getGmailClient({
+      accessToken: session.access_token ?? undefined,
+      refreshToken: session.refresh_token ?? undefined,
+    });
+    await unwatch(gmail);
+  } catch (error) {
+    console.error("Error unwatching emails", error);
+    captureException(error);
+  }
 }
