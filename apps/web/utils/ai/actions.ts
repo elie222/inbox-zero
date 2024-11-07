@@ -369,6 +369,8 @@ export const runActionFunction = async (
   action: ActionItem,
   userEmail: string,
 ) => {
+  console.log("Running action", { actionType: action.type, userEmail });
+
   const { type, ...args } = action;
   switch (type) {
     case ActionType.ARCHIVE:
