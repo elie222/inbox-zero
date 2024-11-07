@@ -37,10 +37,15 @@ export async function executeAct({
     });
   }
 
-  await prisma.executedRule.update({
-    where: { id: executedRule.id },
+  const pendingRule = await prisma.executedRule.update({
+    where: { id: executedRule.id, status: ExecutedRuleStatus.PENDING },
     data: { status: ExecutedRuleStatus.APPLYING },
   });
+
+  if (!pendingRule) {
+    console.log(`Rule ${executedRule.id} is not pending or does not exist`);
+    return;
+  }
 
   for (const action of executedRule.actionItems) {
     try {
