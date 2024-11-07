@@ -99,6 +99,8 @@ export const env = createEnv({
       .boolean()
       .optional()
       .default(false),
+    NEXT_PUBLIC_AXIOM_INGEST_ENDPOINT: z.string().optional(),
+    NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -163,5 +165,8 @@ export const env = createEnv({
     NEXT_PUBLIC_DISABLE_TINYBIRD: process.env.NEXT_PUBLIC_DISABLE_TINYBIRD,
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED:
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
+    NEXT_PUBLIC_AXIOM_INGEST_ENDPOINT:
+      process.env.NEXT_PUBLIC_AXIOM_INGEST_ENDPOINT,
+    NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
   },
 });
