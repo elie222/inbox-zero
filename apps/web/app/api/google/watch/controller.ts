@@ -46,13 +46,18 @@ export async function unwatchEmails({
       refreshToken: refresh_token ?? undefined,
     });
     await unwatch(gmail);
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { watchEmailsExpirationDate: null },
-    });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("invalid_grant")) {
+      console.error("Error unwatching emails, invalid grant");
+      return;
+    }
+
     console.error("Error unwatching emails", error);
     captureException(error);
   }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { watchEmailsExpirationDate: null },
+  });
 }
