@@ -39,12 +39,12 @@ export async function executeAct({
     });
   }
 
-  const pendingRule = await prisma.executedRule.update({
+  const pendingRules = await prisma.executedRule.updateMany({
     where: { id: executedRule.id, status: ExecutedRuleStatus.PENDING },
     data: { status: ExecutedRuleStatus.APPLYING },
   });
 
-  if (!pendingRule) {
+  if (pendingRules.count === 0) {
     console.log(`Rule ${executedRule.id} is not pending or does not exist`);
     return;
   }
