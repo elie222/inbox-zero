@@ -35,6 +35,7 @@ import type { Category, User } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
 import { getUserCategories } from "@/utils/category.server";
 import { hasAiAccess } from "@/utils/premium";
+import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
 
 export const categorizeEmailAction = withActionInstrumentation(
   "categorizeEmail",
@@ -101,10 +102,10 @@ async function saveResult(
 
 export const categorizeSendersAction = withActionInstrumentation(
   "categorizeSenders",
-  bulkCategorizeSenders,
+  async () => categorizeSenders(),
 );
 
-async function bulkCategorizeSenders() {
+export async function categorizeSenders(pageToken?: string) {
   console.log("categorizeSendersAction");
 
   const { gmail, user: u, error, session } = await getSessionAndGmailClient();
@@ -138,8 +139,8 @@ async function bulkCategorizeSenders() {
   const sendersResult = await findSenders(
     gmail,
     session.accessToken,
-    undefined,
-    100,
+    pageToken,
+    50,
   );
   // const sendersResult = await findSendersWithPagination(gmail, 5);
 
@@ -244,7 +245,19 @@ async function bulkCategorizeSenders() {
   }
 
   revalidatePath("/smart-categories");
+
+  return { nextPageToken: sendersResult.nextPageToken };
 }
+
+export const bulkCategorizeSendersAction = withActionInstrumentation(
+  "bulkCategorizeSenders",
+  async () => {
+    const session = await auth();
+    if (!session?.user) return { error: "Not authenticated" };
+
+    await triggerCategorizeBatch({ userId: session.user.id, pageIndex: 0 });
+  },
+);
 
 export const fastCategorizeSendersAction = withActionInstrumentation(
   "fastCategorizeSenders",
