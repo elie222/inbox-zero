@@ -6,9 +6,9 @@ import {
   INTERNAL_API_KEY_HEADER,
   isValidInternalApiKey,
 } from "@/utils/internal-api";
-import { categorizeSenders } from "@/utils/actions/categorize";
 import { categorizeSendersBatchSchema } from "@/app/api/user/categorize/senders/batch/trigger";
 import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
+import { categorizeSenders } from "@/utils/actions/categorize";
 
 const MAX_PAGES = 10;
 
@@ -23,8 +23,10 @@ export const POST = withError(async (request: Request) => {
   const body = categorizeSendersBatchSchema.parse(json);
   const { userId, pageToken, pageIndex } = body;
 
+  console.log("categorizeSendersBatch", userId, pageIndex);
+
   // Process the batch
-  const { nextPageToken } = await categorizeSenders(pageToken);
+  const { nextPageToken } = await categorizeSenders(userId, pageToken);
 
   // Check if completed
   if (pageIndex >= MAX_PAGES) return NextResponse.json({ status: "completed" });

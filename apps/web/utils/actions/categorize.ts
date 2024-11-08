@@ -36,6 +36,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { getUserCategories } from "@/utils/category.server";
 import { hasAiAccess } from "@/utils/premium";
 import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
+import { getGmailClient } from "@/utils/gmail/client";
 
 export const categorizeEmailAction = withActionInstrumentation(
   "categorizeEmail",
@@ -100,27 +101,18 @@ async function saveResult(
   if (newCategory) categories.push(newCategory);
 }
 
-export const categorizeSendersAction = withActionInstrumentation(
-  "categorizeSenders",
-  async () => categorizeSenders(),
-);
-
-export async function categorizeSenders(pageToken?: string) {
-  console.log("categorizeSendersAction");
-
-  const { gmail, user: u, error, session } = await getSessionAndGmailClient();
-  if (error) return { error };
-  if (!gmail) return { error: "Could not load Gmail" };
-  if (!session?.accessToken) return { error: "No access token" };
+export async function categorizeSenders(userId: string, pageToken?: string) {
+  console.log("categorizeSendersAction", userId, pageToken);
 
   const user = await prisma.user.findUnique({
-    where: { id: u.id },
+    where: { id: userId },
     select: {
       email: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
       premium: { select: { aiAutomationAccess: true } },
+      accounts: { select: { access_token: true } },
     },
   });
 
@@ -133,18 +125,13 @@ export async function categorizeSenders(pageToken?: string) {
 
   if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
-  // TODO: fetch from gmail, run ai, then fetch from gmail,...
-  // we can run ai and gmail fetch in parallel
+  const accessToken = user.accounts[0].access_token;
 
-  const sendersResult = await findSenders(
-    gmail,
-    session.accessToken,
-    pageToken,
-    50,
-  );
-  // const sendersResult = await findSendersWithPagination(gmail, 5);
+  if (!accessToken) return { error: "No access token" };
 
-  // console.log("sendersResult", Array.from(sendersResult.senders.keys()));
+  const gmail = getGmailClient({ accessToken });
+
+  const sendersResult = await findSenders(gmail, accessToken, pageToken, 50);
 
   console.log(`Found ${sendersResult.senders.size} senders`);
 
@@ -155,13 +142,13 @@ export async function categorizeSenders(pageToken?: string) {
   // remove senders we've already categorized
   const [existingSenders, categories] = await Promise.all([
     prisma.newsletter.findMany({
-      where: { email: { in: senders }, userId: u.id },
+      where: { email: { in: senders }, userId },
       select: {
         email: true,
         category: { select: { name: true, description: true } },
       },
     }),
-    getUserCategories(u.id),
+    getUserCategories(userId),
   ]);
 
   if (categories.length === 0) return { error: "No categories found" };
@@ -193,7 +180,7 @@ export async function categorizeSenders(pageToken?: string) {
   const results = [...categorizedSenders, ...aiResults];
 
   for (const result of results) {
-    await saveResult(result, categories, u.id);
+    await saveResult(result, categories, userId);
   }
 
   // categorize unknown senders
@@ -239,7 +226,7 @@ export async function categorizeSenders(pageToken?: string) {
           category: aiResult.category,
         },
         categories,
-        u.id,
+        userId,
       );
     }
   }

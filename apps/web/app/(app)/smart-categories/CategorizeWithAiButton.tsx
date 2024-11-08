@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { categorizeSendersAction } from "@/utils/actions/categorize";
+import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
 import { handleActionCall } from "@/utils/server-action";
 import { isActionError } from "@/utils/error";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
@@ -28,8 +28,8 @@ export function CategorizeWithAiButton() {
               async () => {
                 setIsCategorizing(true);
                 const result = await handleActionCall(
-                  "categorizeSendersAction",
-                  categorizeSendersAction,
+                  "bulkCategorizeSendersAction",
+                  bulkCategorizeSendersAction,
                 );
 
                 if (isActionError(result)) {
@@ -44,7 +44,7 @@ export function CategorizeWithAiButton() {
               {
                 loading: "Categorizing senders...",
                 success: () => {
-                  return "Senders categorized successfully!";
+                  return "Categorization started! This might take a while.";
                 },
                 error: (err) => {
                   return `Error categorizing senders: ${err.message}`;
