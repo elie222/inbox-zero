@@ -101,149 +101,150 @@ async function saveResult(
 
 export const categorizeSendersAction = withActionInstrumentation(
   "categorizeSenders",
-  async () => {
-    console.log("categorizeSendersAction");
+  bulkCategorizeSenders,
+);
 
-    const { gmail, user: u, error, session } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
-    if (!session?.accessToken) return { error: "No access token" };
+async function bulkCategorizeSenders() {
+  console.log("categorizeSendersAction");
 
-    const user = await prisma.user.findUnique({
-      where: { id: u.id },
+  const { gmail, user: u, error, session } = await getSessionAndGmailClient();
+  if (error) return { error };
+  if (!gmail) return { error: "Could not load Gmail" };
+  if (!session?.accessToken) return { error: "No access token" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: u.id },
+    select: {
+      email: true,
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+      premium: { select: { aiAutomationAccess: true } },
+    },
+  });
+
+  if (!user) return { error: "User not found" };
+
+  const userHasAiAccess = hasAiAccess(
+    user.premium?.aiAutomationAccess,
+    user.aiApiKey,
+  );
+
+  if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
+
+  // TODO: fetch from gmail, run ai, then fetch from gmail,...
+  // we can run ai and gmail fetch in parallel
+
+  const sendersResult = await findSenders(
+    gmail,
+    session.accessToken,
+    undefined,
+    100,
+  );
+  // const sendersResult = await findSendersWithPagination(gmail, 5);
+
+  // console.log("sendersResult", Array.from(sendersResult.senders.keys()));
+
+  console.log(`Found ${sendersResult.senders.size} senders`);
+
+  const senders = uniq(Array.from(sendersResult.senders.keys()));
+
+  console.log(`Found ${senders.length} unique senders`);
+
+  // remove senders we've already categorized
+  const [existingSenders, categories] = await Promise.all([
+    prisma.newsletter.findMany({
+      where: { email: { in: senders }, userId: u.id },
       select: {
         email: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        premium: { select: { aiAutomationAccess: true } },
+        category: { select: { name: true, description: true } },
       },
-    });
+    }),
+    getUserCategories(u.id),
+  ]);
 
-    if (!user) return { error: "User not found" };
+  if (categories.length === 0) return { error: "No categories found" };
 
-    const userHasAiAccess = hasAiAccess(
-      user.premium?.aiAutomationAccess,
-      user.aiApiKey,
-    );
+  const sendersToCategorize = senders.filter(
+    (sender) => !existingSenders.some((s) => s.email === sender),
+  );
 
-    if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
+  const categorizedSenders =
+    preCategorizeSendersWithStaticRules(sendersToCategorize);
 
-    // TODO: fetch from gmail, run ai, then fetch from gmail,...
-    // we can run ai and gmail fetch in parallel
+  const sendersToCategorizeWithAi = categorizedSenders
+    .filter((sender) => !sender.category)
+    .map((sender) => sender.sender);
 
-    const sendersResult = await findSenders(
-      gmail,
-      session.accessToken,
-      undefined,
-      100,
-    );
-    // const sendersResult = await findSendersWithPagination(gmail, 5);
+  console.log(
+    `Found ${sendersToCategorizeWithAi.length} senders to categorize with AI`,
+  );
 
-    // console.log("sendersResult", Array.from(sendersResult.senders.keys()));
+  const aiResults = await aiCategorizeSenders({
+    user,
+    senders: sendersToCategorizeWithAi.map((sender) => ({
+      emailAddress: sender,
+      snippets: sendersResult.senders.get(sender)?.map((m) => m.snippet) || [],
+    })),
+    categories,
+  });
 
-    console.log(`Found ${sendersResult.senders.size} senders`);
+  const results = [...categorizedSenders, ...aiResults];
 
-    const senders = uniq(Array.from(sendersResult.senders.keys()));
+  for (const result of results) {
+    await saveResult(result, categories, u.id);
+  }
 
-    console.log(`Found ${senders.length} unique senders`);
+  // categorize unknown senders
+  // TODO: this will take a while. so probably break this out, or stream results as they come in
+  const unknownSenders = [
+    ...results,
+    ...existingSenders.map((s) => ({
+      sender: s.email,
+      category: s.category?.name,
+    })),
+  ].filter(
+    (r) =>
+      !r.category ||
+      r.category === defaultCategory.UNKNOWN.name ||
+      r.category === REQUEST_MORE_INFORMATION_CATEGORY,
+  );
 
-    // remove senders we've already categorized
-    const [existingSenders, categories] = await Promise.all([
-      prisma.newsletter.findMany({
-        where: { email: { in: senders }, userId: u.id },
-        select: {
-          email: true,
-          category: { select: { name: true, description: true } },
-        },
-      }),
-      getUserCategories(u.id),
-    ]);
+  console.log(
+    `Found ${unknownSenders.length} unknown senders to categorize with AI`,
+  );
 
-    if (categories.length === 0) return { error: "No categories found" };
+  for (const sender of unknownSenders) {
+    const messages = sendersResult.senders.get(sender.sender);
 
-    const sendersToCategorize = senders.filter(
-      (sender) => !existingSenders.some((s) => s.email === sender),
-    );
+    let previousEmails =
+      messages?.map((m) => m.snippet).filter(isDefined) || [];
 
-    const categorizedSenders =
-      preCategorizeSendersWithStaticRules(sendersToCategorize);
+    if (previousEmails.length === 0) {
+      previousEmails = await getPreviousEmails(gmail, sender.sender);
+    }
 
-    const sendersToCategorizeWithAi = categorizedSenders
-      .filter((sender) => !sender.category)
-      .map((sender) => sender.sender);
-
-    console.log(
-      `Found ${sendersToCategorizeWithAi.length} senders to categorize with AI`,
-    );
-
-    const aiResults = await aiCategorizeSenders({
+    const aiResult = await aiCategorizeSender({
       user,
-      senders: sendersToCategorizeWithAi.map((sender) => ({
-        emailAddress: sender,
-        snippets:
-          sendersResult.senders.get(sender)?.map((m) => m.snippet) || [],
-      })),
+      sender: sender.sender,
+      previousEmails,
       categories,
     });
 
-    const results = [...categorizedSenders, ...aiResults];
-
-    for (const result of results) {
-      await saveResult(result, categories, u.id);
-    }
-
-    // categorize unknown senders
-    // TODO: this will take a while. so probably break this out, or stream results as they come in
-    const unknownSenders = [
-      ...results,
-      ...existingSenders.map((s) => ({
-        sender: s.email,
-        category: s.category?.name,
-      })),
-    ].filter(
-      (r) =>
-        !r.category ||
-        r.category === defaultCategory.UNKNOWN.name ||
-        r.category === REQUEST_MORE_INFORMATION_CATEGORY,
-    );
-
-    console.log(
-      `Found ${unknownSenders.length} unknown senders to categorize with AI`,
-    );
-
-    for (const sender of unknownSenders) {
-      const messages = sendersResult.senders.get(sender.sender);
-
-      let previousEmails =
-        messages?.map((m) => m.snippet).filter(isDefined) || [];
-
-      if (previousEmails.length === 0) {
-        previousEmails = await getPreviousEmails(gmail, sender.sender);
-      }
-
-      const aiResult = await aiCategorizeSender({
-        user,
-        sender: sender.sender,
-        previousEmails,
+    if (aiResult) {
+      await saveResult(
+        {
+          sender: sender.sender,
+          category: aiResult.category,
+        },
         categories,
-      });
-
-      if (aiResult) {
-        await saveResult(
-          {
-            sender: sender.sender,
-            category: aiResult.category,
-          },
-          categories,
-          u.id,
-        );
-      }
+        u.id,
+      );
     }
+  }
 
-    revalidatePath("/smart-categories");
-  },
-);
+  revalidatePath("/smart-categories");
+}
 
 export const fastCategorizeSendersAction = withActionInstrumentation(
   "fastCategorizeSenders",
