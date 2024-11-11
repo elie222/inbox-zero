@@ -63,21 +63,22 @@ export function Modal({
               leave="ease-in duration-200"
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
-              className={clsx(
-                "w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all",
-                {
-                  "p-6": padding === "sm",
-                  "p-10": !padding,
-                  "sm:w-full sm:max-w-xl":
-                    !fullWidth && (!size || size === "xl"),
-                  "sm:w-full sm:max-w-2xl": !fullWidth && size === "2xl",
-                  "sm:w-full sm:max-w-4xl": !fullWidth && size === "4xl",
-                  "sm:w-full sm:max-w-6xl": !fullWidth && size === "6xl",
-                  "sm:w-full sm:max-w-full": fullWidth,
-                },
-              )}
             >
-              <DialogPanel>
+              <DialogPanel
+                className={clsx(
+                  "w-full transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all",
+                  {
+                    "p-6": padding === "sm",
+                    "p-10": !padding,
+                    "sm:w-full sm:max-w-xl":
+                      !fullWidth && (!size || size === "xl"),
+                    "sm:w-full sm:max-w-2xl": !fullWidth && size === "2xl",
+                    "sm:w-full sm:max-w-4xl": !fullWidth && size === "4xl",
+                    "sm:w-full sm:max-w-6xl": !fullWidth && size === "6xl",
+                    "sm:w-full sm:max-w-full": fullWidth,
+                  },
+                )}
+              >
                 {title && (
                   <DialogTitle as="h3" className="font-cal text-xl leading-6">
                     {title}
