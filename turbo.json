@@ -39,6 +39,7 @@
         "CRON_SECRET",
         "LOOPS_API_SECRET",
         "ADMINS",
+        "WEBHOOK_URL",
 
         "NEXT_PUBLIC_LEMON_STORE_ID",
 

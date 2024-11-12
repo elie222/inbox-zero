@@ -13,6 +13,6 @@ export type CategorizeSendersBatchBody = z.infer<
 
 export async function triggerCategorizeBatch(body: CategorizeSendersBatchBody) {
   const client = getQstashClient();
-  const url = `${env.NEXT_PUBLIC_BASE_URL}/api/user/categorize/senders/batch`;
+  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/user/categorize/senders/batch`;
   return await client.publishJSON({ url, body });
 }

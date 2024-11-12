@@ -44,6 +44,7 @@ export const env = createEnv({
       .string()
       .optional()
       .transform((value) => value?.split(",")),
+    WEBHOOK_URL: z.string().optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
