@@ -270,6 +270,8 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       userId: session.user.id,
       pageIndex: 0,
     });
+
+    revalidatePath("/smart-categories");
   },
 );
 

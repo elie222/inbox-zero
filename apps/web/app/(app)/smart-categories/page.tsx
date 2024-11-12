@@ -25,6 +25,8 @@ import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
+import { CategorizeSendersProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
+import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -34,7 +36,7 @@ export default async function CategoriesPage() {
   const email = session?.user.email;
   if (!email) throw new Error("Not authenticated");
 
-  const [senders, categories, user] = await Promise.all([
+  const [senders, categories, user, progress] = await Promise.all([
     prisma.newsletter.findMany({
       where: { userId: session.user.id, categoryId: { not: null } },
       select: {
@@ -48,6 +50,7 @@ export default async function CategoriesPage() {
       where: { id: session.user.id },
       select: { autoCategorizeSenders: true },
     }),
+    getCategorizationProgress({ userId: session.user.id }),
   ]);
 
   if (!(senders.length > 0 || categories.length > 0))
@@ -59,6 +62,7 @@ export default async function CategoriesPage() {
 
       <ClientOnly>
         <ArchiveProgress />
+        <CategorizeSendersProgress refresh={!!progress} />
       </ClientOnly>
 
       <PremiumAlertWithData className="mx-2 mt-2 sm:mx-4" />
