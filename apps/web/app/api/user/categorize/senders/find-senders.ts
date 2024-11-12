@@ -17,6 +17,7 @@ export async function findSendersWithPagination(
     const { senders, nextPageToken: newNextPageToken } = await findSenders(
       gmail,
       accessToken,
+      50,
       nextPageToken,
     );
 
@@ -37,8 +38,8 @@ export async function findSendersWithPagination(
 export async function findSenders(
   gmail: gmail_v1.Gmail,
   accessToken: string,
+  maxResults: number,
   pageToken?: string,
-  maxResults = 50,
 ) {
   const senders: SenderMap = new Map();
 

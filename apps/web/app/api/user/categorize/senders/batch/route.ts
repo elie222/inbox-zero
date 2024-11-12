@@ -10,7 +10,7 @@ import { categorizeSendersBatchSchema } from "@/app/api/user/categorize/senders/
 import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
 import { categorizeSenders } from "@/utils/actions/categorize";
 
-const MAX_PAGES = 10;
+const MAX_PAGES = 50;
 
 export const POST = withError(async (request: Request) => {
   const headersList = headers();

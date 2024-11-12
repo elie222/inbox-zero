@@ -131,7 +131,7 @@ export async function categorizeSenders(userId: string, pageToken?: string) {
 
   const gmail = getGmailClient({ accessToken });
 
-  const sendersResult = await findSenders(gmail, accessToken, pageToken, 50);
+  const sendersResult = await findSenders(gmail, accessToken, 20, pageToken);
 
   console.log(`Found ${sendersResult.senders.size} senders`);
 

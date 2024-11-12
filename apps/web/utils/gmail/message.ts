@@ -40,6 +40,7 @@ export async function getMessagesBatch(
     .map((message) => {
       if (isBatchError(message)) {
         // TODO need a better way to handle this
+        // https://claude.ai/chat/3984ad45-f5d4-4196-8309-9b5dc9211d05
         console.error(
           `Error fetching message ${message.error.code} ${message.error.message}`,
         );
