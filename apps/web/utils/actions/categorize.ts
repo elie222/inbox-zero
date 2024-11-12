@@ -115,18 +115,15 @@ export async function categorizeSenders(userId: string, pageToken?: string) {
       accounts: { select: { access_token: true } },
     },
   });
-
   if (!user) return { error: "User not found" };
 
   const userHasAiAccess = hasAiAccess(
     user.premium?.aiAutomationAccess,
     user.aiApiKey,
   );
-
   if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
   const accessToken = user.accounts[0].access_token;
-
   if (!accessToken) return { error: "No access token" };
 
   const gmail = getGmailClient({ accessToken });
@@ -239,10 +236,37 @@ export async function categorizeSenders(userId: string, pageToken?: string) {
 export const bulkCategorizeSendersAction = withActionInstrumentation(
   "bulkCategorizeSenders",
   async () => {
-    const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+    const { gmail, user: u, error, session } = await getSessionAndGmailClient();
+    if (error) return { error };
+    if (!gmail) return { error: "Could not load Gmail" };
+    if (!session?.accessToken) return { error: "No access token" };
 
-    await triggerCategorizeBatch({ userId: session.user.id, pageIndex: 0 });
+    const user = await prisma.user.findUnique({
+      where: { id: u.id },
+      select: {
+        email: true,
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+        premium: { select: { aiAutomationAccess: true } },
+        accounts: { select: { access_token: true } },
+      },
+    });
+    if (!user) return { error: "User not found" };
+
+    const userHasAiAccess = hasAiAccess(
+      user.premium?.aiAutomationAccess,
+      user.aiApiKey,
+    );
+    if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
+
+    const accessToken = user.accounts[0].access_token;
+    if (!accessToken) return { error: "No access token" };
+
+    await triggerCategorizeBatch({
+      userId: session.user.id,
+      pageIndex: 0,
+    });
   },
 );
 
@@ -266,7 +290,6 @@ export const fastCategorizeSendersAction = withActionInstrumentation(
         premium: { select: { aiAutomationAccess: true } },
       },
     });
-
     if (!user) return { error: "User not found" };
 
     // check if user has AI access
@@ -274,7 +297,6 @@ export const fastCategorizeSendersAction = withActionInstrumentation(
       user.premium?.aiAutomationAccess,
       user.aiApiKey,
     );
-
     if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
     const senders = uniq(senderAddresses);
