@@ -174,10 +174,12 @@ export async function categorizeSenders(userId: string, pageToken?: string) {
     categories,
   });
 
+  let categorizedCount = 0;
   const results = [...categorizedSenders, ...aiResults];
 
   for (const result of results) {
     await saveResult(result, categories, userId);
+    categorizedCount++;
   }
 
   // categorize unknown senders
@@ -225,12 +227,13 @@ export async function categorizeSenders(userId: string, pageToken?: string) {
         categories,
         userId,
       );
+      categorizedCount++;
     }
   }
 
   revalidatePath("/smart-categories");
 
-  return { nextPageToken: sendersResult.nextPageToken };
+  return { nextPageToken: sendersResult.nextPageToken, categorizedCount };
 }
 
 export const bulkCategorizeSendersAction = withActionInstrumentation(
