@@ -1,20 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { categorize } from "@/app/api/ai/categorize/controller";
-import {
-  type CategorizeBodyWithHtml,
-  categorizeBodyWithHtml,
-} from "@/app/api/ai/categorize/validation";
 import {
   type CreateCategoryBody,
   createCategoryBody,
 } from "@/utils/actions/validation";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { hasPreviousEmailsFromSender } from "@/utils/gmail/message";
-import { emailToContent } from "@/utils/mail";
-import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import { truncate } from "@/utils/string";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { defaultCategory } from "@/utils/categories";
@@ -26,47 +17,6 @@ import {
 } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
-
-export const categorizeEmailAction = withActionInstrumentation(
-  "categorizeEmail",
-  async (unsafeData: CategorizeBodyWithHtml) => {
-    const { gmail, user: u, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
-
-    const userResult = await validateUserAndAiAccess(u.id);
-    if (isActionError(userResult)) return userResult;
-    const { user } = userResult;
-
-    const {
-      success,
-      data,
-      error: parseError,
-    } = categorizeBodyWithHtml.safeParse(unsafeData);
-    if (!success) return { error: parseError.message };
-
-    const content = emailToContent(data);
-
-    const unsubscribeLink = findUnsubscribeLink(data.textHtml);
-    const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, data);
-
-    const res = await categorize(
-      {
-        ...data,
-        content,
-        snippet: data.snippet || truncate(content, 300),
-        aiApiKey: user.aiApiKey,
-        aiProvider: user.aiProvider,
-        aiModel: user.aiModel,
-        unsubscribeLink,
-        hasPreviousEmail,
-      },
-      { email: u.email! },
-    );
-
-    return { category: res?.category };
-  },
-);
 
 export const bulkCategorizeSendersAction = withActionInstrumentation(
   "bulkCategorizeSenders",

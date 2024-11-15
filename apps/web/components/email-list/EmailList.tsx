@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/resizable";
 import { runAiRules } from "@/utils/queue/email-actions";
 import { selectedEmailAtom } from "@/store/email";
-import { categorizeEmailAction } from "@/utils/actions/categorize";
+import { categorizeEmailAction } from "@/utils/actions/categorize-email";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import {
