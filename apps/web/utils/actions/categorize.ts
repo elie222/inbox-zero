@@ -157,12 +157,7 @@ export const categorizeSenderAction = withActionInstrumentation(
 
     if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
-    const result = await categorizeSender(
-      senderAddress,
-      user,
-      gmail,
-      session.accessToken!,
-    );
+    const result = await categorizeSender(senderAddress, user, gmail);
 
     revalidatePath("/smart-categories");
 

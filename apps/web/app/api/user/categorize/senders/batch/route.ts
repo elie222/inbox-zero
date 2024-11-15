@@ -5,6 +5,7 @@ import { categorizeSendersBatchSchema } from "@/app/api/user/categorize/senders/
 import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
 import { categorizeSenders } from "@/utils/categorize/senders/categorize";
+import { isActionError } from "@/utils/error";
 
 const MAX_PAGES = 50;
 
@@ -17,10 +18,9 @@ export const POST = withError(
     console.log("categorizeSendersBatch", userId, pageIndex);
 
     // Process the batch
-    const { nextPageToken, categorizedCount } = await categorizeSenders(
-      userId,
-      pageToken,
-    );
+    const result = await categorizeSenders(userId, pageToken);
+    if (isActionError(result)) return NextResponse.json(result);
+    const { nextPageToken, categorizedCount } = result;
 
     await saveCategorizationProgress({
       userId,

@@ -381,7 +381,7 @@ async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, user, gmail, accessToken);
+        await categorizeSender(sender, user, gmail);
       }
     }
 
