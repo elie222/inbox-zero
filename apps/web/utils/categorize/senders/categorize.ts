@@ -20,6 +20,9 @@ import type { User } from "@prisma/client";
 import type { UserAIFields, UserEmailWithAI } from "@/utils/llms/types";
 import { type ActionError, isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("categorize/senders");
 
 export async function categorizeSenders(
   userId: string,
@@ -31,7 +34,7 @@ export async function categorizeSenders(
     }
   | ActionError
 > {
-  console.log("categorizeSendersAction", userId, pageToken);
+  logger.info("categorizeSendersAction", userId, pageToken);
 
   const userResult = await validateUserAndAiAccess(userId);
   if (isActionError(userResult)) return userResult;
@@ -94,10 +97,10 @@ async function findAndPrepareSenders(
   pageToken?: string,
 ) {
   const sendersResult = await findSenders(gmail, accessToken, 20, pageToken);
-  console.log(`Found ${sendersResult.senders.size} senders`);
+  logger.info(`Found ${sendersResult.senders.size} senders`);
 
   const senders = uniq(Array.from(sendersResult.senders.keys()));
-  console.log(`Found ${senders.length} unique senders`);
+  logger.info(`Found ${senders.length} unique senders`);
 
   return { senders, sendersResult };
 }
@@ -172,7 +175,7 @@ export async function fastCategorizeSenders(
   if (isActionError(categoriesResult)) return categoriesResult;
 
   const senders = uniq(senderAddresses);
-  console.log(`Found ${senders.length} unique senders`);
+  logger.info(`Found ${senders.length} unique senders`);
 
   // fetch snippets for each sender
   const sendersWithSnippets: Map<string, string[]> = new Map();
@@ -227,7 +230,7 @@ export async function categorizeSender(
 
     return { categoryId: newsletter.categoryId };
   }
-  console.error(`No AI result for sender: ${senderAddress}`);
+  logger.error(`No AI result for sender: ${senderAddress}`);
 
   return { categoryId: undefined };
 }

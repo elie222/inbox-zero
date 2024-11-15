@@ -17,15 +17,10 @@ import {
 } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("actions/categorize");
 
 export const bulkCategorizeSendersAction = withActionInstrumentation(
   "bulkCategorizeSenders",
   async () => {
-    logger.info("bulkCategorizeSendersAction");
-
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
     const { user } = sessionResult;
@@ -42,8 +37,6 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
 export const fastCategorizeSendersAction = withActionInstrumentation(
   "fastCategorizeSenders",
   async (senderAddresses: string[]) => {
-    logger.info("fastCategorizeSendersAction");
-
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
     const { gmail, user } = sessionResult;
@@ -55,8 +48,6 @@ export const fastCategorizeSendersAction = withActionInstrumentation(
 export const categorizeSenderAction = withActionInstrumentation(
   "categorizeSender",
   async (senderAddress: string) => {
-    logger.info("categorizeSenderAction");
-
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
     const { gmail, user: u } = sessionResult;
@@ -76,8 +67,6 @@ export const categorizeSenderAction = withActionInstrumentation(
 export const changeSenderCategoryAction = withActionInstrumentation(
   "changeSenderCategory",
   async ({ sender, categoryId }: { sender: string; categoryId: string }) => {
-    logger.info("changeSenderCategoryAction");
-
     const session = await auth();
     if (!session?.user) return { error: "Not authenticated" };
 
@@ -98,8 +87,6 @@ export const changeSenderCategoryAction = withActionInstrumentation(
 export const upsertDefaultCategoriesAction = withActionInstrumentation(
   "upsertDefaultCategories",
   async (categories: { id?: string; name: string; enabled: boolean }[]) => {
-    logger.info("upsertDefaultCategoriesAction");
-
     const session = await auth();
     if (!session?.user) return { error: "Not authenticated" };
 
@@ -122,8 +109,6 @@ export const upsertDefaultCategoriesAction = withActionInstrumentation(
 export const createCategoryAction = withActionInstrumentation(
   "createCategory",
   async (unsafeData: CreateCategoryBody) => {
-    logger.info("createCategoryAction");
-
     const session = await auth();
     if (!session?.user) return { error: "Not authenticated" };
 
@@ -139,8 +124,6 @@ export const createCategoryAction = withActionInstrumentation(
 export const deleteCategoryAction = withActionInstrumentation(
   "deleteCategory",
   async (categoryId: string) => {
-    logger.info("deleteCategoryAction");
-
     const session = await auth();
     if (!session?.user) return { error: "Not authenticated" };
 
@@ -188,8 +171,6 @@ async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
 export const setAutoCategorizeAction = withActionInstrumentation(
   "setAutoCategorize",
   async (autoCategorizeSenders: boolean) => {
-    logger.info("setAutoCategorizeAction");
-
     const session = await auth();
     if (!session?.user) return { error: "Not authenticated" };
 
