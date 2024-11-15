@@ -22,7 +22,7 @@ import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
 import { captureException } from "@/utils/error";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
-import { categorizeSender } from "@/utils/actions/categorize";
+import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 
 export async function processHistoryForUser(

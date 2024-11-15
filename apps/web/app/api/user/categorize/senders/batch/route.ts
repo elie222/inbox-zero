@@ -3,8 +3,8 @@ import { withError } from "@/utils/middleware";
 import { NextResponse } from "next/server";
 import { categorizeSendersBatchSchema } from "@/app/api/user/categorize/senders/batch/trigger";
 import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
-import { categorizeSenders } from "@/utils/actions/categorize";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
+import { categorizeSenders } from "@/utils/categorize/senders/categorize";
 
 const MAX_PAGES = 50;
 
