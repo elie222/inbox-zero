@@ -21,14 +21,14 @@ import { isActionError } from "@/utils/error";
 export const bulkCategorizeSendersAction = withActionInstrumentation(
   "bulkCategorizeSenders",
   async () => {
-    const { gmail, user: u, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { user } = sessionResult;
 
-    const userResult = await validateUserAndAiAccess(u.id);
+    const userResult = await validateUserAndAiAccess(user.id);
     if (isActionError(userResult)) return userResult;
 
-    await triggerCategorizeBatch({ userId: u.id, pageIndex: 0 });
+    await triggerCategorizeBatch({ userId: user.id, pageIndex: 0 });
 
     revalidatePath("/smart-categories");
   },
@@ -39,11 +39,11 @@ export const fastCategorizeSendersAction = withActionInstrumentation(
   async (senderAddresses: string[]) => {
     console.log("fastCategorizeSendersAction");
 
-    const { gmail, user: u, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail, user } = sessionResult;
 
-    return fastCategorizeSenders(senderAddresses, u.id, gmail);
+    return fastCategorizeSenders(senderAddresses, user.id, gmail);
   },
 );
 
@@ -52,9 +52,9 @@ export const categorizeSenderAction = withActionInstrumentation(
   async (senderAddress: string) => {
     console.log("categorizeSenderAction");
 
-    const { gmail, user: u, error, session } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail, user: u } = sessionResult;
 
     const userResult = await validateUserAndAiAccess(u.id);
     if (isActionError(userResult)) return userResult;

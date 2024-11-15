@@ -17,9 +17,9 @@ import { isActionError } from "@/utils/error";
 export const categorizeEmailAction = withActionInstrumentation(
   "categorizeEmail",
   async (unsafeData: CategorizeBodyWithHtml) => {
-    const { gmail, user: u, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail, user: u } = sessionResult;
 
     const userResult = await validateUserAndAiAccess(u.id);
     if (isActionError(userResult)) return userResult;

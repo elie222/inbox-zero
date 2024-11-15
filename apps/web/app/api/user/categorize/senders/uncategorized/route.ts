@@ -3,6 +3,7 @@ import { withError } from "@/utils/middleware";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { getSenders } from "@inboxzero/tinybird";
 import prisma from "@/utils/prisma";
+import { isActionError } from "@/utils/error";
 
 export type UncategorizedSendersResponse = {
   uncategorizedSenders: string[];
@@ -61,12 +62,10 @@ async function getUncategorizedSenders({
 }
 
 export const GET = withError(async (request: Request) => {
-  const { gmail, user, error, session } = await getSessionAndGmailClient();
-  if (!user?.email) return NextResponse.json({ error: "Not authenticated" });
-  if (error) return NextResponse.json({ error });
-  if (!gmail) return NextResponse.json({ error: "Could not load Gmail" });
-  if (!session?.accessToken)
-    return NextResponse.json({ error: "No access token" });
+  const sessionResult = await getSessionAndGmailClient();
+  if (isActionError(sessionResult))
+    return NextResponse.json({ error: sessionResult.error });
+  const { user } = sessionResult;
 
   const url = new URL(request.url);
   const offset = Number.parseInt(url.searchParams.get("offset") || "0");
