@@ -40,18 +40,16 @@ export async function categorizeSenders(
   if (isActionError(userResult)) return userResult;
   const { user, accessToken } = userResult;
 
-  // Get Gmail client and find senders
+  const categoriesResult = await getCategories(userId);
+  if (isActionError(categoriesResult)) return categoriesResult;
+  const { categories } = categoriesResult;
+
   const gmail = getGmailClient({ accessToken });
   const { senders, sendersResult } = await findAndPrepareSenders(
     gmail,
     accessToken,
     pageToken,
   );
-
-  // Get categories and existing senders
-  const categoriesResult = await validateCategories(userId);
-  if (isActionError(categoriesResult)) return categoriesResult;
-  const { categories } = categoriesResult;
 
   const existingSenders = await getExistingSenders(senders, userId);
 
@@ -85,6 +83,7 @@ export async function categorizeSenders(
   });
 
   revalidatePath("/smart-categories");
+
   return {
     nextPageToken: sendersResult.nextPageToken,
     categorizedCount: initialCount + unknownCount,
@@ -156,7 +155,13 @@ async function categorizeNewSenders({
 
   let categorizedCount = 0;
   for (const result of results) {
-    await saveResult(result, categories, userId);
+    if (!result.category) continue;
+    await updateSenderCategory({
+      sender: result.sender,
+      categories,
+      categoryName: result.category,
+      userId,
+    });
     categorizedCount++;
   }
 
@@ -171,7 +176,7 @@ export async function fastCategorizeSenders(
   const userResult = await validateUserAndAiAccess(userId);
   if (isActionError(userResult)) return userResult;
 
-  const categoriesResult = await validateCategories(userId);
+  const categoriesResult = await getCategories(userId);
   if (isActionError(categoriesResult)) return categoriesResult;
 
   const senders = uniq(senderAddresses);
@@ -194,8 +199,14 @@ export async function fastCategorizeSenders(
   // Save results and return
   const categorizedResults: Record<string, string | undefined> = {};
   for (const result of results) {
+    if (!result.category) continue;
     categorizedResults[result.sender] = result.category;
-    await saveResult(result, categoriesResult.categories, userId);
+    await updateSenderCategory({
+      sender: result.sender,
+      categories: categoriesResult.categories,
+      categoryName: result.category,
+      userId,
+    });
   }
 
   revalidatePath("/smart-categories");
@@ -230,25 +241,10 @@ export async function categorizeSender(
 
     return { categoryId: newsletter.categoryId };
   }
+
   logger.error(`No AI result for sender: ${senderAddress}`);
 
   return { categoryId: undefined };
-}
-
-async function saveResult(
-  result: { sender: string; category?: string },
-  categories: Pick<Category, "id" | "name" | "description">[],
-  userId: string,
-) {
-  if (!result.category) return;
-  const { newCategory } = await updateSenderCategory({
-    sender: result.sender,
-    categories,
-    categoryName: result.category,
-    userId,
-  });
-  if (newCategory) categories.push(newCategory);
-  // TODO: what is categories used for?
 }
 
 async function getPreviousEmails(gmail: gmail_v1.Gmail, sender: string) {
@@ -334,7 +330,7 @@ function preCategorizeSendersWithStaticRules(
   });
 }
 
-async function validateCategories(userId: string) {
+async function getCategories(userId: string) {
   const categories = await getUserCategories(userId);
   if (categories.length === 0) return { error: "No categories found" };
   return { categories };
@@ -407,14 +403,12 @@ async function categorizeUnknownSenders({
     });
 
     if (aiResult) {
-      await saveResult(
-        {
-          sender: sender.sender,
-          category: aiResult.category,
-        },
+      await updateSenderCategory({
+        sender: sender.sender,
         categories,
+        categoryName: aiResult.category,
         userId,
-      );
+      });
       categorizedCount++;
     }
   }
