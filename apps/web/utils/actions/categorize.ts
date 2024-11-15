@@ -19,7 +19,7 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { defaultCategory } from "@/utils/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
+import { triggerCategorizeBatch } from "@/utils/categorize/senders/trigger-batch";
 import {
   categorizeSender,
   fastCategorizeSenders,

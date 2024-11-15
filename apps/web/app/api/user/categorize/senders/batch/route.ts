@@ -1,8 +1,10 @@
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { withError } from "@/utils/middleware";
 import { NextResponse } from "next/server";
-import { categorizeSendersBatchSchema } from "@/app/api/user/categorize/senders/batch/trigger";
-import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
+import {
+  categorizeSendersBatchSchema,
+  triggerCategorizeBatch,
+} from "@/utils/categorize/senders/trigger-batch";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
 import { categorizeSenders } from "@/utils/categorize/senders/categorize";
 import { isActionError } from "@/utils/error";
