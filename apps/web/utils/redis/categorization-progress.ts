@@ -4,7 +4,8 @@ import { ONE_MINUTE_MS } from "@/utils/date";
 
 const categorizationProgressSchema = z.object({
   pageIndex: z.number(),
-  sendersCategorized: z.number(),
+  categorized: z.number(),
+  remaining: z.number(),
 });
 type RedisCategorizationProgress = z.infer<typeof categorizationProgressSchema>;
 
@@ -26,17 +27,19 @@ export async function getCategorizationProgress({
 export async function saveCategorizationProgress({
   userId,
   pageIndex,
-  incrementCount,
+  incrementCategorized,
+  incrementRemaining,
 }: {
   userId: string;
   pageIndex: number;
-  incrementCount: number;
+  incrementCategorized: number;
+  incrementRemaining: number;
 }) {
   const existingProgress = await getCategorizationProgress({ userId });
   const updatedProgress: RedisCategorizationProgress = {
     pageIndex,
-    sendersCategorized:
-      (existingProgress?.sendersCategorized || 0) + incrementCount,
+    categorized: (existingProgress?.categorized || 0) + incrementCategorized,
+    remaining: (existingProgress?.remaining || 0) - incrementRemaining,
   };
 
   const key = getKey(userId);

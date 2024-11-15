@@ -4,21 +4,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ProgressBar } from "@tremor/react";
 import { cn } from "@/utils";
 
-interface ProgressPanelProps {
-  totalItems: number;
-  remainingItems: number;
-  inProgressText: string;
-  completedText: string;
-  itemLabel?: string;
-}
-
 export function ProgressPanel({
   totalItems,
   remainingItems,
   inProgressText,
   completedText,
-  itemLabel = "items",
-}: ProgressPanelProps) {
+  itemLabel,
+}: {
+  totalItems: number;
+  remainingItems: number;
+  inProgressText: string;
+  completedText: string;
+  itemLabel: string;
+}) {
   const totalProcessed = totalItems - remainingItems;
   const progress = (totalProcessed / totalItems) * 100;
   const isCompleted = progress === 100;

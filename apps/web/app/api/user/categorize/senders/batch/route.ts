@@ -25,7 +25,8 @@ export const POST = withError(
     await saveCategorizationProgress({
       userId,
       pageIndex: pageIndex + 1,
-      incrementCount: categorizedCount || 0,
+      incrementCategorized: categorizedCount || 0,
+      incrementRemaining: categorizedCount || 0,
     });
 
     // Check if completed

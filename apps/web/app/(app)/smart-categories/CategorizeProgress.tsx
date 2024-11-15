@@ -20,8 +20,8 @@ export function CategorizeSendersProgress({
 
   return (
     <ProgressPanel
-      totalItems={data.sendersCategorized}
-      remainingItems={data.sendersCategorized}
+      totalItems={data.categorized}
+      remainingItems={data.remaining}
       inProgressText="Categorizing senders..."
       completedText="Categorizing complete!"
       itemLabel="senders"
