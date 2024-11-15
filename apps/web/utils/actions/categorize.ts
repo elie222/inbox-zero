@@ -19,12 +19,13 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { defaultCategory } from "@/utils/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { hasAiAccess } from "@/utils/premium";
 import { triggerCategorizeBatch } from "@/app/api/user/categorize/senders/batch/trigger";
 import {
   categorizeSender,
   fastCategorizeSenders,
 } from "@/utils/categorize/senders/categorize";
+import { validateUserAndAiAccess } from "@/utils/user/validate";
+import { isActionError } from "@/utils/error";
 
 export const categorizeEmailAction = withActionInstrumentation(
   "categorizeEmail",
@@ -32,6 +33,10 @@ export const categorizeEmailAction = withActionInstrumentation(
     const { gmail, user: u, error } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
+
+    const userResult = await validateUserAndAiAccess(u.id);
+    if (isActionError(userResult)) return userResult;
+    const { user } = userResult;
 
     const {
       success,
@@ -41,17 +46,6 @@ export const categorizeEmailAction = withActionInstrumentation(
     if (!success) return { error: parseError.message };
 
     const content = emailToContent(data);
-
-    const user = await prisma.user.findUnique({
-      where: { id: u.id },
-      select: {
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-      },
-    });
-
-    if (!user) return { error: "User not found" };
 
     const unsubscribeLink = findUnsubscribeLink(data.textHtml);
     const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, data);
@@ -77,37 +71,14 @@ export const categorizeEmailAction = withActionInstrumentation(
 export const bulkCategorizeSendersAction = withActionInstrumentation(
   "bulkCategorizeSenders",
   async () => {
-    const { gmail, user: u, error, session } = await getSessionAndGmailClient();
+    const { gmail, user: u, error } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
-    if (!session?.accessToken) return { error: "No access token" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: u.id },
-      select: {
-        email: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        premium: { select: { aiAutomationAccess: true } },
-        accounts: { select: { access_token: true } },
-      },
-    });
-    if (!user) return { error: "User not found" };
+    const userResult = await validateUserAndAiAccess(u.id);
+    if (isActionError(userResult)) return userResult;
 
-    const userHasAiAccess = hasAiAccess(
-      user.premium?.aiAutomationAccess,
-      user.aiApiKey,
-    );
-    if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
-
-    const accessToken = user.accounts[0].access_token;
-    if (!accessToken) return { error: "No access token" };
-
-    await triggerCategorizeBatch({
-      userId: session.user.id,
-      pageIndex: 0,
-    });
+    await triggerCategorizeBatch({ userId: u.id, pageIndex: 0 });
 
     revalidatePath("/smart-categories");
   },
@@ -134,28 +105,10 @@ export const categorizeSenderAction = withActionInstrumentation(
     const { gmail, user: u, error, session } = await getSessionAndGmailClient();
     if (error) return { error };
     if (!gmail) return { error: "Could not load Gmail" };
-    if (!session?.accessToken) return { error: "No access token" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: u.id },
-      select: {
-        id: true,
-        email: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        premium: { select: { aiAutomationAccess: true } },
-      },
-    });
-
-    if (!user) return { error: "User not found" };
-
-    const userHasAiAccess = hasAiAccess(
-      user.premium?.aiAutomationAccess,
-      user.aiApiKey,
-    );
-
-    if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
+    const userResult = await validateUserAndAiAccess(u.id);
+    if (isActionError(userResult)) return userResult;
+    const { user } = userResult;
 
     const result = await categorizeSender(senderAddress, user, gmail);
 

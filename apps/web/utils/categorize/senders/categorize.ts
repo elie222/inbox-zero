@@ -15,11 +15,11 @@ import { getThreadsFromSender } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
 import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
-import { hasAiAccess } from "@/utils/premium";
 import { getGmailClient } from "@/utils/gmail/client";
 import type { User } from "@prisma/client";
 import type { UserAIFields, UserEmailWithAI } from "@/utils/llms/types";
 import { type ActionError, isActionError } from "@/utils/error";
+import { validateUserAndAiAccess } from "@/utils/user/validate";
 
 export async function categorizeSenders(
   userId: string,
@@ -33,11 +33,9 @@ export async function categorizeSenders(
 > {
   console.log("categorizeSendersAction", userId, pageToken);
 
-  // Validate user and AI access
-  const userResult = await validateUserAndAiAccess(userId, true);
+  const userResult = await validateUserAndAiAccess(userId);
   if (isActionError(userResult)) return userResult;
   const { user, accessToken } = userResult;
-  if (!accessToken) return { error: "No access token" };
 
   // Get Gmail client and find senders
   const gmail = getGmailClient({ accessToken });
@@ -167,7 +165,7 @@ export async function fastCategorizeSenders(
   userId: string,
   gmail: gmail_v1.Gmail,
 ) {
-  const userResult = await validateUserAndAiAccess(userId, false);
+  const userResult = await validateUserAndAiAccess(userId);
   if (isActionError(userResult)) return userResult;
 
   const categoriesResult = await validateCategories(userId);
@@ -331,40 +329,6 @@ function preCategorizeSendersWithStaticRules(
 
     return { sender, category: undefined };
   });
-}
-
-async function validateUserAndAiAccess(
-  userId: string,
-  requiresAccessToken = true,
-) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      email: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
-      premium: { select: { aiAutomationAccess: true } },
-      ...(requiresAccessToken && {
-        accounts: { select: { access_token: true } },
-      }),
-    },
-  });
-  if (!user) return { error: "User not found" };
-
-  const userHasAiAccess = hasAiAccess(
-    user.premium?.aiAutomationAccess,
-    user.aiApiKey,
-  );
-  if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
-
-  if (requiresAccessToken) {
-    const accessToken = user.accounts?.[0]?.access_token;
-    if (!accessToken) return { error: "No access token" };
-    return { user, accessToken };
-  }
-
-  return { user };
 }
 
 async function validateCategories(userId: string) {
