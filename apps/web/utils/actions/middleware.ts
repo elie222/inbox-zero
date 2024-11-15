@@ -9,9 +9,6 @@ import {
 } from "@/utils/error";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { isDuplicateError } from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
-
-const actionsLogger = createScopedLogger("action");
 
 // Utility type to ensure we're dealing with object types only
 type EnsureObject<T> = T extends object ? T : never;
@@ -46,7 +43,7 @@ export function withActionInstrumentation<
         },
         async () => {
           try {
-            actionsLogger.info(name);
+            console.log(`Action: ${name}`);
             const res = await action(...args);
 
             if (!res) {
