@@ -40,6 +40,7 @@
         "LOOPS_API_SECRET",
         "ADMINS",
         "WEBHOOK_URL",
+        "INTERNAL_API_KEY",
 
         "NEXT_PUBLIC_LEMON_STORE_ID",
 
