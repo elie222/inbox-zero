@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { Category, User } from "@prisma/client";
+import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
 const categorizeSenderSchema = z.object({
@@ -18,7 +18,7 @@ export async function aiCategorizeSender({
   previousEmails,
   categories,
 }: {
-  user: Pick<User, "email"> & UserAIFields;
+  user: UserEmailWithAI;
   sender: string;
   previousEmails: string[];
   categories: Pick<Category, "name" | "description">[];

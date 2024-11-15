@@ -18,7 +18,7 @@ import { getUserCategories } from "@/utils/category.server";
 import { hasAiAccess } from "@/utils/premium";
 import { getGmailClient } from "@/utils/gmail/client";
 import type { User } from "@prisma/client";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserAIFields, UserEmailWithAI } from "@/utils/llms/types";
 import { type ActionError, isActionError } from "@/utils/error";
 
 export async function categorizeSenders(
@@ -125,7 +125,7 @@ async function categorizeNewSenders({
   senders: string[];
   existingSenders: { email: string }[];
   sendersResult: { senders: Map<string, any[]> };
-  user: Pick<User, "email"> & UserAIFields;
+  user: UserEmailWithAI;
   categories: Pick<Category, "id" | "name" | "description">[];
   userId: string;
 }): Promise<{
@@ -380,7 +380,7 @@ async function categorizeWithAi({
   categories,
 }: {
   senders: string[];
-  user: Pick<User, "email"> & UserAIFields;
+  user: UserEmailWithAI;
   sendersWithSnippets: Map<string, string[]>;
   categories: Pick<Category, "name" | "description">[];
 }) {
@@ -417,7 +417,7 @@ async function categorizeUnknownSenders({
   unknownSenders: Array<{ sender: string; category?: string }>;
   sendersResult: { senders: Map<string, any[]> };
   gmail: gmail_v1.Gmail;
-  user: Pick<User, "email"> & UserAIFields;
+  user: UserEmailWithAI;
   categories: Pick<Category, "id" | "name" | "description">[];
   userId: string;
 }) {
