@@ -42,8 +42,8 @@ export async function saveCategorizationProgress({
   };
 
   const key = getKey(userId);
-  // Store progress for 3 minutes
-  await redis.set(key, updatedProgress, { ex: 3 });
+  // Store progress for 2 minutes
+  await redis.set(key, updatedProgress, { ex: 2 * 60 });
   return updatedProgress;
 }
 
