@@ -26,7 +26,7 @@ export async function handleBatch(request: Request) {
   });
 
   // Check if completed
-  if (pageIndex >= progress.totalPages)
+  if (pageIndex + 1 >= progress.totalPages)
     return NextResponse.json({ status: "completed" });
   if (!nextPageToken) return NextResponse.json({ status: "completed" });
 
