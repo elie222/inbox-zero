@@ -11,10 +11,7 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { defaultCategory } from "@/utils/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { triggerCategorizeBatch } from "@/utils/categorize/senders/trigger-batch";
-import {
-  categorizeSender,
-  fastCategorizeSenders,
-} from "@/utils/categorize/senders/categorize";
+import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
 
@@ -31,17 +28,6 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
     await triggerCategorizeBatch({ userId: user.id, pageIndex: 0 });
 
     revalidatePath("/smart-categories");
-  },
-);
-
-export const fastCategorizeSendersAction = withActionInstrumentation(
-  "fastCategorizeSenders",
-  async (senderAddresses: string[]) => {
-    const sessionResult = await getSessionAndGmailClient();
-    if (isActionError(sessionResult)) return sessionResult;
-    const { gmail, user } = sessionResult;
-
-    return fastCategorizeSenders(senderAddresses, user.id, gmail);
   },
 );
 

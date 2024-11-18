@@ -9,8 +9,13 @@ import { handleActionCall } from "@/utils/server-action";
 import { isActionError } from "@/utils/error";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import type { ButtonProps } from "@/components/ui/button";
 
-export function CategorizeWithAiButton() {
+export function CategorizeWithAiButton({
+  buttonProps,
+}: {
+  buttonProps?: ButtonProps;
+}) {
   const [isCategorizing, setIsCategorizing] = useState(false);
   const { hasAiAccess } = usePremium();
   const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
@@ -52,9 +57,14 @@ export function CategorizeWithAiButton() {
               },
             );
           }}
+          {...buttonProps}
         >
-          <SparklesIcon className="mr-2 size-4" />
-          Categorize Senders with AI
+          {buttonProps?.children || (
+            <>
+              <SparklesIcon className="mr-2 size-4" />
+              Categorize Senders with AI
+            </>
+          )}
         </Button>
       </PremiumTooltip>
       <PremiumModal />

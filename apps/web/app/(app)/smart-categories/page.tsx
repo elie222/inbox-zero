@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { PenIcon } from "lucide-react";
+import { PenIcon, SparklesIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -27,6 +27,7 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { CategorizeSendersProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
 import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -75,7 +76,25 @@ export default async function CategoriesPage() {
               <TabsTrigger value="uncategorized">Uncategorized</TabsTrigger>
             </TabsList>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <div className="mr-1">
+                <TooltipExplanation
+                  size="sm"
+                  text="Categorize hundreds of senders in your inbox. This will take a few minutes."
+                />
+              </div>
+
+              <CategorizeWithAiButton
+                buttonProps={{
+                  children: (
+                    <>
+                      <SparklesIcon className="mr-2 size-4" />
+                      Bulk Categorize
+                    </>
+                  ),
+                  variant: "outline",
+                }}
+              />
               <Button variant="outline" asChild>
                 <Link href="/smart-categories/setup">
                   <PenIcon className="mr-2 size-4" />

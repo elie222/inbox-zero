@@ -168,51 +168,6 @@ async function categorizeNewSenders({
   return { results, categorizedCount };
 }
 
-export async function fastCategorizeSenders(
-  senderAddresses: string[],
-  userId: string,
-  gmail: gmail_v1.Gmail,
-) {
-  const userResult = await validateUserAndAiAccess(userId);
-  if (isActionError(userResult)) return userResult;
-
-  const categoriesResult = await getCategories(userId);
-  if (isActionError(categoriesResult)) return categoriesResult;
-
-  const senders = uniq(senderAddresses);
-  logger.info(`Found ${senders.length} unique senders`);
-
-  // fetch snippets for each sender
-  const sendersWithSnippets: Map<string, string[]> = new Map();
-  for (const sender of senders) {
-    const previousEmails = await getPreviousEmails(gmail, sender);
-    sendersWithSnippets.set(sender, previousEmails);
-  }
-
-  const results = await categorizeWithAi({
-    senders,
-    user: userResult.user,
-    sendersWithSnippets,
-    categories: categoriesResult.categories,
-  });
-
-  // Save results and return
-  const categorizedResults: Record<string, string | undefined> = {};
-  for (const result of results) {
-    if (!result.category) continue;
-    categorizedResults[result.sender] = result.category;
-    await updateSenderCategory({
-      sender: result.sender,
-      categories: categoriesResult.categories,
-      categoryName: result.category,
-      userId,
-    });
-  }
-
-  revalidatePath("/smart-categories");
-  return { results: categorizedResults };
-}
-
 export async function categorizeSender(
   senderAddress: string,
   user: Pick<User, "id" | "email"> & UserAIFields,
