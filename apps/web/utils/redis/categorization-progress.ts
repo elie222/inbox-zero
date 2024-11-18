@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { redis } from "@/utils/redis";
-import { ONE_MINUTE_MS } from "@/utils/date";
 
 const categorizationProgressSchema = z.object({
   pageIndex: z.number(),
@@ -43,8 +42,8 @@ export async function saveCategorizationProgress({
   };
 
   const key = getKey(userId);
-  // Store progress for 5 minutes
-  await redis.set(key, updatedProgress, { ex: 5 * ONE_MINUTE_MS });
+  // Store progress for 3 minutes
+  await redis.set(key, updatedProgress, { ex: 3 });
   return true;
 }
 
