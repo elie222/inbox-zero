@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { redis } from "@/utils/redis";
 
+const DEFAULT_TOTAL_PAGES = 10;
+
 const categorizationProgressSchema = z.object({
   pageIndex: z.number(),
+  totalPages: z.number().default(DEFAULT_TOTAL_PAGES),
   categorized: z.number(),
-  remaining: z.number(),
 });
 type RedisCategorizationProgress = z.infer<typeof categorizationProgressSchema>;
 
@@ -27,24 +29,22 @@ export async function saveCategorizationProgress({
   userId,
   pageIndex,
   incrementCategorized,
-  incrementRemaining,
 }: {
   userId: string;
   pageIndex: number;
   incrementCategorized: number;
-  incrementRemaining: number;
 }) {
   const existingProgress = await getCategorizationProgress({ userId });
   const updatedProgress: RedisCategorizationProgress = {
     pageIndex,
+    totalPages: existingProgress?.totalPages || DEFAULT_TOTAL_PAGES,
     categorized: (existingProgress?.categorized || 0) + incrementCategorized,
-    remaining: (existingProgress?.remaining || 0) - incrementRemaining,
   };
 
   const key = getKey(userId);
   // Store progress for 3 minutes
   await redis.set(key, updatedProgress, { ex: 3 });
-  return true;
+  return updatedProgress;
 }
 
 export async function deleteCategorizationProgress({

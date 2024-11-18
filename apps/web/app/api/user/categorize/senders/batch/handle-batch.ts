@@ -7,8 +7,6 @@ import { saveCategorizationProgress } from "@/utils/redis/categorization-progres
 import { categorizeSenders } from "@/utils/categorize/senders/categorize";
 import { isActionError } from "@/utils/error";
 
-const MAX_PAGES = 10;
-
 export async function handleBatch(request: Request) {
   const json = await request.json();
   const body = categorizeSendersBatchSchema.parse(json);
@@ -21,15 +19,15 @@ export async function handleBatch(request: Request) {
   if (isActionError(result)) return NextResponse.json(result);
   const { nextPageToken, categorizedCount } = result;
 
-  await saveCategorizationProgress({
+  const progress = await saveCategorizationProgress({
     userId,
     pageIndex: pageIndex + 1,
     incrementCategorized: categorizedCount || 0,
-    incrementRemaining: categorizedCount || 0,
   });
 
   // Check if completed
-  if (pageIndex >= MAX_PAGES) return NextResponse.json({ status: "completed" });
+  if (pageIndex >= progress.totalPages)
+    return NextResponse.json({ status: "completed" });
   if (!nextPageToken) return NextResponse.json({ status: "completed" });
 
   await triggerCategorizeBatch({

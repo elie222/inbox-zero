@@ -20,11 +20,11 @@ export function CategorizeSendersProgress({
 
   return (
     <ProgressPanel
-      totalItems={data.categorized}
-      remainingItems={data.remaining}
-      inProgressText="Categorizing senders..."
-      completedText="Categorizing complete!"
-      itemLabel="senders"
+      totalItems={data.totalPages}
+      remainingItems={data.totalPages - data.pageIndex}
+      inProgressText={`Categorizing senders... ${data.categorized} categorized`}
+      completedText={`Categorization complete! ${data.categorized} categorized!`}
+      itemLabel="pages"
     />
   );
 }
