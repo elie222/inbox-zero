@@ -70,11 +70,14 @@ model User {
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
-  categorizeEmails      Boolean           @default(true)
   coldEmailBlocker      ColdEmailSetting?
   coldEmailPrompt       String?
   rulesPrompt           String?
-  autoCategorizeSenders Boolean           @default(false)
+
+  // categorization  
+  autoCategorizeSenders      Boolean   @default(false)
+  oldestCategorizedEmailTime DateTime?
+  newestCategorizedEmailTime DateTime?
 
   // premium can be shared among multiple users
   premiumId      String?

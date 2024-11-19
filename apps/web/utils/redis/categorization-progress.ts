@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { redis } from "@/utils/redis";
 
-const DEFAULT_TOTAL_PAGES = 10;
+const DEFAULT_TOTAL_PAGES = 50;
 
 const categorizationProgressSchema = z.object({
   pageIndex: z.number(),

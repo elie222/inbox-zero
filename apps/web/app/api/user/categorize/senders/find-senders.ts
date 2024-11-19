@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
-import { isDefined } from "@/utils/types";
+import { isDefined, type ParsedMessage } from "@/utils/types";
 import type { SenderMap } from "@/app/api/user/categorize/senders/types";
 
 export async function findSendersWithPagination(
@@ -40,11 +40,17 @@ export async function findSenders(
   accessToken: string,
   maxResults: number,
   pageToken?: string,
+  oldestDate?: Date | null,
+  newestDate?: Date | null,
 ) {
   const senders: SenderMap = new Map();
 
+  let dateFilter = "";
+  if (oldestDate) dateFilter += ` before:${oldestDate.getTime() / 1000}`;
+  if (newestDate) dateFilter += ` after:${newestDate.getTime() / 1000}`;
+
   const { threads, nextPageToken } = await getThreadsWithNextPageToken({
-    q: "-in:sent",
+    q: `-in:sent${dateFilter}`,
     gmail,
     maxResults,
     pageToken,
@@ -61,19 +67,28 @@ export async function findSenders(
     }
   }
 
-  return { senders, nextPageToken };
+  const dateRange = findMessageDateRange(messages);
+
+  return { senders, nextPageToken, dateRange };
 }
 
-function isNotFoundError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "errors" in error &&
-    Array.isArray((error as any).errors) &&
-    (error as any).errors.some(
-      (e: any) =>
-        e.message === "Requested entity was not found." &&
-        e.reason === "notFound",
-    )
-  );
+function findMessageDateRange(messages: ParsedMessage[]): {
+  oldestDate: Date | null;
+  newestDate: Date | null;
+} {
+  if (!messages.length) return { oldestDate: null, newestDate: null };
+
+  const dates = messages
+    .map((msg) => msg.internalDate)
+    .filter(isDefined)
+    .map((timestamp) => new Date(Number(timestamp)));
+
+  return {
+    oldestDate: dates.length
+      ? new Date(Math.min(...dates.map((d) => d.getTime())))
+      : null,
+    newestDate: dates.length
+      ? new Date(Math.max(...dates.map((d) => d.getTime())))
+      : null,
+  };
 }

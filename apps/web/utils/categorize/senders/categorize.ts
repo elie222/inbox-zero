@@ -45,9 +45,11 @@ export async function categorizeSenders(
   const { categories } = categoriesResult;
 
   const gmail = getGmailClient({ accessToken });
-  const { senders, sendersResult } = await findAndPrepareSenders(
+  const { senders, sendersResult, dateRange } = await findAndPrepareSenders(
     gmail,
     accessToken,
+    user.oldestCategorizedEmailTime,
+    user.newestCategorizedEmailTime,
     pageToken,
   );
 
@@ -82,6 +84,14 @@ export async function categorizeSenders(
     userId,
   });
 
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      newestCategorizedEmailTime: dateRange.newestDate ?? undefined,
+      oldestCategorizedEmailTime: dateRange.oldestDate ?? undefined,
+    },
+  });
+
   revalidatePath("/smart-categories");
 
   return {
@@ -93,15 +103,24 @@ export async function categorizeSenders(
 async function findAndPrepareSenders(
   gmail: gmail_v1.Gmail,
   accessToken: string,
+  oldestDate: Date | null,
+  newestDate: Date | null,
   pageToken?: string,
 ) {
-  const sendersResult = await findSenders(gmail, accessToken, 20, pageToken);
+  const sendersResult = await findSenders(
+    gmail,
+    accessToken,
+    20,
+    pageToken,
+    oldestDate,
+    newestDate,
+  );
   logger.info(`Found ${sendersResult.senders.size} senders`);
 
   const senders = uniq(Array.from(sendersResult.senders.keys()));
   logger.info(`Found ${senders.length} unique senders`);
 
-  return { senders, sendersResult };
+  return { senders, sendersResult, dateRange: sendersResult.dateRange };
 }
 
 async function getExistingSenders(senders: string[], userId: string) {
