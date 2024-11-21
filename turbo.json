@@ -88,8 +88,8 @@
         "NEXT_PUBLIC_CRISP_WEBSITE_ID",
         "NEXT_PUBLIC_DISABLE_TINYBIRD",
         "NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED",
-        "NEXT_PUBLIC_AXIOM_INGEST_ENDPOINT",
-        "NEXT_PUBLIC_AXIOM_DATASET"
+        "NEXT_PUBLIC_AXIOM_DATASET",
+        "NEXT_PUBLIC_AXIOM_TOKEN"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
