@@ -245,7 +245,7 @@ export function Rules() {
           <Button asChild variant="outline">
             <Link href="/automation?tab=prompt">
               <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
-              Add Rule via Prompt File
+              Add Rule via Prompt Tab
             </Link>
           </Button>
           <Button asChild variant="outline">
