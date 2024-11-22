@@ -24,6 +24,10 @@ import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
+import { createScopedLogger } from "@/utils/logger";
+import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+
+const logger = createScopedLogger("Process History");
 
 export async function processHistoryForUser(
   decodedData: {
@@ -70,7 +74,7 @@ export async function processHistoryForUser(
   });
 
   if (!account) {
-    console.error(`Google webhook: Account not found. email: ${email}`);
+    logger.error(`Account not found. email: ${email}`);
     return NextResponse.json({ ok: true });
   }
 
@@ -79,7 +83,7 @@ export async function processHistoryForUser(
     : undefined;
 
   if (!premium) {
-    console.log(`Google webhook: Account not premium. email: ${email}`);
+    logger.info(`Account not premium. email: ${email}`);
     await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }
@@ -94,9 +98,7 @@ export async function processHistoryForUser(
   );
 
   if (!userHasAiAccess && !userHasColdEmailAccess) {
-    console.debug(
-      `Google webhook: does not have hasAiOrColdEmailAccess. email: ${email}`,
-    );
+    console.debug(`does not have hasAiOrColdEmailAccess. email: ${email}`);
     await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }
@@ -107,13 +109,13 @@ export async function processHistoryForUser(
     account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     console.debug(
-      `Google webhook: has no rules set and cold email blocker disabled. email: ${email}`,
+      `has no rules set and cold email blocker disabled. email: ${email}`,
     );
     return NextResponse.json({ ok: true });
   }
 
   if (!account.access_token || !account.refresh_token) {
-    console.error(
+    logger.error(
       `Missing access or refresh token. User needs to re-authenticate. email: ${email}`,
     );
     return NextResponse.json({ ok: true });
@@ -121,7 +123,7 @@ export async function processHistoryForUser(
 
   if (!account.user.email) {
     // shouldn't ever happen
-    console.error("Missing user email.", email);
+    logger.error(`Missing user email: ${email}`);
     return NextResponse.json({ ok: true });
   }
 
@@ -145,8 +147,8 @@ export async function processHistoryForUser(
         historyId - 500, // avoid going too far back
       ).toString();
 
-    console.log(
-      `Webhook: Listing history... Start: ${startHistoryId} lastSyncedHistoryId: ${account.user.lastSyncedHistoryId} gmailHistoryId: ${startHistoryId} email: ${email}`,
+    logger.info(
+      `Listing history... Start: ${startHistoryId} lastSyncedHistoryId: ${account.user.lastSyncedHistoryId} gmailHistoryId: ${startHistoryId} email: ${email}`,
     );
 
     const history = await gmail.users.history.list({
@@ -160,8 +162,8 @@ export async function processHistoryForUser(
     });
 
     if (history.data.history) {
-      console.log(
-        `Webhook: Processing... email: ${email} startHistoryId: ${startHistoryId} historyId: ${history.data.historyId}`,
+      logger.info(
+        `Processing... email: ${email} startHistoryId: ${startHistoryId} historyId: ${history.data.historyId}`,
       );
 
       await processHistory({
@@ -186,8 +188,8 @@ export async function processHistoryForUser(
         },
       });
     } else {
-      console.log(
-        `Webhook: No history. startHistoryId: ${startHistoryId}. ${JSON.stringify(decodedData)}`,
+      logger.info(
+        `No history. startHistoryId: ${startHistoryId}. ${JSON.stringify(decodedData)}`,
       );
 
       // important to save this or we can get into a loop with never receiving history
@@ -197,12 +199,12 @@ export async function processHistoryForUser(
       });
     }
 
-    console.log(`Webhook: Completed. ${JSON.stringify(decodedData)}`);
+    logger.info(`Completed. ${JSON.stringify(decodedData)}`);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     captureException(error, { extra: { decodedData } }, email);
-    console.error("Error processing webhook", error, decodedData);
+    logger.error("Error processing webhook", error, decodedData);
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
     // return NextResponse.error();
@@ -260,7 +262,7 @@ async function processHistory(options: ProcessHistoryOptions) {
           { extra: { email, messageId: m.message?.id } },
           email,
         );
-        console.error(`Error processing history item. email: ${email}`, error);
+        logger.error(`Error processing history item. email: ${email}`, error);
       }
     }
   }
@@ -292,7 +294,19 @@ async function processHistoryItem(
   if (!messageId) return;
   if (!threadId) return;
 
-  console.log(
+  const isFree = await markMessageAsProcessing({
+    userEmail: user.email!,
+    messageId,
+  });
+
+  if (!isFree) {
+    logger.info(
+      `Skipping. Message already being processed. email: ${user.email} messageId: ${messageId}`,
+    );
+    return;
+  }
+
+  logger.info(
     `Getting message... email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
   );
 
@@ -309,7 +323,7 @@ async function processHistoryItem(
 
     // if the rule has already been executed, skip
     if (hasExistingRule) {
-      console.log("Skipping. Rule already exists.");
+      logger.info("Skipping. Rule already exists.");
       return;
     }
 
@@ -326,7 +340,7 @@ async function processHistoryItem(
     });
 
     if (blocked) {
-      console.log(
+      logger.info(
         `Skipping. Blocked unsubscribed email. email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
       );
       return;
@@ -341,7 +355,7 @@ async function processHistoryItem(
     );
 
     if (shouldRunBlocker) {
-      console.log("Running cold email blocker...");
+      logger.info("Running cold email blocker...");
 
       const hasPreviousEmail = await hasPreviousEmailsFromSenderOrDomain(
         gmail,
@@ -386,7 +400,7 @@ async function processHistoryItem(
     }
 
     if (hasAutomationRules && hasAiAutomationAccess) {
-      console.log("Running rules...");
+      logger.info("Running rules...");
 
       await runRulesOnMessage({
         gmail,
@@ -399,7 +413,7 @@ async function processHistoryItem(
   } catch (error: any) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
-      console.log(
+      logger.info(
         `Message not found. email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
       );
       return;

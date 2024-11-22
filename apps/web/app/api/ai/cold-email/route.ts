@@ -33,6 +33,7 @@ async function checkColdEmail(
   const user = await prisma.user.findUniqueOrThrow({
     where: { email: userEmail },
     select: {
+      id: true,
       email: true,
       coldEmailPrompt: true,
       aiProvider: true,
