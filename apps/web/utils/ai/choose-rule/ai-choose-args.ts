@@ -8,6 +8,9 @@ import {
   stringifyEmail,
 } from "@/utils/ai/choose-rule/stringify-email";
 import { type RuleWithActions, isDefined } from "@/utils/types";
+import { createScopeLogger } from "@/utils/logger";
+
+const logger = createScopeLogger("AI Choose Args");
 
 // Returns parameters for a zod.object for the rule that must be AI generated
 function getToolParametersForRule(actions: Action[]) {
@@ -90,14 +93,14 @@ export async function getArgsAiResponse({
   user: Pick<User, "email" | "about"> & UserAIFields;
   selectedRule: RuleWithActions;
 }): Promise<ActionItem[] | undefined> {
-  console.log(
+  logger.log(
     `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
   );
 
   const parameters = getToolParametersForRule(selectedRule.actions);
 
   if (!Object.keys(parameters).length) {
-    console.log(
+    logger.log(
       `Skipping. No parameters for rule ${selectedRule.name} (${selectedRule.id})`,
     );
     return;
@@ -123,7 +126,10 @@ ${stringifyEmail(email, 3000)}
 </email>
 `;
 
-  console.log("Calling chat completion tools");
+  logger.log("Calling chat completion tools");
+
+  logger.trace(`System: ${system}`);
+  logger.trace(`Prompt: ${prompt}`);
 
   const aiResponse = await chatCompletionTools({
     userAi: user,
@@ -150,18 +156,23 @@ ${stringifyEmail(email, 3000)}
 
   if (!toolCall?.toolName) return;
 
+  const toolCallArgs = toolCall.args;
+  logger.trace(`Tool call args: ${JSON.stringify(toolCallArgs, null, 2)}`);
+
   const actionItems = Object.entries(parameters).map(([key, { action }]) => {
     const actionItem: ActionItem = {
       type: action.type,
-      label: toolCall.args[key].label || action.label,
-      subject: toolCall.args[key].subject || action.subject,
-      content: toolCall.args[key].content || action.content,
-      to: toolCall.args[key].to || action.to,
-      cc: toolCall.args[key].cc || action.cc,
-      bcc: toolCall.args[key].bcc || action.bcc,
+      label: toolCallArgs[key].label || action.label,
+      subject: toolCallArgs[key].subject || action.subject,
+      content: toolCallArgs[key].content || action.content,
+      to: toolCallArgs[key].to || action.to,
+      cc: toolCallArgs[key].cc || action.cc,
+      bcc: toolCallArgs[key].bcc || action.bcc,
     };
     return actionItem;
   });
+
+  logger.trace(`Action items: ${JSON.stringify(actionItems, null, 2)}`);
 
   return actionItems;
 }
