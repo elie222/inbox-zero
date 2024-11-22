@@ -9,6 +9,7 @@ import {
 } from "@/utils/ai/choose-rule/stringify-email";
 import { type RuleWithActions, isDefined } from "@/utils/types";
 import { createScopeLogger } from "@/utils/logger";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 const logger = createScopeLogger("AI Choose Args");
 
@@ -21,80 +22,6 @@ export type ActionRequiringAi = {
 export type ActionWithAiArgs = ActionRequiringAi & {
   args: Record<string, string>;
 };
-
-// Returns parameters for a zod.object for the rule that must be AI generated
-function getToolParametersForRule(actionsRequiringAi: ActionRequiringAi[]) {
-  // handle duplicate keys. e.g. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
-  // this is quite an edge case but need to handle regardless for when it happens
-  const typeCount: Record<string, number> = {};
-  const parameters: Record<
-    string,
-    {
-      actionId: string;
-      zodParameters: z.ZodObject<Record<string, z.ZodString>>;
-    }
-  > = {};
-
-  for (const action of actionsRequiringAi) {
-    // count how many times we have already had this type
-    typeCount[action.type] = (typeCount[action.type] || 0) + 1;
-    const key =
-      typeCount[action.type] === 1
-        ? action.type
-        : `${action.type}_${typeCount[action.type]}`;
-    parameters[key] = {
-      actionId: action.actionId,
-      zodParameters: action.zodParameters,
-    };
-  }
-
-  return parameters;
-}
-
-// Returns the actions with the args that require ai-generation
-function getActionsWithZodParameters(actions: Action[]) {
-  return actions
-    .map((action) => {
-      const fields = getParameterFieldsForAction(action);
-
-      if (!Object.keys(fields).length) return;
-
-      const zodParameters = z.object(fields);
-
-      return {
-        actionId: action.id,
-        type: action.type,
-        zodParameters,
-      };
-    })
-    .filter(isDefined);
-}
-
-function getParameterFieldsForAction({
-  labelPrompt,
-  subjectPrompt,
-  contentPrompt,
-  toPrompt,
-  ccPrompt,
-  bccPrompt,
-}: Action) {
-  const fields: Record<string, z.ZodString> = {};
-
-  if (typeof labelPrompt === "string")
-    fields.label = z.string().describe(labelPrompt || "The email label");
-  if (typeof subjectPrompt === "string")
-    fields.subject = z.string().describe(subjectPrompt || "The email subject");
-  if (typeof contentPrompt === "string")
-    fields.content = z.string().describe(contentPrompt || "The email content");
-  if (typeof toPrompt === "string")
-    fields.to = z.string().describe(toPrompt || "The email recipient(s)");
-  if (typeof ccPrompt === "string")
-    fields.cc = z.string().describe(ccPrompt || "The cc recipient(s)");
-  if (typeof bccPrompt === "string")
-    fields.bcc = z.string().describe(bccPrompt || "The bcc recipient(s)");
-
-  return fields;
-}
 
 // Returns the action items with the ai-generated args where needed
 export async function getActionItemsWithAiArgs({
@@ -187,7 +114,7 @@ ${stringifyEmail(email, 3000)}
   logger.log("Calling chat completion tools");
   logger.trace(`System: ${system}`);
   logger.trace(`Prompt: ${prompt}`);
-  logger.trace("Zod parameters:", JSON.stringify(zodParameters, null, 2));
+  logger.trace("Zod parameters:", zodToJsonSchema(zodParameters));
 
   const aiResponse = await chatCompletionTools({
     userAi: user,
@@ -208,6 +135,7 @@ ${stringifyEmail(email, 3000)}
   if (!toolCall?.toolName) return;
 
   const toolCallArgs = toolCall.args;
+
   logger.trace(`Tool call args: ${JSON.stringify(toolCallArgs, null, 2)}`);
 
   const results = actionsRequiringAi.map((actionRequiringAi) => {
@@ -223,7 +151,82 @@ ${stringifyEmail(email, 3000)}
     return { ...actionRequiringAi, args };
   });
 
-  logger.trace(`Results: ${JSON.stringify(results, null, 2)}`);
+  const resultsForLogging = results.map(({ zodParameters, ...rest }) => rest);
+  logger.trace(`Results: ${JSON.stringify(resultsForLogging, null, 2)}`);
 
   return results;
+}
+
+// Returns parameters for a zod.object for the rule that must be AI generated
+function getToolParametersForRule(actionsRequiringAi: ActionRequiringAi[]) {
+  // handle duplicate keys. e.g. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
+  // this is quite an edge case but need to handle regardless for when it happens
+  const typeCount: Record<string, number> = {};
+  const parameters: Record<
+    string,
+    {
+      actionId: string;
+      zodParameters: z.ZodObject<Record<string, z.ZodString>>;
+    }
+  > = {};
+
+  for (const action of actionsRequiringAi) {
+    // count how many times we have already had this type
+    typeCount[action.type] = (typeCount[action.type] || 0) + 1;
+    const key =
+      typeCount[action.type] === 1
+        ? action.type
+        : `${action.type}_${typeCount[action.type]}`;
+    parameters[key] = {
+      actionId: action.actionId,
+      zodParameters: action.zodParameters,
+    };
+  }
+
+  return parameters;
+}
+
+// Returns the actions with the args that require ai-generation
+function getActionsWithZodParameters(actions: Action[]) {
+  return actions
+    .map((action) => {
+      const fields = getParameterFieldsForAction(action);
+
+      if (!Object.keys(fields).length) return;
+
+      const zodParameters = z.object(fields);
+
+      return {
+        actionId: action.id,
+        type: action.type,
+        zodParameters,
+      };
+    })
+    .filter(isDefined);
+}
+
+function getParameterFieldsForAction({
+  labelPrompt,
+  subjectPrompt,
+  contentPrompt,
+  toPrompt,
+  ccPrompt,
+  bccPrompt,
+}: Action) {
+  const fields: Record<string, z.ZodString> = {};
+
+  if (typeof labelPrompt === "string")
+    fields.label = z.string().describe(labelPrompt || "The email label");
+  if (typeof subjectPrompt === "string")
+    fields.subject = z.string().describe(subjectPrompt || "The email subject");
+  if (typeof contentPrompt === "string")
+    fields.content = z.string().describe(contentPrompt || "The email content");
+  if (typeof toPrompt === "string")
+    fields.to = z.string().describe(toPrompt || "The email recipient(s)");
+  if (typeof ccPrompt === "string")
+    fields.cc = z.string().describe(ccPrompt || "The cc recipient(s)");
+  if (typeof bccPrompt === "string")
+    fields.bcc = z.string().describe(bccPrompt || "The bcc recipient(s)");
+
+  return fields;
 }
