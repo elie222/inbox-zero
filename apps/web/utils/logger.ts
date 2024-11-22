@@ -9,7 +9,7 @@ const colors = {
   reset: "\x1b[0m",
 } as const;
 
-export function createScopeLogger(scope: string) {
+export function createScopedLogger(scope: string) {
   const formatMessage = (level: LogLevel, message: LogMessage) => {
     const prefix = `[${scope}]: `;
 

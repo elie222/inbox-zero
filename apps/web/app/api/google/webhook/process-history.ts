@@ -24,9 +24,9 @@ import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 import { categorizeSender } from "@/utils/actions/categorize";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
-import { createScopeLogger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopeLogger("Process History");
+const logger = createScopedLogger("Process History");
 
 export async function processHistoryForUser(
   decodedData: {

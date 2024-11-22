@@ -8,10 +8,9 @@ import {
   stringifyEmail,
 } from "@/utils/ai/choose-rule/stringify-email";
 import { type RuleWithActions, isDefined } from "@/utils/types";
-import { createScopeLogger } from "@/utils/logger";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopeLogger("AI Choose Args");
+const logger = createScopedLogger("AI Choose Args");
 
 export type ActionRequiringAi = {
   actionId: string;
@@ -48,7 +47,7 @@ export async function getActionItemsWithAiArgs({
   }
 
   // Combine static args with ai-generated args
-  return selectedRule.actions.map((action) => {
+  const results = selectedRule.actions.map((action) => {
     const aiGeneratedActionItem = aiGeneratedActionItems?.find(
       (item) => item.actionId === action.id,
     );
@@ -57,6 +56,12 @@ export async function getActionItemsWithAiArgs({
       ...aiGeneratedActionItem?.args,
     };
   });
+
+  logger.trace(
+    `getActionItemsWithAiArgs. Results: ${JSON.stringify(results, null, 2)}`,
+  );
+
+  return results;
 }
 
 async function getArgsAiResponse({
@@ -114,7 +119,7 @@ ${stringifyEmail(email, 3000)}
   logger.log("Calling chat completion tools");
   logger.trace(`System: ${system}`);
   logger.trace(`Prompt: ${prompt}`);
-  logger.trace("Zod parameters:", zodToJsonSchema(zodParameters));
+  // logger.trace("Zod parameters:", zodToJsonSchema(zodParameters));
 
   const aiResponse = await chatCompletionTools({
     userAi: user,
@@ -151,8 +156,8 @@ ${stringifyEmail(email, 3000)}
     return { ...actionRequiringAi, args };
   });
 
-  const resultsForLogging = results.map(({ zodParameters, ...rest }) => rest);
-  logger.trace(`Results: ${JSON.stringify(resultsForLogging, null, 2)}`);
+  // const resultsForLogging = results.map(({ zodParameters, ...rest }) => rest);
+  // logger.trace(`Results: ${JSON.stringify(resultsForLogging, null, 2)}`);
 
   return results;
 }
