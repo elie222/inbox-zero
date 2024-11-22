@@ -25,13 +25,18 @@ export function createScopeLogger(scope: string) {
   };
 
   return {
-    log: (message: LogMessage) => console.log(formatMessage("log", message)),
-    error: (message: LogMessage, error?: unknown, extra?: unknown) =>
-      console.error(formatMessage("error", message), error, extra),
-    warn: (message: LogMessage) => console.warn(formatMessage("warn", message)),
-    trace: (message: LogMessage) => {
+    log: (message: LogMessage, ...args: unknown[]) =>
+      console.log(formatMessage("log", message), ...args),
+
+    error: (message: LogMessage, ...args: unknown[]) =>
+      console.error(formatMessage("error", message), ...args),
+
+    warn: (message: LogMessage, ...args: unknown[]) =>
+      console.warn(formatMessage("warn", message), ...args),
+
+    trace: (message: LogMessage, ...args: unknown[]) => {
       if (process.env.NODE_ENV === "development") {
-        console.log(formatMessage("trace", message));
+        console.log(formatMessage("trace", message), ...args);
       }
     },
   };

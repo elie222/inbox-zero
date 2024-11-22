@@ -1,10 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { RuleType, type User } from "@prisma/client";
-import {
-  getActionsWithParameters,
-  getArgsAiResponse,
-} from "@/utils/ai/choose-rule/ai-choose-args";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { emailToContent } from "@/utils/mail";
 import { saveExecutedRule } from "@/utils/ai/choose-rule/choose-and-execute";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
@@ -51,18 +48,12 @@ export async function handleStaticRule({
     }),
   };
 
-  // generate args
-  const shouldAiGenerateArgs =
-    getActionsWithParameters(staticRule.actions).length > 0;
-  const aiArgsResponse = shouldAiGenerateArgs
-    ? await getArgsAiResponse({
-        email,
-        selectedRule: staticRule,
-        user,
-      })
-    : staticRule.actions;
-
-  const actionItems = aiArgsResponse || staticRule.actions;
+  // get action items with args
+  const actionItems = await getActionItemsWithAiArgs({
+    email,
+    user,
+    selectedRule: staticRule,
+  });
 
   // handle action
   // TODO isThread check to skip

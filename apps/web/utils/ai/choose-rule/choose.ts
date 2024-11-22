@@ -1,8 +1,5 @@
 import type { ActionItem } from "@/utils/ai/actions";
-import {
-  getArgsAiResponse,
-  getActionsWithParameters,
-} from "@/utils/ai/choose-rule/ai-choose-args";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { getAiResponse } from "@/utils/ai/choose-rule/ai-choose-rule";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { RuleWithActions } from "@/utils/types";
@@ -42,26 +39,15 @@ export async function chooseRule(options: ChooseRuleOptions): Promise<
 
   if (!selectedRule) return { reason: aiResponse?.reason };
 
-  const shouldAiGenerateArgs =
-    getActionsWithParameters(selectedRule.actions).length > 0;
+  const actionItems = await getActionItemsWithAiArgs({
+    email,
+    user,
+    selectedRule,
+  });
 
-  if (shouldAiGenerateArgs) {
-    const aiArgsResponse = await getArgsAiResponse({
-      ...options,
-      email,
-      selectedRule,
-    });
-
-    return {
-      rule: selectedRule,
-      actionItems: aiArgsResponse || [],
-      reason: aiResponse?.reason,
-    };
-  } else {
-    return {
-      rule: selectedRule,
-      actionItems: selectedRule.actions,
-      reason: aiResponse?.reason,
-    };
-  }
+  return {
+    rule: selectedRule,
+    actionItems,
+    reason: aiResponse?.reason,
+  };
 }

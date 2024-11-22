@@ -12,19 +12,30 @@ import { createScopeLogger } from "@/utils/logger";
 
 const logger = createScopeLogger("AI Choose Args");
 
-// Returns parameters for a zod.object for the rule that must be AI generated
-function getToolParametersForRule(actions: Action[]) {
-  const actionsWithParameters = getActionsWithParameters(actions);
+export type ActionRequiringAi = {
+  actionId: string;
+  type: string;
+  zodParameters: z.ZodObject<Record<string, z.ZodString>>;
+};
 
+export type ActionWithAiArgs = ActionRequiringAi & {
+  args: Record<string, string>;
+};
+
+// Returns parameters for a zod.object for the rule that must be AI generated
+function getToolParametersForRule(actionsRequiringAi: ActionRequiringAi[]) {
   // handle duplicate keys. e.g. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
   // this is quite an edge case but need to handle regardless for when it happens
   const typeCount: Record<string, number> = {};
   const parameters: Record<
     string,
-    { action: Action; parameters: z.ZodObject<Record<string, z.ZodString>> }
+    {
+      actionId: string;
+      zodParameters: z.ZodObject<Record<string, z.ZodString>>;
+    }
   > = {};
 
-  for (const action of actionsWithParameters) {
+  for (const action of actionsRequiringAi) {
     // count how many times we have already had this type
     typeCount[action.type] = (typeCount[action.type] || 0) + 1;
     const key =
@@ -32,27 +43,28 @@ function getToolParametersForRule(actions: Action[]) {
         ? action.type
         : `${action.type}_${typeCount[action.type]}`;
     parameters[key] = {
-      action: action.action,
-      parameters: action.parameters,
+      actionId: action.actionId,
+      zodParameters: action.zodParameters,
     };
   }
 
   return parameters;
 }
 
-export function getActionsWithParameters(actions: Action[]) {
+// Returns the actions with the args that require ai-generation
+function getActionsWithZodParameters(actions: Action[]) {
   return actions
     .map((action) => {
       const fields = getParameterFieldsForAction(action);
 
       if (!Object.keys(fields).length) return;
 
-      const parameters = z.object(fields);
+      const zodParameters = z.object(fields);
 
       return {
+        actionId: action.id,
         type: action.type,
-        parameters,
-        action,
+        zodParameters,
       };
     })
     .filter(isDefined);
@@ -69,22 +81,23 @@ function getParameterFieldsForAction({
   const fields: Record<string, z.ZodString> = {};
 
   if (typeof labelPrompt === "string")
-    fields.label = z.string().describe("The email label");
+    fields.label = z.string().describe(labelPrompt || "The email label");
   if (typeof subjectPrompt === "string")
-    fields.subject = z.string().describe("The email subject");
+    fields.subject = z.string().describe(subjectPrompt || "The email subject");
   if (typeof contentPrompt === "string")
-    fields.content = z.string().describe("The email content");
+    fields.content = z.string().describe(contentPrompt || "The email content");
   if (typeof toPrompt === "string")
-    fields.to = z.string().describe("The email recipient(s)");
+    fields.to = z.string().describe(toPrompt || "The email recipient(s)");
   if (typeof ccPrompt === "string")
-    fields.cc = z.string().describe("The cc recipient(s)");
+    fields.cc = z.string().describe(ccPrompt || "The cc recipient(s)");
   if (typeof bccPrompt === "string")
-    fields.bcc = z.string().describe("The bcc recipient(s)");
+    fields.bcc = z.string().describe(bccPrompt || "The bcc recipient(s)");
 
   return fields;
 }
 
-export async function getArgsAiResponse({
+// Returns the action items with the ai-generated args where needed
+export async function getActionItemsWithAiArgs({
   email,
   user,
   selectedRule,
@@ -92,14 +105,49 @@ export async function getArgsAiResponse({
   email: EmailForLLM;
   user: Pick<User, "email" | "about"> & UserAIFields;
   selectedRule: RuleWithActions;
-}): Promise<ActionItem[] | undefined> {
+}): Promise<ActionItem[]> {
+  // Get the actions that require ai-generated args
+  const actionsRequiringAi = getActionsWithZodParameters(selectedRule.actions);
+
+  // Get the ai-generated args
+  let aiGeneratedActionItems: ActionWithAiArgs[] | undefined;
+  if (actionsRequiringAi.length) {
+    aiGeneratedActionItems = await getArgsAiResponse({
+      email,
+      user,
+      selectedRule,
+      actionsRequiringAi,
+    });
+  }
+
+  // Combine static args with ai-generated args
+  return selectedRule.actions.map((action) => {
+    const aiGeneratedActionItem = aiGeneratedActionItems?.find(
+      (item) => item.actionId === action.id,
+    );
+    return {
+      ...action,
+      ...aiGeneratedActionItem?.args,
+    };
+  });
+}
+
+async function getArgsAiResponse({
+  email,
+  user,
+  selectedRule,
+  actionsRequiringAi,
+}: {
+  email: EmailForLLM;
+  user: Pick<User, "email" | "about"> & UserAIFields;
+  selectedRule: RuleWithActions;
+  actionsRequiringAi: ActionRequiringAi[];
+}): Promise<ActionWithAiArgs[] | undefined> {
   logger.log(
     `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
   );
 
-  const parameters = getToolParametersForRule(selectedRule.actions);
-
-  if (!Object.keys(parameters).length) {
+  if (!actionsRequiringAi.length) {
     logger.log(
       `Skipping. No parameters for rule ${selectedRule.name} (${selectedRule.id})`,
     );
@@ -126,10 +174,20 @@ ${stringifyEmail(email, 3000)}
 </email>
 `;
 
-  logger.log("Calling chat completion tools");
+  const parameters = getToolParametersForRule(actionsRequiringAi);
+  const zodParameters = z.object(
+    Object.fromEntries(
+      Object.entries(parameters).map(([key, { zodParameters }]) => [
+        key,
+        zodParameters,
+      ]),
+    ),
+  );
 
+  logger.log("Calling chat completion tools");
   logger.trace(`System: ${system}`);
   logger.trace(`Prompt: ${prompt}`);
+  logger.trace("Zod parameters:", JSON.stringify(zodParameters, null, 2));
 
   const aiResponse = await chatCompletionTools({
     userAi: user,
@@ -138,14 +196,7 @@ ${stringifyEmail(email, 3000)}
     tools: {
       apply_rule: {
         description: "Apply the rule with the given arguments",
-        parameters: z.object(
-          Object.fromEntries(
-            Object.entries(parameters).map(([key, { parameters }]) => [
-              key,
-              parameters,
-            ]),
-          ),
-        ),
+        parameters: zodParameters,
       },
     },
     label: "Args for rule",
@@ -159,20 +210,20 @@ ${stringifyEmail(email, 3000)}
   const toolCallArgs = toolCall.args;
   logger.trace(`Tool call args: ${JSON.stringify(toolCallArgs, null, 2)}`);
 
-  const actionItems = Object.entries(parameters).map(([key, { action }]) => {
-    const actionItem: ActionItem = {
-      type: action.type,
-      label: toolCallArgs[key].label || action.label,
-      subject: toolCallArgs[key].subject || action.subject,
-      content: toolCallArgs[key].content || action.content,
-      to: toolCallArgs[key].to || action.to,
-      cc: toolCallArgs[key].cc || action.cc,
-      bcc: toolCallArgs[key].bcc || action.bcc,
-    };
-    return actionItem;
+  const results = actionsRequiringAi.map((actionRequiringAi) => {
+    const actionParameter = Object.entries(parameters).find(
+      ([_, v]) => v.actionId === actionRequiringAi.actionId,
+    );
+
+    if (!actionParameter) return { ...actionRequiringAi, args: {} };
+
+    const [key] = actionParameter; // e.g. key = "draft_email"
+    const args: Record<string, string> = toolCallArgs[key]; // e.g. { label: "Draft", subject: "X", content: "Y" }
+
+    return { ...actionRequiringAi, args };
   });
 
-  logger.trace(`Action items: ${JSON.stringify(actionItems, null, 2)}`);
+  logger.trace(`Results: ${JSON.stringify(results, null, 2)}`);
 
-  return actionItems;
+  return results;
 }

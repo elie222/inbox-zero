@@ -2,10 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage } from "@/utils/types";
 import type { User } from "@prisma/client";
 import { emailToContent } from "@/utils/mail";
-import {
-  getActionsWithParameters,
-  getArgsAiResponse,
-} from "@/utils/ai/choose-rule/ai-choose-args";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import {
   findMatchingGroup,
   getGroups,
@@ -59,18 +56,12 @@ export async function handleGroupRule({
     }),
   };
 
-  // generate args
-  const shouldAiGenerateArgs =
-    getActionsWithParameters(match.rule.actions).length > 0;
-  const aiArgsResponse = shouldAiGenerateArgs
-    ? await getArgsAiResponse({
-        email,
-        selectedRule: match.rule,
-        user,
-      })
-    : match.rule.actions;
-
-  const actionItems = aiArgsResponse || match.rule.actions;
+  // get action items with args
+  const actionItems = await getActionItemsWithAiArgs({
+    email,
+    user,
+    selectedRule: match.rule,
+  });
 
   // handle action
   // TODO isThread check to skip
