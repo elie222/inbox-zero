@@ -25,6 +25,7 @@ import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscr
 import { categorizeSender } from "@/utils/actions/categorize";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 import { createScopedLogger } from "@/utils/logger";
+import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 
 const logger = createScopedLogger("Process History");
 
@@ -292,6 +293,18 @@ async function processHistoryItem(
 
   if (!messageId) return;
   if (!threadId) return;
+
+  const isFree = await markMessageAsProcessing({
+    userEmail: user.email!,
+    messageId,
+  });
+
+  if (!isFree) {
+    logger.log(
+      `Skipping. Message already being processed. email: ${user.email} messageId: ${messageId}`,
+    );
+    return;
+  }
 
   logger.log(
     `Getting message... email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
