@@ -9,6 +9,9 @@ import {
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
 import type { Attachment } from "@/utils/types/mail";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-actions");
 
 export type EmailForAction = {
   threadId: string;
@@ -369,7 +372,8 @@ export const runActionFunction = async (
   action: ActionItem,
   userEmail: string,
 ) => {
-  console.log("Running action", { actionType: action.type, userEmail });
+  logger.log("Running action", { actionType: action.type, userEmail });
+  logger.trace("Running action:", action);
 
   const { type, ...args } = action;
   switch (type) {

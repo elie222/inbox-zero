@@ -87,7 +87,20 @@ export async function saveExecutedRule(
   plannedAct: Awaited<ReturnType<typeof chooseRule>>,
 ) {
   const data: Prisma.ExecutedRuleCreateInput = {
-    actionItems: { createMany: { data: plannedAct.actionItems || [] } },
+    actionItems: {
+      createMany: {
+        data:
+          plannedAct.actionItems?.map((a) => ({
+            type: a.type,
+            label: a.label,
+            subject: a.subject,
+            content: a.content,
+            to: a.to,
+            cc: a.cc,
+            bcc: a.bcc,
+          })) || [],
+      },
+    },
     messageId,
     threadId,
     automated: !!plannedAct.rule?.automate,
