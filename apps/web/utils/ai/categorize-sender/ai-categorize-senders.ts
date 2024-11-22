@@ -6,6 +6,7 @@ import type { Category, User } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
+export const UNKNOWN_CATEGORY = "Unknown";
 
 const categorizeSendersSchema = z.object({
   senders: z.array(

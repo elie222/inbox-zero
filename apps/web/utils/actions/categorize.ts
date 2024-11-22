@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getSenders } from "@inboxzero/tinybird";
 import {
   type CreateCategoryBody,
   createCategoryBody,
@@ -10,10 +11,12 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { defaultCategory } from "@/utils/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { triggerCategorizeBatch } from "@/utils/categorize/senders/trigger-batch";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
+import { publishToQstashQueue } from "@/utils/upstash";
+import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
+import { env } from "@/env";
 
 export const bulkCategorizeSendersAction = withActionInstrumentation(
   "bulkCategorizeSenders",
@@ -25,9 +28,51 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
     const userResult = await validateUserAndAiAccess(user.id);
     if (isActionError(userResult)) return userResult;
 
-    await triggerCategorizeBatch({ userId: user.id, pageIndex: 0 });
+    const LIMIT = 100;
 
-    revalidatePath("/smart-categories");
+    async function getUncategorizedSenders(offset: number) {
+      const result = await getSenders({
+        ownerEmail: user.email,
+        limit: LIMIT,
+        offset,
+      });
+      const allSenders = result.data.map((sender) => sender.from);
+      const existingSenders = await prisma.newsletter.findMany({
+        where: {
+          email: { in: allSenders },
+          userId: user.id,
+          category: { isNot: null },
+        },
+        select: { email: true },
+      });
+      const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
+      const uncategorizedSenders = allSenders.filter(
+        (email) => !existingSenderEmails.has(email),
+      );
+
+      return uncategorizedSenders;
+    }
+
+    const uncategorizedSenders: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      const newUncategorizedSenders = await getUncategorizedSenders(i * LIMIT);
+      if (newUncategorizedSenders.length === 0) break;
+      uncategorizedSenders.push(...newUncategorizedSenders);
+    }
+
+    // publish to qstash
+    const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/user/categorize/senders/batch`;
+    const body: AiCategorizeSenders = {
+      userId: user.id,
+      senders: uncategorizedSenders,
+    };
+
+    await publishToQstashQueue({
+      queueName: "ai-categorize-senders",
+      parallelism: 3,
+      url,
+      body,
+    });
   },
 );
 

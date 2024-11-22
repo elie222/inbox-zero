@@ -1,40 +1,58 @@
 import { NextResponse } from "next/server";
+import { aiCategorizeSendersSchema } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
+import { getThreadsFromSender } from "@/utils/gmail/thread";
 import {
-  categorizeSendersBatchSchema,
-  triggerCategorizeBatch,
-} from "@/utils/categorize/senders/trigger-batch";
-import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
-import { categorizeSenders } from "@/utils/categorize/senders/categorize";
+  categorizeWithAi,
+  getCategories,
+  updateSenderCategory,
+} from "@/utils/categorize/senders/categorize";
+import { isDefined } from "@/utils/types";
 import { isActionError } from "@/utils/error";
+import { validateUserAndAiAccess } from "@/utils/user/validate";
+import { getGmailClient } from "@/utils/gmail/client";
+import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 
 export async function handleBatch(request: Request) {
   const json = await request.json();
-  const body = categorizeSendersBatchSchema.parse(json);
-  const { userId, pageToken, pageIndex } = body;
+  const body = aiCategorizeSendersSchema.parse(json);
+  const { userId, senders } = body;
 
-  console.log("categorizeSendersBatch", userId, pageIndex);
+  console.log("categorizeSendersBatch", userId, senders.length);
 
-  // Process the batch
-  const result = await categorizeSenders(userId, pageToken);
-  if (isActionError(result)) return NextResponse.json(result);
-  const { nextPageToken, categorizedCount } = result;
+  const userResult = await validateUserAndAiAccess(userId);
+  if (isActionError(userResult)) return userResult;
+  const { user, accessToken } = userResult;
 
-  const progress = await saveCategorizationProgress({
-    userId,
-    pageIndex: pageIndex + 1,
-    incrementCategorized: categorizedCount || 0,
+  const categoriesResult = await getCategories(userId);
+  if (isActionError(categoriesResult)) return categoriesResult;
+  const { categories } = categoriesResult;
+
+  const gmail = getGmailClient({ accessToken });
+  const sendersWithSnippets: Map<string, string[]> = new Map();
+
+  // 1. fetch 3 messages for each sender
+  for (const sender of senders) {
+    const threadsFromSender = await getThreadsFromSender(gmail, sender, 3);
+    const snippets = threadsFromSender.map((t) => t.snippet).filter(isDefined);
+    sendersWithSnippets.set(sender, snippets);
+  }
+
+  // 2. categorize senders with ai
+  const results = await categorizeWithAi({
+    user,
+    sendersWithSnippets,
+    categories,
   });
 
-  // Check if completed
-  if (pageIndex + 1 >= progress.totalPages)
-    return NextResponse.json({ status: "completed" });
-  if (!nextPageToken) return NextResponse.json({ status: "completed" });
+  // 3. save categorized senders to db
+  for (const result of results) {
+    await updateSenderCategory({
+      sender: result.sender,
+      categories,
+      categoryName: result.category ?? UNKNOWN_CATEGORY,
+      userId,
+    });
+  }
 
-  await triggerCategorizeBatch({
-    userId,
-    pageToken: nextPageToken,
-    pageIndex: pageIndex + 1,
-  });
-
-  return NextResponse.json({ status: "processing" });
+  return NextResponse.json({ ok: true });
 }

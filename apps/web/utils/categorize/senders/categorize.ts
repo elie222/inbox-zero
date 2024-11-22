@@ -12,7 +12,7 @@ import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsFromSender } from "@/utils/gmail/thread";
-import { isDefined } from "@/utils/types";
+import { isDefined, type ParsedMessage } from "@/utils/types";
 import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -21,6 +21,7 @@ import type { UserAIFields, UserEmailWithAI } from "@/utils/llms/types";
 import { type ActionError, isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { createScopedLogger } from "@/utils/logger";
+import type { SenderMap } from "@/app/api/user/categorize/senders/types";
 
 const logger = createScopedLogger("categorize/senders");
 
@@ -60,7 +61,7 @@ export async function categorizeSenders(
     await categorizeNewSenders({
       senders,
       existingSenders,
-      sendersResult,
+      sendersMap: sendersResult.senders,
       user,
       categories,
       userId,
@@ -77,13 +78,14 @@ export async function categorizeSenders(
 
   const unknownCount = await categorizeUnknownSenders({
     unknownSenders,
-    sendersResult,
+    sendersMap: sendersResult.senders,
     gmail,
     user,
     categories,
     userId,
   });
 
+  // Update user's categorized email time
   await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -133,17 +135,17 @@ async function getExistingSenders(senders: string[], userId: string) {
   });
 }
 
-async function categorizeNewSenders({
+export async function categorizeNewSenders({
   senders,
   existingSenders,
-  sendersResult,
+  sendersMap,
   user,
   categories,
   userId,
 }: {
   senders: string[];
   existingSenders: { email: string }[];
-  sendersResult: { senders: Map<string, any[]> };
+  sendersMap: SenderMap;
   user: UserEmailWithAI;
   categories: Pick<Category, "id" | "name" | "description">[];
   userId: string;
@@ -158,7 +160,7 @@ async function categorizeNewSenders({
   const sendersWithSnippets = new Map(
     sendersToCategorize.map((sender) => [
       sender,
-      sendersResult.senders
+      sendersMap
         .get(sender)
         ?.map((m) => m.snippet)
         .filter(isDefined) || [],
@@ -166,7 +168,6 @@ async function categorizeNewSenders({
   );
 
   const results = await categorizeWithAi({
-    senders: sendersToCategorize,
     user,
     sendersWithSnippets,
     categories,
@@ -231,7 +232,7 @@ async function getPreviousEmails(gmail: gmail_v1.Gmail, sender: string) {
   return previousEmails;
 }
 
-async function updateSenderCategory({
+export async function updateSenderCategory({
   userId,
   sender,
   categories,
@@ -304,24 +305,24 @@ function preCategorizeSendersWithStaticRules(
   });
 }
 
-async function getCategories(userId: string) {
+export async function getCategories(userId: string) {
   const categories = await getUserCategories(userId);
   if (categories.length === 0) return { error: "No categories found" };
   return { categories };
 }
 
-async function categorizeWithAi({
-  senders,
+export async function categorizeWithAi({
   user,
   sendersWithSnippets,
   categories,
 }: {
-  senders: string[];
   user: UserEmailWithAI;
   sendersWithSnippets: Map<string, string[]>;
   categories: Pick<Category, "name" | "description">[];
 }) {
-  const categorizedSenders = preCategorizeSendersWithStaticRules(senders);
+  const categorizedSenders = preCategorizeSendersWithStaticRules(
+    Array.from(sendersWithSnippets.keys()),
+  );
 
   const sendersToCategorizeWithAi = categorizedSenders
     .filter((sender) => !sender.category)
@@ -345,14 +346,14 @@ async function categorizeWithAi({
 
 async function categorizeUnknownSenders({
   unknownSenders,
-  sendersResult,
+  sendersMap,
   gmail,
   user,
   categories,
   userId,
 }: {
   unknownSenders: Array<{ sender: string; category?: string }>;
-  sendersResult: { senders: Map<string, any[]> };
+  sendersMap: SenderMap;
   gmail: gmail_v1.Gmail;
   user: UserEmailWithAI;
   categories: Pick<Category, "id" | "name" | "description">[];
@@ -361,7 +362,7 @@ async function categorizeUnknownSenders({
   let categorizedCount = 0;
 
   for (const sender of unknownSenders) {
-    const messages = sendersResult.senders.get(sender.sender);
+    const messages = sendersMap.get(sender.sender);
     let previousEmails =
       messages?.map((m) => m.snippet).filter(isDefined) || [];
 
