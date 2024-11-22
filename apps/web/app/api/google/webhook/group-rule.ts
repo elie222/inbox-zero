@@ -3,7 +3,6 @@ import type { ParsedMessage } from "@/utils/types";
 import type { User } from "@prisma/client";
 import { emailToContent } from "@/utils/mail";
 import {
-  getActionItemsFromAiArgsResponse,
   getActionsWithParameters,
   getArgsAiResponse,
 } from "@/utils/ai/choose-rule/ai-choose-args";
@@ -61,19 +60,17 @@ export async function handleGroupRule({
   };
 
   // generate args
-  const aiArgsResponse =
-    getActionsWithParameters(match.rule.actions).length > 0
-      ? await getArgsAiResponse({
-          email,
-          selectedRule: match.rule,
-          user,
-        })
-      : undefined;
+  const shouldAiGenerateArgs =
+    getActionsWithParameters(match.rule.actions).length > 0;
+  const aiArgsResponse = shouldAiGenerateArgs
+    ? await getArgsAiResponse({
+        email,
+        selectedRule: match.rule,
+        user,
+      })
+    : match.rule.actions;
 
-  const actionItems = getActionItemsFromAiArgsResponse(
-    aiArgsResponse,
-    match.rule.actions,
-  );
+  const actionItems = aiArgsResponse || match.rule.actions;
 
   // handle action
   // TODO isThread check to skip

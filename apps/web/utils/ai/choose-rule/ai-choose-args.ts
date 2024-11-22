@@ -1,18 +1,13 @@
 import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { ActionItem } from "@/utils/ai/actions";
-import type { Action, ActionType, User } from "@prisma/client";
+import type { Action, User } from "@prisma/client";
 import { chatCompletionTools } from "@/utils/llms";
 import {
   type EmailForLLM,
   stringifyEmail,
 } from "@/utils/ai/choose-rule/stringify-email";
 import { type RuleWithActions, isDefined } from "@/utils/types";
-
-type AIGeneratedArgs = Record<
-  ActionType,
-  Record<keyof Omit<ActionItem, "type">, string>
->;
 
 // Returns parameters for a zod.object for the rule that must be AI generated
 function getToolParametersForRule(actions: Action[]) {
@@ -21,16 +16,22 @@ function getToolParametersForRule(actions: Action[]) {
   // handle duplicate keys. e.g. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
   // this is quite an edge case but need to handle regardless for when it happens
   const typeCount: Record<string, number> = {};
-  const parameters: Record<string, z.ZodObject<any>> = {};
+  const parameters: Record<
+    string,
+    { action: Action; parameters: z.ZodObject<Record<string, z.ZodString>> }
+  > = {};
 
   for (const action of actionsWithParameters) {
     // count how many times we have already had this type
     typeCount[action.type] = (typeCount[action.type] || 0) + 1;
-    parameters[
+    const key =
       typeCount[action.type] === 1
         ? action.type
-        : `${action.type}_${typeCount[action.type]}`
-    ] = action.parameters;
+        : `${action.type}_${typeCount[action.type]}`;
+    parameters[key] = {
+      action: action.action,
+      parameters: action.parameters,
+    };
   }
 
   return parameters;
@@ -48,6 +49,7 @@ export function getActionsWithParameters(actions: Action[]) {
       return {
         type: action.type,
         parameters,
+        action,
       };
     })
     .filter(isDefined);
@@ -87,7 +89,7 @@ export async function getArgsAiResponse({
   email: EmailForLLM;
   user: Pick<User, "email" | "about"> & UserAIFields;
   selectedRule: RuleWithActions;
-}) {
+}): Promise<ActionItem[] | undefined> {
   console.log(
     `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
   );
@@ -130,7 +132,14 @@ ${stringifyEmail(email, 3000)}
     tools: {
       apply_rule: {
         description: "Apply the rule with the given arguments",
-        parameters: z.object(parameters),
+        parameters: z.object(
+          Object.fromEntries(
+            Object.entries(parameters).map(([key, { parameters }]) => [
+              key,
+              parameters,
+            ]),
+          ),
+        ),
       },
     },
     label: "Args for rule",
@@ -141,25 +150,12 @@ ${stringifyEmail(email, 3000)}
 
   if (!toolCall?.toolName) return;
 
-  return toolCall.args;
-}
-
-export function getActionItemsFromAiArgsResponse(
-  response: AIGeneratedArgs | undefined,
-  ruleActions: Action[],
-) {
-  return ruleActions.map((ra) => {
-    // use prefilled values where we have them
-    const a = response?.[ra.type] || ({} as any);
-
+  const actionItems = Object.entries(parameters).map(([key, { action }]) => {
     return {
-      type: ra.type,
-      label: ra.labelPrompt ? a.label : ra.label,
-      subject: ra.subjectPrompt ? a.subject : ra.subject,
-      content: ra.contentPrompt ? a.content : ra.content,
-      to: ra.toPrompt ? a.to : ra.to,
-      cc: ra.ccPrompt ? a.cc : ra.cc,
-      bcc: ra.bccPrompt ? a.bcc : ra.bcc,
+      ...action,
+      ...toolCall.args[key],
     };
   });
+
+  return actionItems;
 }
