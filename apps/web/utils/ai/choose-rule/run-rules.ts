@@ -23,6 +23,9 @@ import {
 import { emailToContent } from "@/utils/mail";
 import type { ActionItem } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-run-rules");
 
 export type TestResult = {
   rule?: Rule | null;
@@ -103,9 +106,10 @@ export async function runRulesOnMessage({
 
   if (aiResponse.handled) return { handled: true };
 
-  console.log(
+  logger.log(
     `No rules matched. ${user.email} ${message.threadId} ${message.id}`,
   );
+  logger.trace(aiResponse);
 
   // no rules matched
   await saveSkippedExecutedRule({
