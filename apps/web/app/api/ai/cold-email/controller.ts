@@ -52,20 +52,26 @@ async function aiIsColdEmail(
 
   const prompt = `Determine if this email is a cold email or not.
 
+<instructions>
 ${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
+</instructions>
 
-Return a JSON object with a "coldEmail" and "reason" field.
-The "reason" should be a string that explains why the email is or isn't considered a cold email.
+<outputFormat>
+Return a JSON object with a "reason" and "coldEmail" field.
+The "reason" should be a concise explanation that explains why the email is or isn't considered a cold email.
+The "coldEmail" should be a boolean that is true if the email is a cold email and false otherwise.
+</outputFormat>
 
-An example response is:
+<exampleResponse>
 {
-  "coldEmail": true,
-  "reason": "This is someone trying to sell you services."
+  "reason": "This is someone trying to sell you services.",
+  "coldEmail": true
 }
+</exampleResponse>
 
-The email:
-
+<email>
 ${stringifyEmail(email, 500)}
+</email>
 `;
 
   const response = await chatCompletionObject({

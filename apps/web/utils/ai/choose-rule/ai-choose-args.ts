@@ -110,15 +110,16 @@ ${
     : ""
 }`;
 
-  const prompt = `An email was received for processing and the following rule was selected to process it:
-###
+  const prompt = `An email was received for processing and the following rule was selected to process it. Handle the email.
+
+<selectedRule>
 ${selectedRule.instructions}
-###
+</selectedRule>
 
-Handle the email.
-
-The email:
-${stringifyEmail(email, 3000)}`;
+<email>
+${stringifyEmail(email, 3000)}
+</email>
+`;
 
   console.log("Calling chat completion tools");
 
@@ -138,8 +139,7 @@ ${stringifyEmail(email, 3000)}`;
 
   const toolCall = aiResponse.toolCalls[0];
 
-  if (!toolCall) return;
-  if (!toolCall.toolName) return;
+  if (!toolCall?.toolName) return;
 
   return toolCall.args;
 }
