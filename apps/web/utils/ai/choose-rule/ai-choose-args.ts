@@ -151,10 +151,16 @@ ${stringifyEmail(email, 3000)}
   if (!toolCall?.toolName) return;
 
   const actionItems = Object.entries(parameters).map(([key, { action }]) => {
-    return {
-      ...action,
-      ...toolCall.args[key],
+    const actionItem: ActionItem = {
+      type: action.type,
+      label: toolCall.args[key].label || action.label,
+      subject: toolCall.args[key].subject || action.subject,
+      content: toolCall.args[key].content || action.content,
+      to: toolCall.args[key].to || action.to,
+      cc: toolCall.args[key].cc || action.cc,
+      bcc: toolCall.args[key].bcc || action.bcc,
     };
+    return actionItem;
   });
 
   return actionItems;
