@@ -2,13 +2,14 @@ import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { ActionItem } from "@/utils/ai/actions";
 import type { Action, User } from "@prisma/client";
-import { chatCompletionTools } from "@/utils/llms";
+import { chatCompletionTools, withRetry } from "@/utils/llms";
 import {
   type EmailForLLM,
   stringifyEmail,
 } from "@/utils/ai/choose-rule/stringify-email";
 import { type RuleWithActions, isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
+import { InvalidToolArgumentsError } from "ai";
 
 const logger = createScopedLogger("AI Choose Args");
 
@@ -93,7 +94,10 @@ ${
   user.about
     ? `\nSome additional information the user has provided about themselves:\n\n${user.about}`
     : ""
-}`;
+}
+
+IMPORTANT: When responding, always provide a complete object with all required fields.
+`;
 
   const prompt = `An email was received for processing and the following rule was selected to process it. Handle the email.
 
@@ -121,19 +125,28 @@ ${stringifyEmail(email, 3000)}
   logger.trace(`Prompt: ${prompt}`);
   // logger.trace("Zod parameters:", zodToJsonSchema(zodParameters));
 
-  const aiResponse = await chatCompletionTools({
-    userAi: user,
-    prompt,
-    system,
-    tools: {
-      apply_rule: {
-        description: "Apply the rule with the given arguments",
-        parameters: zodParameters,
-      },
+  const aiResponse = await withRetry(
+    () =>
+      chatCompletionTools({
+        userAi: user,
+        prompt,
+        system,
+        tools: {
+          apply_rule: {
+            description:
+              "Apply the rule with the given arguments. Each field must be provided as an object with the required properties.",
+            parameters: zodParameters,
+          },
+        },
+        label: "Args for rule",
+        userEmail: user.email || "",
+      }),
+    {
+      retryIf: (error: unknown) => InvalidToolArgumentsError.isInstance(error),
+      maxRetries: 3,
+      delayMs: 1_000,
     },
-    label: "Args for rule",
-    userEmail: user.email || "",
-  });
+  );
 
   const toolCall = aiResponse.toolCalls[0];
 

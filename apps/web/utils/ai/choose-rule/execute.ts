@@ -5,6 +5,9 @@ import type { Prisma } from "@prisma/client";
 import { inboxZeroLabels } from "@/utils/label";
 import { getOrCreateLabel, labelThread } from "@/utils/gmail/label";
 import { ExecutedRuleStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-execute-act");
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
@@ -20,8 +23,8 @@ export async function executeAct({
   email: EmailForAction;
   userEmail: string;
 }) {
-  console.log(
-    `Executing act: ${executedRule.id} for rule ${executedRule.ruleId}`,
+  logger.log(
+    `Executing rule: ${executedRule.id} for rule ${executedRule.ruleId}`,
   );
 
   async function labelActed() {
@@ -45,7 +48,9 @@ export async function executeAct({
   });
 
   if (pendingRules.count === 0) {
-    console.log(`Rule ${executedRule.id} is not pending or does not exist`);
+    logger.log(
+      `Executed rule ${executedRule.id} is not pending or does not exist`,
+    );
     return;
   }
 

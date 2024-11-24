@@ -22,6 +22,7 @@ import {
   isOpenAIAPIKeyDeactivatedError,
   isOpenAIRetryError,
 } from "@/utils/error";
+import { sleep } from "@/utils/sleep";
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   const provider = aiProvider || Provider.ANTHROPIC;
@@ -195,6 +196,43 @@ export async function chatCompletionTools({
     await handleError(error, userEmail);
     throw error;
   }
+}
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  {
+    retryIf,
+    maxRetries,
+    delayMs,
+  }: {
+    retryIf: (error: unknown) => boolean;
+    maxRetries: number;
+    delayMs: number;
+  },
+): Promise<T> {
+  let attempts = 0;
+  let lastError: unknown;
+
+  while (attempts < maxRetries) {
+    try {
+      return await fn();
+    } catch (error) {
+      attempts++;
+      lastError = error;
+
+      if (retryIf(error)) {
+        console.warn(`Attempt ${attempts}: Operation failed. Retrying...`);
+        if (attempts < maxRetries) {
+          await sleep(delayMs);
+          continue;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
 }
 
 async function handleError(error: unknown, userEmail: string) {
