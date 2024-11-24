@@ -10,6 +10,8 @@ import { getEmailClient } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import {
+  getLabelById,
+  getLabels,
   INBOX_LABEL_ID,
   SENT_LABEL_ID,
   UNREAD_LABEL_ID,
@@ -73,32 +75,25 @@ async function saveBehaviorProfile(
 }
 
 async function getUnreadEmailCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.labels.get({
-    userId: "me",
-    id: UNREAD_LABEL_ID,
-  });
-  const unreadCount = res.data.messagesUnread || 0;
+  const label = await getLabelById({ gmail, id: UNREAD_LABEL_ID });
+  const unreadCount = label?.messagesUnread || 0;
   return unreadCount;
 }
 
 async function getInboxCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.labels.get({
-    userId: "me",
-    id: INBOX_LABEL_ID,
-  });
-  const inboxCount = res.data.messagesTotal || 0;
+  const label = await getLabelById({ gmail, id: INBOX_LABEL_ID });
+  const inboxCount = label?.messagesTotal || 0;
   return inboxCount;
 }
 
 async function getSentCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.labels.get({ userId: "me", id: SENT_LABEL_ID });
-  const sentCount = res.data.messagesTotal || 0;
+  const label = await getLabelById({ gmail, id: SENT_LABEL_ID });
+  const sentCount = label?.messagesTotal || 0;
   return sentCount;
 }
 
 async function getLabelCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.labels.list({ userId: "me" });
-  const labels = res.data.labels || [];
+  const labels = (await getLabels(gmail)) || [];
   const DEFAULT_LABEL_COUNT = 13;
   return labels.length - DEFAULT_LABEL_COUNT;
 }

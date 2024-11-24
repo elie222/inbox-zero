@@ -171,7 +171,17 @@ export async function getLabel(options: {
 }) {
   const { gmail, name } = options;
   const labels = await getLabels(gmail);
-  return labels?.find((label) => label.name === name);
+  return labels?.find(
+    (label) => label.name?.toLowerCase() === name.toLowerCase(),
+  );
+}
+
+export async function getLabelById(options: {
+  gmail: gmail_v1.Gmail;
+  id: string;
+}) {
+  const { gmail, id } = options;
+  return (await gmail.users.labels.get({ userId: "me", id })).data;
 }
 
 export async function getOrCreateLabel(options: {
