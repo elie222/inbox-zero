@@ -135,7 +135,7 @@ export async function markImportantMessage(options: {
   });
 }
 
-export async function createLabel({
+async function createLabel({
   gmail,
   name,
 }: {
@@ -179,6 +179,7 @@ export async function getOrCreateLabel(options: {
   name: string;
 }) {
   const { gmail, name } = options;
+  if (!name?.trim()) throw new Error("Label name cannot be empty");
   const label = await getLabel({ gmail, name });
   if (label) return label;
   const createdLabel = await createLabel({ gmail, name });
