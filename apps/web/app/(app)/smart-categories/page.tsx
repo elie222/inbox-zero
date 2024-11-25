@@ -80,7 +80,7 @@ export default async function CategoriesPage() {
               <div className="mr-1">
                 <TooltipExplanation
                   size="sm"
-                  text="Categorize hundreds of senders in your inbox. This will take a few minutes."
+                  text="Categorize thousands of senders in your inbox. This will take a few minutes."
                 />
               </div>
 
