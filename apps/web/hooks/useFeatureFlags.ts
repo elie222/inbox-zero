@@ -1,10 +1,8 @@
-import {
-  useFeatureFlagEnabled,
-  useFeatureFlagVariantKey,
-} from "posthog-js/react";
+import { useFeatureFlagVariantKey } from "posthog-js/react";
 
 export function useSmartCategoriesEnabled() {
-  return useFeatureFlagEnabled("smart-categories");
+  // return useFeatureFlagEnabled("smart-categories");
+  return true;
 }
 
 export function useLandingPageVariant() {
