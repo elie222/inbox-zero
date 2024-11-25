@@ -12,19 +12,20 @@ import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClient } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
+import { withError } from "@/utils/middleware";
 
 const logger = createScopedLogger("api/user/categorize/senders/batch");
 
-export async function handleBatchRequest(
-  request: Request,
-): Promise<NextResponse> {
-  const handleBatchResult = await handleBatch(request);
+export const handleBatchRequest = withError(handleBatch);
+
+async function handleBatch(request: Request): Promise<NextResponse> {
+  const handleBatchResult = await handleBatchInternal(request);
   if (isActionError(handleBatchResult))
     return NextResponse.json(handleBatchResult);
   return NextResponse.json({ ok: true });
 }
 
-async function handleBatch(request: Request) {
+async function handleBatchInternal(request: Request) {
   const json = await request.json();
   const body = aiCategorizeSendersSchema.parse(json);
   const { userId, senders } = body;
