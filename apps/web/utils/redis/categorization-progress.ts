@@ -2,8 +2,8 @@ import { z } from "zod";
 import { redis } from "@/utils/redis";
 
 const categorizationProgressSchema = z.object({
-  totalItems: z.number(),
-  completedItems: z.number(),
+  totalItems: z.number().int().min(0),
+  completedItems: z.number().int().min(0),
 });
 type RedisCategorizationProgress = z.infer<typeof categorizationProgressSchema>;
 
