@@ -53,7 +53,7 @@ const nextConfig = {
     return [
       {
         source: "/",
-        destination: "/bulk-unsubscribe",
+        destination: "/automation",
         has: [
           {
             type: "cookie",
@@ -64,7 +64,7 @@ const nextConfig = {
       },
       {
         source: "/",
-        destination: "/bulk-unsubscribe",
+        destination: "/automation",
         has: [
           {
             type: "cookie",
@@ -75,7 +75,7 @@ const nextConfig = {
       },
       {
         source: "/",
-        destination: "/bulk-unsubscribe",
+        destination: "/automation",
         has: [
           {
             type: "cookie",
@@ -86,7 +86,7 @@ const nextConfig = {
       },
       {
         source: "/",
-        destination: "/bulk-unsubscribe",
+        destination: "/automation",
         has: [
           {
             type: "cookie",
