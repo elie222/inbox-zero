@@ -44,12 +44,15 @@ export function CategorizeSendersProgress({
 
   if (!data) return null;
 
+  const totalItems = data.totalItems || 0;
+  const completedItems = data.completedItems || 0;
+
   return (
     <ProgressPanel
-      totalItems={data.totalItems}
-      remainingItems={data.totalItems - data.completedItems}
-      inProgressText={`Categorizing senders... ${data.completedItems || 0} categorized`}
-      completedText={`Categorization complete! ${data.completedItems || 0} categorized!`}
+      totalItems={totalItems}
+      remainingItems={totalItems - completedItems}
+      inProgressText={`Categorizing senders... ${completedItems} categorized`}
+      completedText={`Categorization complete! ${completedItems} categorized!`}
       itemLabel="senders"
     />
   );
