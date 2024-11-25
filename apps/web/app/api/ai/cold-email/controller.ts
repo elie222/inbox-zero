@@ -50,14 +50,14 @@ export async function isColdEmail({
   });
 
   if (coldEmail) {
-    logger.log(`Already marked as cold email. ${email.from}`);
+    logger.info(`Already marked as cold email. ${email.from}`);
     return { isColdEmail: true, reason: "ai-already-labeled" };
   }
 
   // otherwise run through ai to see if it's a cold email
   const res = await aiIsColdEmail(email, user);
 
-  logger.log(`AI is cold email: ${res.coldEmail}`);
+  logger.info(`AI is cold email: ${res.coldEmail}`);
 
   return {
     isColdEmail: !!res.coldEmail,

@@ -42,9 +42,9 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 export const runRulesAction = withActionInstrumentation(
   "runRules",
   async ({ email, force }: { email: EmailForAction; force: boolean }) => {
-    const { gmail, user: u, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail, user: u } = sessionResult;
 
     const user = await prisma.user.findUnique({
       where: { id: u.id },
@@ -101,9 +101,9 @@ export const runRulesAction = withActionInstrumentation(
 export const testAiAction = withActionInstrumentation(
   "testAi",
   async ({ messageId, threadId }: { messageId: string; threadId: string }) => {
-    const { gmail, user: u, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail, user: u } = sessionResult;
 
     const user = await prisma.user.findUnique({
       where: { id: u.id },

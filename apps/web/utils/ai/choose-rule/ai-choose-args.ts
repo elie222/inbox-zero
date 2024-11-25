@@ -76,12 +76,12 @@ async function getArgsAiResponse({
   selectedRule: RuleWithActions;
   actionsRequiringAi: ActionRequiringAi[];
 }): Promise<ActionWithAiArgs[] | undefined> {
-  logger.log(
+  logger.info(
     `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
   );
 
   if (!actionsRequiringAi.length) {
-    logger.log(
+    logger.info(
       `Skipping. No parameters for rule ${selectedRule.name} (${selectedRule.id})`,
     );
     return;
@@ -120,7 +120,7 @@ ${stringifyEmail(email, 3000)}
     ),
   );
 
-  logger.log("Calling chat completion tools");
+  logger.info("Calling chat completion tools");
   logger.trace(`System: ${system}`);
   logger.trace(`Prompt: ${prompt}`);
   // logger.trace("Zod parameters:", zodToJsonSchema(zodParameters));

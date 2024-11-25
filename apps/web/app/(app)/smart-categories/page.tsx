@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { PenIcon } from "lucide-react";
+import { PenIcon, SparklesIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -25,6 +25,9 @@ import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
+import { CategorizeSendersProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
+import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -34,7 +37,7 @@ export default async function CategoriesPage() {
   const email = session?.user.email;
   if (!email) throw new Error("Not authenticated");
 
-  const [senders, categories, user] = await Promise.all([
+  const [senders, categories, user, progress] = await Promise.all([
     prisma.newsletter.findMany({
       where: { userId: session.user.id, categoryId: { not: null } },
       select: {
@@ -48,6 +51,7 @@ export default async function CategoriesPage() {
       where: { id: session.user.id },
       select: { autoCategorizeSenders: true },
     }),
+    getCategorizationProgress({ userId: session.user.id }),
   ]);
 
   if (!(senders.length > 0 || categories.length > 0))
@@ -59,6 +63,7 @@ export default async function CategoriesPage() {
 
       <ClientOnly>
         <ArchiveProgress />
+        <CategorizeSendersProgress refresh={!!progress} />
       </ClientOnly>
 
       <PremiumAlertWithData className="mx-2 mt-2 sm:mx-4" />
@@ -71,7 +76,25 @@ export default async function CategoriesPage() {
               <TabsTrigger value="uncategorized">Uncategorized</TabsTrigger>
             </TabsList>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <div className="mr-1">
+                <TooltipExplanation
+                  size="sm"
+                  text="Categorize thousands of senders in your inbox. This will take a few minutes."
+                />
+              </div>
+
+              <CategorizeWithAiButton
+                buttonProps={{
+                  children: (
+                    <>
+                      <SparklesIcon className="mr-2 size-4" />
+                      Bulk Categorize
+                    </>
+                  ),
+                  variant: "outline",
+                }}
+              />
               <Button variant="outline" asChild>
                 <Link href="/smart-categories/setup">
                   <PenIcon className="mr-2 size-4" />

@@ -10,8 +10,8 @@ export async function onAutoArchive(from: string, gmailLabelId?: string) {
   handleActionResult(result, "Auto archive enabled!");
 }
 
-export async function onDeleteFilter(gmailLabelId: string) {
-  const result = await deleteFilterAction(gmailLabelId);
+export async function onDeleteFilter(filterId: string) {
+  const result = await deleteFilterAction(filterId);
   handleActionResult(result, "Auto archive disabled!");
 }
 

@@ -181,7 +181,9 @@ export function useAutoArchive<T extends Row>({
   const onDisableAutoArchive = useCallback(async () => {
     setAutoArchiveLoading(true);
 
-    await onDeleteFilter(item.autoArchived?.id!);
+    if (item.autoArchived?.id) {
+      await onDeleteFilter(item.autoArchived?.id);
+    }
     await setNewsletterStatusAction({
       newsletterEmail: item.name,
       status: null,
@@ -215,12 +217,10 @@ export function useAutoArchive<T extends Row>({
 export function useBulkAutoArchive<T extends Row>({
   hasUnsubscribeAccess,
   mutate,
-  posthog,
   refetchPremium,
 }: {
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<any>;
-  posthog: PostHog;
   refetchPremium: () => Promise<any>;
 }) {
   const [bulkAutoArchiveLoading, setBulkAutoArchiveLoading] =
@@ -257,6 +257,13 @@ export function useApproveButton<T extends Row>({
   posthog: PostHog;
 }) {
   const [approveLoading, setApproveLoading] = React.useState(false);
+  const { onDisableAutoArchive } = useAutoArchive({
+    item,
+    hasUnsubscribeAccess: true,
+    mutate,
+    posthog,
+    refetchPremium: () => Promise.resolve(),
+  });
 
   const onApprove = async () => {
     setApproveLoading(true);
@@ -265,6 +272,7 @@ export function useApproveButton<T extends Row>({
       newsletterEmail: item.name,
       status: NewsletterStatus.APPROVED,
     });
+    await onDisableAutoArchive();
     await mutate();
 
     posthog.capture("Clicked Approve Sender");

@@ -1,13 +1,8 @@
 "use client";
 
 import useSWRInfinite from "swr/infinite";
-import { useMemo, useCallback, useState } from "react";
-import {
-  ChevronsDownIcon,
-  SparklesIcon,
-  StopCircleIcon,
-  ZapIcon,
-} from "lucide-react";
+import { useMemo, useCallback } from "react";
+import { ChevronsDownIcon, SparklesIcon, StopCircleIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { SendersTable } from "@/components/GroupedTable";
@@ -16,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import type { UncategorizedSendersResponse } from "@/app/api/user/categorize/senders/uncategorized/route";
 import type { Category } from "@prisma/client";
 import { TopBar } from "@/components/TopBar";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError } from "@/components/Toast";
 import {
   useHasProcessingItems,
   pushToAiCategorizeSenderQueueAtom,
@@ -27,14 +22,8 @@ import { ButtonLoader } from "@/components/Loading";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
-import {
-  fastCategorizeSendersAction,
-  setAutoCategorizeAction,
-} from "@/utils/actions/categorize";
+import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { isActionError } from "@/utils/error";
-
-type FastCategorizeResults = Record<string, string | undefined>;
 
 export function Uncategorized({
   categories,
@@ -48,23 +37,13 @@ export function Uncategorized({
 
   const { data: senderAddresses, loadMore, isLoading, hasMore } = useSenders();
   const hasProcessingItems = useHasProcessingItems();
-  const [isFastCategorizing, setIsFastCategorizing] = useState(false);
-  const [fastCategorizeResult, setFastCategorizeResult] =
-    useState<FastCategorizeResults | null>(null);
 
   const senders = useMemo(
     () =>
       senderAddresses?.map((address) => {
-        const fastCategorization = fastCategorizeResult?.[address];
-
-        if (!fastCategorization) return { address, category: null };
-
-        const category =
-          categories.find((c) => c.name === fastCategorization) || null;
-
-        return { address, category };
+        return { address, category: null };
       }),
-    [senderAddresses, fastCategorizeResult, categories],
+    [senderAddresses],
   );
 
   const session = useSession();
@@ -80,7 +59,7 @@ export function Uncategorized({
           >
             <Button
               loading={hasProcessingItems}
-              disabled={!hasAiAccess || isFastCategorizing}
+              disabled={!hasAiAccess}
               onClick={async () => {
                 if (!senderAddresses?.length) {
                   toastError({ description: "No senders to categorize" });
@@ -92,40 +71,6 @@ export function Uncategorized({
             >
               <SparklesIcon className="mr-2 size-4" />
               Categorize all with AI
-            </Button>
-          </PremiumTooltip>
-
-          <PremiumTooltip
-            showTooltip={!hasAiAccess}
-            openModal={openPremiumModal}
-          >
-            <Button
-              loading={isFastCategorizing}
-              disabled={!hasAiAccess || hasProcessingItems}
-              onClick={async () => {
-                if (!senderAddresses?.length) {
-                  toastError({ description: "No senders to categorize" });
-                  return;
-                }
-
-                setIsFastCategorizing(true);
-
-                const result =
-                  await fastCategorizeSendersAction(senderAddresses);
-
-                if (isActionError(result)) {
-                  toastError({ description: result.error });
-                } else {
-                  if (result.results) setFastCategorizeResult(result.results);
-
-                  toastSuccess({ description: "Categorized senders!" });
-                }
-
-                setIsFastCategorizing(false);
-              }}
-            >
-              <ZapIcon className="mr-2 size-4" />
-              Fast categorize
             </Button>
           </PremiumTooltip>
 
@@ -143,7 +88,7 @@ export function Uncategorized({
         </div>
 
         <div className="flex items-center">
-          <div className="mr-1">
+          <div className="mr-1.5">
             <TooltipExplanation
               size="sm"
               text="Automatically categorize new senders when they email you"

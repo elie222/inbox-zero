@@ -106,7 +106,7 @@ export async function runRulesOnMessage({
 
   if (aiResponse.handled) return { handled: true };
 
-  logger.log(
+  logger.info(
     `No rules matched. ${user.email} ${message.threadId} ${message.id}`,
   );
   logger.trace(aiResponse);

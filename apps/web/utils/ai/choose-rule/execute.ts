@@ -23,7 +23,7 @@ export async function executeAct({
   email: EmailForAction;
   userEmail: string;
 }) {
-  logger.log(
+  logger.info(
     `Executing rule: ${executedRule.id} for rule ${executedRule.ruleId}`,
   );
 
@@ -48,7 +48,7 @@ export async function executeAct({
   });
 
   if (pendingRules.count === 0) {
-    logger.log(
+    logger.info(
       `Executed rule ${executedRule.id} is not pending or does not exist`,
     );
     return;
