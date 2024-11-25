@@ -13,6 +13,7 @@ import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
 
 const logger = createScopedLogger("api/user/categorize/senders/batch");
 
@@ -97,6 +98,11 @@ async function handleBatchInternal(request: Request) {
       userId,
     });
   }
+
+  await saveCategorizationProgress({
+    userId,
+    incrementCompleted: senders.length,
+  });
 
   return NextResponse.json({ ok: true });
 }

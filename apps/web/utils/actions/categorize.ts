@@ -16,6 +16,7 @@ import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
 import { publishToAiCategorizeSendersQueue } from "@/utils/upstash";
 import { createScopedLogger } from "@/utils/logger";
+import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
 
 const logger = createScopedLogger("actions/categorize");
 
@@ -67,6 +68,11 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       if (newUncategorizedSenders.length === 0) break;
       uncategorizedSenders.push(...newUncategorizedSenders);
       totalUncategorizedSenders += newUncategorizedSenders.length;
+
+      await saveCategorizationTotalItems({
+        userId: user.id,
+        totalItems: totalUncategorizedSenders,
+      });
 
       logger.trace("Publishing to queue", {
         userId: user.id,

@@ -1,12 +1,9 @@
 import { z } from "zod";
 import { redis } from "@/utils/redis";
 
-const DEFAULT_TOTAL_PAGES = 50;
-
 const categorizationProgressSchema = z.object({
-  pageIndex: z.number(),
-  totalPages: z.number().default(DEFAULT_TOTAL_PAGES),
-  categorized: z.number(),
+  totalItems: z.number(),
+  completedItems: z.number(),
 });
 type RedisCategorizationProgress = z.infer<typeof categorizationProgressSchema>;
 
@@ -25,23 +22,34 @@ export async function getCategorizationProgress({
   return progress;
 }
 
-export async function saveCategorizationProgress({
+export async function saveCategorizationTotalItems({
   userId,
-  pageIndex,
-  incrementCategorized,
+  totalItems,
 }: {
   userId: string;
-  pageIndex: number;
-  incrementCategorized: number;
+  totalItems: number;
+}) {
+  const key = getKey(userId);
+  const existingProgress = await getCategorizationProgress({ userId });
+  await redis.set(key, { ...existingProgress, totalItems });
+}
+
+export async function saveCategorizationProgress({
+  userId,
+  incrementCompleted,
+}: {
+  userId: string;
+  incrementCompleted: number;
 }) {
   const existingProgress = await getCategorizationProgress({ userId });
-  const updatedProgress: RedisCategorizationProgress = {
-    pageIndex,
-    totalPages: existingProgress?.totalPages || DEFAULT_TOTAL_PAGES,
-    categorized: (existingProgress?.categorized || 0) + incrementCategorized,
-  };
+  if (!existingProgress) return null;
 
   const key = getKey(userId);
+  const updatedProgress: RedisCategorizationProgress = {
+    ...existingProgress,
+    completedItems: existingProgress.completedItems + incrementCompleted,
+  };
+
   // Store progress for 2 minutes
   await redis.set(key, updatedProgress, { ex: 2 * 60 });
   return updatedProgress;
