@@ -31,11 +31,15 @@ export function CategorizeSendersProgress({
   // If the categorization is complete, wait 3 seconds and then set isBulkCategorizing to false
   const { setIsBulkCategorizing } = useCategorizeProgress();
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | undefined;
     if (data?.completedItems === data?.totalItems) {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setIsBulkCategorizing(false);
       }, 3_000);
     }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [data?.completedItems, data?.totalItems, setIsBulkCategorizing]);
 
   if (!data) return null;
