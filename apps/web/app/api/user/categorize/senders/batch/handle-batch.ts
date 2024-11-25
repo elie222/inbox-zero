@@ -11,6 +11,9 @@ import { isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClient } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/user/categorize/senders/batch");
 
 export async function handleBatchRequest(
   request: Request,
@@ -26,7 +29,7 @@ async function handleBatch(request: Request) {
   const body = aiCategorizeSendersSchema.parse(json);
   const { userId, senders } = body;
 
-  console.log("categorizeSendersBatch", userId, senders.length);
+  logger.trace("handleBatch", { userId, senders });
 
   const userResult = await validateUserAndAiAccess(userId);
   if (isActionError(userResult)) return userResult;

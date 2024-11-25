@@ -67,24 +67,22 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       if (newUncategorizedSenders.length === 0) break;
       uncategorizedSenders.push(...newUncategorizedSenders);
       totalUncategorizedSenders += newUncategorizedSenders.length;
-      // Publish to queue every 2 iterations (40 senders)
-      if (i % 2 === 0) {
-        logger.trace("Publishing to queue", {
-          userId: user.id,
-          uncategorizedSenders: uncategorizedSenders.length,
-        });
 
-        // publish to qstash
-        await publishToAiCategorizeSendersQueue({
-          userId: user.id,
-          senders: uncategorizedSenders,
-        });
+      logger.trace("Publishing to queue", {
+        userId: user.id,
+        uncategorizedSenders: uncategorizedSenders.length,
+      });
 
-        uncategorizedSenders = [];
-      }
+      // publish to qstash
+      await publishToAiCategorizeSendersQueue({
+        userId: user.id,
+        senders: uncategorizedSenders,
+      });
+
+      uncategorizedSenders = [];
     }
 
-    logger.info("Done categorizing senders", {
+    logger.info("Queued senders for categorization", {
       userId: user.id,
       totalUncategorizedSenders,
     });
