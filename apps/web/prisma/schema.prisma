@@ -76,8 +76,6 @@ model User {
 
   // categorization  
   autoCategorizeSenders      Boolean   @default(false)
-  oldestCategorizedEmailTime DateTime?
-  newestCategorizedEmailTime DateTime?
 
   // premium can be shared among multiple users
   premiumId      String?

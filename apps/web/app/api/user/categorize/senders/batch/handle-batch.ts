@@ -9,20 +9,28 @@ import {
 import { isDefined } from "@/utils/types";
 import { isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
-import { withError } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("api/user/categorize/senders/batch");
 
-export const handleBatchRequest = withError(handleBatch);
-
-async function handleBatch(request: Request): Promise<NextResponse> {
-  const handleBatchResult = await handleBatchInternal(request);
-  if (isActionError(handleBatchResult))
-    return NextResponse.json(handleBatchResult);
-  return NextResponse.json({ ok: true });
+export async function handleBatchRequest(
+  request: Request,
+): Promise<NextResponse> {
+  try {
+    const handleBatchResult = await handleBatchInternal(request);
+    if (isActionError(handleBatchResult))
+      return NextResponse.json({ error: handleBatchResult.error });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    logger.error("handleBatchRequest", { error });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
 }
 
 async function handleBatchInternal(request: Request) {
@@ -30,17 +38,40 @@ async function handleBatchInternal(request: Request) {
   const body = aiCategorizeSendersSchema.parse(json);
   const { userId, senders } = body;
 
-  logger.trace("handleBatch", { userId, senders });
+  logger.trace(`handleBatch ${userId}: ${senders.length} senders`);
 
   const userResult = await validateUserAndAiAccess(userId);
   if (isActionError(userResult)) return userResult;
-  const { user, accessToken } = userResult;
+  const { user } = userResult;
 
   const categoriesResult = await getCategories(userId);
   if (isActionError(categoriesResult)) return categoriesResult;
   const { categories } = categoriesResult;
 
-  const gmail = getGmailClient({ accessToken });
+  const account = await prisma.account.findFirst({
+    where: { user: { id: userId }, provider: "google" },
+    select: {
+      access_token: true,
+      refresh_token: true,
+      expires_at: true,
+      providerAccountId: true,
+    },
+  });
+
+  if (!account) return { error: "No account found" };
+  if (!account.access_token || !account.refresh_token)
+    return { error: "No access or refresh token" };
+
+  const gmail = await getGmailClientWithRefresh(
+    {
+      accessToken: account.access_token,
+      refreshToken: account.refresh_token,
+      expiryDate: account.expires_at,
+    },
+    account.providerAccountId,
+  );
+  if (!gmail) return { error: "No Gmail client" };
+
   const sendersWithSnippets: Map<string, string[]> = new Map();
 
   // 1. fetch 3 messages for each sender
