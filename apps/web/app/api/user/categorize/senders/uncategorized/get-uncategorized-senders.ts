@@ -1,6 +1,8 @@
 import { getSenders } from "@inboxzero/tinybird";
 import prisma from "@/utils/prisma";
 
+const MAX_ITERATIONS = 200;
+
 export async function getUncategorizedSenders({
   email,
   userId,
@@ -15,7 +17,7 @@ export async function getUncategorizedSenders({
   let uncategorizedSenders: string[] = [];
   let currentOffset = offset;
 
-  while (uncategorizedSenders.length === 0) {
+  while (uncategorizedSenders.length === 0 && currentOffset < MAX_ITERATIONS) {
     const result = await getSenders({
       ownerEmail: email,
       limit,
