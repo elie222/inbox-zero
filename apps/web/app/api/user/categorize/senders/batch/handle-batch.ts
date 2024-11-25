@@ -12,7 +12,16 @@ import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClient } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 
-export async function handleBatch(request: Request) {
+export async function handleBatchRequest(
+  request: Request,
+): Promise<NextResponse> {
+  const handleBatchResult = await handleBatch(request);
+  if (isActionError(handleBatchResult))
+    return NextResponse.json(handleBatchResult);
+  return NextResponse.json({ ok: true });
+}
+
+async function handleBatch(request: Request) {
   const json = await request.json();
   const body = aiCategorizeSendersSchema.parse(json);
   const { userId, senders } = body;

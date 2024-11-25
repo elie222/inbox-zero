@@ -1,5 +1,5 @@
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { withError } from "@/utils/middleware";
-import { handleBatch } from "@/app/api/user/categorize/senders/batch/handle-batch";
+import { handleBatchRequest } from "@/app/api/user/categorize/senders/batch/handle-batch";
 
-export const POST = withError(verifySignatureAppRouter(handleBatch));
+export const POST = withError(verifySignatureAppRouter(handleBatchRequest));
