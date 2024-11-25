@@ -53,11 +53,12 @@ export const getGmailClientWithRefresh = async (
   // may throw `invalid_grant` error
   try {
     const tokens = await auth.refreshAccessToken();
+    const newAccessToken = tokens.credentials.access_token;
 
-    if (tokens.credentials.access_token !== session.accessToken) {
+    if (newAccessToken !== session.accessToken) {
       await saveRefreshToken(
         {
-          access_token: tokens.credentials.access_token ?? undefined,
+          access_token: newAccessToken ?? undefined,
           expires_at: tokens.credentials.expiry_date
             ? Math.floor(tokens.credentials.expiry_date / 1000)
             : undefined,

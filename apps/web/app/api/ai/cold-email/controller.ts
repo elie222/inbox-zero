@@ -9,32 +9,55 @@ import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-cold-email");
 
 const aiResponseSchema = z.object({
   coldEmail: z.boolean().nullish(),
   reason: z.string().nullish(),
 });
 
-type ColdEmailBlockerReason = "hasPreviousEmail" | "ai";
+type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
 
-export async function isColdEmail(options: {
+export async function isColdEmail({
+  hasPreviousEmail,
+  email,
+  user,
+}: {
   hasPreviousEmail: boolean;
   email: { from: string; subject: string; content: string };
-  user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields;
+  user: Pick<User, "id" | "email" | "coldEmailPrompt"> & UserAIFields;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
-  console.debug("Checking is cold email");
+  logger.trace("Checking is cold email");
 
-  if (options.hasPreviousEmail)
+  if (hasPreviousEmail)
     return { isColdEmail: false, reason: "hasPreviousEmail" };
 
-  // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(options.email, options.user);
+  // Check if we marked it as a cold email already
+  const coldEmail = await prisma.coldEmail.findUnique({
+    where: {
+      userId_fromEmail: {
+        userId: "user.id",
+        fromEmail: email.from,
+      },
+      status: ColdEmailStatus.AI_LABELED_COLD,
+    },
+  });
 
-  console.debug(`AI is cold email: ${res.coldEmail}`);
+  if (coldEmail) {
+    logger.info(`Already marked as cold email. ${email.from}`);
+    return { isColdEmail: true, reason: "ai-already-labeled" };
+  }
+
+  // otherwise run through ai to see if it's a cold email
+  const res = await aiIsColdEmail(email, user);
+
+  logger.info(`AI is cold email: ${res.coldEmail}`);
 
   return {
     isColdEmail: !!res.coldEmail,
@@ -52,20 +75,26 @@ async function aiIsColdEmail(
 
   const prompt = `Determine if this email is a cold email or not.
 
+<instructions>
 ${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
+</instructions>
 
-Return a JSON object with a "coldEmail" and "reason" field.
-The "reason" should be a string that explains why the email is or isn't considered a cold email.
+<outputFormat>
+Return a JSON object with a "reason" and "coldEmail" field.
+The "reason" should be a concise explanation that explains why the email is or isn't considered a cold email.
+The "coldEmail" should be a boolean that is true if the email is a cold email and false otherwise.
+</outputFormat>
 
-An example response is:
+<exampleResponse>
 {
-  "coldEmail": true,
-  "reason": "This is someone trying to sell you services."
+  "reason": "This is someone trying to sell you services.",
+  "coldEmail": true
 }
+</exampleResponse>
 
-The email:
-
+<email>
 ${stringifyEmail(email, 500)}
+</email>
 `;
 
   const response = await chatCompletionObject({
@@ -128,7 +157,7 @@ async function blockColdEmail(options: {
       gmail,
       name: inboxZeroLabels.cold_email,
     });
-    if (!coldEmailLabel?.id) console.error("No gmail label id");
+    if (!coldEmailLabel?.id) logger.error("No gmail label id");
 
     const shouldArchive =
       user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL;

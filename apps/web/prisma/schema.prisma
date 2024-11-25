@@ -70,11 +70,12 @@ model User {
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
-  categorizeEmails      Boolean           @default(true)
   coldEmailBlocker      ColdEmailSetting?
   coldEmailPrompt       String?
   rulesPrompt           String?
-  autoCategorizeSenders Boolean           @default(false)
+
+  // categorization  
+  autoCategorizeSenders      Boolean   @default(false)
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -229,7 +230,7 @@ model ExecutedRule {
   updatedAt DateTime           @updatedAt
   threadId  String
   messageId String
-  status    ExecutedRuleStatus @default(APPLIED) // if APPLIED then the rule was executed
+  status    ExecutedRuleStatus
   automated Boolean
   reason    String?
 
@@ -413,9 +414,11 @@ enum FeatureAccess {
 
 enum ExecutedRuleStatus {
   APPLIED
+  APPLYING
   REJECTED
   PENDING
   SKIPPED
+  ERROR
 }
 
 enum RuleType {

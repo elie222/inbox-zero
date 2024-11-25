@@ -42,7 +42,6 @@ export function BulkActions({
   const { bulkAutoArchiveLoading, onBulkAutoArchive } = useBulkAutoArchive({
     hasUnsubscribeAccess,
     mutate,
-    posthog,
     refetchPremium,
   });
 

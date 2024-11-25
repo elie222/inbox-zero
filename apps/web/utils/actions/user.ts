@@ -12,6 +12,7 @@ import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
 import { captureException } from "@/utils/error";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { unwatchEmails } from "@/app/api/google/watch/controller";
 
 const saveAboutBody = z.object({ about: z.string() });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
@@ -45,6 +46,11 @@ export const deleteAccountAction = withActionInstrumentation(
         deletePosthogUser({ email: session.user.email }),
         deleteLoopsContact(session.user.email),
         deleteResendContact({ email: session.user.email }),
+        unwatchEmails({
+          userId: session.user.id,
+          access_token: session.accessToken ?? null,
+          refresh_token: null,
+        }),
       ]);
     } catch (error) {
       console.error("Error while deleting account: ", error);

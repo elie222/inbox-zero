@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { Category, User } from "@prisma/client";
+import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
+export const UNKNOWN_CATEGORY = "Unknown";
 
 const categorizeSendersSchema = z.object({
   senders: z.array(
@@ -22,7 +23,7 @@ export async function aiCategorizeSenders({
   senders,
   categories,
 }: {
-  user: Pick<User, "email"> & UserAIFields;
+  user: UserEmailWithAI;
   senders: { emailAddress: string; snippets: string[] }[];
   categories: Pick<Category, "name" | "description">[];
 }): Promise<

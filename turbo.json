@@ -8,8 +8,7 @@
         "DATABASE_URL",
         "DIRECT_URL",
         "NEXTAUTH_SECRET",
-        "GOOGLE_CLIENT_ID",
-        "GOOGLE_CLIENT_SECRET",
+        "NEXTAUTH_URL",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
         "OPENAI_API_KEY",
@@ -19,6 +18,9 @@
         "BEDROCK_REGION",
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
+        "QSTASH_TOKEN",
+        "QSTASH_CURRENT_SIGNING_KEY",
+        "QSTASH_NEXT_SIGNING_KEY",
         "GOOGLE_PUBSUB_TOPIC_NAME",
         "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
         "SENTRY_AUTH_TOKEN",
@@ -38,6 +40,8 @@
         "CRON_SECRET",
         "LOOPS_API_SECRET",
         "ADMINS",
+        "WEBHOOK_URL",
+        "INTERNAL_API_KEY",
 
         "NEXT_PUBLIC_LEMON_STORE_ID",
 
@@ -83,7 +87,9 @@
         "NEXT_PUBLIC_GTM_ID",
         "NEXT_PUBLIC_CRISP_WEBSITE_ID",
         "NEXT_PUBLIC_DISABLE_TINYBIRD",
-        "NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED"
+        "NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED",
+        "NEXT_PUBLIC_AXIOM_DATASET",
+        "NEXT_PUBLIC_AXIOM_TOKEN"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

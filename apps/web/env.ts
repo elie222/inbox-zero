@@ -7,6 +7,7 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
     NEXTAUTH_SECRET: z.string().min(1),
+    NEXTAUTH_URL: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
@@ -16,6 +17,9 @@ export const env = createEnv({
     BEDROCK_REGION: z.string().default("us-west-2"),
     UPSTASH_REDIS_URL: z.string().min(1),
     UPSTASH_REDIS_TOKEN: z.string().min(1),
+    QSTASH_TOKEN: z.string().optional(),
+    QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
+    QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
     SENTRY_AUTH_TOKEN: z.string().optional(),
@@ -41,6 +45,8 @@ export const env = createEnv({
       .string()
       .optional()
       .transform((value) => value?.split(",")),
+    WEBHOOK_URL: z.string().optional(),
+    INTERNAL_API_KEY: z.string().optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -99,6 +105,8 @@ export const env = createEnv({
       .boolean()
       .optional()
       .default(false),
+    NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
+    NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -163,5 +171,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DISABLE_TINYBIRD: process.env.NEXT_PUBLIC_DISABLE_TINYBIRD,
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED:
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
+    NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
+    NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
   },
 });

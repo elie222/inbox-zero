@@ -231,15 +231,25 @@ function TestResultDisplay({ result }: { result: TestResult }) {
       return (
         <div key={i}>
           <strong>{capitalCase(action.type)}</strong>
-          {Object.entries(action).map(([key, value]) => {
-            if (key === "type" || !value) return null;
-            return (
-              <div key={key}>
-                <strong>{capitalCase(key)}: </strong>
-                {value}
-              </div>
-            );
-          })}
+          {Object.entries(action)
+            .filter(
+              ([key, value]) =>
+                value &&
+                (key === "label" ||
+                  key === "subject" ||
+                  key === "content" ||
+                  key === "to" ||
+                  key === "cc" ||
+                  key === "bcc"),
+            )
+            .map(([key, value]) => {
+              return (
+                <div key={key}>
+                  <strong>{capitalCase(key)}: </strong>
+                  {value}
+                </div>
+              );
+            })}
         </div>
       );
     });

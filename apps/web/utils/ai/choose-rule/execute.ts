@@ -5,6 +5,9 @@ import type { Prisma } from "@prisma/client";
 import { inboxZeroLabels } from "@/utils/label";
 import { getOrCreateLabel, labelThread } from "@/utils/gmail/label";
 import { ExecutedRuleStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-execute-act");
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
@@ -20,7 +23,9 @@ export async function executeAct({
   email: EmailForAction;
   userEmail: string;
 }) {
-  console.log("Executing act:", executedRule.id);
+  logger.info(
+    `Executing rule: ${executedRule.id} for rule ${executedRule.ruleId}`,
+  );
 
   async function labelActed() {
     const label = await getOrCreateLabel({
@@ -37,11 +42,32 @@ export async function executeAct({
     });
   }
 
+  const pendingRules = await prisma.executedRule.updateMany({
+    where: { id: executedRule.id, status: ExecutedRuleStatus.PENDING },
+    data: { status: ExecutedRuleStatus.APPLYING },
+  });
+
+  if (pendingRules.count === 0) {
+    logger.info(
+      `Executed rule ${executedRule.id} is not pending or does not exist`,
+    );
+    return;
+  }
+
+  for (const action of executedRule.actionItems) {
+    try {
+      await runActionFunction(gmail, email, action, userEmail);
+    } catch (error) {
+      await prisma.executedRule.update({
+        where: { id: executedRule.id },
+        data: { status: ExecutedRuleStatus.ERROR },
+      });
+      throw error;
+    }
+  }
+
   await Promise.allSettled([
-    ...executedRule.actionItems.map(async (action) => {
-      return runActionFunction(gmail, email, action, userEmail);
-    }),
-    prisma.executedRule.update({
+    await prisma.executedRule.update({
       where: { id: executedRule.id },
       data: { status: ExecutedRuleStatus.APPLIED },
     }),

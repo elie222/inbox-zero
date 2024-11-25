@@ -45,13 +45,16 @@ ${
 `;
 
   const prompt = `This email was received for processing. Select a rule to apply to it.
+
+<outputFormat>
 Respond with a JSON object with the following fields:
+"reason" - the reason you chose that rule. Keep it short.
 "rule" - the number of the rule you want to apply
-"reason" - the reason you chose that rule
+</outputFormat>
 
-The email:
-
+<email>
 ${stringifyEmail(email, 500)}
+</email>
 `;
 
   const aiResponse = await chatCompletionObject({
@@ -59,8 +62,8 @@ ${stringifyEmail(email, 500)}
     prompt,
     system,
     schema: z.object({
-      rule: z.number(),
       reason: z.string(),
+      rule: z.number(),
     }),
     userEmail: user.email || "",
     usageLabel: "Choose rule",

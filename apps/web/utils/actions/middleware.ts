@@ -43,6 +43,7 @@ export function withActionInstrumentation<
         },
         async () => {
           try {
+            console.log(`Action: ${name}`);
             const res = await action(...args);
 
             if (!res) {

@@ -19,6 +19,7 @@ import {
 } from "@/utils/gmail/filter";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { isActionError } from "@/utils/error";
 
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
@@ -26,9 +27,9 @@ const isStatusOk = (status: number) => status >= 200 && status < 300;
 export const archiveThreadAction = withActionInstrumentation(
   "archiveThread",
   async (threadId: string, labelId?: string) => {
-    const { gmail, user, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail, user } = sessionResult;
 
     const res = await archiveThread({
       gmail,
@@ -45,9 +46,9 @@ export const archiveThreadAction = withActionInstrumentation(
 export const trashThreadAction = withActionInstrumentation(
   "trashThread",
   async (threadId: string) => {
-    const { gmail, user, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail, user } = sessionResult;
 
     const res = await trashThread({
       gmail,
@@ -63,9 +64,9 @@ export const trashThreadAction = withActionInstrumentation(
 export const trashMessageAction = withActionInstrumentation(
   "trashMessage",
   async (messageId: string) => {
-    const { gmail, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
 
     const res = await trashMessage({ gmail, messageId });
 
@@ -76,9 +77,9 @@ export const trashMessageAction = withActionInstrumentation(
 export const markReadThreadAction = withActionInstrumentation(
   "markReadThread",
   async (threadId: string, read: boolean) => {
-    const { gmail, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
 
     const res = await markReadThread({ gmail, threadId, read });
 
@@ -90,9 +91,9 @@ export const markReadThreadAction = withActionInstrumentation(
 export const markImportantMessageAction = withActionInstrumentation(
   "markImportantMessage",
   async (messageId: string, important: boolean) => {
-    const { gmail, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
 
     const res = await markImportantMessage({ gmail, messageId, important });
 
@@ -104,9 +105,9 @@ export const markImportantMessageAction = withActionInstrumentation(
 export const markSpamThreadAction = withActionInstrumentation(
   "markSpamThread",
   async (threadId: string) => {
-    const { gmail, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
 
     const res = await markSpam({ gmail, threadId });
 
@@ -118,9 +119,9 @@ export const markSpamThreadAction = withActionInstrumentation(
 export const createAutoArchiveFilterAction = withActionInstrumentation(
   "createAutoArchiveFilter",
   async (from: string, gmailLabelId?: string) => {
-    const { gmail, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
 
     const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
 
@@ -132,9 +133,9 @@ export const createAutoArchiveFilterAction = withActionInstrumentation(
 export const createFilterAction = withActionInstrumentation(
   "createFilter",
   async (from: string, gmailLabelId: string) => {
-    const { gmail, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
 
     const res = await createFilter({
       gmail,
@@ -151,9 +152,9 @@ export const createFilterAction = withActionInstrumentation(
 export const deleteFilterAction = withActionInstrumentation(
   "deleteFilter",
   async (id: string) => {
-    const { gmail, error } = await getSessionAndGmailClient();
-    if (error) return { error };
-    if (!gmail) return { error: "Could not load Gmail" };
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
 
     const res = await deleteFilter({ gmail, id });
 
