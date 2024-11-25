@@ -10,6 +10,7 @@ import { isActionError } from "@/utils/error";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import type { ButtonProps } from "@/components/ui/button";
+import { useCategorizeProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
 
 export function CategorizeWithAiButton({
   buttonProps,
@@ -19,6 +20,8 @@ export function CategorizeWithAiButton({
   const [isCategorizing, setIsCategorizing] = useState(false);
   const { hasAiAccess } = usePremium();
   const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
+
+  const { setIsBulkCategorizing } = useCategorizeProgress();
 
   return (
     <>
@@ -32,6 +35,7 @@ export function CategorizeWithAiButton({
             toast.promise(
               async () => {
                 setIsCategorizing(true);
+                setIsBulkCategorizing(true);
                 const result = await handleActionCall(
                   "bulkCategorizeSendersAction",
                   bulkCategorizeSendersAction,

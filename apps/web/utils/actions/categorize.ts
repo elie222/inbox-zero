@@ -65,7 +65,7 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
         uncategorizedSenders: newUncategorizedSenders.length,
       });
 
-      if (newUncategorizedSenders.length === 0) break;
+      if (newUncategorizedSenders.length === 0) continue;
       uncategorizedSenders.push(...newUncategorizedSenders);
       totalUncategorizedSenders += newUncategorizedSenders.length;
 

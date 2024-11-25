@@ -47,7 +47,7 @@ export async function saveCategorizationProgress({
   const key = getKey(userId);
   const updatedProgress: RedisCategorizationProgress = {
     ...existingProgress,
-    completedItems: existingProgress.completedItems + incrementCompleted,
+    completedItems: (existingProgress.completedItems || 0) + incrementCompleted,
   };
 
   // Store progress for 2 minutes
