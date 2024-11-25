@@ -159,9 +159,9 @@ export async function categorizeWithAi({
     .filter((sender) => !sender.category)
     .map((sender) => sender.sender);
 
-  console.log(
-    `Found ${sendersToCategorizeWithAi.length} senders to categorize with AI`,
-  );
+  logger.info("Found senders to categorize with AI", {
+    count: sendersToCategorizeWithAi.length,
+  });
 
   const aiResults = await aiCategorizeSenders({
     user,
