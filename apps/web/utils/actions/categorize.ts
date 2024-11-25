@@ -14,9 +14,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
-import { publishToQstashQueue } from "@/utils/upstash";
-import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
-import { env } from "@/env";
+import { publishToAiCategorizeSendersQueue } from "@/utils/upstash";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("actions/categorize");
 
 export const bulkCategorizeSendersAction = withActionInstrumentation(
   "bulkCategorizeSenders",
@@ -53,26 +54,42 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       return uncategorizedSenders;
     }
 
-    const uncategorizedSenders: string[] = [];
+    let totalUncategorizedSenders = 0;
+    let uncategorizedSenders: string[] = [];
     for (let i = 0; i < 20; i++) {
       const newUncategorizedSenders = await getUncategorizedSenders(i * LIMIT);
+
+      logger.trace("Got uncategorized senders", {
+        userId: user.id,
+        uncategorizedSenders: newUncategorizedSenders.length,
+      });
+
       if (newUncategorizedSenders.length === 0) break;
       uncategorizedSenders.push(...newUncategorizedSenders);
+      totalUncategorizedSenders += newUncategorizedSenders.length;
+      // Publish to queue every 2 iterations (40 senders)
+      if (i % 2 === 0) {
+        logger.trace("Publishing to queue", {
+          userId: user.id,
+          uncategorizedSenders: uncategorizedSenders.length,
+        });
+
+        // publish to qstash
+        await publishToAiCategorizeSendersQueue({
+          userId: user.id,
+          senders: uncategorizedSenders,
+        });
+
+        uncategorizedSenders = [];
+      }
     }
 
-    // publish to qstash
-    const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/user/categorize/senders/batch`;
-    const body: AiCategorizeSenders = {
+    logger.info("Done categorizing senders", {
       userId: user.id,
-      senders: uncategorizedSenders,
-    };
-
-    await publishToQstashQueue({
-      queueName: "ai-categorize-senders",
-      parallelism: 3,
-      url,
-      body,
+      totalUncategorizedSenders,
     });
+
+    return { totalUncategorizedSenders };
   },
 );
 

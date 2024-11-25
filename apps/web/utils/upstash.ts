@@ -3,6 +3,7 @@ import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import { SafeError } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
+import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
 
 function getQstashClient() {
   if (!env.QSTASH_TOKEN) return null;
@@ -69,4 +70,17 @@ export async function publishToQstashQueue({
   });
   // Wait for 100ms to ensure the request is sent
   await sleep(100);
+}
+
+export async function publishToAiCategorizeSendersQueue(
+  body: AiCategorizeSenders,
+) {
+  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/user/categorize/senders/batch`;
+
+  await publishToQstashQueue({
+    queueName: "ai-categorize-senders",
+    parallelism: 3,
+    url,
+    body,
+  });
 }

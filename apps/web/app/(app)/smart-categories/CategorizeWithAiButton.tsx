@@ -47,9 +47,11 @@ export function CategorizeWithAiButton({
                 return result;
               },
               {
-                loading: "Categorizing senders...",
-                success: () => {
-                  return "Categorization started! This might take a while.";
+                loading: "Categorizing senders... This might take a while.",
+                success: ({ totalUncategorizedSenders }) => {
+                  return totalUncategorizedSenders
+                    ? `Categorizing ${totalUncategorizedSenders} senders...`
+                    : "There are no more senders to categorize.";
                 },
                 error: (err) => {
                   return `Error categorizing senders: ${err.message}`;
