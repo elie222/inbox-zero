@@ -1,9 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import {
-  aiCategorizeSenders,
-  REQUEST_MORE_INFORMATION_CATEGORY,
-} from "@/utils/ai/categorize-sender/ai-categorize-senders";
+import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { defaultCategory, type SenderCategory } from "@/utils/categories";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
@@ -15,7 +12,6 @@ import { getUserCategories } from "@/utils/category.server";
 import type { User } from "@prisma/client";
 import type { UserAIFields, UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
-import type { SenderMap } from "@/app/api/user/categorize/senders/types";
 
 const logger = createScopedLogger("categorize/senders");
 
@@ -23,9 +19,9 @@ export async function categorizeSender(
   senderAddress: string,
   user: Pick<User, "id" | "email"> & UserAIFields,
   gmail: gmail_v1.Gmail,
+  userCategories?: Pick<Category, "id" | "name" | "description">[],
 ) {
-  const categories = await getUserCategories(user.id);
-
+  const categories = userCategories || (await getUserCategories(user.id));
   if (categories.length === 0) return { categoryId: undefined };
 
   const previousEmails = await getPreviousEmails(gmail, senderAddress);
@@ -71,7 +67,7 @@ export async function updateSenderCategory({
 }: {
   userId: string;
   sender: string;
-  categories: { id: string; name: string }[];
+  categories: Pick<Category, "id" | "name">[];
   categoryName: string;
 }) {
   let category = categories.find((c) => c.name === categoryName);
@@ -174,55 +170,3 @@ export async function categorizeWithAi({
 
   return [...categorizedSenders, ...aiResults];
 }
-
-async function categorizeUnknownSenders({
-  unknownSenders,
-  sendersMap,
-  gmail,
-  user,
-  categories,
-  userId,
-}: {
-  unknownSenders: Array<{ sender: string; category?: string }>;
-  sendersMap: SenderMap;
-  gmail: gmail_v1.Gmail;
-  user: UserEmailWithAI;
-  categories: Pick<Category, "id" | "name" | "description">[];
-  userId: string;
-}) {
-  let categorizedCount = 0;
-
-  for (const sender of unknownSenders) {
-    const messages = sendersMap.get(sender.sender);
-    let previousEmails =
-      messages?.map((m) => m.snippet).filter(isDefined) || [];
-
-    if (previousEmails.length === 0) {
-      previousEmails = await getPreviousEmails(gmail, sender.sender);
-    }
-
-    const aiResult = await aiCategorizeSender({
-      user,
-      sender: sender.sender,
-      previousEmails,
-      categories,
-    });
-
-    if (aiResult) {
-      await updateSenderCategory({
-        sender: sender.sender,
-        categories,
-        categoryName: aiResult.category,
-        userId,
-      });
-      categorizedCount++;
-    }
-  }
-
-  return categorizedCount;
-}
-
-const isUnknownSender = (r: { category?: string }) =>
-  !r.category ||
-  r.category === defaultCategory.UNKNOWN.name ||
-  r.category === REQUEST_MORE_INFORMATION_CATEGORY;

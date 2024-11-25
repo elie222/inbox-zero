@@ -2,7 +2,7 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { Category, User } from "@prisma/client";
+import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
