@@ -2,19 +2,15 @@ import { NextResponse } from "next/server";
 import { aiCategorizeSendersSchema } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
 import { getThreadsFromSender } from "@/utils/gmail/thread";
 import {
-  categorizeSender,
   categorizeWithAi,
   getCategories,
   updateSenderCategory,
 } from "@/utils/categorize/senders/categorize";
 import { isDefined } from "@/utils/types";
-import { captureException, isActionError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
-import {
-  REQUEST_MORE_INFORMATION_CATEGORY,
-  UNKNOWN_CATEGORY,
-} from "@/utils/ai/categorize-sender/ai-categorize-senders";
+import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
@@ -103,19 +99,30 @@ async function handleBatchInternal(request: Request) {
     });
   }
 
-  // 4. categorize senders that were not categorized
-  const uncategorizedSenders = results.filter(isUncategorized);
-  for (const sender of uncategorizedSenders) {
-    try {
-      await categorizeSender(sender.sender, user, gmail, categories);
-    } catch (error) {
-      logger.error("Error categorizing sender", {
-        sender: sender.sender,
-        error,
-      });
-      captureException(error);
-    }
-  }
+  // // 4. categorize senders that were not categorized
+  // const uncategorizedSenders = results.filter(isUncategorized);
+
+  // await saveCategorizationProgress({
+  //   userId,
+  //   incrementCompleted: senders.length - uncategorizedSenders.length,
+  // });
+
+  // for (const sender of uncategorizedSenders) {
+  //   try {
+  //     await categorizeSender(sender.sender, user, gmail, categories);
+  //   } catch (error) {
+  //     logger.error("Error categorizing sender", {
+  //       sender: sender.sender,
+  //       error,
+  //     });
+  //     captureException(error);
+  //   }
+
+  //   await saveCategorizationProgress({
+  //     userId,
+  //     incrementCompleted: 1,
+  //   });
+  // }
 
   await saveCategorizationProgress({
     userId,
@@ -125,7 +132,7 @@ async function handleBatchInternal(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-const isUncategorized = (r: { category?: string }) =>
-  !r.category ||
-  r.category === UNKNOWN_CATEGORY ||
-  r.category === REQUEST_MORE_INFORMATION_CATEGORY;
+// const isUncategorized = (r: { category?: string }) =>
+//   !r.category ||
+//   r.category === UNKNOWN_CATEGORY ||
+//   r.category === REQUEST_MORE_INFORMATION_CATEGORY;
