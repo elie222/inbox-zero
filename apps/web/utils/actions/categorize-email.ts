@@ -48,7 +48,7 @@ export const categorizeEmailAction = withActionInstrumentation(
         unsubscribeLink,
         hasPreviousEmail,
       },
-      { email: u.email! },
+      { email: u.email },
     );
 
     return { category: res?.category };
