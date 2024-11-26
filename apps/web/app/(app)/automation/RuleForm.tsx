@@ -300,6 +300,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
+          const hasVariables = (text: string) => /\{\{.*?\}\}/g.test(text);
+
           return (
             <Card key={i}>
               <div className="grid grid-cols-4 gap-4">
@@ -328,26 +330,30 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   {actionInputs[action.type].fields.map((field) => {
                     const isAiGenerated = action[field.name]?.ai;
 
+                    const value = watch(`actions.${i}.${field.name}.value`);
+
                     return (
                       <div key={field.label}>
                         <div className="flex items-center justify-between">
                           <Label name={field.name} label={field.label} />
-                          <div className="flex items-center space-x-2">
-                            <TooltipExplanation text="Enable for AI-generated values unique to each email. Disable to use a fixed value you set here." />
-                            <Toggle
-                              name={`actions.${i}.${field.name}.ai`}
-                              label="AI generated"
-                              enabled={isAiGenerated || false}
-                              onChange={(enabled) => {
-                                setValue(
-                                  `actions.${i}.${field.name}`,
-                                  enabled
-                                    ? { value: "", ai: true }
-                                    : { value: "", ai: false },
-                                );
-                              }}
-                            />
-                          </div>
+                          {field.name === "label" && (
+                            <div className="flex items-center space-x-2">
+                              <TooltipExplanation text="Enable for AI-generated values unique to each email. Disable to use a fixed value you set here." />
+                              <Toggle
+                                name={`actions.${i}.${field.name}.ai`}
+                                label="AI generated"
+                                enabled={isAiGenerated || false}
+                                onChange={(enabled) => {
+                                  setValue(
+                                    `actions.${i}.${field.name}`,
+                                    enabled
+                                      ? { value: "", ai: true }
+                                      : { value: "", ai: false },
+                                  );
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
 
                         {field.name === "label" ? (
@@ -366,23 +372,44 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                             />
                           </div>
                         ) : field.textArea ? (
-                          <textarea
-                            className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                            rows={3}
-                            placeholder={
-                              isAiGenerated ? "AI prompt (optional)" : ""
-                            }
-                            {...register(`actions.${i}.${field.name}.value`)}
-                          />
+                          <div className="mt-2">
+                            <textarea
+                              className="block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              rows={3}
+                              placeholder="Enter static text or use {{double braces}} for AI-generated parts"
+                              value={value || ""}
+                              {...register(`actions.${i}.${field.name}.value`)}
+                            />
+                          </div>
                         ) : (
-                          <input
-                            className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                            type="text"
-                            placeholder={
-                              isAiGenerated ? "AI prompt (optional)" : ""
-                            }
-                            {...register(`actions.${i}.${field.name}.value`)}
-                          />
+                          <div className="mt-2">
+                            <input
+                              className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              type="text"
+                              placeholder="Enter static text or use {{double braces}} for AI-generated parts"
+                              {...register(`actions.${i}.${field.name}.value`)}
+                            />
+                          </div>
+                        )}
+
+                        {hasVariables(value || "") && (
+                          <div className="mt-2 rounded-md bg-gray-50 p-2 font-mono text-sm text-gray-900">
+                            {(value || "")
+                              .split(/(\{\{.*?\}\})/g)
+                              .map((part, i) =>
+                                part.startsWith("{{") ? (
+                                  <span
+                                    key={i}
+                                    className="rounded bg-blue-100 px-1 text-blue-500"
+                                  >
+                                    <sub className="font-sans">AI</sub>
+                                    {part}
+                                  </span>
+                                ) : (
+                                  <span key={i}>{part}</span>
+                                ),
+                              )}
+                          </div>
                         )}
 
                         {errors.actions?.[i]?.[field.name]?.message ? (
