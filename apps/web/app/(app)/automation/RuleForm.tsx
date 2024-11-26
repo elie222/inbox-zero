@@ -189,47 +189,67 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
           {showSmartCategories && (
             <div className="space-y-2">
-              <div className="w-fit">
-                <Select
-                  name="categoryFilterType"
-                  label="Optional: Only apply rule to emails from these categories"
-                  tooltipText="This helps the AI be more accurate and produce better results."
-                  options={[
-                    { label: "Include", value: CategoryFilterType.INCLUDE },
-                    { label: "Exclude", value: CategoryFilterType.EXCLUDE },
-                  ]}
-                  registerProps={register("categoryFilterType")}
-                  error={errors.categoryFilterType}
-                />
-              </div>
-
-              <LoadingContent
-                loading={categoriesLoading}
-                error={categoriesError}
-              >
-                <MultiSelectFilter
-                  title="Categories"
-                  maxDisplayedValues={8}
-                  options={categories.map((category) => ({
-                    label: capitalCase(category.name),
-                    value: category.id,
-                  }))}
-                  selectedValues={new Set(watch("categoryFilters"))}
-                  setSelectedValues={(selectedValues) => {
-                    setValue("categoryFilters", Array.from(selectedValues));
+              <div className="flex justify-start">
+                <Toggle
+                  name="filterCategories"
+                  label="Filter categories"
+                  enabled={!!watch("categoryFilterType")}
+                  onChange={(enabled) => {
+                    setValue(
+                      "categoryFilterType",
+                      enabled ? CategoryFilterType.INCLUDE : null,
+                    );
+                    if (!enabled) {
+                      setValue("categoryFilters", []);
+                    }
                   }}
                 />
-                {errors.categoryFilters?.message && (
-                  <ErrorMessage message={errors.categoryFilters.message} />
-                )}
-              </LoadingContent>
+              </div>
+              {watch("categoryFilterType") && (
+                <>
+                  <div className="w-fit">
+                    <Select
+                      name="categoryFilterType"
+                      label="Categories this rule applies to"
+                      tooltipText="This stops the AI from applying this rule to emails that don't match your criteria."
+                      options={[
+                        { label: "Include", value: CategoryFilterType.INCLUDE },
+                        { label: "Exclude", value: CategoryFilterType.EXCLUDE },
+                      ]}
+                      registerProps={register("categoryFilterType")}
+                      error={errors.categoryFilterType}
+                    />
+                  </div>
 
-              <Button asChild variant="ghost" size="sm" className="ml-2">
-                <Link href="/smart-categories/setup" target="_blank">
-                  Create new category
-                  <ExternalLinkIcon className="ml-1.5 size-4" />
-                </Link>
-              </Button>
+                  <LoadingContent
+                    loading={categoriesLoading}
+                    error={categoriesError}
+                  >
+                    <MultiSelectFilter
+                      title="Select categories"
+                      maxDisplayedValues={8}
+                      options={categories.map((category) => ({
+                        label: capitalCase(category.name),
+                        value: category.id,
+                      }))}
+                      selectedValues={new Set(watch("categoryFilters"))}
+                      setSelectedValues={(selectedValues) => {
+                        setValue("categoryFilters", Array.from(selectedValues));
+                      }}
+                    />
+                    {errors.categoryFilters?.message && (
+                      <ErrorMessage message={errors.categoryFilters.message} />
+                    )}
+                  </LoadingContent>
+
+                  <Button asChild variant="ghost" size="sm" className="ml-2">
+                    <Link href="/smart-categories/setup" target="_blank">
+                      Create new category
+                      <ExternalLinkIcon className="ml-1.5 size-4" />
+                    </Link>
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>

@@ -71,6 +71,14 @@ export const createRuleAction = withActionInstrumentation(
           subject: body.subject || undefined,
           // body: body.body || undefined,
           groupId: body.groupId || undefined,
+          categoryFilterType: body.categoryFilterType || undefined,
+          categoryFilters: !body.categoryFilterType
+            ? {}
+            : body.categoryFilters
+              ? {
+                  connect: body.categoryFilters.map((id) => ({ id })),
+                }
+              : undefined,
         },
       });
 
@@ -101,7 +109,7 @@ export const updateRuleAction = withActionInstrumentation(
     try {
       const currentRule = await prisma.rule.findUnique({
         where: { id: body.id, userId: session.user.id },
-        include: { actions: true },
+        include: { actions: true, categoryFilters: true },
       });
       if (!currentRule) return { error: "Rule not found" };
 
@@ -128,6 +136,15 @@ export const updateRuleAction = withActionInstrumentation(
             subject: body.subject,
             // body: body.body,
             groupId: body.groupId,
+            categoryFilterType: body.categoryFilterType || undefined,
+            categoryFilters:
+              body.categoryFilterType === null
+                ? { set: [] }
+                : body.categoryFilters
+                  ? {
+                      set: body.categoryFilters.map((id) => ({ id })),
+                    }
+                  : undefined,
           },
         }),
         // delete removed actions

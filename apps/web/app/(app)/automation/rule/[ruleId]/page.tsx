@@ -18,6 +18,7 @@ export default async function RulePage({
     where: { id: params.ruleId, userId: session.user.id },
     include: {
       actions: true,
+      categoryFilters: true,
     },
   });
 
@@ -52,6 +53,7 @@ export default async function RulePage({
           ? { value: action.bccPrompt, ai: true }
           : { value: action.bcc, ai: false },
     })),
+    categoryFilters: rule.categoryFilters.map((category) => category.id),
   };
 
   return (
