@@ -51,7 +51,7 @@ export function CategorizeSendersProgress({
     <ProgressPanel
       totalItems={totalItems}
       remainingItems={totalItems - completedItems}
-      inProgressText={`Categorizing senders... ${completedItems} categorized`}
+      inProgressText="Categorizing senders..."
       completedText={`Categorization complete! ${completedItems} categorized!`}
       itemLabel="senders"
     />
