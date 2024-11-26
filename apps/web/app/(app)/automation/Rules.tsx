@@ -3,7 +3,12 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
-import { MoreHorizontalIcon, PenIcon, PlusIcon } from "lucide-react";
+import {
+  MoreHorizontalIcon,
+  PenIcon,
+  PlusIcon,
+  AlertTriangleIcon,
+} from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -43,6 +48,8 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import { Tooltip } from "@/components/Tooltip";
+import { cn } from "@/utils";
+import { type RiskLevel, getRiskLevel } from "@/utils/risk";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -136,7 +143,12 @@ export function Rules() {
                       <TableCell className="whitespace-pre-wrap">
                         {getInstructions(rule)}
                       </TableCell>
-                      <TableCell>{ruleTypeToString(rule.type)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <SecurityAlert rule={rule} />
+                          {ruleTypeToString(rule.type)}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Actions actions={rule.actions} />
                       </TableCell>
@@ -324,4 +336,29 @@ function NoRules() {
       </CardContent>
     </>
   );
+}
+
+function SecurityAlert({ rule }: { rule: RulesResponse[number] }) {
+  const { level, message } = getRiskLevel(rule);
+
+  if (level === "low") return null;
+
+  return (
+    <Tooltip content={message}>
+      <AlertTriangleIcon className={cn("h-4 w-4", getRiskLevelColor(level))} />
+    </Tooltip>
+  );
+}
+
+function getRiskLevelColor(level: RiskLevel) {
+  switch (level) {
+    case "low":
+      return null;
+    case "medium":
+      return "text-yellow-500";
+    case "high":
+      return "text-orange-500";
+    case "very-high":
+      return "text-red-500";
+  }
 }
