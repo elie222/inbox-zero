@@ -375,8 +375,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           <div className="mt-2">
                             <textarea
                               className="block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                              rows={3}
-                              placeholder="Enter static text or use {{double braces}} for AI-generated parts"
+                              rows={4}
+                              placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
                               value={value || ""}
                               {...register(`actions.${i}.${field.name}.value`)}
                             />
@@ -386,7 +386,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                             <input
                               className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
                               type="text"
-                              placeholder="Enter static text or use {{double braces}} for AI-generated parts"
+                              placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
                               {...register(`actions.${i}.${field.name}.value`)}
                             />
                           </div>
