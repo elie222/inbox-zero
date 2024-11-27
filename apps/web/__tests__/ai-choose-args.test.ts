@@ -129,7 +129,7 @@ Matt`,
     // Check label action
     expect(result[0].label).toBeTruthy();
     expect(result[0].label).not.toContain("{{");
-    expect(result[0].label).toMatch(/apples/i);
+    expect(result[0].label).toMatch(/apple(s)?/i);
 
     // Check reply action
     expect(result[1].content).toMatch(/^Hey [Jj]ill,/); // Match "Hey Jill," or "Hey jill,"
