@@ -393,7 +393,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         )}
 
                         {hasVariables(value || "") && (
-                          <div className="mt-2 rounded-md bg-gray-50 p-2 font-mono text-sm text-gray-900">
+                          <div className="mt-2 whitespace-pre-wrap rounded-md bg-gray-50 p-2 font-mono text-sm text-gray-900">
                             {(value || "")
                               .split(/(\{\{.*?\}\})/g)
                               .map((part, i) =>

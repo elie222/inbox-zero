@@ -44,7 +44,7 @@ export const createRuleSchema = z.object({
     .array(
       z.object({
         type: z.nativeEnum(ActionType).describe("The type of the action"),
-        static: z
+        fields: z
           .object({
             label: z
               .string()
@@ -78,43 +78,8 @@ export const createRuleSchema = z.object({
               .describe("The content of the email"),
           })
           .optional()
-          .describe("The static fields to use for the action"),
-        aiPrompts: z
-          .object({
-            label: z
-              .string()
-              .nullish()
-              .transform((v) => v ?? null)
-              .describe("The prompt to generate the label"),
-            to: z
-              .string()
-              .nullish()
-              .transform((v) => v ?? null)
-              .describe("The prompt to generate the to email address"),
-            cc: z
-              .string()
-              .nullish()
-              .transform((v) => v ?? null)
-              .describe("The prompt to generate the cc email address"),
-            bcc: z
-              .string()
-              .nullish()
-              .transform((v) => v ?? null)
-              .describe("The prompt to generate the bcc email address"),
-            subject: z
-              .string()
-              .nullish()
-              .transform((v) => v ?? null)
-              .describe("The prompt to generate the subject"),
-            content: z
-              .string()
-              .nullish()
-              .transform((v) => v ?? null)
-              .describe("The prompt to generate the content"),
-          })
-          .optional()
           .describe(
-            "If any of the fields are AI generated in real time based on the email being processed, the prompts to generate the fields",
+            "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
           ),
       }),
     )
