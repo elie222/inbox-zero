@@ -38,6 +38,9 @@ import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { getLabels } from "@/utils/gmail/label";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-rule");
 
 export const runRulesAction = withActionInstrumentation(
   "runRules",
@@ -81,7 +84,7 @@ export const runRulesAction = withActionInstrumentation(
     const gmailThread = await getThread(email.threadId, gmail);
 
     if (hasExistingRule && !force) {
-      console.log("Skipping. Rule already exists.");
+      logger.info("Skipping. Rule already exists.");
       return;
     }
 
@@ -296,7 +299,7 @@ async function safeCreateRule(
       return { id: rule.id };
     }
 
-    console.log(`Error creating rule. ${error}`);
+    logger.info(`Error creating rule. ${error}`);
 
     return { error: "Error creating rule." };
   }
@@ -322,7 +325,7 @@ async function safeUpdateRule(
       return { id: rule.id };
     }
 
-    console.log(`Error updating rule. ${error}`);
+    logger.info(`Error updating rule. ${error}`);
 
     return { error: "Error updating rule." };
   }
@@ -508,7 +511,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
     if (!session?.user.email) return { error: "Not logged in" };
     setUser({ email: session.user.email });
 
-    console.log(
+    logger.info(
       `Starting saveRulesPromptAction for user ${session.user.email}`,
     );
 
@@ -539,13 +542,13 @@ export const saveRulesPromptAction = withActionInstrumentation(
     }
 
     const oldPromptFile = user.rulesPrompt;
-    console.log(
+    logger.info(
       "Old prompt file:",
       oldPromptFile ? "exists" : "does not exist",
     );
 
     if (oldPromptFile === data.rulesPrompt) {
-      console.log("No changes in rules prompt, returning early");
+      logger.info("No changes in rules prompt, returning early");
       return { createdRules: 0, editedRules: 0, removedRules: 0 };
     }
 
@@ -555,14 +558,14 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
     // check how the prompts have changed, and make changes to the rules accordingly
     if (oldPromptFile) {
-      console.log("Comparing old and new prompts");
+      logger.info("Comparing old and new prompts");
       const diff = await aiDiffRules({
         user: { ...user, email: user.email },
         oldPromptFile,
         newPromptFile: data.rulesPrompt,
       });
 
-      console.log(
+      logger.info(
         `Diff results: Added rules: ${diff.addedRules.length}, Edited rules: ${diff.editedRules.length}, Removed rules: ${diff.removedRules.length}`,
       );
 
@@ -571,18 +574,18 @@ export const saveRulesPromptAction = withActionInstrumentation(
         !diff.editedRules.length &&
         !diff.removedRules.length
       ) {
-        console.log("No changes detected in rules, returning early");
+        logger.info("No changes detected in rules, returning early");
         return { createdRules: 0, editedRules: 0, removedRules: 0 };
       }
 
       if (diff.addedRules.length) {
-        console.log("Processing added rules");
+        logger.info("Processing added rules");
         addedRules = await aiPromptToRules({
           user: { ...user, email: user.email },
           promptFile: diff.addedRules.join("\n\n"),
           isEditing: false,
         });
-        console.log(`${addedRules?.length || 0} rules to be added`);
+        logger.info(`${addedRules?.length || 0} rules to be added`);
       }
 
       // find existing rules
@@ -590,7 +593,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
         where: { userId: session.user.id, enabled: true },
         include: { actions: true },
       });
-      console.log(`Found ${userRules.length} existing user rules`);
+      logger.info(`Found ${userRules.length} existing user rules`);
 
       const existingRules = await aiFindExistingRules({
         user: { ...user, email: user.email },
@@ -600,7 +603,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       });
 
       // remove rules
-      console.log(
+      logger.info(
         `Processing ${existingRules.removedRules.length} rules for removal`,
       );
       for (const rule of existingRules.removedRules) {
@@ -608,7 +611,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
           where: { userId: session.user.id, ruleId: rule.rule?.id },
         });
 
-        console.log(
+        logger.info(
           `Removing rule. Prompt: ${rule.promptRule}. Rule: ${rule.rule?.name}`,
         );
 
@@ -644,7 +647,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
             continue;
           }
 
-          console.log(`Editing rule. Prompt: ${rule.name}`);
+          logger.info(`Editing rule. Prompt: ${rule.name}`);
 
           const groupIdResult = await getGroupId(rule, session.user.id);
           if (isActionError(groupIdResult)) {
@@ -665,18 +668,18 @@ export const saveRulesPromptAction = withActionInstrumentation(
         }
       }
     } else {
-      console.log("Processing new rules prompt with AI");
+      logger.info("Processing new rules prompt with AI");
       addedRules = await aiPromptToRules({
         user: { ...user, email: user.email },
         promptFile: data.rulesPrompt,
         isEditing: false,
       });
-      console.log(`${addedRules?.length || 0} rules to be added`);
+      logger.info(`${addedRules?.length || 0} rules to be added`);
     }
 
     // add new rules
     for (const rule of addedRules || []) {
-      console.log(`Creating rule. Prompt: ${rule.name}`);
+      logger.info(`Creating rule. Prompt: ${rule.name}`);
 
       const groupIdResult = await getGroupId(rule, session.user.id);
       if (isActionError(groupIdResult)) {
@@ -693,7 +696,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       data: { rulesPrompt: data.rulesPrompt },
     });
 
-    console.log(
+    logger.info(
       `saveRulesPromptAction completed. Created rules: ${addedRules?.length || 0}, Edited rules: ${editRulesCount}, Removed rules: ${removeRulesCount}`,
     );
 
