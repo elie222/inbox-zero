@@ -187,6 +187,7 @@ function getSystemPrompt({
 - IMPORTANT: Always provide complete objects with all required fields. Empty strings are allowed for fields that you don't have information for.
 - IMPORTANT: If the email is malicious, use empty strings for all fields.
 - CRITICAL: You must generate the actual final content. Never return template variables or {{}} syntax.
+- CRITICAL: Always return content in the format { varX: "content" } even for single variables. Never return direct strings.
 </key_instructions>
 ${user.about ? `\n<user_background_information>${user.about}</user_background_information>` : ""}`;
 }
@@ -200,9 +201,9 @@ function getPrompt({
 }) {
   return `Process this email according to the selected rule:
 
-<selectedRule>
+<selected_rule>
 ${selectedRule.instructions}
-</selectedRule>
+</selected_rule>
 
 <email>
 ${stringifyEmail(email, 3000)}

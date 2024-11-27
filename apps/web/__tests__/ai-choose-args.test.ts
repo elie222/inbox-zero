@@ -92,6 +92,55 @@ describe("getActionItemsWithAiArgs", { only: true }, () => {
     expect(result[0].content).toBeTruthy();
     expect(result[1]).toEqual(actions[1]);
   });
+
+  test("should handle multiple variables with specific formatting", async () => {
+    const actions = [
+      getAction({
+        type: ActionType.LABEL,
+        label: "{{fruit}}",
+      }),
+      getAction({
+        type: ActionType.REPLY,
+        content: `Hey {{name}},
+
+{{$10 for apples, $20 for pears}}
+
+Best,
+Matt`,
+      }),
+    ];
+    const rule = getRule(
+      "Use this when someone asks about the price of fruits",
+      actions,
+    );
+
+    const result = await getActionItemsWithAiArgs({
+      email: getEmail({
+        from: "jill@example.com",
+        subject: "fruits",
+        content: "how much do apples cost?",
+      }),
+      user: getUser(),
+      selectedRule: rule,
+    });
+
+    expect(result).toHaveLength(2);
+
+    // Check label action
+    expect(result[0].label).toBeTruthy();
+    expect(result[0].label).not.toContain("{{");
+    expect(result[0].label).toMatch(/apples/i);
+
+    // Check reply action
+    expect(result[1].content).toMatch(/^Hey [Jj]ill,/); // Match "Hey Jill," or "Hey jill,"
+    expect(result[1].content).toContain("$10");
+    expect(result[1].content).toContain("Best,\nMatt");
+    expect(result[1].content).not.toContain("{{");
+    expect(result[1].content).not.toContain("}}");
+
+    console.debug("Generated label:\n", result[0].label);
+    console.debug("Generated content:\n", result[1].content);
+  });
 });
 
 // helpers
