@@ -11,19 +11,45 @@ import { type RuleWithActions, isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import { InvalidToolArgumentsError } from "ai";
 
+/**
+ * AI Argument Generator for Email Actions
+ *
+ * This module handles the second stage of the AI email processing pipeline:
+ * generating specific arguments for a selected rule's actions.
+ *
+ * Process:
+ * 1. Receives a selected rule and email context
+ * 2. Analyzes action fields (label, subject, content, to, cc, bcc)
+ * 3. Extracts variables from template strings using {{handlebars}} syntax
+ * 4. Generates Zod schemas for validation
+ * 5. Uses AI function calling to fill in variables
+ * 6. Returns completed templates with filled variables
+ *
+ * Example:
+ * Template: "Dear {{name}}, \n{{draft response to investment inquiry}}"
+ * Variables are numbered (var1, var2) and passed to AI with full context
+ *
+ * The AI generates content for each variable while preserving static template parts
+ * and returns a fully formed response ready for email sending.
+ *
+ * Note: This is specifically for argument generation AFTER rule selection,
+ * not for choosing which rule to apply.
+ */
+
 const logger = createScopedLogger("AI Choose Args");
 
-export type ActionRequiringAi = {
-  actionId: string;
-  type: string;
-  zodParameters: z.ZodObject<Record<string, z.ZodString>>;
+type ActionRequiringAi = ReturnType<
+  typeof extractActionsNeedingAiGeneration
+>[number];
+
+type ActionArgResponse = {
+  [key: `${string}-${string}`]: {
+    [field: string]: {
+      [key: `var${number}`]: string;
+    };
+  };
 };
 
-export type ActionWithAiArgs = ActionRequiringAi & {
-  args: Record<string, string>;
-};
-
-// Returns the action items with the ai-generated args where needed
 export async function getActionItemsWithAiArgs({
   email,
   user,
@@ -32,98 +58,82 @@ export async function getActionItemsWithAiArgs({
   email: EmailForLLM;
   user: Pick<User, "email" | "about"> & UserAIFields;
   selectedRule: RuleWithActions;
-}): Promise<ActionItem[]> {
-  // Get the actions that require ai-generated args
-  const actionsRequiringAi = getActionsWithZodParameters(selectedRule.actions);
+}): Promise<Action[]> {
+  const parameters = extractActionsNeedingAiGeneration(selectedRule.actions);
 
-  // Get the ai-generated args
-  let aiGeneratedActionItems: ActionWithAiArgs[] | undefined;
-  if (actionsRequiringAi.length) {
-    aiGeneratedActionItems = await getArgsAiResponse({
-      email,
-      user,
-      selectedRule,
-      actionsRequiringAi,
-    });
-  }
+  if (parameters.length === 0) return selectedRule.actions;
 
-  // Combine static args with ai-generated args
-  const results = selectedRule.actions.map((action) => {
-    const aiGeneratedActionItem = aiGeneratedActionItems?.find(
-      (item) => item.actionId === action.id,
-    );
-    return {
-      ...action,
-      ...aiGeneratedActionItem?.args,
-    };
+  const result = await getArgsAiResponse({
+    email,
+    user,
+    selectedRule,
+    parameters,
   });
 
-  logger.trace(
-    `getActionItemsWithAiArgs. Results: ${JSON.stringify(results, null, 2)}`,
-  );
+  // Combine the result with the original action items
+  const combinedActions = selectedRule.actions.map((action) => {
+    const aiAction = result?.[`${action.type}-${action.id}`];
+    if (!aiAction) return action;
 
-  return results;
+    const updatedAction = { ...action };
+
+    // Merge variables for each field that has AI-generated content
+    for (const [field, vars] of Object.entries(aiAction)) {
+      // Only process fields that we know can contain template strings
+      if (
+        field === "label" ||
+        field === "subject" ||
+        field === "content" ||
+        field === "to" ||
+        field === "cc" ||
+        field === "bcc"
+      ) {
+        const originalValue = action[field];
+        if (typeof originalValue === "string") {
+          (updatedAction[field] as string) = mergeTemplateWithVars(
+            originalValue,
+            vars as Record<`var${number}`, string>,
+          );
+        }
+      }
+    }
+
+    return updatedAction;
+  });
+
+  return combinedActions;
 }
 
 async function getArgsAiResponse({
   email,
   user,
   selectedRule,
-  actionsRequiringAi,
+  parameters,
 }: {
   email: EmailForLLM;
   user: Pick<User, "email" | "about"> & UserAIFields;
   selectedRule: RuleWithActions;
-  actionsRequiringAi: ActionRequiringAi[];
-}): Promise<ActionWithAiArgs[] | undefined> {
+  parameters: ActionRequiringAi[];
+}): Promise<ActionArgResponse | undefined> {
   logger.info(
     `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
   );
 
-  if (!actionsRequiringAi.length) {
+  // If no parameters, skip
+  if (parameters.length === 0) {
     logger.info(
       `Skipping. No parameters for rule ${selectedRule.name} (${selectedRule.id})`,
     );
     return;
   }
 
-  const system = `You are an AI assistant that helps people manage their emails.
-Never put placeholders in your email responses.
-Do not mention you are an AI assistant when responding to people.
-${
-  user.about
-    ? `\nSome additional information the user has provided about themselves:\n\n${user.about}`
-    : ""
-}
-
-IMPORTANT: When responding, always provide a complete object with all required fields.
-`;
-
-  const prompt = `An email was received for processing and the following rule was selected to process it. Handle the email.
-
-<selectedRule>
-${selectedRule.instructions}
-</selectedRule>
-
-<email>
-${stringifyEmail(email, 3000)}
-</email>
-`;
-
-  const parameters = getToolParametersForRule(actionsRequiringAi);
-  const zodParameters = z.object(
-    Object.fromEntries(
-      Object.entries(parameters).map(([key, { zodParameters }]) => [
-        key,
-        zodParameters,
-      ]),
-    ),
-  );
+  const system = getSystemPrompt({ user });
+  const prompt = getPrompt({ email, selectedRule });
 
   logger.info("Calling chat completion tools");
   logger.trace(`System: ${system}`);
   logger.trace(`Prompt: ${prompt}`);
-  // logger.trace("Zod parameters:", zodToJsonSchema(zodParameters));
+  // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
   const aiResponse = await withRetry(
     () =>
@@ -133,9 +143,15 @@ ${stringifyEmail(email, 3000)}
         system,
         tools: {
           apply_rule: {
-            description:
-              "Apply the rule with the given arguments. Each field must be provided as an object with the required properties.",
-            parameters: zodParameters,
+            description: "Apply the rule with the given arguments.",
+            parameters: z.object(
+              Object.fromEntries(
+                parameters.map((p) => [
+                  `${p.type}-${p.actionId}`,
+                  p.parameters,
+                ]),
+              ),
+            ),
           },
         },
         label: "Args for rule",
@@ -156,95 +172,237 @@ ${stringifyEmail(email, 3000)}
 
   logger.trace(`Tool call args: ${JSON.stringify(toolCallArgs, null, 2)}`);
 
-  const results = actionsRequiringAi.map((actionRequiringAi) => {
-    const actionParameter = Object.entries(parameters).find(
-      ([_, v]) => v.actionId === actionRequiringAi.actionId,
-    );
-
-    if (!actionParameter) return { ...actionRequiringAi, args: {} };
-
-    const [key] = actionParameter; // e.g. key = "draft_email"
-    const args: Record<string, string> = toolCallArgs[key]; // e.g. { label: "Draft", subject: "X", content: "Y" }
-
-    return { ...actionRequiringAi, args };
-  });
-
-  // const resultsForLogging = results.map(({ zodParameters, ...rest }) => rest);
-  // logger.trace(`Results: ${JSON.stringify(resultsForLogging, null, 2)}`);
-
-  return results;
+  return toolCallArgs;
 }
 
-// Returns parameters for a zod.object for the rule that must be AI generated
-function getToolParametersForRule(actionsRequiringAi: ActionRequiringAi[]) {
-  // handle duplicate keys. e.g. "draft_email" and "draft_email" becomes: "draft_email" and "draft_email_2"
-  // this is quite an edge case but need to handle regardless for when it happens
-  const typeCount: Record<string, number> = {};
-  const parameters: Record<
-    string,
-    {
-      actionId: string;
-      zodParameters: z.ZodObject<Record<string, z.ZodString>>;
-    }
-  > = {};
-
-  for (const action of actionsRequiringAi) {
-    // count how many times we have already had this type
-    typeCount[action.type] = (typeCount[action.type] || 0) + 1;
-    const key =
-      typeCount[action.type] === 1
-        ? action.type
-        : `${action.type}_${typeCount[action.type]}`;
-    parameters[key] = {
-      actionId: action.actionId,
-      zodParameters: action.zodParameters,
-    };
-  }
-
-  return parameters;
+function getSystemPrompt({
+  user,
+}: {
+  user: Pick<User, "email" | "about"> & UserAIFields;
+}) {
+  return `You are an AI assistant that helps people manage their emails.
+Never put placeholders in your email responses.
+Do not mention you are an AI assistant when responding to people.
+${
+  user.about
+    ? `\nSome additional information the user has provided about themselves:\n\n${user.about}`
+    : ""
 }
 
-// Returns the actions with the args that require ai-generation
-function getActionsWithZodParameters(actions: Action[]) {
+IMPORTANT: When responding, always provide a complete object with all required fields.`;
+}
+
+function getPrompt({
+  email,
+  selectedRule,
+}: {
+  email: EmailForLLM;
+  selectedRule: RuleWithActions;
+}) {
+  return `Process this email according to the selected rule:
+
+<selectedRule>
+${selectedRule.instructions}
+</selectedRule>
+
+<email>
+${stringifyEmail(email, 3000)}
+</email>`;
+}
+
+/**
+ * Extracts actions that require AI-generated arguments
+ *
+ * Example usage:
+ * const actions = [
+ *   {
+ *     id: "1",
+ *     type: "draft_email",
+ *     label: "{{write label}}",
+ *     content: "Dear {{write greeting}},\n\n{{draft response}}\n\nBest"
+ *   },
+ *   {
+ *     id: "2",
+ *     type: "archive",
+ *     label: "Archive"
+ *   }
+ * ]
+ *
+ * Returns:
+ * [
+ *   {
+ *     actionId: "1",
+ *     type: "draft_email",
+ *     parameters: z.object({
+ *       label: z.object({ var1: z.string() })
+ *         .describe("Generate this template: {{var1: write label}}"),
+ *       content: z.object({ var1: z.string(), var2: z.string() })
+ *         .describe("Generate this template: Dear {{var1: write greeting}},\n\n{{var2: draft response}}\n\nBest")
+ *     })
+ *   }
+ * ]
+ *
+ * Note: Only returns actions that have fields containing {{template variables}}
+ */
+function extractActionsNeedingAiGeneration(actions: Action[]) {
   return actions
     .map((action) => {
       const fields = getParameterFieldsForAction(action);
 
-      if (!Object.keys(fields).length) return;
-
-      const zodParameters = z.object(fields);
+      // Skip if no AI-generated fields are needed
+      if (Object.keys(fields).length === 0) return;
 
       return {
         actionId: action.id,
         type: action.type,
-        zodParameters,
+        parameters: z.object(fields),
       };
     })
     .filter(isDefined);
 }
 
-function getParameterFieldsForAction({
-  labelPrompt,
-  subjectPrompt,
-  contentPrompt,
-  toPrompt,
-  ccPrompt,
-  bccPrompt,
-}: Action) {
-  const fields: Record<string, z.ZodString> = {};
+/**
+ * Extracts fields from an action that need AI-generated content
+ *
+ * Example usage:
+ * const action = {
+ *   label: "{{write label}}",
+ *   subject: "Re: {{write subject}}",
+ *   content: "Dear {{write greeting}},\n\n{{draft response}}\n\nBest",
+ *   to: "{{recipient}}",
+ *   cc: "john@example.com",
+ *   bcc: null
+ * }
+ * const fields = getParameterFieldsForAction(action)
+ *
+ * Returns:
+ * {
+ *   label: z.object({ var1: z.string() })
+ *     .describe("Generate this template: {{var1: write label}}"),
+ *   subject: z.object({ var1: z.string() })
+ *     .describe("Generate this template: Re: {{var1: write subject}}"),
+ *   content: z
+ *     .object({
+ *       var1: z.string(),
+ *       var2: z.string(),
+ *     })
+ *     .describe(
+ *       "Generate this template: Dear {{var1: write greeting}},\n\n{{var2: draft response}}\n\nBest\nMake sure to maintain the exact formatting.",
+ *     ),
+ *   to: z.object({ var1: z.string() }).describe("Generate this template: {{var1: recipient}}"),
+ * }
+ *
+ * Note: Only processes string fields that contain {{template variables}}
+ */
+export function getParameterFieldsForAction(
+  action: Pick<Action, "label" | "subject" | "content" | "to" | "cc" | "bcc">,
+) {
+  const fields: Record<string, z.ZodObject<Record<string, z.ZodString>>> = {};
+  const fieldNames = [
+    "label",
+    "subject",
+    "content",
+    "to",
+    "cc",
+    "bcc",
+  ] as const;
 
-  if (typeof labelPrompt === "string")
-    fields.label = z.string().describe(labelPrompt || "The email label");
-  if (typeof subjectPrompt === "string")
-    fields.subject = z.string().describe(subjectPrompt || "The email subject");
-  if (typeof contentPrompt === "string")
-    fields.content = z.string().describe(contentPrompt || "The email content");
-  if (typeof toPrompt === "string")
-    fields.to = z.string().describe(toPrompt || "The email recipient(s)");
-  if (typeof ccPrompt === "string")
-    fields.cc = z.string().describe(ccPrompt || "The cc recipient(s)");
-  if (typeof bccPrompt === "string")
-    fields.bcc = z.string().describe(bccPrompt || "The bcc recipient(s)");
+  for (const field of fieldNames) {
+    const value = action[field];
+    if (typeof value === "string") {
+      const { aiPrompts } = parseTemplate(value);
+      if (aiPrompts.length > 0) {
+        const schemaFields: Record<string, z.ZodString> = {};
+        aiPrompts.forEach((prompt, index) => {
+          schemaFields[`var${index + 1}`] = z.string();
+        });
+
+        // Transform original template to use var1, var2, etc
+        let template = value;
+        aiPrompts.forEach((prompt, index) => {
+          template = template.replace(
+            `{{${prompt}}}`,
+            `{{var${index + 1}: ${prompt}}}`,
+          );
+        });
+
+        const description = `Generate this template: ${template}${
+          field === "content"
+            ? "\nMake sure to maintain the exact formatting."
+            : ""
+        }`;
+
+        fields[field] = z.object(schemaFields).describe(description);
+      }
+    }
+  }
 
   return fields;
+}
+
+/**
+ * Extracts AI prompts and static text from a template string
+ *
+ * Example usage:
+ * const template = "Hello {{write greeting}},\n\n{{draft response}}\n\nBest"
+ * const result = parseTemplate(template)
+ *
+ * Returns:
+ * {
+ *   aiPrompts: ["write greeting", "draft response"],
+ *   fixedParts: ["Hello ", ",\n\n", "\n\nBest"]
+ * }
+ *
+ * This allows us to:
+ * 1. Extract AI prompts for generation
+ * 2. Preserve static parts of the template
+ * 3. Reconstruct the full text by combining AI responses with fixed parts
+ */
+export function parseTemplate(template: string): {
+  aiPrompts: string[];
+  fixedParts: string[];
+} {
+  const regex = /\{\{(.*?)\}\}/g;
+  const aiPrompts: string[] = [];
+  const fixedParts: string[] = [];
+  let lastIndex = 0;
+
+  let match = regex.exec(template);
+  while (match !== null) {
+    fixedParts.push(template.slice(lastIndex, match.index));
+    aiPrompts.push(match[1].trim());
+    lastIndex = match.index + match[0].length;
+    match = regex.exec(template);
+  }
+  fixedParts.push(template.slice(lastIndex));
+
+  return { aiPrompts, fixedParts };
+}
+
+/**
+ * Merges AI-generated variables back into a template string
+ *
+ * Example usage:
+ * const template = "Price: {{price}}, Message: {{message}}"
+ * const vars = { var1: "$1.99", var2: "Hello!" }
+ * const result = mergeTemplateWithVars(template, vars)
+ * // Returns: "Price: $1.99, Message: Hello!"
+ */
+export function mergeTemplateWithVars(
+  template: string,
+  vars: Record<`var${number}`, string>,
+): string {
+  const { aiPrompts, fixedParts } = parseTemplate(template);
+
+  let result = fixedParts[0];
+  for (let i = 0; i < aiPrompts.length; i++) {
+    const varKey = `var${i + 1}` as const;
+    const varValue = vars[varKey];
+    if (!varValue) {
+      throw new Error(`Missing variable ${varKey} for template`);
+    }
+    result += varValue + fixedParts[i + 1];
+  }
+
+  return result;
 }

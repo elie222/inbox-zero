@@ -62,14 +62,14 @@ test("Should generate action arguments", async () => {
       ruleId: "ruleId",
       label: null,
       subject: null,
-      content: null,
+      content: "{{Write a joke}}",
       to: null,
       cc: null,
       bcc: null,
 
       labelPrompt: null,
       subjectPrompt: null,
-      contentPrompt: "Write a joke",
+      contentPrompt: null,
       toPrompt: null,
       ccPrompt: null,
       bccPrompt: null,
@@ -96,6 +96,17 @@ test("Should generate action arguments", async () => {
         subject: null,
         to: null,
         type: "REPLY",
+
+        labelPrompt: null,
+        subjectPrompt: null,
+        contentPrompt: null,
+        toPrompt: null,
+        ccPrompt: null,
+        bccPrompt: null,
+        createdAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+        id: "id",
+        ruleId: "ruleId",
       },
     ],
   });
@@ -120,6 +131,7 @@ function getRule(instructions: string, actions: Action[] = []) {
     to: null,
     type: RuleType.AI,
     enabled: true,
+    categoryFilterType: null,
   };
 }
 
@@ -137,8 +149,8 @@ function getEmail({
 
 function getUser() {
   return {
-    aiModel: "gpt-4o-mini",
-    aiProvider: "openai",
+    aiModel: null,
+    aiProvider: null,
     email: "user@test.com",
     aiApiKey: null,
     about: null,
