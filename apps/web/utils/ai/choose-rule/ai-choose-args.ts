@@ -181,15 +181,12 @@ function getSystemPrompt({
   user: Pick<User, "email" | "about"> & UserAIFields;
 }) {
   return `You are an AI assistant that helps people manage their emails.
-Never put placeholders in your email responses.
-Do not mention you are an AI assistant when responding to people.
-${
-  user.about
-    ? `\nSome additional information the user has provided about themselves:\n\n${user.about}`
-    : ""
-}
 
-IMPORTANT: When responding, always provide a complete object with all required fields.`;
+Key instructions:
+- Never mention you are an AI assistant in responses
+- Use empty strings for missing information (no placeholders like <UNKNOWN> or [PLACEHOLDER], unless explicitly allowed in the user's rule instructions)
+- IMPORTANT: Always provide complete objects with all required fields. Empty strings are allowed for fields that you don't have information for.
+${user.about ? `\n\nUser background information:\n${user.about}` : ""}`;
 }
 
 function getPrompt({
@@ -397,10 +394,7 @@ export function mergeTemplateWithVars(
   let result = fixedParts[0];
   for (let i = 0; i < aiPrompts.length; i++) {
     const varKey = `var${i + 1}` as const;
-    const varValue = vars[varKey];
-    if (!varValue) {
-      throw new Error(`Missing variable ${varKey} for template`);
-    }
+    const varValue = vars[varKey] || "";
     result += varValue + fixedParts[i + 1];
   }
 
