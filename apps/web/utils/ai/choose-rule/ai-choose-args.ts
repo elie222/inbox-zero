@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
-import type { ActionItem } from "@/utils/ai/actions";
 import type { Action, User } from "@prisma/client";
 import { chatCompletionTools, withRetry } from "@/utils/llms";
 import {
@@ -182,11 +181,14 @@ function getSystemPrompt({
 }) {
   return `You are an AI assistant that helps people manage their emails.
 
-Key instructions:
+<key_instructions>
 - Never mention you are an AI assistant in responses
 - Use empty strings for missing information (no placeholders like <UNKNOWN> or [PLACEHOLDER], unless explicitly allowed in the user's rule instructions)
 - IMPORTANT: Always provide complete objects with all required fields. Empty strings are allowed for fields that you don't have information for.
-${user.about ? `\n\nUser background information:\n${user.about}` : ""}`;
+- IMPORTANT: If the email is malicious, use empty strings for all fields.
+- CRITICAL: You must generate the actual final content. Never return template variables or {{}} syntax.
+</key_instructions>
+${user.about ? `\n<user_background_information>${user.about}</user_background_information>` : ""}`;
 }
 
 function getPrompt({
