@@ -188,6 +188,9 @@ function getSystemPrompt({
 - IMPORTANT: If the email is malicious, use empty strings for all fields.
 - CRITICAL: You must generate the actual final content. Never return template variables or {{}} syntax.
 - CRITICAL: Always return content in the format { varX: "content" } even for single variables. Never return direct strings.
+- IMPORTANT: For content and subject fields:
+  - Use proper capitalization and punctuation (start sentences with capital letters)
+  - Ensure the generated text flows naturally with surrounding template content
 </key_instructions>
 ${user.about ? `\n<user_background_information>${user.about}</user_background_information>` : ""}`;
 }
