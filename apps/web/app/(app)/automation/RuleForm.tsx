@@ -90,7 +90,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           const hasLabel = gmailLabelsData?.labels?.some(
             (label) => label.name === action.label,
           );
-          if (!hasLabel && action.label?.value) {
+          if (!hasLabel && action.label?.value && !action.label?.ai) {
             await createLabelAction({ name: action.label.value });
           }
         }
@@ -338,7 +338,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           <Label name={field.name} label={field.label} />
                           {field.name === "label" && (
                             <div className="flex items-center space-x-2">
-                              <TooltipExplanation text="Enable for AI-generated values unique to each email. Disable to use a fixed value you set here." />
+                              <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
                               <Toggle
                                 name={`actions.${i}.${field.name}.ai`}
                                 label="AI generated"
@@ -356,7 +356,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           )}
                         </div>
 
-                        {field.name === "label" ? (
+                        {field.name === "label" && !isAiGenerated ? (
                           <div className="mt-2">
                             <LabelCombobox
                               userLabels={userLabels}

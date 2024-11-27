@@ -41,24 +41,12 @@ export const createRuleAction = withActionInstrumentation(
                     ({ type, label, subject, content, to, cc, bcc }) => {
                       return {
                         type,
-                        ...(label?.ai
-                          ? { label: null, labelPrompt: label?.value }
-                          : { label: label?.value, labelPrompt: null }),
-                        ...(subject?.ai
-                          ? { subject: null, subjectPrompt: subject?.value }
-                          : { subject: subject?.value, subjectPrompt: null }),
-                        ...(content?.ai
-                          ? { content: null, contentPrompt: content?.value }
-                          : { content: content?.value, contentPrompt: null }),
-                        ...(to?.ai
-                          ? { to: null, toPrompt: to?.value }
-                          : { to: to?.value, toPrompt: null }),
-                        ...(cc?.ai
-                          ? { cc: null, ccPrompt: cc?.value }
-                          : { cc: cc?.value, ccPrompt: null }),
-                        ...(bcc?.ai
-                          ? { bcc: null, bccPrompt: bcc?.value }
-                          : { bcc: bcc?.value, bccPrompt: null }),
+                        label: label?.value,
+                        subject: subject?.value,
+                        content: content?.value,
+                        to: to?.value,
+                        cc: cc?.value,
+                        bcc: bcc?.value,
                       };
                     },
                   ),
@@ -161,24 +149,12 @@ export const updateRuleAction = withActionInstrumentation(
             where: { id: a.id },
             data: {
               type: a.type,
-              ...(a.label?.ai
-                ? { label: null, labelPrompt: a.label?.value }
-                : { label: a.label?.value, labelPrompt: null }),
-              ...(a.subject?.ai
-                ? { subject: null, subjectPrompt: a.subject?.value }
-                : { subject: a.subject?.value, subjectPrompt: null }),
-              ...(a.content?.ai
-                ? { content: null, contentPrompt: a.content?.value }
-                : { content: a.content?.value, contentPrompt: null }),
-              ...(a.to?.ai
-                ? { to: null, toPrompt: a.to?.value }
-                : { to: a.to?.value, toPrompt: null }),
-              ...(a.cc?.ai
-                ? { cc: null, ccPrompt: a.cc?.value }
-                : { cc: a.cc?.value, ccPrompt: null }),
-              ...(a.bcc?.ai
-                ? { bcc: null, bccPrompt: a.bcc?.value }
-                : { bcc: a.bcc?.value, bccPrompt: null }),
+              label: a.label?.value,
+              subject: a.subject?.value,
+              content: a.content?.value,
+              to: a.to?.value,
+              cc: a.cc?.value,
+              bcc: a.bcc?.value,
             },
           });
         }),
@@ -189,24 +165,12 @@ export const updateRuleAction = withActionInstrumentation(
                 data: actionsToCreate.map((a) => ({
                   ruleId: body.id,
                   type: a.type,
-                  ...(a.label?.ai
-                    ? { label: null, labelPrompt: a.label?.value }
-                    : { label: a.label?.value, labelPrompt: null }),
-                  ...(a.subject?.ai
-                    ? { subject: null, subjectPrompt: a.subject?.value }
-                    : { subject: a.subject?.value, subjectPrompt: null }),
-                  ...(a.content?.ai
-                    ? { content: null, contentPrompt: a.content?.value }
-                    : { content: a.content?.value, contentPrompt: null }),
-                  ...(a.to?.ai
-                    ? { to: null, toPrompt: a.to?.value }
-                    : { to: a.to?.value, toPrompt: null }),
-                  ...(a.cc?.ai
-                    ? { cc: null, ccPrompt: a.cc?.value }
-                    : { cc: a.cc?.value, ccPrompt: null }),
-                  ...(a.bcc?.ai
-                    ? { bcc: null, bccPrompt: a.bcc?.value }
-                    : { bcc: a.bcc?.value, bccPrompt: null }),
+                  label: a.label?.value,
+                  subject: a.subject?.value,
+                  content: a.content?.value,
+                  to: a.to?.value,
+                  cc: a.cc?.value,
+                  bcc: a.bcc?.value,
                 })),
               }),
             ]

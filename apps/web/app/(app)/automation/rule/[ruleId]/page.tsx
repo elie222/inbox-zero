@@ -28,30 +28,15 @@ export default async function RulePage({
     ...rule,
     actions: rule.actions.map((action) => ({
       ...action,
-      label:
-        typeof action.labelPrompt === "string"
-          ? { value: action.labelPrompt, ai: true }
-          : { value: action.label, ai: false },
-      subject:
-        typeof action.subjectPrompt === "string"
-          ? { value: action.subjectPrompt, ai: true }
-          : { value: action.subject, ai: false },
-      content:
-        typeof action.contentPrompt === "string"
-          ? { value: action.contentPrompt, ai: true }
-          : { value: action.content, ai: false },
-      to:
-        typeof action.toPrompt === "string"
-          ? { value: action.toPrompt, ai: true }
-          : { value: action.to, ai: false },
-      cc:
-        typeof action.ccPrompt === "string"
-          ? { value: action.ccPrompt, ai: true }
-          : { value: action.cc, ai: false },
-      bcc:
-        typeof action.bccPrompt === "string"
-          ? { value: action.bccPrompt, ai: true }
-          : { value: action.bcc, ai: false },
+      label: {
+        value: action.label,
+        ai: /\{\{.*?\}\}/g.test(action.label || ""),
+      },
+      subject: { value: action.subject },
+      content: { value: action.content },
+      to: { value: action.to },
+      cc: { value: action.cc },
+      bcc: { value: action.bcc },
     })),
     categoryFilters: rule.categoryFilters.map((category) => category.id),
   };
