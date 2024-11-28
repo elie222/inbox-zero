@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { TopSection } from "@/components/TopSection";
+import { hasVariables } from "@/utils/template";
 
 export default async function RulePage({
   params,
@@ -30,7 +31,7 @@ export default async function RulePage({
       ...action,
       label: {
         value: action.label,
-        ai: /\{\{.*?\}\}/g.test(action.label || ""),
+        ai: hasVariables(action.label || ""),
       },
       subject: { value: action.subject },
       content: { value: action.content },

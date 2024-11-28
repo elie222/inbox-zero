@@ -54,6 +54,7 @@ import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { useSmartCategoriesEnabled } from "@/hooks/useFeatureFlags";
+import { hasVariables } from "@/utils/template";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -300,8 +301,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
-          const hasVariables = (text: string) => /\{\{.*?\}\}/g.test(text);
-
           return (
             <Card key={i}>
               <div className="grid grid-cols-4 gap-4">
