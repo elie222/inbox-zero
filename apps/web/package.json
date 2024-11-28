@@ -12,9 +12,10 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^0.0.34",
-    "@ai-sdk/anthropic": "^0.0.53",
-    "@ai-sdk/openai": "^0.0.71",
+    "@ai-sdk/amazon-bedrock": "^0.0.30",
+    "@ai-sdk/anthropic": "^0.0.51",
+    "@ai-sdk/groq": "^0.0.3",
+    "@ai-sdk/openai": "^0.0.68",
     "@asteasolutions/zod-to-openapi": "^7.2.0",
     "@auth/core": "^0.37.2",
     "@auth/prisma-adapter": "^2.7.2",

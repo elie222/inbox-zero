@@ -9,6 +9,7 @@ import {
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGroq } from "@ai-sdk/groq";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -64,6 +65,18 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
           },
         },
       })(model),
+    };
+  }
+
+  if (provider === Provider.GROQ) {
+    if (!aiApiKey && !env.GROQ_API_KEY) {
+      throw new Error("GROQ API key is not set");
+    }
+    const model = aiModel || Model.LLAMA_3_70B_GROQ;
+    return {
+      provider: Provider.GROQ,
+      model,
+      llmModel: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(model),
     };
   }
 
