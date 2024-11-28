@@ -31,7 +31,7 @@ export default async function RulePage({
       ...action,
       label: {
         value: action.label,
-        ai: hasVariables(action.label || ""),
+        ai: hasVariables(action.label),
       },
       subject: { value: action.subject },
       content: { value: action.content },
