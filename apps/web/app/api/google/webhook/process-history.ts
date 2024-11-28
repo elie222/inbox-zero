@@ -206,7 +206,9 @@ export async function processHistoryForUser(
     captureException(error, { extra: { decodedData } }, email);
     logger.error(
       "Error processing webhook",
-      (error as any)?.message,
+      error instanceof Error
+        ? { message: error.message, stack: error.stack, name: error.name }
+        : String(error),
       decodedData,
     );
     return NextResponse.json({ error: true });

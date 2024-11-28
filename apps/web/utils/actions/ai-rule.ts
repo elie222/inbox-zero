@@ -299,7 +299,12 @@ async function safeCreateRule(
       return { id: rule.id };
     }
 
-    logger.info(`Error creating rule. ${error}`);
+    logger.info("Error creating rule", {
+      error:
+        error instanceof Error
+          ? { message: error.message, stack: error.stack, name: error.name }
+          : error,
+    });
 
     return { error: "Error creating rule." };
   }
@@ -325,7 +330,12 @@ async function safeUpdateRule(
       return { id: rule.id };
     }
 
-    logger.info(`Error updating rule. ${error}`);
+    logger.info("Error updating rule", {
+      error:
+        error instanceof Error
+          ? { message: error.message, stack: error.stack, name: error.name }
+          : error,
+    });
 
     return { error: "Error updating rule." };
   }
