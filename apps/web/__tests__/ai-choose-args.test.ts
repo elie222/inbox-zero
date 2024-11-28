@@ -4,7 +4,7 @@ import { type Action, ActionType, RuleType } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
 
-describe("getActionItemsWithAiArgs", { only: true }, () => {
+describe("getActionItemsWithAiArgs", () => {
   test("should return actions unchanged when no AI args needed", async () => {
     const actions = [getAction({})];
     const rule = getRule("Test rule", actions);
