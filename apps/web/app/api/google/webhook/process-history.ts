@@ -204,7 +204,13 @@ export async function processHistoryForUser(
     return NextResponse.json({ ok: true });
   } catch (error) {
     captureException(error, { extra: { decodedData } }, email);
-    logger.error("Error processing webhook", error, decodedData);
+    logger.error(
+      "Error processing webhook",
+      error instanceof Error
+        ? { message: error.message, stack: error.stack, name: error.name }
+        : String(error),
+      decodedData,
+    );
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
     // return NextResponse.error();

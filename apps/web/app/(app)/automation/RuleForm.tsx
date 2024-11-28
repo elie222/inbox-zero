@@ -54,6 +54,7 @@ import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { useSmartCategoriesEnabled } from "@/hooks/useFeatureFlags";
+import { hasVariables } from "@/utils/template";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -90,7 +91,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           const hasLabel = gmailLabelsData?.labels?.some(
             (label) => label.name === action.label,
           );
-          if (!hasLabel && action.label?.value) {
+          if (!hasLabel && action.label?.value && !action.label?.ai) {
             await createLabelAction({ name: action.label.value });
           }
         }
@@ -328,29 +329,33 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   {actionInputs[action.type].fields.map((field) => {
                     const isAiGenerated = action[field.name]?.ai;
 
+                    const value = watch(`actions.${i}.${field.name}.value`);
+
                     return (
                       <div key={field.label}>
                         <div className="flex items-center justify-between">
                           <Label name={field.name} label={field.label} />
-                          <div className="flex items-center space-x-2">
-                            <TooltipExplanation text="Enable for AI-generated values unique to each email. Disable to use a fixed value you set here." />
-                            <Toggle
-                              name={`actions.${i}.${field.name}.ai`}
-                              label="AI generated"
-                              enabled={isAiGenerated || false}
-                              onChange={(enabled) => {
-                                setValue(
-                                  `actions.${i}.${field.name}`,
-                                  enabled
-                                    ? { value: "", ai: true }
-                                    : { value: "", ai: false },
-                                );
-                              }}
-                            />
-                          </div>
+                          {field.name === "label" && (
+                            <div className="flex items-center space-x-2">
+                              <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
+                              <Toggle
+                                name={`actions.${i}.${field.name}.ai`}
+                                label="AI generated"
+                                enabled={isAiGenerated || false}
+                                onChange={(enabled) => {
+                                  setValue(
+                                    `actions.${i}.${field.name}`,
+                                    enabled
+                                      ? { value: "", ai: true }
+                                      : { value: "", ai: false },
+                                  );
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
 
-                        {field.name === "label" ? (
+                        {field.name === "label" && !isAiGenerated ? (
                           <div className="mt-2">
                             <LabelCombobox
                               userLabels={userLabels}
@@ -366,23 +371,44 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                             />
                           </div>
                         ) : field.textArea ? (
-                          <textarea
-                            className="mt-2 block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                            rows={3}
-                            placeholder={
-                              isAiGenerated ? "AI prompt (optional)" : ""
-                            }
-                            {...register(`actions.${i}.${field.name}.value`)}
-                          />
+                          <div className="mt-2">
+                            <textarea
+                              className="block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              rows={4}
+                              placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+                              value={value || ""}
+                              {...register(`actions.${i}.${field.name}.value`)}
+                            />
+                          </div>
                         ) : (
-                          <input
-                            className="mt-2 block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                            type="text"
-                            placeholder={
-                              isAiGenerated ? "AI prompt (optional)" : ""
-                            }
-                            {...register(`actions.${i}.${field.name}.value`)}
-                          />
+                          <div className="mt-2">
+                            <input
+                              className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              type="text"
+                              placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+                              {...register(`actions.${i}.${field.name}.value`)}
+                            />
+                          </div>
+                        )}
+
+                        {hasVariables(value) && (
+                          <div className="mt-2 whitespace-pre-wrap rounded-md bg-gray-50 p-2 font-mono text-sm text-gray-900">
+                            {(value || "")
+                              .split(/(\{\{.*?\}\})/g)
+                              .map((part, i) =>
+                                part.startsWith("{{") ? (
+                                  <span
+                                    key={i}
+                                    className="rounded bg-blue-100 px-1 text-blue-500"
+                                  >
+                                    <sub className="font-sans">AI</sub>
+                                    {part}
+                                  </span>
+                                ) : (
+                                  <span key={i}>{part}</span>
+                                ),
+                              )}
+                          </div>
                         )}
 
                         {errors.actions?.[i]?.[field.name]?.message ? (

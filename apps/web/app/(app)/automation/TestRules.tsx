@@ -227,32 +227,27 @@ function TestResultDisplay({ result }: { result: TestResult }) {
   if (result.actionItems) {
     const MAX_LENGTH = 280;
 
-    const aiGeneratedContent = result.actionItems.map((action, i) => {
-      return (
-        <div key={i}>
-          <strong>{capitalCase(action.type)}</strong>
-          {Object.entries(action)
-            .filter(
-              ([key, value]) =>
-                value &&
-                (key === "label" ||
-                  key === "subject" ||
-                  key === "content" ||
-                  key === "to" ||
-                  key === "cc" ||
-                  key === "bcc"),
-            )
-            .map(([key, value]) => {
-              return (
-                <div key={key}>
-                  <strong>{capitalCase(key)}: </strong>
-                  {value}
-                </div>
-              );
-            })}
+    const aiGeneratedContent = result.actionItems.map((action, i) => (
+      <div key={i} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-900">
+          {capitalCase(action.type)}
         </div>
-      );
-    });
+        {Object.entries(action)
+          .filter(
+            ([key, value]) =>
+              value &&
+              ["label", "subject", "content", "to", "cc", "bcc"].includes(key),
+          )
+          .map(([key, value]) => (
+            <div key={key} className="flex text-sm text-gray-800">
+              <span className="min-w-20 font-medium text-gray-600">
+                {capitalCase(key)}:
+              </span>
+              <span className="ml-2 flex-1">{value}</span>
+            </div>
+          ))}
+      </div>
+    ));
 
     return (
       <AlertBasic
@@ -261,22 +256,19 @@ function TestResultDisplay({ result }: { result: TestResult }) {
         description={
           <div className="mt-4 space-y-4">
             {!!aiGeneratedContent.length && (
-              <div>
-                <strong>Content: </strong>
-                {aiGeneratedContent}
-              </div>
+              <div className="space-y-3">{aiGeneratedContent}</div>
             )}
             {!!result.reason && (
-              <div>
-                <strong>AI reason: </strong>
+              <div className="border-l-2 border-blue-200 pl-3 text-sm">
+                <span className="font-medium">AI Reasoning: </span>
                 {result.reason}
               </div>
             )}
             {result.rule.type === RuleType.AI && (
-              <div>
-                <strong>Instructions: </strong>
-                {result.rule.instructions.substring(0, MAX_LENGTH) +
-                  (result.rule.instructions.length < MAX_LENGTH ? "" : "...")}
+              <div className="border-t border-blue-100 pt-3 text-sm">
+                <span className="font-medium">Rule Instructions: </span>
+                {result.rule.instructions.substring(0, MAX_LENGTH)}
+                {result.rule.instructions.length >= MAX_LENGTH && "..."}
               </div>
             )}
           </div>
