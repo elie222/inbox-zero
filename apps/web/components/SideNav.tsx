@@ -75,6 +75,11 @@ const navigationItems: NavItem[] = [
     href: "/cold-email-blocker",
     icon: ShieldCheckIcon,
   },
+  {
+    name: "Reply Tracking",
+    href: "/no-reply", // TODO: make this "/reply-tracking"
+    icon: MessagesSquareIcon,
+  },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
     : [
