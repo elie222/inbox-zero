@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { TopSection } from "@/components/TopSection";
+import { hasVariables } from "@/utils/template";
 
 export default async function RulePage({
   params,
@@ -18,6 +19,7 @@ export default async function RulePage({
     where: { id: params.ruleId, userId: session.user.id },
     include: {
       actions: true,
+      categoryFilters: true,
     },
   });
 
@@ -27,31 +29,17 @@ export default async function RulePage({
     ...rule,
     actions: rule.actions.map((action) => ({
       ...action,
-      label:
-        typeof action.labelPrompt === "string"
-          ? { value: action.labelPrompt, ai: true }
-          : { value: action.label, ai: false },
-      subject:
-        typeof action.subjectPrompt === "string"
-          ? { value: action.subjectPrompt, ai: true }
-          : { value: action.subject, ai: false },
-      content:
-        typeof action.contentPrompt === "string"
-          ? { value: action.contentPrompt, ai: true }
-          : { value: action.content, ai: false },
-      to:
-        typeof action.toPrompt === "string"
-          ? { value: action.toPrompt, ai: true }
-          : { value: action.to, ai: false },
-      cc:
-        typeof action.ccPrompt === "string"
-          ? { value: action.ccPrompt, ai: true }
-          : { value: action.cc, ai: false },
-      bcc:
-        typeof action.bccPrompt === "string"
-          ? { value: action.bccPrompt, ai: true }
-          : { value: action.bcc, ai: false },
+      label: {
+        value: action.label,
+        ai: hasVariables(action.label),
+      },
+      subject: { value: action.subject },
+      content: { value: action.content },
+      to: { value: action.to },
+      cc: { value: action.cc },
+      bcc: { value: action.bcc },
     })),
+    categoryFilters: rule.categoryFilters.map((category) => category.id),
   };
 
   return (

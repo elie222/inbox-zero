@@ -75,7 +75,7 @@ model User {
   rulesPrompt           String?
 
   // categorization  
-  autoCategorizeSenders      Boolean   @default(false)
+  autoCategorizeSenders Boolean @default(false)
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -211,15 +211,12 @@ model Action {
   cc      String?
   bcc     String?
 
-  // If using AI generated fields - the prompt for each field
-  // An empty string means the field is AI generated, but there's no specific prompt for the field
-  // NULL means there field is not AI generated
-  labelPrompt   String?
-  subjectPrompt String?
-  contentPrompt String?
-  toPrompt      String?
-  ccPrompt      String?
-  bccPrompt     String?
+  labelPrompt   String? // deprecated
+  subjectPrompt String? // deprecated
+  contentPrompt String? // deprecated
+  toPrompt      String? // deprecated
+  ccPrompt      String? // deprecated
+  bccPrompt     String? // deprecated
 }
 
 // Rule/Action models represent the rules and actions that the AI can take.

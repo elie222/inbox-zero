@@ -79,18 +79,18 @@ async function aiIsColdEmail(
 ${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
 </instructions>
 
-<outputFormat>
+<output_format>
 Return a JSON object with a "reason" and "coldEmail" field.
 The "reason" should be a concise explanation that explains why the email is or isn't considered a cold email.
 The "coldEmail" should be a boolean that is true if the email is a cold email and false otherwise.
-</outputFormat>
+</output_format>
 
-<exampleResponse>
+<example_response>
 {
   "reason": "This is someone trying to sell you services.",
   "coldEmail": true
 }
-</exampleResponse>
+</example_response>
 
 <email>
 ${stringifyEmail(email, 500)}
