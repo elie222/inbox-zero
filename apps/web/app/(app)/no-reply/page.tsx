@@ -7,6 +7,7 @@ import { EmailList } from "@/components/email-list/EmailList";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TabHeader } from "@/components/TabHeader";
+import { AlertBasic } from "@/components/Alert";
 
 export default function NoReplyPage() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -42,9 +43,15 @@ export default function NoReplyPage() {
             {data && (
               <div>
                 <EmailList
-                  threads={data as any}
+                  threads={data}
                   hideActionBarWhenEmpty
                   refetch={() => mutate()}
+                  emptyMessage={
+                    <AlertBasic
+                      title="No emails need your reply"
+                      description="When you have emails that need your attention, they'll appear here."
+                    />
+                  }
                 />
               </div>
             )}

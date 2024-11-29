@@ -5,42 +5,53 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { type MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
 import { withError } from "@/utils/middleware";
+import { getMessages } from "@/utils/gmail/message";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 
-async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
-  const sentEmails = await options.gmail.users.messages.list({
-    userId: "me",
-    q: "in:sent",
+async function getNoReply({
+  userEmail,
+  gmail,
+}: {
+  userEmail: string;
+  gmail: gmail_v1.Gmail;
+}) {
+  const sentEmails = await getMessages(gmail, {
+    query: "in:sent",
     maxResults: 50,
   });
 
   const sentEmailsWithThreads = (
     await Promise.all(
-      sentEmails.data.messages?.map(async (message) => {
+      sentEmails.messages?.map(async (message) => {
+        if (!message.threadId) return;
+
         const thread = (
-          await options.gmail.users.threads.get({
+          await gmail.users.threads.get({
             userId: "me",
-            id: message.threadId!,
+            id: message.threadId,
           })
         ).data;
+
+        const threadId = thread.id;
+        if (!threadId) return;
 
         const lastMessage = thread.messages?.[thread.messages?.length - 1];
         const lastMessageFrom = lastMessage?.payload?.headers?.find(
           (header) => header.name?.toLowerCase() === "from",
         )?.value;
-        const isSentByUser = lastMessageFrom?.includes(options.email);
+        const isSentByUser = lastMessageFrom?.includes(userEmail);
 
         if (isSentByUser)
           return {
-            ...message,
-            thread: {
-              ...thread,
-              messages: thread.messages?.map((message) => {
-                // TODO need to fetch full message with `getMessage()` here?
+            id: threadId,
+            snippet: thread.snippet || "",
+            messages:
+              thread.messages?.map((message) => {
                 return parseMessage(message as MessageWithPayload);
-              }),
-            },
+              }) || [],
+            plan: undefined,
+            category: null,
           };
       }) || [],
     )
@@ -55,7 +66,10 @@ export const GET = withError(async () => {
     return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);
-  const result = await getNoReply({ email: session.user.email, gmail });
+  const result = await getNoReply({
+    userEmail: session.user.email,
+    gmail,
+  });
 
   return NextResponse.json(result);
 });
