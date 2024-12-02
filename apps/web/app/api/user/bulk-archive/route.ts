@@ -25,6 +25,8 @@ async function bulkArchive(body: BulkArchiveBody, gmail: gmail_v1.Gmail) {
   const archivedLabel = await getOrCreateLabel({
     gmail,
     name: inboxZeroLabels.archived,
+    messageListVisibility: "hide",
+    labelListVisibility: "labelHide",
   });
 
   if (!archivedLabel.id)

@@ -1,6 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 
+type MessageVisibility = "show" | "hide";
+type LabelVisibility = "labelShow" | "labelShowIfUnread" | "labelHide";
+
 export const INBOX_LABEL_ID = "INBOX";
 export const SENT_LABEL_ID = "SENT";
 export const UNREAD_LABEL_ID = "UNREAD";
@@ -138,14 +141,22 @@ export async function markImportantMessage(options: {
 async function createLabel({
   gmail,
   name,
+  messageListVisibility,
+  labelListVisibility,
 }: {
   gmail: gmail_v1.Gmail;
   name: string;
+  messageListVisibility?: MessageVisibility;
+  labelListVisibility?: LabelVisibility;
 }) {
   try {
     const createdLabel = await gmail.users.labels.create({
       userId: "me",
-      requestBody: { name },
+      requestBody: {
+        name,
+        messageListVisibility,
+        labelListVisibility,
+      },
     });
     return createdLabel.data;
   } catch (error) {
@@ -184,14 +195,25 @@ export async function getLabelById(options: {
   return (await gmail.users.labels.get({ userId: "me", id })).data;
 }
 
-export async function getOrCreateLabel(options: {
+export async function getOrCreateLabel({
+  gmail,
+  name,
+  messageListVisibility,
+  labelListVisibility,
+}: {
   gmail: gmail_v1.Gmail;
   name: string;
+  messageListVisibility?: MessageVisibility;
+  labelListVisibility?: LabelVisibility;
 }) {
-  const { gmail, name } = options;
   if (!name?.trim()) throw new Error("Label name cannot be empty");
   const label = await getLabel({ gmail, name });
   if (label) return label;
-  const createdLabel = await createLabel({ gmail, name });
+  const createdLabel = await createLabel({
+    gmail,
+    name,
+    messageListVisibility,
+    labelListVisibility,
+  });
   return createdLabel;
 }

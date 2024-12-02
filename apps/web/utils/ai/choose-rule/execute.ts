@@ -31,6 +31,8 @@ export async function executeAct({
     const label = await getOrCreateLabel({
       gmail,
       name: inboxZeroLabels.acted,
+      messageListVisibility: "hide",
+      labelListVisibility: "labelHide",
     });
 
     if (!label.id) return;
