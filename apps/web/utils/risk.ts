@@ -45,10 +45,7 @@ export function getActionRiskLevel(
     recipientFields,
     "partially-dynamic",
   );
-  const hasAnyDynamicRecipient =
-    hasFullyDynamicRecipient || hasPartiallyDynamicRecipient;
 
-  // Handle automated cases first
   if (isAutomated) {
     if (hasFullyDynamicContent && hasFullyDynamicRecipient) {
       const level =
@@ -82,15 +79,6 @@ export function getActionRiskLevel(
           "Medium Risk: The AI can generate content or recipients using templates. While more constrained than fully dynamic content, review the templates carefully.",
       };
     }
-  }
-
-  // Non-automated cases
-  if (hasAnyDynamicContent || hasAnyDynamicRecipient) {
-    return {
-      level: RISK_LEVELS.MEDIUM,
-      message:
-        "Medium Risk: The AI can generate content or recipients, but requires manual approval. Review the AI's suggestions carefully before approving.",
-    };
   }
 
   return {
