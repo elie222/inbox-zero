@@ -253,6 +253,8 @@ const label: ActionFunction<{ label: string } | any> = async (
   email,
   args,
 ) => {
+  if (!args.label) return;
+
   const label = await getOrCreateLabel({
     gmail,
     name: args.label,
