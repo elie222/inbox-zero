@@ -58,7 +58,7 @@ const basicTier = {
     "Unlimited archives",
     "Email analytics",
   ],
-  cta: "Upgrade",
+  cta: "Try free for 7 days",
 };
 
 const proTier = {
@@ -86,7 +86,7 @@ const proTier = {
     "AI personal assistant when using your own AI API key",
     "Cold email blocker when using your own AI API key",
   ],
-  cta: "Upgrade",
+  cta: "Try free for 7 days",
   mostPopular: false,
 };
 
@@ -120,7 +120,7 @@ const businessTier = {
     "Unlimited AI credits",
     "Priority support",
   ],
-  cta: "Upgrade",
+  cta: "Try free for 7 days",
   mostPopular: true,
 };
 
