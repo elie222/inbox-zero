@@ -412,6 +412,11 @@ export const deleteRuleAction = withActionInstrumentation(
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
+    const rule = await prisma.rule.findUnique({ where: { id: ruleId } });
+    if (!rule) return; // already deleted
+    if (rule.userId !== session.user.id)
+      return { error: "You don't have permission to delete this rule" };
+
     await prisma.rule.delete({
       where: { id: ruleId, userId: session.user.id },
     });
@@ -621,19 +626,31 @@ export const saveRulesPromptAction = withActionInstrumentation(
           where: { userId: session.user.id, ruleId: rule.rule?.id },
         });
 
+        if (!rule.rule) {
+          logger.error("Rule not found.");
+          continue;
+        }
+
         logger.info(
-          `Removing rule. Prompt: ${rule.promptRule}. Rule: ${rule.rule?.name}`,
+          `Removing rule. Prompt: ${rule.promptRule}. Rule: ${rule.rule.name}`,
         );
 
         if (executedRule) {
           await prisma.rule.update({
-            where: { id: rule.rule?.id, userId: session.user.id },
+            where: { id: rule.rule.id, userId: session.user.id },
             data: { enabled: false },
           });
         } else {
-          await prisma.rule.delete({
-            where: { id: rule.rule?.id, userId: session.user.id },
-          });
+          try {
+            await prisma.rule.delete({
+              where: { id: rule.rule.id, userId: session.user.id },
+            });
+          } catch (error) {
+            logger.error(
+              `Error deleting rule. ${error instanceof Error ? error.message : "Unknown error"}`,
+              { ruleId: rule.rule.id },
+            );
+          }
         }
 
         removeRulesCount++;
