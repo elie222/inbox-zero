@@ -24,8 +24,7 @@ import type {
 } from "@/app/api/ai/cold-email/route";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { SearchForm } from "@/app/(app)/automation/TestRules";
-
+import { SearchForm } from "@/components/SearchForm";
 export function TestRules() {
   return (
     <SlideOverSheet
