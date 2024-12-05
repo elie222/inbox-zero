@@ -1,5 +1,10 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
+import {
+  inboxZeroLabels,
+  PARENT_LABEL,
+  type InboxZeroLabel,
+} from "@/utils/label";
 
 type MessageVisibility = "show" | "hide";
 type LabelVisibility = "labelShow" | "labelShowIfUnread" | "labelHide";
@@ -198,17 +203,46 @@ export async function getLabelById(options: {
 export async function getOrCreateLabel({
   gmail,
   name,
-  messageListVisibility,
-  labelListVisibility,
 }: {
   gmail: gmail_v1.Gmail;
   name: string;
-  messageListVisibility?: MessageVisibility;
-  labelListVisibility?: LabelVisibility;
 }) {
   if (!name?.trim()) throw new Error("Label name cannot be empty");
   const label = await getLabel({ gmail, name });
   if (label) return label;
+  const createdLabel = await createLabel({ gmail, name });
+  return createdLabel;
+}
+
+export async function getOrCreateInboxZeroLabel({
+  gmail,
+  key,
+  messageListVisibility,
+  labelListVisibility,
+}: {
+  gmail: gmail_v1.Gmail;
+  key: InboxZeroLabel;
+  messageListVisibility?: MessageVisibility;
+  labelListVisibility?: LabelVisibility;
+}) {
+  const name = inboxZeroLabels[key];
+  const labels = await getLabels(gmail);
+
+  // Create parent label if it doesn't exist
+  const parentLabel = labels?.find((label) => PARENT_LABEL === label.name);
+  if (!parentLabel) {
+    try {
+      await createLabel({ gmail, name: PARENT_LABEL });
+    } catch (error) {
+      console.warn(`Parent label already exists: ${PARENT_LABEL}`);
+    }
+  }
+
+  // Return child label if it exists
+  const label = labels?.find((label) => label.name === name);
+  if (label) return label;
+
+  // Create child label if it doesn't exist
   const createdLabel = await createLabel({
     gmail,
     name,

@@ -7,10 +7,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ColdEmailStatus } from "@prisma/client";
 import { getLabel, labelThread } from "@/utils/gmail/label";
-import { inboxZeroLabels } from "@/utils/label";
 import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getThreads } from "@/utils/gmail/thread";
+import { inboxZeroLabels } from "@/utils/label";
 
 const markNotColdEmailBody = z.object({ sender: z.string() });
 

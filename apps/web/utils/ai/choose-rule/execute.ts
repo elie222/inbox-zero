@@ -2,8 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { type EmailForAction, runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
-import { inboxZeroLabels } from "@/utils/label";
-import { getOrCreateLabel, labelThread } from "@/utils/gmail/label";
+import { getOrCreateInboxZeroLabel, labelThread } from "@/utils/gmail/label";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -28,9 +27,9 @@ export async function executeAct({
   );
 
   async function labelActed() {
-    const label = await getOrCreateLabel({
+    const label = await getOrCreateInboxZeroLabel({
       gmail,
-      name: inboxZeroLabels.acted,
+      key: "acted",
       messageListVisibility: "hide",
       labelListVisibility: "labelHide",
     });
