@@ -4,11 +4,15 @@ import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
+import { parseAsBoolean, useQueryState } from "nuqs";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { capitalCase } from "capital-case";
 import {
   BookOpenCheckIcon,
   CheckCircle2Icon,
   SparklesIcon,
+  SearchIcon,
+  PenSquareIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
@@ -29,6 +33,45 @@ import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
 import { isActionError } from "@/utils/error";
 import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  type MessageQuery,
+  messageQuerySchema,
+} from "@/app/api/google/messages/validation";
+
+function SearchForm({ onSearch }: { onSearch: (query: string) => void }) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<MessageQuery>({
+    resolver: zodResolver(messageQuerySchema),
+  });
+
+  const onSubmit: SubmitHandler<MessageQuery> = useCallback(
+    async (data) => {
+      onSearch(data.q || "");
+    },
+    [onSearch],
+  );
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex gap-2">
+      <Input
+        type="text"
+        name="search"
+        placeholder="Search emails..."
+        registerProps={register("q")}
+        error={errors.q}
+        className="flex-1"
+      />
+      <Button type="submit" color="transparent" loading={isSubmitting}>
+        <SearchIcon className="mr-2 h-4 w-4" />
+        Search
+      </Button>
+    </form>
+  );
+}
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -50,43 +93,74 @@ export function TestRules(props: { disabled?: boolean }) {
 }
 
 export function TestRulesContent() {
+  return (
+    <NuqsAdapter>
+      <TestRulesContentInner />
+    </NuqsAdapter>
+  );
+}
+
+function TestRulesContentInner() {
+  const [searchQuery, setSearchQuery] = useQueryState("search");
+  const [showCustomForm, setShowCustomForm] = useQueryState(
+    "custom",
+    parseAsBoolean.withDefault(false),
+  );
+
   const { data, isLoading, error } = useSWR<MessagesResponse>(
-    "/api/google/messages",
+    `/api/google/messages${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ""}`,
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
     },
   );
-  const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
 
+  const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
   const session = useSession();
   const email = session.data?.user.email;
 
+  // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
+  const hasAiRules = rules?.some((rule) => rule.type === RuleType.AI);
+
   return (
     <div>
-      {/* only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users  */}
-      {rules?.some((rule) => rule.type === RuleType.AI) && (
-        <>
+      <div className="mb-4 flex items-center justify-between gap-2 px-6">
+        <SearchForm onSearch={setSearchQuery} />
+        {hasAiRules && (
+          <Button
+            color="transparent"
+            onClick={() => setShowCustomForm((show) => !show)}
+          >
+            <PenSquareIcon className="mr-2 h-4 w-4" />
+            Test Custom Content
+          </Button>
+        )}
+      </div>
+
+      {hasAiRules && showCustomForm && (
+        <div className="mt-2">
           <CardContent>
             <TestRulesForm />
           </CardContent>
           <Separator />
-        </>
+        </div>
       )}
 
       <LoadingContent loading={isLoading} error={error}>
-        {data && (
+        {data?.messages.length === 0 ? (
+          <div className="p-4 text-center text-sm text-gray-500">
+            No emails found
+          </div>
+        ) : (
           <Table>
             <TableBody>
-              {data.messages.map((message) => {
-                return (
-                  <TestRulesContentRow
-                    key={message.id}
-                    message={message}
-                    userEmail={email!}
-                  />
-                );
-              })}
+              {data?.messages.map((message) => (
+                <TestRulesContentRow
+                  key={message.id}
+                  message={message}
+                  userEmail={email!}
+                />
+              ))}
             </TableBody>
           </Table>
         )}
