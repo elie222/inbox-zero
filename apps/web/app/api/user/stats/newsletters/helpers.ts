@@ -14,12 +14,7 @@ export async function getAutoArchiveFilters() {
   const gmail = getGmailClient(session);
 
   const filters = await getFiltersList({ gmail });
-  const autoArchiveFilters = filters.data.filter?.filter((filter) => {
-    return (
-      filter.action?.removeLabelIds?.includes(INBOX_LABEL_ID) ||
-      filter.action?.addLabelIds?.includes(TRASH_LABEL_ID)
-    );
-  });
+  const autoArchiveFilters = filters.data.filter?.filter(isAutoArchiveFilter);
 
   return autoArchiveFilters || [];
 }
@@ -30,7 +25,7 @@ export function findAutoArchiveFilter(
 ) {
   return autoArchiveFilters.find((filter) => {
     const from = extractEmailAddress(fromEmail);
-    return filter.criteria?.from?.includes(from);
+    return filter.criteria?.from?.includes(from) && isAutoArchiveFilter(filter);
   });
 }
 
@@ -69,4 +64,11 @@ export function filterNewsletters<
 
     return false;
   });
+}
+
+function isAutoArchiveFilter(filter: gmail_v1.Schema$Filter) {
+  return (
+    filter.action?.removeLabelIds?.includes(INBOX_LABEL_ID) ||
+    filter.action?.addLabelIds?.includes(TRASH_LABEL_ID)
+  );
 }
