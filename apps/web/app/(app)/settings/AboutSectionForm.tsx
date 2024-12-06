@@ -38,8 +38,8 @@ export const AboutSectionForm = (props: { about?: string }) => {
             <div className="sm:col-span-full">
               <Input
                 type="text"
-                as="textarea"
-                rows={8}
+                autosizeTextarea
+                rows={3}
                 name="about"
                 label="About you"
                 registerProps={register("about", { required: true })}

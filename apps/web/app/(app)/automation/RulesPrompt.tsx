@@ -165,8 +165,9 @@ function RulesPromptForm({
                 registerProps={register("rulesPrompt", { required: true })}
                 name="rulesPrompt"
                 type="text"
-                as="textarea"
+                autosizeTextarea
                 rows={25}
+                maxRows={50}
                 error={errors.rulesPrompt}
                 placeholder={`Here's an example of what your prompt might look like.
 You can use the examples on the right or come up with your own.

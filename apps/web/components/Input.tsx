@@ -2,6 +2,7 @@ import type React from "react";
 import type { HTMLInputTypeAttribute } from "react";
 import type { FieldError } from "react-hook-form";
 import { MinusCircleIcon, PlusCircleIcon } from "lucide-react";
+import TextareaAutosize from "react-textarea-autosize";
 import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
@@ -15,7 +16,9 @@ export interface InputProps {
   explainText?: string;
   tooltipText?: string;
   as?: React.ElementType;
+  autosizeTextarea?: boolean;
   rows?: number;
+  maxRows?: number;
   min?: number;
   step?: number;
   max?: number;
@@ -29,7 +32,9 @@ export interface InputProps {
 }
 
 export const Input = (props: InputProps) => {
-  const Component = props.as || "input";
+  const Component = props.autosizeTextarea
+    ? TextareaAutosize
+    : props.as || "input";
 
   const errorMessage = getErrorMessage(props.error?.type, props.error?.message);
 
@@ -39,6 +44,8 @@ export const Input = (props: InputProps) => {
     id: props.name,
     placeholder: props.placeholder,
     rows: props.rows,
+    minRows: props.autosizeTextarea ? props.rows : undefined,
+    maxRows: props.autosizeTextarea ? props.maxRows : undefined,
     min: props.min,
     max: props.max,
     step: props.step,

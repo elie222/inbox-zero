@@ -155,7 +155,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
           <div>
             <Input
               type="text"
-              as="textarea"
+              autosizeTextarea
               rows={3}
               name={name}
               registerProps={register(name)}

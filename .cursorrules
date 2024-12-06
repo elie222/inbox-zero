@@ -103,7 +103,7 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
   ```tsx
   <Input
     type="text"
-    as="textarea"
+    autosizeTextarea
     rows={3}
     name="message"
     placeholder="Paste in email content"

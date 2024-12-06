@@ -154,7 +154,7 @@ function CreateGroupForm({ closeModal }: { closeModal: () => void }) {
       />
       <Input
         type="text"
-        as="textarea"
+        autosizeTextarea
         rows={3}
         name="prompt"
         label="AI Prompt (Optional)"

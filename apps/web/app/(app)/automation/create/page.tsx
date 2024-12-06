@@ -82,8 +82,8 @@ export default function AutomationSettingsPage() {
 
               <Input
                 type="text"
-                as="textarea"
-                rows={4}
+                autosizeTextarea
+                rows={3}
                 name="prompt"
                 placeholder={"e.g. Forward receipts to alice@accountant.com."}
                 className="mt-2"

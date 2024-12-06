@@ -92,8 +92,8 @@ function ColdEmailPromptForm(props: {
     <form onSubmit={handleSubmit(onSubmit)} className="mt-2">
       <Input
         type="text"
-        as="textarea"
-        rows={20}
+        autosizeTextarea
+        rows={10}
         name="coldEmailPrompt"
         label="Prompt to classify cold emails."
         registerProps={register("coldEmailPrompt")}

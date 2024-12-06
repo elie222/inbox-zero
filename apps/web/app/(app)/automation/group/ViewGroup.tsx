@@ -443,7 +443,7 @@ function UpdatePromptForm({
     <form onSubmit={handleSubmit(onSubmit)}>
       <Input
         type="text"
-        as="textarea"
+        autosizeTextarea
         rows={3}
         name="prompt"
         label="Prompt"

@@ -104,8 +104,8 @@ function EmailAssistantForm({
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           type="text"
-          as="textarea"
-          rows={6}
+          autosizeTextarea
+          rows={5}
           name="rulesPrompt"
           placeholder={`This is where you tell the AI assistant how to handle your emails. For example:
 

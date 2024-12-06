@@ -160,7 +160,7 @@ const TestRulesForm = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
         <Input
           type="text"
-          as="textarea"
+          autosizeTextarea
           rows={3}
           name="message"
           placeholder="Paste in email content or write your own. e.g. Receipt from Stripe for $49"

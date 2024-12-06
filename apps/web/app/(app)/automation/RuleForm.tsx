@@ -15,6 +15,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
 import { ExternalLinkIcon, PlusIcon } from "lucide-react";
@@ -178,7 +179,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <div className="mt-4 space-y-4">
           <Input
             type="text"
-            as="textarea"
+            autosizeTextarea
             rows={3}
             name="Instructions"
             label="Instructions"
@@ -372,9 +373,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           </div>
                         ) : field.textArea ? (
                           <div className="mt-2">
-                            <textarea
+                            <TextareaAutosize
                               className="block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                              rows={4}
+                              rows={3}
                               placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
                               value={value || ""}
                               {...register(`actions.${i}.${field.name}.value`)}

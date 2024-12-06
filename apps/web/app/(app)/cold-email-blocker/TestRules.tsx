@@ -134,7 +134,7 @@ const TestRulesForm = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           type="text"
-          as="textarea"
+          autosizeTextarea
           rows={3}
           name="message"
           label="Email to test against"

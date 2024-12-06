@@ -192,7 +192,7 @@ function CreateCategoryForm({
       />
       <Input
         type="text"
-        as="textarea"
+        autosizeTextarea
         rows={2}
         name="description"
         label="Description (Optional)"
