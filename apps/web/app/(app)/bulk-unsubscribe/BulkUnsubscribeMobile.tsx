@@ -82,16 +82,10 @@ export function BulkUnsubscribeRowMobile({
           <Badge variant="outline" className="justify-center">
             {item.value} emails
           </Badge>
-          <Badge
-            variant={badgeVariant(readPercentage, 50)}
-            className="justify-center"
-          >
+          <Badge variant="outline" className="justify-center">
             {readPercentage.toFixed(0)}% read
           </Badge>
-          <Badge
-            variant={badgeVariant(archivedPercentage, 50)}
-            className="justify-center"
-          >
+          <Badge variant="outline" className="justify-center">
             {archivedPercentage.toFixed(0)}% archived
           </Badge>
         </div>
@@ -160,12 +154,4 @@ export function BulkUnsubscribeRowMobile({
       </CardContent>
     </Card>
   );
-}
-
-function badgeVariant(
-  value: number,
-  cutoffBad: number,
-): "green" | "red" | "outline" {
-  if (value < cutoffBad) return "red";
-  return "outline";
 }
