@@ -268,11 +268,11 @@ export function useApproveButton<T extends Row>({
   const onApprove = async () => {
     setApproveLoading(true);
 
+    await onDisableAutoArchive();
     await setNewsletterStatusAction({
       newsletterEmail: item.name,
       status: NewsletterStatus.APPROVED,
     });
-    await onDisableAutoArchive();
     await mutate();
 
     posthog.capture("Clicked Approve Sender");
