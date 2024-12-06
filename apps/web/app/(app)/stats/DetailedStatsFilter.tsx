@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/utils";
+import { Separator } from "@/components/ui/separator";
 
 type Checked = DropdownMenuCheckboxItemProps["checked"];
 
@@ -20,6 +21,7 @@ export function DetailedStatsFilter(props: {
     label: string;
     checked: Checked;
     setChecked: (value: Checked) => void;
+    separatorAfter?: boolean;
   }[];
   keepOpenOnSelect?: boolean;
   className?: string;
@@ -57,14 +59,16 @@ export function DetailedStatsFilter(props: {
       >
         {props.columns.map((column) => {
           return (
-            <DropdownMenuCheckboxItem
-              key={column.label}
-              className="capitalize"
-              checked={column.checked}
-              onCheckedChange={column.setChecked}
-            >
-              {column.label}
-            </DropdownMenuCheckboxItem>
+            <React.Fragment key={column.label}>
+              <DropdownMenuCheckboxItem
+                className="capitalize"
+                checked={column.checked}
+                onCheckedChange={column.setChecked}
+              >
+                {column.label}
+              </DropdownMenuCheckboxItem>
+              {column.separatorAfter && <Separator />}
+            </React.Fragment>
           );
         })}
       </DropdownMenuContent>
