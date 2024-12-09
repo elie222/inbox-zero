@@ -1,8 +1,10 @@
 import { z } from "zod";
-import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import {
+  type EmailForLLM,
+  stringifyEmail,
+} from "@/utils/ai/choose-rule/stringify-email";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
-import type { ParsedMessage } from "@/utils/types";
 import type { User } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -20,11 +22,11 @@ const snippetsSchema = z.object({
 export type SnippetsResponse = z.infer<typeof snippetsSchema>;
 
 export async function aiFindSnippets({
-  sentEmails,
   user,
+  sentEmails,
 }: {
-  sentEmails: ParsedMessage[];
   user: Pick<User, "email" | "about"> & UserAIFields;
+  sentEmails: EmailForLLM[];
 }) {
   const system = `You are an AI assistant that analyzes email content to find common snippets (canned responses) that the user frequently uses.
 
@@ -60,7 +62,7 @@ Return the snippets in the following JSON format:
 
   const prompt = `Here are the emails to analyze:
 ${sentEmails
-  .map((email) => `<email>${stringifyEmail(email as any, 2_000)}</email>`)
+  .map((email) => `<email>${stringifyEmail(email, 2_000)}</email>`)
   .join("\n")}`;
 
   const aiResponse = await chatCompletionObject({
@@ -72,9 +74,7 @@ ${sentEmails
     usageLabel: "ai-find-snippets",
   });
 
-  logger.trace(
-    `AI find snippets response: ${JSON.stringify(aiResponse.object, null, 2)}`,
-  );
+  logger.trace({ snippets: aiResponse.object.snippets });
 
   return aiResponse.object;
 }

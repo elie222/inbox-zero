@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
-import { INBOX_LABEL_ID, getOrCreateInboxZeroLabel } from "@/utils/gmail/label";
+import {
+  INBOX_LABEL_ID,
+  getOrCreateInboxZeroLabel,
+  labelVisibility,
+  messageVisibility,
+} from "@/utils/gmail/label";
 import { sleep } from "@/utils/sleep";
 import { withError } from "@/utils/middleware";
 
@@ -24,8 +29,8 @@ async function bulkArchive(body: BulkArchiveBody, gmail: gmail_v1.Gmail) {
   const archivedLabel = await getOrCreateInboxZeroLabel({
     gmail,
     key: "archived",
-    messageListVisibility: "hide",
-    labelListVisibility: "labelHide",
+    messageListVisibility: messageVisibility.hide,
+    labelListVisibility: labelVisibility.labelHide,
   });
 
   if (!archivedLabel.id)

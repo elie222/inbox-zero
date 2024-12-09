@@ -6,8 +6,20 @@ import {
   type InboxZeroLabel,
 } from "@/utils/label";
 
-type MessageVisibility = "show" | "hide";
-type LabelVisibility = "labelShow" | "labelShowIfUnread" | "labelHide";
+export const messageVisibility = {
+  show: "show",
+  hide: "hide",
+} as const;
+export type MessageVisibility =
+  (typeof messageVisibility)[keyof typeof messageVisibility];
+
+export const labelVisibility = {
+  labelShow: "labelShow",
+  labelShowIfUnread: "labelShowIfUnread",
+  labelHide: "labelHide",
+} as const;
+export type LabelVisibility =
+  (typeof labelVisibility)[keyof typeof labelVisibility];
 
 export const INBOX_LABEL_ID = "INBOX";
 export const SENT_LABEL_ID = "SENT";
@@ -178,7 +190,11 @@ async function createLabel({
 }
 
 export async function getLabels(gmail: gmail_v1.Gmail) {
-  return (await gmail.users.labels.list({ userId: "me" })).data.labels;
+  const response = await gmail.users.labels.list({
+    userId: "me",
+    fields: "labels(id,name,messagesTotal,messagesUnread,type,color)",
+  });
+  return response.data.labels;
 }
 
 export async function getLabel(options: {

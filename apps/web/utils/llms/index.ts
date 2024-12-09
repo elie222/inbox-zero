@@ -198,6 +198,52 @@ export async function chatCompletionTools({
   }
 }
 
+// not in use atm
+async function streamCompletionTools({
+  userAi,
+  prompt,
+  system,
+  tools,
+  maxSteps,
+  userEmail,
+  label,
+  onFinish,
+}: {
+  userAi: UserAIFields;
+  prompt: string;
+  system?: string;
+  tools: Record<string, CoreTool>;
+  maxSteps?: number;
+  userEmail: string;
+  label: string;
+  onFinish?: (text: string) => Promise<void>;
+}) {
+  const { provider, model, llmModel } = getModel(userAi);
+
+  const result = await streamText({
+    model: llmModel,
+    tools,
+    toolChoice: "required",
+    prompt,
+    system,
+    maxSteps,
+    experimental_telemetry: { isEnabled: true },
+    onFinish: async ({ usage, text }) => {
+      await saveAiUsage({
+        email: userEmail,
+        provider,
+        model,
+        usage,
+        label,
+      });
+
+      if (onFinish) await onFinish(text);
+    },
+  });
+
+  return result;
+}
+
 export async function withRetry<T>(
   fn: () => Promise<T>,
   {
