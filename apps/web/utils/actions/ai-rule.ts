@@ -36,9 +36,10 @@ import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
-import { getLabels } from "@/utils/gmail/label";
+import { getLabelById, getLabels, labelVisibility } from "@/utils/gmail/label";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
+import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -766,7 +767,13 @@ export const generateRulesPromptAction = withActionInstrumentation(
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { aiProvider: true, aiModel: true, aiApiKey: true, email: true },
+      select: {
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+        email: true,
+        about: true,
+      },
     });
 
     if (!user) return { error: "User not found" };
@@ -775,10 +782,25 @@ export const generateRulesPromptAction = withActionInstrumentation(
     const gmail = getGmailClient(session);
     const lastSent = await getMessages(gmail, {
       query: "in:sent",
-      maxResults: 20,
+      maxResults: 50,
     });
     const gmailLabels = await getLabels(gmail);
     const userLabels = gmailLabels?.filter((label) => label.type === "user");
+
+    const labelsWithCounts: { label: string; threadsTotal: number }[] = [];
+
+    for (const label of userLabels || []) {
+      if (!label.id) continue;
+      if (label.labelListVisibility === labelVisibility.labelHide) continue;
+      const labelById = await getLabelById({ gmail, id: label.id });
+      if (!labelById?.name) continue;
+      if (!labelById.threadsTotal) continue; // Skip labels with 0 threads
+      labelsWithCounts.push({
+        label: labelById.name,
+        threadsTotal: labelById.threadsTotal || 0,
+      });
+    }
+
     const lastSentMessages = (
       await Promise.all(
         lastSent.messages?.map(async (message) => {
@@ -799,11 +821,26 @@ export const generateRulesPromptAction = withActionInstrumentation(
       );
     });
 
+    const snippetsResult = await aiFindSnippets({
+      user,
+      sentEmails: lastSentMessages.map((message) => ({
+        from: message.headers.from,
+        replyTo: message.headers["reply-to"],
+        cc: message.headers.cc,
+        subject: message.headers.subject,
+        content: emailToContent({
+          textHtml: message.textHtml || null,
+          textPlain: message.textPlain || null,
+          snippet: message.snippet,
+        }),
+      })),
+    });
+
     const result = await aiGenerateRulesPrompt({
-      user: { ...user, email: user.email },
+      user,
       lastSentEmails,
-      userLabels:
-        userLabels?.map((label) => label.name).filter(isDefined) || [],
+      snippets: snippetsResult.snippets.map((snippet) => snippet.text),
+      userLabels: labelsWithCounts.map((label) => label.label),
     });
 
     if (isActionError(result)) return { error: result.error };
