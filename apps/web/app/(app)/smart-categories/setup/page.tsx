@@ -1,4 +1,3 @@
-import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SetUpCategories } from "@/app/(app)/smart-categories/setup/SetUpCategories";
 import { SmartCategoriesOnboarding } from "@/app/(app)/smart-categories/setup/SmartCategoriesOnboarding";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -13,11 +12,11 @@ export default async function SetupCategoriesPage() {
   const categories = await getUserCategories(session.user.id);
 
   return (
-    <NuqsAdapter>
+    <>
       <SetUpCategories existingCategories={categories} />
       <ClientOnly>
         <SmartCategoriesOnboarding />
       </ClientOnly>
-    </NuqsAdapter>
+    </>
   );
 }

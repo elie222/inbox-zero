@@ -5,7 +5,6 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { parseAsBoolean, useQueryState } from "nuqs";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { capitalCase } from "capital-case";
 import {
   BookOpenCheckIcon,
@@ -54,14 +53,6 @@ export function TestRules(props: { disabled?: boolean }) {
 }
 
 export function TestRulesContent() {
-  return (
-    <NuqsAdapter>
-      <TestRulesContentInner />
-    </NuqsAdapter>
-  );
-}
-
-function TestRulesContentInner() {
   const [searchQuery, setSearchQuery] = useQueryState("search");
   const [showCustomForm, setShowCustomForm] = useQueryState(
     "custom",
@@ -289,7 +280,14 @@ function TestResultDisplay({ result }: { result: TestResult }) {
         title={`Rule found: "${result.rule.name}"`}
         variant="blue"
         description={
-          <div className="mt-4 space-y-4">
+          <div className="mt-1.5 space-y-4">
+            {result.rule.type === RuleType.AI && (
+              <div className="text-sm">
+                <span className="font-medium">Rule Instructions: </span>
+                {result.rule.instructions.substring(0, MAX_LENGTH)}
+                {result.rule.instructions.length >= MAX_LENGTH && "..."}
+              </div>
+            )}
             {!!aiGeneratedContent.length && (
               <div className="space-y-3">{aiGeneratedContent}</div>
             )}
@@ -297,13 +295,6 @@ function TestResultDisplay({ result }: { result: TestResult }) {
               <div className="border-l-2 border-blue-200 pl-3 text-sm">
                 <span className="font-medium">AI Reasoning: </span>
                 {result.reason}
-              </div>
-            )}
-            {result.rule.type === RuleType.AI && (
-              <div className="border-t border-blue-100 pt-3 text-sm">
-                <span className="font-medium">Rule Instructions: </span>
-                {result.rule.instructions.substring(0, MAX_LENGTH)}
-                {result.rule.instructions.length >= MAX_LENGTH && "..."}
               </div>
             )}
           </div>
