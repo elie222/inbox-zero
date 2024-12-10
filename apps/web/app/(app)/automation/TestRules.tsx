@@ -32,6 +32,8 @@ import { CardContent } from "@/components/ui/card";
 import { isActionError } from "@/utils/error";
 import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -233,10 +235,12 @@ function TestResultDisplay({ result }: { result: TestResult }) {
 
   if (!result.rule) {
     return (
-      <AlertBasic
-        variant="destructive"
-        title="No rule found"
-        description={
+      <Alert variant="destructive">
+        <div className="flex items-center justify-between">
+          <AlertTitle>No rule found</AlertTitle>
+          <ReportMistake result={null} />
+        </div>
+        <AlertDescription>
           <div className="space-y-2">
             <div>This email does not match any of the rules you have set.</div>
             {!!result.reason && (
@@ -245,8 +249,8 @@ function TestResultDisplay({ result }: { result: TestResult }) {
               </div>
             )}
           </div>
-        }
-      />
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -276,10 +280,13 @@ function TestResultDisplay({ result }: { result: TestResult }) {
     ));
 
     return (
-      <AlertBasic
-        title={`Rule found: "${result.rule.name}"`}
-        variant="blue"
-        description={
+      <Alert variant="blue">
+        <CheckCircle2Icon className="h-4 w-4" />
+        <div className="flex items-center justify-between">
+          <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
+          <ReportMistake result={result} />
+        </div>
+        <AlertDescription>
           <div className="mt-1.5 space-y-4">
             {result.rule.type === RuleType.AI && (
               <div className="text-sm">
@@ -298,9 +305,8 @@ function TestResultDisplay({ result }: { result: TestResult }) {
               </div>
             )}
           </div>
-        }
-        icon={<CheckCircle2Icon className="h-4 w-4" />}
-      />
+        </AlertDescription>
+      </Alert>
     );
   }
 }
