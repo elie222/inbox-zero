@@ -33,6 +33,8 @@ import {
   type ReportAiMistakeBody,
   saveRulesPromptBody,
   type SaveRulesPromptBody,
+  testAiBody,
+  type TestAiBody,
 } from "@/utils/actions/validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
@@ -107,9 +109,14 @@ export const runRulesAction = withActionInstrumentation(
 
 export const testAiAction = withActionInstrumentation(
   "testAi",
-  async ({ messageId, threadId }: { messageId: string; threadId: string }) => {
+  async (unsafeBody: TestAiBody) => {
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
+
+    const { success, data, error } = testAiBody.safeParse(unsafeBody);
+    if (!success) return { error: error.message };
+    const { messageId, threadId } = data;
+
     const { gmail, user: u } = sessionResult;
 
     const user = await prisma.user.findUnique({

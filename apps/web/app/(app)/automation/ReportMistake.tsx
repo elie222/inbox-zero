@@ -104,7 +104,7 @@ export function ReportMistake({
             rows={3}
             name="explanation"
             label="Explanation"
-            placeholder="What was incorrect about this response?"
+            placeholder="Optional: What was incorrect about this response?"
             registerProps={register("explanation")}
             error={errors.explanation}
           />
