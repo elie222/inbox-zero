@@ -12,14 +12,13 @@ import {
   SparklesIcon,
   PenSquareIcon,
 } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SlideOverSheet } from "@/components/SlideOverSheet";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
-import { AlertBasic } from "@/components/Alert";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 import {
   testAiAction,
@@ -34,6 +33,9 @@ import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
+import { cn } from "@/utils";
+
+type Message = MessagesResponse["messages"][number];
 
 export function TestRules(props: { disabled?: boolean }) {
   return (
@@ -46,7 +48,7 @@ export function TestRules(props: { disabled?: boolean }) {
         </div>
       }
     >
-      <Button color="white" disabled={props.disabled}>
+      <Button variant="outline" disabled={props.disabled}>
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
         Test Rules
       </Button>
@@ -82,7 +84,7 @@ export function TestRulesContent() {
         <SearchForm onSearch={setSearchQuery} />
         {hasAiRules && (
           <Button
-            color="transparent"
+            variant="outline"
             onClick={() => setShowCustomForm((show) => !show)}
           >
             <PenSquareIcon className="mr-2 h-4 w-4" />
@@ -167,70 +169,81 @@ const TestRulesForm = () => {
       </form>
       {testResult && (
         <div className="mt-4">
-          <TestResultDisplay result={testResult} />
+          <TestResultDisplay result={testResult} message={null} />
         </div>
       )}
     </div>
   );
 };
 
-function TestRulesContentRow(props: {
-  message: MessagesResponse["messages"][number];
+function TestRulesContentRow({
+  message,
+  userEmail,
+}: {
+  message: Message;
   userEmail: string;
 }) {
-  const { message } = props;
-
   const [checking, setChecking] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>();
 
   return (
     <TableRow>
       <TableCell>
-        <div className="flex items-center justify-between">
-          <TestRulesMessage
-            from={message.headers.from}
-            subject={message.headers.subject}
-            snippet={message.snippet?.trim() || ""}
-            userEmail={props.userEmail}
-          />
-          <div className="ml-4">
-            <Button
-              color="white"
-              loading={checking}
-              onClick={async () => {
-                setChecking(true);
+        <div
+          className={cn("grid gap-4", {
+            "grid-cols-2": !!testResult,
+          })}
+        >
+          <div className="flex items-center justify-between">
+            <TestRulesMessage
+              from={message.headers.from}
+              subject={message.headers.subject}
+              snippet={message.snippet?.trim() || ""}
+              userEmail={userEmail}
+            />
+            <div className="ml-4">
+              <Button
+                variant="outline"
+                loading={checking}
+                onClick={async () => {
+                  setChecking(true);
 
-                const result = await testAiAction({
-                  messageId: message.id,
-                  threadId: message.threadId,
-                });
-                if (isActionError(result)) {
-                  toastError({
-                    title: "There was an error testing the email",
-                    description: result.error,
+                  const result = await testAiAction({
+                    messageId: message.id,
+                    threadId: message.threadId,
                   });
-                } else {
-                  setTestResult(result);
-                }
-                setChecking(false);
-              }}
-            >
-              <SparklesIcon className="mr-2 h-4 w-4" />
-              Test
-            </Button>
+                  if (isActionError(result)) {
+                    toastError({
+                      title: "There was an error testing the email",
+                      description: result.error,
+                    });
+                  } else {
+                    setTestResult(result);
+                  }
+                  setChecking(false);
+                }}
+              >
+                <SparklesIcon className="mr-2 h-4 w-4" />
+                Test
+              </Button>
+            </div>
           </div>
+          {!!testResult && (
+            <TestResultDisplay result={testResult} message={message} />
+          )}
         </div>
-        {!!testResult && (
-          <div className="mt-4">
-            <TestResultDisplay result={testResult} />
-          </div>
-        )}
       </TableCell>
     </TableRow>
   );
 }
 
-function TestResultDisplay({ result }: { result: TestResult }) {
+function TestResultDisplay({
+  result,
+  message,
+}: {
+  result: TestResult;
+  message: Message | null;
+}) {
   if (!result) return null;
 
   if (!result.rule) {
@@ -238,7 +251,7 @@ function TestResultDisplay({ result }: { result: TestResult }) {
       <Alert variant="destructive">
         <div className="flex items-center justify-between">
           <AlertTitle>No rule found</AlertTitle>
-          <ReportMistake result={null} />
+          {!!message && <ReportMistake result={null} message={message} />}
         </div>
         <AlertDescription>
           <div className="space-y-2">
@@ -284,7 +297,7 @@ function TestResultDisplay({ result }: { result: TestResult }) {
         <CheckCircle2Icon className="h-4 w-4" />
         <div className="flex items-center justify-between">
           <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
-          <ReportMistake result={result} />
+          {!!message && <ReportMistake result={result} message={message} />}
         </div>
         <AlertDescription>
           <div className="mt-1.5 space-y-4">

@@ -15,35 +15,56 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-// import { reportAiMistakeAction } from "@/utils/actions/ai-rule";
+import { reportAiMistakeAction } from "@/utils/actions/ai-rule";
+import type { MessagesResponse } from "@/app/api/google/messages/route";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  reportAiMistakeBody,
+  type ReportAiMistakeBody,
+} from "@/utils/actions/validation";
 
-type ReportMistakeInputs = {
-  ruleId: string;
-  content: string;
-  explanation: string;
-};
-
-const reportAiMistakeAction = async (options: ReportMistakeInputs) => {
-  return { success: true };
-};
-
-export function ReportMistake({ result }: { result: TestResult | null }) {
+export function ReportMistake({
+  message,
+  result,
+}: {
+  message: MessagesResponse["messages"][number];
+  result: TestResult | null;
+}) {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
-  } = useForm<ReportMistakeInputs>();
+  } = useForm<ReportAiMistakeBody>({
+    resolver: zodResolver(reportAiMistakeBody),
+    defaultValues: {
+      ruleId: result?.rule?.id,
+      email: {
+        from: message.headers.from,
+        subject: message.headers.subject,
+        snippet: message.snippet,
+        textHtml: message.textHtml || null,
+        textPlain: message.textPlain || null,
+      },
+    },
+  });
 
-  const reportMistake: SubmitHandler<ReportMistakeInputs> = useCallback(
+  // if (Object.keys(errors).length > 0) {
+  //   console.error("Errors:", errors);
+  // }
+
+  const reportMistake: SubmitHandler<ReportAiMistakeBody> = useCallback(
     async (data) => {
-      if (!result) return;
+      // if (!result) return;
 
-      const response = await reportAiMistakeAction({
-        ruleId: result.rule!.id,
-        content: result.reason || "",
-        explanation: data.explanation,
-      });
+      if (!data?.ruleId) {
+        alert(
+          "No rule found. Can't report mistake. Will be implemented in the future.",
+        );
+        return;
+      }
+
+      const response = await reportAiMistakeAction(data);
 
       if (isActionError(response)) {
         toastError({
@@ -52,18 +73,18 @@ export function ReportMistake({ result }: { result: TestResult | null }) {
         });
       } else {
         toastSuccess({
-          description: "Thank you for reporting this mistake",
+          description: `This is the updated rule: ${response.fixedInstructions}`,
         });
         reset();
       }
     },
-    [result, reset],
+    [reset],
   );
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="destructive" size="sm">
+        <Button variant="outline" size="sm" className="text-slate-900">
           Mark as Error
         </Button>
       </DialogTrigger>
@@ -84,7 +105,7 @@ export function ReportMistake({ result }: { result: TestResult | null }) {
             name="explanation"
             label="Explanation"
             placeholder="What was incorrect about this response?"
-            registerProps={register("explanation", { required: true })}
+            registerProps={register("explanation")}
             error={errors.explanation}
           />
           <Button type="submit" loading={isSubmitting}>
