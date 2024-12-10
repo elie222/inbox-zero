@@ -283,10 +283,12 @@ function TestResultDisplay({
           )
           .map(([key, value]) => (
             <div key={key} className="flex text-sm text-gray-800">
-              <span className="min-w-20 font-medium text-gray-600">
+              <span className="min-w-16 font-medium text-gray-600">
                 {capitalCase(key)}:
               </span>
-              <span className="ml-2 flex-1">{value}</span>
+              <span className="ml-2 max-h-40 flex-1 overflow-y-auto">
+                {value}
+              </span>
             </div>
           ))}
       </div>

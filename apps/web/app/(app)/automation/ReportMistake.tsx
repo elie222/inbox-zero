@@ -101,7 +101,7 @@ export function ReportMistake({
           <Input
             type="text"
             autosizeTextarea
-            rows={3}
+            rows={2}
             name="explanation"
             label="Explanation"
             placeholder="Optional: What was incorrect about this response?"
