@@ -92,6 +92,25 @@ export const rulesExamplesBody = z.object({
 });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
+export const testAiBody = z.object({
+  messageId: z.string(),
+  threadId: z.string(),
+});
+export type TestAiBody = z.infer<typeof testAiBody>;
+
+export const reportAiMistakeBody = z.object({
+  email: z.object({
+    from: z.string(),
+    subject: z.string(),
+    snippet: z.string(),
+    textHtml: z.string().nullish(),
+    textPlain: z.string().nullish(),
+  }),
+  ruleId: z.string().nullish(),
+  explanation: z.string().nullish(),
+});
+export type ReportAiMistakeBody = z.infer<typeof reportAiMistakeBody>;
+
 // categories
 export const createCategoryBody = z.object({
   id: z.string().nullish(),

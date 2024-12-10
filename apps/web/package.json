@@ -116,6 +116,7 @@
     "sanity": "^3.62.3",
     "server-only": "^0.0.1",
     "sonner": "^1.5.0",
+    "strip-indent": "^4.0.0",
     "styled-components": "^6.1.13",
     "swr": "2.2.5",
     "tailwind-merge": "^2.5.4",

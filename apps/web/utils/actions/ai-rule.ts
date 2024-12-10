@@ -29,8 +29,12 @@ import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { isActionError } from "@/utils/error";
 import {
+  reportAiMistakeBody,
+  type ReportAiMistakeBody,
   saveRulesPromptBody,
   type SaveRulesPromptBody,
+  testAiBody,
+  type TestAiBody,
 } from "@/utils/actions/validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
@@ -40,6 +44,7 @@ import { getLabelById, getLabels, labelVisibility } from "@/utils/gmail/label";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
+import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -104,9 +109,14 @@ export const runRulesAction = withActionInstrumentation(
 
 export const testAiAction = withActionInstrumentation(
   "testAi",
-  async ({ messageId, threadId }: { messageId: string; threadId: string }) => {
+  async (unsafeBody: TestAiBody) => {
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
+
+    const { success, data, error } = testAiBody.safeParse(unsafeBody);
+    if (!success) return { error: error.message };
+    const { messageId, threadId } = data;
+
     const { gmail, user: u } = sessionResult;
 
     const user = await prisma.user.findUnique({
@@ -860,5 +870,58 @@ export const setRuleEnabledAction = withActionInstrumentation(
       where: { id: ruleId, userId: session.user.id },
       data: { enabled },
     });
+  },
+);
+
+export const reportAiMistakeAction = withActionInstrumentation(
+  "reportAiMistake",
+  async (unsafeBody: ReportAiMistakeBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { success, data, error } = reportAiMistakeBody.safeParse(unsafeBody);
+    if (!success) return { error: error.message };
+    const { ruleId, email, explanation } = data;
+
+    if (!ruleId) return { error: "Rule ID is required" };
+
+    const rule = await prisma.rule.findUnique({
+      where: { id: ruleId, userId: session.user.id },
+    });
+    // TODO: how should we handle this?
+    if (!rule?.instructions) return { error: "No instructions for rule" };
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        email: true,
+        about: true,
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+      },
+    });
+    if (!user) return { error: "User not found" };
+
+    const content = emailToContent({
+      textHtml: email.textHtml || null,
+      textPlain: email.textPlain || null,
+      snippet: email.snippet,
+    });
+
+    const result = await aiRuleFix({
+      user,
+      rule,
+      email: {
+        ...email,
+        content,
+      },
+      explanation: explanation?.trim() || undefined,
+    });
+
+    if (isActionError(result)) return { error: result.error };
+    if (!result) return { error: "Error fixing rule" };
+
+    return { fixedInstructions: result.fixedInstructions };
   },
 );
