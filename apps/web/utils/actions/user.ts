@@ -14,7 +14,7 @@ import { captureException } from "@/utils/error";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 
-const saveAboutBody = z.object({ about: z.string() });
+const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export const saveAboutAction = withActionInstrumentation(
