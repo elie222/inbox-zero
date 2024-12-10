@@ -869,7 +869,6 @@ export const setRuleEnabledAction = withActionInstrumentation(
 export const reportAiMistakeAction = withActionInstrumentation(
   "reportAiMistake",
   async (unsafeBody: ReportAiMistakeBody) => {
-    console.log("🚀 ~ unsafe:", unsafeBody);
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
@@ -910,6 +909,7 @@ export const reportAiMistakeAction = withActionInstrumentation(
         ...email,
         content,
       },
+      explanation: explanation?.trim() || undefined,
     });
 
     if (isActionError(result)) return { error: result.error };

@@ -20,10 +20,12 @@ export async function aiRuleFix({
   user,
   rule,
   email,
+  explanation,
 }: {
   user: Pick<User, "email" | "about"> & UserAIFields;
   rule: Pick<Rule, "instructions">;
   email: EmailForLLM;
+  explanation?: string;
 }) {
   const system = `You are an AI assistant that helps fix and improve email rules.
 
@@ -49,12 +51,21 @@ Match cold emails from recruiters about job opportunities, but exclude automated
 </example_response>`;
 
   const prompt = `Here is the rule that needs to be fixed:
+<current_rule>
 ${rule.instructions}
+</current_rule>
 
-Here is the email content to test against:
+Here is the email it matched against but shouldn't have:
 ${stringifyEmail(email, 500)}
 
-Please provide the fixed rule that correctly handles this email.`;
+${
+  explanation
+    ? `What was wrong:
+<explanation>${explanation}</explanation>`
+    : ""
+}
+
+Please provide the fixed rule.`;
 
   logger.trace({ system, prompt });
 
