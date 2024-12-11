@@ -97,10 +97,7 @@ export function ReportMistake({
               correctRuleId={correctRuleId}
             />
             <Separator />
-            <Button variant="outline" onClick={() => setCorrectRuleId(null)}>
-              <ArrowLeftIcon className="mr-2 size-4" />
-              Back
-            </Button>
+
             <Button
               loading={checking}
               onClick={async () => {
@@ -125,7 +122,17 @@ export function ReportMistake({
               Rerun Test
             </Button>
 
-            {testResult && <TestResultDisplay result={testResult} />}
+            {testResult && (
+              <div className="flex items-center gap-2">
+                <SectionDescription>Test Result:</SectionDescription>
+                <TestResultDisplay result={testResult} />
+              </div>
+            )}
+
+            <Button variant="outline" onClick={() => setCorrectRuleId(null)}>
+              <ArrowLeftIcon className="mr-2 size-4" />
+              Back
+            </Button>
           </>
         ) : (
           <div>
