@@ -21,18 +21,20 @@ import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   reportAiMistakeBody,
-  updateRuleBody,
+  updateRuleInstructionsBody,
+  type UpdateRuleInstructionsBody,
   type ReportAiMistakeBody,
-  type UpdateRuleBody,
 } from "@/utils/actions/validation";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Input } from "@/components/Input";
 import type { Rule } from "@prisma/client";
-import { updateRuleAction } from "@/utils/actions/rule";
+import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
-import { SectionDescription } from "@/components/Typography";
+import { SectionDescription, TypographyP } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
+
+const NONE_RULE_ID = "__NONE__";
 
 export function ReportMistake({
   message,
@@ -44,7 +46,6 @@ export function ReportMistake({
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
     "/api/user/rules",
   );
-  const NONE_RULE_ID = "__NONE__";
   const [correctRuleId, setCorrectRuleId] = useState<string | null>(null);
   const incorrectRule = result?.rule;
   const correctRule = useMemo(
@@ -86,7 +87,11 @@ export function ReportMistake({
               </>
             )}
             <SectionDescription>Or fix with AI:</SectionDescription>
-            <AIFixForm message={message} result={result} />
+            <AIFixForm
+              message={message}
+              result={result}
+              correctRuleId={correctRuleId}
+            />
             <Separator />
             <Button variant="outline" onClick={() => setCorrectRuleId(null)}>
               Back
@@ -135,8 +140,8 @@ function RuleForm({ rule }: { rule: Pick<Rule, "id" | "instructions"> }) {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<UpdateRuleBody>({
-    resolver: zodResolver(updateRuleBody),
+  } = useForm<UpdateRuleInstructionsBody>({
+    resolver: zodResolver(updateRuleInstructionsBody),
     defaultValues: {
       id: rule.id,
       instructions: rule.instructions,
@@ -147,9 +152,9 @@ function RuleForm({ rule }: { rule: Pick<Rule, "id" | "instructions"> }) {
   //   console.error("Errors:", errors);
   // }
 
-  const updateRule: SubmitHandler<UpdateRuleBody> = useCallback(
+  const updateRule: SubmitHandler<UpdateRuleInstructionsBody> = useCallback(
     async (data) => {
-      const response = await updateRuleAction(data);
+      const response = await updateRuleInstructionsAction(data);
 
       if (isActionError(response)) {
         toastError({
@@ -185,20 +190,26 @@ function RuleForm({ rule }: { rule: Pick<Rule, "id" | "instructions"> }) {
 function AIFixForm({
   message,
   result,
+  correctRuleId,
 }: {
   message: MessagesResponse["messages"][number];
   result: TestResult | null;
+  correctRuleId: string | null;
 }) {
+  const [fixedInstructions, setFixedInstructions] = useState<{
+    ruleId: string;
+    fixedInstructions: string;
+  }>();
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    reset,
   } = useForm<ReportAiMistakeBody>({
     resolver: zodResolver(reportAiMistakeBody),
     defaultValues: {
-      correctRuleId: result?.rule?.id,
       incorrectRuleId: result?.rule?.id,
+      correctRuleId: correctRuleId === NONE_RULE_ID ? undefined : correctRuleId,
       email: {
         from: message.headers.from,
         subject: message.headers.subject,
@@ -209,21 +220,12 @@ function AIFixForm({
     },
   });
 
-  // if (Object.keys(errors).length > 0) {
-  //   console.error("Errors:", errors);
-  // }
+  if (Object.keys(errors).length > 0) {
+    console.error("Errors:", errors);
+  }
 
   const reportMistake: SubmitHandler<ReportAiMistakeBody> = useCallback(
     async (data) => {
-      // if (!result) return;
-
-      if (!data?.correctRuleId) {
-        alert(
-          "No rule found. Can't report mistake. Will be implemented in the future.",
-        );
-        return;
-      }
-
       const response = await reportAiMistakeAction(data);
 
       if (isActionError(response)) {
@@ -235,27 +237,81 @@ function AIFixForm({
         toastSuccess({
           description: `This is the updated rule: ${response.fixedInstructions}`,
         });
-        reset();
+        // TODO: when is ruleId undefined?
+        if (response.ruleId) {
+          setFixedInstructions({
+            ruleId: response.ruleId,
+            fixedInstructions: response.fixedInstructions,
+          });
+        }
       }
     },
-    [reset],
+    [],
   );
 
   return (
-    <form onSubmit={handleSubmit(reportMistake)} className="space-y-4">
-      <Input
-        type="text"
-        autosizeTextarea
-        rows={2}
-        name="explanation"
-        label="Explanation"
-        placeholder="Optional: What was incorrect about this response?"
-        registerProps={register("explanation")}
-        error={errors.explanation}
-      />
-      <Button type="submit" loading={isSubmitting}>
-        Fix with AI
+    <div>
+      <form onSubmit={handleSubmit(reportMistake)} className="space-y-4">
+        <Input
+          type="text"
+          autosizeTextarea
+          rows={2}
+          name="explanation"
+          label="Explanation"
+          placeholder="Optional: What was incorrect about this response?"
+          registerProps={register("explanation")}
+          error={errors.explanation}
+        />
+        <Button type="submit" loading={isSubmitting}>
+          Fix with AI
+        </Button>
+      </form>
+
+      {fixedInstructions && (
+        <SuggestedFix
+          ruleId={fixedInstructions.ruleId}
+          fixedInstructions={fixedInstructions.fixedInstructions}
+        />
+      )}
+    </div>
+  );
+}
+
+function SuggestedFix({
+  ruleId,
+  fixedInstructions,
+}: {
+  ruleId: string;
+  fixedInstructions: string;
+}) {
+  const [isSaving, setIsSaving] = useState(false);
+
+  return (
+    <div className="mt-4">
+      <p className="text-sm">Suggested fix:</p>
+      <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm">
+        {fixedInstructions}
+      </div>
+      <Button
+        className="mt-4"
+        loading={isSaving}
+        onClick={async () => {
+          setIsSaving(true);
+          const res = await updateRuleInstructionsAction({
+            id: ruleId,
+            instructions: fixedInstructions,
+          });
+
+          if (isActionError(res)) {
+            toastError({ description: res.error });
+          } else {
+            toastSuccess({ description: "Rule updated!" });
+          }
+          setIsSaving(false);
+        }}
+      >
+        Save
       </Button>
-    </form>
+    </div>
   );
 }

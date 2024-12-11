@@ -909,11 +909,11 @@ export const reportAiMistakeAction = withActionInstrumentation(
       }),
     ]);
 
-    if (correctRuleId && !correctRule?.instructions)
-      return { error: "No instructions for correct rule" };
+    if (correctRuleId && !correctRule)
+      return { error: "Correct rule not found" };
 
-    if (incorrectRuleId && !incorrectRule?.instructions)
-      return { error: "No instructions for incorrect rule" };
+    if (incorrectRuleId && !incorrectRule)
+      return { error: "Incorrect rule not found" };
 
     if (!user) return { error: "User not found" };
 
