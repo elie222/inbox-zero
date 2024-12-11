@@ -239,7 +239,13 @@ function TestRulesContentRow({
   );
 }
 
-export function TestResultDisplay({ result }: { result: TestResult }) {
+export function TestResultDisplay({
+  result,
+  prefix,
+}: {
+  result: TestResult;
+  prefix?: string;
+}) {
   if (!result) return null;
 
   if (!result.rule) {
@@ -264,7 +270,7 @@ export function TestResultDisplay({ result }: { result: TestResult }) {
           </Alert>
         }
       >
-        <Badge color="red">No rule found</Badge>
+        <Badge color="red">{prefix ? prefix : ""}No rule found</Badge>
       </HoverCard>
     );
   }
@@ -328,6 +334,7 @@ export function TestResultDisplay({ result }: { result: TestResult }) {
       >
         <Badge color="green">
           <CircleCheckIcon className="mr-2 size-4" />
+          {prefix ? prefix : ""}
           {result.rule.name}
         </Badge>
       </HoverCard>

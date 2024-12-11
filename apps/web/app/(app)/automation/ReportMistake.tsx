@@ -161,13 +161,15 @@ function ImproveRules({
 
   return (
     <>
-      {incorrectRule && (
-        <>
-          <Badge color="red">Matched: {incorrectRule.name}</Badge>
-          <RuleForm rule={incorrectRule} />
-          <Separator />
-        </>
-      )}
+      <>
+        {result && <TestResultDisplay result={result} prefix="Matched: " />}
+        {incorrectRule && (
+          <>
+            <RuleForm rule={incorrectRule} />
+            <Separator />
+          </>
+        )}
+      </>
       {correctRule && (
         <>
           <Badge color="green">Expected: {correctRule.name}</Badge>
