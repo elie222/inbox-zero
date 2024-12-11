@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { ArrowLeftIcon, HammerIcon, SparklesIcon } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowLeftIcon,
+  ExternalLinkIcon,
+  HammerIcon,
+  SparklesIcon,
+} from "lucide-react";
 import useSWR from "swr";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -34,6 +40,7 @@ import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
 import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
+import type { ThreadCheckResponse } from "@/app/api/google/threads/[id]/check/route";
 
 const NONE_RULE_ID = "__NONE__";
 
@@ -72,14 +79,26 @@ export function ReportMistake({
         </DialogHeader>
 
         {correctRuleId ? (
-          <ImproveRules
-            incorrectRule={incorrectRule}
-            correctRule={correctRule}
-            message={message}
-            result={result}
-            correctRuleId={correctRuleId}
-            setCorrectRuleId={setCorrectRuleId}
-          />
+          correctRule?.runOnThreads ? (
+            <ImproveRules
+              incorrectRule={incorrectRule}
+              correctRule={correctRule}
+              message={message}
+              result={result}
+              correctRuleId={correctRuleId}
+              setCorrectRuleId={setCorrectRuleId}
+            />
+          ) : (
+            <ImproveRulesOrShowThreadMessage
+              incorrectRule={incorrectRule}
+              correctRule={correctRule}
+              message={message}
+              result={result}
+              correctRuleId={correctRuleId}
+              setCorrectRuleId={setCorrectRuleId}
+              threadId={message.threadId}
+            />
+          )
         ) : (
           <RuleMismatch
             result={result}
@@ -87,6 +106,7 @@ export function ReportMistake({
             data={data}
             isLoading={isLoading}
             error={error}
+            message={message}
           />
         )}
       </DialogContent>
@@ -100,12 +120,14 @@ function RuleMismatch({
   data,
   isLoading,
   error,
+  message,
 }: {
   result: TestResult | null;
   setCorrectRuleId: (ruleId: string | null) => void;
   data?: RulesResponse;
   isLoading: boolean;
   error?: { error: string };
+  message: MessagesResponse["messages"][number];
 }) {
   return (
     <div>
@@ -114,7 +136,6 @@ function RuleMismatch({
         {result ? (
           <TestResultDisplay result={result} />
         ) : (
-          // shouldn't happen
           <p>No rule matched</p>
         )}
       </div>
@@ -123,7 +144,6 @@ function RuleMismatch({
       </div>
       <LoadingContent loading={isLoading} error={error}>
         <div className="mt-1 flex flex-col gap-1">
-          {/* Filter out the rule that matched */}
           {[{ id: NONE_RULE_ID, name: "None" }, ...(data || [])]
             .filter((rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID))
             .map((rule) => (
@@ -141,6 +161,64 @@ function RuleMismatch({
   );
 }
 
+interface ImproveRulesProps {
+  incorrectRule?: Rule | null;
+  correctRule?: Rule | null;
+  message: MessagesResponse["messages"][number];
+  result: TestResult | null;
+  correctRuleId: string | null;
+  setCorrectRuleId: (ruleId: string | null) => void;
+}
+
+/**
+ * If the rule is set to only run on threads, then check if this message is part of a thread.
+ * If it is, then that's the reason we had a mismatch, and not because of the AI instructions.
+ */
+function ImproveRulesOrShowThreadMessage({
+  threadId,
+  ...props
+}: ImproveRulesProps & { threadId: string }) {
+  const { data, isLoading, error } = useSWR<
+    ThreadCheckResponse,
+    { error: string }
+  >(`/api/google/threads/${threadId}/check`);
+
+  if (data?.isThread) {
+    return (
+      <div>
+        <SectionDescription>
+          This rule didn't match because the message is part of a thread, but
+          this rule is set to not run on threads.
+        </SectionDescription>
+        <div className="mt-2 flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => props.setCorrectRuleId(null)}
+          >
+            <ArrowLeftIcon className="mr-2 size-4" />
+            Back
+          </Button>
+          <Button variant="outline" asChild>
+            <Link
+              href={`/automation/rule/${props.correctRuleId}`}
+              target="_blank"
+            >
+              <ExternalLinkIcon className="mr-2 size-4" />
+              Edit Rule
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      <ImproveRules {...props} />
+    </LoadingContent>
+  );
+}
+
 function ImproveRules({
   incorrectRule,
   correctRule,
@@ -148,14 +226,7 @@ function ImproveRules({
   result,
   correctRuleId,
   setCorrectRuleId,
-}: {
-  incorrectRule?: Rule | null;
-  correctRule?: Rule | null;
-  message: MessagesResponse["messages"][number];
-  result: TestResult | null;
-  correctRuleId: string | null;
-  setCorrectRuleId: (ruleId: string | null) => void;
-}) {
+}: ImproveRulesProps) {
   const [checking, setChecking] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>();
 
