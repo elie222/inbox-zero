@@ -239,7 +239,7 @@ function TestRulesContentRow({
   );
 }
 
-function TestResultDisplay({ result }: { result: TestResult }) {
+export function TestResultDisplay({ result }: { result: TestResult }) {
   if (!result) return null;
 
   if (!result.rule) {

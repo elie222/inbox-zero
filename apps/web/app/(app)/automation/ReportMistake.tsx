@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { HammerIcon } from "lucide-react";
+import { ArrowLeftIcon, HammerIcon, SparklesIcon } from "lucide-react";
 import useSWR from "swr";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { reportAiMistakeAction } from "@/utils/actions/ai-rule";
+import { reportAiMistakeAction, testAiAction } from "@/utils/actions/ai-rule";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -33,6 +33,7 @@ import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
 import { SectionDescription, TypographyP } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
+import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
 
 const NONE_RULE_ID = "__NONE__";
 
@@ -52,6 +53,9 @@ export function ReportMistake({
     () => data?.find((rule) => rule.id === correctRuleId),
     [data, correctRuleId],
   );
+
+  const [checking, setChecking] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult>();
 
   return (
     <Dialog>
@@ -94,8 +98,34 @@ export function ReportMistake({
             />
             <Separator />
             <Button variant="outline" onClick={() => setCorrectRuleId(null)}>
+              <ArrowLeftIcon className="mr-2 size-4" />
               Back
             </Button>
+            <Button
+              loading={checking}
+              onClick={async () => {
+                setChecking(true);
+
+                const result = await testAiAction({
+                  messageId: message.id,
+                  threadId: message.threadId,
+                });
+                if (isActionError(result)) {
+                  toastError({
+                    title: "There was an error testing the email",
+                    description: result.error,
+                  });
+                } else {
+                  setTestResult(result);
+                }
+                setChecking(false);
+              }}
+            >
+              <SparklesIcon className="mr-2 size-4" />
+              Rerun Test
+            </Button>
+
+            {testResult && <TestResultDisplay result={testResult} />}
           </>
         ) : (
           <div>
