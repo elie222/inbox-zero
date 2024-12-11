@@ -31,7 +31,7 @@ import { Input } from "@/components/Input";
 import type { Rule } from "@prisma/client";
 import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
-import { SectionDescription, TypographyP } from "@/components/Typography";
+import { SectionDescription } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
 import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
 
@@ -54,9 +54,6 @@ export function ReportMistake({
     [data, correctRuleId],
   );
 
-  const [checking, setChecking] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult>();
-
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -75,99 +72,153 @@ export function ReportMistake({
         </DialogHeader>
 
         {correctRuleId ? (
-          <>
-            {incorrectRule && (
-              <>
-                <Badge color="red">Matched: {incorrectRule.name}</Badge>
-                <RuleForm rule={incorrectRule} />
-                <Separator />
-              </>
-            )}
-            {correctRule && (
-              <>
-                <Badge color="green">Expected: {correctRule.name}</Badge>
-                <RuleForm rule={correctRule} />
-                <Separator />
-              </>
-            )}
-            <SectionDescription>Or fix with AI:</SectionDescription>
-            <AIFixForm
-              message={message}
-              result={result}
-              correctRuleId={correctRuleId}
-            />
-            <Separator />
-
-            <Button
-              loading={checking}
-              onClick={async () => {
-                setChecking(true);
-
-                const result = await testAiAction({
-                  messageId: message.id,
-                  threadId: message.threadId,
-                });
-                if (isActionError(result)) {
-                  toastError({
-                    title: "There was an error testing the email",
-                    description: result.error,
-                  });
-                } else {
-                  setTestResult(result);
-                }
-                setChecking(false);
-              }}
-            >
-              <SparklesIcon className="mr-2 size-4" />
-              Rerun Test
-            </Button>
-
-            {testResult && (
-              <div className="flex items-center gap-2">
-                <SectionDescription>Test Result:</SectionDescription>
-                <TestResultDisplay result={testResult} />
-              </div>
-            )}
-
-            <Button variant="outline" onClick={() => setCorrectRuleId(null)}>
-              <ArrowLeftIcon className="mr-2 size-4" />
-              Back
-            </Button>
-          </>
+          <ImproveRules
+            incorrectRule={incorrectRule}
+            correctRule={correctRule}
+            message={message}
+            result={result}
+            correctRuleId={correctRuleId}
+            setCorrectRuleId={setCorrectRuleId}
+          />
         ) : (
-          <div>
-            <Label name="matchedRule" label="Matched rule:" />
-            <div className="mt-1">
-              <TestResultDisplay result={result!} />
-            </div>
-            <div className="mt-4">
-              <Label
-                name="ruleId"
-                label="Which rule did you expect it to match?"
-              />
-            </div>
-            <LoadingContent loading={isLoading} error={error}>
-              <div className="mt-1 flex flex-col gap-1">
-                {/* Filter out the rule that matched */}
-                {[{ id: NONE_RULE_ID, name: "None" }, ...(data || [])]
-                  .filter(
-                    (rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID),
-                  )
-                  .map((rule) => (
-                    <Button
-                      key={rule.id}
-                      variant="outline"
-                      onClick={() => setCorrectRuleId(rule.id)}
-                    >
-                      {rule.name}
-                    </Button>
-                  ))}
-              </div>
-            </LoadingContent>
-          </div>
+          <RuleMismatch
+            result={result}
+            setCorrectRuleId={setCorrectRuleId}
+            data={data}
+            isLoading={isLoading}
+            error={error}
+          />
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function RuleMismatch({
+  result,
+  setCorrectRuleId,
+  data,
+  isLoading,
+  error,
+}: {
+  result: TestResult | null;
+  setCorrectRuleId: (ruleId: string | null) => void;
+  data?: RulesResponse;
+  isLoading: boolean;
+  error?: { error: string };
+}) {
+  return (
+    <div>
+      <Label name="matchedRule" label="Matched rule:" />
+      <div className="mt-1">
+        {result ? (
+          <TestResultDisplay result={result} />
+        ) : (
+          // shouldn't happen
+          <p>No rule matched</p>
+        )}
+      </div>
+      <div className="mt-4">
+        <Label name="ruleId" label="Which rule did you expect it to match?" />
+      </div>
+      <LoadingContent loading={isLoading} error={error}>
+        <div className="mt-1 flex flex-col gap-1">
+          {/* Filter out the rule that matched */}
+          {[{ id: NONE_RULE_ID, name: "None" }, ...(data || [])]
+            .filter((rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID))
+            .map((rule) => (
+              <Button
+                key={rule.id}
+                variant="outline"
+                onClick={() => setCorrectRuleId(rule.id)}
+              >
+                {rule.name}
+              </Button>
+            ))}
+        </div>
+      </LoadingContent>
+    </div>
+  );
+}
+
+function ImproveRules({
+  incorrectRule,
+  correctRule,
+  message,
+  result,
+  correctRuleId,
+  setCorrectRuleId,
+}: {
+  incorrectRule?: Rule | null;
+  correctRule?: Rule | null;
+  message: MessagesResponse["messages"][number];
+  result: TestResult | null;
+  correctRuleId: string | null;
+  setCorrectRuleId: (ruleId: string | null) => void;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult>();
+
+  return (
+    <>
+      {incorrectRule && (
+        <>
+          <Badge color="red">Matched: {incorrectRule.name}</Badge>
+          <RuleForm rule={incorrectRule} />
+          <Separator />
+        </>
+      )}
+      {correctRule && (
+        <>
+          <Badge color="green">Expected: {correctRule.name}</Badge>
+          <RuleForm rule={correctRule} />
+          <Separator />
+        </>
+      )}
+      <SectionDescription>Or fix with AI:</SectionDescription>
+      <AIFixForm
+        message={message}
+        result={result}
+        correctRuleId={correctRuleId}
+      />
+      <Separator />
+
+      <Button
+        loading={checking}
+        onClick={async () => {
+          setChecking(true);
+
+          const result = await testAiAction({
+            messageId: message.id,
+            threadId: message.threadId,
+          });
+          if (isActionError(result)) {
+            toastError({
+              title: "There was an error testing the email",
+              description: result.error,
+            });
+          } else {
+            setTestResult(result);
+          }
+          setChecking(false);
+        }}
+      >
+        <SparklesIcon className="mr-2 size-4" />
+        Rerun Test
+      </Button>
+
+      {testResult && (
+        <div className="flex items-center gap-2">
+          <SectionDescription>Test Result:</SectionDescription>
+          <TestResultDisplay result={testResult} />
+        </div>
+      )}
+
+      <Button variant="outline" onClick={() => setCorrectRuleId(null)}>
+        <ArrowLeftIcon className="mr-2 size-4" />
+        Back
+      </Button>
+    </>
   );
 }
 
