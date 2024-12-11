@@ -137,10 +137,9 @@ export function ReportMistake({
         ) : (
           <div>
             <Label name="matchedRule" label="Matched rule:" />
-            <Badge color="red" className="mt-1">
-              {result?.rule?.name || "No rule matched"}
-            </Badge>
-
+            <div className="mt-1">
+              <TestResultDisplay result={result!} />
+            </div>
             <div className="mt-4">
               <Label
                 name="ruleId"
