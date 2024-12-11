@@ -881,26 +881,40 @@ export const reportAiMistakeAction = withActionInstrumentation(
 
     const { success, data, error } = reportAiMistakeBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
-    const { ruleId, email, explanation } = data;
+    const { correctRuleId, incorrectRuleId, email, explanation } = data;
 
-    if (!ruleId) return { error: "Rule ID is required" };
+    if (!correctRuleId && !incorrectRuleId)
+      return { error: "Either correct or incorrect rule ID is required" };
 
-    const rule = await prisma.rule.findUnique({
-      where: { id: ruleId, userId: session.user.id },
-    });
-    // TODO: how should we handle this?
-    if (!rule?.instructions) return { error: "No instructions for rule" };
+    const [correctRule, incorrectRule, user] = await Promise.all([
+      correctRuleId
+        ? prisma.rule.findUnique({
+            where: { id: correctRuleId, userId: session.user.id },
+          })
+        : null,
+      incorrectRuleId
+        ? prisma.rule.findUnique({
+            where: { id: incorrectRuleId, userId: session.user.id },
+          })
+        : null,
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          email: true,
+          about: true,
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      }),
+    ]);
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        email: true,
-        about: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-      },
-    });
+    if (correctRuleId && !correctRule?.instructions)
+      return { error: "No instructions for correct rule" };
+
+    if (incorrectRuleId && !incorrectRule?.instructions)
+      return { error: "No instructions for incorrect rule" };
+
     if (!user) return { error: "User not found" };
 
     const content = emailToContent({
@@ -911,7 +925,8 @@ export const reportAiMistakeAction = withActionInstrumentation(
 
     const result = await aiRuleFix({
       user,
-      rule,
+      incorrectRule,
+      correctRule,
       email: {
         ...email,
         content,
@@ -922,6 +937,9 @@ export const reportAiMistakeAction = withActionInstrumentation(
     if (isActionError(result)) return { error: result.error };
     if (!result) return { error: "Error fixing rule" };
 
-    return { fixedInstructions: result.fixedInstructions };
+    return {
+      ruleId: result.rule === "matched_rule" ? incorrectRuleId : correctRuleId,
+      fixedInstructions: result.fixedInstructions,
+    };
   },
 );

@@ -6,29 +6,39 @@ import { getMessage } from "@/utils/gmail/message";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { messageQuerySchema } from "@/app/api/google/messages/validation";
+import { isDefined } from "@/utils/types";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
 async function getMessages(query?: string | null) {
   const session = await auth();
-  if (!session?.user) throw new SafeError("Not authenticated");
+  if (!session?.user.email) throw new SafeError("Not authenticated");
 
   const gmail = getGmailClient(session);
 
   const messages = await gmail.users.messages.list({
     userId: "me",
-    maxResults: 10,
-    q: `-from:me ${query || ""}`.trim(),
+    maxResults: 20,
+    q: query?.trim(),
   });
 
-  const fullMessages = await Promise.all(
-    (messages.data.messages || []).map(async (m) => {
-      const message = await getMessage(m.id!, gmail);
-      return parseMessage(message);
-    }),
+  const fullMessages = (
+    await Promise.all(
+      (messages.data.messages || []).map(async (m) => {
+        if (!m.id) return null;
+        const message = await getMessage(m.id, gmail);
+        return parseMessage(message);
+      }),
+    )
+  ).filter(isDefined);
+
+  // filter out messages from the user
+  // NOTE: -from:me doesn't work because it filters out messages from threads where the user responded
+  const incomingMessages = fullMessages.filter(
+    (message) => !message.headers.from.includes(session.user.email!),
   );
 
-  return { messages: fullMessages };
+  return { messages: incomingMessages };
 }
 
 export const GET = withError(async (request: NextRequest) => {

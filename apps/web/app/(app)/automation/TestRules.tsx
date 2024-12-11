@@ -11,6 +11,7 @@ import {
   CheckCircle2Icon,
   SparklesIcon,
   PenSquareIcon,
+  CircleCheckIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -33,7 +34,8 @@ import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
-import { cn } from "@/utils";
+import { HoverCard } from "@/components/HoverCard";
+import { Badge } from "@/components/Badge";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -84,7 +86,7 @@ export function TestRulesContent() {
         <SearchForm onSearch={setSearchQuery} />
         {hasAiRules && (
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => setShowCustomForm((show) => !show)}
           >
             <PenSquareIcon className="mr-2 h-4 w-4" />
@@ -169,7 +171,7 @@ const TestRulesForm = () => {
       </form>
       {testResult && (
         <div className="mt-4">
-          <TestResultDisplay result={testResult} message={null} />
+          <TestResultDisplay result={testResult} />
         </div>
       )}
     </div>
@@ -189,19 +191,22 @@ function TestRulesContentRow({
   return (
     <TableRow>
       <TableCell>
-        <div
-          className={cn("grid gap-4", {
-            "grid-cols-2": !!testResult,
-          })}
-        >
-          <div className="flex items-center justify-between">
-            <TestRulesMessage
-              from={message.headers.from}
-              subject={message.headers.subject}
-              snippet={message.snippet?.trim() || ""}
-              userEmail={userEmail}
-            />
-            <div className="ml-4">
+        <div className="flex items-center justify-between">
+          <TestRulesMessage
+            from={message.headers.from}
+            subject={message.headers.subject}
+            snippet={message.snippet?.trim() || ""}
+            userEmail={userEmail}
+          />
+          <div className="ml-4 flex gap-1">
+            {testResult ? (
+              <>
+                <div className="flex max-w-xs items-center whitespace-nowrap">
+                  <TestResultDisplay result={testResult} />
+                </div>
+                <ReportMistake result={testResult} message={message} />
+              </>
+            ) : (
               <Button
                 variant="outline"
                 loading={checking}
@@ -226,44 +231,41 @@ function TestRulesContentRow({
                 <SparklesIcon className="mr-2 h-4 w-4" />
                 Test
               </Button>
-            </div>
+            )}
           </div>
-          {!!testResult && (
-            <TestResultDisplay result={testResult} message={message} />
-          )}
         </div>
       </TableCell>
     </TableRow>
   );
 }
 
-function TestResultDisplay({
-  result,
-  message,
-}: {
-  result: TestResult;
-  message: Message | null;
-}) {
+function TestResultDisplay({ result }: { result: TestResult }) {
   if (!result) return null;
 
   if (!result.rule) {
     return (
-      <Alert variant="destructive">
-        <div className="flex items-center justify-between">
-          <AlertTitle>No rule found</AlertTitle>
-          {!!message && <ReportMistake result={null} message={message} />}
-        </div>
-        <AlertDescription>
-          <div className="space-y-2">
-            <div>This email does not match any of the rules you have set.</div>
-            {!!result.reason && (
-              <div>
-                <strong>AI reason:</strong> {result.reason}
+      <HoverCard
+        className="w-auto max-w-3xl"
+        content={
+          <Alert variant="destructive" className="bg-white">
+            <AlertTitle>No rule found</AlertTitle>
+            <AlertDescription>
+              <div className="space-y-2">
+                <div>
+                  This email does not match any of the rules you have set.
+                </div>
+                {!!result.reason && (
+                  <div>
+                    <strong>AI reason:</strong> {result.reason}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </AlertDescription>
-      </Alert>
+            </AlertDescription>
+          </Alert>
+        }
+      >
+        <Badge color="red">No rule found</Badge>
+      </HoverCard>
     );
   }
 
@@ -295,33 +297,40 @@ function TestResultDisplay({
     ));
 
     return (
-      <Alert variant="blue">
-        <CheckCircle2Icon className="h-4 w-4" />
-        <div className="flex items-center justify-between">
-          <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
-          {!!message && <ReportMistake result={result} message={message} />}
-        </div>
-        <AlertDescription>
-          <div className="mt-1.5 space-y-4">
-            {result.rule.type === RuleType.AI && (
-              <div className="text-sm">
-                <span className="font-medium">Rule Instructions: </span>
-                {result.rule.instructions.substring(0, MAX_LENGTH)}
-                {result.rule.instructions.length >= MAX_LENGTH && "..."}
+      <HoverCard
+        className="w-auto max-w-5xl"
+        content={
+          <Alert variant="blue" className="bg-white">
+            <CheckCircle2Icon className="h-4 w-4" />
+            <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
+            <AlertDescription>
+              <div className="mt-1.5 space-y-4">
+                {result.rule.type === RuleType.AI && (
+                  <div className="text-sm">
+                    <span className="font-medium">Rule Instructions: </span>
+                    {result.rule.instructions.substring(0, MAX_LENGTH)}
+                    {result.rule.instructions.length >= MAX_LENGTH && "..."}
+                  </div>
+                )}
+                {!!aiGeneratedContent.length && (
+                  <div className="space-y-3">{aiGeneratedContent}</div>
+                )}
+                {!!result.reason && (
+                  <div className="border-l-2 border-blue-200 pl-3 text-sm">
+                    <span className="font-medium">AI Reasoning: </span>
+                    {result.reason}
+                  </div>
+                )}
               </div>
-            )}
-            {!!aiGeneratedContent.length && (
-              <div className="space-y-3">{aiGeneratedContent}</div>
-            )}
-            {!!result.reason && (
-              <div className="border-l-2 border-blue-200 pl-3 text-sm">
-                <span className="font-medium">AI Reasoning: </span>
-                {result.reason}
-              </div>
-            )}
-          </div>
-        </AlertDescription>
-      </Alert>
+            </AlertDescription>
+          </Alert>
+        }
+      >
+        <Badge color="green">
+          <CircleCheckIcon className="mr-2 size-4" />
+          {result.rule.name}
+        </Badge>
+      </HoverCard>
     );
   }
 }

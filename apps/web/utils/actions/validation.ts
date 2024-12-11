@@ -98,17 +98,26 @@ export const testAiBody = z.object({
 });
 export type TestAiBody = z.infer<typeof testAiBody>;
 
-export const reportAiMistakeBody = z.object({
-  email: z.object({
-    from: z.string(),
-    subject: z.string(),
-    snippet: z.string(),
-    textHtml: z.string().nullish(),
-    textPlain: z.string().nullish(),
-  }),
-  ruleId: z.string().nullish(),
-  explanation: z.string().nullish(),
-});
+export const reportAiMistakeBody = z
+  .object({
+    email: z.object({
+      from: z.string(),
+      subject: z.string(),
+      snippet: z.string(),
+      textHtml: z.string().nullish(),
+      textPlain: z.string().nullish(),
+    }),
+    correctRuleId: z.string().nullish(),
+    incorrectRuleId: z.string().nullish(),
+    explanation: z.string().nullish(),
+  })
+  .refine(
+    (data) => data.correctRuleId != null || data.incorrectRuleId != null,
+    {
+      message: "Either correctRuleId or incorrectRuleId must be provided",
+      path: ["correctRuleId"], // This will show the error on the correctRuleId field
+    },
+  );
 export type ReportAiMistakeBody = z.infer<typeof reportAiMistakeBody>;
 
 // categories
