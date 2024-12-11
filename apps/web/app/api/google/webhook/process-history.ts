@@ -14,7 +14,7 @@ import {
   getMessage,
   hasPreviousEmailsFromSenderOrDomain,
 } from "@/utils/gmail/message";
-import { getThread } from "@/utils/gmail/thread";
+import { getThread, hasMultipleMessages } from "@/utils/gmail/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting, type User } from "@prisma/client";
@@ -352,7 +352,7 @@ async function processHistoryItem(
       return;
     }
 
-    const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
+    const isThread = hasMultipleMessages(gmailThread);
 
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       user.coldEmailBlocker,

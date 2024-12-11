@@ -17,7 +17,7 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { getThread } from "@/utils/gmail/thread";
+import { getThread, hasMultipleMessages } from "@/utils/gmail/thread";
 import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
@@ -86,16 +86,16 @@ export const runRulesAction = withActionInstrumentation(
       }),
     ]);
 
-    // fetch after getting the message to avoid rate limiting
-    const gmailThread = await getThread(email.threadId, gmail);
-
     if (hasExistingRule && !force) {
       logger.info("Skipping. Rule already exists.");
       return;
     }
 
+    // fetch after getting the message to avoid rate limiting
+    const gmailThread = await getThread(email.threadId, gmail);
+
     const message = parseMessage(gmailMessage);
-    const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
+    const isThread = hasMultipleMessages(gmailThread);
 
     await runRulesOnMessage({
       gmail,
@@ -142,7 +142,7 @@ export const testAiAction = withActionInstrumentation(
     ]);
 
     const message = parseMessage(gmailMessage);
-    const isThread = !!gmailThread?.messages && gmailThread.messages.length > 1;
+    const isThread = hasMultipleMessages(gmailThread);
 
     const result = await testRulesOnMessage({
       gmail,
