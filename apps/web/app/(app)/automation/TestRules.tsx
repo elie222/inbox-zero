@@ -254,7 +254,11 @@ function TestRulesContentRow({
   onTest: () => void;
 }) {
   return (
-    <TableRow>
+    <TableRow
+      className={
+        isTesting ? "animate-pulse bg-blue-50 dark:bg-blue-950/20" : undefined
+      }
+    >
       <TableCell>
         <div className="flex items-center justify-between">
           <TestRulesMessage
