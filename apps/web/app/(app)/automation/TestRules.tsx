@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
@@ -12,6 +12,8 @@ import {
   SparklesIcon,
   PenSquareIcon,
   CircleCheckIcon,
+  PlayIcon,
+  PauseIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -80,10 +82,67 @@ export function TestRulesContent() {
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
   const hasAiRules = rules?.some((rule) => rule.type === RuleType.AI);
 
+  const isTestingAllRef = useRef(false);
+  const [isTestingAll, setIsTestingAll] = useState(false);
+  const [isTesting, setIsTesting] = useState<Record<string, boolean>>({});
+  const [testResult, setTestResult] = useState<Record<string, TestResult>>({});
+
+  const onTest = useCallback(async (message: Message) => {
+    setIsTesting((prev) => ({ ...prev, [message.id]: true }));
+
+    const result = await testAiAction({
+      messageId: message.id,
+      threadId: message.threadId,
+    });
+    if (isActionError(result)) {
+      toastError({
+        title: "There was an error testing the email",
+        description: result.error,
+      });
+    } else {
+      setTestResult((prev) => ({ ...prev, [message.id]: result }));
+    }
+    setIsTesting((prev) => ({ ...prev, [message.id]: false }));
+  }, []);
+
+  const handleTestAll = async () => {
+    handleStart();
+
+    for (const message of data?.messages || []) {
+      if (!isTestingAllRef.current) break;
+      await onTest(message);
+    }
+
+    handleStop();
+  };
+
+  const handleStart = () => {
+    setIsTestingAll(true);
+    isTestingAllRef.current = true;
+  };
+
+  const handleStop = () => {
+    isTestingAllRef.current = false;
+    setIsTestingAll(false);
+  };
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-2 px-6">
-        <SearchForm onSearch={setSearchQuery} />
+        <div className="flex items-center gap-2">
+          {isTestingAll ? (
+            <Button onClick={handleStop} variant="outline">
+              <PauseIcon className="mr-2 h-4 w-4" />
+              Stop
+            </Button>
+          ) : (
+            <Button onClick={handleTestAll} variant="outline">
+              <PlayIcon className="mr-2 h-4 w-4" />
+              Test All
+            </Button>
+          )}
+          <SearchForm onSearch={setSearchQuery} />
+        </div>
         {hasAiRules && (
           <Button
             variant="ghost"
@@ -117,6 +176,9 @@ export function TestRulesContent() {
                   key={message.id}
                   message={message}
                   userEmail={email!}
+                  isTesting={isTesting[message.id]}
+                  testResult={testResult[message.id]}
+                  onTest={() => onTest(message)}
                 />
               ))}
             </TableBody>
@@ -181,13 +243,16 @@ const TestRulesForm = () => {
 function TestRulesContentRow({
   message,
   userEmail,
+  isTesting,
+  testResult,
+  onTest,
 }: {
   message: Message;
   userEmail: string;
+  isTesting: boolean;
+  testResult: TestResult;
+  onTest: () => void;
 }) {
-  const [checking, setChecking] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult>();
-
   return (
     <TableRow>
       <TableCell>
@@ -207,27 +272,7 @@ function TestRulesContentRow({
                 <ReportMistake result={testResult} message={message} />
               </>
             ) : (
-              <Button
-                variant="outline"
-                loading={checking}
-                onClick={async () => {
-                  setChecking(true);
-
-                  const result = await testAiAction({
-                    messageId: message.id,
-                    threadId: message.threadId,
-                  });
-                  if (isActionError(result)) {
-                    toastError({
-                      title: "There was an error testing the email",
-                      description: result.error,
-                    });
-                  } else {
-                    setTestResult(result);
-                  }
-                  setChecking(false);
-                }}
-              >
+              <Button variant="outline" loading={isTesting} onClick={onTest}>
                 <SparklesIcon className="mr-2 h-4 w-4" />
                 Test
               </Button>
