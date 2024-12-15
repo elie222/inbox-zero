@@ -27,6 +27,7 @@ export function PlanBadge(props: { plan?: Plan }) {
     if (plan.reason) {
       return (
         <HoverCard
+          className="w-80"
           content={
             <div className="max-w-full whitespace-pre-wrap text-sm">
               <strong>Reason:</strong> {plan.reason}
@@ -42,6 +43,7 @@ export function PlanBadge(props: { plan?: Plan }) {
 
   return (
     <HoverCard
+      className="w-80"
       content={
         <div className="text-sm">
           {plan.rule?.instructions ? (

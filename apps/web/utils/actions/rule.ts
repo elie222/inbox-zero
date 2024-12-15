@@ -6,6 +6,8 @@ import {
   createRuleBody,
   type UpdateRuleBody,
   updateRuleBody,
+  updateRuleInstructionsBody,
+  type UpdateRuleInstructionsBody,
 } from "@/utils/actions/validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
@@ -191,6 +193,22 @@ export const updateRuleAction = withActionInstrumentation(
       }
       return { error: "Error updating rule." };
     }
+  },
+);
+
+export const updateRuleInstructionsAction = withActionInstrumentation(
+  "updateRuleInstructions",
+  async (options: UpdateRuleInstructionsBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data: body, error } = updateRuleInstructionsBody.safeParse(options);
+    if (error) return { error: error.message };
+
+    await prisma.rule.update({
+      where: { id: body.id, userId: session.user.id },
+      data: { instructions: body.instructions },
+    });
   },
 );
 

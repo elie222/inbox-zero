@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { SearchIcon } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -41,7 +41,7 @@ export function SearchForm({
         error={errors.q}
         className="flex-1"
       />
-      <Button type="submit" color="transparent" loading={isSubmitting}>
+      <Button type="submit" variant="ghost" loading={isSubmitting}>
         <SearchIcon className="mr-2 h-4 w-4" />
         Search
       </Button>

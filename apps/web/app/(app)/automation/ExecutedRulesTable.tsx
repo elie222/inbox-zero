@@ -69,6 +69,7 @@ export function RuleCell({
 
   return (
     <HoverCard
+      className="w-80"
       content={
         <div>
           <div className="flex justify-between font-medium">
