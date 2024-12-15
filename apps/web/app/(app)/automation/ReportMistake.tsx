@@ -308,10 +308,6 @@ function RuleForm({ rule }: { rule: Pick<Rule, "id" | "instructions"> }) {
     },
   });
 
-  // if (Object.keys(errors).length > 0) {
-  //   console.error("Errors:", errors);
-  // }
-
   const updateRule: SubmitHandler<UpdateRuleInstructionsBody> = useCallback(
     async (data) => {
       const response = await updateRuleInstructionsAction(data);
@@ -397,11 +393,17 @@ function AIFixForm({
         toastSuccess({
           description: `This is the updated rule: ${response.fixedInstructions}`,
         });
-        // TODO: when is ruleId undefined?
+
         if (response.ruleId) {
           setFixedInstructions({
             ruleId: response.ruleId,
             fixedInstructions: response.fixedInstructions,
+          });
+        } else {
+          toastError({
+            title: "Error reporting mistake",
+            description:
+              "No rule ID returned. Please contact support if this persists.",
           });
         }
       }
