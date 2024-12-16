@@ -33,6 +33,16 @@ export const saveAboutAction = withActionInstrumentation(
   },
 );
 
+export const resetAnalyticsAction = withActionInstrumentation(
+  "resetAnalytics",
+  async () => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
+
+    await deleteTinybirdEmails({ email: session.user.email });
+  },
+);
+
 export const deleteAccountAction = withActionInstrumentation(
   "deleteAccount",
   async () => {
