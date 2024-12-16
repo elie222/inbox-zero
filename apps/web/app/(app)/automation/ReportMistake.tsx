@@ -106,7 +106,6 @@ export function ReportMistake({
             data={data}
             isLoading={isLoading}
             error={error}
-            message={message}
           />
         )}
       </DialogContent>
@@ -120,18 +119,16 @@ function RuleMismatch({
   data,
   isLoading,
   error,
-  message,
 }: {
   result: TestResult | null;
   setCorrectRuleId: (ruleId: string | null) => void;
   data?: RulesResponse;
   isLoading: boolean;
   error?: { error: string };
-  message: MessagesResponse["messages"][number];
 }) {
   return (
     <div>
-      <Label name="matchedRule" label="Matched rule:" />
+      <Label name="matchedRule" label="Matched:" />
       <div className="mt-1">
         {result ? (
           <TestResultDisplay result={result} />
