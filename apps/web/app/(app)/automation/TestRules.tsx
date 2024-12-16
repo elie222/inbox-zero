@@ -11,9 +11,9 @@ import {
   CheckCircle2Icon,
   SparklesIcon,
   PenSquareIcon,
-  CircleCheckIcon,
   PlayIcon,
   PauseIcon,
+  EyeIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -319,7 +319,10 @@ export function TestResultDisplay({
           </Alert>
         }
       >
-        <Badge color="red">{prefix ? prefix : ""}No rule found</Badge>
+        <Badge color="red">
+          {prefix ? prefix : ""}No rule found
+          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+        </Badge>
       </HoverCard>
     );
   }
@@ -382,9 +385,9 @@ export function TestResultDisplay({
         }
       >
         <Badge color="green">
-          <CircleCheckIcon className="mr-2 size-4" />
           {prefix ? prefix : ""}
           {result.rule.name}
+          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
     );
