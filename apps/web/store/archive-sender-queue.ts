@@ -46,6 +46,11 @@ export async function addToArchiveSenderQueue(
       return newQueue;
     });
 
+    if (threadIds.length === 0) {
+      onSuccess?.(threads.length);
+      return;
+    }
+
     // Add threads to archive queue
     await archiveEmails(
       threadIds,
