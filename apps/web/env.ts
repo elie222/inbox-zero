@@ -47,6 +47,8 @@ export const env = createEnv({
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string().optional(),
+    OLLAMA_BASE_URL: z.string().optional(),
+    OLLAMA_MODEL: z.string().optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),

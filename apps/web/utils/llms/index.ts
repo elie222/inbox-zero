@@ -10,6 +10,7 @@ import {
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
 import { Model, Provider } from "@/utils/llms/config";
@@ -64,6 +65,16 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
           },
         },
       })(model),
+    };
+  }
+
+  if (provider === Provider.OLLAMA && env.OLLAMA_MODEL) {
+    return {
+      provider: Provider.OLLAMA,
+      model: env.OLLAMA_MODEL,
+      llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(
+        aiModel || env.OLLAMA_MODEL,
+      ),
     };
   }
 

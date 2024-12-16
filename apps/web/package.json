@@ -98,6 +98,7 @@
     "nodemailer": "^6.9.16",
     "novel": "0.3.1",
     "nuqs": "^2.2.3",
+    "ollama-ai-provider": "^1.1.0",
     "openai": "^4.76.3",
     "p-queue": "^8.0.1",
     "p-retry": "^6.2.1",
