@@ -15,6 +15,9 @@ export const env = createEnv({
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),
     BEDROCK_REGION: z.string().default("us-west-2"),
+    BEDROCK_SONNET_MODEL: z
+      .string()
+      .default("anthropic.claude-3-5-sonnet-20241022-v2:0"),
     UPSTASH_REDIS_URL: z.string().min(1),
     UPSTASH_REDIS_TOKEN: z.string().min(1),
     QSTASH_TOKEN: z.string().optional(),
