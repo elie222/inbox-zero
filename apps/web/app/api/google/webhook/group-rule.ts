@@ -5,7 +5,7 @@ import { emailToContent } from "@/utils/mail";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import {
   findMatchingGroup,
-  getGroups,
+  getGroupsWithRules,
 } from "@/utils/group/find-matching-group";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { saveExecutedRule } from "@/utils/ai/choose-rule/choose-and-execute";
@@ -26,7 +26,7 @@ export async function handleGroupRule({
   isThread: boolean;
   isTest: boolean;
 }) {
-  const groups = await getGroups(user.id);
+  const groups = await getGroupsWithRules(user.id);
 
   // check if matches group
   const match = findMatchingGroup(message, groups);
