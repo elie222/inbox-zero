@@ -5,21 +5,12 @@ import {
   PARENT_LABEL,
   type InboxZeroLabel,
 } from "@/utils/label";
-
-export const messageVisibility = {
-  show: "show",
-  hide: "hide",
-} as const;
-export type MessageVisibility =
-  (typeof messageVisibility)[keyof typeof messageVisibility];
-
-export const labelVisibility = {
-  labelShow: "labelShow",
-  labelShowIfUnread: "labelShowIfUnread",
-  labelHide: "labelHide",
-} as const;
-export type LabelVisibility =
-  (typeof labelVisibility)[keyof typeof labelVisibility];
+import {
+  labelVisibility,
+  messageVisibility,
+  type LabelVisibility,
+  type MessageVisibility,
+} from "@/utils/gmail/constants";
 
 export const INBOX_LABEL_ID = "INBOX";
 export const SENT_LABEL_ID = "SENT";
@@ -160,11 +151,13 @@ async function createLabel({
   name,
   messageListVisibility,
   labelListVisibility,
+  color,
 }: {
   gmail: gmail_v1.Gmail;
   name: string;
   messageListVisibility?: MessageVisibility;
   labelListVisibility?: LabelVisibility;
+  color?: string;
 }) {
   try {
     const createdLabel = await gmail.users.labels.create({
@@ -173,6 +166,7 @@ async function createLabel({
         name,
         messageListVisibility,
         labelListVisibility,
+        color: { backgroundColor: color },
       },
     });
     return createdLabel.data;
@@ -241,15 +235,11 @@ export async function getOrCreateLabel({
 export async function getOrCreateInboxZeroLabel({
   gmail,
   key,
-  messageListVisibility,
-  labelListVisibility,
 }: {
   gmail: gmail_v1.Gmail;
   key: InboxZeroLabel;
-  messageListVisibility?: MessageVisibility;
-  labelListVisibility?: LabelVisibility;
 }) {
-  const name = inboxZeroLabels[key];
+  const { name, color } = inboxZeroLabels[key];
   const labels = await getLabels(gmail);
 
   // Create parent label if it doesn't exist
@@ -270,8 +260,9 @@ export async function getOrCreateInboxZeroLabel({
   const createdLabel = await createLabel({
     gmail,
     name,
-    messageListVisibility,
-    labelListVisibility,
+    messageListVisibility: messageVisibility.hide,
+    labelListVisibility: labelVisibility.labelShow,
+    color,
   });
   return createdLabel;
 }

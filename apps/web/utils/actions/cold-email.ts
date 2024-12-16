@@ -56,7 +56,10 @@ async function removeColdEmailLabelFromSender(
   // 2. find emails from sender
   // 3. remove cold email label from emails
 
-  const label = await getLabel({ gmail, name: inboxZeroLabels.cold_email });
+  const label = await getLabel({
+    gmail,
+    name: inboxZeroLabels.cold_email.name,
+  });
   if (!label?.id) return;
 
   const threads = await getThreads(`from:${sender}`, [label.id], gmail);
