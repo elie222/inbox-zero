@@ -310,11 +310,11 @@ export function TestResultDisplay({
                 <div>
                   This email does not match any of the rules you have set.
                 </div>
-                {!!result.reason && (
-                  <div>
-                    <strong>AI reason:</strong> {result.reason}
-                  </div>
-                )}
+                <div>
+                  <strong>AI reason:</strong>{" "}
+                  {result.reason ||
+                    "No AI analysis was performed on this email"}
+                </div>
               </div>
             </AlertDescription>
           </Alert>
