@@ -26,6 +26,7 @@ export type EmailForAction = {
 };
 
 export type ActionItem = {
+  id: ExecutedAction["id"];
   type: ExecutedAction["type"];
   label?: ExecutedAction["label"];
   subject?: ExecutedAction["subject"];
@@ -35,7 +36,7 @@ export type ActionItem = {
   bcc?: ExecutedAction["bcc"];
 };
 
-type ActionFunction<T extends Omit<ActionItem, "type">> = (
+type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (
   gmail: gmail_v1.Gmail,
   email: EmailForAction,
   args: T,
@@ -374,7 +375,11 @@ export const runActionFunction = async (
   action: ActionItem,
   userEmail: string,
 ) => {
-  logger.info("Running action", { actionType: action.type, userEmail });
+  logger.info("Running action", {
+    actionType: action.type,
+    userEmail,
+    id: action.id,
+  });
   logger.trace("Running action:", action);
 
   const { type, ...args } = action;
