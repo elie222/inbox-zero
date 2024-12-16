@@ -99,6 +99,15 @@ export function isOpenAIRetryError(error: RetryError): boolean {
   return error.message.includes("You exceeded your current quota");
 }
 
+export function isAWSThrottlingError(error: unknown): error is Error {
+  return (
+    error instanceof Error &&
+    error.name === "ThrottlingException" &&
+    (error.message?.includes("Too many requests") ||
+      error.message?.includes("please wait before trying again"))
+  );
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
