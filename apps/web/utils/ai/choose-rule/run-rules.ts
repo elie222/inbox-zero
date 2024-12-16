@@ -214,6 +214,8 @@ export async function testRulesOnMessage({
     ? rules.filter((r) => r.runOnThreads)
     : rules;
 
+  logger.info("Found applicable rules", { count: applicableRules.length });
+
   // static rules
   const staticRule = await handleStaticRule({
     rules: applicableRules,
@@ -224,6 +226,7 @@ export async function testRulesOnMessage({
   });
 
   if (staticRule.handled) {
+    logger.info("Static rule matched");
     return {
       rule: staticRule.rule,
       actionItems: staticRule.actionItems,
@@ -241,6 +244,7 @@ export async function testRulesOnMessage({
   });
 
   if (groupRule.handled) {
+    logger.info("Group rule matched");
     return {
       rule: groupRule.rule,
       actionItems: groupRule.actionItems,
@@ -250,6 +254,8 @@ export async function testRulesOnMessage({
 
   // ai rules
   const aiRules = applicableRules.filter((r) => r.type === RuleType.AI);
+
+  logger.info("Found ai rules", { count: aiRules.length });
 
   const content = emailToContent({
     textHtml: message.textHtml || null,
@@ -272,6 +278,8 @@ export async function testRulesOnMessage({
     user,
     isTest: true,
   });
+
+  logger.info("AI rule matched", { matched: !!plan.rule });
 
   return plan;
 }
