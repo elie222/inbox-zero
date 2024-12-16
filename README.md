@@ -122,6 +122,17 @@ turbo dev
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localhost:3000/admin).
 
+### Supported LLMs
+
+For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You can also use Ollama by setting the following enviroment variables:
+
+```sh
+OLLAMA_BASE_URL=http://localhost:11434/api
+OLLAMA_MODEL=phi3
+```
+
+You can select the model you wish to use in the app on the `/settings` page of the app.
+
 ### Setting up Google OAuth and Gmail API
 
 You need to enable these scopes in the Google Cloud Console:

@@ -347,6 +347,9 @@ importers:
       nuqs:
         specifier: ^2.2.3
         version: 2.2.3(next@14.2.15(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+      ollama-ai-provider:
+        specifier: ^1.1.0
+        version: 1.1.0(zod@3.24.1)
       openai:
         specifier: ^4.76.3
         version: 4.76.3(encoding@0.1.13)(zod@3.24.1)
@@ -9017,6 +9020,15 @@ packages:
     peerDependencies:
       rxjs: ^6.5 || ^7
 
+  ollama-ai-provider@1.1.0:
+    resolution: {integrity: sha512-kpNLX2I0qVZfyML/d+o3UZrJxUokWeLrrQeuAQOuYPKmZcN9bpU7PD7SuxsH86krWvXqM0SJygTPa0OwEK71OQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
+
   on-exit-leak-free@2.1.2:
     resolution: {integrity: sha512-0eJJY6hXLGf1udHwfNftBqH+g73EU4B504nZeKpz1sYRKafAghwxEJunB2O7rDZkL4PGfsMVnTXZ2EjibbqcsA==}
     engines: {node: '>=14.0.0'}
@@ -9187,6 +9199,9 @@ packages:
 
   parseley@0.12.1:
     resolution: {integrity: sha512-e6qHKe3a9HWr0oMRVDTRhKce+bRO8VGQR3NyVwcjwrbhMmFCX9KszEV35+rn4AdilFAq9VPxP/Fe1wC9Qjd2lw==}
+
+  partial-json@0.1.7:
+    resolution: {integrity: sha512-Njv/59hHaokb/hRUjce3Hdv12wd60MtM9Z5Olmn+nehe0QDAsRtRbJPvJ0Z91TusF0SuZRIvnM+S4l6EIP8leA==}
 
   pascal-case@2.0.1:
     resolution: {integrity: sha512-qjS4s8rBOJa2Xm0jmxXiyh1+OFf6ekCWOvUaRgAQSktzlTbMotS0nmG9gyYAybCWBcuP4fsBeRCKNwGBnMe2OQ==}
@@ -21970,6 +21985,14 @@ snapshots:
     dependencies:
       rxjs: 7.8.1
 
+  ollama-ai-provider@1.1.0(zod@3.24.1):
+    dependencies:
+      '@ai-sdk/provider': 1.0.2
+      '@ai-sdk/provider-utils': 2.0.4(zod@3.24.1)
+      partial-json: 0.1.7
+    optionalDependencies:
+      zod: 3.24.1
+
   on-exit-leak-free@2.1.2: {}
 
   once@1.4.0:
@@ -22193,6 +22216,8 @@ snapshots:
     dependencies:
       leac: 0.6.0
       peberminta: 0.9.0
+
+  partial-json@0.1.7: {}
 
   pascal-case@2.0.1:
     dependencies:

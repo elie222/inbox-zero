@@ -1,8 +1,11 @@
 import { env } from "@/env";
 
+const supportsOllama = env.OLLAMA_MODEL && env.OLLAMA_BASE_URL;
+
 export const Provider = {
   OPEN_AI: "openai",
   ANTHROPIC: "anthropic",
+  ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
 
 export const Model = {
@@ -10,11 +13,13 @@ export const Model = {
   GPT_4O_MINI: "gpt-4o-mini",
   CLAUDE_3_5_SONNET_BEDROCK: env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
   CLAUDE_3_5_SONNET_ANTHROPIC: "claude-3-5-sonnet-20241022",
+  ...(supportsOllama ? { OLLAMA: env.OLLAMA_MODEL } : {}),
 };
 
 export const providerOptions = [
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Anthropic", value: Provider.ANTHROPIC },
+  ...(supportsOllama ? [{ label: "Ollama", value: Provider.OLLAMA }] : []),
 ];
 
 export const modelOptions: Record<string, { label: string; value: string }[]> =
@@ -29,4 +34,9 @@ export const modelOptions: Record<string, { label: string; value: string }[]> =
         value: "claude-3-5-sonnet", // used in ui only. can be either anthropic or bedrock
       },
     ],
+    ...(Provider.OLLAMA && Model.OLLAMA
+      ? {
+          [Provider.OLLAMA]: [{ label: "Ollama", value: Model.OLLAMA }],
+        }
+      : {}),
   };
