@@ -40,11 +40,12 @@ import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
-import { getLabelById, getLabels, labelVisibility } from "@/utils/gmail/label";
+import { getLabelById, getLabels } from "@/utils/gmail/label";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
+import { labelVisibility } from "@/utils/gmail/constants";
 
 const logger = createScopedLogger("ai-rule");
 
