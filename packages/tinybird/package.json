@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "dependencies": {
     "@chronark/zod-bird": "0.3.10",
+    "p-retry": "^6.2.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

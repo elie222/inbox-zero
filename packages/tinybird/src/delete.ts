@@ -1,3 +1,5 @@
+import pRetry, { AbortError } from "p-retry";
+
 const TINYBIRD_BASE_URL = process.env.TINYBIRD_BASE_URL;
 const TINYBIRD_TOKEN = process.env.TINYBIRD_TOKEN;
 
@@ -33,5 +35,41 @@ export async function deleteTinybirdEmails(options: {
   email: string;
 }): Promise<unknown> {
   if (!TINYBIRD_TOKEN) return;
-  return await deleteFromDatasource("email", `ownerEmail='${options.email}'`);
+  await deleteFromDatasourceWithRetry("email", `ownerEmail='${options.email}'`);
+  await deleteFromDatasourceWithRetry(
+    "last_and_oldest_emails_mv",
+    `ownerEmail='${options.email}'`,
+  );
+}
+
+// Tinybird only allows 1 delete at a time
+async function deleteFromDatasourceWithRetry(
+  datasource: string,
+  deleteCondition: string,
+): Promise<unknown> {
+  return pRetry(
+    async () => {
+      try {
+        return await deleteFromDatasource(datasource, deleteCondition);
+      } catch (error) {
+        // Only retry on rate limit errors
+        if (error instanceof Error && error.message.includes("429")) {
+          throw error; // pRetry will handle this
+        }
+        throw new AbortError(error as Error); // Don't retry other errors
+      }
+    },
+    {
+      retries: 5,
+      factor: 2,
+      minTimeout: 1000,
+      maxTimeout: 30000,
+      randomize: true,
+      onFailedAttempt: (error) => {
+        console.log(
+          `Rate limited when deleting from ${datasource}. Attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`,
+        );
+      },
+    },
+  );
 }
