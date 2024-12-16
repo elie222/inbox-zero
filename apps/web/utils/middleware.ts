@@ -1,6 +1,5 @@
 import { ZodError } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
-import type { StreamingTextResponse } from "ai";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
@@ -8,7 +7,7 @@ import { logErrorToPosthog } from "@/utils/error.server";
 export type NextHandler = (
   req: NextRequest,
   { params }: { params: Record<string, string | undefined> },
-) => Promise<NextResponse | StreamingTextResponse>;
+) => Promise<NextResponse | Response>;
 
 export function withError(handler: NextHandler): NextHandler {
   return async (req, params) => {
