@@ -230,7 +230,7 @@ export async function testRulesOnMessage({
     return {
       rule: staticRule.rule,
       actionItems: staticRule.actionItems,
-      reason: null,
+      reason: "Matched static rule",
     };
   }
 
@@ -248,7 +248,7 @@ export async function testRulesOnMessage({
     return {
       rule: groupRule.rule,
       actionItems: groupRule.actionItems,
-      reason: null,
+      reason: "Matched group rule",
     };
   }
 
