@@ -177,15 +177,23 @@ async function createLabel({
     });
     return createdLabel.data;
   } catch (error) {
+    const errorMessage: string | undefined = (error as any).message;
+
+    // Handle label already exists case
     // May be happening due to a race condition where the label was created between the list and create?
-    if ((error as any).message?.includes("Label name exists or conflicts")) {
+    if (errorMessage?.includes("Label name exists or conflicts")) {
       console.warn(`Label already exists: ${name}`);
       const label = await getLabel({ gmail, name });
       if (label) return label;
-      console.error(`Label not found: ${name}`);
-      throw error;
+      throw new Error(`Label conflict but not found: ${name}`);
     }
-    throw error;
+
+    // Handle invalid label name case
+    if (errorMessage?.includes("Invalid label name"))
+      throw new Error(`Invalid Gmail label name: "${name}"`);
+
+    // Handle other errors with label name context
+    throw new Error(`Failed to create Gmail label "${name}": ${errorMessage}`);
   }
 }
 
