@@ -4,6 +4,7 @@ import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { MessageText } from "@/components/Typography";
 import { getGmailSearchUrl } from "@/utils/url";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 export function TestRulesMessage(props: {
   from: string;
@@ -24,7 +25,9 @@ export function TestRulesMessage(props: {
         </Link>
       </MessageText>
       <MessageText className="mt-1 font-bold">{props.subject}</MessageText>
-      <MessageText className="mt-1">{props.snippet?.trim()}</MessageText>
+      <MessageText className="mt-1">
+        {decodeSnippet(props.snippet).trim()}
+      </MessageText>
     </div>
   );
 }
