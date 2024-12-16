@@ -110,6 +110,7 @@ export function TestRulesContent() {
 
     for (const message of data?.messages || []) {
       if (!isTestingAllRef.current) break;
+      if (testResult[message.id]) continue;
       await onTest(message);
     }
 
