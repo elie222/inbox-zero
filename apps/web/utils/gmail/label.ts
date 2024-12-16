@@ -166,7 +166,9 @@ async function createLabel({
         name,
         messageListVisibility,
         labelListVisibility,
-        color: { backgroundColor: color },
+        color: color
+          ? { backgroundColor: color, textColor: "#000000" }
+          : undefined,
       },
     });
     return createdLabel.data;
