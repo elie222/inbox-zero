@@ -89,7 +89,8 @@
         "NEXT_PUBLIC_DISABLE_TINYBIRD",
         "NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED",
         "NEXT_PUBLIC_AXIOM_DATASET",
-        "NEXT_PUBLIC_AXIOM_TOKEN"
+        "NEXT_PUBLIC_AXIOM_TOKEN",
+        "NEXT_PUBLIC_BEDROCK_SONNET_MODEL"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

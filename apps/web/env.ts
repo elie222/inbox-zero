@@ -15,9 +15,6 @@ export const env = createEnv({
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),
     BEDROCK_REGION: z.string().default("us-west-2"),
-    BEDROCK_SONNET_MODEL: z
-      .string()
-      .default("anthropic.claude-3-5-sonnet-20241022-v2:0"),
     UPSTASH_REDIS_URL: z.string().min(1),
     UPSTASH_REDIS_TOKEN: z.string().min(1),
     QSTASH_TOKEN: z.string().optional(),
@@ -110,6 +107,9 @@ export const env = createEnv({
       .default(false),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
+    NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
+      .string()
+      .default("anthropic.claude-3-5-sonnet-20241022-v2:0"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -176,5 +176,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
+    NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
+      process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
   },
 });
