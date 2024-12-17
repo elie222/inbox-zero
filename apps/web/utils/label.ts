@@ -3,19 +3,19 @@ export const PARENT_LABEL = "Inbox Zero";
 export const inboxZeroLabels = {
   archived: {
     name: `${PARENT_LABEL}/Archived`,
-    color: "#cfe2f3", // Light blue 2
+    color: "#a4c2f4", // Light blue
   },
   acted: {
     name: `${PARENT_LABEL}/Acted`,
-    color: "#d9ead3", // Light green 1
+    color: "#b9e4d0", // Light green
   },
   cold_email: {
     name: `${PARENT_LABEL}/Cold Email`,
-    color: "#fce5cd", // Light orange 2
+    color: "#ffdeb5", // Light orange
   },
   unsubscribed: {
     name: `${PARENT_LABEL}/Unsubscribed`,
-    color: "#f4cccc", // Light red
+    color: "#f2b2a8", // Light red
   },
 };
 export type InboxZeroLabel = keyof typeof inboxZeroLabels;
