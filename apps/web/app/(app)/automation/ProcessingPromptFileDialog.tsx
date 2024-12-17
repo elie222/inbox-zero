@@ -45,7 +45,7 @@ export function ProcessingPromptFileDialog({
   };
   isLoading: boolean;
 }) {
-  const [modal] = useQueryState("modal");
+  const [modal, setModal] = useQueryState("modal");
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
@@ -55,6 +55,14 @@ export function ProcessingPromptFileDialog({
   }, [isLoading, result, currentStep]);
 
   const showRules = modal === "rules";
+
+  useEffect(() => {
+    if (open) {
+      setCurrentStep(0);
+    } else {
+      setModal(null);
+    }
+  }, [open, setModal]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
