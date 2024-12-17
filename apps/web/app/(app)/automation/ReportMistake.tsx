@@ -40,7 +40,7 @@ import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
 import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
-import type { ThreadCheckResponse } from "@/app/api/google/threads/[id]/check/route";
+import { isReplyInThread } from "@/utils/thread";
 
 const NONE_RULE_ID = "__NONE__";
 
@@ -175,12 +175,9 @@ function ImproveRulesOrShowThreadMessage({
   threadId,
   ...props
 }: ImproveRulesProps & { threadId: string }) {
-  const { data, isLoading, error } = useSWR<
-    ThreadCheckResponse,
-    { error: string }
-  >(`/api/google/threads/${threadId}/check`);
+  const isThread = isReplyInThread(props.message.id, threadId);
 
-  if (data?.isThread) {
+  if (isThread) {
     return (
       <div>
         <SectionDescription>
@@ -209,11 +206,7 @@ function ImproveRulesOrShowThreadMessage({
     );
   }
 
-  return (
-    <LoadingContent loading={isLoading} error={error}>
-      <ImproveRules {...props} />
-    </LoadingContent>
-  );
+  return <ImproveRules {...props} />;
 }
 
 function ImproveRules({

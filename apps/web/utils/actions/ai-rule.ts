@@ -17,7 +17,7 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { getThread, hasMultipleMessages } from "@/utils/gmail/thread";
+import { isReplyInThread } from "@/utils/thread";
 import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
@@ -92,11 +92,8 @@ export const runRulesAction = withActionInstrumentation(
       return;
     }
 
-    // fetch after getting the message to avoid rate limiting
-    const gmailThread = await getThread(email.threadId, gmail);
-
     const message = parseMessage(gmailMessage);
-    const isThread = hasMultipleMessages(gmailThread);
+    const isThread = isReplyInThread(email.messageId, email.threadId);
 
     await runRulesOnMessage({
       gmail,
@@ -137,13 +134,10 @@ export const testAiAction = withActionInstrumentation(
     });
     if (!user) return { error: "User not found" };
 
-    const [gmailMessage, gmailThread] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
-      getThread(threadId, gmail),
-    ]);
+    const gmailMessage = await getMessage(messageId, gmail, "full");
 
     const message = parseMessage(gmailMessage);
-    const isThread = hasMultipleMessages(gmailThread);
+    const isThread = isReplyInThread(messageId, threadId);
 
     const result = await testRulesOnMessage({
       gmail,
