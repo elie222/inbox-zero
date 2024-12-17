@@ -122,4 +122,46 @@ describe("parseTemplate", () => {
       expect(parseTemplate(template)).toEqual(expected);
     });
   });
+
+  it("handles multi-line AI prompts", () => {
+    const template = `{{Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.}}`;
+
+    const result = parseTemplate(template);
+
+    expect(result).toEqual({
+      aiPrompts: [
+        `Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.`,
+      ],
+      fixedParts: ["", ""],
+    });
+  });
+
+  it("handles multi-line AI prompts with surrounding text", () => {
+    const template = `Label: {{Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.}} (Auto-generated)`;
+
+    const result = parseTemplate(template);
+
+    expect(result).toEqual({
+      aiPrompts: [
+        `Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.`,
+      ],
+      fixedParts: ["Label: ", " (Auto-generated)"],
+    });
+  });
 });

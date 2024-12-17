@@ -365,7 +365,8 @@ export function parseTemplate(template: string): {
   aiPrompts: string[];
   fixedParts: string[];
 } {
-  const regex = /\{\{(.*?)\}\}/g;
+  // This regex captures everything inside the {{}} and allows for multi-line prompts
+  const regex = /\{\{([\s\S]*?)\}\}/g;
   const aiPrompts: string[] = [];
   const fixedParts: string[] = [];
   let lastIndex = 0;

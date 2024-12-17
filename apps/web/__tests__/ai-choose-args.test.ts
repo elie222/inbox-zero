@@ -68,7 +68,7 @@ describe("getActionItemsWithAiArgs", () => {
       content: "The price of pears is: $1.99",
     });
     console.debug("Generated content:\n", result[0].content);
-  });
+  }, 15_000);
 
   test("should handle multiple actions with mixed AI needs", async () => {
     const actions = [
