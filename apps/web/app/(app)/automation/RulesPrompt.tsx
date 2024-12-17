@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { SparklesIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -233,7 +234,8 @@ Feel free to add as many as you want:
                     }}
                     loading={isGenerating}
                   >
-                    AI Generate Prompt
+                    <SparklesIcon className="mr-2 size-4" />
+                    Give me ideas
                   </Button>
                 </Tooltip>
               </div>
