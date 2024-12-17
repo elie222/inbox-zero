@@ -25,7 +25,7 @@ export const pricingAdditonalEmail: Record<PremiumTier, number> = {
   [PremiumTier.BUSINESS_MONTHLY]: 8,
   [PremiumTier.BUSINESS_ANNUALLY]: 8,
   [PremiumTier.COPILOT_MONTHLY]: 0,
-  [PremiumTier.LIFETIME]: 59,
+  [PremiumTier.LIFETIME]: 99,
 };
 
 function discount(monthly: number, annually: number) {
