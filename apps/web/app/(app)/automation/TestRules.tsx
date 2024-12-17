@@ -11,7 +11,6 @@ import {
   CheckCircle2Icon,
   SparklesIcon,
   PenSquareIcon,
-  PlayIcon,
   PauseIcon,
   EyeIcon,
 } from "lucide-react";
@@ -129,30 +128,31 @@ export function TestRulesContent() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-2 px-6">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-6 pb-4">
+        {isTestingAll ? (
+          <Button onClick={handleStop} variant="outline">
+            <PauseIcon className="mr-2 h-4 w-4" />
+            Stop
+          </Button>
+        ) : (
+          <Button onClick={handleTestAll}>
+            <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+            Test All
+          </Button>
+        )}
+
         <div className="flex items-center gap-2">
-          {isTestingAll ? (
-            <Button onClick={handleStop} variant="outline">
-              <PauseIcon className="mr-2 h-4 w-4" />
-              Stop
-            </Button>
-          ) : (
-            <Button onClick={handleTestAll} variant="outline">
-              <PlayIcon className="mr-2 h-4 w-4" />
-              Test All
+          {hasAiRules && (
+            <Button
+              variant="ghost"
+              onClick={() => setShowCustomForm((show) => !show)}
+            >
+              <PenSquareIcon className="mr-2 h-4 w-4" />
+              Custom
             </Button>
           )}
           <SearchForm onSearch={setSearchQuery} />
         </div>
-        {hasAiRules && (
-          <Button
-            variant="ghost"
-            onClick={() => setShowCustomForm((show) => !show)}
-          >
-            <PenSquareIcon className="mr-2 h-4 w-4" />
-            Test Custom Content
-          </Button>
-        )}
       </div>
 
       {hasAiRules && showCustomForm && (
@@ -277,8 +277,8 @@ function TestRulesContentRow({
                 <ReportMistake result={testResult} message={message} />
               </>
             ) : (
-              <Button variant="outline" loading={isTesting} onClick={onTest}>
-                <SparklesIcon className="mr-2 h-4 w-4" />
+              <Button variant="default" loading={isTesting} onClick={onTest}>
+                {!isTesting && <SparklesIcon className="mr-2 h-4 w-4" />}
                 Test
               </Button>
             )}
