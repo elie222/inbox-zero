@@ -1,4 +1,4 @@
-import type { CategoryFilterType } from "@prisma/client";
+import { CategoryFilterType, LogicalOperator } from "@prisma/client";
 
 import { type Category, type Rule, RuleType } from "@prisma/client";
 import type { CreateRuleBody, ZodCondition } from "@/utils/actions/validation";
@@ -13,8 +13,10 @@ type RuleConditions = Partial<
     | "subject"
     | "body"
     | "categoryFilterType"
+    | "typeLogic"
   > & {
-    categoryFilters?: Category[];
+    group?: { name: string } | null;
+    categoryFilters?: Pick<Category, "id" | "name">[];
   }
 >;
 
@@ -170,10 +172,10 @@ export function ruleTypeToString(ruleType: RuleType): string {
   }
 }
 
-export function conditionsToString(
-  rule: RuleConditions & { group?: { name: string } | null },
-) {
+export function conditionsToString(rule: RuleConditions) {
   let result = "";
+
+  const connector = rule.typeLogic === LogicalOperator.AND ? " AND " : " OR ";
 
   if (rule.groupId) {
     result += `Group: ${rule.group?.name || "MISSING"}`;
@@ -181,23 +183,45 @@ export function conditionsToString(
 
   if (rule.from || rule.to || rule.subject || rule.body) {
     const from = rule.from ? `From: "${rule.from}"` : "";
-    if (from && result) result += " AND ";
+    if (from && result) result += connector;
     result += from;
 
     const subject = rule.subject ? `Subject: "${rule.subject}"` : "";
-    if (subject && result) result += " AND ";
+    if (subject && result) result += connector;
     result += subject;
   }
 
   if (rule.instructions) {
-    if (result) result += " AND ";
+    if (result) result += connector;
     result += `AI: ${rule.instructions}`;
   }
 
-  if (rule.categoryFilterType) {
-    if (result) result += " AND ";
-    result += `Category: ${rule.categoryFilterType} ${rule.categoryFilters?.join(", ")}`;
+  const categoryFilters = rule.categoryFilters;
+  if (rule.categoryFilterType && categoryFilters?.length) {
+    if (result) result += connector;
+    const max = 3;
+    const categories =
+      categoryFilters
+        .slice(0, max)
+        .map((category) => category.name)
+        .join(", ") + (categoryFilters.length > max ? ", ..." : "");
+    result += `${categoryFilterTypeToString(rule.categoryFilterType)} ${categoryFilters.length === 1 ? "category" : "categories"}: ${categories}`;
   }
 
   return result;
+}
+
+export function categoryFilterTypeToString(
+  categoryFilterType: CategoryFilterType,
+): string {
+  switch (categoryFilterType) {
+    case CategoryFilterType.INCLUDE:
+      return "Include";
+    case CategoryFilterType.EXCLUDE:
+      return "Exclude";
+    default:
+      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
+      const exhaustiveCheck: never = categoryFilterType;
+      return exhaustiveCheck;
+  }
 }

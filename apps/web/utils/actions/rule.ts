@@ -58,19 +58,18 @@ export const createRuleAction = withActionInstrumentation(
               }
             : undefined,
           userId: session.user.id,
-          from: conditions.from || undefined,
-          to: conditions.to || undefined,
-          subject: conditions.subject || undefined,
-          // body: conditions.body || undefined,
-          groupId: conditions.groupId || undefined,
-          categoryFilterType: conditions.categoryFilterType || undefined,
-          categoryFilters: !conditions.categoryFilterType
-            ? {}
-            : conditions.categoryFilters
+          from: conditions.from || null,
+          to: conditions.to || null,
+          subject: conditions.subject || null,
+          // body: conditions.body || null,
+          groupId: conditions.groupId || null,
+          categoryFilterType: conditions.categoryFilterType || null,
+          categoryFilters:
+            conditions.categoryFilterType && conditions.categoryFilters
               ? {
                   connect: conditions.categoryFilters.map((id) => ({ id })),
                 }
-              : undefined,
+              : {},
         },
       });
 
@@ -124,20 +123,18 @@ export const updateRuleAction = withActionInstrumentation(
             automate: body.automate ?? undefined,
             runOnThreads: body.runOnThreads ?? undefined,
             name: body.name || undefined,
-            from: conditions.from,
-            to: conditions.to,
-            subject: conditions.subject,
-            // body: conditions.body,
-            groupId: conditions.groupId,
-            categoryFilterType: conditions.categoryFilterType || undefined,
+            from: conditions.from || null,
+            to: conditions.to || null,
+            subject: conditions.subject || null,
+            // body: conditions.body || null,
+            groupId: conditions.groupId || null,
+            categoryFilterType: conditions.categoryFilterType || null,
             categoryFilters:
-              conditions.categoryFilterType === null
-                ? { set: [] }
-                : conditions.categoryFilters
-                  ? {
-                      set: conditions.categoryFilters.map((id) => ({ id })),
-                    }
-                  : undefined,
+              conditions.categoryFilterType && conditions.categoryFilters
+                ? {
+                    set: conditions.categoryFilters.map((id) => ({ id })),
+                  }
+                : { set: [] },
           },
         }),
         // delete removed actions

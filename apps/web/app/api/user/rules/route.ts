@@ -8,7 +8,11 @@ export type RulesResponse = Awaited<ReturnType<typeof getRules>>;
 async function getRules(options: { userId: string }) {
   return await prisma.rule.findMany({
     where: { userId: options.userId },
-    include: { actions: true, group: { select: { name: true } } },
+    include: {
+      actions: true,
+      group: { select: { name: true } },
+      categoryFilters: { select: { id: true, name: true } },
+    },
     orderBy: { createdAt: "asc" },
   });
 }
