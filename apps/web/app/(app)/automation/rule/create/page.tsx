@@ -1,6 +1,6 @@
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { examples } from "@/app/(app)/automation/create/examples";
-import { getConditions } from "@/utils/condition";
+import { getConditions, getEmptyCondition } from "@/utils/condition";
 import type { RuleType } from "@prisma/client";
 
 export default function CreateRulePage({
@@ -19,10 +19,9 @@ export default function CreateRulePage({
           rule || {
             name: "",
             actions: [],
-            conditions: getConditions({
-              type: searchParams.tab,
-              groupId: searchParams.groupId,
-            }),
+            conditions: searchParams.tab
+              ? [getEmptyCondition(searchParams.tab, searchParams.groupId)]
+              : [],
           }
         }
       />

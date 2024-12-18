@@ -1,4 +1,4 @@
-import { CategoryFilterType } from "@prisma/client";
+import type { CategoryFilterType } from "@prisma/client";
 
 import { type Category, type Rule, RuleType } from "@prisma/client";
 import type { CreateRuleBody, ZodCondition } from "@/utils/actions/validation";
@@ -7,7 +7,6 @@ export function getConditions(
   rule: Partial<
     Pick<
       Rule,
-      | "type"
       | "groupId"
       | "instructions"
       | "from"
@@ -22,21 +21,21 @@ export function getConditions(
 ) {
   const conditions: CreateRuleBody["conditions"] = [];
 
-  if (rule.type === RuleType.AI && rule.instructions) {
+  if (rule.instructions) {
     conditions.push({
       type: RuleType.AI,
       instructions: rule.instructions,
     });
   }
 
-  if (rule.type === RuleType.GROUP && rule.groupId) {
+  if (rule.groupId) {
     conditions.push({
       type: RuleType.GROUP,
       groupId: rule.groupId,
     });
   }
 
-  if (rule.type === RuleType.STATIC) {
+  if (rule.from || rule.to || rule.subject || rule.body) {
     conditions.push({
       type: RuleType.STATIC,
       from: rule.from,
@@ -57,29 +56,58 @@ export function getConditions(
   return conditions;
 }
 
+const aiEmptyCondition = {
+  type: RuleType.AI,
+  instructions: "",
+};
+
+const groupEmptyCondition = {
+  type: RuleType.GROUP,
+  groupId: "",
+};
+
+const staticEmptyCondition = {
+  type: RuleType.STATIC,
+  from: null,
+  to: null,
+  subject: null,
+  body: null,
+};
+
+const categoryEmptyCondition = {
+  type: RuleType.CATEGORY,
+  categoryFilterType: null,
+  categoryFilters: null,
+};
+
 export function getEmptyConditions(): ZodCondition[] {
   return [
-    {
-      type: RuleType.AI,
-      instructions: "",
-    },
-    {
-      type: RuleType.GROUP,
-      groupId: "",
-    },
-    {
-      type: RuleType.STATIC,
-      from: null,
-      to: null,
-      subject: null,
-      body: null,
-    },
-    {
-      type: RuleType.CATEGORY,
-      categoryFilterType: CategoryFilterType.INCLUDE,
-      categoryFilters: [],
-    },
+    aiEmptyCondition,
+    groupEmptyCondition,
+    staticEmptyCondition,
+    categoryEmptyCondition,
   ];
+}
+
+export function getEmptyCondition(
+  type: string,
+  groupId?: string,
+): ZodCondition {
+  switch (type) {
+    case RuleType.AI:
+      return aiEmptyCondition;
+    case RuleType.GROUP:
+      return {
+        ...groupEmptyCondition,
+        groupId: groupId || "",
+      };
+    case RuleType.STATIC:
+      return staticEmptyCondition;
+    case RuleType.CATEGORY:
+      return categoryEmptyCondition;
+    default:
+      throw new Error(`Invalid condition type: ${type}`);
+  }
 }
 
 type FlattenedConditions = {
