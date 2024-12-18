@@ -54,7 +54,42 @@ export const zodRuleType = z.enum([
   RuleType.AI,
   RuleType.STATIC,
   RuleType.GROUP,
+  RuleType.CATEGORY,
 ]);
+
+const zodAiCondition = z.object({
+  type: z.literal(RuleType.AI),
+  instructions: z.string(),
+});
+
+const zodGroupCondition = z.object({
+  type: z.literal(RuleType.GROUP),
+  groupId: z.string(),
+});
+
+const zodStaticCondition = z.object({
+  type: z.literal(RuleType.STATIC),
+  to: z.string().nullish(),
+  from: z.string().nullish(),
+  subject: z.string().nullish(),
+  body: z.string().nullish(),
+});
+
+const zodCategoryCondition = z.object({
+  type: z.literal(RuleType.CATEGORY),
+  categoryFilterType: z
+    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+    .nullish(),
+  categoryFilters: z.array(z.string()).nullish(),
+});
+
+const zodCondition = z.union([
+  zodAiCondition,
+  zodGroupCondition,
+  zodStaticCondition,
+  zodCategoryCondition,
+]);
+export type ZodCondition = z.infer<typeof zodCondition>;
 
 export const createRuleBody = z.object({
   id: z.string().optional(),
@@ -63,18 +98,29 @@ export const createRuleBody = z.object({
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
   actions: z.array(zodAction),
-  type: zodRuleType,
-  // static conditions
-  from: z.string().nullish(),
-  to: z.string().nullish(),
-  subject: z.string().nullish(),
-  // body: z.string().nullish(), // not in use atm
-  // group
-  groupId: z.string().nullish(),
-  categoryFilterType: z
-    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-    .nullish(),
-  categoryFilters: z.array(z.string()).nullish(),
+  conditions: z.array(zodCondition).refine(
+    (conditions) => {
+      const types = conditions.map((condition) => condition.type);
+      return new Set(types).size === types.length;
+    },
+    {
+      message: "You can't have two conditions with the same type.",
+    },
+  ),
+  // type: zodRuleType,
+  // typeLogic: z.enum([LogicalOperator.AND, LogicalOperator.OR]).nullish(),
+
+  // // conditions
+  // from: z.string().nullish(),
+  // to: z.string().nullish(),
+  // subject: z.string().nullish(),
+  // // body: z.string().nullish(), // not in use atm
+  // // group
+  // groupId: z.string().nullish(),
+  // categoryFilterType: z
+  //   .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+  //   .nullish(),
+  // categoryFilters: z.array(z.string()).nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 

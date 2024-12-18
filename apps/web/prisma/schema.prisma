@@ -169,25 +169,33 @@ model Rule {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   name          String
-  instructions  String
   actions       Action[]
   enabled       Boolean        @default(true)
   automate      Boolean        @default(false) // if disabled, user must approve to execute
   runOnThreads  Boolean        @default(false) // if disabled, only runs on individual emails
-  type          RuleType       @default(AI)
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules ExecutedRule[]
-  groupId       String?        @unique
-  group         Group?         @relation(fields: [groupId], references: [id])
 
-  // automatically apply this rule if it matches a filter
-  // supports regex
+  // conditions: ai, group, static, category
+  type      RuleType        @default(AI) // deprecated
+  typeLogic LogicalOperator @default(AND)
+
+  // ai conditions
+  instructions String?
+
+  // group condition
+  groupId String? @unique
+  group   Group?  @relation(fields: [groupId], references: [id])
+
+  // static condition
+  // automatically apply this rule if it matches a filter. supports regex
   from    String?
   to      String?
   subject String?
   body    String?
 
+  // category condition
   // only apply to (or do not apply to) senders in these categories
   categoryFilterType CategoryFilterType?
   categoryFilters    Category[]
@@ -422,6 +430,7 @@ enum RuleType {
   AI
   STATIC
   GROUP
+  CATEGORY
 }
 
 enum GroupItemType {
@@ -433,4 +442,9 @@ enum GroupItemType {
 enum CategoryFilterType {
   INCLUDE
   EXCLUDE
+}
+
+enum LogicalOperator {
+  AND
+  OR
 }

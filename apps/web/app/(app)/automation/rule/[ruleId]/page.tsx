@@ -4,6 +4,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { TopSection } from "@/components/TopSection";
 import { hasVariables } from "@/utils/template";
+import { getConditions } from "@/utils/condition";
 
 export default async function RulePage({
   params,
@@ -40,6 +41,7 @@ export default async function RulePage({
       bcc: { value: action.bcc },
     })),
     categoryFilters: rule.categoryFilters.map((category) => category.id),
+    conditions: getConditions(rule),
   };
 
   return (

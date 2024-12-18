@@ -42,7 +42,7 @@ export function CreateGroupModalButton(props: {
   return (
     <>
       <Button variant={props.buttonVariant} onClick={openModal}>
-        Create group
+        Create
       </Button>
       <Modal isOpen={isModalOpen} hideModal={closeModal} title="Create Group">
         <div className="mt-4">
