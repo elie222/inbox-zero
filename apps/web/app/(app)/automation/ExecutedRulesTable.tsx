@@ -20,7 +20,7 @@ import {
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getInstructions } from "@/app/(app)/automation/Rules";
+import { conditionsToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 
 export function EmailCell({
@@ -76,7 +76,7 @@ export function RuleCell({
             {rule.name}
             <Badge>{rule.type}</Badge>
           </div>
-          <div className="mt-2">{getInstructions(rule)}</div>
+          <div className="mt-2">{conditionsToString(rule)}</div>
           <div className="mt-2">
             <Button variant="outline" size="sm">
               View

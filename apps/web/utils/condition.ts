@@ -3,22 +3,22 @@ import type { CategoryFilterType } from "@prisma/client";
 import { type Category, type Rule, RuleType } from "@prisma/client";
 import type { CreateRuleBody, ZodCondition } from "@/utils/actions/validation";
 
-export function getConditions(
-  rule: Partial<
-    Pick<
-      Rule,
-      | "groupId"
-      | "instructions"
-      | "from"
-      | "to"
-      | "subject"
-      | "body"
-      | "categoryFilterType"
-    > & {
-      categoryFilters?: Category[];
-    }
-  >,
-) {
+type RuleConditions = Partial<
+  Pick<
+    Rule,
+    | "groupId"
+    | "instructions"
+    | "from"
+    | "to"
+    | "subject"
+    | "body"
+    | "categoryFilterType"
+  > & {
+    categoryFilters?: Category[];
+  }
+>;
+
+export function getConditions(rule: RuleConditions) {
   const conditions: CreateRuleBody["conditions"] = [];
 
   if (rule.instructions) {
@@ -146,3 +146,58 @@ export const flattenConditions = (
     return acc;
   }, {} as FlattenedConditions);
 };
+
+export function conditionTypesToString(rule: RuleConditions) {
+  return getConditions(rule)
+    .map((condition) => ruleTypeToString(condition.type))
+    .join(", ");
+}
+
+export function ruleTypeToString(ruleType: RuleType): string {
+  switch (ruleType) {
+    case RuleType.AI:
+      return "AI";
+    case RuleType.STATIC:
+      return "Static";
+    case RuleType.GROUP:
+      return "Group";
+    case RuleType.CATEGORY:
+      return "Category";
+    default:
+      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
+      const exhaustiveCheck: never = ruleType;
+      return exhaustiveCheck;
+  }
+}
+
+export function conditionsToString(
+  rule: RuleConditions & { group?: { name: string } | null },
+) {
+  let result = "";
+
+  if (rule.groupId) {
+    result += `Group: ${rule.group?.name || "MISSING"}`;
+  }
+
+  if (rule.from || rule.to || rule.subject || rule.body) {
+    const from = rule.from ? `From: "${rule.from}"` : "";
+    if (from && result) result += " AND ";
+    result += from;
+
+    const subject = rule.subject ? `Subject: "${rule.subject}"` : "";
+    if (subject && result) result += " AND ";
+    result += subject;
+  }
+
+  if (rule.instructions) {
+    if (result) result += " AND ";
+    result += `AI: ${rule.instructions}`;
+  }
+
+  if (rule.categoryFilterType) {
+    if (result) result += " AND ";
+    result += `Category: ${rule.categoryFilterType} ${rule.categoryFilters?.join(", ")}`;
+  }
+
+  return result;
+}
