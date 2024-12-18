@@ -81,3 +81,40 @@ export function getEmptyConditions(): ZodCondition[] {
     },
   ];
 }
+
+type FlattenedConditions = {
+  instructions?: string | null;
+  groupId?: string | null;
+  from?: string | null;
+  to?: string | null;
+  subject?: string | null;
+  body?: string | null;
+  categoryFilterType?: CategoryFilterType | null;
+  categoryFilters?: string[] | null;
+};
+
+export const flattenConditions = (
+  conditions: ZodCondition[],
+): FlattenedConditions => {
+  return conditions.reduce((acc, condition) => {
+    switch (condition.type) {
+      case RuleType.AI:
+        acc.instructions = condition.instructions;
+        break;
+      case RuleType.GROUP:
+        acc.groupId = condition.groupId;
+        break;
+      case RuleType.STATIC:
+        acc.to = condition.to;
+        acc.from = condition.from;
+        acc.subject = condition.subject;
+        acc.body = condition.body;
+        break;
+      case RuleType.CATEGORY:
+        acc.categoryFilterType = condition.categoryFilterType;
+        acc.categoryFilters = condition.categoryFilters;
+        break;
+    }
+    return acc;
+  }, {} as FlattenedConditions);
+};
