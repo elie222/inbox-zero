@@ -212,6 +212,19 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   {...register(`conditions.${index}.type`, {
                     onChange: (e) => {
                       const selectedType = e.target.value;
+
+                      // check if we have duplicate condition types
+                      const conditionTypes = new Set(
+                        conditions.map((condition) => condition.type),
+                      );
+
+                      if (conditionTypes.size !== conditions.length) {
+                        toastError({
+                          description:
+                            "You can only have one condition of each type.",
+                        });
+                      }
+
                       const emptyCondition = getEmptyConditions().find(
                         (condition) => condition.type === selectedType,
                       );
