@@ -245,12 +245,11 @@ async function createRule(
   return prisma.rule.create({
     data: {
       name: result.name,
-      instructions: result.condition.aiInstructions || "",
       userId,
-      type: result.condition.type,
       actions: { createMany: { data: result.actions } },
       automate: shouldAutomate(result.actions),
       runOnThreads: false,
+      instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
@@ -269,15 +268,14 @@ async function updateRule(
     where: { id: ruleId },
     data: {
       name: result.name,
-      instructions: result.condition.aiInstructions || "",
       userId,
-      type: result.condition.type,
       actions: {
         deleteMany: {},
         createMany: { data: result.actions },
       },
       automate: shouldAutomate(result.actions),
       runOnThreads: false,
+      instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,

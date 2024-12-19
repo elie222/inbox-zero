@@ -1,5 +1,5 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
-import { RuleType } from "@prisma/client";
+import { isAIRule, type RuleConditions } from "@/utils/condition";
 
 const RISK_LEVELS = {
   VERY_HIGH: "very-high",
@@ -16,7 +16,7 @@ export function getActionRiskLevel(
     "subject" | "content" | "to" | "cc" | "bcc"
   >,
   isAutomated: boolean,
-  ruleType: RuleType,
+  rule: RuleConditions,
 ): {
   level: RiskLevel;
   message: string;
@@ -34,8 +34,6 @@ export function getActionRiskLevel(
     contentFields,
     "partially-dynamic",
   );
-  const hasAnyDynamicContent =
-    hasFullyDynamicContent || hasPartiallyDynamicContent;
 
   const hasFullyDynamicRecipient = hasAnyFieldWithStatus(
     recipientFields,
@@ -48,8 +46,7 @@ export function getActionRiskLevel(
 
   if (isAutomated) {
     if (hasFullyDynamicContent && hasFullyDynamicRecipient) {
-      const level =
-        ruleType === RuleType.AI ? RISK_LEVELS.VERY_HIGH : RISK_LEVELS.HIGH;
+      const level = isAIRule(rule) ? RISK_LEVELS.VERY_HIGH : RISK_LEVELS.HIGH;
       return {
         level,
         message: `${level === RISK_LEVELS.VERY_HIGH ? "Very High" : "High"} Risk: The AI can generate any content and send it to any address. A malicious actor could trick the AI to send spam or other unwanted emails on your behalf.`,
@@ -105,7 +102,7 @@ function compareRiskLevels(a: RiskLevel, b: RiskLevel): RiskLevel {
 }
 
 export function getRiskLevel(
-  rule: Pick<RulesResponse[number], "actions" | "automate" | "type">,
+  rule: Pick<RulesResponse[number], "actions" | "automate"> & RuleConditions,
 ): {
   level: RiskLevel;
   message: string;
@@ -113,7 +110,7 @@ export function getRiskLevel(
   // Get risk level for each action and return the highest risk
   return rule.actions.reduce<{ level: RiskLevel; message: string }>(
     (highestRisk, action) => {
-      const actionRisk = getActionRiskLevel(action, rule.automate, rule.type);
+      const actionRisk = getActionRiskLevel(action, rule.automate, rule);
       if (
         compareRiskLevels(actionRisk.level, highestRisk.level) ===
         actionRisk.level

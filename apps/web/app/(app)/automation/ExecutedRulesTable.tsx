@@ -20,7 +20,7 @@ import {
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { conditionsToString } from "@/utils/condition";
+import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 
 export function EmailCell({
@@ -74,7 +74,7 @@ export function RuleCell({
         <div>
           <div className="flex justify-between font-medium">
             {rule.name}
-            <Badge>{rule.type}</Badge>
+            <Badge>{conditionTypesToString(rule)}</Badge>
           </div>
           <div className="mt-2">{conditionsToString(rule)}</div>
           <div className="mt-2">

@@ -39,9 +39,12 @@ import {
   setRuleRunOnThreadsAction,
   setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
-import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
-import { conditionsToString, conditionTypesToString } from "@/utils/condition";
+import {
+  conditionsToString,
+  conditionTypesToString,
+  isAIRule,
+} from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
@@ -203,7 +206,8 @@ export function Rules() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {rule.type !== RuleType.AI && (
+                            {/* TODO: multiple condition handling */}
+                            {!isAIRule(rule) && (
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={`/automation/rule/${rule.id}/examples`}

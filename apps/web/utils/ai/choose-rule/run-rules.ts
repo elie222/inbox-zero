@@ -13,7 +13,6 @@ import {
   type Newsletter,
   type Prisma,
   type Rule,
-  RuleType,
   type User,
 } from "@prisma/client";
 import {
@@ -24,6 +23,7 @@ import { emailToContent } from "@/utils/mail";
 import type { ActionItem } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { isAIRule } from "@/utils/condition";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -49,6 +49,9 @@ export async function runRulesOnMessage({
   // 1. Check if a static rule matches
   // 2. Check if a group rule matches
   // 3. Check if an ai rule matches
+  // 4. TODO: handle multiple conditions properly
+  // 5. TODO: handle AND/OR properly
+  // 6. TODO: handle category rules properly
 
   const applicableRules = await getApplicableRules({
     rules,
@@ -80,7 +83,7 @@ export async function runRulesOnMessage({
   if (groupRule.handled) return { handled: true };
 
   // ai rules
-  const aiRules = applicableRules.filter((r) => r.type === RuleType.AI);
+  const aiRules = applicableRules.filter(isAIRule);
 
   const content = emailToContent({
     textHtml: message.textHtml || null,
@@ -253,7 +256,7 @@ export async function testRulesOnMessage({
   }
 
   // ai rules
-  const aiRules = applicableRules.filter((r) => r.type === RuleType.AI);
+  const aiRules = applicableRules.filter(isAIRule);
 
   logger.info("Found ai rules", { count: aiRules.length });
 

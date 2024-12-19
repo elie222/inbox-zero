@@ -107,20 +107,6 @@ export const createRuleBody = z.object({
       message: "You can't have two conditions with the same type.",
     },
   ),
-  // type: zodRuleType,
-  // typeLogic: z.enum([LogicalOperator.AND, LogicalOperator.OR]).nullish(),
-
-  // // conditions
-  // from: z.string().nullish(),
-  // to: z.string().nullish(),
-  // subject: z.string().nullish(),
-  // // body: z.string().nullish(), // not in use atm
-  // // group
-  // groupId: z.string().nullish(),
-  // categoryFilterType: z
-  //   .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-  //   .nullish(),
-  // categoryFilters: z.array(z.string()).nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 

@@ -179,7 +179,7 @@ model Rule {
 
   // conditions: ai, group, static, category
   type      RuleType        @default(AI) // deprecated
-  typeLogic LogicalOperator @default(AND)
+  conditionalOperator LogicalOperator @default(AND)
 
   // ai conditions
   instructions String?

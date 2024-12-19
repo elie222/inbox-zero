@@ -1,9 +1,13 @@
-import { CategoryFilterType, LogicalOperator } from "@prisma/client";
-
-import { type Category, type Rule, RuleType } from "@prisma/client";
+import {
+  CategoryFilterType,
+  LogicalOperator,
+  RuleType,
+  type Category,
+  type Rule,
+} from "@prisma/client";
 import type { CreateRuleBody, ZodCondition } from "@/utils/actions/validation";
 
-type RuleConditions = Partial<
+export type RuleConditions = Partial<
   Pick<
     Rule,
     | "groupId"
@@ -13,31 +17,51 @@ type RuleConditions = Partial<
     | "subject"
     | "body"
     | "categoryFilterType"
-    | "typeLogic"
+    | "conditionalOperator"
   > & {
     group?: { name: string } | null;
     categoryFilters?: Pick<Category, "id" | "name">[];
   }
 >;
 
+export function isAIRule<T extends RuleConditions>(
+  rule: T,
+): rule is T & { instructions: string } {
+  return !!rule.instructions;
+}
+
+export function isGroupRule<T extends RuleConditions>(
+  rule: T,
+): rule is T & { groupId: string } {
+  return !!rule.groupId;
+}
+
+export function isStaticRule(rule: RuleConditions) {
+  return !!rule.from || !!rule.to || !!rule.subject || !!rule.body;
+}
+
+export function isCategoryRule(rule: RuleConditions) {
+  return !!rule.categoryFilterType;
+}
+
 export function getConditions(rule: RuleConditions) {
   const conditions: CreateRuleBody["conditions"] = [];
 
-  if (rule.instructions) {
+  if (isAIRule(rule)) {
     conditions.push({
       type: RuleType.AI,
       instructions: rule.instructions,
     });
   }
 
-  if (rule.groupId) {
+  if (isGroupRule(rule)) {
     conditions.push({
       type: RuleType.GROUP,
       groupId: rule.groupId,
     });
   }
 
-  if (rule.from || rule.to || rule.subject || rule.body) {
+  if (isStaticRule(rule)) {
     conditions.push({
       type: RuleType.STATIC,
       from: rule.from,
@@ -47,7 +71,7 @@ export function getConditions(rule: RuleConditions) {
     });
   }
 
-  if (rule.categoryFilterType) {
+  if (isCategoryRule(rule)) {
     conditions.push({
       type: RuleType.CATEGORY,
       categoryFilterType: rule.categoryFilterType,
@@ -175,7 +199,8 @@ export function ruleTypeToString(ruleType: RuleType): string {
 export function conditionsToString(rule: RuleConditions) {
   let result = "";
 
-  const connector = rule.typeLogic === LogicalOperator.AND ? " AND " : " OR ";
+  const connector =
+    rule.conditionalOperator === LogicalOperator.AND ? " AND " : " OR ";
 
   if (rule.groupId) {
     result += `Group: ${rule.group?.name || "MISSING"}`;

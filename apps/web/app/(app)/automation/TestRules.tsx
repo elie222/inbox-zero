@@ -37,6 +37,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
+import {
+  isAIRule,
+  isCategoryRule,
+  isGroupRule,
+  isStaticRule,
+} from "@/utils/condition";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -79,7 +85,13 @@ export function TestRulesContent() {
   const email = session.data?.user.email;
 
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
-  const hasAiRules = rules?.some((rule) => rule.type === RuleType.AI);
+  const hasAiRules = rules?.some(
+    (rule) =>
+      isAIRule(rule) &&
+      !isGroupRule(rule) &&
+      !isStaticRule(rule) &&
+      !isCategoryRule(rule),
+  );
 
   const isTestingAllRef = useRef(false);
   const [isTestingAll, setIsTestingAll] = useState(false);
@@ -363,7 +375,7 @@ export function TestResultDisplay({
             <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
             <AlertDescription>
               <div className="mt-1.5 space-y-4">
-                {result.rule.type === RuleType.AI && (
+                {isAIRule(result.rule) && (
                   <div className="text-sm">
                     <span className="font-medium">Rule Instructions: </span>
                     {result.rule.instructions.substring(0, MAX_LENGTH)}
