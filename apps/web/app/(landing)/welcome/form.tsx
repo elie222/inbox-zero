@@ -83,7 +83,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         await completedOnboardingAction();
 
         // a/b test
-        if (!variant || variant === "show") {
+        if (variant === "show") {
           router.push("/onboarding");
         } else {
           router.push("/welcome-upgrade");

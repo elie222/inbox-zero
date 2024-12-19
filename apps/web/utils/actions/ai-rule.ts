@@ -17,7 +17,7 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { getThread, hasMultipleMessages } from "@/utils/gmail/thread";
+import { isReplyInThread } from "@/utils/thread";
 import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
@@ -92,11 +92,8 @@ export const runRulesAction = withActionInstrumentation(
       return;
     }
 
-    // fetch after getting the message to avoid rate limiting
-    const gmailThread = await getThread(email.threadId, gmail);
-
     const message = parseMessage(gmailMessage);
-    const isThread = hasMultipleMessages(gmailThread);
+    const isThread = isReplyInThread(email.messageId, email.threadId);
 
     await runRulesOnMessage({
       gmail,
@@ -137,13 +134,10 @@ export const testAiAction = withActionInstrumentation(
     });
     if (!user) return { error: "User not found" };
 
-    const [gmailMessage, gmailThread] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
-      getThread(threadId, gmail),
-    ]);
+    const gmailMessage = await getMessage(messageId, gmail, "full");
 
     const message = parseMessage(gmailMessage);
-    const isThread = hasMultipleMessages(gmailThread);
+    const isThread = isReplyInThread(messageId, threadId);
 
     const result = await testRulesOnMessage({
       gmail,
@@ -251,12 +245,11 @@ async function createRule(
   return prisma.rule.create({
     data: {
       name: result.name,
-      instructions: result.condition.aiInstructions || "",
       userId,
-      type: result.condition.type,
       actions: { createMany: { data: result.actions } },
       automate: shouldAutomate(result.actions),
       runOnThreads: false,
+      instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
@@ -275,15 +268,14 @@ async function updateRule(
     where: { id: ruleId },
     data: {
       name: result.name,
-      instructions: result.condition.aiInstructions || "",
       userId,
-      type: result.condition.type,
       actions: {
         deleteMany: {},
         createMany: { data: result.actions },
       },
       automate: shouldAutomate(result.actions),
       runOnThreads: false,
+      instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,

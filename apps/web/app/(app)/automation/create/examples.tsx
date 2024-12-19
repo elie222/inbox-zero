@@ -14,6 +14,7 @@ export const NEWSLETTER_GROUP_ID = "NEWSLETTER";
 
 export const examples: {
   title: string;
+  description: string;
   icon: React.ReactNode;
   rule: CreateRuleBody;
   automate?: boolean;
@@ -21,66 +22,91 @@ export const examples: {
 }[] = [
   {
     title: "Forward receipts",
+    description: "Forward receipts to alice@accountant.com.",
     icon: <ForwardIcon className="h-4 w-4" />,
     rule: {
       name: "Forward receipts",
-      instructions: "Forward receipts to alice@accountant.com.",
+      conditions: [
+        {
+          type: RuleType.GROUP,
+          groupId: RECEIPT_GROUP_ID,
+        },
+      ],
       actions: [
         { type: ActionType.FORWARD, to: { value: "alice@accountant.com" } },
       ],
-      type: RuleType.GROUP,
-      groupId: RECEIPT_GROUP_ID,
     },
   },
   {
     title: "Archive and label newsletters",
+    description: "Archive newsletters and label them as 'Newsletter'.",
     icon: <NewspaperIcon className="h-4 w-4" />,
     rule: {
       name: "Archive and label newsletters",
-      instructions: "Archive newsletters and label them as 'Newsletter'.",
+      conditions: [
+        {
+          type: RuleType.GROUP,
+          groupId: NEWSLETTER_GROUP_ID,
+        },
+      ],
       actions: [
         { type: ActionType.ARCHIVE },
         { type: ActionType.LABEL, label: { value: "Newsletter" } },
       ],
-      type: RuleType.GROUP,
-      groupId: NEWSLETTER_GROUP_ID,
     },
   },
   {
     title: "Label high priority emails",
+    description: `Label high priority emails as "High Priority"`,
     icon: <ShieldAlertIcon className="h-4 w-4" />,
     rule: {
       name: "Label high priority emails",
-      instructions: `Mark high priority emails as "High Priority". Examples include:
+      conditions: [
+        {
+          type: RuleType.AI,
+          instructions: `Mark high priority emails as "High Priority". Examples include:
 * Customer wants to cancel their plan
 * Customer wants to purchase
 * Customer complaint`,
+        },
+      ],
       actions: [{ type: ActionType.LABEL, label: { value: "High Priority" } }],
-      type: RuleType.AI,
     },
   },
   {
     title: "Respond to common question",
+    description:
+      "If someone asks how much the premium plan is, respond: 'Our premium plan is $10 per month.'",
     icon: <MailQuestionIcon className="h-4 w-4" />,
     rule: {
       name: "Respond to question",
-      instructions:
-        "If someone asks how much the premium plan is, respond: 'Our premium plan is $10 per month.'",
+      conditions: [
+        {
+          type: RuleType.AI,
+          instructions:
+            "If someone asks how much the premium plan is, respond: 'Our premium plan is $10 per month.'",
+        },
+      ],
       actions: [
         {
           type: ActionType.REPLY,
           content: { value: "Hey, our premium plan is $10 per month!" },
         },
       ],
-      type: RuleType.AI,
     },
   },
   {
     title: "Draft a response to set a meeting",
+    description: "Select this rule when someone asks to book a meeting.",
     icon: <CalendarIcon className="h-4 w-4" />,
     rule: {
       name: "Draft meeting response",
-      instructions: "Select this rule when someone asks to book a meeting.",
+      conditions: [
+        {
+          type: RuleType.AI,
+          instructions: "Select this rule when someone asks to book a meeting.",
+        },
+      ],
       actions: [
         {
           type: ActionType.DRAFT_EMAIL,
@@ -91,24 +117,28 @@ export const examples: {
           },
         },
       ],
-      type: RuleType.AI,
       automate: true,
       runOnThreads: true,
     },
   },
   {
     title: "Label founder pitch decks",
+    description: "Label founder pitch decks as 'Pitch'.",
     icon: <PresentationIcon className="h-4 w-4" />,
     rule: {
       name: "Label founder pitch decks",
-      instructions: "Label founder pitch decks as 'Pitch'.",
+      conditions: [
+        {
+          type: RuleType.AI,
+          instructions: "Label founder pitch decks as 'Pitch'.",
+        },
+      ],
       actions: [
         {
           type: ActionType.LABEL,
           content: { value: "Pitch" },
         },
       ],
-      type: RuleType.AI,
       automate: true,
       runOnThreads: true,
     },

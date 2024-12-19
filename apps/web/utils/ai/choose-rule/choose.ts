@@ -8,7 +8,7 @@ import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 
 export type ChooseRuleOptions = {
   email: EmailForLLM;
-  rules: RuleWithActions[];
+  rules: (RuleWithActions & { instructions: string })[];
   user: Pick<User, "email" | "about"> & UserAIFields;
 };
 export async function chooseRule(options: ChooseRuleOptions): Promise<

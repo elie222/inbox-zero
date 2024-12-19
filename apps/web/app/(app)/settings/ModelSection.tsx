@@ -123,18 +123,16 @@ function ModelSectionForm(props: {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Select
-        name="aiProvider"
         label="Provider"
         options={providerOptions}
-        registerProps={register("aiProvider")}
+        {...register("aiProvider")}
         error={errors.aiProvider}
       />
 
       <Select
-        name="aiModel"
         label="Model"
         options={modelSelectOptions}
-        registerProps={register("aiModel")}
+        {...register("aiModel")}
         error={errors.aiModel}
       />
 

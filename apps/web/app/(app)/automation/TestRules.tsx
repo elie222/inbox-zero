@@ -11,7 +11,6 @@ import {
   CheckCircle2Icon,
   SparklesIcon,
   PenSquareIcon,
-  PlayIcon,
   PauseIcon,
   EyeIcon,
 } from "lucide-react";
@@ -38,6 +37,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
+import {
+  isAIRule,
+  isCategoryRule,
+  isGroupRule,
+  isStaticRule,
+} from "@/utils/condition";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -80,7 +85,13 @@ export function TestRulesContent() {
   const email = session.data?.user.email;
 
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
-  const hasAiRules = rules?.some((rule) => rule.type === RuleType.AI);
+  const hasAiRules = rules?.some(
+    (rule) =>
+      isAIRule(rule) &&
+      !isGroupRule(rule) &&
+      !isStaticRule(rule) &&
+      !isCategoryRule(rule),
+  );
 
   const isTestingAllRef = useRef(false);
   const [isTestingAll, setIsTestingAll] = useState(false);
@@ -129,30 +140,31 @@ export function TestRulesContent() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-2 px-6">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-6 pb-4">
+        {isTestingAll ? (
+          <Button onClick={handleStop} variant="outline">
+            <PauseIcon className="mr-2 h-4 w-4" />
+            Stop
+          </Button>
+        ) : (
+          <Button onClick={handleTestAll}>
+            <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+            Test All
+          </Button>
+        )}
+
         <div className="flex items-center gap-2">
-          {isTestingAll ? (
-            <Button onClick={handleStop} variant="outline">
-              <PauseIcon className="mr-2 h-4 w-4" />
-              Stop
-            </Button>
-          ) : (
-            <Button onClick={handleTestAll} variant="outline">
-              <PlayIcon className="mr-2 h-4 w-4" />
-              Test All
+          {hasAiRules && (
+            <Button
+              variant="ghost"
+              onClick={() => setShowCustomForm((show) => !show)}
+            >
+              <PenSquareIcon className="mr-2 h-4 w-4" />
+              Custom
             </Button>
           )}
           <SearchForm onSearch={setSearchQuery} />
         </div>
-        {hasAiRules && (
-          <Button
-            variant="ghost"
-            onClick={() => setShowCustomForm((show) => !show)}
-          >
-            <PenSquareIcon className="mr-2 h-4 w-4" />
-            Test Custom Content
-          </Button>
-        )}
       </div>
 
       {hasAiRules && showCustomForm && (
@@ -277,8 +289,8 @@ function TestRulesContentRow({
                 <ReportMistake result={testResult} message={message} />
               </>
             ) : (
-              <Button variant="outline" loading={isTesting} onClick={onTest}>
-                <SparklesIcon className="mr-2 h-4 w-4" />
+              <Button variant="default" loading={isTesting} onClick={onTest}>
+                {!isTesting && <SparklesIcon className="mr-2 h-4 w-4" />}
                 Test
               </Button>
             )}
@@ -363,7 +375,7 @@ export function TestResultDisplay({
             <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
             <AlertDescription>
               <div className="mt-1.5 space-y-4">
-                {result.rule.type === RuleType.AI && (
+                {isAIRule(result.rule) && (
                   <div className="text-sm">
                     <span className="font-medium">Rule Instructions: </span>
                     {result.rule.instructions.substring(0, MAX_LENGTH)}

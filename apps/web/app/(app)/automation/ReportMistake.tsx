@@ -40,7 +40,8 @@ import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
 import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
-import type { ThreadCheckResponse } from "@/app/api/google/threads/[id]/check/route";
+import { isReplyInThread } from "@/utils/thread";
+import { isAIRule } from "@/utils/condition";
 
 const NONE_RULE_ID = "__NONE__";
 
@@ -175,12 +176,9 @@ function ImproveRulesOrShowThreadMessage({
   threadId,
   ...props
 }: ImproveRulesProps & { threadId: string }) {
-  const { data, isLoading, error } = useSWR<
-    ThreadCheckResponse,
-    { error: string }
-  >(`/api/google/threads/${threadId}/check`);
+  const isThread = isReplyInThread(props.message.id, threadId);
 
-  if (data?.isThread) {
+  if (isThread) {
     return (
       <div>
         <SectionDescription>
@@ -209,11 +207,7 @@ function ImproveRulesOrShowThreadMessage({
     );
   }
 
-  return (
-    <LoadingContent loading={isLoading} error={error}>
-      <ImproveRules {...props} />
-    </LoadingContent>
-  );
+  return <ImproveRules {...props} />;
 }
 
 function ImproveRules({
@@ -233,7 +227,20 @@ function ImproveRules({
         {result && <TestResultDisplay result={result} prefix="Matched: " />}
         {incorrectRule && (
           <>
-            <RuleForm rule={incorrectRule} />
+            {isAIRule(incorrectRule) ? (
+              <RuleForm rule={incorrectRule} />
+            ) : (
+              <div>
+                <p className="text-sm">
+                  {incorrectRule.name} is not an AI rule.
+                </p>
+                <Button variant="link" asChild className="mt-2">
+                  <Link href={`/automation/rule/${incorrectRule.id}`}>
+                    Edit
+                  </Link>
+                </Button>
+              </div>
+            )}
             <Separator />
           </>
         )}
@@ -241,7 +248,16 @@ function ImproveRules({
       {correctRule && (
         <>
           <Badge color="green">Expected: {correctRule.name}</Badge>
-          <RuleForm rule={correctRule} />
+          {isAIRule(correctRule) ? (
+            <RuleForm rule={correctRule} />
+          ) : (
+            <div>
+              <p className="text-sm">{correctRule.name} is not an AI rule.</p>
+              <Button variant="link" asChild className="mt-2">
+                <Link href={`/automation/rule/${correctRule.id}`}>Edit</Link>
+              </Button>
+            </div>
+          )}
           <Separator />
         </>
       )}
@@ -292,7 +308,11 @@ function ImproveRules({
   );
 }
 
-function RuleForm({ rule }: { rule: Pick<Rule, "id" | "instructions"> }) {
+function RuleForm({
+  rule,
+}: {
+  rule: Pick<Rule, "id" | "instructions"> & { instructions: string };
+}) {
   const {
     register,
     handleSubmit,

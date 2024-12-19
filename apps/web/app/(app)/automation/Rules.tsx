@@ -39,9 +39,12 @@ import {
   setRuleRunOnThreadsAction,
   setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
-import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
-import { ruleTypeToString } from "@/utils/rule";
+import {
+  conditionsToString,
+  conditionTypesToString,
+  isAIRule,
+} from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
@@ -141,12 +144,12 @@ export function Rules() {
                         )}
                       </TableCell>
                       <TableCell className="whitespace-pre-wrap">
-                        {getInstructions(rule)}
+                        {conditionsToString(rule)}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <SecurityAlert rule={rule} />
-                          {ruleTypeToString(rule.type)}
+                          {conditionTypesToString(rule)}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -203,7 +206,8 @@ export function Rules() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {rule.type !== RuleType.AI && (
+                            {/* TODO: multiple condition handling */}
+                            {!isAIRule(rule) && (
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={`/automation/rule/${rule.id}/examples`}
@@ -288,26 +292,6 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
       })}
     </div>
   );
-}
-
-export function getInstructions(
-  rule: Pick<
-    RulesResponse[number],
-    "type" | "instructions" | "from" | "subject" | "body" | "group"
-  >,
-) {
-  switch (rule.type) {
-    case RuleType.AI:
-      return rule.instructions;
-    case RuleType.STATIC: {
-      const from = rule.from ? `From: ${rule.from}` : "";
-      const subject = rule.subject ? `Subject: ${rule.subject}` : "";
-      // let body = rule.body ? `Body: ${rule.body}` : "";
-      return `${from} ${subject}`.trim();
-    }
-    case RuleType.GROUP:
-      return `Group: ${rule.group?.name || "MISSING"}`;
-  }
 }
 
 function NoRules() {

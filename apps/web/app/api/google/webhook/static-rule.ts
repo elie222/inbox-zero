@@ -1,10 +1,13 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
-import { RuleType, type User } from "@prisma/client";
+import type { User } from "@prisma/client";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { emailToContent } from "@/utils/mail";
 import { saveExecutedRule } from "@/utils/ai/choose-rule/choose-and-execute";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
+import { isStaticRule } from "@/utils/condition";
+
+// TODO: multiple condition handling
 
 export async function handleStaticRule({
   message,
@@ -89,7 +92,7 @@ function findStaticRule(
   rules: RuleWithActions[],
   message: ParsedMessage,
 ): RuleWithActions | null {
-  for (const rule of rules.filter((rule) => rule.type === RuleType.STATIC)) {
+  for (const rule of rules.filter(isStaticRule)) {
     if (matchesStaticRule(rule, message)) return rule;
   }
   return null;
