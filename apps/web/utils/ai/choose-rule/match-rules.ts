@@ -8,8 +8,12 @@ import type {
   RuleWithActions,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
-import { CategoryFilterType, LogicalOperator } from "@prisma/client";
+import { CategoryFilterType, LogicalOperator, type User } from "@prisma/client";
 import prisma from "@/utils/prisma";
+import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
+import { isReplyInThread } from "@/utils/thread";
+import type { UserAIFields } from "@/utils/llms/types";
 
 // if we find a match, return it
 // if we don't find a match, return the potential matches
@@ -21,7 +25,7 @@ type MatchingRuleResult = {
   })[];
 };
 
-export async function findPotentialMatchingRules({
+async function findPotentialMatchingRules({
   rules,
   message,
   isThread,
@@ -113,6 +117,33 @@ export async function findPotentialMatchingRules({
   }
 
   return { potentialMatches };
+}
+
+export async function findMatchingRule(
+  rules: RuleWithActionsAndCategories[],
+  message: ParsedMessage,
+  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+): Promise<{ rule?: RuleWithActionsAndCategories; reason?: string }> {
+  const isThread = isReplyInThread(message.id, message.threadId);
+  const { match, potentialMatches } = await findPotentialMatchingRules({
+    rules,
+    message,
+    isThread,
+  });
+
+  if (match) return { rule: match, reason: undefined };
+
+  if (potentialMatches?.length) {
+    const result = await aiChooseRule({
+      email: getEmailFromMessage(message),
+      rules: potentialMatches,
+      user,
+    });
+
+    return result;
+  }
+
+  return {};
 }
 
 export function matchesStaticRule(

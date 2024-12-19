@@ -93,14 +93,12 @@ export const runRulesAction = withActionInstrumentation(
     }
 
     const message = parseMessage(gmailMessage);
-    const isThread = isReplyInThread(email.messageId, email.threadId);
 
     await runRulesOnMessage({
       gmail,
       message,
       rules: user.rules,
       user: { ...user, email: user.email },
-      isThread,
       isTest: false,
     });
   },
@@ -138,14 +136,12 @@ export const testAiAction = withActionInstrumentation(
     const gmailMessage = await getMessage(messageId, gmail, "full");
 
     const message = parseMessage(gmailMessage);
-    const isThread = isReplyInThread(messageId, threadId);
 
     const result = await testRulesOnMessage({
       gmail,
       message,
       rules: user.rules,
       user: { ...user, email: user.email },
-      isThread,
     });
 
     return result;
@@ -179,8 +175,8 @@ export const testAiCustomContentAction = withActionInstrumentation(
     const result = await testRulesOnMessage({
       gmail,
       message: {
-        id: "",
-        threadId: "",
+        id: "testMessageId",
+        threadId: "testThreadId",
         snippet: content,
         textPlain: content,
         headers: {
@@ -195,7 +191,6 @@ export const testAiCustomContentAction = withActionInstrumentation(
       },
       rules: user.rules,
       user,
-      isThread: false,
     });
 
     return result;

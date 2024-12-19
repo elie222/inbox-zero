@@ -1,11 +1,11 @@
 import { expect, test, vi } from "vitest";
-import { chooseRule } from "@/utils/ai/choose-rule/choose";
+import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
 
 test("Should return no rule when no rules passed", async () => {
-  const result = await chooseRule({
+  const result = await aiChooseRule({
     rules: [],
     email: getEmail(),
     user: getUser(),
@@ -19,7 +19,7 @@ test("Should return correct rule when only one rule passed", async () => {
     "Match emails that have the word 'test' in the subject line",
   );
 
-  const result = await chooseRule({
+  const result = await aiChooseRule({
     email: getEmail({ subject: "test" }),
     rules: [rule],
     user: getUser(),
@@ -36,7 +36,7 @@ test("Should return correct rule when multiple rules passed", async () => {
     "Match emails that have the word 'remember' in the subject line",
   );
 
-  const result = await chooseRule({
+  const result = await aiChooseRule({
     rules: [rule1, rule2],
     email: getEmail({ subject: "remember that call" }),
     user: getUser(),
@@ -76,13 +76,11 @@ test("Should generate action arguments", async () => {
     },
   ]);
 
-  const result = await chooseRule({
+  const result = await aiChooseRule({
     rules: [rule1, rule2],
     email: getEmail({ subject: "Joke", content: "Tell me a joke about sheep" }),
     user: getUser(),
   });
-
-  console.debug("Generated content:\n", result.actionItems?.[0].content);
 
   expect(result).toEqual({
     rule: rule2,

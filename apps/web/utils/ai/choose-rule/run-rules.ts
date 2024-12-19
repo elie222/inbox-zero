@@ -6,23 +6,19 @@ import type {
 import type { UserAIFields } from "@/utils/llms/types";
 import {
   ExecutedRuleStatus,
-  type Prisma,
+  Prisma,
   type Rule,
   type User,
 } from "@prisma/client";
-import {
-  chooseRuleAndExecute,
-  saveExecutedRule,
-  upsertExecutedRule,
-} from "@/utils/ai/choose-rule/choose-and-execute";
-import { emailToContent } from "@/utils/mail";
 import type { ActionItem } from "@/utils/ai/actions";
-import { createScopedLogger } from "@/utils/logger";
-import { findPotentialMatchingRules } from "@/utils/ai/choose-rule/match-rules";
+import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
+import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
+import prisma from "@/utils/prisma";
+// import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopedLogger("ai-run-rules");
+// const logger = createScopedLogger("ai-run-rules");
 
 export type TestResult = {
   rule?: Rule | null;
@@ -34,72 +30,34 @@ export async function runRulesOnMessage({
   gmail,
   message,
   rules,
-  isThread,
   user,
   isTest,
 }: {
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
-  isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   isTest: boolean;
-}): Promise<{
-  handled: boolean;
-  rule?: Rule | null;
-  actionItems?: ActionItem[];
-  reason?: string | null;
-}> {
-  const { match, potentialMatches } = await findPotentialMatchingRules({
-    rules,
-    message,
-    isThread,
-  });
-
-  if (match) {
-    return await runRule(match, message, user, gmail, isTest);
-  }
-
-  if (potentialMatches?.length) {
-    const content = emailToContent({
-      textHtml: message.textHtml || null,
-      textPlain: message.textPlain || null,
-      snippet: message.snippet,
-    });
-    const aiResponse = await chooseRuleAndExecute({
-      email: {
-        from: message.headers.from,
-        replyTo: message.headers["reply-to"],
-        cc: message.headers.cc,
-        subject: message.headers.subject,
-        content,
-        threadId: message.threadId,
-        messageId: message.id,
-        headerMessageId: message.headers["message-id"] || "",
-      },
-      rules: potentialMatches,
-      gmail,
+}) {
+  const result = await findMatchingRule(rules, message, user);
+  if (result.rule) {
+    return await runRule(
+      result.rule,
+      message,
       user,
-      isTest: false,
-    });
-
-    if (aiResponse.handled) return aiResponse;
-
-    logger.info(
-      `No rules matched. ${user.email} ${message.threadId} ${message.id}`,
+      gmail,
+      result.reason,
+      isTest,
     );
-    logger.trace(aiResponse);
-
-    // no rules matched
+  } else {
     await saveSkippedExecutedRule({
       userId: user.id,
       threadId: message.threadId,
       messageId: message.id,
-      reason: aiResponse?.reason,
+      reason: result.reason,
     });
   }
-
-  return { handled: false };
+  return result;
 }
 
 async function runRule(
@@ -107,28 +65,10 @@ async function runRule(
   message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
   gmail: gmail_v1.Gmail,
+  reason: string | undefined,
   isTest: boolean,
 ) {
-  const email = {
-    from: message.headers.from,
-    to: message.headers.to,
-    subject: message.headers.subject,
-    headerMessageId: message.headers["message-id"] || "",
-    messageId: message.id,
-    snippet: message.snippet,
-    textHtml: message.textHtml || null,
-    textPlain: message.textPlain || null,
-    threadId: message.threadId,
-    cc: message.headers.cc || undefined,
-    date: message.headers.date,
-    references: message.headers.references,
-    replyTo: message.headers["reply-to"],
-    content: emailToContent({
-      textHtml: message.textHtml || null,
-      textPlain: message.textPlain || null,
-      snippet: message.snippet || null,
-    }),
-  };
+  const email = getEmailFromMessage(message);
 
   // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
@@ -149,6 +89,7 @@ async function runRule(
         {
           rule,
           actionItems,
+          reason,
         },
       );
 
@@ -198,23 +139,117 @@ export async function testRulesOnMessage({
   gmail,
   message,
   rules,
-  isThread,
   user,
 }: {
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
-  isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
 }): Promise<TestResult> {
   const result = await runRulesOnMessage({
     gmail,
     message,
     rules,
-    isThread,
     user,
     isTest: true,
   });
 
   return result;
+}
+
+async function saveExecutedRule(
+  {
+    userId,
+    threadId,
+    messageId,
+  }: {
+    userId: string;
+    threadId: string;
+    messageId: string;
+  },
+  {
+    rule,
+    actionItems,
+    reason,
+  }: {
+    rule: RuleWithActionsAndCategories;
+    actionItems: ActionItem[];
+    reason?: string;
+  },
+) {
+  const data: Prisma.ExecutedRuleCreateInput = {
+    actionItems: {
+      createMany: {
+        data:
+          actionItems?.map((a) => ({
+            type: a.type,
+            label: a.label,
+            subject: a.subject,
+            content: a.content,
+            to: a.to,
+            cc: a.cc,
+            bcc: a.bcc,
+          })) || [],
+      },
+    },
+    messageId,
+    threadId,
+    automated: !!rule?.automate,
+    status: ExecutedRuleStatus.PENDING,
+    reason,
+    rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+    user: { connect: { id: userId } },
+  };
+
+  return await upsertExecutedRule({ userId, threadId, messageId, data });
+}
+
+async function upsertExecutedRule({
+  userId,
+  threadId,
+  messageId,
+  data,
+}: {
+  userId: string;
+  threadId: string;
+  messageId: string;
+  data: Prisma.ExecutedRuleCreateInput;
+}) {
+  try {
+    return await prisma.executedRule.upsert({
+      where: {
+        unique_user_thread_message: {
+          userId,
+          threadId,
+          messageId,
+        },
+      },
+      create: data,
+      update: data,
+      include: { actionItems: true },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      // Unique constraint violation, ignore the error
+      // May be due to a race condition?
+      console.log(
+        `Ignored duplicate entry for ExecutedRule: ${userId} ${threadId} ${messageId}`,
+      );
+      return await prisma.executedRule.findUnique({
+        where: {
+          unique_user_thread_message: {
+            userId,
+            threadId,
+            messageId,
+          },
+        },
+        include: { actionItems: true },
+      });
+    }
+    // Re-throw any other errors
+    throw error;
+  }
 }

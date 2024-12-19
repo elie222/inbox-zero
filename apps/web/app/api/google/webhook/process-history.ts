@@ -409,7 +409,7 @@ async function processHistoryItem(
         message,
         rules,
         user,
-        isThread,
+        isTest: false,
       });
     }
   } catch (error: any) {
