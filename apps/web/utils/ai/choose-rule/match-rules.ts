@@ -30,12 +30,26 @@ export async function findPotentialMatchingRules({
 }): Promise<MatchingRuleResult> {
   const potentialMatches: RuleWithActionsAndCategories[] = [];
 
-  // singleton
+  // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>> = [];
   // only load once and only when needed
   async function getGroups(rule: RuleWithActionsAndCategories) {
     if (!groups) groups = await getGroupsWithRules(rule.userId);
     return groups;
+  }
+
+  // sender singleton
+  let sender: { categoryId: string | null } | null = null;
+  async function getSender(rule: RuleWithActionsAndCategories) {
+    if (!sender) {
+      sender = await prisma.newsletter.findUnique({
+        where: {
+          email_userId: { email: message.headers.from, userId: rule.userId },
+        },
+        select: { categoryId: true },
+      });
+    }
+    return sender;
   }
 
   // loop through rules and check if they match
@@ -76,7 +90,7 @@ export async function findPotentialMatchingRules({
 
     // category
     if (conditionTypes.CATEGORY) {
-      const match = await matchesCategoryRule(rule, message, rule.userId);
+      const match = await matchesCategoryRule(rule, await getSender(rule));
       if (match) {
         unmatchedConditions.delete("CATEGORY");
         if (operator === LogicalOperator.OR || !!unmatchedConditions.size)
@@ -107,20 +121,15 @@ async function matchesGroupRule(
 
 async function matchesCategoryRule(
   rule: RuleWithActionsAndCategories,
-  message: ParsedMessage,
-  userId: string,
+  sender: { categoryId: string | null } | null,
 ) {
-  if (!rule.categoryFilterType || rule.categoryFilters.length === 0) {
+  if (!rule.categoryFilterType || rule.categoryFilters.length === 0)
     return true;
-  }
 
-  const sender = await prisma.newsletter.findUnique({
-    where: { email_userId: { email: message.headers.from, userId } },
-    select: { categoryId: true },
-  });
+  if (!sender) return false;
 
   const isIncluded = rule.categoryFilters.some(
-    (c) => c.id === sender?.categoryId,
+    (c) => c.id === sender.categoryId,
   );
 
   if (
