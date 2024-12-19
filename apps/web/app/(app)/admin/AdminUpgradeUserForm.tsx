@@ -56,13 +56,10 @@ export const AdminUpgradeUserForm = () => {
         type="number"
         name="emailAccountsAccess"
         label="Seats"
-        registerProps={register("emailAccountsAccess", {
-          valueAsNumber: true,
-        })}
+        registerProps={register("emailAccountsAccess", { valueAsNumber: true })}
         error={errors.emailAccountsAccess}
       />
-      <Select<PremiumTier>
-        name="period"
+      <Select
         label="Period"
         options={[
           {
@@ -98,7 +95,7 @@ export const AdminUpgradeUserForm = () => {
             value: PremiumTier.LIFETIME,
           },
         ]}
-        registerProps={register("period")}
+        {...register("period")}
         error={errors.period}
       />
       <div className="space-x-2">

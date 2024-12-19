@@ -124,7 +124,7 @@ export default function AutomationSettingsPage() {
                     >
                       <AlertBasic
                         title={example.title}
-                        description={example.rule.instructions}
+                        description={example.description}
                         icon={example.icon}
                         className="cursor-pointer hover:bg-gray-100"
                       />

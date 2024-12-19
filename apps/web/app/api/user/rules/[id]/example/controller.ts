@@ -1,32 +1,54 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { RuleType } from "@prisma/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import type {
   MessageWithGroupItem,
   RuleWithGroup,
 } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
-import { matchesStaticRule } from "@/app/api/google/webhook/static-rule";
+import { matchesStaticRule } from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
+import {
+  isGroupRule,
+  isAIRule,
+  isStaticRule,
+  isCategoryRule,
+} from "@/utils/condition";
+import { LogicalOperator } from "@prisma/client";
 
 export async function fetchExampleMessages(
   rule: RuleWithGroup,
   gmail: gmail_v1.Gmail,
 ) {
-  switch (rule.type) {
-    case RuleType.STATIC:
-      return fetchStaticExampleMessages(rule, gmail);
-    case RuleType.GROUP: {
-      if (!rule.group) return [];
-      const { messages } = await fetchPaginatedMessages({
-        groupItems: rule.group.items,
-        gmail,
-      });
-      return messages;
-    }
-    case RuleType.AI:
-      return [];
+  const isStatic = isStaticRule(rule);
+  const isGroup = isGroupRule(rule);
+  const isAI = isAIRule(rule);
+  const isCategory = isCategoryRule(rule);
+
+  if (isAI || isCategory) return [];
+
+  // if AND and more than 1 condition, return []
+  // TODO: handle multiple conditions properly and return real examples
+  const conditions = [isStatic, isGroup, isAI, isCategory];
+  const trueConditionsCount = conditions.filter(Boolean).length;
+
+  if (
+    trueConditionsCount > 1 &&
+    rule.conditionalOperator === LogicalOperator.AND
+  )
+    return [];
+
+  if (isStatic) return fetchStaticExampleMessages(rule, gmail);
+
+  if (isGroup) {
+    if (!rule.group) return [];
+    const { messages } = await fetchPaginatedMessages({
+      groupItems: rule.group.items,
+      gmail,
+    });
+    return messages;
   }
+
+  return [];
 }
 
 async function fetchStaticExampleMessages(

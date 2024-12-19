@@ -34,7 +34,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: true,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "high",
       expectedMessageContains: "High Risk",
     },
@@ -48,7 +48,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: true,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "medium",
       expectedMessageContains: "Medium Risk",
     },
@@ -62,7 +62,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: false,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "low",
       expectedMessageContains: "Low Risk",
     },
@@ -76,7 +76,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: false,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "medium",
       expectedMessageContains: "Medium Risk",
     },
@@ -90,7 +90,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: false,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "medium",
       expectedMessageContains: "Medium Risk",
     },
@@ -101,12 +101,14 @@ describe("getActionRiskLevel", () => {
       name,
       action,
       hasAutomation,
-      ruleType,
+      instructions,
       expectedLevel,
       expectedMessageContains,
     }) => {
       it(name, () => {
-        const result = getActionRiskLevel(action, hasAutomation, ruleType);
+        const result = getActionRiskLevel(action, hasAutomation, {
+          instructions,
+        });
         expect(result.level).toBe(expectedLevel);
         expect(result.message).toContain(expectedMessageContains);
       });
@@ -136,7 +138,7 @@ describe("getRiskLevel", () => {
           },
         ],
         automate: true,
-        type: RuleType.AI,
+        instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "high",
       expectedMessageContains: "High Risk",
@@ -161,7 +163,7 @@ describe("getRiskLevel", () => {
           },
         ],
         automate: false,
-        type: RuleType.AI,
+        instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "medium",
       expectedMessageContains: "Medium Risk",
@@ -186,7 +188,7 @@ describe("getRiskLevel", () => {
           },
         ],
         automate: false,
-        type: RuleType.AI,
+        instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "low",
       expectedMessageContains: "Low Risk",

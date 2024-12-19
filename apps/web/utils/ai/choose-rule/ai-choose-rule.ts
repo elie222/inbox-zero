@@ -3,6 +3,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionObject } from "@/utils/llms";
 import type { User } from "@prisma/client";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 
 type GetAiResponseOptions = {
   email: {
@@ -16,10 +17,8 @@ type GetAiResponseOptions = {
   rules: { instructions: string }[];
 };
 
-export async function getAiResponse(options: GetAiResponseOptions) {
+async function getAiResponse(options: GetAiResponseOptions) {
   const { email, user, rules } = options;
-
-  if (!rules.length) return;
 
   const rulesWithUnknownRule = [
     ...rules,
@@ -70,4 +69,35 @@ ${stringifyEmail(email, 500)}
   });
 
   return aiResponse.object;
+}
+
+export async function aiChooseRule<
+  T extends { instructions: string },
+>(options: {
+  email: EmailForLLM;
+  rules: T[];
+  user: Pick<User, "email" | "about"> & UserAIFields;
+}) {
+  const { email, rules, user } = options;
+
+  if (!rules.length) return { reason: "No rules" };
+
+  const aiResponse = await getAiResponse({
+    email,
+    rules,
+    user,
+  });
+
+  const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
+  if (typeof ruleNumber !== "number") {
+    console.warn("No rule selected");
+    return { reason: aiResponse?.reason };
+  }
+
+  const selectedRule = rules[ruleNumber];
+
+  return {
+    rule: selectedRule,
+    reason: aiResponse?.reason,
+  };
 }

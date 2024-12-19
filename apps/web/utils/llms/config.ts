@@ -16,10 +16,10 @@ export const Model = {
   ...(supportsOllama ? { OLLAMA: env.OLLAMA_MODEL } : {}),
 };
 
-export const providerOptions = [
+export const providerOptions: { label: string; value: string }[] = [
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Anthropic", value: Provider.ANTHROPIC },
-  ...(supportsOllama ? [{ label: "Ollama", value: Provider.OLLAMA }] : []),
+  ...(supportsOllama ? [{ label: "Ollama", value: Provider.OLLAMA! }] : []),
 ];
 
 export const modelOptions: Record<string, { label: string; value: string }[]> =
