@@ -82,6 +82,18 @@ export function getConditions(rule: RuleConditions) {
   return conditions;
 }
 
+export function getConditionTypes(
+  rule: RuleConditions,
+): Record<RuleType, boolean> {
+  return getConditions(rule).reduce(
+    (acc, condition) => {
+      acc[condition.type] = true;
+      return acc;
+    },
+    {} as Record<RuleType, boolean>,
+  );
+}
+
 const aiEmptyCondition = {
   type: RuleType.AI,
   instructions: "",
@@ -172,6 +184,10 @@ export const flattenConditions = (
     return acc;
   }, {} as FlattenedConditions);
 };
+
+//========================================
+// toString utils
+//========================================
 
 export function conditionTypesToString(rule: RuleConditions) {
   return getConditions(rule)
