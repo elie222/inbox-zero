@@ -1,29 +1,26 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import {
-  isDefined,
-  type ParsedMessage,
-  type RuleWithActionsAndCategories,
+import type {
+  ParsedMessage,
+  RuleWithActionsAndCategories,
 } from "@/utils/types";
-import { handleGroupRule } from "@/app/api/google/webhook/group-rule";
-import { handleStaticRule } from "@/app/api/google/webhook/static-rule";
 import type { UserAIFields } from "@/utils/llms/types";
 import {
-  CategoryFilterType,
   ExecutedRuleStatus,
-  type Newsletter,
   type Prisma,
   type Rule,
   type User,
 } from "@prisma/client";
 import {
   chooseRuleAndExecute,
+  saveExecutedRule,
   upsertExecutedRule,
 } from "@/utils/ai/choose-rule/choose-and-execute";
 import { emailToContent } from "@/utils/mail";
 import type { ActionItem } from "@/utils/ai/actions";
-import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { isAIRule } from "@/utils/condition";
+import { findPotentialMatchingRules } from "@/utils/ai/choose-rule/match-rules";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
+import { executeAct } from "@/utils/ai/choose-rule/execute";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -39,137 +36,134 @@ export async function runRulesOnMessage({
   rules,
   isThread,
   user,
+  isTest,
 }: {
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
-}): Promise<{ handled: boolean }> {
-  // 1. Check if a static rule matches
-  // 2. Check if a group rule matches
-  // 3. Check if an ai rule matches
-  // 4. TODO: handle multiple conditions properly
-  // 5. TODO: handle AND/OR properly
-  // 6. TODO: handle category rules properly
-
-  const applicableRules = await getApplicableRules({
+  isTest: boolean;
+}): Promise<{
+  handled: boolean;
+  rule?: Rule | null;
+  actionItems?: ActionItem[];
+  reason?: string | null;
+}> {
+  const { match, potentialMatches } = await findPotentialMatchingRules({
     rules,
     message,
     isThread,
-    userId: user.id,
   });
 
-  // static rules
-  const staticRule = await handleStaticRule({
-    rules: applicableRules,
-    message,
-    user,
-    gmail,
-    isTest: false,
-  });
+  if (match) {
+    return await runRule(match, message, user, gmail, isTest);
+  }
 
-  if (staticRule.handled) return { handled: true };
+  if (potentialMatches?.length) {
+    const content = emailToContent({
+      textHtml: message.textHtml || null,
+      textPlain: message.textPlain || null,
+      snippet: message.snippet,
+    });
+    const aiResponse = await chooseRuleAndExecute({
+      email: {
+        from: message.headers.from,
+        replyTo: message.headers["reply-to"],
+        cc: message.headers.cc,
+        subject: message.headers.subject,
+        content,
+        threadId: message.threadId,
+        messageId: message.id,
+        headerMessageId: message.headers["message-id"] || "",
+      },
+      rules: potentialMatches,
+      gmail,
+      user,
+      isTest: false,
+    });
 
-  // group rules
-  const groupRule = await handleGroupRule({
-    message,
-    user,
-    gmail,
-    isThread,
-    isTest: false,
-  });
+    if (aiResponse.handled) return aiResponse;
 
-  if (groupRule.handled) return { handled: true };
+    logger.info(
+      `No rules matched. ${user.email} ${message.threadId} ${message.id}`,
+    );
+    logger.trace(aiResponse);
 
-  // ai rules
-  const aiRules = applicableRules.filter(isAIRule);
-
-  const content = emailToContent({
-    textHtml: message.textHtml || null,
-    textPlain: message.textPlain || null,
-    snippet: message.snippet,
-  });
-  const aiResponse = await chooseRuleAndExecute({
-    email: {
-      from: message.headers.from,
-      replyTo: message.headers["reply-to"],
-      cc: message.headers.cc,
-      subject: message.headers.subject,
-      content,
+    // no rules matched
+    await saveSkippedExecutedRule({
+      userId: user.id,
       threadId: message.threadId,
       messageId: message.id,
-      headerMessageId: message.headers["message-id"] || "",
-    },
-    rules: aiRules,
-    gmail,
-    user,
-    isTest: false,
-  });
-
-  if (aiResponse.handled) return { handled: true };
-
-  logger.info(
-    `No rules matched. ${user.email} ${message.threadId} ${message.id}`,
-  );
-  logger.trace(aiResponse);
-
-  // no rules matched
-  await saveSkippedExecutedRule({
-    userId: user.id,
-    threadId: message.threadId,
-    messageId: message.id,
-    reason: aiResponse?.reason,
-  });
+      reason: aiResponse?.reason,
+    });
+  }
 
   return { handled: false };
 }
 
-async function getApplicableRules({
-  rules,
-  message,
-  isThread,
-  userId,
-}: {
-  rules: RuleWithActionsAndCategories[];
-  message: ParsedMessage;
-  isThread: boolean;
-  userId: string;
-}) {
-  let sender: Pick<Newsletter, "categoryId"> | null = null;
-
-  const applicableRules = await Promise.all(
-    rules.map(async (rule) => {
-      if (isThread && !rule.runOnThreads) return null;
-
-      // check category filter
-      if (rule.categoryFilterType && rule.categoryFilters.length > 0) {
-        // lazy fetch sender
-        if (!sender) {
-          sender = await prisma.newsletter.findUnique({
-            where: { email_userId: { email: message.headers.from, userId } },
-            select: { categoryId: true },
-          });
-        }
-
-        const isIncluded = rule.categoryFilters.some(
-          (c) => c.id === sender?.categoryId,
-        );
-
-        if (
-          (rule.categoryFilterType === CategoryFilterType.INCLUDE &&
-            !isIncluded) ||
-          (rule.categoryFilterType === CategoryFilterType.EXCLUDE && isIncluded)
-        ) {
-          return null;
-        }
-      }
-
-      return rule;
+async function runRule(
+  rule: RuleWithActionsAndCategories,
+  message: ParsedMessage,
+  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  gmail: gmail_v1.Gmail,
+  isTest: boolean,
+) {
+  const email = {
+    from: message.headers.from,
+    to: message.headers.to,
+    subject: message.headers.subject,
+    headerMessageId: message.headers["message-id"] || "",
+    messageId: message.id,
+    snippet: message.snippet,
+    textHtml: message.textHtml || null,
+    textPlain: message.textPlain || null,
+    threadId: message.threadId,
+    cc: message.headers.cc || undefined,
+    date: message.headers.date,
+    references: message.headers.references,
+    replyTo: message.headers["reply-to"],
+    content: emailToContent({
+      textHtml: message.textHtml || null,
+      textPlain: message.textPlain || null,
+      snippet: message.snippet || null,
     }),
-  );
+  };
 
-  return applicableRules.filter(isDefined);
+  // get action items with args
+  const actionItems = await getActionItemsWithAiArgs({
+    email,
+    user,
+    selectedRule: rule,
+  });
+
+  // handle action
+  const executedRule = isTest
+    ? undefined
+    : await saveExecutedRule(
+        {
+          userId: user.id,
+          threadId: email.threadId,
+          messageId: email.messageId,
+        },
+        {
+          rule,
+          actionItems,
+        },
+      );
+
+  const shouldExecute = executedRule && rule.automate;
+
+  if (shouldExecute) {
+    await executeAct({
+      gmail,
+      userEmail: user.email || "",
+      executedRule,
+      email,
+    });
+  }
+
+  return { handled: true, rule, actionItems, executedRule };
 }
 
 async function saveSkippedExecutedRule({
@@ -213,76 +207,14 @@ export async function testRulesOnMessage({
   isThread: boolean;
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
 }): Promise<TestResult> {
-  const applicableRules = isThread
-    ? rules.filter((r) => r.runOnThreads)
-    : rules;
-
-  logger.info("Found applicable rules", { count: applicableRules.length });
-
-  // static rules
-  const staticRule = await handleStaticRule({
-    rules: applicableRules,
-    message,
-    user,
+  const result = await runRulesOnMessage({
     gmail,
-    isTest: true,
-  });
-
-  if (staticRule.handled) {
-    logger.info("Static rule matched");
-    return {
-      rule: staticRule.rule,
-      actionItems: staticRule.actionItems,
-      reason: "Matched static rule",
-    };
-  }
-
-  // group rules
-  const groupRule = await handleGroupRule({
     message,
-    user,
-    gmail,
+    rules,
     isThread,
-    isTest: true,
-  });
-
-  if (groupRule.handled) {
-    logger.info("Group rule matched");
-    return {
-      rule: groupRule.rule,
-      actionItems: groupRule.actionItems,
-      reason: "Matched group rule",
-    };
-  }
-
-  // ai rules
-  const aiRules = applicableRules.filter(isAIRule);
-
-  logger.info("Found ai rules", { count: aiRules.length });
-
-  const content = emailToContent({
-    textHtml: message.textHtml || null,
-    textPlain: message.textPlain || null,
-    snippet: message.snippet,
-  });
-  const plan = await chooseRuleAndExecute({
-    email: {
-      from: message.headers.from,
-      replyTo: message.headers["reply-to"],
-      cc: message.headers.cc,
-      subject: message.headers.subject,
-      content,
-      threadId: message.threadId,
-      messageId: message.id,
-      headerMessageId: message.headers["message-id"] || "",
-    },
-    rules: aiRules,
-    gmail,
     user,
     isTest: true,
   });
 
-  logger.info("AI rule matched", { matched: !!plan.rule });
-
-  return plan;
+  return result;
 }

@@ -5,7 +5,7 @@ import type {
   MessageWithGroupItem,
   RuleWithGroup,
 } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
-import { matchesStaticRule } from "@/app/api/google/webhook/static-rule";
+import { matchesStaticRule } from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
 import {
   isGroupRule,

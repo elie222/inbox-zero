@@ -1,11 +1,11 @@
-import { matchesStaticRule } from "@/app/api/google/webhook/static-rule";
-import { getConditionTypes } from "@/utils/condition";
+import { getConditionTypes, isAIRule } from "@/utils/condition";
 import {
   findMatchingGroup,
   getGroupsWithRules,
 } from "@/utils/group/find-matching-group";
 import type {
   ParsedMessage,
+  RuleWithActions,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
 import { CategoryFilterType, LogicalOperator } from "@prisma/client";
@@ -16,7 +16,9 @@ import prisma from "@/utils/prisma";
 // ai rules need further processing to determine if they match
 type MatchingRuleResult = {
   match?: RuleWithActionsAndCategories;
-  potentialMatches?: RuleWithActionsAndCategories[];
+  potentialMatches?: (RuleWithActionsAndCategories & {
+    instructions: string;
+  })[];
 };
 
 export async function findPotentialMatchingRules({
@@ -28,7 +30,9 @@ export async function findPotentialMatchingRules({
   message: ParsedMessage;
   isThread: boolean;
 }): Promise<MatchingRuleResult> {
-  const potentialMatches: RuleWithActionsAndCategories[] = [];
+  const potentialMatches: (RuleWithActionsAndCategories & {
+    instructions: string;
+  })[] = [];
 
   // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>> = [];
@@ -103,12 +107,39 @@ export async function findPotentialMatchingRules({
 
     // ai
     // we'll need to run the LLM later to determine if it matches
-    if (conditionTypes.AI) {
+    if (conditionTypes.AI && isAIRule(rule)) {
       potentialMatches.push(rule);
     }
   }
 
   return { potentialMatches };
+}
+
+export function matchesStaticRule(
+  rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body">,
+  message: ParsedMessage,
+) {
+  const { from, to, subject, body } = rule;
+
+  if (!from && !to && !subject && !body) return false;
+
+  const safeRegexTest = (pattern: string, text: string) => {
+    try {
+      return new RegExp(pattern).test(text);
+    } catch (error) {
+      console.error(`Invalid regex pattern: ${pattern}`, error);
+      return false;
+    }
+  };
+
+  const fromMatch = from ? safeRegexTest(from, message.headers.from) : true;
+  const toMatch = to ? safeRegexTest(to, message.headers.to) : true;
+  const subjectMatch = subject
+    ? safeRegexTest(subject, message.headers.subject)
+    : true;
+  const bodyMatch = body ? safeRegexTest(body, message.textPlain || "") : true;
+
+  return fromMatch && toMatch && subjectMatch && bodyMatch;
 }
 
 async function matchesGroupRule(

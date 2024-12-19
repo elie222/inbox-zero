@@ -101,6 +101,7 @@ export const runRulesAction = withActionInstrumentation(
       rules: user.rules,
       user: { ...user, email: user.email },
       isThread,
+      isTest: false,
     });
   },
 );
