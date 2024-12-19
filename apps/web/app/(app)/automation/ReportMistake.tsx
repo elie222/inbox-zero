@@ -234,8 +234,12 @@ function ImproveRules({
                 <p className="text-sm">
                   {incorrectRule.name} is not an AI rule.
                 </p>
-                <Button variant="link" asChild className="mt-2">
-                  <Link href={`/automation/rule/${incorrectRule.id}`}>
+                <Button variant="outline" size="sm" asChild className="mt-2">
+                  <Link
+                    href={`/automation/rule/${incorrectRule.id}`}
+                    target="_blank"
+                  >
+                    <ExternalLinkIcon className="mr-2 size-4" />
                     Edit
                   </Link>
                 </Button>
@@ -253,8 +257,14 @@ function ImproveRules({
           ) : (
             <div>
               <p className="text-sm">{correctRule.name} is not an AI rule.</p>
-              <Button variant="link" asChild className="mt-2">
-                <Link href={`/automation/rule/${correctRule.id}`}>Edit</Link>
+              <Button variant="outline" size="sm" asChild className="mt-2">
+                <Link
+                  href={`/automation/rule/${correctRule.id}`}
+                  target="_blank"
+                >
+                  <ExternalLinkIcon className="mr-2 size-4" />
+                  Edit
+                </Link>
               </Button>
             </div>
           )}

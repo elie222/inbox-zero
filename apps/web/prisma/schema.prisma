@@ -178,7 +178,7 @@ model Rule {
   executedRules ExecutedRule[]
 
   // conditions: ai, group, static, category
-  type      RuleType        @default(AI) // deprecated
+  type                RuleType? // deprecated
   conditionalOperator LogicalOperator @default(AND)
 
   // ai conditions
