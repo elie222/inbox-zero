@@ -316,23 +316,20 @@ export function TestResultDisplay({
         className="w-auto max-w-3xl"
         content={
           <Alert variant="destructive" className="bg-white">
-            <AlertTitle>No rule found</AlertTitle>
-            <AlertDescription>
-              <div className="space-y-2">
-                <div>
-                  This email does not match any of the rules you have set.
-                </div>
-                <div>
-                  <strong>Reason:</strong>{" "}
-                  {result.reason || "No reason provided"}
-                </div>
+            <AlertTitle>No rule matched</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <div>
+                This email does not match any of the rules you have set.
+              </div>
+              <div>
+                <strong>Reason:</strong> {result.reason || "No reason provided"}
               </div>
             </AlertDescription>
           </Alert>
         }
       >
         <Badge color="red">
-          {prefix ? prefix : ""}No rule found
+          {prefix ? prefix : ""}No rule matched
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
@@ -375,26 +372,24 @@ export function TestResultDisplay({
         content={
           <Alert variant="blue" className="bg-white">
             <CheckCircle2Icon className="h-4 w-4" />
-            <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
-            <AlertDescription>
-              <div className="mt-1.5 space-y-4">
-                {isAIRule(result.rule) && (
-                  <div className="text-sm">
-                    <span className="font-medium">Rule Instructions: </span>
-                    {result.rule.instructions.substring(0, MAX_LENGTH)}
-                    {result.rule.instructions.length >= MAX_LENGTH && "..."}
-                  </div>
-                )}
-                {!!aiGeneratedContent.length && (
-                  <div className="space-y-3">{aiGeneratedContent}</div>
-                )}
-                {!!result.reason && (
-                  <div className="border-l-2 border-blue-200 pl-3 text-sm">
-                    <span className="font-medium">AI Reasoning: </span>
-                    {result.reason}
-                  </div>
-                )}
-              </div>
+            <AlertTitle>Matched rule "{result.rule.name}"</AlertTitle>
+            <AlertDescription className="mt-2 space-y-4">
+              {isAIRule(result.rule) && (
+                <div className="text-sm">
+                  <span className="font-medium">Rule Instructions: </span>
+                  {result.rule.instructions.substring(0, MAX_LENGTH)}
+                  {result.rule.instructions.length >= MAX_LENGTH && "..."}
+                </div>
+              )}
+              {!!aiGeneratedContent.length && (
+                <div className="space-y-3">{aiGeneratedContent}</div>
+              )}
+              {!!result.reason && (
+                <div className="border-l-2 border-blue-200 pl-3 text-sm">
+                  <span className="font-medium">AI Reasoning: </span>
+                  {result.reason}
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         }
