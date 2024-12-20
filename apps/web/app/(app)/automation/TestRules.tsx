@@ -3,6 +3,7 @@
 import { useCallback, useState, useRef } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { capitalCase } from "capital-case";
@@ -13,6 +14,7 @@ import {
   PenSquareIcon,
   PauseIcon,
   EyeIcon,
+  ExternalLinkIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -368,7 +370,17 @@ export function TestResultDisplay({
         content={
           <Alert variant="blue" className="bg-white">
             <CheckCircle2Icon className="h-4 w-4" />
-            <AlertTitle>Matched rule "{result.rule.name}"</AlertTitle>
+            <AlertTitle className="flex items-center justify-between">
+              Matched rule "{result.rule.name}"
+              <Link
+                href={`/automation/rule/${result.rule.id}`}
+                target="_blank"
+                className="ml-1.5"
+              >
+                <span className="sr-only">View rule</span>
+                <ExternalLinkIcon className="size-3.5 opacity-70" />
+              </Link>
+            </AlertTitle>
             <AlertDescription className="mt-2 space-y-4">
               {isAIRule(result.rule) && (
                 <div className="text-sm">

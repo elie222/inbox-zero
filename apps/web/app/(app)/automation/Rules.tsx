@@ -40,11 +40,7 @@ import {
   setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
 import { Toggle } from "@/components/Toggle";
-import {
-  conditionsToString,
-  conditionTypesToString,
-  isAIRule,
-} from "@/utils/condition";
+import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
@@ -207,7 +203,7 @@ export function Rules() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {/* TODO: multiple condition handling */}
-                            {!isAIRule(rule) && (
+                            {/* {!isAIRule(rule) && (
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={`/automation/rule/${rule.id}/examples`}
@@ -215,7 +211,7 @@ export function Rules() {
                                   View Examples
                                 </Link>
                               </DropdownMenuItem>
-                            )}
+                            )} */}
                             <DropdownMenuItem asChild>
                               <Link href={`/automation/rule/${rule.id}`}>
                                 Edit

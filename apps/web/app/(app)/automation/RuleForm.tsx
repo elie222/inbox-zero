@@ -55,7 +55,7 @@ import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { hasVariables } from "@/utils/template";
-import { getEmptyConditions, isAIRule } from "@/utils/condition";
+import { getEmptyConditions } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
@@ -588,13 +588,13 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       <div className="flex justify-end space-x-2 py-6">
         {rule.id ? (
           <>
-            {!isAIRule(rule) && (
+            {/* {!isAIRule(rule) && (
               <Button variant="outline" asChild>
                 <Link href={`/automation/rule/${rule.id}/examples`}>
                   View Examples
                 </Link>
               </Button>
-            )}
+            )} */}
             <Button
               type="submit"
               disabled={isSubmitting}
