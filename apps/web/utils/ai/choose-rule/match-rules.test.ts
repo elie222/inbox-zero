@@ -101,6 +101,78 @@ describe("findMatchingRule", () => {
     expect(result.rule?.id).toBeUndefined();
     expect(result.reason).toBeUndefined();
   });
+
+  it("matches a rule with multiple conditions AND (category and group)", async () => {
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group1",
+        items: [
+          getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
+        ],
+      }),
+    ]);
+    prisma.newsletter.findUnique.mockResolvedValue(
+      getNewsletter({ categoryId: "category1" }),
+    );
+
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      categoryFilters: [getCategory({ id: "category1" })],
+      groupId: "group1",
+    });
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("doesn't match with only one of category or group", async () => {
+    prisma.newsletter.findUnique.mockResolvedValue(
+      getNewsletter({ categoryId: "category1" }),
+    );
+    prisma.group.findMany.mockResolvedValue([]);
+
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      categoryFilters: [getCategory({ id: "category1" })],
+      groupId: "group1",
+    });
+    const rules = [rule];
+    const message = getMessage();
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBeUndefined();
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("does match with OR and one of category or group", async () => {
+    prisma.newsletter.findUnique.mockResolvedValue(
+      getNewsletter({ categoryId: "category1" }),
+    );
+    prisma.group.findMany.mockResolvedValue([]);
+
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.OR,
+      categoryFilters: [getCategory({ id: "category1" })],
+      groupId: "group1",
+    });
+    const rules = [rule];
+    const message = getMessage();
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBeUndefined();
+  });
 });
 
 function getRule(
@@ -112,6 +184,7 @@ function getRule(
     runOnThreads: true,
     conditionalOperator: LogicalOperator.AND,
     categoryFilters: [],
+    categoryFilterType: CategoryFilterType.INCLUDE,
     type: null,
     ...overrides,
   } as RuleWithActionsAndCategories;

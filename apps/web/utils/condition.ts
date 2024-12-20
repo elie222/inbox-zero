@@ -41,7 +41,7 @@ export function isStaticRule(rule: RuleConditions) {
 }
 
 export function isCategoryRule(rule: RuleConditions) {
-  return !!rule.categoryFilterType;
+  return !!(rule.categoryFilters?.length && rule.categoryFilterType);
 }
 
 export function getConditions(rule: RuleConditions) {
