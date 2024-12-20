@@ -128,7 +128,7 @@ For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You can
 
 ```sh
 OLLAMA_BASE_URL=http://localhost:11434/api
-OLLAMA_MODEL=phi3
+NEXT_PUBLIC_OLLAMA_MODEL=phi3
 ```
 
 You can select the model you wish to use in the app on the `/settings` page of the app.

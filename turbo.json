@@ -16,6 +16,7 @@
         "BEDROCK_ACCESS_KEY",
         "BEDROCK_SECRET_KEY",
         "BEDROCK_REGION",
+        "OLLAMA_BASE_URL",
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
         "QSTASH_TOKEN",
@@ -90,7 +91,8 @@
         "NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED",
         "NEXT_PUBLIC_AXIOM_DATASET",
         "NEXT_PUBLIC_AXIOM_TOKEN",
-        "NEXT_PUBLIC_BEDROCK_SONNET_MODEL"
+        "NEXT_PUBLIC_BEDROCK_SONNET_MODEL",
+        "NEXT_PUBLIC_OLLAMA_MODEL"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
