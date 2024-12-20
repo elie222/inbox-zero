@@ -24,10 +24,6 @@ vi.mock("@/utils/prisma");
 
 describe("findMatchingRule", () => {
   it("matches a static rule", async () => {
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "test-category" }),
-    );
-
     const rule = getRule({ from: "test@example.com" });
     const rules = [rule];
     const message = getMessage({
@@ -38,6 +34,34 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("matches a static domain", async () => {
+    const rule = getRule({ from: "@example.com" });
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("doens't match wrong static domain", async () => {
+    const rule = getRule({ from: "@example2.com" });
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBeUndefined();
     expect(result.reason).toBeUndefined();
   });
 
