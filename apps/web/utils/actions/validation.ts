@@ -97,16 +97,19 @@ export const createRuleBody = z.object({
   instructions: z.string().nullish(),
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
-  actions: z.array(zodAction),
-  conditions: z.array(zodCondition).refine(
-    (conditions) => {
-      const types = conditions.map((condition) => condition.type);
-      return new Set(types).size === types.length;
-    },
-    {
-      message: "You can't have two conditions with the same type.",
-    },
-  ),
+  actions: z.array(zodAction).min(1, "You must have at least one action"),
+  conditions: z
+    .array(zodCondition)
+    .min(1, "You must have at least one condition")
+    .refine(
+      (conditions) => {
+        const types = conditions.map((condition) => condition.type);
+        return new Set(types).size === types.length;
+      },
+      {
+        message: "You can't have two conditions with the same type.",
+      },
+    ),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 

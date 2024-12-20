@@ -400,7 +400,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <div className="mt-4">
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             className="w-full"
             onClick={() => appendCondition(unusedCondition)}
           >
@@ -544,7 +544,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       <div className="mt-4">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           className="w-full"
           onClick={() => append({ type: ActionType.LABEL })}
         >
