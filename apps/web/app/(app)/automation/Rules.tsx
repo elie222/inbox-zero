@@ -261,13 +261,13 @@ export function Rules() {
           <Button asChild variant="outline">
             <Link href="/automation?tab=prompt">
               <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
-              Add Rule via Prompt Tab
+              Add Rule via Prompt
             </Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/automation/create">
+            <Link href="/automation/rule/create">
               <PlusIcon className="mr-2 hidden h-4 w-4 md:block" />
-              Create Rule Manually
+              Add Rule Manually
             </Link>
           </Button>
         </div>
@@ -314,7 +314,7 @@ function NoRules() {
           </Button>
 
           <Button type="button" variant="outline" asChild>
-            <Link href="/automation/create">Create a Rule Manually</Link>
+            <Link href="/automation/rule/create">Create a Rule Manually</Link>
           </Button>
         </div>
       </CardContent>
