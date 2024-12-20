@@ -3,7 +3,7 @@ import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType, RuleType } from "@prisma/client";
 
-// pnpm test ai-prompt-to-rules
+// pnpm test-ai ai-prompt-to-rules
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

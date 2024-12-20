@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 
-// pnpm test ai-choose-rule
+// pnpm test-ai ai-choose-rule
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

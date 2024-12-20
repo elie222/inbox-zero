@@ -4,7 +4,7 @@ import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
 
-// pnpm test ai-create-group
+// pnpm test-ai ai-create-group
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

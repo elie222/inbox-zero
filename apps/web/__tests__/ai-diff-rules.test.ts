@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 
-// pnpm test ai-diff-rules
+// pnpm test-ai ai-diff-rules
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

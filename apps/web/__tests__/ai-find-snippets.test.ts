@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 
-// pnpm test ai-find-snippets
+// pnpm test-ai ai-find-snippets
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

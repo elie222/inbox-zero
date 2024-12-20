@@ -3,7 +3,7 @@ import { getParameterFieldsForAction, parseTemplate } from "./ai-choose-args";
 import { z } from "zod";
 
 // Run with:
-// pnpm test ai-choose-args.test.ts
+// pnpm test-ai ai-choose-args.test.ts
 
 vi.mock("server-only", () => ({}));
 
