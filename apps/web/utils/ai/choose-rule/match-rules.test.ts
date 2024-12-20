@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { findMatchingRule } from "./match-rules";
 import {
   type Category,
@@ -15,14 +15,22 @@ import type {
   ParsedMessageHeaders,
 } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
+import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 
 // Run with:
 // pnpm test match-rules.test.ts
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/ai/choose-rule/ai-choose-rule", () => ({
+  aiChooseRule: vi.fn(),
+}));
 
 describe("findMatchingRule", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("matches a static rule", async () => {
     const rule = getRule({ from: "test@example.com" });
     const rules = [rule];
@@ -154,6 +162,37 @@ describe("findMatchingRule", () => {
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBeUndefined();
+  });
+
+  it("matches a rule with multiple conditions AND (category and AI)", async () => {
+    prisma.newsletter.findUnique.mockResolvedValue(
+      getNewsletter({ categoryId: "newsletterCategory" }),
+    );
+
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      instructions: "Match if the email is an AI newsletter",
+      categoryFilters: [getCategory({ id: "newsletterCategory" })],
+    });
+
+    (aiChooseRule as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      return {
+        reason: "reason",
+        rule: { id: "r123" },
+      };
+    });
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "ai@newsletter.com" }),
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBeDefined();
+    expect(aiChooseRule).toHaveBeenCalledOnce();
   });
 
   it("doesn't match with only one of category or group", async () => {

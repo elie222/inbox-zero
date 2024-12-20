@@ -4,6 +4,9 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { User } from "@prisma/client";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-choose-rule");
 
 type GetAiResponseOptions = {
   email: {
@@ -56,6 +59,8 @@ ${stringifyEmail(email, 500)}
 </email>
 `;
 
+  logger.trace("AI choose rule prompt", { system, prompt });
+
   const aiResponse = await chatCompletionObject({
     userAi: user,
     prompt,
@@ -67,6 +72,8 @@ ${stringifyEmail(email, 500)}
     userEmail: user.email || "",
     usageLabel: "Choose rule",
   });
+
+  logger.trace("AI choose rule response", aiResponse.object);
 
   return aiResponse.object;
 }
