@@ -3,7 +3,9 @@ import { GroupName } from "@/utils/config";
 import { ActionType, RuleType } from "@prisma/client";
 
 export const createRuleSchema = z.object({
-  name: z.string().describe("The name of the rule"),
+  name: z
+    .string()
+    .describe("The name of the rule. No need to include 'Rule' in the name."),
   condition: z
     .object({
       type: z
