@@ -128,7 +128,7 @@ describe.skipIf(!isAiTest)("AI Sender Categorization", () => {
           expect(result?.category).toBe(expectedCategory);
         }
       }
-    }, 15_000);
+    }, 30_000);
 
     it("should handle unknown sender appropriately", async () => {
       const unknownSender = testSenders.find(
