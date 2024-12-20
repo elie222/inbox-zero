@@ -64,17 +64,24 @@ describe("findMatchingRule", () => {
     expect(result.reason).toBeUndefined();
   });
 
-  // it("matches a smart category rule", async () => {
-  //   const rule = getRule({
-  //     categoryFilters: [getCategory()],
-  //     categoryFilterType: CategoryFilterType.INCLUDE,
-  //   });
-  //   const rules = [rule];
-  //   const message = getMessage({
-  //     headers: getHeaders({ from: "test@example.com" }),
-  //   });
-  //   const user = getUser();
-  // });
+  it("matches a smart category rule", async () => {
+    prisma.newsletter.findUnique.mockResolvedValue(
+      getNewsletter({ categoryId: "test-category" }),
+    );
+
+    const rule = getRule({
+      categoryFilters: [getCategory({ id: "test-category" })],
+      categoryFilterType: CategoryFilterType.INCLUDE,
+    });
+    const rules = [rule];
+    const message = getMessage();
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBeUndefined();
+  });
 
   // it("matches a smart category rule with exclude", async () => {
   //   const rule = getRule({
@@ -126,6 +133,7 @@ function getMessage(overrides: Partial<ParsedMessage> = {}): ParsedMessage {
   const message = {
     id: "m1",
     threadId: "m1",
+    headers: getHeaders(),
     ...overrides,
   };
 

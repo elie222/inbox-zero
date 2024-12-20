@@ -47,9 +47,9 @@ async function findPotentialMatchingRules({
   }
 
   // sender singleton
-  let sender: { categoryId: string | null } | null = null;
+  let sender: { categoryId: string | null } | null | undefined;
   async function getSender(rule: RuleWithActionsAndCategories) {
-    if (!sender) {
+    if (typeof sender === "undefined") {
       sender = await prisma.newsletter.findUnique({
         where: {
           email_userId: { email: message.headers.from, userId: rule.userId },
@@ -101,7 +101,7 @@ async function findPotentialMatchingRules({
       const match = await matchesCategoryRule(rule, await getSender(rule));
       if (match) {
         unmatchedConditions.delete("CATEGORY");
-        if (operator === LogicalOperator.OR || !!unmatchedConditions.size)
+        if (operator === LogicalOperator.OR || !unmatchedConditions.size)
           return { match: rule };
       } else {
         // no match, so can't be a match with AND
