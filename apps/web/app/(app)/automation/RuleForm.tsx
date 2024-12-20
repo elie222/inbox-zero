@@ -28,7 +28,7 @@ import {
   SectionDescription,
   TypographyH3,
 } from "@/components/Typography";
-import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
+import { ActionType, type CategoryFilterType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -57,6 +57,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { hasVariables } from "@/utils/template";
 import { getEmptyConditions } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -311,6 +312,34 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
                 {watch(`conditions.${index}.type`) === RuleType.CATEGORY && (
                   <>
+                    <div className="flex items-center gap-4">
+                      <RadioGroup
+                        defaultValue="include"
+                        value={
+                          watch(`conditions.${index}.categoryFilterType`) ||
+                          undefined
+                        }
+                        onValueChange={(value) =>
+                          setValue(
+                            `conditions.${index}.categoryFilterType`,
+                            value as CategoryFilterType,
+                          )
+                        }
+                        className="flex gap-6"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="include" id="include" />
+                          <Label name="include" label="Match" />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="exclude" id="exclude" />
+                          <Label name="exclude" label="Skip" />
+                        </div>
+                      </RadioGroup>
+
+                      <TooltipExplanation text="This stops the AI from applying this rule to emails that don't match your criteria." />
+                    </div>
+
                     <LoadingContent
                       loading={categoriesLoading}
                       error={categoriesError}
@@ -355,29 +384,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         <ExternalLinkIcon className="ml-1.5 size-4" />
                       </Link>
                     </Button>
-
-                    <Select
-                      label="Filter type"
-                      tooltipText="This stops the AI from applying this rule to emails that don't match your criteria."
-                      options={[
-                        {
-                          label: "Include",
-                          value: CategoryFilterType.INCLUDE,
-                        },
-                        {
-                          label: "Exclude",
-                          value: CategoryFilterType.EXCLUDE,
-                        },
-                      ]}
-                      {...register(`conditions.${index}.categoryFilterType`)}
-                      error={
-                        (
-                          errors.conditions?.[index] as {
-                            categoryFilterType?: FieldError;
-                          }
-                        )?.categoryFilterType
-                      }
-                    />
                   </>
                 )}
               </div>

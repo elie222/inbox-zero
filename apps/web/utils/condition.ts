@@ -114,7 +114,7 @@ const staticEmptyCondition = {
 
 const categoryEmptyCondition = {
   type: RuleType.CATEGORY,
-  categoryFilterType: null,
+  categoryFilterType: CategoryFilterType.INCLUDE,
   categoryFilters: null,
 };
 
