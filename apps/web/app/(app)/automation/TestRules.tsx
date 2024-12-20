@@ -343,8 +343,11 @@ export function TestResultDisplay({
     const MAX_LENGTH = 280;
 
     const aiGeneratedContent = result.actionItems.map((action, i) => (
-      <div key={i} className="rounded-md border border-gray-200 bg-gray-50 p-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-900">
+      <div
+        key={i}
+        className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3"
+      >
+        <div className="text-xs font-semibold uppercase tracking-wide text-gray-900">
           {capitalCase(action.type)}
         </div>
         {Object.entries(action)
