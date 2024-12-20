@@ -4,9 +4,11 @@ import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 
 // pnpm test ai-find-snippets
 
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 vi.mock("server-only", () => ({}));
 
-describe("aiFindSnippets", () => {
+describe.skipIf(!isAiTest)("aiFindSnippets", () => {
   test("should find snippets in similar emails", async () => {
     const emails = [
       getEmail({

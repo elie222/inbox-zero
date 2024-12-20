@@ -5,9 +5,11 @@ import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 
 // pnpm test ai-rule-fix
 
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 vi.mock("server-only", () => ({}));
 
-describe("aiRuleFix", () => {
+describe.skipIf(!isAiTest)("aiRuleFix", () => {
   test("should fix a rule that incorrectly matched a sales email", async () => {
     const rule = {
       instructions: "Match emails discussing potential business partnerships",

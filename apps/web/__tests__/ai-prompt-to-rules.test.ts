@@ -3,9 +3,13 @@ import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType, RuleType } from "@prisma/client";
 
+// pnpm test ai-prompt-to-rules
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 vi.mock("server-only", () => ({}));
 
-describe("aiPromptToRules", () => {
+describe.skipIf(!isAiTest)("aiPromptToRules", () => {
   it("should convert prompt file to rules", async () => {
     const user = {
       email: "user@test.com",

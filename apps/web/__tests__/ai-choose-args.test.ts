@@ -3,9 +3,13 @@ import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args"
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 import type { RuleWithActions } from "@/utils/types";
 
+// pnpm test ai-choose-args
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 vi.mock("server-only", () => ({}));
 
-describe("getActionItemsWithAiArgs", () => {
+describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
   test("should return actions unchanged when no AI args needed", async () => {
     const actions = [getAction({})];
     const rule = getRule("Test rule", actions);
