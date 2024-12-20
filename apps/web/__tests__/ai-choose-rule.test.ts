@@ -33,7 +33,6 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     expect(result).toEqual({
       rule,
       reason: expect.any(String),
-      actionItems: [],
     });
   });
 
@@ -54,7 +53,6 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     expect(result).toEqual({
       rule: rule2,
       reason: expect.any(String),
-      actionItems: [],
     });
   });
 
@@ -97,28 +95,6 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     expect(result).toEqual({
       rule: rule2,
       reason: expect.any(String),
-      actionItems: [
-        {
-          bcc: null,
-          cc: null,
-          content: expect.any(String),
-          label: null,
-          subject: null,
-          to: null,
-          type: "REPLY",
-
-          labelPrompt: null,
-          subjectPrompt: null,
-          contentPrompt: null,
-          toPrompt: null,
-          ccPrompt: null,
-          bccPrompt: null,
-          createdAt: expect.any(Date),
-          updatedAt: expect.any(Date),
-          id: "id",
-          ruleId: "ruleId",
-        },
-      ],
     });
   });
 });
