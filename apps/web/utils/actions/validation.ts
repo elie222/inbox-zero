@@ -135,10 +135,7 @@ export const rulesExamplesBody = z.object({
 });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
-export const testAiBody = z.object({
-  messageId: z.string(),
-  threadId: z.string(),
-});
+export const testAiBody = z.object({ messageId: z.string() });
 export type TestAiBody = z.infer<typeof testAiBody>;
 
 export const reportAiMistakeBody = z

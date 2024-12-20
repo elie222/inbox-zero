@@ -26,7 +26,6 @@ import {
   testAiAction,
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
-import { RuleType } from "@prisma/client";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
@@ -101,10 +100,7 @@ export function TestRulesContent() {
   const onTest = useCallback(async (message: Message) => {
     setIsTesting((prev) => ({ ...prev, [message.id]: true }));
 
-    const result = await testAiAction({
-      messageId: message.id,
-      threadId: message.threadId,
-    });
+    const result = await testAiAction({ messageId: message.id });
     if (isActionError(result)) {
       toastError({
         title: "There was an error testing the email",

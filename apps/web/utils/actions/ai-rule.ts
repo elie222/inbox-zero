@@ -112,7 +112,7 @@ export const testAiAction = withActionInstrumentation(
 
     const { success, data, error } = testAiBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
-    const { messageId, threadId } = data;
+    const { messageId } = data;
 
     const { gmail, user: u } = sessionResult;
 
