@@ -39,7 +39,7 @@ async function findPotentialMatchingRules({
   })[] = [];
 
   // groups singleton
-  let groups: Awaited<ReturnType<typeof getGroupsWithRules>> = [];
+  let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   // only load once and only when needed
   async function getGroups(rule: RuleWithActionsAndCategories) {
     if (!groups) groups = await getGroupsWithRules(rule.userId);

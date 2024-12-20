@@ -152,7 +152,8 @@
     "tailwindcss": "3.4.16",
     "tsconfig": "workspace:*",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "2.1.8"
+    "vitest": "2.1.8",
+    "vitest-mock-extended": "^2.0.2"
   },
   "engines": {
     "node": ">=18.17"
