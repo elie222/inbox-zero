@@ -153,7 +153,7 @@ describe("findMatchingRule", () => {
     expect(result.reason).toBeUndefined();
   });
 
-  it("does match with OR and one of category or group", async () => {
+  it("matches with OR and one of category or group", async () => {
     prisma.newsletter.findUnique.mockResolvedValue(
       getNewsletter({ categoryId: "category1" }),
     );
