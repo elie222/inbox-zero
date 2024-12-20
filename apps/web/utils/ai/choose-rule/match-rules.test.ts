@@ -83,17 +83,24 @@ describe("findMatchingRule", () => {
     expect(result.reason).toBeUndefined();
   });
 
-  // it("matches a smart category rule with exclude", async () => {
-  //   const rule = getRule({
-  //     categoryFilters: [getCategory()],
-  //     categoryFilterType: CategoryFilterType.EXCLUDE,
-  //   });
-  //   const rules = [rule];
-  //   const message = getMessage({
-  //     headers: getHeaders({ from: "test@example.com" }),
-  //   });
-  //   const user = getUser();
-  // });
+  it("matches a smart category rule with exclude", async () => {
+    prisma.newsletter.findUnique.mockResolvedValue(
+      getNewsletter({ categoryId: "test-category" }),
+    );
+
+    const rule = getRule({
+      categoryFilters: [getCategory({ id: "test-category" })],
+      categoryFilterType: CategoryFilterType.EXCLUDE,
+    });
+    const rules = [rule];
+    const message = getMessage();
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBeUndefined();
+    expect(result.reason).toBeUndefined();
+  });
 });
 
 function getRule(
