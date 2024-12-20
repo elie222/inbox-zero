@@ -1,6 +1,6 @@
 import { env } from "@/env";
 
-const supportsOllama = env.OLLAMA_MODEL && env.OLLAMA_BASE_URL;
+const supportsOllama = env.NEXT_PUBLIC_OLLAMA_MODEL;
 
 export const Provider = {
   OPEN_AI: "openai",
@@ -13,7 +13,7 @@ export const Model = {
   GPT_4O_MINI: "gpt-4o-mini",
   CLAUDE_3_5_SONNET_BEDROCK: env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
   CLAUDE_3_5_SONNET_ANTHROPIC: "claude-3-5-sonnet-20241022",
-  ...(supportsOllama ? { OLLAMA: env.OLLAMA_MODEL } : {}),
+  ...(supportsOllama ? { OLLAMA: env.NEXT_PUBLIC_OLLAMA_MODEL } : {}),
 };
 
 export const providerOptions: { label: string; value: string }[] = [

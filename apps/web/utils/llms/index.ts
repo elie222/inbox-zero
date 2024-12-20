@@ -68,12 +68,12 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
     };
   }
 
-  if (provider === Provider.OLLAMA && env.OLLAMA_MODEL) {
+  if (provider === Provider.OLLAMA && env.NEXT_PUBLIC_OLLAMA_MODEL) {
     return {
       provider: Provider.OLLAMA,
-      model: env.OLLAMA_MODEL,
+      model: env.NEXT_PUBLIC_OLLAMA_MODEL,
       llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(
-        aiModel || env.OLLAMA_MODEL,
+        aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL,
       ),
     };
   }

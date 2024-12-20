@@ -17,6 +17,7 @@ export const env = createEnv({
     BEDROCK_REGION: z.string().default("us-west-2"),
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
+    OLLAMA_BASE_URL: z.string().optional(),
     QSTASH_TOKEN: z.string().optional(),
     QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
     QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
@@ -47,8 +48,6 @@ export const env = createEnv({
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string().optional(),
-    OLLAMA_BASE_URL: z.string().optional(),
-    OLLAMA_MODEL: z.string().optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -112,6 +111,7 @@ export const env = createEnv({
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
       .string()
       .default("anthropic.claude-3-5-sonnet-20241022-v2:0"),
+    NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -180,5 +180,6 @@ export const env = createEnv({
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
       process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
+    NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
   },
 });
