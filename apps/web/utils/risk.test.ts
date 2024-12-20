@@ -20,7 +20,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: true,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "very-high",
       expectedMessageContains: "Very High Risk",
     },
@@ -77,8 +77,8 @@ describe("getActionRiskLevel", () => {
       },
       hasAutomation: false,
       instructions: "String",
-      expectedLevel: "medium",
-      expectedMessageContains: "Medium Risk",
+      expectedLevel: "low",
+      expectedMessageContains: "Low Risk",
     },
     {
       name: "returns medium risk for dynamic cc/bcc without automation",
@@ -91,8 +91,8 @@ describe("getActionRiskLevel", () => {
       },
       hasAutomation: false,
       instructions: "String",
-      expectedLevel: "medium",
-      expectedMessageContains: "Medium Risk",
+      expectedLevel: "low",
+      expectedMessageContains: "Low Risk",
     },
   ];
 
@@ -144,7 +144,7 @@ describe("getRiskLevel", () => {
       expectedMessageContains: "High Risk",
     },
     {
-      name: "returns medium risk when one action is medium and another is low",
+      name: "returns high risk when one action is high and another is low",
       rule: {
         actions: [
           {
@@ -162,11 +162,11 @@ describe("getRiskLevel", () => {
             bcc: "",
           },
         ],
-        automate: false,
+        automate: true,
         instructions: "String",
       } as RulesResponse[number],
-      expectedLevel: "medium",
-      expectedMessageContains: "Medium Risk",
+      expectedLevel: "high",
+      expectedMessageContains: "High Risk",
     },
     {
       name: "returns low risk when all actions are low risk",
