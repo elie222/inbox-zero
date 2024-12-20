@@ -195,6 +195,37 @@ describe("findMatchingRule", () => {
     expect(aiChooseRule).toHaveBeenCalledOnce();
   });
 
+  it("doesn't match when AI condition fails (category matches but AI doesn't)", async () => {
+    prisma.newsletter.findUnique.mockResolvedValue(
+      getNewsletter({ categoryId: "newsletterCategory" }),
+    );
+
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      instructions: "Match if the email is an AI newsletter",
+      categoryFilters: [getCategory({ id: "newsletterCategory" })],
+    });
+
+    (aiChooseRule as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      return {
+        reason: "Not an AI newsletter",
+        rule: undefined,
+      };
+    });
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "marketing@newsletter.com" }),
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule).toBeUndefined();
+    expect(result.reason).toBeDefined();
+    expect(aiChooseRule).toHaveBeenCalledOnce();
+  });
+
   it("doesn't match with only one of category or group", async () => {
     prisma.newsletter.findUnique.mockResolvedValue(
       getNewsletter({ categoryId: "category1" }),
