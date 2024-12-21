@@ -284,10 +284,7 @@ function ImproveRules({
         onClick={async () => {
           setChecking(true);
 
-          const result = await testAiAction({
-            messageId: message.id,
-            threadId: message.threadId,
-          });
+          const result = await testAiAction({ messageId: message.id });
           if (isActionError(result)) {
             toastError({
               title: "There was an error testing the email",

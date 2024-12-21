@@ -384,7 +384,7 @@ export function TestResultDisplay({
             <AlertDescription className="mt-2 space-y-4">
               {isAIRule(result.rule) && (
                 <div className="text-sm">
-                  <span className="font-medium">Rule Instructions: </span>
+                  <span className="font-medium">AI Instructions: </span>
                   {result.rule.instructions.substring(0, MAX_LENGTH)}
                   {result.rule.instructions.length >= MAX_LENGTH && "..."}
                 </div>

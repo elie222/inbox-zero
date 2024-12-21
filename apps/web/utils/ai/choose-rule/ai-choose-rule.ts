@@ -46,11 +46,11 @@ ${
 }
 `;
 
-  const prompt = `This email was received for processing. Select a rule to apply to it.
+  const prompt = `An email was received for processing. Select a rule to apply to it.
 
 <outputFormat>
 Respond with a JSON object with the following fields:
-"reason" - the reason you chose that rule. Keep it short.
+"reason" - the reason you chose that rule. Keep it concise.
 "rule" - the number of the rule you want to apply
 </outputFormat>
 
