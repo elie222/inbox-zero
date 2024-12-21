@@ -278,6 +278,7 @@ function TestRulesContentRow({
             subject={message.headers.subject}
             snippet={message.snippet?.trim() || ""}
             userEmail={userEmail}
+            messageId={message.id}
           />
           <div className="ml-4 flex gap-1">
             {testResult ? (
