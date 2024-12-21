@@ -477,6 +477,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 </div>
                 <div className="space-y-4 sm:col-span-3">
                   {actionInputs[action.type].fields.map((field) => {
+                    console.log(
+                      "🚀 ~ {actionInputs[action.type].fields.map ~ field:",
+                      field,
+                    );
                     const isAiGenerated = action[field.name]?.ai;
 
                     const value = watch(`actions.${i}.${field.name}.value`);
@@ -524,6 +528,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           <div className="mt-2">
                             <TextareaAutosize
                               className="block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              minRows={3}
                               rows={3}
                               placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
                               value={value || ""}
