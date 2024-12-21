@@ -11,6 +11,7 @@ import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import type { ButtonProps } from "@/components/ui/button";
 import { useCategorizeProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
+import { Tooltip } from "@/components/Tooltip";
 
 export function CategorizeWithAiButton({
   buttonProps,
@@ -25,7 +26,10 @@ export function CategorizeWithAiButton({
 
   return (
     <>
-      <PremiumTooltip showTooltip={!hasAiAccess} openModal={openPremiumModal}>
+      <CategorizeWithAiButtonTooltip
+        hasAiAccess={hasAiAccess}
+        openPremiumModal={openPremiumModal}
+      >
         <Button
           type="button"
           loading={isCategorizing}
@@ -72,8 +76,32 @@ export function CategorizeWithAiButton({
             </>
           )}
         </Button>
-      </PremiumTooltip>
+      </CategorizeWithAiButtonTooltip>
       <PremiumModal />
     </>
+  );
+}
+
+function CategorizeWithAiButtonTooltip({
+  children,
+  hasAiAccess,
+  openPremiumModal,
+}: {
+  children: React.ReactElement;
+  hasAiAccess: boolean;
+  openPremiumModal: () => void;
+}) {
+  if (hasAiAccess) {
+    return (
+      <Tooltip content="Categorize thousands of senders. This will take a few minutes.">
+        {children}
+      </Tooltip>
+    );
+  }
+
+  return (
+    <PremiumTooltip showTooltip={!hasAiAccess} openModal={openPremiumModal}>
+      {children}
+    </PremiumTooltip>
   );
 }

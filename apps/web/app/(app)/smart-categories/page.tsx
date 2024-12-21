@@ -26,7 +26,6 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { CategorizeSendersProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
 import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
-import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -76,13 +75,6 @@ export default async function CategoriesPage() {
             </TabsList>
 
             <div className="flex items-center gap-2">
-              <div className="mr-1">
-                <TooltipExplanation
-                  size="sm"
-                  text="Categorize thousands of senders in your inbox. This will take a few minutes."
-                />
-              </div>
-
               <CategorizeWithAiButton
                 buttonProps={{
                   children: (
