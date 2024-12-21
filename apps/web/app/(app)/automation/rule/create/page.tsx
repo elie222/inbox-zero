@@ -9,7 +9,7 @@ export default function CreateRulePage({
   searchParams: {
     example?: string;
     groupId?: string;
-    tab?: RuleType;
+    type?: RuleType;
     categoryId?: string;
     label?: string;
   };
@@ -28,16 +28,14 @@ export default function CreateRulePage({
               ? [
                   {
                     type: ActionType.LABEL,
-                    label: {
-                      value: searchParams.label,
-                    },
+                    label: { value: searchParams.label },
                   },
                 ]
               : [],
-            conditions: searchParams.tab
+            conditions: searchParams.type
               ? [
                   getEmptyCondition(
-                    searchParams.tab,
+                    searchParams.type,
                     searchParams.groupId,
                     searchParams.categoryId,
                   ),

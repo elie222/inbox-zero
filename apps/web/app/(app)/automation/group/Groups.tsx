@@ -21,6 +21,7 @@ import {
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroupModal";
 import { Button } from "@/components/ui/button";
+import { RuleType } from "@prisma/client";
 
 export function Groups() {
   const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");
@@ -97,7 +98,7 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                 ) : (
                   <Button variant="outline" size="sm" asChild>
                     <Link
-                      href={`/automation/rule/create?groupId=${group.id}&tab=GROUP`}
+                      href={`/automation/rule/create?groupId=${group.id}&type=${RuleType.GROUP}`}
                     >
                       Attach
                     </Link>

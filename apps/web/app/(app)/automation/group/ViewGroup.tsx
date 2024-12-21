@@ -44,7 +44,7 @@ import {
   updateGroupPromptAction,
 } from "@/utils/actions/group";
 import { GroupName } from "@/utils/config";
-import { GroupItemType } from "@prisma/client";
+import { GroupItemType, RuleType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -133,7 +133,7 @@ export function ViewGroup({
             ) : (
               <Button variant="outline" asChild className="w-full sm:w-auto">
                 <Link
-                  href={`/automation/rule/create?groupId=${groupId}&tab=GROUP`}
+                  href={`/automation/rule/create?groupId=${groupId}&type=${RuleType.GROUP}`}
                 >
                   Attach Rule
                 </Link>
