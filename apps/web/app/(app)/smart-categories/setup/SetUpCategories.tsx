@@ -111,17 +111,16 @@ export function SetUpCategories({
       <Card className="m-4">
         <CardHeader>
           <CardTitle>Set up categories</CardTitle>
-          <CardDescription className="max-w-2xl">
-            Automatically categorize who emails you for better inbox management
-            and smarter automation. This allows you to bulk archive by category
-            and optimize AI automation based on sender types.
+          <CardDescription className="max-w-sm">
+            Automatically sort your emails by sender type to enable smart
+            archiving and AI automation.
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <TypographyH4>Choose categories</TypographyH4>
 
-          <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
             {combinedCategories.map((category) => {
               return (
                 <CategoryCard
@@ -221,9 +220,9 @@ function CategoryCard({
     >
       <div>
         <div className="text-sm">{category.name}</div>
-        <div className="mt-1 text-xs text-muted-foreground">
+        {/* <div className="mt-1 text-xs text-muted-foreground">
           {category.description}
-        </div>
+        </div> */}
       </div>
       {isEnabled ? (
         <div className="flex gap-1">
