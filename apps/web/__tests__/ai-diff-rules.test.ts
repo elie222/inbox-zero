@@ -1,9 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 
+// pnpm test-ai ai-diff-rules
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 vi.mock("server-only", () => ({}));
 
-describe("aiDiffRules", () => {
+describe.skipIf(!isAiTest)("aiDiffRules", () => {
   it("should correctly identify added, edited, and removed rules", async () => {
     const user = {
       email: "user@test.com",

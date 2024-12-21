@@ -39,9 +39,8 @@ import {
   setRuleRunOnThreadsAction,
   setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
-import { RuleType } from "@prisma/client";
 import { Toggle } from "@/components/Toggle";
-import { ruleTypeToString } from "@/utils/rule";
+import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
@@ -141,12 +140,12 @@ export function Rules() {
                         )}
                       </TableCell>
                       <TableCell className="whitespace-pre-wrap">
-                        {getInstructions(rule)}
+                        {conditionsToString(rule)}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <SecurityAlert rule={rule} />
-                          {ruleTypeToString(rule.type)}
+                          {conditionTypesToString(rule)}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -203,7 +202,8 @@ export function Rules() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {rule.type !== RuleType.AI && (
+                            {/* TODO: multiple condition handling */}
+                            {/* {!isAIRule(rule) && (
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={`/automation/rule/${rule.id}/examples`}
@@ -211,7 +211,7 @@ export function Rules() {
                                   View Examples
                                 </Link>
                               </DropdownMenuItem>
-                            )}
+                            )} */}
                             <DropdownMenuItem asChild>
                               <Link href={`/automation/rule/${rule.id}`}>
                                 Edit
@@ -257,13 +257,13 @@ export function Rules() {
           <Button asChild variant="outline">
             <Link href="/automation?tab=prompt">
               <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
-              Add Rule via Prompt Tab
+              Add Rule via Prompt
             </Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/automation/create">
+            <Link href="/automation/rule/create">
               <PlusIcon className="mr-2 hidden h-4 w-4 md:block" />
-              Create Rule Manually
+              Add Rule Manually
             </Link>
           </Button>
         </div>
@@ -290,26 +290,6 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
   );
 }
 
-export function getInstructions(
-  rule: Pick<
-    RulesResponse[number],
-    "type" | "instructions" | "from" | "subject" | "body" | "group"
-  >,
-) {
-  switch (rule.type) {
-    case RuleType.AI:
-      return rule.instructions;
-    case RuleType.STATIC: {
-      const from = rule.from ? `From: ${rule.from}` : "";
-      const subject = rule.subject ? `Subject: ${rule.subject}` : "";
-      // let body = rule.body ? `Body: ${rule.body}` : "";
-      return `${from} ${subject}`.trim();
-    }
-    case RuleType.GROUP:
-      return `Group: ${rule.group?.name || "MISSING"}`;
-  }
-}
-
 function NoRules() {
   return (
     <>
@@ -330,7 +310,7 @@ function NoRules() {
           </Button>
 
           <Button type="button" variant="outline" asChild>
-            <Link href="/automation/create">Create a Rule Manually</Link>
+            <Link href="/automation/rule/create">Create a Rule Manually</Link>
           </Button>
         </div>
       </CardContent>

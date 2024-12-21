@@ -3,6 +3,7 @@
 import { useCallback, useState, useRef } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { capitalCase } from "capital-case";
@@ -11,9 +12,9 @@ import {
   CheckCircle2Icon,
   SparklesIcon,
   PenSquareIcon,
-  PlayIcon,
   PauseIcon,
   EyeIcon,
+  ExternalLinkIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -27,7 +28,6 @@ import {
   testAiAction,
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
-import { RuleType } from "@prisma/client";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
@@ -38,6 +38,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
+import {
+  isAIRule,
+  isCategoryRule,
+  isGroupRule,
+  isStaticRule,
+} from "@/utils/condition";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -80,27 +86,33 @@ export function TestRulesContent() {
   const email = session.data?.user.email;
 
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
-  const hasAiRules = rules?.some((rule) => rule.type === RuleType.AI);
+  const hasAiRules = rules?.some(
+    (rule) =>
+      isAIRule(rule) &&
+      !isGroupRule(rule) &&
+      !isStaticRule(rule) &&
+      !isCategoryRule(rule),
+  );
 
   const isTestingAllRef = useRef(false);
   const [isTestingAll, setIsTestingAll] = useState(false);
   const [isTesting, setIsTesting] = useState<Record<string, boolean>>({});
-  const [testResult, setTestResult] = useState<Record<string, TestResult>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>(
+    {},
+  );
 
   const onTest = useCallback(async (message: Message) => {
     setIsTesting((prev) => ({ ...prev, [message.id]: true }));
 
-    const result = await testAiAction({
-      messageId: message.id,
-      threadId: message.threadId,
-    });
+    const result = await testAiAction({ messageId: message.id });
     if (isActionError(result)) {
       toastError({
         title: "There was an error testing the email",
         description: result.error,
       });
     } else {
-      setTestResult((prev) => ({ ...prev, [message.id]: result }));
+      console.log("🚀 ~ onTest ~ result:", result);
+      setTestResults((prev) => ({ ...prev, [message.id]: result }));
     }
     setIsTesting((prev) => ({ ...prev, [message.id]: false }));
   }, []);
@@ -110,7 +122,7 @@ export function TestRulesContent() {
 
     for (const message of data?.messages || []) {
       if (!isTestingAllRef.current) break;
-      if (testResult[message.id]) continue;
+      if (testResults[message.id]) continue;
       await onTest(message);
     }
 
@@ -129,30 +141,31 @@ export function TestRulesContent() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-2 px-6">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-6 pb-4">
+        {isTestingAll ? (
+          <Button onClick={handleStop} variant="outline">
+            <PauseIcon className="mr-2 h-4 w-4" />
+            Stop
+          </Button>
+        ) : (
+          <Button onClick={handleTestAll}>
+            <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+            Test All
+          </Button>
+        )}
+
         <div className="flex items-center gap-2">
-          {isTestingAll ? (
-            <Button onClick={handleStop} variant="outline">
-              <PauseIcon className="mr-2 h-4 w-4" />
-              Stop
-            </Button>
-          ) : (
-            <Button onClick={handleTestAll} variant="outline">
-              <PlayIcon className="mr-2 h-4 w-4" />
-              Test All
+          {hasAiRules && (
+            <Button
+              variant="ghost"
+              onClick={() => setShowCustomForm((show) => !show)}
+            >
+              <PenSquareIcon className="mr-2 h-4 w-4" />
+              Custom
             </Button>
           )}
           <SearchForm onSearch={setSearchQuery} />
         </div>
-        {hasAiRules && (
-          <Button
-            variant="ghost"
-            onClick={() => setShowCustomForm((show) => !show)}
-          >
-            <PenSquareIcon className="mr-2 h-4 w-4" />
-            Test Custom Content
-          </Button>
-        )}
       </div>
 
       {hasAiRules && showCustomForm && (
@@ -178,7 +191,7 @@ export function TestRulesContent() {
                   message={message}
                   userEmail={email!}
                   isTesting={isTesting[message.id]}
-                  testResult={testResult[message.id]}
+                  testResult={testResults[message.id]}
                   onTest={() => onTest(message)}
                 />
               ))}
@@ -202,9 +215,7 @@ const TestRulesForm = () => {
   } = useForm<TestRulesInputs>();
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const result = await testAiCustomContentAction({
-      content: data.message,
-    });
+    const result = await testAiCustomContentAction({ content: data.message });
     if (isActionError(result)) {
       toastError({
         title: "Error testing email",
@@ -267,6 +278,7 @@ function TestRulesContentRow({
             subject={message.headers.subject}
             snippet={message.snippet?.trim() || ""}
             userEmail={userEmail}
+            messageId={message.id}
           />
           <div className="ml-4 flex gap-1">
             {testResult ? (
@@ -277,8 +289,8 @@ function TestRulesContentRow({
                 <ReportMistake result={testResult} message={message} />
               </>
             ) : (
-              <Button variant="outline" loading={isTesting} onClick={onTest}>
-                <SparklesIcon className="mr-2 h-4 w-4" />
+              <Button variant="default" loading={isTesting} onClick={onTest}>
+                {!isTesting && <SparklesIcon className="mr-2 h-4 w-4" />}
                 Test
               </Button>
             )}
@@ -304,23 +316,20 @@ export function TestResultDisplay({
         className="w-auto max-w-3xl"
         content={
           <Alert variant="destructive" className="bg-white">
-            <AlertTitle>No rule found</AlertTitle>
-            <AlertDescription>
-              <div className="space-y-2">
-                <div>
-                  This email does not match any of the rules you have set.
-                </div>
-                <div>
-                  <strong>Reason:</strong>{" "}
-                  {result.reason || "No reason provided"}
-                </div>
+            <AlertTitle>No rule matched</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <div>
+                This email does not match any of the rules you have set.
+              </div>
+              <div>
+                <strong>Reason:</strong> {result.reason || "No reason provided"}
               </div>
             </AlertDescription>
           </Alert>
         }
       >
         <Badge color="red">
-          {prefix ? prefix : ""}No rule found
+          {prefix ? prefix : ""}No rule matched
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
@@ -331,8 +340,11 @@ export function TestResultDisplay({
     const MAX_LENGTH = 280;
 
     const aiGeneratedContent = result.actionItems.map((action, i) => (
-      <div key={i} className="rounded-md border border-gray-200 bg-gray-50 p-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-900">
+      <div
+        key={i}
+        className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3"
+      >
+        <div className="text-xs font-semibold uppercase tracking-wide text-gray-900">
           {capitalCase(action.type)}
         </div>
         {Object.entries(action)
@@ -360,26 +372,34 @@ export function TestResultDisplay({
         content={
           <Alert variant="blue" className="bg-white">
             <CheckCircle2Icon className="h-4 w-4" />
-            <AlertTitle>Rule found: "{result.rule.name}"</AlertTitle>
-            <AlertDescription>
-              <div className="mt-1.5 space-y-4">
-                {result.rule.type === RuleType.AI && (
-                  <div className="text-sm">
-                    <span className="font-medium">Rule Instructions: </span>
-                    {result.rule.instructions.substring(0, MAX_LENGTH)}
-                    {result.rule.instructions.length >= MAX_LENGTH && "..."}
-                  </div>
-                )}
-                {!!aiGeneratedContent.length && (
-                  <div className="space-y-3">{aiGeneratedContent}</div>
-                )}
-                {!!result.reason && (
-                  <div className="border-l-2 border-blue-200 pl-3 text-sm">
-                    <span className="font-medium">AI Reasoning: </span>
-                    {result.reason}
-                  </div>
-                )}
-              </div>
+            <AlertTitle className="flex items-center justify-between">
+              Matched rule "{result.rule.name}"
+              <Link
+                href={`/automation/rule/${result.rule.id}`}
+                target="_blank"
+                className="ml-1.5"
+              >
+                <span className="sr-only">View rule</span>
+                <ExternalLinkIcon className="size-3.5 opacity-70" />
+              </Link>
+            </AlertTitle>
+            <AlertDescription className="mt-2 space-y-4">
+              {isAIRule(result.rule) && (
+                <div className="text-sm">
+                  <span className="font-medium">AI Instructions: </span>
+                  {result.rule.instructions.substring(0, MAX_LENGTH)}
+                  {result.rule.instructions.length >= MAX_LENGTH && "..."}
+                </div>
+              )}
+              {!!aiGeneratedContent.length && (
+                <div className="space-y-3">{aiGeneratedContent}</div>
+              )}
+              {!!result.reason && (
+                <div className="border-l-2 border-blue-200 pl-3 text-sm">
+                  <span className="font-medium">AI Reasoning: </span>
+                  {result.reason}
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         }

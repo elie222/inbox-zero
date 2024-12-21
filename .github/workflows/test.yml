@@ -1,0 +1,50 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=\"$(pnpm store path --silent)\"" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run tests
+        run: pnpm -F inbox-zero-ai test
+        env:
+          RUN_AI_TESTS: false
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+          NEXTAUTH_SECRET: "secret"
+          GOOGLE_CLIENT_ID: "client_id"
+          GOOGLE_CLIENT_SECRET: "client_secret"
+          GOOGLE_PUBSUB_TOPIC_NAME: "topic"

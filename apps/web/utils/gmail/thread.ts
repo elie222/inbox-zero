@@ -81,7 +81,3 @@ export async function getThreadsFromSender(
 
   return response.data.threads || [];
 }
-
-export function hasMultipleMessages(thread: gmail_v1.Schema$Thread) {
-  return !!thread.messages && thread.messages.length > 1;
-}

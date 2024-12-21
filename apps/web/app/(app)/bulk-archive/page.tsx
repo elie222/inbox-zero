@@ -66,10 +66,9 @@ const BulkArchiveForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Select
-        name="daysAgo"
         label="Archive emails older than"
         options={ageOptions}
-        registerProps={register("daysAgo")}
+        {...register("daysAgo")}
         error={errors.daysAgo}
       />
       <Button type="submit" full loading={isSubmitting}>

@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ProgressBar } from "@tremor/react";
 import { cn } from "@/utils";
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 export function ProgressPanel({
   totalItems,
@@ -44,7 +45,14 @@ export function ProgressPanel({
                 isCompleted ? "text-green-500" : "",
               )}
             >
-              {isCompleted ? completedText : inProgressText}
+              {isCompleted ? (
+                completedText
+              ) : (
+                <div className="flex items-center gap-1">
+                  <LoadingMiniSpinner />
+                  <span>{inProgressText}</span>
+                </div>
+              )}
             </span>
             <span>
               {totalProcessed} of {totalItems} {itemLabel} processed

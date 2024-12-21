@@ -5,12 +5,16 @@ import { queryBatchMessages } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
 import { findExampleMatchesSchema } from "@/utils/ai/example-matches/find-example-matches";
 
+// pnpm test-ai ai-find-example-matches
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/gmail/message", () => ({
   queryBatchMessages: vi.fn(),
 }));
 
-describe("aiFindExampleMatches", () => {
+describe.skipIf(!isAiTest)("aiFindExampleMatches", () => {
   it("should find example matches based on user prompt", async () => {
     const user = {
       email: "user@test.com",

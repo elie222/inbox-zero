@@ -32,7 +32,7 @@ export function SearchForm({
   );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex gap-2">
+    <form onSubmit={handleSubmit(onSubmit)}>
       <Input
         type="text"
         name="search"
@@ -41,10 +41,10 @@ export function SearchForm({
         error={errors.q}
         className="flex-1"
       />
-      <Button type="submit" variant="ghost" loading={isSubmitting}>
+      {/* <Button type="submit" variant="ghost" loading={isSubmitting}>
         <SearchIcon className="mr-2 h-4 w-4" />
         Search
-      </Button>
+      </Button> */}
     </form>
   );
 }

@@ -17,7 +17,7 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { getThread, hasMultipleMessages } from "@/utils/gmail/thread";
+import { isReplyInThread } from "@/utils/thread";
 import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
@@ -92,18 +92,14 @@ export const runRulesAction = withActionInstrumentation(
       return;
     }
 
-    // fetch after getting the message to avoid rate limiting
-    const gmailThread = await getThread(email.threadId, gmail);
-
     const message = parseMessage(gmailMessage);
-    const isThread = hasMultipleMessages(gmailThread);
 
     await runRulesOnMessage({
       gmail,
       message,
       rules: user.rules,
       user: { ...user, email: user.email },
-      isThread,
+      isTest: false,
     });
   },
 );
@@ -116,7 +112,7 @@ export const testAiAction = withActionInstrumentation(
 
     const { success, data, error } = testAiBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
-    const { messageId, threadId } = data;
+    const { messageId } = data;
 
     const { gmail, user: u } = sessionResult;
 
@@ -137,20 +133,15 @@ export const testAiAction = withActionInstrumentation(
     });
     if (!user) return { error: "User not found" };
 
-    const [gmailMessage, gmailThread] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
-      getThread(threadId, gmail),
-    ]);
+    const gmailMessage = await getMessage(messageId, gmail, "full");
 
     const message = parseMessage(gmailMessage);
-    const isThread = hasMultipleMessages(gmailThread);
 
     const result = await testRulesOnMessage({
       gmail,
       message,
       rules: user.rules,
       user: { ...user, email: user.email },
-      isThread,
     });
 
     return result;
@@ -184,8 +175,8 @@ export const testAiCustomContentAction = withActionInstrumentation(
     const result = await testRulesOnMessage({
       gmail,
       message: {
-        id: "",
-        threadId: "",
+        id: "testMessageId",
+        threadId: "testThreadId",
         snippet: content,
         textPlain: content,
         headers: {
@@ -200,7 +191,6 @@ export const testAiCustomContentAction = withActionInstrumentation(
       },
       rules: user.rules,
       user,
-      isThread: false,
     });
 
     return result;
@@ -251,12 +241,11 @@ async function createRule(
   return prisma.rule.create({
     data: {
       name: result.name,
-      instructions: result.condition.aiInstructions || "",
       userId,
-      type: result.condition.type,
       actions: { createMany: { data: result.actions } },
       automate: shouldAutomate(result.actions),
       runOnThreads: false,
+      instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
@@ -275,15 +264,14 @@ async function updateRule(
     where: { id: ruleId },
     data: {
       name: result.name,
-      instructions: result.condition.aiInstructions || "",
       userId,
-      type: result.condition.type,
       actions: {
         deleteMany: {},
         createMany: { data: result.actions },
       },
       automate: shouldAutomate(result.actions),
       runOnThreads: false,
+      instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
