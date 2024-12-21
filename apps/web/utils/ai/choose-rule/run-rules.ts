@@ -104,7 +104,7 @@ async function runRule(
     });
   }
 
-  return { handled: true, rule, actionItems, executedRule };
+  return { rule, actionItems, executedRule, reason };
 }
 
 async function saveSkippedExecutedRule({

@@ -97,7 +97,9 @@ export function TestRulesContent() {
   const isTestingAllRef = useRef(false);
   const [isTestingAll, setIsTestingAll] = useState(false);
   const [isTesting, setIsTesting] = useState<Record<string, boolean>>({});
-  const [testResult, setTestResult] = useState<Record<string, TestResult>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>(
+    {},
+  );
 
   const onTest = useCallback(async (message: Message) => {
     setIsTesting((prev) => ({ ...prev, [message.id]: true }));
@@ -109,7 +111,8 @@ export function TestRulesContent() {
         description: result.error,
       });
     } else {
-      setTestResult((prev) => ({ ...prev, [message.id]: result }));
+      console.log("🚀 ~ onTest ~ result:", result);
+      setTestResults((prev) => ({ ...prev, [message.id]: result }));
     }
     setIsTesting((prev) => ({ ...prev, [message.id]: false }));
   }, []);
@@ -119,7 +122,7 @@ export function TestRulesContent() {
 
     for (const message of data?.messages || []) {
       if (!isTestingAllRef.current) break;
-      if (testResult[message.id]) continue;
+      if (testResults[message.id]) continue;
       await onTest(message);
     }
 
@@ -188,7 +191,7 @@ export function TestRulesContent() {
                   message={message}
                   userEmail={email!}
                   isTesting={isTesting[message.id]}
-                  testResult={testResult[message.id]}
+                  testResult={testResults[message.id]}
                   onTest={() => onTest(message)}
                 />
               ))}
@@ -212,9 +215,7 @@ const TestRulesForm = () => {
   } = useForm<TestRulesInputs>();
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const result = await testAiCustomContentAction({
-      content: data.message,
-    });
+    const result = await testAiCustomContentAction({ content: data.message });
     if (isActionError(result)) {
       toastError({
         title: "Error testing email",
