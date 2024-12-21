@@ -3,15 +3,18 @@ import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
 import { type GroupItem, GroupItemType } from "@prisma/client";
 
-type Groups = Awaited<ReturnType<typeof getGroups>>;
-export async function getGroups(userId: string) {
+type GroupsWithRules = Awaited<ReturnType<typeof getGroupsWithRules>>;
+export async function getGroupsWithRules(userId: string) {
   return prisma.group.findMany({
-    where: { userId },
+    where: { userId, rule: { isNot: null } },
     include: { items: true, rule: { include: { actions: true } } },
   });
 }
 
-export function findMatchingGroup(message: ParsedMessage, groups: Groups) {
+export function findMatchingGroup(
+  message: ParsedMessage,
+  groups: GroupsWithRules,
+) {
   const group = groups.find((group) =>
     findMatchingGroupItem(message.headers, group.items),
   );

@@ -6,9 +6,12 @@ import {
 import { defaultCategory } from "@/utils/categories";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 
+// pnpm test-ai ai-categorize-senders
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 vi.mock("server-only", () => ({}));
 
-// Test data setup
 const testUser = {
   email: "user@test.com",
   aiProvider: null,
@@ -44,7 +47,7 @@ const testSenders = [
   },
 ];
 
-describe("AI Sender Categorization", () => {
+describe.skipIf(!isAiTest)("AI Sender Categorization", () => {
   describe("Bulk Categorization", () => {
     it("should categorize senders with snippets using AI", async () => {
       const result = await aiCategorizeSenders({
@@ -125,7 +128,7 @@ describe("AI Sender Categorization", () => {
           expect(result?.category).toBe(expectedCategory);
         }
       }
-    }, 15_000);
+    }, 30_000);
 
     it("should handle unknown sender appropriately", async () => {
       const unknownSender = testSenders.find(

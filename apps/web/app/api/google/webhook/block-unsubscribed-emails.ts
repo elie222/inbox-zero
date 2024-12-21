@@ -1,10 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
-  getOrCreateLabel,
+  getOrCreateInboxZeroLabel,
   INBOX_LABEL_ID,
   labelMessage,
 } from "@/utils/gmail/label";
-import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
 
@@ -29,9 +28,9 @@ export async function blockUnsubscribedEmails({
 
   if (!sender) return false;
 
-  const unsubscribeLabel = await getOrCreateLabel({
+  const unsubscribeLabel = await getOrCreateInboxZeroLabel({
     gmail,
-    name: inboxZeroLabels.unsubscribed,
+    key: "unsubscribed",
   });
   if (!unsubscribeLabel?.id) console.error("No gmail label id");
 

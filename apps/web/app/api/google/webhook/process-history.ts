@@ -14,7 +14,7 @@ import {
   getMessage,
   hasPreviousEmailsFromSenderOrDomain,
 } from "@/utils/gmail/message";
-import { getThread } from "@/utils/gmail/thread";
+import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting, type User } from "@prisma/client";
@@ -285,7 +285,6 @@ async function processHistoryItem(
   m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
-    accessToken,
     user,
     hasColdEmailAccess,
     hasAutomationRules,
@@ -333,9 +332,6 @@ async function processHistoryItem(
       return;
     }
 
-    // fetch after getting the message to avoid rate limiting
-    const gmailThread = await getThread(threadId, gmail);
-
     const message = parseMessage(gmailMessage);
 
     const blocked = await blockUnsubscribedEmails({
@@ -352,7 +348,7 @@ async function processHistoryItem(
       return;
     }
 
-    const isThread = !!gmailThread.messages && gmailThread.messages.length > 1;
+    const isThread = isReplyInThread(messageId, threadId);
 
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       user.coldEmailBlocker,
@@ -413,7 +409,7 @@ async function processHistoryItem(
         message,
         rules,
         user,
-        isThread,
+        isTest: false,
       });
     }
   } catch (error: any) {

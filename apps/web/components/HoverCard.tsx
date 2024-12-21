@@ -7,11 +7,12 @@ import {
 export function HoverCard(props: {
   children: React.ReactNode;
   content: React.ReactNode;
+  className?: string;
 }) {
   return (
     <HoverCardUi>
       <HoverCardTrigger asChild>{props.children}</HoverCardTrigger>
-      <HoverCardContent className="w-80" align="start" side="right">
+      <HoverCardContent className={props.className} align="start" side="right">
         {props.content}
       </HoverCardContent>
     </HoverCardUi>

@@ -10,6 +10,7 @@ import {
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
 import { Model, Provider } from "@/utils/llms/config";
@@ -64,6 +65,16 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
           },
         },
       })(model),
+    };
+  }
+
+  if (provider === Provider.OLLAMA && env.NEXT_PUBLIC_OLLAMA_MODEL) {
+    return {
+      provider: Provider.OLLAMA,
+      model: env.NEXT_PUBLIC_OLLAMA_MODEL,
+      llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(
+        aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL,
+      ),
     };
   }
 
@@ -196,6 +207,52 @@ export async function chatCompletionTools({
     await handleError(error, userEmail);
     throw error;
   }
+}
+
+// not in use atm
+async function streamCompletionTools({
+  userAi,
+  prompt,
+  system,
+  tools,
+  maxSteps,
+  userEmail,
+  label,
+  onFinish,
+}: {
+  userAi: UserAIFields;
+  prompt: string;
+  system?: string;
+  tools: Record<string, CoreTool>;
+  maxSteps?: number;
+  userEmail: string;
+  label: string;
+  onFinish?: (text: string) => Promise<void>;
+}) {
+  const { provider, model, llmModel } = getModel(userAi);
+
+  const result = await streamText({
+    model: llmModel,
+    tools,
+    toolChoice: "required",
+    prompt,
+    system,
+    maxSteps,
+    experimental_telemetry: { isEnabled: true },
+    onFinish: async ({ usage, text }) => {
+      await saveAiUsage({
+        email: userEmail,
+        provider,
+        model,
+        usage,
+        label,
+      });
+
+      if (onFinish) await onFinish(text);
+    },
+  });
+
+  return result;
 }
 
 export async function withRetry<T>(

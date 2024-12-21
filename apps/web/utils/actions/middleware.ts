@@ -4,6 +4,7 @@ import {
 } from "@sentry/nextjs";
 import {
   checkCommonErrors,
+  isAWSThrottlingError,
   type ActionError,
   type ServerActionResponse,
 } from "@/utils/error";
@@ -66,6 +67,15 @@ export function withActionInstrumentation<
 
               return {
                 error: "Duplicate item error",
+                success: false,
+              } as unknown as ActionError<Err>;
+            }
+
+            if (isAWSThrottlingError(error)) {
+              captureException(error, { extra: { actionName: name } });
+
+              return {
+                error: error.message,
                 success: false,
               } as unknown as ActionError<Err>;
             }

@@ -37,13 +37,9 @@ function decodeHistoryId(body: any) {
   const data = body.message.data;
 
   // data is base64url-encoded JSON
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
   const decodedData: { emailAddress: string; historyId: number | string } =
-    JSON.parse(
-      Buffer.from(data, "base64")
-        .toString()
-        .replace(/-/g, "+")
-        .replace(/_/g, "/"),
-    );
+    JSON.parse(Buffer.from(base64, "base64").toString());
 
   // seem to get this in different formats? so unifying as number
   const historyId =

@@ -54,7 +54,39 @@ export const zodRuleType = z.enum([
   RuleType.AI,
   RuleType.STATIC,
   RuleType.GROUP,
+  RuleType.CATEGORY,
 ]);
+
+const zodAiCondition = z.object({
+  instructions: z.string().nullish(),
+});
+
+const zodGroupCondition = z.object({
+  groupId: z.string().nullish(),
+});
+
+const zodStaticCondition = z.object({
+  to: z.string().nullish(),
+  from: z.string().nullish(),
+  subject: z.string().nullish(),
+  body: z.string().nullish(),
+});
+
+const zodCategoryCondition = z.object({
+  categoryFilterType: z
+    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+    .nullish(),
+  categoryFilters: z.array(z.string()).nullish(),
+});
+
+const zodCondition = z.object({
+  type: zodRuleType,
+  ...zodAiCondition.shape,
+  ...zodGroupCondition.shape,
+  ...zodStaticCondition.shape,
+  ...zodCategoryCondition.shape,
+});
+export type ZodCondition = z.infer<typeof zodCondition>;
 
 export const createRuleBody = z.object({
   id: z.string().optional(),
@@ -62,19 +94,19 @@ export const createRuleBody = z.object({
   instructions: z.string().nullish(),
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
-  actions: z.array(zodAction),
-  type: zodRuleType,
-  // static conditions
-  from: z.string().nullish(),
-  to: z.string().nullish(),
-  subject: z.string().nullish(),
-  // body: z.string().nullish(), // not in use atm
-  // group
-  groupId: z.string().nullish(),
-  categoryFilterType: z
-    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-    .nullish(),
-  categoryFilters: z.array(z.string()).nullish(),
+  actions: z.array(zodAction).min(1, "You must have at least one action"),
+  conditions: z
+    .array(zodCondition)
+    .min(1, "You must have at least one condition")
+    .refine(
+      (conditions) => {
+        const types = conditions.map((condition) => condition.type);
+        return new Set(types).size === types.length;
+      },
+      {
+        message: "You can't have two conditions with the same type.",
+      },
+    ),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
@@ -84,6 +116,14 @@ export const updateRuleBody = createRuleBody.extend({
 });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
+export const updateRuleInstructionsBody = z.object({
+  id: z.string(),
+  instructions: z.string(),
+});
+export type UpdateRuleInstructionsBody = z.infer<
+  typeof updateRuleInstructionsBody
+>;
+
 export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
 export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
@@ -91,6 +131,31 @@ export const rulesExamplesBody = z.object({
   rulesPrompt: z.string(),
 });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
+
+export const testAiBody = z.object({ messageId: z.string() });
+export type TestAiBody = z.infer<typeof testAiBody>;
+
+export const reportAiMistakeBody = z
+  .object({
+    email: z.object({
+      from: z.string(),
+      subject: z.string(),
+      snippet: z.string(),
+      textHtml: z.string().nullish(),
+      textPlain: z.string().nullish(),
+    }),
+    correctRuleId: z.string().nullish(),
+    incorrectRuleId: z.string().nullish(),
+    explanation: z.string().nullish(),
+  })
+  .refine(
+    (data) => data.correctRuleId != null || data.incorrectRuleId != null,
+    {
+      message: "Either correctRuleId or incorrectRuleId must be provided",
+      path: ["correctRuleId"], // This will show the error on the correctRuleId field
+    },
+  );
+export type ReportAiMistakeBody = z.infer<typeof reportAiMistakeBody>;
 
 // categories
 export const createCategoryBody = z.object({

@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PenIcon, SparklesIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -58,7 +57,7 @@ export default async function CategoriesPage() {
     redirect("/smart-categories/setup");
 
   return (
-    <NuqsAdapter>
+    <>
       <PermissionsCheck />
 
       <ClientOnly>
@@ -143,6 +142,6 @@ export default async function CategoriesPage() {
           </TabsContent>
         </Tabs>
       </Suspense>
-    </NuqsAdapter>
+    </>
   );
 }

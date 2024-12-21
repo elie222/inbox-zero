@@ -79,6 +79,10 @@ const costs: Record<
     input: 3 / 1_000_000,
     output: 15 / 1_000_000,
   },
+  "us.anthropic.claude-3-5-sonnet-20241022-v2:0": {
+    input: 3 / 1_000_000,
+    output: 15 / 1_000_000,
+  },
 };
 
 // returns cost in cents

@@ -4,6 +4,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { saveUserLabel } from "@/utils/redis/label";
 import { SafeError } from "@/utils/error";
+import { getOrCreateLabel } from "@/utils/gmail/label";
 
 export const createLabelBody = z.object({
   name: z.string(),
@@ -16,17 +17,15 @@ export async function createLabel(body: CreateLabelBody) {
   const session = await auth();
   if (!session?.user.email) throw new SafeError("Not authenticated");
   const gmail = getGmailClient(session);
-  const res = await gmail.users.labels.create({
-    userId: "me",
-    requestBody: { name: body.name },
-  });
-  const label = res.data;
+  const label = await getOrCreateLabel({ gmail, name: body.name });
+
+  if (!label.id) throw new SafeError("Failed to create label");
 
   await prisma.label.create({
     data: {
       name: body.name,
       description: body.description,
-      gmailLabelId: label.id!,
+      gmailLabelId: label.id,
       enabled: true,
       userId: session.user.id,
     },
@@ -34,7 +33,7 @@ export async function createLabel(body: CreateLabelBody) {
 
   await saveUserLabel({
     email: session.user.email,
-    label: { id: label.id!, name: body.name, description: body.description },
+    label: { id: label.id, name: body.name, description: body.description },
   });
 
   return { label };

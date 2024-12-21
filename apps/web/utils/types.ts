@@ -17,6 +17,10 @@ export type RuleWithActionsAndCategories = Prisma.RuleGetPayload<{
   include: { actions: true; categoryFilters: true };
 }>;
 
+export type AIRuleWithActionsAndCategories = RuleWithActionsAndCategories & {
+  instructions: string;
+};
+
 export type BatchError = {
   error: {
     code: number;

@@ -6,6 +6,8 @@ import {
   createRuleBody,
   type UpdateRuleBody,
   updateRuleBody,
+  updateRuleInstructionsBody,
+  type UpdateRuleInstructionsBody,
 } from "@/utils/actions/validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError } from "@/utils/prisma";
@@ -16,6 +18,7 @@ import {
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { flattenConditions } from "@/utils/condition";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -26,12 +29,12 @@ export const createRuleAction = withActionInstrumentation(
     const { data: body, error } = createRuleBody.safeParse(options);
     if (error) return { error: error.message };
 
+    const conditions = flattenConditions(body.conditions);
+
     try {
       const rule = await prisma.rule.create({
         data: {
-          type: body.type,
           name: body.name || "",
-          instructions: body.instructions || "",
           automate: body.automate ?? undefined,
           runOnThreads: body.runOnThreads ?? undefined,
           actions: body.actions
@@ -54,19 +57,20 @@ export const createRuleAction = withActionInstrumentation(
               }
             : undefined,
           userId: session.user.id,
-          from: body.from || undefined,
-          to: body.to || undefined,
-          subject: body.subject || undefined,
-          // body: body.body || undefined,
-          groupId: body.groupId || undefined,
-          categoryFilterType: body.categoryFilterType || undefined,
-          categoryFilters: !body.categoryFilterType
-            ? {}
-            : body.categoryFilters
+          // conditions
+          instructions: conditions.instructions || null,
+          from: conditions.from || null,
+          to: conditions.to || null,
+          subject: conditions.subject || null,
+          // body: conditions.body || null,
+          groupId: conditions.groupId || null,
+          categoryFilterType: conditions.categoryFilterType || null,
+          categoryFilters:
+            conditions.categoryFilterType && conditions.categoryFilters
               ? {
-                  connect: body.categoryFilters.map((id) => ({ id })),
+                  connect: conditions.categoryFilters.map((id) => ({ id })),
                 }
-              : undefined,
+              : {},
         },
       });
 
@@ -94,6 +98,8 @@ export const updateRuleAction = withActionInstrumentation(
     const { data: body, error } = updateRuleBody.safeParse(options);
     if (error) return { error: error.message };
 
+    const conditions = flattenConditions(body.conditions);
+
     try {
       const currentRule = await prisma.rule.findUnique({
         where: { id: body.id, userId: session.user.id },
@@ -114,25 +120,23 @@ export const updateRuleAction = withActionInstrumentation(
         prisma.rule.update({
           where: { id: body.id, userId: session.user.id },
           data: {
-            type: body.type,
-            instructions: body.instructions || "",
             automate: body.automate ?? undefined,
             runOnThreads: body.runOnThreads ?? undefined,
             name: body.name || undefined,
-            from: body.from,
-            to: body.to,
-            subject: body.subject,
-            // body: body.body,
-            groupId: body.groupId,
-            categoryFilterType: body.categoryFilterType || undefined,
+            // conditions
+            instructions: conditions.instructions || null,
+            from: conditions.from || null,
+            to: conditions.to || null,
+            subject: conditions.subject || null,
+            // body: conditions.body || null,
+            groupId: conditions.groupId || null,
+            categoryFilterType: conditions.categoryFilterType || null,
             categoryFilters:
-              body.categoryFilterType === null
-                ? { set: [] }
-                : body.categoryFilters
-                  ? {
-                      set: body.categoryFilters.map((id) => ({ id })),
-                    }
-                  : undefined,
+              conditions.categoryFilterType && conditions.categoryFilters
+                ? {
+                    set: conditions.categoryFilters.map((id) => ({ id })),
+                  }
+                : { set: [] },
           },
         }),
         // delete removed actions
@@ -191,6 +195,22 @@ export const updateRuleAction = withActionInstrumentation(
       }
       return { error: "Error updating rule." };
     }
+  },
+);
+
+export const updateRuleInstructionsAction = withActionInstrumentation(
+  "updateRuleInstructions",
+  async (options: UpdateRuleInstructionsBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data: body, error } = updateRuleInstructionsBody.safeParse(options);
+    if (error) return { error: error.message };
+
+    await prisma.rule.update({
+      where: { id: body.id, userId: session.user.id },
+      data: { instructions: body.instructions },
+    });
   },
 );
 

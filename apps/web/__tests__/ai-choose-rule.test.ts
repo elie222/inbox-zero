@@ -1,101 +1,78 @@
-import { expect, test, vi } from "vitest";
-import { chooseRule } from "@/utils/ai/choose-rule/choose";
-import { type Action, ActionType, RuleType } from "@prisma/client";
+import { describe, expect, test, vi } from "vitest";
+import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import { type Action, ActionType, LogicalOperator } from "@prisma/client";
+
+// pnpm test-ai ai-choose-rule
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-test("Should return no rule when no rules passed", async () => {
-  const result = await chooseRule({
-    rules: [],
-    email: getEmail(),
-    user: getUser(),
+describe.skipIf(!isAiTest)("aiChooseRule", () => {
+  test("Should return no rule when no rules passed", async () => {
+    const result = await aiChooseRule({
+      rules: [],
+      email: getEmail(),
+      user: getUser(),
+    });
+
+    expect(result).toEqual({ reason: "No rules" });
   });
 
-  expect(result).toEqual({ reason: "No rules" });
-});
+  test("Should return correct rule when only one rule passed", async () => {
+    const rule = getRule(
+      "Match emails that have the word 'test' in the subject line",
+    );
 
-test("Should return correct rule when only one rule passed", async () => {
-  const rule = getRule(
-    "Match emails that have the word 'test' in the subject line",
-  );
+    const result = await aiChooseRule({
+      email: getEmail({ subject: "test" }),
+      rules: [rule],
+      user: getUser(),
+    });
 
-  const result = await chooseRule({
-    email: getEmail({ subject: "test" }),
-    rules: [rule],
-    user: getUser(),
+    expect(result).toEqual({
+      rule,
+      reason: expect.any(String),
+    });
   });
 
-  expect(result).toEqual({ rule, reason: expect.any(String), actionItems: [] });
-});
+  test("Should return correct rule when multiple rules passed", async () => {
+    const rule1 = getRule(
+      "Match emails that have the word 'test' in the subject line",
+    );
+    const rule2 = getRule(
+      "Match emails that have the word 'remember' in the subject line",
+    );
 
-test("Should return correct rule when multiple rules passed", async () => {
-  const rule1 = getRule(
-    "Match emails that have the word 'test' in the subject line",
-  );
-  const rule2 = getRule(
-    "Match emails that have the word 'remember' in the subject line",
-  );
+    const result = await aiChooseRule({
+      rules: [rule1, rule2],
+      email: getEmail({ subject: "remember that call" }),
+      user: getUser(),
+    });
 
-  const result = await chooseRule({
-    rules: [rule1, rule2],
-    email: getEmail({ subject: "remember that call" }),
-    user: getUser(),
+    expect(result).toEqual({
+      rule: rule2,
+      reason: expect.any(String),
+    });
   });
 
-  expect(result).toEqual({
-    rule: rule2,
-    reason: expect.any(String),
-    actionItems: [],
-  });
-});
-
-test("Should generate action arguments", async () => {
-  const rule1 = getRule(
-    "Match emails that have the word 'question' in the subject line",
-  );
-  const rule2 = getRule("Match emails asking for a joke", [
-    {
-      id: "id",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      type: ActionType.REPLY,
-      ruleId: "ruleId",
-      label: null,
-      subject: null,
-      content: "{{Write a joke}}",
-      to: null,
-      cc: null,
-      bcc: null,
-
-      labelPrompt: null,
-      subjectPrompt: null,
-      contentPrompt: null,
-      toPrompt: null,
-      ccPrompt: null,
-      bccPrompt: null,
-    },
-  ]);
-
-  const result = await chooseRule({
-    rules: [rule1, rule2],
-    email: getEmail({ subject: "Joke", content: "Tell me a joke about sheep" }),
-    user: getUser(),
-  });
-
-  console.debug("Generated content:\n", result.actionItems?.[0].content);
-
-  expect(result).toEqual({
-    rule: rule2,
-    reason: expect.any(String),
-    actionItems: [
+  test("Should generate action arguments", async () => {
+    const rule1 = getRule(
+      "Match emails that have the word 'question' in the subject line",
+    );
+    const rule2 = getRule("Match emails asking for a joke", [
       {
-        bcc: null,
-        cc: null,
-        content: expect.any(String),
+        id: "id",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        type: ActionType.REPLY,
+        ruleId: "ruleId",
         label: null,
         subject: null,
+        content: "{{Write a joke}}",
         to: null,
-        type: "REPLY",
+        cc: null,
+        bcc: null,
 
         labelPrompt: null,
         subjectPrompt: null,
@@ -103,12 +80,22 @@ test("Should generate action arguments", async () => {
         toPrompt: null,
         ccPrompt: null,
         bccPrompt: null,
-        createdAt: expect.any(Date),
-        updatedAt: expect.any(Date),
-        id: "id",
-        ruleId: "ruleId",
       },
-    ],
+    ]);
+
+    const result = await aiChooseRule({
+      rules: [rule1, rule2],
+      email: getEmail({
+        subject: "Joke",
+        content: "Tell me a joke about sheep",
+      }),
+      user: getUser(),
+    });
+
+    expect(result).toEqual({
+      rule: rule2,
+      reason: expect.any(String),
+    });
   });
 });
 
@@ -129,9 +116,9 @@ function getRule(instructions: string, actions: Action[] = []) {
     subject: null,
     body: null,
     to: null,
-    type: RuleType.AI,
     enabled: true,
     categoryFilterType: null,
+    conditionalOperator: LogicalOperator.AND,
   };
 }
 

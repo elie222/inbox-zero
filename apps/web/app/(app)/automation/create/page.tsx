@@ -82,8 +82,8 @@ export default function AutomationSettingsPage() {
 
               <Input
                 type="text"
-                as="textarea"
-                rows={4}
+                autosizeTextarea
+                rows={3}
                 name="prompt"
                 placeholder={"e.g. Forward receipts to alice@accountant.com."}
                 className="mt-2"
@@ -124,7 +124,7 @@ export default function AutomationSettingsPage() {
                     >
                       <AlertBasic
                         title={example.title}
-                        description={example.rule.instructions}
+                        description={example.description}
                         icon={example.icon}
                         className="cursor-pointer hover:bg-gray-100"
                       />

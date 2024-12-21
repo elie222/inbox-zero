@@ -10,13 +10,14 @@ export const env = createEnv({
     NEXTAUTH_URL: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
-    OPENAI_API_KEY: z.string().min(1),
+    OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),
     BEDROCK_REGION: z.string().default("us-west-2"),
-    UPSTASH_REDIS_URL: z.string().min(1),
-    UPSTASH_REDIS_TOKEN: z.string().min(1),
+    UPSTASH_REDIS_URL: z.string().optional(),
+    UPSTASH_REDIS_TOKEN: z.string().optional(),
+    OLLAMA_BASE_URL: z.string().optional(),
     QSTASH_TOKEN: z.string().optional(),
     QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
     QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
@@ -107,6 +108,10 @@ export const env = createEnv({
       .default(false),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
+    NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
+      .string()
+      .default("anthropic.claude-3-5-sonnet-20241022-v2:0"),
+    NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -173,5 +178,8 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
+    NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
+      process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
+    NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
   },
 });

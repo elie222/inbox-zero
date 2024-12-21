@@ -41,6 +41,7 @@ import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { BulkActions } from "@/app/(app)/bulk-unsubscribe/BulkActions";
 import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 import { ClientOnly } from "@/components/ClientOnly";
+import { Toggle } from "@/components/Toggle";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -153,6 +154,12 @@ export function BulkUnsubscribeSection({
     );
   });
 
+  const onlyUnhandled =
+    filters.unhandled &&
+    !filters.autoArchived &&
+    !filters.unsubscribed &&
+    !filters.approved;
+
   return (
     <>
       <Card className="mt-0 md:mt-4">
@@ -164,6 +171,31 @@ export function BulkUnsubscribeSection({
           )}
 
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
+            <div className="mr-2">
+              <Toggle
+                name="show-unhandled"
+                label="Only unhandled"
+                enabled={onlyUnhandled}
+                onChange={() =>
+                  setFilters(
+                    onlyUnhandled
+                      ? {
+                          unhandled: true,
+                          autoArchived: true,
+                          unsubscribed: true,
+                          approved: true,
+                        }
+                      : {
+                          unhandled: true,
+                          autoArchived: false,
+                          unsubscribed: false,
+                          approved: false,
+                        },
+                  )
+                }
+              />
+            </div>
+
             <div className="hidden md:block">
               <ShortcutTooltip />
             </div>
@@ -177,6 +209,7 @@ export function BulkUnsubscribeSection({
               columns={[
                 {
                   label: "All",
+                  separatorAfter: true,
                   checked:
                     filters.approved &&
                     filters.autoArchived &&

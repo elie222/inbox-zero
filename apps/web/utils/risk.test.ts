@@ -20,7 +20,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: true,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "very-high",
       expectedMessageContains: "Very High Risk",
     },
@@ -34,7 +34,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: true,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "high",
       expectedMessageContains: "High Risk",
     },
@@ -48,7 +48,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: true,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "medium",
       expectedMessageContains: "Medium Risk",
     },
@@ -62,7 +62,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: false,
-      ruleType: RuleType.AI,
+      instructions: "String",
       expectedLevel: "low",
       expectedMessageContains: "Low Risk",
     },
@@ -76,9 +76,9 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: false,
-      ruleType: RuleType.AI,
-      expectedLevel: "medium",
-      expectedMessageContains: "Medium Risk",
+      instructions: "String",
+      expectedLevel: "low",
+      expectedMessageContains: "Low Risk",
     },
     {
       name: "returns medium risk for dynamic cc/bcc without automation",
@@ -90,9 +90,9 @@ describe("getActionRiskLevel", () => {
         bcc: "",
       },
       hasAutomation: false,
-      ruleType: RuleType.AI,
-      expectedLevel: "medium",
-      expectedMessageContains: "Medium Risk",
+      instructions: "String",
+      expectedLevel: "low",
+      expectedMessageContains: "Low Risk",
     },
   ];
 
@@ -101,12 +101,14 @@ describe("getActionRiskLevel", () => {
       name,
       action,
       hasAutomation,
-      ruleType,
+      instructions,
       expectedLevel,
       expectedMessageContains,
     }) => {
       it(name, () => {
-        const result = getActionRiskLevel(action, hasAutomation, ruleType);
+        const result = getActionRiskLevel(action, hasAutomation, {
+          instructions,
+        });
         expect(result.level).toBe(expectedLevel);
         expect(result.message).toContain(expectedMessageContains);
       });
@@ -136,13 +138,13 @@ describe("getRiskLevel", () => {
           },
         ],
         automate: true,
-        type: RuleType.AI,
+        instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "high",
       expectedMessageContains: "High Risk",
     },
     {
-      name: "returns medium risk when one action is medium and another is low",
+      name: "returns high risk when one action is high and another is low",
       rule: {
         actions: [
           {
@@ -160,11 +162,11 @@ describe("getRiskLevel", () => {
             bcc: "",
           },
         ],
-        automate: false,
-        type: RuleType.AI,
+        automate: true,
+        instructions: "String",
       } as RulesResponse[number],
-      expectedLevel: "medium",
-      expectedMessageContains: "Medium Risk",
+      expectedLevel: "high",
+      expectedMessageContains: "High Risk",
     },
     {
       name: "returns low risk when all actions are low risk",
@@ -186,7 +188,7 @@ describe("getRiskLevel", () => {
           },
         ],
         automate: false,
-        type: RuleType.AI,
+        instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "low",
       expectedMessageContains: "Low Risk",

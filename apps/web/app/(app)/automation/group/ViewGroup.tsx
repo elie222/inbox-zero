@@ -336,13 +336,12 @@ const AddGroupItemForm = ({
       className="grid grid-cols-1 gap-2 sm:flex sm:items-center"
     >
       <Select
-        name="type"
         label=""
         options={[
           { label: "From", value: GroupItemType.FROM },
           { label: "Subject", value: GroupItemType.SUBJECT },
         ]}
-        registerProps={register("type", { required: true })}
+        {...register("type", { required: true })}
         error={errors.type}
       />
       <Input
@@ -443,7 +442,7 @@ function UpdatePromptForm({
     <form onSubmit={handleSubmit(onSubmit)}>
       <Input
         type="text"
-        as="textarea"
+        autosizeTextarea
         rows={3}
         name="prompt"
         label="Prompt"

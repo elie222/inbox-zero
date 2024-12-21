@@ -24,6 +24,7 @@ import type {
 } from "@/app/api/ai/cold-email/route";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 import { decodeSnippet } from "@/utils/gmail/decode";
+import { SearchForm } from "@/components/SearchForm";
 
 export function TestRules() {
   return (
@@ -41,8 +42,9 @@ export function TestRules() {
 }
 
 function TestRulesContent() {
+  const [searchQuery, setSearchQuery] = useState("");
   const { data, isLoading, error } = useSWR<MessagesResponse>(
-    "/api/google/messages",
+    `/api/google/messages?q=${searchQuery}`,
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,
@@ -56,6 +58,10 @@ function TestRulesContent() {
     <div>
       <div className="mt-4">
         <TestRulesForm />
+
+        <div className="mt-4">
+          <SearchForm onSearch={setSearchQuery} />
+        </div>
       </div>
 
       <div className="mt-4">
@@ -129,7 +135,7 @@ const TestRulesForm = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           type="text"
-          as="textarea"
+          autosizeTextarea
           rows={3}
           name="message"
           label="Email to test against"
@@ -169,6 +175,7 @@ function TestRulesContentRow(props: {
           subject={message.headers.subject}
           snippet={decodeSnippet(message.snippet)}
           userEmail={props.userEmail}
+          messageId={message.id}
         />
         <div className="ml-4">
           <Button

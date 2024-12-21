@@ -14,19 +14,32 @@ import { captureException } from "@/utils/error";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 
-const saveAboutBody = z.object({ about: z.string() });
+const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export const saveAboutAction = withActionInstrumentation(
   "saveAbout",
-  async (options: SaveAboutBody) => {
+  async (unsafeBody: SaveAboutBody) => {
     const session = await auth();
     if (!session?.user.email) return { error: "Not logged in" };
 
+    const { success, data, error } = saveAboutBody.safeParse(unsafeBody);
+    if (!success) return { error: error.message };
+
     await prisma.user.update({
       where: { email: session.user.email },
-      data: { about: options.about },
+      data: { about: data.about },
     });
+  },
+);
+
+export const resetAnalyticsAction = withActionInstrumentation(
+  "resetAnalytics",
+  async () => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
+
+    await deleteTinybirdEmails({ email: session.user.email });
   },
 );
 
@@ -87,19 +100,26 @@ export const completedAppOnboardingAction = withActionInstrumentation(
   },
 );
 
+const saveOnboardingAnswersBody = z.object({
+  surveyId: z.string().optional(),
+  questions: z.any(),
+  answers: z.any(),
+});
+type SaveOnboardingAnswersBody = z.infer<typeof saveOnboardingAnswersBody>;
+
 export const saveOnboardingAnswersAction = withActionInstrumentation(
   "saveOnboardingAnswers",
-  async (onboardingAnswers: {
-    surveyId?: string;
-    questions: any;
-    answers: Record<string, string>;
-  }) => {
+  async (unsafeBody: SaveOnboardingAnswersBody) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
+    const { success, data, error } =
+      saveOnboardingAnswersBody.safeParse(unsafeBody);
+    if (!success) return { error: error.message };
+
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { onboardingAnswers },
+      data: { onboardingAnswers: data },
     });
   },
 );

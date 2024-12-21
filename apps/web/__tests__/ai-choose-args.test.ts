@@ -1,10 +1,15 @@
 import { describe, expect, test, vi } from "vitest";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
-import { type Action, ActionType, RuleType } from "@prisma/client";
+import { type Action, ActionType, LogicalOperator } from "@prisma/client";
+import type { RuleWithActions } from "@/utils/types";
+
+// pnpm test-ai ai-choose-args
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe("getActionItemsWithAiArgs", () => {
+describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
   test("should return actions unchanged when no AI args needed", async () => {
     const actions = [getAction({})];
     const rule = getRule("Test rule", actions);
@@ -68,7 +73,7 @@ describe("getActionItemsWithAiArgs", () => {
       content: "The price of pears is: $1.99",
     });
     console.debug("Generated content:\n", result[0].content);
-  });
+  }, 15_000);
 
   test("should handle multiple actions with mixed AI needs", async () => {
     const actions = [
@@ -167,7 +172,10 @@ function getAction(action: Partial<Action> = {}): Action {
   };
 }
 
-function getRule(instructions: string, actions: Action[] = []) {
+function getRule(
+  instructions: string,
+  actions: Action[] = [],
+): RuleWithActions {
   return {
     instructions,
     name: "Test Rule",
@@ -183,9 +191,10 @@ function getRule(instructions: string, actions: Action[] = []) {
     subject: null,
     body: null,
     to: null,
-    type: RuleType.AI,
     enabled: true,
     categoryFilterType: null,
+    conditionalOperator: LogicalOperator.AND,
+    type: null,
   };
 }
 

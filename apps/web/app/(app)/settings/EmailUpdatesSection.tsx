@@ -86,17 +86,15 @@ function StatsUpdateSectionForm(props: { statsEmailFrequency: Frequency }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {/* <Select
-        name="statsEmailFrequency"
         label="Stats Update Email"
         options={options}
-        registerProps={register("statsEmailFrequency")}
+        {...register("statsEmailFrequency")}
         error={errors.statsEmailFrequency}
       /> */}
       <Select
-        name="summaryEmailFrequency"
         label="Summary Email"
         options={options}
-        registerProps={register("summaryEmailFrequency")}
+        {...register("summaryEmailFrequency")}
         error={errors.summaryEmailFrequency}
       />
 

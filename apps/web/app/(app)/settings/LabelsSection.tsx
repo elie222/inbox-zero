@@ -281,7 +281,7 @@ export function LabelItem(props: {
         <div className="flex-1">
           <Input
             type="text"
-            as="textarea"
+            autosizeTextarea
             rows={2}
             name={`description-${label.id}`}
             label=""
@@ -357,7 +357,7 @@ function AddLabelModal() {
 
             <Input
               type="text"
-              as="textarea"
+              autosizeTextarea
               rows={2}
               name="description"
               label="Description"

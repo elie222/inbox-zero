@@ -83,7 +83,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         await completedOnboardingAction();
 
         // a/b test
-        if (!variant || variant === "show") {
+        if (variant === "show") {
           router.push("/onboarding");
         } else {
           router.push("/welcome-upgrade");
@@ -155,7 +155,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
           <div>
             <Input
               type="text"
-              as="textarea"
+              autosizeTextarea
               rows={3}
               name={name}
               registerProps={register(name)}
