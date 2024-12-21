@@ -31,7 +31,7 @@ import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { handleActionCall } from "@/utils/server-action";
-import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
+// import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
 
 export const examplePrompts = [
   'Label newsletters as "Newsletter" and archive them',
@@ -81,12 +81,12 @@ function RulesPromptForm({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [result, setResult] = useState<{
-    createdRules: number;
-    editedRules: number;
-    removedRules: number;
-  }>();
+  // const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // const [result, setResult] = useState<{
+  //   createdRules: number;
+  //   editedRules: number;
+  //   removedRules: number;
+  // }>();
   const {
     register,
     handleSubmit,
@@ -114,19 +114,20 @@ function RulesPromptForm({
           throw new Error(result.error);
         }
 
+        router.push("/automation?tab=rules");
         mutate();
         setIsSubmitting(false);
 
         return result;
       };
 
-      setIsDialogOpen(true);
-      setResult(undefined);
+      // setIsDialogOpen(true);
+      // setResult(undefined);
 
       toast.promise(() => saveRulesPromise(data), {
         loading: "Saving rules... This may take a while to process...",
         success: (result) => {
-          setResult(result);
+          // setResult(result);
           const { createdRules, editedRules, removedRules } = result || {};
 
           const message = [
@@ -144,7 +145,7 @@ function RulesPromptForm({
         },
       });
     },
-    [mutate],
+    [router, mutate],
   );
 
   const addExamplePrompt = useCallback(
@@ -160,12 +161,12 @@ function RulesPromptForm({
   return (
     <Card className="grid grid-cols-1 sm:grid-cols-3">
       <div className="sm:col-span-2">
-        <ProcessingPromptFileDialog
+        {/* <ProcessingPromptFileDialog
           open={isDialogOpen}
           result={result}
           onOpenChange={setIsDialogOpen}
           isLoading={isGenerating}
-        />
+        /> */}
 
         <CardHeader>
           <CardTitle>
