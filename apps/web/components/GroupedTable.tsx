@@ -12,9 +12,9 @@ import {
   type ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { ArchiveIcon, ChevronRight, PencilIcon } from "lucide-react";
+import { ArchiveIcon, ChevronRight, PencilIcon, PlusIcon } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import type { Category } from "@prisma/client";
+import { RuleType, type Category } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -75,6 +75,19 @@ export function GroupedTable({
 
     return grouped;
   }, [emailGroups, categories]);
+
+  // for id lookup
+  const categoryMap = useMemo(
+    () =>
+      categories.reduce<Record<string, Pick<Category, "id">>>(
+        (acc, category) => {
+          acc[category.name] = category;
+          return acc;
+        },
+        {},
+      ),
+    [categories],
+  );
 
   const [expanded, setExpanded] = useQueryState("expanded", {
     parse: (value) => value.split(","),
@@ -193,6 +206,7 @@ export function GroupedTable({
               <Fragment key={category}>
                 <GroupRow
                   category={category}
+                  categoryId={categoryMap[category].id}
                   count={senders.length}
                   isExpanded={!!isCategoryExpanded}
                   onToggle={() => {
@@ -314,6 +328,7 @@ export function SendersTable({
 
 function GroupRow({
   category,
+  categoryId,
   count,
   isExpanded,
   onToggle,
@@ -321,6 +336,7 @@ function GroupRow({
   onEditCategory,
 }: {
   category: string;
+  categoryId: string;
   count: number;
   isExpanded: boolean;
   onToggle: () => void;
@@ -349,6 +365,15 @@ function GroupRow({
         <Button variant="ghost" size="xs" onClick={onEditCategory}>
           <PencilIcon className="size-4" />
           <span className="sr-only">Edit</span>
+        </Button>
+        <Button variant="outline" size="xs" asChild>
+          <Link
+            href={`/automation/rule/create?tab=${RuleType.CATEGORY}&categoryId=${categoryId}&label=${category}`}
+            target="_blank"
+          >
+            <PlusIcon className="mr-2 size-4" />
+            Attach rule
+          </Link>
         </Button>
         <Button variant="outline" size="xs" onClick={onArchiveAll}>
           <ArchiveIcon className="mr-2 size-4" />

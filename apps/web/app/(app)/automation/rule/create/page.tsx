@@ -1,12 +1,18 @@
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { examples } from "@/app/(app)/automation/create/examples";
 import { getEmptyCondition } from "@/utils/condition";
-import type { RuleType } from "@prisma/client";
+import { ActionType, type RuleType } from "@prisma/client";
 
 export default function CreateRulePage({
   searchParams,
 }: {
-  searchParams: { example?: string; groupId?: string; tab?: RuleType };
+  searchParams: {
+    example?: string;
+    groupId?: string;
+    tab?: RuleType;
+    categoryId?: string;
+    label?: string;
+  };
 }) {
   const rule =
     searchParams.example &&
@@ -17,11 +23,27 @@ export default function CreateRulePage({
       <RuleForm
         rule={
           rule || {
-            name: "",
-            actions: [],
-            conditions: searchParams.tab
-              ? [getEmptyCondition(searchParams.tab, searchParams.groupId)]
+            name: searchParams.label ? `Label ${searchParams.label}` : "",
+            actions: searchParams.label
+              ? [
+                  {
+                    type: ActionType.LABEL,
+                    label: {
+                      value: searchParams.label,
+                    },
+                  },
+                ]
               : [],
+            conditions: searchParams.tab
+              ? [
+                  getEmptyCondition(
+                    searchParams.tab,
+                    searchParams.groupId,
+                    searchParams.categoryId,
+                  ),
+                ]
+              : [],
+            automate: true,
           }
         }
       />

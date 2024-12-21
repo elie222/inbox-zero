@@ -130,6 +130,7 @@ export function getEmptyConditions(): ZodCondition[] {
 export function getEmptyCondition(
   type: RuleType,
   groupId?: string,
+  category?: string,
 ): ZodCondition {
   switch (type) {
     case RuleType.AI:
@@ -142,7 +143,11 @@ export function getEmptyCondition(
     case RuleType.STATIC:
       return staticEmptyCondition;
     case RuleType.CATEGORY:
-      return categoryEmptyCondition;
+      return {
+        ...categoryEmptyCondition,
+        categoryFilters: category ? [category] : null,
+        categoryFilterType: CategoryFilterType.INCLUDE,
+      };
     default:
       throw new Error(`Invalid condition type: ${type}`);
   }
@@ -251,7 +256,7 @@ export function conditionsToString(rule: RuleConditions) {
         .slice(0, max)
         .map((category) => category.name)
         .join(", ") + (categoryFilters.length > max ? ", ..." : "");
-    result += `${categoryFilterTypeToString(rule.categoryFilterType)} ${categoryFilters.length === 1 ? "category" : "categories"}: ${categories}`;
+    result += `${rule.categoryFilterType === CategoryFilterType.EXCLUDE ? "Exclude " : ""}${categoryFilters.length === 1 ? "Category" : "Categories"}: ${categories}`;
   }
 
   return result;
