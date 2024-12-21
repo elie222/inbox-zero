@@ -348,46 +348,73 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       loading={categoriesLoading}
                       error={categoriesError}
                     >
-                      <MultiSelectFilter
-                        title="Select categories"
-                        maxDisplayedValues={8}
-                        options={categories.map((category) => ({
-                          label: capitalCase(category.name),
-                          value: category.id,
-                        }))}
-                        selectedValues={
-                          new Set(watch(`conditions.${index}.categoryFilters`))
-                        }
-                        setSelectedValues={(selectedValues) => {
-                          setValue(
-                            `conditions.${index}.categoryFilters`,
-                            Array.from(selectedValues),
-                          );
-                        }}
-                      />
-                      {(
-                        errors.conditions?.[index] as {
-                          categoryFilters?: { message?: string };
-                        }
-                      )?.categoryFilters?.message && (
-                        <ErrorMessage
-                          message={
-                            (
-                              errors.conditions?.[index] as {
-                                categoryFilters?: { message?: string };
+                      {categories.length ? (
+                        <>
+                          <MultiSelectFilter
+                            title="Categories"
+                            maxDisplayedValues={8}
+                            options={categories.map((category) => ({
+                              label: capitalCase(category.name),
+                              value: category.id,
+                            }))}
+                            selectedValues={
+                              new Set(
+                                watch(`conditions.${index}.categoryFilters`),
+                              )
+                            }
+                            setSelectedValues={(selectedValues) => {
+                              setValue(
+                                `conditions.${index}.categoryFilters`,
+                                Array.from(selectedValues),
+                              );
+                            }}
+                          />
+                          {(
+                            errors.conditions?.[index] as {
+                              categoryFilters?: { message?: string };
+                            }
+                          )?.categoryFilters?.message && (
+                            <ErrorMessage
+                              message={
+                                (
+                                  errors.conditions?.[index] as {
+                                    categoryFilters?: { message?: string };
+                                  }
+                                )?.categoryFilters?.message || ""
                               }
-                            )?.categoryFilters?.message || ""
-                          }
-                        />
+                            />
+                          )}
+
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="ml-2"
+                          >
+                            <Link
+                              href="/smart-categories/setup"
+                              target="_blank"
+                            >
+                              Create category
+                              <ExternalLinkIcon className="ml-1.5 size-4" />
+                            </Link>
+                          </Button>
+                        </>
+                      ) : (
+                        <div>
+                          <SectionDescription>
+                            No smart categories found.
+                          </SectionDescription>
+
+                          <Button asChild className="mt-1">
+                            <Link href="/smart-categories" target="_blank">
+                              Set up Smart Categories
+                              <ExternalLinkIcon className="ml-1.5 size-4" />
+                            </Link>
+                          </Button>
+                        </div>
                       )}
                     </LoadingContent>
-
-                    <Button asChild variant="ghost" size="sm" className="ml-2">
-                      <Link href="/smart-categories/setup" target="_blank">
-                        Create new category
-                        <ExternalLinkIcon className="ml-1.5 size-4" />
-                      </Link>
-                    </Button>
                   </>
                 )}
               </div>
