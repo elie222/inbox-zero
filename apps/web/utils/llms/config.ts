@@ -19,7 +19,9 @@ export const Model = {
 export const providerOptions: { label: string; value: string }[] = [
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Anthropic", value: Provider.ANTHROPIC },
-  ...(supportsOllama ? [{ label: "Ollama", value: Provider.OLLAMA! }] : []),
+  ...(supportsOllama && Provider.OLLAMA
+    ? [{ label: "Ollama", value: Provider.OLLAMA }]
+    : []),
 ];
 
 export const modelOptions: Record<string, { label: string; value: string }[]> =

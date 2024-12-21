@@ -128,7 +128,7 @@ export function getEmptyConditions(): ZodCondition[] {
 }
 
 export function getEmptyCondition(
-  type: string,
+  type: RuleType,
   groupId?: string,
 ): ZodCondition {
   switch (type) {
@@ -180,6 +180,11 @@ export const flattenConditions = (
         acc.categoryFilterType = condition.categoryFilterType;
         acc.categoryFilters = condition.categoryFilters;
         break;
+      default:
+        console.log(`Unhandled condition type: ${condition.type}`);
+        // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
+        const exhaustiveCheck: never = condition.type;
+        return exhaustiveCheck;
     }
     return acc;
   }, {} as FlattenedConditions);
