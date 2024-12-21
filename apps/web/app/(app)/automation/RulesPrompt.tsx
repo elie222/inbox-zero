@@ -165,7 +165,7 @@ function RulesPromptForm({
           open={isDialogOpen}
           result={result}
           onOpenChange={setIsDialogOpen}
-          isLoading={isGenerating}
+          isLoading={isSubmitting}
         /> */}
 
         <CardHeader>
