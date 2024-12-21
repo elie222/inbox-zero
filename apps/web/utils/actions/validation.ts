@@ -58,17 +58,14 @@ export const zodRuleType = z.enum([
 ]);
 
 const zodAiCondition = z.object({
-  type: z.literal(RuleType.AI),
-  instructions: z.string(),
+  instructions: z.string().nullish(),
 });
 
 const zodGroupCondition = z.object({
-  type: z.literal(RuleType.GROUP),
-  groupId: z.string(),
+  groupId: z.string().nullish(),
 });
 
 const zodStaticCondition = z.object({
-  type: z.literal(RuleType.STATIC),
   to: z.string().nullish(),
   from: z.string().nullish(),
   subject: z.string().nullish(),
@@ -76,19 +73,19 @@ const zodStaticCondition = z.object({
 });
 
 const zodCategoryCondition = z.object({
-  type: z.literal(RuleType.CATEGORY),
   categoryFilterType: z
     .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
     .nullish(),
   categoryFilters: z.array(z.string()).nullish(),
 });
 
-const zodCondition = z.union([
-  zodAiCondition,
-  zodGroupCondition,
-  zodStaticCondition,
-  zodCategoryCondition,
-]);
+const zodCondition = z.object({
+  type: zodRuleType,
+  ...zodAiCondition.shape,
+  ...zodGroupCondition.shape,
+  ...zodStaticCondition.shape,
+  ...zodCategoryCondition.shape,
+});
 export type ZodCondition = z.infer<typeof zodCondition>;
 
 export const createRuleBody = z.object({

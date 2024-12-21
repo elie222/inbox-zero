@@ -35,7 +35,6 @@ export const createRuleAction = withActionInstrumentation(
       const rule = await prisma.rule.create({
         data: {
           name: body.name || "",
-          instructions: body.instructions || "",
           automate: body.automate ?? undefined,
           runOnThreads: body.runOnThreads ?? undefined,
           actions: body.actions
@@ -58,6 +57,8 @@ export const createRuleAction = withActionInstrumentation(
               }
             : undefined,
           userId: session.user.id,
+          // conditions
+          instructions: conditions.instructions || null,
           from: conditions.from || null,
           to: conditions.to || null,
           subject: conditions.subject || null,
@@ -119,10 +120,11 @@ export const updateRuleAction = withActionInstrumentation(
         prisma.rule.update({
           where: { id: body.id, userId: session.user.id },
           data: {
-            instructions: body.instructions || "",
             automate: body.automate ?? undefined,
             runOnThreads: body.runOnThreads ?? undefined,
             name: body.name || undefined,
+            // conditions
+            instructions: conditions.instructions || null,
             from: conditions.from || null,
             to: conditions.to || null,
             subject: conditions.subject || null,

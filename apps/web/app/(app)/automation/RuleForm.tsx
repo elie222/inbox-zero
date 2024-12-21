@@ -28,7 +28,7 @@ import {
   SectionDescription,
   TypographyH3,
 } from "@/components/Typography";
-import { ActionType, type CategoryFilterType, RuleType } from "@prisma/client";
+import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -162,8 +162,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     );
     return unusedCondition;
   }, [conditions]);
-
-  console.log("errors", errors);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
@@ -314,7 +312,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   <>
                     <div className="flex items-center gap-4">
                       <RadioGroup
-                        defaultValue="include"
+                        defaultValue={CategoryFilterType.INCLUDE}
                         value={
                           watch(`conditions.${index}.categoryFilterType`) ||
                           undefined
@@ -328,11 +326,17 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         className="flex gap-6"
                       >
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="include" id="include" />
+                          <RadioGroupItem
+                            value={CategoryFilterType.INCLUDE}
+                            id="include"
+                          />
                           <Label name="include" label="Match" />
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="exclude" id="exclude" />
+                          <RadioGroupItem
+                            value={CategoryFilterType.EXCLUDE}
+                            id="exclude"
+                          />
                           <Label name="exclude" label="Skip" />
                         </div>
                       </RadioGroup>
@@ -682,9 +686,6 @@ function GroupsTab(props: {
                 {...props.registerProps}
                 // TODO: fix this
                 // error={props.errors.groupId}
-                // error={
-                //   errors.conditions?.[index]?.type as FieldError | undefined
-                // }
               />
             </div>
           )}
