@@ -335,80 +335,78 @@ export function TestResultDisplay({
     );
   }
 
-  if (result.actionItems) {
-    const MAX_LENGTH = 280;
+  const MAX_LENGTH = 280;
 
-    const aiGeneratedContent = result.actionItems.map((action, i) => (
-      <div
-        key={i}
-        className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3"
-      >
-        <div className="text-xs font-semibold uppercase tracking-wide text-gray-900">
-          {capitalCase(action.type)}
-        </div>
-        {Object.entries(action)
-          .filter(
-            ([key, value]) =>
-              value &&
-              ["label", "subject", "content", "to", "cc", "bcc"].includes(key),
-          )
-          .map(([key, value]) => (
-            <div key={key} className="flex text-sm text-gray-800">
-              <span className="min-w-16 font-medium text-gray-600">
-                {capitalCase(key)}:
-              </span>
-              <span className="ml-2 max-h-40 flex-1 overflow-y-auto">
-                {value}
-              </span>
-            </div>
-          ))}
+  const aiGeneratedContent = result.actionItems?.map((action, i) => (
+    <div
+      key={i}
+      className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3"
+    >
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-900">
+        {capitalCase(action.type)}
       </div>
-    ));
+      {Object.entries(action)
+        .filter(
+          ([key, value]) =>
+            value &&
+            ["label", "subject", "content", "to", "cc", "bcc"].includes(key),
+        )
+        .map(([key, value]) => (
+          <div key={key} className="flex text-sm text-gray-800">
+            <span className="min-w-16 font-medium text-gray-600">
+              {capitalCase(key)}:
+            </span>
+            <span className="ml-2 max-h-40 flex-1 overflow-y-auto">
+              {value}
+            </span>
+          </div>
+        ))}
+    </div>
+  ));
 
-    return (
-      <HoverCard
-        className="w-auto max-w-5xl"
-        content={
-          <Alert variant="blue" className="bg-white">
-            <CheckCircle2Icon className="h-4 w-4" />
-            <AlertTitle className="flex items-center justify-between">
-              Matched rule "{result.rule.name}"
-              <Link
-                href={`/automation/rule/${result.rule.id}`}
-                target="_blank"
-                className="ml-1.5"
-              >
-                <span className="sr-only">View rule</span>
-                <ExternalLinkIcon className="size-3.5 opacity-70" />
-              </Link>
-            </AlertTitle>
-            <AlertDescription className="mt-2 space-y-4">
-              {isAIRule(result.rule) && (
-                <div className="text-sm">
-                  <span className="font-medium">AI Instructions: </span>
-                  {result.rule.instructions.substring(0, MAX_LENGTH)}
-                  {result.rule.instructions.length >= MAX_LENGTH && "..."}
-                </div>
-              )}
-              {!!aiGeneratedContent.length && (
-                <div className="space-y-3">{aiGeneratedContent}</div>
-              )}
-              {!!result.reason && (
-                <div className="border-l-2 border-blue-200 pl-3 text-sm">
-                  <span className="font-medium">AI Reasoning: </span>
-                  {result.reason}
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        }
-      >
-        <Badge color="green">
-          {prefix ? prefix : ""}
-          {result.rule.name}
-          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
-        </Badge>
-      </HoverCard>
-    );
-  }
+  return (
+    <HoverCard
+      className="w-auto max-w-5xl"
+      content={
+        <Alert variant="blue" className="bg-white">
+          <CheckCircle2Icon className="h-4 w-4" />
+          <AlertTitle className="flex items-center justify-between">
+            Matched rule "{result.rule.name}"
+            <Link
+              href={`/automation/rule/${result.rule.id}`}
+              target="_blank"
+              className="ml-1.5"
+            >
+              <span className="sr-only">View rule</span>
+              <ExternalLinkIcon className="size-3.5 opacity-70" />
+            </Link>
+          </AlertTitle>
+          <AlertDescription className="mt-2 space-y-4">
+            {isAIRule(result.rule) && (
+              <div className="text-sm">
+                <span className="font-medium">AI Instructions: </span>
+                {result.rule.instructions.substring(0, MAX_LENGTH)}
+                {result.rule.instructions.length >= MAX_LENGTH && "..."}
+              </div>
+            )}
+            {!!aiGeneratedContent?.length && (
+              <div className="space-y-3">{aiGeneratedContent}</div>
+            )}
+            {!!result.reason && (
+              <div className="border-l-2 border-blue-200 pl-3 text-sm">
+                <span className="font-medium">AI Reasoning: </span>
+                {result.reason}
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      }
+    >
+      <Badge color="green">
+        {prefix ? prefix : ""}
+        {result.rule.name}
+        <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+      </Badge>
+    </HoverCard>
+  );
 }

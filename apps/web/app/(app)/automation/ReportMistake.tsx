@@ -4,9 +4,11 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
+  CheckIcon,
   ExternalLinkIcon,
   HammerIcon,
   SparklesIcon,
+  XIcon,
 } from "lucide-react";
 import useSWR from "swr";
 import { type SubmitHandler, useForm } from "react-hook-form";
@@ -42,6 +44,9 @@ import { Badge } from "@/components/Badge";
 import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
 import { isReplyInThread } from "@/utils/thread";
 import { isAIRule } from "@/utils/condition";
+import { Loading } from "@/components/Loading";
+
+type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
 const NONE_RULE_ID = "__NONE__";
 
@@ -55,12 +60,7 @@ export function ReportMistake({
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
     "/api/user/rules",
   );
-  const [correctRuleId, setCorrectRuleId] = useState<string | null>(null);
-  const incorrectRule = result?.rule;
-  const correctRule = useMemo(
-    () => data?.find((rule) => rule.id === correctRuleId),
-    [data, correctRuleId],
-  );
+  const actualRule = result?.rule;
 
   return (
     <Dialog>
@@ -74,58 +74,227 @@ export function ReportMistake({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Improve Rules</DialogTitle>
-          {/* <DialogDescription>
-            Explain what went wrong and our AI will suggest a fix.
-          </DialogDescription> */}
         </DialogHeader>
 
-        {correctRuleId ? (
-          correctRule?.runOnThreads ? (
-            <ImproveRules
-              incorrectRule={incorrectRule}
-              correctRule={correctRule}
+        <LoadingContent loading={isLoading} error={error}>
+          {data && (
+            <Content
+              rules={data}
               message={message}
               result={result}
-              correctRuleId={correctRuleId}
-              setCorrectRuleId={setCorrectRuleId}
+              actualRule={actualRule ?? null}
             />
-          ) : (
-            <ImproveRulesOrShowThreadMessage
-              incorrectRule={incorrectRule}
-              correctRule={correctRule}
-              message={message}
-              result={result}
-              correctRuleId={correctRuleId}
-              setCorrectRuleId={setCorrectRuleId}
-              threadId={message.threadId}
-            />
-          )
-        ) : (
-          <RuleMismatch
-            result={result}
-            setCorrectRuleId={setCorrectRuleId}
-            data={data}
-            isLoading={isLoading}
-            error={error}
-          />
-        )}
+          )}
+        </LoadingContent>
       </DialogContent>
     </Dialog>
   );
 }
 
+function Content({
+  rules,
+  message,
+  result,
+  actualRule,
+}: {
+  rules: RulesResponse;
+  message: MessagesResponse["messages"][number];
+  result: TestResult | null;
+  actualRule: Rule | null;
+}) {
+  const [loadingAiFix, setLoadingAiFix] = useState(false);
+  const [fixedInstructions, setFixedInstructions] = useState<{
+    ruleId: string;
+    fixedInstructions: string;
+  }>();
+  const fixedInstructionsRule = useMemo(
+    () => rules.find((rule) => rule.id === fixedInstructions?.ruleId),
+    [rules, fixedInstructions],
+  );
+
+  const [expectedRuleId, setExpectedRuleId] = useState<string | null>(null);
+  const expectedRule = useMemo(
+    () => rules.find((rule) => rule.id === expectedRuleId),
+    [rules, expectedRuleId],
+  );
+
+  const [view, setView] = useState<ReportMistakeView>("select-expected-rule");
+  const [_viewStack, setViewStack] = useState<ReportMistakeView[]>([
+    "select-expected-rule",
+  ]);
+
+  const onSetView = useCallback((newView: ReportMistakeView) => {
+    setViewStack((stack) => [...stack, newView]);
+    setView(newView);
+  }, []);
+
+  const onBack = useCallback(() => {
+    setViewStack((stack) => {
+      if (stack.length <= 1) return stack;
+      const newStack = stack.slice(0, -1);
+      setView(newStack[newStack.length - 1]);
+      return newStack;
+    });
+  }, []);
+
+  const onSelectExpectedRule = useCallback(
+    async (expectedRuleId: string | null) => {
+      setExpectedRuleId(expectedRuleId);
+
+      // if AI rule, then use AI to suggest a fix
+      if (expectedRule && isAIRule(expectedRule)) {
+        onSetView("ai-fix");
+        setLoadingAiFix(true);
+        const response = await reportAiMistakeAction({
+          actualRuleId: result?.rule?.id,
+          expectedRuleId,
+          email: {
+            from: message.headers.from,
+            subject: message.headers.subject,
+            snippet: message.snippet,
+            textHtml: message.textHtml || null,
+            textPlain: message.textPlain || null,
+          },
+        });
+
+        setLoadingAiFix(false);
+        if (isActionError(response)) {
+          toastError({
+            title: "Error reporting mistake",
+            description: response.error,
+          });
+        } else {
+          if (response.ruleId) {
+            setFixedInstructions({
+              ruleId: response.ruleId,
+              fixedInstructions: response.fixedInstructions,
+            });
+          } else {
+            toastError({
+              title: "Error reporting mistake",
+              description:
+                "No rule ID returned. Please contact support if this persists.",
+            });
+          }
+        }
+      } else {
+        // if not AI rule, then show the manual fix view
+        onSetView("manual-fix");
+      }
+    },
+    [message, result?.rule?.id, onSetView, expectedRule],
+  );
+
+  if (
+    expectedRule?.runOnThreads &&
+    isReplyInThread(message.id, message.threadId)
+  ) {
+    return (
+      <ThreadSettingsMismatchMessage
+        expectedRuleId={expectedRule.id}
+        onBack={onBack}
+      />
+    );
+  }
+
+  switch (view) {
+    case "select-expected-rule":
+      return (
+        <RuleMismatch
+          result={result}
+          onSelectExpectedRuleId={onSelectExpectedRule}
+          rules={rules}
+        />
+      );
+    case "ai-fix":
+      return (
+        <AIFixView
+          loadingAiFix={loadingAiFix}
+          fixedInstructions={fixedInstructions ?? null}
+          fixedInstructionsRule={fixedInstructionsRule ?? null}
+          onBack={onBack}
+          onReject={() => onSetView("manual-fix")}
+        />
+      );
+    case "manual-fix":
+      return (
+        <ManualFixView
+          actualRule={actualRule}
+          expectedRule={expectedRule}
+          message={message}
+          result={result}
+          onBack={onBack}
+        />
+      );
+    default:
+      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
+      const exhaustiveCheck: never = view;
+      return exhaustiveCheck;
+  }
+}
+
+function AIFixView({
+  loadingAiFix,
+  fixedInstructions,
+  fixedInstructionsRule,
+  onBack,
+  onReject,
+}: {
+  loadingAiFix: boolean;
+  fixedInstructions: {
+    ruleId: string;
+    fixedInstructions: string;
+  } | null;
+  fixedInstructionsRule: Rule | null;
+  onBack: () => void;
+  onReject: () => void;
+}) {
+  if (loadingAiFix) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-1">
+        <SectionDescription>Suggesting a fix...</SectionDescription>
+        <Loading />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {fixedInstructions?.fixedInstructions ? (
+        <div className="space-y-2">
+          <TestResultDisplay result={{ rule: fixedInstructionsRule }} />
+          <Instructions
+            label="Original:"
+            instructions={fixedInstructions.fixedInstructions}
+          />
+        </div>
+      ) : (
+        <p>No rule found for the fixed instructions.</p>
+      )}
+
+      {fixedInstructions?.ruleId && (
+        <SuggestedFix
+          ruleId={fixedInstructions.ruleId}
+          fixedInstructions={fixedInstructions.fixedInstructions}
+          onReject={onReject}
+        />
+      )}
+      <Button variant="outline" onClick={onBack}>
+        <ArrowLeftIcon className="mr-2 size-4" />
+        Back
+      </Button>
+    </div>
+  );
+}
+
 function RuleMismatch({
   result,
-  setCorrectRuleId,
-  data,
-  isLoading,
-  error,
+  rules,
+  onSelectExpectedRuleId,
 }: {
   result: TestResult | null;
-  setCorrectRuleId: (ruleId: string | null) => void;
-  data?: RulesResponse;
-  isLoading: boolean;
-  error?: { error: string };
+  rules: RulesResponse;
+  onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
   return (
     <div>
@@ -140,84 +309,65 @@ function RuleMismatch({
       <div className="mt-4">
         <Label name="ruleId" label="Which rule did you expect it to match?" />
       </div>
-      <LoadingContent loading={isLoading} error={error}>
-        <div className="mt-1 flex flex-col gap-1">
-          {[{ id: NONE_RULE_ID, name: "None" }, ...(data || [])]
-            .filter((rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID))
-            .map((rule) => (
-              <Button
-                key={rule.id}
-                variant="outline"
-                onClick={() => setCorrectRuleId(rule.id)}
-              >
-                {rule.name}
-              </Button>
-            ))}
-        </div>
-      </LoadingContent>
+      <div className="mt-1 flex flex-col gap-1">
+        {[{ id: NONE_RULE_ID, name: "None" }, ...rules]
+          .filter((rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID))
+          .map((rule) => (
+            <Button
+              key={rule.id}
+              variant="outline"
+              onClick={() => onSelectExpectedRuleId(rule.id)}
+            >
+              {rule.name}
+            </Button>
+          ))}
+      </div>
     </div>
   );
 }
 
-interface ImproveRulesProps {
-  incorrectRule?: Rule | null;
-  correctRule?: Rule | null;
-  message: MessagesResponse["messages"][number];
-  result: TestResult | null;
-  correctRuleId: string | null;
-  setCorrectRuleId: (ruleId: string | null) => void;
-}
-
-/**
- * If the rule is set to only run on threads, then check if this message is part of a thread.
- * If it is, then that's the reason we had a mismatch, and not because of the AI instructions.
- */
-function ImproveRulesOrShowThreadMessage({
-  threadId,
-  ...props
-}: ImproveRulesProps & { threadId: string }) {
-  const isThread = isReplyInThread(props.message.id, threadId);
-
-  if (isThread) {
-    return (
-      <div>
-        <SectionDescription>
-          This rule didn't match because the message is part of a thread, but
-          this rule is set to not run on threads.
-        </SectionDescription>
-        <div className="mt-2 flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => props.setCorrectRuleId(null)}
-          >
-            <ArrowLeftIcon className="mr-2 size-4" />
-            Back
-          </Button>
-          <Button variant="outline" asChild>
-            <Link
-              href={`/automation/rule/${props.correctRuleId}`}
-              target="_blank"
-            >
-              <ExternalLinkIcon className="mr-2 size-4" />
-              Edit Rule
-            </Link>
-          </Button>
-        </div>
+function ThreadSettingsMismatchMessage({
+  expectedRuleId,
+  onBack,
+}: {
+  expectedRuleId: string;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      <SectionDescription>
+        This rule didn't match because the message is part of a thread, but this
+        rule is set to not run on threads.
+      </SectionDescription>
+      <div className="mt-2 flex gap-2">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeftIcon className="mr-2 size-4" />
+          Back
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href={`/automation/rule/${expectedRuleId}`} target="_blank">
+            <ExternalLinkIcon className="mr-2 size-4" />
+            Edit Rule
+          </Link>
+        </Button>
       </div>
-    );
-  }
-
-  return <ImproveRules {...props} />;
+    </div>
+  );
 }
 
-function ImproveRules({
-  incorrectRule,
-  correctRule,
+function ManualFixView({
+  actualRule,
+  expectedRule,
   message,
   result,
-  correctRuleId,
-  setCorrectRuleId,
-}: ImproveRulesProps) {
+  onBack,
+}: {
+  actualRule?: Rule | null;
+  expectedRule?: Rule | null;
+  message: MessagesResponse["messages"][number];
+  result: TestResult | null;
+  onBack: () => void;
+}) {
   const [checking, setChecking] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>();
 
@@ -225,18 +375,15 @@ function ImproveRules({
     <>
       <>
         {result && <TestResultDisplay result={result} prefix="Matched: " />}
-        {incorrectRule && (
+        {actualRule && (
           <>
-            {isAIRule(incorrectRule) ? (
-              <RuleForm rule={incorrectRule} />
+            {isAIRule(actualRule) ? (
+              <RuleForm rule={actualRule} />
             ) : (
               <div>
-                <p className="text-sm">
-                  {incorrectRule.name} is not an AI rule.
-                </p>
                 <Button variant="outline" size="sm" asChild className="mt-2">
                   <Link
-                    href={`/automation/rule/${incorrectRule.id}`}
+                    href={`/automation/rule/${actualRule.id}`}
                     target="_blank"
                   >
                     <ExternalLinkIcon className="mr-2 size-4" />
@@ -249,17 +396,17 @@ function ImproveRules({
           </>
         )}
       </>
-      {correctRule && (
+      {expectedRule && (
         <>
-          <Badge color="green">Expected: {correctRule.name}</Badge>
-          {isAIRule(correctRule) ? (
-            <RuleForm rule={correctRule} />
+          <Badge color="green">Expected: {expectedRule.name}</Badge>
+          {isAIRule(expectedRule) ? (
+            <RuleForm rule={expectedRule} />
           ) : (
             <div>
-              <p className="text-sm">{correctRule.name} is not an AI rule.</p>
+              <p className="text-sm">{expectedRule.name} is not an AI rule.</p>
               <Button variant="outline" size="sm" asChild className="mt-2">
                 <Link
-                  href={`/automation/rule/${correctRule.id}`}
+                  href={`/automation/rule/${expectedRule.id}`}
                   target="_blank"
                 >
                   <ExternalLinkIcon className="mr-2 size-4" />
@@ -271,13 +418,18 @@ function ImproveRules({
           <Separator />
         </>
       )}
-      <SectionDescription>Or fix with AI:</SectionDescription>
-      <AIFixForm
-        message={message}
-        result={result}
-        correctRuleId={correctRuleId}
-      />
-      <Separator />
+
+      {expectedRule && isAIRule(expectedRule) && (
+        <>
+          <SectionDescription>Or fix with AI:</SectionDescription>
+          <AIFixForm
+            message={message}
+            result={result}
+            expectedRuleId={expectedRule.id}
+          />
+          <Separator />
+        </>
+      )}
 
       <Button
         loading={checking}
@@ -307,7 +459,7 @@ function ImproveRules({
         </div>
       )}
 
-      <Button variant="outline" onClick={() => setCorrectRuleId(null)}>
+      <Button variant="outline" onClick={onBack}>
         <ArrowLeftIcon className="mr-2 size-4" />
         Back
       </Button>
@@ -370,11 +522,11 @@ function RuleForm({
 function AIFixForm({
   message,
   result,
-  correctRuleId,
+  expectedRuleId,
 }: {
   message: MessagesResponse["messages"][number];
   result: TestResult | null;
-  correctRuleId: string | null;
+  expectedRuleId: string | null;
 }) {
   const [fixedInstructions, setFixedInstructions] = useState<{
     ruleId: string;
@@ -388,8 +540,9 @@ function AIFixForm({
   } = useForm<ReportAiMistakeBody>({
     resolver: zodResolver(reportAiMistakeBody),
     defaultValues: {
-      incorrectRuleId: result?.rule?.id,
-      correctRuleId: correctRuleId === NONE_RULE_ID ? undefined : correctRuleId,
+      actualRuleId: result?.rule?.id,
+      expectedRuleId:
+        expectedRuleId === NONE_RULE_ID ? undefined : expectedRuleId,
       email: {
         from: message.headers.from,
         subject: message.headers.subject,
@@ -457,6 +610,7 @@ function AIFixForm({
         <SuggestedFix
           ruleId={fixedInstructions.ruleId}
           fixedInstructions={fixedInstructions.fixedInstructions}
+          onReject={() => setFixedInstructions(undefined)}
         />
       )}
     </div>
@@ -466,38 +620,60 @@ function AIFixForm({
 function SuggestedFix({
   ruleId,
   fixedInstructions,
+  onReject,
 }: {
   ruleId: string;
   fixedInstructions: string;
+  onReject: () => void;
 }) {
   const [isSaving, setIsSaving] = useState(false);
 
   return (
     <div className="mt-4">
-      <p className="text-sm">Suggested fix:</p>
-      <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm">
-        {fixedInstructions}
-      </div>
-      <Button
-        className="mt-4"
-        loading={isSaving}
-        onClick={async () => {
-          setIsSaving(true);
-          const res = await updateRuleInstructionsAction({
-            id: ruleId,
-            instructions: fixedInstructions,
-          });
+      <Instructions label="Suggested fix:" instructions={fixedInstructions} />
+      <div className="mt-2 flex gap-2">
+        <Button
+          loading={isSaving}
+          onClick={async () => {
+            setIsSaving(true);
+            const res = await updateRuleInstructionsAction({
+              id: ruleId,
+              instructions: fixedInstructions,
+            });
 
-          if (isActionError(res)) {
-            toastError({ description: res.error });
-          } else {
-            toastSuccess({ description: "Rule updated!" });
-          }
-          setIsSaving(false);
-        }}
-      >
-        Save
-      </Button>
+            if (isActionError(res)) {
+              toastError({ description: res.error });
+            } else {
+              toastSuccess({ description: "Rule updated!" });
+            }
+            setIsSaving(false);
+          }}
+        >
+          <CheckIcon className="mr-2 size-4" />
+          Accept
+        </Button>
+        <Button variant="outline" loading={isSaving} onClick={onReject}>
+          <XIcon className="mr-2 size-4" />
+          Reject
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Instructions({
+  label,
+  instructions,
+}: {
+  label: string;
+  instructions: string;
+}) {
+  return (
+    <div>
+      <p className="text-sm">{label}</p>
+      <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm">
+        {instructions}
+      </div>
     </div>
   );
 }

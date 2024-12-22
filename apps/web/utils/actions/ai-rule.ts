@@ -870,20 +870,20 @@ export const reportAiMistakeAction = withActionInstrumentation(
 
     const { success, data, error } = reportAiMistakeBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
-    const { correctRuleId, incorrectRuleId, email, explanation } = data;
+    const { expectedRuleId, actualRuleId, email, explanation } = data;
 
-    if (!correctRuleId && !incorrectRuleId)
+    if (!expectedRuleId && !actualRuleId)
       return { error: "Either correct or incorrect rule ID is required" };
 
-    const [correctRule, incorrectRule, user] = await Promise.all([
-      correctRuleId
+    const [expectedRule, actualRule, user] = await Promise.all([
+      expectedRuleId
         ? prisma.rule.findUnique({
-            where: { id: correctRuleId, userId: session.user.id },
+            where: { id: expectedRuleId, userId: session.user.id },
           })
         : null,
-      incorrectRuleId
+      actualRuleId
         ? prisma.rule.findUnique({
-            where: { id: incorrectRuleId, userId: session.user.id },
+            where: { id: actualRuleId, userId: session.user.id },
           })
         : null,
       prisma.user.findUnique({
@@ -898,11 +898,10 @@ export const reportAiMistakeAction = withActionInstrumentation(
       }),
     ]);
 
-    if (correctRuleId && !correctRule)
-      return { error: "Correct rule not found" };
+    if (expectedRuleId && !expectedRule)
+      return { error: "Expected rule not found" };
 
-    if (incorrectRuleId && !incorrectRule)
-      return { error: "Incorrect rule not found" };
+    if (actualRuleId && !actualRule) return { error: "Actual rule not found" };
 
     if (!user) return { error: "User not found" };
 
@@ -914,8 +913,8 @@ export const reportAiMistakeAction = withActionInstrumentation(
 
     const result = await aiRuleFix({
       user,
-      incorrectRule,
-      correctRule,
+      actualRule,
+      expectedRule,
       email: {
         ...email,
         content,
@@ -927,7 +926,7 @@ export const reportAiMistakeAction = withActionInstrumentation(
     if (!result) return { error: "Error fixing rule" };
 
     return {
-      ruleId: result.rule === "matched_rule" ? incorrectRuleId : correctRuleId,
+      ruleId: result.rule === "actual_rule" ? actualRuleId : expectedRuleId,
       fixedInstructions: result.fixedInstructions,
     };
   },
