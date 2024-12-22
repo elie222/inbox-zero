@@ -28,7 +28,7 @@ export async function generateMetadata(
   });
 
   if (!post) {
-    captureException(new Error("Post not found"), {
+    captureException(new Error(`Post not found. Slug: ${params.slug}`), {
       extra: {
         params,
         query: postQuery,
