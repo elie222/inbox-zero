@@ -9,7 +9,6 @@ import { SendersTable } from "@/components/GroupedTable";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import type { UncategorizedSendersResponse } from "@/app/api/user/categorize/senders/uncategorized/route";
-import type { Category } from "@prisma/client";
 import { TopBar } from "@/components/TopBar";
 import { toastError } from "@/components/Toast";
 import {
@@ -42,7 +41,7 @@ export function Uncategorized({
   const senders = useMemo(
     () =>
       senderAddresses?.map((address) => {
-        return { address, categoryId: null };
+        return { address, category: null };
       }),
     [senderAddresses],
   );
