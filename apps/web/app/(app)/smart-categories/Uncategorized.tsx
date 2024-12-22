@@ -24,12 +24,13 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import type { CategoryWithRules } from "@/utils/category.server";
 
 export function Uncategorized({
   categories,
   autoCategorizeSenders,
 }: {
-  categories: Category[];
+  categories: CategoryWithRules[];
   autoCategorizeSenders: boolean;
 }) {
   const { hasAiAccess } = usePremium();
@@ -41,7 +42,7 @@ export function Uncategorized({
   const senders = useMemo(
     () =>
       senderAddresses?.map((address) => {
-        return { address, category: null };
+        return { address, categoryId: null };
       }),
     [senderAddresses],
   );

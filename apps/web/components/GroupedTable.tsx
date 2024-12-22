@@ -12,9 +12,15 @@ import {
   type ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { ArchiveIcon, ChevronRight, PencilIcon, PlusIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ChevronRight,
+  FileCogIcon,
+  PencilIcon,
+  PlusIcon,
+} from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { RuleType, type Category } from "@prisma/client";
+import { RuleType } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,12 +47,13 @@ import {
 import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
 import { CreateCategoryDialog } from "@/app/(app)/smart-categories/CreateCategoryButton";
+import type { CategoryWithRules } from "@/utils/category.server";
 
 const COLUMNS = 4;
 
 type EmailGroup = {
   address: string;
-  category: Pick<Category, "id" | "name" | "description"> | null;
+  category: CategoryWithRules | null;
   meta?: { width?: string };
 };
 
@@ -55,15 +62,26 @@ export function GroupedTable({
   categories,
 }: {
   emailGroups: EmailGroup[];
-  categories: Pick<Category, "id" | "name" | "description">[];
+  categories: CategoryWithRules[];
 }) {
   const session = useSession();
   const userEmail = session.data?.user?.email || "";
 
+  const categoryMap = useMemo(() => {
+    return categories.reduce<Record<string, CategoryWithRules>>(
+      (acc, category) => {
+        acc[category.name] = category;
+        return acc;
+      },
+      {},
+    );
+  }, [categories]);
+
   const groupedEmails = useMemo(() => {
     const grouped = groupBy(
       emailGroups,
-      (group) => group.category?.name || "Uncategorized",
+      (group) =>
+        categoryMap[group.category?.name || ""]?.name || "Uncategorized",
     );
 
     // Add empty arrays for categories without any emails
@@ -74,20 +92,7 @@ export function GroupedTable({
     }
 
     return grouped;
-  }, [emailGroups, categories]);
-
-  // for id lookup
-  const categoryMap = useMemo(
-    () =>
-      categories.reduce<Record<string, Pick<Category, "id">>>(
-        (acc, category) => {
-          acc[category.name] = category;
-          return acc;
-        },
-        {},
-      ),
-    [categories],
-  );
+  }, [emailGroups, categories, categoryMap]);
 
   const [expanded, setExpanded] = useQueryState("expanded", {
     parse: (value) => value.split(","),
@@ -143,7 +148,7 @@ export function GroupedTable({
         accessorKey: "date",
         cell: ({ row }) => (
           <Select
-            defaultValue={row.original.category?.id.toString() || ""}
+            defaultValue={row.original.category?.id || ""}
             onValueChange={async (value) => {
               const result = await changeSenderCategoryAction({
                 sender: row.original.address,
@@ -189,8 +194,8 @@ export function GroupedTable({
     <>
       <Table>
         <TableBody>
-          {Object.entries(groupedEmails).map(([category, senders]) => {
-            const isCategoryExpanded = expanded?.includes(category);
+          {Object.entries(groupedEmails).map(([categoryName, senders]) => {
+            const isCategoryExpanded = expanded?.includes(categoryName);
 
             const onArchiveAll = async () => {
               for (const sender of senders) {
@@ -199,21 +204,26 @@ export function GroupedTable({
             };
 
             const onEditCategory = () => {
-              setSelectedCategoryName(category);
+              setSelectedCategoryName(categoryName);
             };
 
+            const category = categoryMap[categoryName];
+
+            if (!category) {
+              return null;
+            }
+
             return (
-              <Fragment key={category}>
+              <Fragment key={categoryName}>
                 <GroupRow
                   category={category}
-                  categoryId={categoryMap[category].id}
                   count={senders.length}
                   isExpanded={!!isCategoryExpanded}
                   onToggle={() => {
                     setExpanded((prev) =>
                       isCategoryExpanded
-                        ? (prev || []).filter((c) => c !== category)
-                        : [...(prev || []), category],
+                        ? (prev || []).filter((c) => c !== categoryName)
+                        : [...(prev || []), categoryName],
                     );
                   }}
                   onArchiveAll={onArchiveAll}
@@ -254,7 +264,7 @@ export function SendersTable({
   userEmail,
 }: {
   senders: EmailGroup[];
-  categories: Pick<Category, "id" | "name">[];
+  categories: CategoryWithRules[];
   userEmail: string;
 }) {
   const columns: ColumnDef<EmailGroup>[] = useMemo(
@@ -328,15 +338,13 @@ export function SendersTable({
 
 function GroupRow({
   category,
-  categoryId,
   count,
   isExpanded,
   onToggle,
   onArchiveAll,
   onEditCategory,
 }: {
-  category: string;
-  categoryId: string;
+  category: CategoryWithRules;
   count: number;
   isExpanded: boolean;
   onToggle: () => void;
@@ -357,7 +365,7 @@ function GroupRow({
               isExpanded ? "rotate-90" : "rotate-0",
             )}
           />
-          {category}
+          {category.name}
           <span className="ml-2 text-xs text-gray-500">({count})</span>
         </div>
       </TableCell>
@@ -366,15 +374,28 @@ function GroupRow({
           <PencilIcon className="size-4" />
           <span className="sr-only">Edit</span>
         </Button>
-        <Button variant="outline" size="xs" asChild>
-          <Link
-            href={`/automation/rule/create?type=${RuleType.CATEGORY}&categoryId=${categoryId}&label=${category}`}
-            target="_blank"
-          >
-            <PlusIcon className="mr-2 size-4" />
-            Attach rule
-          </Link>
-        </Button>
+        {category.rules.length ? (
+          <div className="flex items-center gap-1">
+            {category.rules.map((rule) => (
+              <Button variant="outline" size="xs" asChild key={rule.id}>
+                <Link href={`/automation/rule/${rule.id}`} target="_blank">
+                  <FileCogIcon className="mr-1 size-4" />
+                  <span>{rule.name || `Rule ${rule.id}`}</span>
+                </Link>
+              </Button>
+            ))}
+          </div>
+        ) : (
+          <Button variant="outline" size="xs" asChild>
+            <Link
+              href={`/automation/rule/create?type=${RuleType.CATEGORY}&categoryId=${category.id}&label=${category.name}`}
+              target="_blank"
+            >
+              <PlusIcon className="mr-2 size-4" />
+              Attach rule
+            </Link>
+          </Button>
+        )}
         <Button variant="outline" size="xs" onClick={onArchiveAll}>
           <ArchiveIcon className="mr-2 size-4" />
           Archive all
@@ -502,8 +523,8 @@ function SelectCategoryCell({
   categories,
 }: {
   sender: string;
-  senderCategory: Pick<Category, "id" | "name"> | null;
-  categories: Pick<Category, "id" | "name">[];
+  senderCategory: CategoryWithRules | null;
+  categories: CategoryWithRules[];
 }) {
   const item = useAiCategorizationQueueItem(sender);
 
@@ -518,7 +539,7 @@ function SelectCategoryCell({
 
   return (
     <Select
-      defaultValue={item?.categoryId || senderCategory?.id.toString() || ""}
+      defaultValue={item?.categoryId || senderCategory?.id || ""}
       onValueChange={async (value) => {
         const result = await changeSenderCategoryAction({
           sender,

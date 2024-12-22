@@ -9,7 +9,7 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { GroupedTable } from "@/components/GroupedTable";
 import { TopBar } from "@/components/TopBar";
 import { CreateCategoryButton } from "@/app/(app)/smart-categories/CreateCategoryButton";
-import { getUserCategories } from "@/utils/category.server";
+import { getUserCategoriesWithRules } from "@/utils/category.server";
 import { CategorizeWithAiButton } from "@/app/(app)/smart-categories/CategorizeWithAiButton";
 import {
   Card,
@@ -44,7 +44,7 @@ export default async function CategoriesPage() {
         category: { select: { id: true, description: true, name: true } },
       },
     }),
-    getUserCategories(session.user.id),
+    getUserCategoriesWithRules(session.user.id),
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { autoCategorizeSenders: true },
@@ -119,7 +119,10 @@ export default async function CategoriesPage() {
                   (sender) => sender.category?.name,
                 ).map((sender) => ({
                   address: sender.email,
-                  category: sender.category,
+                  category:
+                    categories.find(
+                      (category) => category.id === sender.category?.id,
+                    ) || null,
                 }))}
                 categories={categories}
               />

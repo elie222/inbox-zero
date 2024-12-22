@@ -127,7 +127,7 @@ export function ViewGroup({
                   href={`/automation/rule/${group.rule.id}`}
                   className="hover:underline"
                 >
-                  {group.rule.name || `Rule ${group.rule.id}`}
+                  {group.rule.name || group.rule.id}
                 </Link>
               </div>
             ) : (
