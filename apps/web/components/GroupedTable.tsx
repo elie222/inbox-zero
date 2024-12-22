@@ -368,7 +368,7 @@ function GroupRow({
         </Button>
         <Button variant="outline" size="xs" asChild>
           <Link
-            href={`/automation/rule/create?tab=${RuleType.CATEGORY}&categoryId=${categoryId}&label=${category}`}
+            href={`/automation/rule/create?type=${RuleType.CATEGORY}&categoryId=${categoryId}&label=${category}`}
             target="_blank"
           >
             <PlusIcon className="mr-2 size-4" />
