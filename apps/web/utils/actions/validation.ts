@@ -144,17 +144,14 @@ export const reportAiMistakeBody = z
       textHtml: z.string().nullish(),
       textPlain: z.string().nullish(),
     }),
-    correctRuleId: z.string().nullish(),
-    incorrectRuleId: z.string().nullish(),
+    actualRuleId: z.string().nullish(),
+    expectedRuleId: z.string().nullish(),
     explanation: z.string().nullish(),
   })
-  .refine(
-    (data) => data.correctRuleId != null || data.incorrectRuleId != null,
-    {
-      message: "Either correctRuleId or incorrectRuleId must be provided",
-      path: ["correctRuleId"], // This will show the error on the correctRuleId field
-    },
-  );
+  .refine((data) => data.actualRuleId != null || data.expectedRuleId != null, {
+    message: "Either the actual or the expected rule must be provided",
+    path: ["expectedRuleId"], // This will show the error on the expectedRuleId field
+  });
 export type ReportAiMistakeBody = z.infer<typeof reportAiMistakeBody>;
 
 // categories

@@ -7,31 +7,30 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { Rule, User } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import stripIndent from "strip-indent";
 
 const logger = createScopedLogger("AI Rule Fix");
 
 export type RuleFixResponse = {
-  rule: "matched_rule" | "correct_rule";
+  rule: "actual_rule" | "expected_rule";
   fixedInstructions: string;
 };
 
 export async function aiRuleFix({
   user,
-  incorrectRule,
-  correctRule,
+  actualRule,
+  expectedRule,
   email,
   explanation,
 }: {
   user: Pick<User, "email" | "about"> & UserAIFields;
-  incorrectRule: Pick<Rule, "instructions"> | null;
-  correctRule: Pick<Rule, "instructions"> | null;
+  actualRule: Pick<Rule, "instructions"> | null;
+  expectedRule: Pick<Rule, "instructions"> | null;
   email: EmailForLLM;
   explanation?: string;
 }): Promise<RuleFixResponse> {
   const { problem, schema, examples } = getRuleFixPromptConfig(
-    incorrectRule,
-    correctRule,
+    actualRule,
+    expectedRule,
   );
 
   const system = `You are an AI assistant that helps fix and improve email rules.
@@ -78,15 +77,14 @@ Please provide the fixed rule.`;
   });
 
   const res = aiResponse.object as {
-    rule?: "matched_rule" | "correct_rule";
+    rule?: "actual_rule" | "expected_rule";
     fixedInstructions: string;
   };
 
   logger.trace(res);
 
   return {
-    rule:
-      res.rule ?? (incorrectRule === null ? "correct_rule" : "matched_rule"),
+    rule: res.rule ?? (actualRule === null ? "expected_rule" : "actual_rule"),
     fixedInstructions: res.fixedInstructions,
   };
 }
@@ -102,63 +100,64 @@ function getRuleFixPromptConfig(
 } {
   if (incorrectRule && correctRule) {
     return {
-      problem: stripIndent(`Here is the rule it matched against:
-                        <matched_rule>
-                        ${incorrectRule.instructions}
-                        </matched_rule>
+      problem: `Here is the rule it matched against:
+<actual_rule>
+${incorrectRule.instructions}
+</actual_rule>
 
-                        Here is the rule it should have matched:
-                        <correct_rule>
-                        ${correctRule.instructions}
-                        </correct_rule>`),
+Here is the rule it was expected to match:
+<expected_rule>
+${correctRule.instructions}
+</expected_rule>
+
+Based on the email content, determine which rule needs fixing and provide its improved version. The fixed rule should correctly handle the email while maintaining the original rule's intent.`,
       schema: z.object({
-        rule: z.enum(["matched_rule", "correct_rule"]),
+        rule: z.enum(["actual_rule", "expected_rule"]),
         fixedInstructions: z.string().describe("The updated instructions"),
       }),
       examples: [
-        stripIndent(`{
-                      "rule": "matched_rule",
-                      "fixedInstructions": "Apply this rule to emails reporting technical issues, bugs, or website problems, but DO NOT apply this to technical newsletters."
-                    }`),
-        stripIndent(`{
-                      "rule": "correct_rule",
-                      "fixedInstructions": "Match cold emails from recruiters about job opportunities, but exclude automated job alerts or marketing emails from job boards."
-                    }`),
+        `{
+  "rule": "actual_rule",
+  "fixedInstructions": "Apply this rule to emails reporting technical issues, bugs, or website problems, but DO NOT apply this to technical newsletters."
+}`,
+        `{
+  "rule": "expected_rule",
+  "fixedInstructions": "Match cold emails from recruiters about job opportunities, but exclude automated job alerts or marketing emails from job boards."
+}`,
       ],
     };
   }
 
   if (incorrectRule) {
     return {
-      problem:
-        stripIndent(`Here is the rule it matched against that it shouldn't have matched:
-                    <matched_rule>
-                    ${incorrectRule.instructions}
-                    </matched_rule>`),
+      problem: `Here is the rule it matched against that it shouldn't have matched:
+<rule>
+${incorrectRule.instructions}
+</rule>`,
       schema: z.object({
         fixedInstructions: z.string().describe("The updated instructions"),
       }),
       examples: [
-        stripIndent(`{
-          "fixedInstructions": "Apply this rule to emails reporting technical issues, bugs, or website problems, but DO NOT apply this to technical newsletters."
-        }`),
+        `{
+  "fixedInstructions": "Apply this rule to emails reporting technical issues, bugs, or website problems, but DO NOT apply this to technical newsletters."
+}`,
       ],
     };
   }
 
   if (correctRule) {
     return {
-      problem: stripIndent(`Here is the rule it should have matched:
-                          <correct_rule>
-                          ${correctRule.instructions}
-                          </correct_rule>`),
+      problem: `Here is the rule it should have matched:
+<expected_rule>
+${correctRule.instructions}
+</expected_rule>`,
       schema: z.object({
         fixedInstructions: z.string().describe("The updated instructions"),
       }),
       examples: [
-        stripIndent(`{
-          "fixedInstructions": "Apply this rule to emails reporting technical issues, bugs, or website problems, but DO NOT apply this to technical newsletters."
-        }`),
+        `{
+  "fixedInstructions": "Apply this rule to emails reporting technical issues, bugs, or website problems, but DO NOT apply this to technical newsletters."
+}`,
       ],
     };
   }
