@@ -55,7 +55,7 @@ Respond with a JSON object with the following fields:
 </outputFormat>
 
 <email>
-${stringifyEmail(email, 700)}
+${stringifyEmail(email, 500)}
 </email>
 `;
 
