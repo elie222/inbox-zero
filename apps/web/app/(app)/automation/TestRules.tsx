@@ -111,7 +111,6 @@ export function TestRulesContent() {
         description: result.error,
       });
     } else {
-      console.log("🚀 ~ onTest ~ result:", result);
       setTestResults((prev) => ({ ...prev, [message.id]: result }));
     }
     setIsTesting((prev) => ({ ...prev, [message.id]: false }));
