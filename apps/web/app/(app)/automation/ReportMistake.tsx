@@ -142,12 +142,15 @@ function Content({
       setExpectedRuleId(expectedRuleId);
 
       // if AI rule, then use AI to suggest a fix
-      if (expectedRule && isAIRule(expectedRule)) {
+      if (
+        (expectedRule && isAIRule(expectedRule)) ||
+        (actualRule && isAIRule(actualRule))
+      ) {
         onSetView("ai-fix");
         setLoadingAiFix(true);
         const response = await reportAiMistakeAction({
           actualRuleId: result?.rule?.id,
-          expectedRuleId,
+          expectedRuleId: expectedRule?.id,
           email: {
             from: message.headers.from,
             subject: message.headers.subject,
@@ -182,7 +185,7 @@ function Content({
         onSetView("manual-fix");
       }
     },
-    [message, result?.rule?.id, onSetView, expectedRule],
+    [message, result?.rule?.id, onSetView, expectedRule, actualRule],
   );
 
   if (
@@ -212,6 +215,7 @@ function Content({
           loadingAiFix={loadingAiFix}
           fixedInstructions={fixedInstructions ?? null}
           fixedInstructionsRule={fixedInstructionsRule ?? null}
+          messageId={message.id}
           onBack={onBack}
           onReject={() => onSetView("manual-fix")}
         />
@@ -237,6 +241,7 @@ function AIFixView({
   loadingAiFix,
   fixedInstructions,
   fixedInstructionsRule,
+  messageId,
   onBack,
   onReject,
 }: {
@@ -246,6 +251,7 @@ function AIFixView({
     fixedInstructions: string;
   } | null;
   fixedInstructionsRule: Rule | null;
+  messageId: string;
   onBack: () => void;
   onReject: () => void;
 }) {
@@ -260,29 +266,29 @@ function AIFixView({
 
   return (
     <div className="space-y-2">
-      {fixedInstructions?.fixedInstructions ? (
+      {fixedInstructionsRule?.instructions ? (
         <div className="space-y-2">
           <TestResultDisplay result={{ rule: fixedInstructionsRule }} />
           <Instructions
             label="Original:"
-            instructions={fixedInstructions.fixedInstructions}
+            instructions={fixedInstructionsRule?.instructions}
           />
         </div>
       ) : (
-        <p>No rule found for the fixed instructions.</p>
+        <p className="text-sm">No rule found for the fixed instructions.</p>
       )}
 
       {fixedInstructions?.ruleId && (
         <SuggestedFix
+          messageId={messageId}
           ruleId={fixedInstructions.ruleId}
           fixedInstructions={fixedInstructions.fixedInstructions}
           onReject={onReject}
+          showRerunTestButton
         />
       )}
-      <Button variant="outline" onClick={onBack}>
-        <ArrowLeftIcon className="mr-2 size-4" />
-        Back
-      </Button>
+
+      <BackButton onBack={onBack} />
     </div>
   );
 }
@@ -340,16 +346,8 @@ function ThreadSettingsMismatchMessage({
         rule is set to not run on threads.
       </SectionDescription>
       <div className="mt-2 flex gap-2">
-        <Button variant="outline" onClick={onBack}>
-          <ArrowLeftIcon className="mr-2 size-4" />
-          Back
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href={`/automation/rule/${expectedRuleId}`} target="_blank">
-            <ExternalLinkIcon className="mr-2 size-4" />
-            Edit Rule
-          </Link>
-        </Button>
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={expectedRuleId} />
       </div>
     </div>
   );
@@ -368,9 +366,6 @@ function ManualFixView({
   result: TestResult | null;
   onBack: () => void;
 }) {
-  const [checking, setChecking] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult>();
-
   return (
     <>
       <>
@@ -380,17 +375,7 @@ function ManualFixView({
             {isAIRule(actualRule) ? (
               <RuleForm rule={actualRule} />
             ) : (
-              <div>
-                <Button variant="outline" size="sm" asChild className="mt-2">
-                  <Link
-                    href={`/automation/rule/${actualRule.id}`}
-                    target="_blank"
-                  >
-                    <ExternalLinkIcon className="mr-2 size-4" />
-                    Edit
-                  </Link>
-                </Button>
-              </div>
+              <EditRuleButton ruleId={actualRule.id} />
             )}
             <Separator />
           </>
@@ -402,18 +387,7 @@ function ManualFixView({
           {isAIRule(expectedRule) ? (
             <RuleForm rule={expectedRule} />
           ) : (
-            <div>
-              <p className="text-sm">{expectedRule.name} is not an AI rule.</p>
-              <Button variant="outline" size="sm" asChild className="mt-2">
-                <Link
-                  href={`/automation/rule/${expectedRule.id}`}
-                  target="_blank"
-                >
-                  <ExternalLinkIcon className="mr-2 size-4" />
-                  Edit
-                </Link>
-              </Button>
-            </div>
+            <EditRuleButton ruleId={expectedRule.id} />
           )}
           <Separator />
         </>
@@ -430,39 +404,8 @@ function ManualFixView({
           <Separator />
         </>
       )}
-
-      <Button
-        loading={checking}
-        onClick={async () => {
-          setChecking(true);
-
-          const result = await testAiAction({ messageId: message.id });
-          if (isActionError(result)) {
-            toastError({
-              title: "There was an error testing the email",
-              description: result.error,
-            });
-          } else {
-            setTestResult(result);
-          }
-          setChecking(false);
-        }}
-      >
-        <SparklesIcon className="mr-2 size-4" />
-        Rerun Test
-      </Button>
-
-      {testResult && (
-        <div className="flex items-center gap-2">
-          <SectionDescription>Test Result:</SectionDescription>
-          <TestResultDisplay result={testResult} />
-        </div>
-      )}
-
-      <Button variant="outline" onClick={onBack}>
-        <ArrowLeftIcon className="mr-2 size-4" />
-        Back
-      </Button>
+      <RerunTestButton messageId={message.id} />
+      <BackButton onBack={onBack} />
     </>
   );
 }
@@ -590,7 +533,7 @@ function AIFixForm({
 
   return (
     <div>
-      <form onSubmit={handleSubmit(reportMistake)} className="space-y-4">
+      <form onSubmit={handleSubmit(reportMistake)} className="space-y-2">
         <Input
           type="text"
           autosizeTextarea
@@ -608,9 +551,11 @@ function AIFixForm({
 
       {fixedInstructions && (
         <SuggestedFix
+          messageId={message.id}
           ruleId={fixedInstructions.ruleId}
           fixedInstructions={fixedInstructions.fixedInstructions}
           onReject={() => setFixedInstructions(undefined)}
+          showRerunTestButton={false}
         />
       )}
     </div>
@@ -618,45 +563,60 @@ function AIFixForm({
 }
 
 function SuggestedFix({
+  messageId,
   ruleId,
   fixedInstructions,
   onReject,
+  showRerunTestButton,
 }: {
+  messageId: string;
   ruleId: string;
   fixedInstructions: string;
   onReject: () => void;
+  showRerunTestButton: boolean;
 }) {
   const [isSaving, setIsSaving] = useState(false);
+  const [accepted, setAccepted] = useState(false);
 
   return (
     <div className="mt-4">
       <Instructions label="Suggested fix:" instructions={fixedInstructions} />
-      <div className="mt-2 flex gap-2">
-        <Button
-          loading={isSaving}
-          onClick={async () => {
-            setIsSaving(true);
-            const res = await updateRuleInstructionsAction({
-              id: ruleId,
-              instructions: fixedInstructions,
-            });
 
-            if (isActionError(res)) {
-              toastError({ description: res.error });
-            } else {
-              toastSuccess({ description: "Rule updated!" });
-            }
-            setIsSaving(false);
-          }}
-        >
-          <CheckIcon className="mr-2 size-4" />
-          Accept
-        </Button>
-        <Button variant="outline" loading={isSaving} onClick={onReject}>
-          <XIcon className="mr-2 size-4" />
-          Reject
-        </Button>
-      </div>
+      {accepted ? (
+        showRerunTestButton && (
+          <div className="mt-2">
+            <RerunTestButton messageId={messageId} />
+          </div>
+        )
+      ) : (
+        <div className="mt-2 flex gap-2">
+          <Button
+            loading={isSaving}
+            onClick={async () => {
+              setIsSaving(true);
+              const res = await updateRuleInstructionsAction({
+                id: ruleId,
+                instructions: fixedInstructions,
+              });
+
+              if (isActionError(res)) {
+                toastError({ description: res.error });
+              } else {
+                toastSuccess({ description: "Rule updated!" });
+              }
+              setIsSaving(false);
+              setAccepted(true);
+            }}
+          >
+            <CheckIcon className="mr-2 size-4" />
+            Accept
+          </Button>
+          <Button variant="outline" loading={isSaving} onClick={onReject}>
+            <XIcon className="mr-2 size-4" />
+            Reject
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -675,5 +635,62 @@ function Instructions({
         {instructions}
       </div>
     </div>
+  );
+}
+
+function RerunTestButton({ messageId }: { messageId: string }) {
+  const [checking, setChecking] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult>();
+
+  return (
+    <>
+      <Button
+        loading={checking}
+        onClick={async () => {
+          setChecking(true);
+
+          const result = await testAiAction({ messageId });
+          if (isActionError(result)) {
+            toastError({
+              title: "There was an error testing the email",
+              description: result.error,
+            });
+          } else {
+            setTestResult(result);
+          }
+          setChecking(false);
+        }}
+      >
+        <SparklesIcon className="mr-2 size-4" />
+        Rerun Test
+      </Button>
+
+      {testResult && (
+        <div className="mt-2 flex items-center gap-2">
+          <SectionDescription>Test Result:</SectionDescription>
+          <TestResultDisplay result={testResult} />
+        </div>
+      )}
+    </>
+  );
+}
+
+function BackButton({ onBack }: { onBack: () => void }) {
+  return (
+    <Button variant="outline" onClick={onBack}>
+      <ArrowLeftIcon className="mr-2 size-4" />
+      Back
+    </Button>
+  );
+}
+
+function EditRuleButton({ ruleId }: { ruleId: string }) {
+  return (
+    <Button variant="outline" size="sm" asChild>
+      <Link href={`/automation/rule/${ruleId}`} target="_blank">
+        <ExternalLinkIcon className="mr-2 size-4" />
+        Edit Rule
+      </Link>
+    </Button>
   );
 }

@@ -368,7 +368,7 @@ export function TestResultDisplay({
     <HoverCard
       className="w-auto max-w-5xl"
       content={
-        <Alert variant="blue" className="bg-white">
+        <Alert variant="blue" className="max-w-prose bg-white">
           <CheckCircle2Icon className="h-4 w-4" />
           <AlertTitle className="flex items-center justify-between">
             Matched rule "{result.rule.name}"
