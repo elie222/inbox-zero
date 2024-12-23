@@ -20,13 +20,7 @@ export const whitelistInboxZeroAction = withActionInstrumentation(
       gmail,
       from: env.WHITELIST_FROM,
       addLabelIds: [INBOX_LABEL_ID],
-      removeLabelIds: [
-        "CATEGORY_PROMOTIONS",
-        "CATEGORY_SOCIAL",
-        "CATEGORY_UPDATES",
-        "CATEGORY_FORUMS",
-        SPAM_LABEL_ID,
-      ],
+      removeLabelIds: [SPAM_LABEL_ID],
     });
   },
 );
