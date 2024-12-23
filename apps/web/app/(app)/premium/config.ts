@@ -1,12 +1,26 @@
 import { env } from "@/env";
 import { PremiumTier } from "@prisma/client";
 
+type Tier = {
+  name: string;
+  tiers: { monthly: PremiumTier; annually: PremiumTier };
+  href: { monthly: string; annually: string };
+  price: { monthly: number; annually: number };
+  priceAdditional: { monthly: number; annually: number };
+  discount: { monthly: number; annually: number };
+  description: string;
+  features: string[];
+  cta: string;
+  ctaLink?: string;
+  mostPopular?: boolean;
+};
+
 export const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
   { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
 ];
 
-export const pricing: Record<PremiumTier, number> = {
+const pricing: Record<PremiumTier, number> = {
   [PremiumTier.BASIC_MONTHLY]: 12,
   [PremiumTier.BASIC_ANNUALLY]: 6,
   [PremiumTier.PRO_MONTHLY]: 16,
@@ -61,35 +75,6 @@ const basicTier = {
   cta: "Try free for 7 days",
 };
 
-const proTier = {
-  name: "Pro",
-  tiers: {
-    monthly: PremiumTier.PRO_MONTHLY,
-    annually: PremiumTier.PRO_ANNUALLY,
-  },
-  href: {
-    monthly: env.NEXT_PUBLIC_PRO_MONTHLY_PAYMENT_LINK,
-    annually: env.NEXT_PUBLIC_PRO_ANNUALLY_PAYMENT_LINK,
-  },
-  price: { monthly: pricing.PRO_MONTHLY, annually: pricing.PRO_ANNUALLY },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.PRO_MONTHLY,
-    annually: pricingAdditonalEmail.PRO_ANNUALLY,
-  },
-  discount: {
-    monthly: 0,
-    annually: discount(pricing.PRO_MONTHLY, pricing.PRO_ANNUALLY),
-  },
-  description: "Unlock AI features when using your own AI API key",
-  features: [
-    "Everything in Basic",
-    "AI personal assistant when using your own AI API key",
-    "Cold email blocker when using your own AI API key",
-  ],
-  cta: "Try free for 7 days",
-  mostPopular: false,
-};
-
 const businessTier = {
   name: "AI Assistant",
   tiers: {
@@ -116,12 +101,48 @@ const businessTier = {
   features: [
     "Everything in Basic",
     "AI personal assistant",
+    "Smart categories",
     "Cold email blocker",
     "Unlimited AI credits",
     "Priority support",
   ],
   cta: "Try free for 7 days",
   mostPopular: true,
+};
+
+export const businessSingleTier: Tier = {
+  name: "AI Assistant",
+  tiers: {
+    monthly: PremiumTier.BUSINESS_MONTHLY,
+    annually: PremiumTier.BUSINESS_ANNUALLY,
+  },
+  href: {
+    monthly: env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
+    annually: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
+  },
+  price: {
+    monthly: pricing.BUSINESS_MONTHLY,
+    annually: pricing.BUSINESS_ANNUALLY,
+  },
+  priceAdditional: {
+    monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
+    annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
+  },
+  discount: {
+    monthly: 0,
+    annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
+  },
+  description: "Unlock full AI-powered email management",
+  features: [
+    "AI personal assistant",
+    "Cold email blocker",
+    "Smart categories",
+    "Unlimited AI credits",
+    "Bulk email unsubscriber",
+    "Email analytics",
+    "Priority support",
+  ],
+  cta: "Try free for 7 days",
 };
 
 const copilotTier = {
@@ -155,28 +176,4 @@ const copilotTier = {
   mostPopular: false,
 };
 
-export const tiers: {
-  name: string;
-  tiers: { monthly: PremiumTier; annually: PremiumTier };
-  href: { monthly: string; annually: string };
-  price: { monthly: number; annually: number };
-  priceAdditional: { monthly: number; annually: number };
-  discount: { monthly: number; annually: number };
-  description: string;
-  features: string[];
-  cta: string;
-  ctaLink?: string;
-  mostPopular?: boolean;
-}[] = [
-  basicTier,
-  // proTier,
-  businessTier,
-  copilotTier,
-];
-
-export const lifetimeFeatures = [
-  "Everything in Inbox Zero AI",
-  "Priority support",
-  "$100 of AI credits",
-  "Early access to new features",
-];
+export const allTiers: Tier[] = [basicTier, businessTier, copilotTier];

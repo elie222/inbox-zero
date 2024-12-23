@@ -1,6 +1,9 @@
 "use client";
 
-import { useLandingPageVariant } from "@/hooks/useFeatureFlags";
+import {
+  useLandingPageAIAssistantVariant,
+  type LandingPageAIAssistantVariant,
+} from "@/hooks/useFeatureFlags";
 import clsx from "clsx";
 import {
   BarChart2Icon,
@@ -18,34 +21,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
-export function FeaturesPrivacy() {
-  return (
-    <div className="bg-white py-24 sm:py-32" id="features">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="font-cal text-base leading-7 text-blue-600">
-            Privacy first
-          </h2>
-          <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
-            Approved by Google. Open Source. See exactly what our code does. Or
-            host it yourself.
-          </p>
-          <p className="mt-6 text-lg leading-8 text-gray-600">
-            Inbox Zero has undergone a thorough security process with Google to
-            ensure the protection of your emails. You can even self-host Inbox
-            Zero on your own infrastructure.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function FeaturesWithImage(props: {
   imageSide: "left" | "right";
   title: string;
   subtitle: string;
-  description: string;
+  description: React.ReactNode;
   image: string;
   features: {
     name: string;
@@ -75,20 +55,22 @@ export function FeaturesWithImage(props: {
               <p className="mt-6 text-lg leading-8 text-gray-600">
                 {props.description}
               </p>
-              <dl className="mt-10 max-w-xl space-y-8 text-base leading-7 text-gray-600 lg:max-w-none">
-                {props.features.map((feature) => (
-                  <div key={feature.name} className="relative pl-9">
-                    <dt className="inline font-semibold text-gray-900">
-                      <feature.icon
-                        className="absolute left-1 top-1 h-5 w-5 text-blue-600"
-                        aria-hidden="true"
-                      />
-                      {feature.name}
-                    </dt>{" "}
-                    <dd className="inline">{feature.description}</dd>
-                  </div>
-                ))}
-              </dl>
+              {!!props.features.length && (
+                <dl className="mt-10 max-w-xl space-y-8 text-base leading-7 text-gray-600 lg:max-w-none">
+                  {props.features.map((feature) => (
+                    <div key={feature.name} className="relative pl-9">
+                      <dt className="inline font-semibold text-gray-900">
+                        <feature.icon
+                          className="absolute left-1 top-1 h-5 w-5 text-blue-600"
+                          aria-hidden="true"
+                        />
+                        {feature.name}
+                      </dt>{" "}
+                      <dd className="inline">{feature.description}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
             </div>
           </div>
           <div
@@ -115,44 +97,68 @@ export function FeaturesWithImage(props: {
   );
 }
 
-const featuresAutomations = [
-  {
-    name: "Automate your replies",
-    description:
-      "Our AI agent will reply, forward, or archive emails based on the rules you provide it.",
-    icon: Sparkles,
-  },
-  {
-    name: "Planning mode",
-    description:
-      "Let our AI plan what to do for you. Accept or reject in a click. Turn on full automation once you're confident the AI can work on its own.",
-    icon: Orbit,
-  },
-  {
-    name: "Instruct in plain English",
-    description:
-      "It's as easy as talking to an assistant or sending a prompt to ChatGPT.",
-    icon: LineChart,
-  },
-];
-
-export function FeaturesAutomation() {
-  const variant = useLandingPageVariant();
+export function FeaturesAiAssistant() {
+  const variant = useLandingPageAIAssistantVariant();
 
   const variants: Record<
-    string,
+    LandingPageAIAssistantVariant,
     {
       title: string;
       subtitle: string;
+      description: React.ReactNode;
+      featuresAutomations: {
+        name: string;
+        description: string;
+        icon: LucideIcon;
+      }[];
     }
   > = {
     control: {
       title: "Automate your inbox",
       subtitle: "Your AI assistant for email",
+      description:
+        "Transform your inbox from chaos to clarity. Let AI handle the predictable, while you focus on what matters.",
+      featuresAutomations: [
+        {
+          name: "Automate your replies",
+          description:
+            "Set custom rules and let AI draft perfect responses to common emails - from meeting requests to customer inquiries.",
+          icon: Sparkles,
+        },
+        {
+          name: "Intelligent organization",
+          description:
+            "Automatically sort, label, and prioritize emails based on your preferences and workflow.",
+          icon: Orbit,
+        },
+        {
+          name: "Natural instructions",
+          description:
+            "No coding needed - just tell your assistant what you want in plain English, like you would a team member.",
+          icon: LineChart,
+        },
+      ],
     },
-    benefit: {
-      title: "AI Email Assistant",
-      subtitle: "Sorting, replying, archiving. Automate on your own terms.",
+    magic: {
+      title: "Your Personal Assistant",
+      subtitle: "Your AI Email Assistant That Works Like Magic",
+      description: (
+        <>
+          All the benefits of a personal assistant, at a fraction of the cost.
+          <br />
+          <br />
+          Tell your AI assistant how to manage your email in plain English -
+          just like you would ChatGPT. Want newsletters archived and labeled?
+          Investor emails flagged as important? Automatic reply drafts for
+          common requests? Just ask.
+          <br />
+          <br />
+          Once configured, your assistant works 24/7 to keep your inbox
+          organized exactly how you want it. No more drowning in email. No
+          expensive human assistant required.
+        </>
+      ),
+      featuresAutomations: [],
     },
   };
 
@@ -164,9 +170,9 @@ export function FeaturesAutomation() {
       imageSide="left"
       title={selectedVariant.title}
       subtitle={selectedVariant.subtitle}
-      description="Keep getting emails that require the same response? Let Inbox Zero handle it."
+      description={selectedVariant.description}
+      features={selectedVariant.featuresAutomations}
       image="/images/ai-automation.png"
-      features={featuresAutomations}
     />
   );
 }
@@ -193,35 +199,16 @@ const featuresColdEmailBlocker = [
 ];
 
 export function FeaturesColdEmailBlocker() {
-  const variant = useLandingPageVariant();
-
-  const variants: Record<
-    string,
-    {
-      subtitle: string;
-      description: string;
-    }
-  > = {
-    control: {
-      subtitle: "Automatically block cold emails",
-      description: "Stop the spam. Automatically archive or label cold emails.",
-    },
-    benefit: {
-      subtitle: "Keep salespeople at the gate",
-      description:
-        "Block outreach emails you never signed up for and regain control of your inbox.",
-    },
-  };
-
-  const selectedVariant =
-    typeof variant === "string" ? variants[variant] : variants.control;
+  const subtitle = "Keep salespeople at the gate";
+  const description =
+    "Say goodbye to unsolicited outreach. Automatically filter sales pitches and cold emails so you only see messages that matter.";
 
   return (
     <FeaturesWithImage
       imageSide="left"
       title="Cold Email Blocker"
-      subtitle={selectedVariant.subtitle}
-      description={selectedVariant.description}
+      subtitle={subtitle}
+      description={description}
       image="/images/cold-email-blocker.png"
       features={featuresColdEmailBlocker}
     />
@@ -266,54 +253,30 @@ const featuresUnsubscribe = [
   {
     name: "One-click unsubscribe",
     description:
-      "Don't search for the unsubscribe button. Unsubscribe with a single click or auto archive emails instead.",
+      "Don't search for the unsubscribe button. Unsubscribe in a click, or auto archive instead.",
     icon: MousePointer2Icon,
   },
   {
     name: "See who emails you most",
     description:
-      "See who's sending you the most marketing and newsletter emails to prioritise who to unsubscribe from.",
+      "See who's sending you the most marketing emails to prioritise who to unsubscribe from.",
     icon: EyeIcon,
   },
   {
     name: "How often you read them",
     description:
-      "See how often you read emails from each sender to quickly take action.",
+      "See what percentage of emails you read from each sender. Unsubscribe from the ones you don't read.",
     icon: BarChart2Icon,
   },
 ];
 
 export function FeaturesUnsubscribe() {
-  const variant = useLandingPageVariant();
-
-  const variants: Record<
-    string,
-    {
-      subtitle: string;
-      description: string;
-    }
-  > = {
-    control: {
-      subtitle: "Clean up your subscriptions",
-      description:
-        "See all newsletter and marketing subscriptions in one place. Unsubscribe in a click.",
-    },
-    benefit: {
-      subtitle: "No more newsletters you never read",
-      description:
-        "Bulk unsubscribe from emails in one click. View all your subscriptions and how often you read each one.",
-    },
-  };
-
-  const selectedVariant =
-    typeof variant === "string" ? variants[variant] : variants.control;
-
   return (
     <FeaturesWithImage
       imageSide="right"
       title="Bulk Email Unsubscriber"
-      subtitle={selectedVariant.subtitle}
-      description={selectedVariant.description}
+      subtitle="No more newsletters you never read"
+      description="Bulk unsubscribe from emails in one click. View all your subscriptions and how often you read each one."
       image="/images/newsletters.png"
       features={featuresUnsubscribe}
     />
@@ -323,8 +286,7 @@ export function FeaturesUnsubscribe() {
 export function FeaturesHome() {
   return (
     <>
-      <FeaturesPrivacy />
-      <FeaturesAutomation />
+      <FeaturesAiAssistant />
       <FeaturesUnsubscribe />
       <FeaturesColdEmailBlocker />
       <FeaturesStats />
