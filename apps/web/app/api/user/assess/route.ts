@@ -105,10 +105,16 @@ async function getFiltersCount(gmail: gmail_v1.Gmail) {
 }
 
 async function getForwardingAddressesCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.settings.forwardingAddresses.list({
-    userId: "me",
-  });
-  return res.data.forwardingAddresses?.length || 0;
+  try {
+    const res = await gmail.users.settings.forwardingAddresses.list({
+      userId: "me",
+    });
+    return res.data.forwardingAddresses?.length || 0;
+  } catch (error) {
+    // Can happen due to "Forwarding features disabled by administrator"
+    console.error("Error getting forwarding addresses", error);
+    return 0;
+  }
 }
 
 async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
