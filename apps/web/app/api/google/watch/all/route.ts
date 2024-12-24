@@ -38,9 +38,24 @@ async function watchAllEmails() {
     },
   });
 
-  const users = premiums.flatMap((premium) =>
-    premium.users.map((user) => ({ ...user, premium })),
-  );
+  const users = premiums
+    .flatMap((premium) => premium.users.map((user) => ({ ...user, premium })))
+    .sort((a, b) => {
+      // Prioritize null dates first
+      if (!a.watchEmailsExpirationDate && b.watchEmailsExpirationDate)
+        return -1;
+      if (a.watchEmailsExpirationDate && !b.watchEmailsExpirationDate) return 1;
+
+      // If both have dates, sort by earliest date first
+      if (a.watchEmailsExpirationDate && b.watchEmailsExpirationDate) {
+        return (
+          new Date(a.watchEmailsExpirationDate).getTime() -
+          new Date(b.watchEmailsExpirationDate).getTime()
+        );
+      }
+
+      return 0;
+    });
 
   console.log(`Watching emails for ${users.length} users`);
 
