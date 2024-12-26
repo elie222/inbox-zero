@@ -22,6 +22,7 @@ import {
   isInvalidOpenAIModelError,
   isOpenAIAPIKeyDeactivatedError,
   isOpenAIRetryError,
+  isServiceUnavailableError,
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
 
@@ -81,21 +82,29 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   throw new Error("AI provider not supported");
 }
 
-export async function chatCompletionObject<T>({
-  userAi,
-  prompt,
-  system,
-  schema,
-  userEmail,
-  usageLabel,
-}: {
+type ChatCompletionObjectArgs<T> = {
   userAi: UserAIFields;
   prompt: string;
   system?: string;
   schema: z.Schema<T>;
   userEmail: string;
   usageLabel: string;
-}) {
+};
+
+export async function chatCompletionObject<T>(
+  options: ChatCompletionObjectArgs<T>,
+) {
+  return withBackupModel(chatCompletionObjectInternal, options);
+}
+
+async function chatCompletionObjectInternal<T>({
+  userAi,
+  prompt,
+  system,
+  schema,
+  userEmail,
+  usageLabel,
+}: ChatCompletionObjectArgs<T>) {
   try {
     const { provider, model, llmModel } = getModel(userAi);
 
@@ -141,7 +150,7 @@ export async function chatCompletionStream({
 }) {
   const { provider, model, llmModel } = getModel(userAi);
 
-  const result = await streamText({
+  const result = streamText({
     model: llmModel,
     prompt,
     system,
@@ -162,15 +171,7 @@ export async function chatCompletionStream({
   return result;
 }
 
-export async function chatCompletionTools({
-  userAi,
-  prompt,
-  system,
-  tools,
-  maxSteps,
-  label,
-  userEmail,
-}: {
+type ChatCompletionToolsArgs = {
   userAi: UserAIFields;
   prompt: string;
   system?: string;
@@ -178,7 +179,21 @@ export async function chatCompletionTools({
   maxSteps?: number;
   label: string;
   userEmail: string;
-}) {
+};
+
+export async function chatCompletionTools<T>(options: ChatCompletionToolsArgs) {
+  return withBackupModel(chatCompletionToolsInternal, options);
+}
+
+async function chatCompletionToolsInternal({
+  userAi,
+  prompt,
+  system,
+  tools,
+  maxSteps,
+  label,
+  userEmail,
+}: ChatCompletionToolsArgs) {
   try {
     const { provider, model, llmModel } = getModel(userAi);
 
@@ -290,6 +305,28 @@ export async function withRetry<T>(
   }
 
   throw lastError;
+}
+
+// Helps when service is unavailable / throttled / rate limited
+async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
+  fn: (args: Args) => Promise<T>,
+  args: Args,
+): Promise<T> {
+  try {
+    return await fn(args);
+  } catch (error) {
+    if (env.USE_BACKUP_MODEL && isServiceUnavailableError(error)) {
+      return await fn({
+        ...args,
+        userAi: {
+          aiProvider: Provider.ANTHROPIC,
+          aiModel: env.NEXT_PUBLIC_BEDROCK_HAIKU_MODEL,
+          aiApiKey: args.userAi.aiApiKey,
+        },
+      });
+    }
+    throw error;
+  }
 }
 
 async function handleError(error: unknown, userEmail: string) {
