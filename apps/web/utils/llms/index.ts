@@ -18,6 +18,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
   isAnthropicInsufficientBalanceError,
+  isAWSThrottlingError,
   isIncorrectOpenAIAPIKeyError,
   isInvalidOpenAIModelError,
   isOpenAIAPIKeyDeactivatedError,
@@ -315,7 +316,10 @@ async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
   try {
     return await fn(args);
   } catch (error) {
-    if (env.USE_BACKUP_MODEL && isServiceUnavailableError(error)) {
+    if (
+      env.USE_BACKUP_MODEL &&
+      (isServiceUnavailableError(error) || isAWSThrottlingError(error))
+    ) {
       return await fn({
         ...args,
         userAi: {
