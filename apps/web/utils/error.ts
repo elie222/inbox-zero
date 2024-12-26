@@ -108,6 +108,10 @@ export function isAWSThrottlingError(error: unknown): error is Error {
   );
 }
 
+export function isServiceUnavailableError(error: unknown): error is Error {
+  return error instanceof Error && error.name === "ServiceUnavailableException";
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (

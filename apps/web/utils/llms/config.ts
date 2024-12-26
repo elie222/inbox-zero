@@ -12,6 +12,7 @@ export const Model = {
   GPT_4O: "gpt-4o",
   GPT_4O_MINI: "gpt-4o-mini",
   CLAUDE_3_5_SONNET_BEDROCK: env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
+  CLAUDE_3_5_HAIKU_BEDROCK: env.NEXT_PUBLIC_BEDROCK_HAIKU_MODEL,
   CLAUDE_3_5_SONNET_ANTHROPIC: "claude-3-5-sonnet-20241022",
   ...(supportsOllama ? { OLLAMA: env.NEXT_PUBLIC_OLLAMA_MODEL } : {}),
 };
