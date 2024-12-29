@@ -17,10 +17,9 @@ import {
   ChevronRight,
   MoreVerticalIcon,
   PencilIcon,
-  TagIcon,
-  TagsIcon,
   FileCogIcon,
   PlusIcon,
+  BookmarkXIcon,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { RuleType } from "@prisma/client";
@@ -37,7 +36,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { changeSenderCategoryAction } from "@/utils/actions/categorize";
+import {
+  changeSenderCategoryAction,
+  removeAllFromCategoryAction,
+} from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import { useAiCategorizationQueueItem } from "@/store/ai-categorize-sender-queue";
@@ -54,13 +56,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLabels, type UserLabel } from "@/hooks/useLabels";
-import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { CategoryWithRules } from "@/utils/category.server";
 
 const COLUMNS = 4;
@@ -204,8 +201,6 @@ export function GroupedTable({
   const [selectedCategoryName, setSelectedCategoryName] =
     useQueryState("categoryName");
 
-  const { userLabels: labels } = useLabels();
-
   return (
     <>
       <Table>
@@ -221,6 +216,22 @@ export function GroupedTable({
 
             const onEditCategory = () => {
               setSelectedCategoryName(categoryName);
+            };
+
+            const onRemoveAllFromCategory = async () => {
+              const yes = confirm(
+                "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?",
+              );
+              if (!yes) return;
+              const result = await removeAllFromCategoryAction(categoryName);
+
+              if (isActionError(result)) {
+                toastError({ description: result.error });
+              } else {
+                toastSuccess({
+                  description: "All emails removed from category",
+                });
+              }
             };
 
             const category = categoryMap[categoryName];
@@ -244,7 +255,7 @@ export function GroupedTable({
                   }}
                   onArchiveAll={onArchiveAll}
                   onEditCategory={onEditCategory}
-                  labels={labels}
+                  onRemoveAllFromCategory={onRemoveAllFromCategory}
                 />
                 {isCategoryExpanded && (
                   <SenderRows
@@ -357,18 +368,18 @@ function GroupRow({
   category,
   count,
   isExpanded,
-  labels,
   onToggle,
   onArchiveAll,
   onEditCategory,
+  onRemoveAllFromCategory,
 }: {
   category: CategoryWithRules;
   count: number;
   isExpanded: boolean;
-  labels: UserLabel[];
   onToggle: () => void;
   onArchiveAll: () => void;
   onEditCategory: () => void;
+  onRemoveAllFromCategory: () => void;
 }) {
   return (
     <TableRow className="h-8 cursor-pointer bg-gray-50">
@@ -399,38 +410,15 @@ function GroupRow({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEditCategory}>
               <PencilIcon className="mr-2 size-4" />
-              Edit Prompt
+              Edit
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <ArchiveIcon className="mr-2 size-4" />
-              Auto archive
+            <DropdownMenuItem onClick={onRemoveAllFromCategory}>
+              <BookmarkXIcon className="mr-2 size-4" />
+              Remove All From Category
             </DropdownMenuItem>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <TagsIcon className="mr-2 size-4" />
-                <span>Auto archive and label</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <LabelsSubMenu labels={labels} onClick={(labelId) => {}} />
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <TagIcon className="mr-2 size-4" />
-                <span>Auto label</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <LabelsSubMenu labels={labels} onClick={(labelId) => {}} />
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="ghost" size="xs" onClick={onEditCategory}>
-          <PencilIcon className="size-4" />
-          <span className="sr-only">Edit</span>
-        </Button>
+
         {category.rules.length ? (
           <div className="flex items-center gap-1">
             {category.rules.map((rule) => (
