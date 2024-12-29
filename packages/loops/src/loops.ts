@@ -22,7 +22,12 @@ export async function createContact(
 }> {
   const loops = getLoopsClient();
   if (!loops) return { success: false };
-  const resp = await loops.createContact(email, firstName ? { firstName } : {});
+  // so we can run a/b tests with 2-6 groups easily
+  const abTestId = getRandomInt(60);
+  const resp = await loops.createContact(
+    email,
+    firstName ? { firstName, abTestId } : { abTestId },
+  );
   return resp;
 }
 
@@ -61,4 +66,8 @@ export async function cancelledPremium(
     contactProperties: { tier: "" },
   });
   return resp;
+}
+
+function getRandomInt(max: number) {
+  return Math.ceil(Math.random() * max);
 }

@@ -150,7 +150,6 @@ export function SetUpCategories({
           <div className="mt-4 flex gap-2">
             <CreateCategoryButton
               buttonProps={{
-                variant: "outline",
                 children: (
                   <>
                     <PenIcon className="mr-2 size-4" />

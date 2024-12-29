@@ -15,7 +15,6 @@ import {
 } from "@/utils/actions/user";
 import { appHomePath } from "@/utils/config";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { useAppOnboardingVariant } from "@/hooks/useFeatureFlags";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -52,8 +51,6 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
     [posthog],
   );
 
-  const variant = useAppOnboardingVariant();
-
   const onSubmit: SubmitHandler<Inputs> = useCallback(
     async (data) => {
       const answer = data[name];
@@ -82,12 +79,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        // a/b test
-        if (variant === "show") {
-          router.push("/onboarding");
-        } else {
-          router.push("/welcome-upgrade");
-        }
+        router.push("/welcome-upgrade");
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
@@ -100,7 +92,6 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       submitPosthog,
       setValue,
       isFinalQuestion,
-      variant,
     ],
   );
 

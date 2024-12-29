@@ -32,8 +32,8 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     });
 
     const result = await aiRuleFix({
-      incorrectRule: rule,
-      correctRule: null,
+      actualRule: rule,
+      expectedRule: null,
       email: salesEmail,
       user: getUser(),
     });
@@ -41,7 +41,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.rule).toBe("matched_rule");
+    expect(result.rule).toBe("actual_rule");
     expect(result.fixedInstructions).toContain("sales");
     expect(result.fixedInstructions).not.toBe(rule.instructions);
     // The new instructions should be more specific to exclude sales pitches
@@ -51,10 +51,10 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
   });
 
   test("should fix rules when email matched wrong rule instead of correct rule", async () => {
-    const incorrectRule = {
+    const actualRule = {
       instructions: "Match emails about technical support and bug reports",
     };
-    const correctRule = {
+    const expectedRule = {
       instructions: "Match emails about product feedback and feature requests",
     };
 
@@ -72,8 +72,8 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     });
 
     const result = await aiRuleFix({
-      incorrectRule,
-      correctRule,
+      actualRule,
+      expectedRule,
       email: feedbackEmail,
       user: getUser(),
     });
@@ -90,7 +90,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
   });
 
   test("should fix rule when email matched but shouldn't match any rules", async () => {
-    const incorrectRule = {
+    const actualRule = {
       instructions: "Match emails about marketing collaborations",
     };
 
@@ -108,8 +108,8 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     });
 
     const result = await aiRuleFix({
-      incorrectRule,
-      correctRule: null,
+      actualRule,
+      expectedRule: null,
       email: newsletterEmail,
       user: getUser(),
     });
@@ -117,7 +117,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.rule).toBe("matched_rule");
+    expect(result.rule).toBe("actual_rule");
     expect(result.fixedInstructions).toContain("collaboration");
     // The fixed rule should exclude newsletters and automated updates
     expect(result.fixedInstructions.toLowerCase()).toMatch(
@@ -144,8 +144,8 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     });
 
     const result = await aiRuleFix({
-      incorrectRule: null,
-      correctRule,
+      actualRule: null,
+      expectedRule: correctRule,
       email: priceRequestEmail,
       user: getUser(),
     });

@@ -9,7 +9,7 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { GroupedTable } from "@/components/GroupedTable";
 import { TopBar } from "@/components/TopBar";
 import { CreateCategoryButton } from "@/app/(app)/smart-categories/CreateCategoryButton";
-import { getUserCategories } from "@/utils/category.server";
+import { getUserCategoriesWithRules } from "@/utils/category.server";
 import { CategorizeWithAiButton } from "@/app/(app)/smart-categories/CategorizeWithAiButton";
 import {
   Card,
@@ -26,7 +26,6 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { CategorizeSendersProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
 import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
-import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -45,7 +44,7 @@ export default async function CategoriesPage() {
         category: { select: { id: true, description: true, name: true } },
       },
     }),
-    getUserCategories(session.user.id),
+    getUserCategoriesWithRules(session.user.id),
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { autoCategorizeSenders: true },
@@ -76,13 +75,6 @@ export default async function CategoriesPage() {
             </TabsList>
 
             <div className="flex items-center gap-2">
-              <div className="mr-1">
-                <TooltipExplanation
-                  size="sm"
-                  text="Categorize thousands of senders in your inbox. This will take a few minutes."
-                />
-              </div>
-
               <CategorizeWithAiButton
                 buttonProps={{
                   children: (
@@ -127,7 +119,10 @@ export default async function CategoriesPage() {
                   (sender) => sender.category?.name,
                 ).map((sender) => ({
                   address: sender.email,
-                  category: sender.category,
+                  category:
+                    categories.find(
+                      (category) => category.id === sender.category?.id,
+                    ) || null,
                 }))}
                 categories={categories}
               />

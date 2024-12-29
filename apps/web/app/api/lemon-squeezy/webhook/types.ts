@@ -42,7 +42,7 @@ export interface Attributes {
   variant_name: string;
   user_name: string;
   user_email: string;
-  status: string; // on_trial, active, cancelled, past_due, and optionally paused.
+  status: string; // on_trial, active, cancelled, past_due, paused, paid
   status_formatted: string;
   card_brand: string;
   card_last_four: string;
@@ -58,6 +58,8 @@ export interface Attributes {
   test_mode: boolean;
   first_subscription_item?: FirstSubscriptionItem;
   first_order_item?: FirstOrderItem;
+  // in payment success
+  total_usd?: number;
 }
 
 export interface FirstSubscriptionItem {

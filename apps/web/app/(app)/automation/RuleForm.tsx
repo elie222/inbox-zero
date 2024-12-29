@@ -55,7 +55,7 @@ import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { hasVariables } from "@/utils/template";
-import { getEmptyConditions } from "@/utils/condition";
+import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -155,12 +155,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   const conditions = watch("conditions");
   const unusedCondition = useMemo(() => {
-    const usedConditions = conditions?.map(({ type }) => type);
-    const emptyConditions = getEmptyConditions();
-    const unusedCondition = emptyConditions.find(
-      (condition) => !usedConditions?.includes(condition.type),
-    );
-    return unusedCondition;
+    const usedConditions = new Set(conditions?.map(({ type }) => type));
+    return Object.values(RuleType).find((type) => !usedConditions.has(type));
   }, [conditions]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -224,9 +220,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         });
                       }
 
-                      const emptyCondition = getEmptyConditions().find(
-                        (condition) => condition.type === selectedType,
-                      );
+                      const emptyCondition = getEmptyCondition(selectedType);
                       if (emptyCondition) {
                         setValue(`conditions.${index}`, emptyCondition);
                       }
@@ -439,7 +433,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             type="button"
             variant="secondary"
             className="w-full"
-            onClick={() => appendCondition(unusedCondition)}
+            onClick={() => appendCondition(getEmptyCondition(unusedCondition))}
           >
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Condition
@@ -477,10 +471,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 </div>
                 <div className="space-y-4 sm:col-span-3">
                   {actionInputs[action.type].fields.map((field) => {
-                    console.log(
-                      "🚀 ~ {actionInputs[action.type].fields.map ~ field:",
-                      field,
-                    );
                     const isAiGenerated = action[field.name]?.ai;
 
                     const value = watch(`actions.${i}.${field.name}.value`);

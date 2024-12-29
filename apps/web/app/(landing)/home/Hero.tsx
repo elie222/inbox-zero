@@ -25,8 +25,7 @@ export function HeroSubtitle(props: { children: React.ReactNode }) {
 }
 
 export function HeroHome() {
-  if (env.NEXT_PUBLIC_POSTHOG_HERO_AB)
-    return <HeroAB variantKey={env.NEXT_PUBLIC_POSTHOG_HERO_AB} />;
+  if (env.NEXT_PUBLIC_POSTHOG_HERO_AB) return <HeroAB />;
   return <Hero />;
 }
 

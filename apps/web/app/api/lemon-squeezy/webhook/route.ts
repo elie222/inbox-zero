@@ -91,6 +91,11 @@ export const POST = withError(async (request: Request) => {
     });
   }
 
+  // payment success
+  if (payload.meta.event_name === "subscription_payment_success") {
+    return await subscriptionPaymentSuccess({ payload, premiumId });
+  }
+
   return NextResponse.json({ ok: true });
 });
 
@@ -300,6 +305,37 @@ async function subscriptionCancelled({
     ]);
   }
 
+  return NextResponse.json({ ok: true });
+}
+
+async function subscriptionPaymentSuccess({
+  payload,
+  premiumId,
+}: {
+  payload: Payload;
+  premiumId: string;
+}) {
+  if (payload.data.attributes.status !== "paid") {
+    throw new Error(
+      `Unexpected status for subscription payment success: ${payload.data.attributes.status}`,
+    );
+  }
+
+  const premium = await prisma.premium.findUnique({
+    where: { id: premiumId },
+    select: {
+      admins: { select: { email: true } },
+      users: { select: { email: true } },
+    },
+  });
+
+  const email = premium?.admins?.[0]?.email || premium?.users?.[0]?.email;
+  if (!email) throw new Error("No email found");
+  await posthogCaptureEvent(email, "Payment success", {
+    totalPaidUSD: payload.data.attributes.total_usd,
+    lemonSqueezyId: payload.data.id,
+    lemonSqueezyType: payload.data.type,
+  });
   return NextResponse.json({ ok: true });
 }
 

@@ -9,7 +9,6 @@ import { SendersTable } from "@/components/GroupedTable";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import type { UncategorizedSendersResponse } from "@/app/api/user/categorize/senders/uncategorized/route";
-import type { Category } from "@prisma/client";
 import { TopBar } from "@/components/TopBar";
 import { toastError } from "@/components/Toast";
 import {
@@ -24,12 +23,13 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import type { CategoryWithRules } from "@/utils/category.server";
 
 export function Uncategorized({
   categories,
   autoCategorizeSenders,
 }: {
-  categories: Category[];
+  categories: CategoryWithRules[];
   autoCategorizeSenders: boolean;
 }) {
   const { hasAiAccess } = usePremium();

@@ -5,7 +5,7 @@ import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
-import { FeaturesAutomation } from "@/app/(landing)/home/Features";
+import { FeaturesAiAssistant } from "@/app/(landing)/home/Features";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 
 export const metadata: Metadata = {
@@ -24,7 +24,7 @@ export default function AiAutomation() {
         image="/images/ai-automation.png"
       />
       <Testimonials />
-      <FeaturesAutomation />
+      <FeaturesAiAssistant />
       <Suspense>
         <div className="pb-32">
           <Pricing />

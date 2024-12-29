@@ -48,6 +48,8 @@ export const env = createEnv({
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string().optional(),
+    WHITELIST_FROM: z.string().optional(),
+    USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -110,7 +112,10 @@ export const env = createEnv({
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
       .string()
-      .default("anthropic.claude-3-5-sonnet-20241022-v2:0"),
+      .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
+    NEXT_PUBLIC_BEDROCK_HAIKU_MODEL: z
+      .string()
+      .default("us.anthropic.claude-3-5-haiku-20241022-v1:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
@@ -180,6 +185,8 @@ export const env = createEnv({
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
       process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
+    NEXT_PUBLIC_BEDROCK_HAIKU_MODEL:
+      process.env.NEXT_PUBLIC_BEDROCK_HAIKU_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
   },
 });

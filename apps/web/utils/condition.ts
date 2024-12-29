@@ -94,57 +94,40 @@ export function getConditionTypes(
   );
 }
 
-const aiEmptyCondition = {
-  type: RuleType.AI,
-  instructions: "",
-};
-
-const groupEmptyCondition = {
-  type: RuleType.GROUP,
-  groupId: "",
-};
-
-const staticEmptyCondition = {
-  type: RuleType.STATIC,
-  from: null,
-  to: null,
-  subject: null,
-  body: null,
-};
-
-const categoryEmptyCondition = {
-  type: RuleType.CATEGORY,
-  categoryFilterType: null,
-  categoryFilters: null,
-};
-
-export function getEmptyConditions(): ZodCondition[] {
-  return [
-    aiEmptyCondition,
-    groupEmptyCondition,
-    staticEmptyCondition,
-    categoryEmptyCondition,
-  ];
-}
-
 export function getEmptyCondition(
   type: RuleType,
   groupId?: string,
+  category?: string,
 ): ZodCondition {
   switch (type) {
     case RuleType.AI:
-      return aiEmptyCondition;
+      return {
+        type: RuleType.AI,
+        instructions: "",
+      };
     case RuleType.GROUP:
       return {
-        ...groupEmptyCondition,
+        type: RuleType.GROUP,
         groupId: groupId || "",
       };
     case RuleType.STATIC:
-      return staticEmptyCondition;
+      return {
+        type: RuleType.STATIC,
+        from: null,
+        to: null,
+        subject: null,
+        body: null,
+      };
     case RuleType.CATEGORY:
-      return categoryEmptyCondition;
+      return {
+        type: RuleType.CATEGORY,
+        categoryFilterType: CategoryFilterType.INCLUDE,
+        categoryFilters: category ? [category] : null,
+      };
     default:
-      throw new Error(`Invalid condition type: ${type}`);
+      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
+      const exhaustiveCheck: never = type;
+      return exhaustiveCheck;
   }
 }
 
@@ -251,7 +234,7 @@ export function conditionsToString(rule: RuleConditions) {
         .slice(0, max)
         .map((category) => category.name)
         .join(", ") + (categoryFilters.length > max ? ", ..." : "");
-    result += `${categoryFilterTypeToString(rule.categoryFilterType)} ${categoryFilters.length === 1 ? "category" : "categories"}: ${categories}`;
+    result += `${rule.categoryFilterType === CategoryFilterType.EXCLUDE ? "Exclude " : ""}${categoryFilters.length === 1 ? "Category" : "Categories"}: ${categories}`;
   }
 
   return result;

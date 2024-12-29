@@ -18,13 +18,13 @@
     "typescript": "5.7.2"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^1.0.5",
-    "@ai-sdk/anthropic": "^1.0.5",
-    "@ai-sdk/google": "^1.0.10",
-    "@ai-sdk/openai": "^1.0.8",
+    "@ai-sdk/amazon-bedrock": "^1.0.6",
+    "@ai-sdk/anthropic": "^1.0.6",
+    "@ai-sdk/google": "^1.0.12",
+    "@ai-sdk/openai": "^1.0.11",
     "@fastify/cors": "^10.0.1",
     "@t3-oss/env-core": "^0.11.1",
-    "ai": "^4.0.18",
+    "ai": "^4.0.22",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
     "zod": "^3.24.1"

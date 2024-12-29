@@ -94,11 +94,11 @@ export function CreateCategoryButton({
 
   return (
     <div>
-      <Button onClick={openModal} {...buttonProps}>
+      <Button onClick={openModal} variant="outline" {...buttonProps}>
         {buttonProps?.children ?? (
           <>
             <PlusIcon className="mr-2 size-4" />
-            Create category
+            Add
           </>
         )}
       </Button>
