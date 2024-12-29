@@ -234,3 +234,21 @@ export const setAutoCategorizeAction = withActionInstrumentation(
     return { autoCategorizeSenders };
   },
 );
+
+export const removeAllFromCategoryAction = withActionInstrumentation(
+  "removeAllFromCategory",
+  async (categoryName: string) => {
+    const session = await auth();
+    if (!session?.user) return { error: "Not authenticated" };
+
+    await prisma.newsletter.updateMany({
+      where: {
+        category: { name: categoryName },
+        userId: session.user.id,
+      },
+      data: { categoryId: null },
+    });
+
+    revalidatePath("/smart-categories");
+  },
+);

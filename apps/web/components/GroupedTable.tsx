@@ -15,9 +15,11 @@ import {
 import {
   ArchiveIcon,
   ChevronRight,
-  FileCogIcon,
+  MoreVerticalIcon,
   PencilIcon,
+  FileCogIcon,
   PlusIcon,
+  BookmarkXIcon,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { RuleType } from "@prisma/client";
@@ -34,7 +36,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { changeSenderCategoryAction } from "@/utils/actions/categorize";
+import {
+  changeSenderCategoryAction,
+  removeAllFromCategoryAction,
+} from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import { useAiCategorizationQueueItem } from "@/store/ai-categorize-sender-queue";
@@ -47,6 +52,12 @@ import {
 import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
 import { CreateCategoryDialog } from "@/app/(app)/smart-categories/CreateCategoryButton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { CategoryWithRules } from "@/utils/category.server";
 
 const COLUMNS = 4;
@@ -207,6 +218,22 @@ export function GroupedTable({
               setSelectedCategoryName(categoryName);
             };
 
+            const onRemoveAllFromCategory = async () => {
+              const yes = confirm(
+                "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?",
+              );
+              if (!yes) return;
+              const result = await removeAllFromCategoryAction(categoryName);
+
+              if (isActionError(result)) {
+                toastError({ description: result.error });
+              } else {
+                toastSuccess({
+                  description: "All emails removed from category",
+                });
+              }
+            };
+
             const category = categoryMap[categoryName];
 
             if (!category) {
@@ -228,6 +255,7 @@ export function GroupedTable({
                   }}
                   onArchiveAll={onArchiveAll}
                   onEditCategory={onEditCategory}
+                  onRemoveAllFromCategory={onRemoveAllFromCategory}
                 />
                 {isCategoryExpanded && (
                   <SenderRows
@@ -343,6 +371,7 @@ function GroupRow({
   onToggle,
   onArchiveAll,
   onEditCategory,
+  onRemoveAllFromCategory,
 }: {
   category: CategoryWithRules;
   count: number;
@@ -350,6 +379,7 @@ function GroupRow({
   onToggle: () => void;
   onArchiveAll: () => void;
   onEditCategory: () => void;
+  onRemoveAllFromCategory: () => void;
 }) {
   return (
     <TableRow className="h-8 cursor-pointer bg-gray-50">
@@ -370,10 +400,25 @@ function GroupRow({
         </div>
       </TableCell>
       <TableCell className="flex justify-end gap-1.5 py-1">
-        <Button variant="ghost" size="xs" onClick={onEditCategory}>
-          <PencilIcon className="size-4" />
-          <span className="sr-only">Edit</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="xs">
+              <MoreVerticalIcon className="size-4" />
+              <span className="sr-only">More</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEditCategory}>
+              <PencilIcon className="mr-2 size-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onRemoveAllFromCategory}>
+              <BookmarkXIcon className="mr-2 size-4" />
+              Remove All From Category
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {category.rules.length ? (
           <div className="flex items-center gap-1">
             {category.rules.map((rule) => (
