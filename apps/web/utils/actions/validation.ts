@@ -40,15 +40,28 @@ const zodField = z
   })
   .nullish();
 
-const zodAction = z.object({
-  type: zodActionType,
-  label: zodField,
-  subject: zodField,
-  content: zodField,
-  to: zodField,
-  cc: zodField,
-  bcc: zodField,
-});
+const zodAction = z
+  .object({
+    id: z.string().optional(),
+    type: zodActionType,
+    label: zodField,
+    subject: zodField,
+    content: zodField,
+    to: zodField,
+    cc: zodField,
+    bcc: zodField,
+  })
+  .refine(
+    (data) => {
+      if (data.type === ActionType.LABEL) return !!data.label?.value?.trim();
+      if (data.type === ActionType.FORWARD) return !!data.to?.value?.trim();
+      return true;
+    },
+    {
+      message: "Forward action requires a 'to' field",
+      path: ["to"],
+    },
+  );
 
 export const zodRuleType = z.enum([
   RuleType.AI,
@@ -110,10 +123,7 @@ export const createRuleBody = z.object({
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
-export const updateRuleBody = createRuleBody.extend({
-  id: z.string(),
-  actions: z.array(zodAction.extend({ id: z.string().optional() })),
-});
+export const updateRuleBody = createRuleBody.extend({ id: z.string() });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const updateRuleInstructionsBody = z.object({
