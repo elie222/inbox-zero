@@ -162,6 +162,7 @@ function getAction(action: Partial<Action> = {}): Action {
     to: null,
     cc: null,
     bcc: null,
+    url: null,
     labelPrompt: null,
     subjectPrompt: null,
     contentPrompt: null,

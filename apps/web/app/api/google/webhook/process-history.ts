@@ -134,7 +134,10 @@ export async function processHistoryForUser(
     );
 
     // couldn't refresh the token
-    if (!gmail) return NextResponse.json({ ok: true });
+    if (!gmail) {
+      logger.error("Failed to refresh token", { email });
+      return NextResponse.json({ ok: true });
+    }
 
     const startHistoryId =
       options?.startHistoryId ||

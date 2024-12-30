@@ -35,6 +35,7 @@ export type ActionItem = {
   to?: ExecutedAction["to"];
   cc?: ExecutedAction["cc"];
   bcc?: ExecutedAction["bcc"];
+  url?: ExecutedAction["url"];
 };
 
 type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (

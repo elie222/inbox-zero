@@ -85,7 +85,8 @@ export async function getActionItemsWithAiArgs({
         field === "content" ||
         field === "to" ||
         field === "cc" ||
-        field === "bcc"
+        field === "bcc" ||
+        field === "url"
       ) {
         const originalValue = action[field];
         if (typeof originalValue === "string") {
@@ -305,7 +306,10 @@ function extractActionsNeedingAiGeneration(actions: Action[]) {
  * Note: Only processes string fields that contain {{template variables}}
  */
 export function getParameterFieldsForAction(
-  action: Pick<Action, "label" | "subject" | "content" | "to" | "cc" | "bcc">,
+  action: Pick<
+    Action,
+    "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
+  >,
 ) {
   const fields: Record<string, z.ZodObject<Record<string, z.ZodString>>> = {};
   const fieldNames = [
@@ -315,6 +319,7 @@ export function getParameterFieldsForAction(
     "to",
     "cc",
     "bcc",
+    "url",
   ] as const;
 
   for (const field of fieldNames) {

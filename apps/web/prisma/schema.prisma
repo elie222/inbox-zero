@@ -219,6 +219,7 @@ model Action {
   to      String?
   cc      String?
   bcc     String?
+  url     String?
 
   labelPrompt   String? // deprecated
   subjectPrompt String? // deprecated
@@ -268,6 +269,7 @@ model ExecutedAction {
   to      String?
   cc      String?
   bcc     String?
+  url     String?
 }
 
 model Group {

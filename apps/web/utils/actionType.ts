@@ -126,6 +126,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
     to?: string;
     cc?: string;
     bcc?: string;
+    url?: string;
   } = {};
 
   // only return fields with a value
@@ -135,6 +136,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.to) res.to = fields.to;
   if (fields?.cc) res.cc = fields.cc;
   if (fields?.bcc) res.bcc = fields.bcc;
+  if (fields?.url) res.url = fields.url;
 
   return res;
 }

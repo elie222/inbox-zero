@@ -147,6 +147,10 @@ function getActionLabel(type: ActionType) {
       return "Send";
     case ActionType.DRAFT_EMAIL:
       return "Draft";
+    case ActionType.CALL_WEBHOOK:
+      return "Webhook";
+    case ActionType.MARK_SPAM:
+      return "Mark as spam";
     default:
       return capitalCase(type);
   }

@@ -16,6 +16,7 @@ describe("getParameterFieldsForAction", () => {
       to: "",
       cc: "",
       bcc: "",
+      url: "",
     };
 
     const result = getParameterFieldsForAction(action);
@@ -36,6 +37,7 @@ describe("getParameterFieldsForAction", () => {
       to: "",
       cc: "",
       bcc: "",
+      url: "",
     };
 
     const result = getParameterFieldsForAction(action);
@@ -57,6 +59,7 @@ describe("getParameterFieldsForAction", () => {
       to: "",
       cc: "",
       bcc: "",
+      url: "",
     };
 
     const result = getParameterFieldsForAction(action);
@@ -72,6 +75,7 @@ describe("getParameterFieldsForAction", () => {
       to: "{{recipient}}",
       cc: "",
       bcc: "",
+      url: "",
     };
 
     const result = getParameterFieldsForAction(action);
