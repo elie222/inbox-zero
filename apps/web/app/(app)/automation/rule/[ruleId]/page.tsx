@@ -39,6 +39,7 @@ export default async function RulePage({
       to: { value: action.to },
       cc: { value: action.cc },
       bcc: { value: action.bcc },
+      url: { value: action.url },
     })),
     categoryFilters: rule.categoryFilters.map((category) => category.id),
     conditions: getConditions(rule),

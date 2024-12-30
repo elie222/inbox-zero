@@ -349,7 +349,9 @@ export function TestResultDisplay({
         .filter(
           ([key, value]) =>
             value &&
-            ["label", "subject", "content", "to", "cc", "bcc"].includes(key),
+            ["label", "subject", "content", "to", "cc", "bcc", "url"].includes(
+              key,
+            ),
         )
         .map(([key, value]) => (
           <div key={key} className="flex text-sm text-gray-800">

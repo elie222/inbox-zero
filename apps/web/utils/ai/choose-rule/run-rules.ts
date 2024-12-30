@@ -189,6 +189,7 @@ async function saveExecutedRule(
             to: a.to,
             cc: a.cc,
             bcc: a.bcc,
+            url: a.url,
           })) || [],
       },
     },

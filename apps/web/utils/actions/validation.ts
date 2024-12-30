@@ -31,6 +31,7 @@ export const zodActionType = z.enum([
   ActionType.MARK_SPAM,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
+  ActionType.CALL_WEBHOOK,
 ]);
 
 const zodField = z
@@ -50,18 +51,31 @@ const zodAction = z
     to: zodField,
     cc: zodField,
     bcc: zodField,
+    url: zodField,
   })
-  .refine(
-    (data) => {
-      if (data.type === ActionType.LABEL) return !!data.label?.value?.trim();
-      if (data.type === ActionType.FORWARD) return !!data.to?.value?.trim();
-      return true;
-    },
-    {
-      message: "Forward action requires a 'to' field",
-      path: ["to"],
-    },
-  );
+  .superRefine((data, ctx) => {
+    if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a label name for the Label action",
+        path: ["label"],
+      });
+    }
+    if (data.type === ActionType.FORWARD && !data.to?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter an email address to forward to",
+        path: ["to"],
+      });
+    }
+    if (data.type === ActionType.CALL_WEBHOOK && !data.url?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a webhook URL",
+        path: ["url"],
+      });
+    }
+  });
 
 export const zodRuleType = z.enum([
   RuleType.AI,

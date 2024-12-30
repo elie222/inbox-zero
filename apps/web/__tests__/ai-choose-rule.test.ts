@@ -73,6 +73,7 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
         to: null,
         cc: null,
         bcc: null,
+        url: null,
 
         labelPrompt: null,
         subjectPrompt: null,
