@@ -41,13 +41,13 @@ export function createScopedLogger(scope: string) {
 
 function createAxiomLogger(scope: string) {
   return {
-    info: (message: string, ...args: unknown[]) =>
+    info: (message: string, args?: Record<string, unknown>) =>
       log.info(message, { scope, ...args }),
-    error: (message: string, ...args: unknown[]) =>
+    error: (message: string, args?: Record<string, unknown>) =>
       log.error(message, { scope, ...args }),
-    warn: (message: string, ...args: unknown[]) =>
+    warn: (message: string, args?: Record<string, unknown>) =>
       log.warn(message, { scope, ...args }),
-    trace: (message: string, ...args: unknown[]) => {
+    trace: (message: string, args?: Record<string, unknown>) => {
       if (process.env.NODE_ENV === "development") {
         log.debug(message, { scope, ...args });
       }
