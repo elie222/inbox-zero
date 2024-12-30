@@ -74,11 +74,13 @@ export async function archiveThread({
   ]);
 
   if (archiveResult.status === "rejected") {
-    console.error(
-      `Failed to archive thread: ${threadId}`,
-      archiveResult.reason,
-    );
-    throw archiveResult.reason;
+    const error = archiveResult.reason as Error;
+    if (error.message?.includes("Requested entity was not found")) {
+      console.error(`Thread not found: ${threadId}`);
+      return null;
+    }
+    console.error(`Failed to archive thread: ${threadId}`, error);
+    throw error;
   }
 
   if (publishResult.status === "rejected") {
