@@ -324,7 +324,7 @@ async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
         ...args,
         userAi: {
           aiProvider: Provider.ANTHROPIC,
-          aiModel: env.NEXT_PUBLIC_BEDROCK_HAIKU_MODEL,
+          aiModel: env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
           aiApiKey: args.userAi.aiApiKey,
         },
       });
