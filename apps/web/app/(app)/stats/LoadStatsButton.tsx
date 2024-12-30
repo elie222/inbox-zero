@@ -6,13 +6,13 @@ import { ButtonLoader } from "@/components/Loading";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 export function LoadStatsButton() {
-  const { isLoading, onLoad } = useStatLoader();
+  const { isLoading, onLoadBatch } = useStatLoader();
 
   return (
     <div>
       <Button
         variant="outline"
-        onClick={() => onLoad({ loadBefore: true, showToast: true })}
+        onClick={() => onLoadBatch({ loadBefore: true, showToast: true })}
         disabled={isLoading}
       >
         {isLoading ? (
