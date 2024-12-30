@@ -17,7 +17,6 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { isReplyInThread } from "@/utils/thread";
 import {
   createNewsletterGroupAction,
   createReceiptGroupAction,
@@ -88,7 +87,11 @@ export const runRulesAction = withActionInstrumentation(
     ]);
 
     if (hasExistingRule && !force) {
-      logger.info("Skipping. Rule already exists.");
+      logger.info("Skipping. Rule already exists.", {
+        email: user.email,
+        messageId: email.messageId,
+        threadId: email.threadId,
+      });
       return;
     }
 
@@ -299,7 +302,8 @@ async function safeCreateRule(
       return { id: rule.id };
     }
 
-    logger.info("Error creating rule", {
+    logger.error("Error creating rule", {
+      userId,
       error:
         error instanceof Error
           ? { message: error.message, stack: error.stack, name: error.name }
@@ -330,7 +334,8 @@ async function safeUpdateRule(
       return { id: rule.id };
     }
 
-    logger.info("Error updating rule", {
+    logger.error("Error updating rule", {
+      userId,
       error:
         error instanceof Error
           ? { message: error.message, stack: error.stack, name: error.name }
@@ -526,9 +531,9 @@ export const saveRulesPromptAction = withActionInstrumentation(
     if (!session?.user.email) return { error: "Not logged in" };
     setUser({ email: session.user.email });
 
-    logger.info(
-      `Starting saveRulesPromptAction for user ${session.user.email}`,
-    );
+    logger.info("Starting saveRulesPromptAction", {
+      email: session.user.email,
+    });
 
     const { data, success, error } = saveRulesPromptBody.safeParse(unsafeData);
     if (!success) {
@@ -557,13 +562,15 @@ export const saveRulesPromptAction = withActionInstrumentation(
     }
 
     const oldPromptFile = user.rulesPrompt;
-    logger.info(
-      "Old prompt file:",
-      oldPromptFile ? "exists" : "does not exist",
-    );
+    logger.info("Old prompt file", {
+      email: user.email,
+      exists: oldPromptFile ? "exists" : "does not exist",
+    });
 
     if (oldPromptFile === data.rulesPrompt) {
-      logger.info("No changes in rules prompt, returning early");
+      logger.info("No changes in rules prompt, returning early", {
+        email: user.email,
+      });
       return { createdRules: 0, editedRules: 0, removedRules: 0 };
     }
 
@@ -573,34 +580,46 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
     // check how the prompts have changed, and make changes to the rules accordingly
     if (oldPromptFile) {
-      logger.info("Comparing old and new prompts");
+      logger.info("Comparing old and new prompts", {
+        email: user.email,
+      });
       const diff = await aiDiffRules({
         user: { ...user, email: user.email },
         oldPromptFile,
         newPromptFile: data.rulesPrompt,
       });
 
-      logger.info(
-        `Diff results: Added rules: ${diff.addedRules.length}, Edited rules: ${diff.editedRules.length}, Removed rules: ${diff.removedRules.length}`,
-      );
+      logger.info("Diff results", {
+        email: user.email,
+        addedRules: diff.addedRules.length,
+        editedRules: diff.editedRules.length,
+        removedRules: diff.removedRules.length,
+      });
 
       if (
         !diff.addedRules.length &&
         !diff.editedRules.length &&
         !diff.removedRules.length
       ) {
-        logger.info("No changes detected in rules, returning early");
+        logger.info("No changes detected in rules, returning early", {
+          email: user.email,
+        });
         return { createdRules: 0, editedRules: 0, removedRules: 0 };
       }
 
       if (diff.addedRules.length) {
-        logger.info("Processing added rules");
+        logger.info("Processing added rules", {
+          email: user.email,
+        });
         addedRules = await aiPromptToRules({
           user: { ...user, email: user.email },
           promptFile: diff.addedRules.join("\n\n"),
           isEditing: false,
         });
-        logger.info(`${addedRules?.length || 0} rules to be added`);
+        logger.info("Added rules", {
+          email: user.email,
+          addedRules: addedRules?.length || 0,
+        });
       }
 
       // find existing rules
@@ -608,7 +627,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
         where: { userId: session.user.id, enabled: true },
         include: { actions: true },
       });
-      logger.info(`Found ${userRules.length} existing user rules`);
+      logger.info("Found existing user rules", {
+        email: user.email,
+        count: userRules.length,
+      });
 
       const existingRules = await aiFindExistingRules({
         user: { ...user, email: user.email },
@@ -618,22 +640,28 @@ export const saveRulesPromptAction = withActionInstrumentation(
       });
 
       // remove rules
-      logger.info(
-        `Processing ${existingRules.removedRules.length} rules for removal`,
-      );
+      logger.info("Processing rules for removal", {
+        email: user.email,
+        count: existingRules.removedRules.length,
+      });
       for (const rule of existingRules.removedRules) {
-        const executedRule = await prisma.executedRule.findFirst({
-          where: { userId: session.user.id, ruleId: rule.rule?.id },
-        });
-
         if (!rule.rule) {
-          logger.error("Rule not found.");
+          logger.error("Rule not found.", {
+            email: user.email,
+          });
           continue;
         }
 
-        logger.info(
-          `Removing rule. Prompt: ${rule.promptRule}. Rule: ${rule.rule.name}`,
-        );
+        const executedRule = await prisma.executedRule.findFirst({
+          where: { userId: session.user.id, ruleId: rule.rule.id },
+        });
+
+        logger.info("Removing rule", {
+          email: user.email,
+          promptRule: rule.promptRule,
+          ruleName: rule.rule.name,
+          ruleId: rule.rule.id,
+        });
 
         if (executedRule) {
           await prisma.rule.update({
@@ -646,10 +674,11 @@ export const saveRulesPromptAction = withActionInstrumentation(
               where: { id: rule.rule.id, userId: session.user.id },
             });
           } catch (error) {
-            logger.error(
-              `Error deleting rule. ${error instanceof Error ? error.message : "Unknown error"}`,
-              { ruleId: rule.rule.id },
-            );
+            logger.error("Error deleting rule", {
+              email: user.email,
+              ruleId: rule.rule.id,
+              error: error instanceof Error ? error.message : "Unknown error",
+            });
           }
         }
 
@@ -674,13 +703,19 @@ export const saveRulesPromptAction = withActionInstrumentation(
             continue;
           }
 
-          logger.info(`Editing rule. Prompt: ${rule.name}`);
+          logger.info("Editing rule", {
+            email: user.email,
+            promptRule: rule.name,
+            ruleId: rule.ruleId,
+          });
 
           const groupIdResult = await getGroupId(rule, session.user.id);
           if (isActionError(groupIdResult)) {
-            console.error(
-              `Error updating group for rule. ${groupIdResult.error}`,
-            );
+            logger.error("Error updating group for rule", {
+              email: user.email,
+              ruleId: rule.ruleId,
+              error: groupIdResult.error,
+            });
             continue;
           }
 
@@ -695,22 +730,35 @@ export const saveRulesPromptAction = withActionInstrumentation(
         }
       }
     } else {
-      logger.info("Processing new rules prompt with AI");
+      logger.info("Processing new rules prompt with AI", {
+        email: user.email,
+      });
       addedRules = await aiPromptToRules({
         user: { ...user, email: user.email },
         promptFile: data.rulesPrompt,
         isEditing: false,
       });
-      logger.info(`${addedRules?.length || 0} rules to be added`);
+      logger.info("Rules to be added", {
+        email: user.email,
+        count: addedRules?.length || 0,
+      });
     }
 
     // add new rules
     for (const rule of addedRules || []) {
-      logger.info(`Creating rule. Prompt: ${rule.name}`);
+      logger.info("Creating rule", {
+        email: user.email,
+        promptRule: rule.name,
+        ruleId: rule.ruleId,
+      });
 
       const groupIdResult = await getGroupId(rule, session.user.id);
       if (isActionError(groupIdResult)) {
-        console.error(`Error creating group for rule. ${groupIdResult.error}`);
+        logger.error("Error creating group for rule", {
+          email: user.email,
+          ruleId: rule.ruleId,
+          error: groupIdResult.error,
+        });
         continue;
       }
 
@@ -723,9 +771,12 @@ export const saveRulesPromptAction = withActionInstrumentation(
       data: { rulesPrompt: data.rulesPrompt },
     });
 
-    logger.info(
-      `saveRulesPromptAction completed. Created rules: ${addedRules?.length || 0}, Edited rules: ${editRulesCount}, Removed rules: ${removeRulesCount}`,
-    );
+    logger.info("saveRulesPromptAction completed", {
+      email: user.email,
+      createdRules: addedRules?.length || 0,
+      editedRules: editRulesCount,
+      removedRules: removeRulesCount,
+    });
 
     return {
       createdRules: addedRules?.length || 0,

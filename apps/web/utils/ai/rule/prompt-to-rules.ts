@@ -37,7 +37,7 @@ ${promptFile}
 
 IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.`;
 
-  logger.trace({ system, prompt });
+  logger.trace("prompt-to-rules", { system, prompt });
 
   const aiResponse = await chatCompletionTools({
     userAi: user,
@@ -57,7 +57,7 @@ IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don'
     rules: z.infer<typeof updateRuleSchema>[];
   };
 
-  logger.trace({ parsedRules });
+  logger.trace("prompt-to-rules", { parsedRules });
 
   return parsedRules.rules.map((rule) => ({
     ...rule,

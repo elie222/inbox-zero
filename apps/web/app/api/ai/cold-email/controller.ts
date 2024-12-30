@@ -49,14 +49,20 @@ export async function isColdEmail({
   });
 
   if (coldEmail) {
-    logger.info(`Already marked as cold email. ${email.from}`);
+    logger.info("Already marked as cold email", {
+      from: email.from,
+      userId: user.id,
+    });
     return { isColdEmail: true, reason: "ai-already-labeled" };
   }
 
   // otherwise run through ai to see if it's a cold email
   const res = await aiIsColdEmail(email, user);
 
-  logger.info(`AI is cold email: ${res.coldEmail}`);
+  logger.info("AI is cold email?", {
+    coldEmail: res.coldEmail,
+    userId: user.id,
+  });
 
   return {
     isColdEmail: !!res.coldEmail,
@@ -157,7 +163,8 @@ async function blockColdEmail(options: {
       gmail,
       key: "cold_email",
     });
-    if (!coldEmailLabel?.id) logger.error("No gmail label id");
+    if (!coldEmailLabel?.id)
+      logger.error("No gmail label id", { userId: user.id });
 
     const shouldArchive =
       user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL;

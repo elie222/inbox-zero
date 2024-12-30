@@ -22,9 +22,11 @@ export async function executeAct({
   email: EmailForAction;
   userEmail: string;
 }) {
-  logger.info(
-    `Executing rule: ${executedRule.id} for rule ${executedRule.ruleId}`,
-  );
+  logger.info("Executing rule", {
+    userEmail,
+    executedRuleId: executedRule.id,
+    ruleId: executedRule.ruleId,
+  });
 
   async function labelActed() {
     const label = await getOrCreateInboxZeroLabel({
@@ -47,9 +49,10 @@ export async function executeAct({
   });
 
   if (pendingRules.count === 0) {
-    logger.info(
-      `Executed rule ${executedRule.id} is not pending or does not exist`,
-    );
+    logger.info("Executed rule is not pending or does not exist", {
+      userEmail,
+      executedRuleId: executedRule.id,
+    });
     return;
   }
 
