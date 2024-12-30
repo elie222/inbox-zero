@@ -431,8 +431,8 @@ function shouldRunColdEmailBlocker(
   isThread: boolean,
 ) {
   return (
-    coldEmailBlocker &&
-    coldEmailBlocker !== ColdEmailSetting.DISABLED &&
+    (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+      coldEmailBlocker === ColdEmailSetting.LABEL) &&
     hasColdEmailAccess &&
     !isThread
   );
