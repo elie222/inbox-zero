@@ -41,7 +41,7 @@ export const createRuleAction = withActionInstrumentation(
             ? {
                 createMany: {
                   data: body.actions.map(
-                    ({ type, label, subject, content, to, cc, bcc }) => {
+                    ({ type, label, subject, content, to, cc, bcc, url }) => {
                       return {
                         type,
                         label: label?.value,
@@ -50,6 +50,7 @@ export const createRuleAction = withActionInstrumentation(
                         to: to?.value,
                         cc: cc?.value,
                         bcc: bcc?.value,
+                        url: url?.value,
                       };
                     },
                   ),
@@ -159,6 +160,7 @@ export const updateRuleAction = withActionInstrumentation(
               to: a.to?.value,
               cc: a.cc?.value,
               bcc: a.bcc?.value,
+              url: a.url?.value,
             },
           });
         }),
@@ -175,6 +177,7 @@ export const updateRuleAction = withActionInstrumentation(
                   to: a.to?.value,
                   cc: a.cc?.value,
                   bcc: a.bcc?.value,
+                  url: a.url?.value,
                 })),
               }),
             ]
