@@ -22,7 +22,7 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { isActionError } from "@/utils/error";
 
 // do not return functions to the client or we'll get an error
-const isStatusOk = (status?: number) => status && status >= 200 && status < 300;
+const isStatusOk = (status: number) => status >= 200 && status < 300;
 
 export const archiveThreadAction = withActionInstrumentation(
   "archiveThread",
@@ -39,7 +39,7 @@ export const archiveThreadAction = withActionInstrumentation(
       labelId,
     });
 
-    if (!isStatusOk(res?.status)) return { error: "Failed to archive thread" };
+    if (!isStatusOk(res.status)) return { error: "Failed to archive thread" };
   },
 );
 
