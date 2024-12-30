@@ -124,6 +124,7 @@ export async function runColdEmailBlocker(options: {
   const response = await isColdEmail(options);
   if (response.isColdEmail)
     await blockColdEmail({ ...options, aiReason: response.aiReason || null });
+  return response;
 }
 
 async function blockColdEmail(options: {

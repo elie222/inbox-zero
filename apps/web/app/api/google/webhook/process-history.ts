@@ -374,7 +374,7 @@ async function processHistoryItem(
         snippet: message.snippet,
       });
 
-      await runColdEmailBlocker({
+      const response = await runColdEmailBlocker({
         hasPreviousEmail,
         email: {
           from: message.headers.from,
@@ -386,6 +386,11 @@ async function processHistoryItem(
         gmail,
         user,
       });
+
+      if (response.isColdEmail) {
+        logger.info("Skipping. Cold email detected.");
+        return;
+      }
     }
 
     // categorize a sender if we haven't already
