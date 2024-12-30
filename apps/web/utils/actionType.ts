@@ -4,7 +4,7 @@ export const actionInputs: Record<
   ActionType,
   {
     fields: {
-      name: "label" | "subject" | "content" | "to" | "cc" | "bcc";
+      name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
       label: string;
       textArea?: boolean;
     }[];
@@ -108,6 +108,14 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.MARK_SPAM]: { fields: [] },
+  [ActionType.CALL_WEBHOOK]: {
+    fields: [
+      {
+        name: "url",
+        label: "URL",
+      },
+    ],
+  },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {

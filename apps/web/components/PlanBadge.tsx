@@ -118,6 +118,8 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
       );
     case ActionType.MARK_SPAM:
       return <ActionBadge type={ActionType.MARK_SPAM} />;
+    case ActionType.CALL_WEBHOOK:
+      return <ActionBadge type={ActionType.CALL_WEBHOOK} />;
     default:
       return <ActionBadge type={action.type} />;
   }

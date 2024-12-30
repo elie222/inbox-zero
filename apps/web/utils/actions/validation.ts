@@ -31,6 +31,7 @@ export const zodActionType = z.enum([
   ActionType.MARK_SPAM,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
+  ActionType.CALL_WEBHOOK,
 ]);
 
 const zodField = z

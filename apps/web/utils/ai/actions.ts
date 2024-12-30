@@ -10,6 +10,7 @@ import {
 import { markSpam } from "@/utils/gmail/spam";
 import type { Attachment } from "@/utils/types/mail";
 import { createScopedLogger } from "@/utils/logger";
+import { callWebhook } from "@/utils/webhook";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -44,7 +45,7 @@ type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (
 ) => Promise<any>;
 
 export type Properties = PartialRecord<
-  "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label",
+  "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label" | "url",
   {
     type: string;
     description: string;
@@ -225,6 +226,22 @@ const MARK_SPAM: ActionFunctionDef = {
   action: ActionType.MARK_SPAM,
 };
 
+const CALL_WEBHOOK: ActionFunctionDef = {
+  name: "call_webhook",
+  description: "Call a webhook.",
+  parameters: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The URL of the webhook to call.",
+      },
+    },
+    required: ["url"],
+  },
+  action: ActionType.CALL_WEBHOOK,
+};
+
 export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.ARCHIVE]: ARCHIVE,
   [ActionType.LABEL]: LABEL,
@@ -233,6 +250,7 @@ export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
   [ActionType.SEND_EMAIL]: SEND_EMAIL,
   [ActionType.FORWARD]: FORWARD_EMAIL,
   [ActionType.MARK_SPAM]: MARK_SPAM,
+  [ActionType.CALL_WEBHOOK]: CALL_WEBHOOK,
 };
 
 const archive: ActionFunction<Record<string, unknown>> = async (
@@ -369,6 +387,23 @@ const mark_spam: ActionFunction<any> = async (
   return await markSpam({ gmail, threadId: email.threadId });
 };
 
+const call_webhook: ActionFunction<any> = async (
+  _gmail: gmail_v1.Gmail,
+  email: EmailForAction,
+  args: { url: string },
+  userEmail: string,
+) => {
+  await callWebhook(userEmail, args.url, {
+    threadId: email.threadId,
+    messageId: email.messageId,
+    subject: email.subject,
+    from: email.from,
+    cc: email.cc,
+    bcc: email.bcc,
+    headerMessageId: email.headerMessageId,
+  });
+};
+
 export const runActionFunction = async (
   gmail: gmail_v1.Gmail,
   email: EmailForAction,
@@ -398,6 +433,8 @@ export const runActionFunction = async (
       return forward(gmail, email, args, userEmail);
     case ActionType.MARK_SPAM:
       return mark_spam(gmail, email, args, userEmail);
+    case ActionType.CALL_WEBHOOK:
+      return call_webhook(gmail, email, args, userEmail);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
