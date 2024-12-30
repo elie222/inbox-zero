@@ -20,8 +20,10 @@ export function extractEmailAddress(email: string): string {
 
 // Converts "Name <hey@domain.com>" to "domain.com"
 export function extractDomainFromEmail(email: string) {
-  const domain = email.match(/@([\w.-]+\.[a-zA-Z]{2,6})/)?.[1];
-  return domain;
+  if (!email) return "";
+  const emailAddress = email.includes("<") ? extractEmailAddress(email) : email;
+  const domain = emailAddress.match(/@([\w.-]+\.[a-zA-Z]{2,6})/)?.[1];
+  return domain || "";
 }
 
 // returns the other side of the conversation
