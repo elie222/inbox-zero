@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, EyeIcon } from "lucide-react";
 import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,7 +18,7 @@ import {
   PaginationNext,
 } from "@/components/ui/pagination";
 import { HoverCard } from "@/components/HoverCard";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
 import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
@@ -74,7 +74,7 @@ export function RuleCell({
         <div>
           <div className="flex justify-between font-medium">
             {rule.name}
-            <Badge>{conditionTypesToString(rule)}</Badge>
+            <Badge color="blue">{conditionTypesToString(rule)}</Badge>
           </div>
           <div className="mt-2">{conditionsToString(rule)}</div>
           <div className="mt-2">
@@ -93,7 +93,10 @@ export function RuleCell({
         </div>
       }
     >
-      <Link href={`/automation/rule/${rule.id}`}>{rule.name}</Link>
+      <Badge color="green">
+        {rule.name}
+        <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+      </Badge>
     </HoverCard>
   );
 }
