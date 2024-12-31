@@ -203,14 +203,26 @@ export async function getLabels(gmail: gmail_v1.Gmail) {
   return response.data.labels;
 }
 
+function normalizeLabel(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[-_.]/g, " ") // replace hyphens, underscores, dots with spaces
+    .replace(/\s+/g, " ") // multiple spaces to single space
+    .replace(/^\/+|\/+$/g, "") // trim slashes
+    .trim();
+}
+
 export async function getLabel(options: {
   gmail: gmail_v1.Gmail;
   name: string;
 }) {
   const { gmail, name } = options;
   const labels = await getLabels(gmail);
+
+  const normalizedSearch = normalizeLabel(name);
+
   return labels?.find(
-    (label) => label.name?.toLowerCase() === name.toLowerCase(),
+    (label) => label.name && normalizeLabel(label.name) === normalizedSearch,
   );
 }
 
