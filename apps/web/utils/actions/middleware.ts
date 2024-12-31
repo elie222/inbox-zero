@@ -10,6 +10,9 @@ import {
 } from "@/utils/error";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { isDuplicateError } from "@/utils/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("action-middleware");
 
 // Utility type to ensure we're dealing with object types only
 type EnsureObject<T> = T extends object ? T : never;
@@ -44,7 +47,7 @@ export function withActionInstrumentation<
         },
         async () => {
           try {
-            console.log(`Action: ${name}`);
+            logger.info(`Action: ${name}`, { action: name });
             const res = await action(...args);
 
             if (!res) {
@@ -65,6 +68,8 @@ export function withActionInstrumentation<
             if (isDuplicateError(error)) {
               captureException(error, { extra: { actionName: name } });
 
+              logger.error("Duplicate item error", { action: name, error });
+
               return {
                 error: "Duplicate item error",
                 success: false,
@@ -73,6 +78,8 @@ export function withActionInstrumentation<
 
             if (isAWSThrottlingError(error)) {
               captureException(error, { extra: { actionName: name } });
+
+              logger.error("AWS throttling error", { action: name, error });
 
               return {
                 error: error.message,
@@ -84,6 +91,8 @@ export function withActionInstrumentation<
             const apiError = checkCommonErrors(error, name);
             if (apiError) {
               await logErrorToPosthog("action", name, apiError.type);
+
+              logger.error("API error", { action: name, error: apiError });
 
               return {
                 error: apiError.message,
@@ -98,7 +107,7 @@ export function withActionInstrumentation<
 
       return result;
     } catch (error) {
-      console.error(`Error in action ${name}:`, error);
+      logger.error("Error in action", { action: name, error });
 
       // error is already captured by Sentry in `withServerActionInstrumentation`
       return {
