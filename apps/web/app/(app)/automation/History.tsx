@@ -68,7 +68,7 @@ function HistoryTable({
           <TableRow>
             <TableHead>Email</TableHead>
             <TableHead>Rule</TableHead>
-            <TableHead>Action items</TableHead>
+            <TableHead>Actions</TableHead>
             <TableHead>Automated</TableHead>
             <TableHead>Date</TableHead>
           </TableRow>

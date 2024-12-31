@@ -28,7 +28,12 @@ export async function getExecutedRules(
         id: true,
         messageId: true,
         threadId: true,
-        rule: { include: { group: { select: { name: true } } } },
+        rule: {
+          include: {
+            group: { select: { name: true } },
+            categoryFilters: true,
+          },
+        },
         actionItems: true,
         status: true,
         reason: true,

@@ -150,7 +150,7 @@ function PendingTable({
             </TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Rule</TableHead>
-            <TableHead>Action items</TableHead>
+            <TableHead>Actions</TableHead>
             <TableHead />
             {/* <TableHead /> */}
           </TableRow>
