@@ -2,7 +2,7 @@
 
 import { setUser } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
 import {
   RuleType,
   ExecutedRuleStatus,
@@ -422,9 +422,14 @@ export const deleteRuleAction = withActionInstrumentation(
     if (rule.userId !== session.user.id)
       return { error: "You don't have permission to delete this rule" };
 
-    await prisma.rule.delete({
-      where: { id: ruleId, userId: session.user.id },
-    });
+    try {
+      await prisma.rule.delete({
+        where: { id: ruleId, userId: session.user.id },
+      });
+    } catch (error) {
+      if (isNotFoundError(error)) return;
+      throw error;
+    }
   },
 );
 
@@ -674,6 +679,8 @@ export const saveRulesPromptAction = withActionInstrumentation(
               where: { id: rule.rule.id, userId: session.user.id },
             });
           } catch (error) {
+            if (isNotFoundError(error)) return;
+
             logger.error("Error deleting rule", {
               email: user.email,
               ruleId: rule.rule.id,
