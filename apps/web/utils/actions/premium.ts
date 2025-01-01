@@ -11,12 +11,14 @@ import type { ChangePremiumStatusOptions } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,
   getLemonCustomer,
+  switchPremiumPlan,
   updateSubscriptionItemQuantity,
 } from "@/app/api/lemon-squeezy/api";
 import { isAdmin } from "@/utils/admin";
 import { PremiumTier } from "@prisma/client";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
+import { tierToVariantId } from "@/app/(app)/premium/config";
 
 export const decrementUnsubscribeCreditAction = withActionInstrumentation(
   "decrementUnsubscribeCredit",
@@ -173,6 +175,31 @@ export async function updateMultiAccountPremiumAction(
     },
   );
 }
+
+export const switchPremiumPlanAction = withActionInstrumentation(
+  "switchPremiumPlan",
+  async (premiumTier: PremiumTier) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        premium: {
+          select: { lemonSqueezySubscriptionId: true },
+        },
+      },
+    });
+
+    if (!user) return { error: "User not found" };
+    if (!user.premium?.lemonSqueezySubscriptionId)
+      return { error: "You do not have a premium subscription" };
+
+    const variantId = tierToVariantId[premiumTier];
+
+    await switchPremiumPlan(user.premium.lemonSqueezySubscriptionId, variantId);
+  },
+);
 
 async function createPremiumForUser(userId: string) {
   return await prisma.premium.create({

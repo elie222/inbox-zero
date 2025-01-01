@@ -14,6 +14,7 @@ import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { PremiumTier } from "@prisma/client";
 import { cancelledPremium, upgradedToPremium } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
+import { getSubscriptionTier } from "@/app/(app)/premium/config";
 
 export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
@@ -343,32 +344,4 @@ function getEmailFromPremium(premium: {
   users: Array<{ email: string | null }>;
 }) {
   return premium.users?.[0]?.email;
-}
-
-function getSubscriptionTier({
-  variantId,
-}: {
-  variantId: number;
-}): PremiumTier {
-  switch (variantId) {
-    case env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID:
-      return PremiumTier.BASIC_MONTHLY;
-    case env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID:
-      return PremiumTier.BASIC_ANNUALLY;
-
-    case env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID:
-      return PremiumTier.PRO_MONTHLY;
-    case env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID:
-      return PremiumTier.PRO_ANNUALLY;
-
-    case env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID:
-      return PremiumTier.BUSINESS_MONTHLY;
-    case env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
-      return PremiumTier.BUSINESS_ANNUALLY;
-
-    case env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID:
-      return PremiumTier.COPILOT_MONTHLY;
-  }
-
-  throw new Error(`Unknown variant id: ${variantId}`);
 }

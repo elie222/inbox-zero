@@ -42,6 +42,17 @@ export const pricingAdditonalEmail: Record<PremiumTier, number> = {
   [PremiumTier.LIFETIME]: 99,
 };
 
+export const tierToVariantId: Record<PremiumTier, number> = {
+  [PremiumTier.BASIC_MONTHLY]: env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID,
+  [PremiumTier.BASIC_ANNUALLY]: env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID,
+  [PremiumTier.PRO_MONTHLY]: env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID,
+  [PremiumTier.PRO_ANNUALLY]: env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID,
+  [PremiumTier.BUSINESS_MONTHLY]: env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID,
+  [PremiumTier.BUSINESS_ANNUALLY]: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID,
+  [PremiumTier.COPILOT_MONTHLY]: env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID,
+  [PremiumTier.LIFETIME]: env.NEXT_PUBLIC_LIFETIME_VARIANT_ID,
+};
+
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
@@ -177,3 +188,31 @@ const copilotTier = {
 };
 
 export const allTiers: Tier[] = [basicTier, businessTier, copilotTier];
+
+export function getSubscriptionTier({
+  variantId,
+}: {
+  variantId: number;
+}): PremiumTier {
+  switch (variantId) {
+    case env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID:
+      return PremiumTier.BASIC_MONTHLY;
+    case env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID:
+      return PremiumTier.BASIC_ANNUALLY;
+
+    case env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID:
+      return PremiumTier.PRO_MONTHLY;
+    case env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID:
+      return PremiumTier.PRO_ANNUALLY;
+
+    case env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID:
+      return PremiumTier.BUSINESS_MONTHLY;
+    case env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
+      return PremiumTier.BUSINESS_ANNUALLY;
+
+    case env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID:
+      return PremiumTier.COPILOT_MONTHLY;
+  }
+
+  throw new Error(`Unknown variant id: ${variantId}`);
+}
