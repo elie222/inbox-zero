@@ -396,7 +396,7 @@ export function TestResultDisplay({
             )}
             {!!result.reason && (
               <div className="border-l-2 border-blue-200 pl-3 text-sm">
-                <span className="font-medium">AI Reasoning: </span>
+                <span className="font-medium">Reason: </span>
                 {result.reason}
               </div>
             )}

@@ -15,10 +15,13 @@ export function findMatchingGroup(
   message: ParsedMessage,
   groups: GroupsWithRules,
 ) {
-  const group = groups.find((group) =>
-    findMatchingGroupItem(message.headers, group.items),
-  );
-  return group;
+  for (const group of groups) {
+    const matchingItem = findMatchingGroupItem(message.headers, group.items);
+    if (matchingItem) {
+      return { group, matchingItem };
+    }
+  }
+  return { group: null, matchingItem: null };
 }
 
 export function findMatchingGroupItem<
