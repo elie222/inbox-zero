@@ -119,7 +119,7 @@ export function BulkUnsubscribeSection({
     : BulkUnsubscribeRowDesktop;
 
   const rows = data?.newsletters
-    .filter(
+    ?.filter(
       search
         ? (item) =>
             item.name.toLowerCase().includes(search.toLowerCase()) ||
