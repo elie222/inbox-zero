@@ -121,15 +121,13 @@ export function ViewGroup({
         ) : (
           <>
             {group?.rule ? (
-              <div className="text-sm">
-                <span>Rule: </span>
-                <Link
-                  href={`/automation/rule/${group.rule.id}`}
-                  className="hover:underline"
-                >
-                  {group.rule.name || group.rule.id}
-                </Link>
-              </div>
+              <Link
+                href={`/automation/rule/${group.rule.id}`}
+                target="_blank"
+                className="mr-4"
+              >
+                <Badge>Rule: {group.rule.name || group.rule.id}</Badge>
+              </Link>
             ) : (
               <Button variant="outline" asChild className="w-full sm:w-auto">
                 <Link
@@ -140,14 +138,19 @@ export function ViewGroup({
               </Button>
             )}
 
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-0 sm:flex sm:items-center">
-              <Button variant="outline" onClick={() => setShowAddItem(true)}>
+            <div className="mt-2 grid grid-cols-1 gap-1 sm:mt-0 sm:flex sm:items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddItem(true)}
+              >
                 <PlusIcon className="mr-2 h-4 w-4" />
                 Add Item
               </Button>
 
               <Button
                 variant="outline"
+                size="sm"
                 disabled={isDeleting}
                 onClick={async () => {
                   const yes = confirm(
@@ -183,6 +186,7 @@ export function ViewGroup({
                 group?.prompt) && (
                 <Button
                   variant="outline"
+                  size="sm"
                   disabled={isRegenerating}
                   onClick={async () => {
                     setIsRegenerating(true);
@@ -207,7 +211,7 @@ export function ViewGroup({
                 </Button>
               )}
 
-              <Button variant="outline" asChild>
+              <Button variant="outline" size="sm" asChild>
                 <Link href={`/automation/group/${groupId}/examples`}>
                   <MailIcon className="mr-2 size-4" />
                   Matches
