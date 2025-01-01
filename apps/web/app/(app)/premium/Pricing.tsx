@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
@@ -23,6 +24,8 @@ import {
 import { AlertWithButton } from "@/components/Alert";
 import { usePricingVariant } from "@/hooks/useFeatureFlags";
 import { PremiumTier } from "@prisma/client";
+import { switchPremiumPlanAction } from "@/utils/actions/premium";
+import { isActionError } from "@/utils/error";
 
 function attachUserInfo(
   url: string,
@@ -171,7 +174,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
           {tiers.map((tier, tierIdx) => {
-            const isCurrentPlan = tier.tiers?.[frequency.value] === premiumTier;
+            const isCurrentPlan = tier.tiers[frequency.value] === premiumTier;
 
             const user = session.data?.user;
 
@@ -254,8 +257,31 @@ export function Pricing(props: { header?: React.ReactNode }) {
                 </div>
 
                 <a
-                  href={href}
-                  target={href.startsWith("http") ? "_blank" : undefined}
+                  href={!premiumTier ? href : "#"}
+                  onClick={() => {
+                    if (premiumTier) {
+                      toast.promise(
+                        async () => {
+                          const result = await switchPremiumPlanAction(
+                            tier.tiers[frequency.value],
+                          );
+                          if (isActionError(result))
+                            throw new Error(result.error);
+                        },
+                        {
+                          loading: "Switching to plan...",
+                          success: "Switched to plan",
+                          error: (e) =>
+                            `There was an error switching to plan: ${e.message}`,
+                        },
+                      );
+                    }
+                  }}
+                  target={
+                    !premiumTier && href.startsWith("http")
+                      ? "_blank"
+                      : undefined
+                  }
                   aria-describedby={tier.name}
                   className={clsx(
                     tier.mostPopular
@@ -264,7 +290,11 @@ export function Pricing(props: { header?: React.ReactNode }) {
                     "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
                   )}
                 >
-                  {isCurrentPlan ? "Current plan" : tier.cta}
+                  {isCurrentPlan
+                    ? "Current plan"
+                    : premiumTier
+                      ? "Switch to this plan"
+                      : tier.cta}
                 </a>
               </Item>
             );

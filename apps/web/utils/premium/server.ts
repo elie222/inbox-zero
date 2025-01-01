@@ -71,14 +71,30 @@ export async function extendPremium(options: {
   });
 }
 
-export async function cancelPremium(options: {
+export async function cancelPremium({
+  premiumId,
+  lemonSqueezyEndsAt,
+  variantId,
+}: {
   premiumId: string;
   lemonSqueezyEndsAt: Date;
+  variantId?: number;
 }) {
+  if (variantId) {
+    // Check if the premium exists for the given variant
+    // If the user changed plans we won't find it in the database
+    // And that's okay because the user is on a different plan
+    const premium = await prisma.premium.findUnique({
+      where: { id: premiumId, lemonSqueezyVariantId: variantId },
+      select: { id: true },
+    });
+    if (!premium) return null;
+  }
+
   return await prisma.premium.update({
-    where: { id: options.premiumId },
+    where: { id: premiumId },
     data: {
-      lemonSqueezyRenewsAt: options.lemonSqueezyEndsAt,
+      lemonSqueezyRenewsAt: lemonSqueezyEndsAt,
       bulkUnsubscribeAccess: null,
       aiAutomationAccess: null,
       coldEmailBlockerAccess: null,

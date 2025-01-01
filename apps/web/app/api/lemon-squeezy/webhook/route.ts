@@ -12,8 +12,16 @@ import {
 } from "@/utils/premium/server";
 import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { PremiumTier } from "@prisma/client";
-import { cancelledPremium, upgradedToPremium } from "@inboxzero/loops";
+import {
+  cancelledPremium,
+  switchedPremiumPlan,
+  upgradedToPremium,
+} from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
+import { getSubscriptionTier } from "@/app/(app)/premium/config";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Lemon Squeezy Webhook");
 
 export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
@@ -73,12 +81,25 @@ export const POST = withError(async (request: Request) => {
     return await subscriptionUpdated({ payload, premiumId });
   }
 
+  // changed plan
+  if (payload.meta.event_name === "subscription_plan_changed") {
+    if (!userId) {
+      logger.error("No userId provided", {
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+      throw new SafeError("No userId provided");
+    }
+    return await subscriptionPlanChanged({ payload, userId });
+  }
+
   // cancellation
   if (payload.data.attributes.ends_at) {
     return await subscriptionCancelled({
       payload,
       premiumId,
       endsAt: payload.data.attributes.ends_at,
+      variantId: payload.data.attributes.variant_id,
     });
   }
 
@@ -88,6 +109,7 @@ export const POST = withError(async (request: Request) => {
       payload,
       premiumId,
       endsAt: new Date().toISOString(),
+      variantId: payload.data.attributes.variant_id,
     });
   }
 
@@ -128,6 +150,82 @@ async function subscriptionCreated({
   payload: Payload;
   userId: string;
 }) {
+  const { updatedPremium, tier } = await handleSubscriptionCreated(
+    payload,
+    userId,
+  );
+
+  const email = getEmailFromPremium(updatedPremium);
+  if (email) {
+    try {
+      await Promise.allSettled([
+        posthogCaptureEvent(
+          email,
+          payload.data.attributes.status === "on_trial"
+            ? "Premium trial started"
+            : "Upgraded to premium",
+          {
+            ...payload.data.attributes,
+            $set: {
+              premium: true,
+              premiumTier: "subscription",
+              premiumStatus: payload.data.attributes.status,
+            },
+          },
+        ),
+        upgradedToPremium(email, tier),
+      ]);
+    } catch (error) {
+      logger.error("Error capturing event", {
+        error,
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+async function subscriptionPlanChanged({
+  payload,
+  userId,
+}: {
+  payload: Payload;
+  userId: string;
+}) {
+  const { updatedPremium, tier } = await handleSubscriptionCreated(
+    payload,
+    userId,
+  );
+
+  const email = getEmailFromPremium(updatedPremium);
+  if (email) {
+    try {
+      await Promise.allSettled([
+        posthogCaptureEvent(email, "Switched premium plan", {
+          ...payload.data.attributes,
+          $set: {
+            premium: true,
+            premiumTier: "subscription",
+            premiumStatus: payload.data.attributes.status,
+          },
+        }),
+        switchedPremiumPlan(email, tier),
+      ]);
+    } catch (error) {
+      logger.error("Error capturing event", {
+        error,
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+async function handleSubscriptionCreated(payload: Payload, userId: string) {
   if (!payload.data.attributes.renews_at)
     throw new Error("No renews_at provided");
 
@@ -154,28 +252,7 @@ async function subscriptionCreated({
     lemonSqueezyVariantId: payload.data.attributes.variant_id,
   });
 
-  const email = getEmailFromPremium(updatedPremium);
-  if (email) {
-    await Promise.allSettled([
-      posthogCaptureEvent(
-        email,
-        payload.data.attributes.status === "on_trial"
-          ? "Premium trial started"
-          : "Upgraded to premium",
-        {
-          ...payload.data.attributes,
-          $set: {
-            premium: true,
-            premiumTier: "subscription",
-            premiumStatus: payload.data.attributes.status,
-          },
-        },
-      ),
-      upgradedToPremium(email, tier),
-    ]);
-  }
-
-  return NextResponse.json({ ok: true });
+  return { updatedPremium, tier };
 }
 
 async function lifetimeOrder({
@@ -280,15 +357,20 @@ async function subscriptionCancelled({
   payload,
   premiumId,
   endsAt,
+  variantId,
 }: {
   payload: Payload;
   premiumId: string;
   endsAt: NonNullable<Payload["data"]["attributes"]["ends_at"]>;
+  variantId: NonNullable<Payload["data"]["attributes"]["variant_id"]>;
 }) {
   const updatedPremium = await cancelPremium({
     premiumId,
+    variantId,
     lemonSqueezyEndsAt: new Date(endsAt),
   });
+
+  if (!updatedPremium) return NextResponse.json({ ok: true });
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
@@ -343,32 +425,4 @@ function getEmailFromPremium(premium: {
   users: Array<{ email: string | null }>;
 }) {
   return premium.users?.[0]?.email;
-}
-
-function getSubscriptionTier({
-  variantId,
-}: {
-  variantId: number;
-}): PremiumTier {
-  switch (variantId) {
-    case env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID:
-      return PremiumTier.BASIC_MONTHLY;
-    case env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID:
-      return PremiumTier.BASIC_ANNUALLY;
-
-    case env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID:
-      return PremiumTier.PRO_MONTHLY;
-    case env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID:
-      return PremiumTier.PRO_ANNUALLY;
-
-    case env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID:
-      return PremiumTier.BUSINESS_MONTHLY;
-    case env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
-      return PremiumTier.BUSINESS_ANNUALLY;
-
-    case env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID:
-      return PremiumTier.COPILOT_MONTHLY;
-  }
-
-  throw new Error(`Unknown variant id: ${variantId}`);
 }

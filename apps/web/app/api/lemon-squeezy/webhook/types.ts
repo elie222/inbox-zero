@@ -15,7 +15,8 @@ export type EventName =
   | "subscription_unpaused"
   | "subscription_payment_failed"
   | "subscription_payment_success"
-  | "subscription_payment_recovered";
+  | "subscription_payment_recovered"
+  | "subscription_plan_changed";
 
 export interface Meta {
   test_mode: boolean;

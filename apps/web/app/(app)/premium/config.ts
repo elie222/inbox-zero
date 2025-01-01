@@ -42,6 +42,28 @@ export const pricingAdditonalEmail: Record<PremiumTier, number> = {
   [PremiumTier.LIFETIME]: 99,
 };
 
+const variantIdToTier: Record<number, PremiumTier> = {
+  [env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID]: PremiumTier.BASIC_MONTHLY,
+  [env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID]: PremiumTier.BASIC_ANNUALLY,
+  [env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID]: PremiumTier.PRO_MONTHLY,
+  [env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID]: PremiumTier.PRO_ANNUALLY,
+  [env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID]: PremiumTier.BUSINESS_MONTHLY,
+  [env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID]: PremiumTier.BUSINESS_ANNUALLY,
+  [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: PremiumTier.COPILOT_MONTHLY,
+  [env.NEXT_PUBLIC_LIFETIME_VARIANT_ID]: PremiumTier.LIFETIME,
+};
+
+const tierToVariantId: Record<PremiumTier, number> = {
+  [PremiumTier.BASIC_MONTHLY]: env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID,
+  [PremiumTier.BASIC_ANNUALLY]: env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID,
+  [PremiumTier.PRO_MONTHLY]: env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID,
+  [PremiumTier.PRO_ANNUALLY]: env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID,
+  [PremiumTier.BUSINESS_MONTHLY]: env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID,
+  [PremiumTier.BUSINESS_ANNUALLY]: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID,
+  [PremiumTier.COPILOT_MONTHLY]: env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID,
+  [PremiumTier.LIFETIME]: env.NEXT_PUBLIC_LIFETIME_VARIANT_ID,
+};
+
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
@@ -177,3 +199,19 @@ const copilotTier = {
 };
 
 export const allTiers: Tier[] = [basicTier, businessTier, copilotTier];
+
+export function getSubscriptionTier({
+  variantId,
+}: {
+  variantId: number;
+}): PremiumTier {
+  const tier = variantIdToTier[variantId];
+  if (!tier) throw new Error(`Unknown variant id: ${variantId}`);
+  return tier;
+}
+
+export function getVariantId({ tier }: { tier: PremiumTier }): number {
+  const variantId = tierToVariantId[tier];
+  if (!variantId) throw new Error(`Unknown tier: ${tier}`);
+  return variantId;
+}
