@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { log } from "next-axiom";
 import { env } from "@/env";
 

@@ -14,10 +14,13 @@ import {
   SENT_LABEL_ID,
   UNREAD_LABEL_ID,
 } from "@/utils/gmail/label";
+import { createScopedLogger } from "@/utils/logger";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
 const MAX_PAGES = 50;
+
+const logger = createScopedLogger("Tinybird Load Emails");
 
 export async function loadTinybirdEmails(
   options: {
@@ -40,10 +43,10 @@ export async function loadTinybirdEmails(
   ]);
 
   const after = newestEmailSaved.data?.[0]?.timestamp;
-  console.log("Loading emails after:", after);
+  logger.info("Loading emails after", { after });
 
   while (pages < MAX_PAGES) {
-    console.log("After Page", pages);
+    logger.info("After Page", { pages });
     let res: Awaited<ReturnType<typeof saveBatch>>;
     try {
       res = await saveBatch({
@@ -56,7 +59,7 @@ export async function loadTinybirdEmails(
       });
     } catch (error) {
       // TODO save batch won't throw a rate limit error anymore. Just logs: `Error fetching message 429 Resource has been exhausted (e.g. check quota).`
-      console.log(`Rate limited. Waiting ${PAUSE_AFTER_RATE_LIMIT} seconds...`);
+      logger.info(`Rate limited. Waiting ${PAUSE_AFTER_RATE_LIMIT} seconds...`);
       await sleep(PAUSE_AFTER_RATE_LIMIT);
       res = await saveBatch({
         ownerEmail,
@@ -74,15 +77,15 @@ export async function loadTinybirdEmails(
     pages++;
   }
 
-  console.log("Completed emails after:", after);
+  logger.info("Completed emails after", { after });
 
   if (!body.loadBefore) return { pages };
 
   const before = oldestEmailSaved.data?.[0]?.timestamp;
-  console.log("Loading emails before:", before);
+  logger.info("Loading emails before", { before });
 
   while (pages < MAX_PAGES) {
-    console.log("Before Page", pages);
+    logger.info("Before Page", { pages });
     let res: Awaited<ReturnType<typeof saveBatch>>;
     try {
       res = await saveBatch({
@@ -94,7 +97,7 @@ export async function loadTinybirdEmails(
         after: undefined,
       });
     } catch (error) {
-      console.log("Rate limited. Waiting 10 seconds...");
+      logger.info("Rate limited. Waiting 10 seconds...");
       await sleep(PAUSE_AFTER_RATE_LIMIT);
       res = await saveBatch({
         ownerEmail,
@@ -112,7 +115,7 @@ export async function loadTinybirdEmails(
     pages++;
   }
 
-  console.log("Completed emails before:", before);
+  logger.info("Completed emails before", { before });
 
   return { pages };
 }
@@ -181,12 +184,11 @@ async function saveBatch(
       };
 
       if (!tinybirdEmail.timestamp) {
-        console.error(
-          "No timestamp for email",
-          tinybirdEmail.ownerEmail,
-          tinybirdEmail.gmailMessageId,
-          m.headers.date,
-        );
+        logger.error("No timestamp for email", {
+          ownerEmail: tinybirdEmail.ownerEmail,
+          gmailMessageId: tinybirdEmail.gmailMessageId,
+          date: m.headers.date,
+        });
         return;
       }
 
@@ -194,7 +196,7 @@ async function saveBatch(
     })
     .filter(isDefined);
 
-  console.log("Publishing", emailsToPublish.length, "emails");
+  logger.info("Publishing", { count: emailsToPublish.length });
 
   await publishEmail(emailsToPublish);
 

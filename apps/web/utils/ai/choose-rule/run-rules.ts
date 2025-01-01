@@ -16,9 +16,9 @@ import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args"
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 import prisma from "@/utils/prisma";
-// import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
 
-// const logger = createScopedLogger("ai-run-rules");
+const logger = createScopedLogger("ai-run-rules");
 
 export type TestResult = {
   rule?: Rule | null;
@@ -236,9 +236,11 @@ async function upsertExecutedRule({
     ) {
       // Unique constraint violation, ignore the error
       // May be due to a race condition?
-      console.log(
-        `Ignored duplicate entry for ExecutedRule: ${userId} ${threadId} ${messageId}`,
-      );
+      logger.info("Ignored duplicate entry for ExecutedRule", {
+        userId,
+        threadId,
+        messageId,
+      });
       return await prisma.executedRule.findUnique({
         where: {
           unique_user_thread_message: {

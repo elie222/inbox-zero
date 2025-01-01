@@ -4,6 +4,9 @@ import { chatCompletionTools } from "@/utils/llms";
 import type { Group, User } from "@prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { UserAIFields } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("aiCreateGroup");
 
 const GENERATE_GROUP_ITEMS = "generateGroupItems";
 const VERIFY_GROUP_ITEMS = "verifyGroupItems";
@@ -54,7 +57,10 @@ export async function aiGenerateGroupItems(
   accessToken: string,
   group: Pick<Group, "name" | "prompt">,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
-  console.log(`aiGenerateGroupItems: ${group.name} - ${group.prompt}`);
+  logger.info("aiGenerateGroupItems", {
+    name: group.name,
+    prompt: group.prompt,
+  });
 
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to create highly specific email groups based on user prompts and their actual email history.
@@ -79,6 +85,8 @@ Key guidelines:
 8. It's better to suggest fewer, more reliable criteria than to risk overgeneralization.
 9. If the user explicitly excludes certain types of emails, ensure your suggestions do not include them.`;
 
+  logger.trace("aiGenerateGroupItems", { system, prompt });
+
   const aiResponse = await chatCompletionTools({
     userAi: user,
     system,
@@ -98,6 +106,8 @@ Key guidelines:
   const generateGroupItemsToolCalls = aiResponse.toolCalls.filter(
     ({ toolName }) => toolName === GENERATE_GROUP_ITEMS,
   );
+
+  logger.trace("aiGenerateGroupItems result", { generateGroupItemsToolCalls });
 
   const combinedArgs = generateGroupItemsToolCalls.reduce<
     z.infer<typeof generateGroupItemsSchema>
@@ -122,7 +132,10 @@ async function verifyGroupItems(
   group: Pick<Group, "name" | "prompt">,
   initialItems: z.infer<typeof generateGroupItemsSchema>,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
-  console.log(`verifyGroupItems: ${group.name} - ${group.prompt}`);
+  logger.info("verifyGroupItems", {
+    name: group.name,
+    prompt: group.prompt,
+  });
 
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to identify and remove any incorrect or overly broad criteria from the generated email group.
@@ -167,7 +180,7 @@ Guidelines:
   );
 
   if (verifyGroupItemsToolCalls.length === 0) {
-    console.warn("No verification results found. Returning initial items.");
+    logger.warn("No verification results found. Returning initial items.");
     return initialItems;
   }
 
