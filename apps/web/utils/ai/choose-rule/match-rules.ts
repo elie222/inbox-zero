@@ -75,9 +75,9 @@ async function findPotentialMatchingRules({
     // static
     if (conditionTypes.STATIC) {
       const match = matchesStaticRule(rule, message);
-      matchReasons.push("Matched static conditions");
       if (match) {
         unmatchedConditions.delete("STATIC");
+        matchReasons.push("Matched static conditions");
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
           return { match: rule, reason: matchReasons.join(", ") };
       } else {
