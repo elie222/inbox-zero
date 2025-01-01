@@ -679,13 +679,13 @@ export const saveRulesPromptAction = withActionInstrumentation(
               where: { id: rule.rule.id, userId: session.user.id },
             });
           } catch (error) {
-            if (isNotFoundError(error)) return;
-
-            logger.error("Error deleting rule", {
-              email: user.email,
-              ruleId: rule.rule.id,
-              error: error instanceof Error ? error.message : "Unknown error",
-            });
+            if (!isNotFoundError(error)) {
+              logger.error("Error deleting rule", {
+                email: user.email,
+                ruleId: rule.rule.id,
+                error: error instanceof Error ? error.message : "Unknown error",
+              });
+            }
           }
         }
 
