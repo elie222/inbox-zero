@@ -99,6 +99,7 @@ export const POST = withError(async (request: Request) => {
       payload,
       premiumId,
       endsAt: payload.data.attributes.ends_at,
+      variantId: payload.data.attributes.variant_id,
     });
   }
 
@@ -108,6 +109,7 @@ export const POST = withError(async (request: Request) => {
       payload,
       premiumId,
       endsAt: new Date().toISOString(),
+      variantId: payload.data.attributes.variant_id,
     });
   }
 
@@ -355,15 +357,20 @@ async function subscriptionCancelled({
   payload,
   premiumId,
   endsAt,
+  variantId,
 }: {
   payload: Payload;
   premiumId: string;
   endsAt: NonNullable<Payload["data"]["attributes"]["ends_at"]>;
+  variantId: NonNullable<Payload["data"]["attributes"]["variant_id"]>;
 }) {
   const updatedPremium = await cancelPremium({
     premiumId,
+    variantId,
     lemonSqueezyEndsAt: new Date(endsAt),
   });
+
+  if (!updatedPremium) return NextResponse.json({ ok: true });
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
