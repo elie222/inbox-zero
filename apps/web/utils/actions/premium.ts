@@ -18,7 +18,7 @@ import { isAdmin } from "@/utils/admin";
 import { PremiumTier } from "@prisma/client";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
-import { tierToVariantId } from "@/app/(app)/premium/config";
+import { getVariantId } from "@/app/(app)/premium/config";
 
 export const decrementUnsubscribeCreditAction = withActionInstrumentation(
   "decrementUnsubscribeCredit",
@@ -195,7 +195,7 @@ export const switchPremiumPlanAction = withActionInstrumentation(
     if (!user.premium?.lemonSqueezySubscriptionId)
       return { error: "You do not have a premium subscription" };
 
-    const variantId = tierToVariantId[premiumTier];
+    const variantId = getVariantId({ tier: premiumTier });
 
     await switchPremiumPlan(user.premium.lemonSqueezySubscriptionId, variantId);
   },
