@@ -12,9 +12,16 @@ import {
 } from "@/utils/premium/server";
 import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { PremiumTier } from "@prisma/client";
-import { cancelledPremium, upgradedToPremium } from "@inboxzero/loops";
+import {
+  cancelledPremium,
+  switchedPremiumPlan,
+  upgradedToPremium,
+} from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
 import { getSubscriptionTier } from "@/app/(app)/premium/config";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Lemon Squeezy Webhook");
 
 export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
@@ -74,6 +81,18 @@ export const POST = withError(async (request: Request) => {
     return await subscriptionUpdated({ payload, premiumId });
   }
 
+  // changed plan
+  if (payload.meta.event_name === "subscription_plan_changed") {
+    if (!userId) {
+      logger.error("No userId provided", {
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+      throw new SafeError("No userId provided");
+    }
+    return await subscriptionPlanChanged({ payload, userId });
+  }
+
   // cancellation
   if (payload.data.attributes.ends_at) {
     return await subscriptionCancelled({
@@ -129,6 +148,82 @@ async function subscriptionCreated({
   payload: Payload;
   userId: string;
 }) {
+  const { updatedPremium, tier } = await handleSubscriptionCreated(
+    payload,
+    userId,
+  );
+
+  const email = getEmailFromPremium(updatedPremium);
+  if (email) {
+    try {
+      await Promise.allSettled([
+        posthogCaptureEvent(
+          email,
+          payload.data.attributes.status === "on_trial"
+            ? "Premium trial started"
+            : "Upgraded to premium",
+          {
+            ...payload.data.attributes,
+            $set: {
+              premium: true,
+              premiumTier: "subscription",
+              premiumStatus: payload.data.attributes.status,
+            },
+          },
+        ),
+        upgradedToPremium(email, tier),
+      ]);
+    } catch (error) {
+      logger.error("Error capturing event", {
+        error,
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+async function subscriptionPlanChanged({
+  payload,
+  userId,
+}: {
+  payload: Payload;
+  userId: string;
+}) {
+  const { updatedPremium, tier } = await handleSubscriptionCreated(
+    payload,
+    userId,
+  );
+
+  const email = getEmailFromPremium(updatedPremium);
+  if (email) {
+    try {
+      await Promise.allSettled([
+        posthogCaptureEvent(email, "Switched premium plan", {
+          ...payload.data.attributes,
+          $set: {
+            premium: true,
+            premiumTier: "subscription",
+            premiumStatus: payload.data.attributes.status,
+          },
+        }),
+        switchedPremiumPlan(email, tier),
+      ]);
+    } catch (error) {
+      logger.error("Error capturing event", {
+        error,
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+async function handleSubscriptionCreated(payload: Payload, userId: string) {
   if (!payload.data.attributes.renews_at)
     throw new Error("No renews_at provided");
 
@@ -155,28 +250,7 @@ async function subscriptionCreated({
     lemonSqueezyVariantId: payload.data.attributes.variant_id,
   });
 
-  const email = getEmailFromPremium(updatedPremium);
-  if (email) {
-    await Promise.allSettled([
-      posthogCaptureEvent(
-        email,
-        payload.data.attributes.status === "on_trial"
-          ? "Premium trial started"
-          : "Upgraded to premium",
-        {
-          ...payload.data.attributes,
-          $set: {
-            premium: true,
-            premiumTier: "subscription",
-            premiumStatus: payload.data.attributes.status,
-          },
-        },
-      ),
-      upgradedToPremium(email, tier),
-    ]);
-  }
-
-  return NextResponse.json({ ok: true });
+  return { updatedPremium, tier };
 }
 
 async function lifetimeOrder({
