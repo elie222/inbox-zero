@@ -315,6 +315,13 @@ function RuleMismatch({
       <div className="mt-4">
         <Label name="ruleId" label="Which rule did you expect it to match?" />
       </div>
+
+      {!rules.length && (
+        <SectionDescription className="mt-2">
+          You haven't created any rules yet!
+        </SectionDescription>
+      )}
+
       <div className="mt-1 flex flex-col gap-1">
         {[{ id: NONE_RULE_ID, name: "None" }, ...rules]
           .filter((rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID))
