@@ -189,7 +189,8 @@ function Content({
   );
 
   if (
-    expectedRule?.runOnThreads &&
+    expectedRule &&
+    !expectedRule.runOnThreads &&
     isReplyInThread(message.id, message.threadId)
   ) {
     return (
