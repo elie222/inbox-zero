@@ -42,7 +42,7 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBeUndefined();
+    expect(result.reason).toBe("Matched static conditions");
   });
 
   it("matches a static domain", async () => {
@@ -56,7 +56,7 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBeUndefined();
+    expect(result.reason).toBe("Matched static conditions");
   });
 
   it("doens't match wrong static domain", async () => {
@@ -93,7 +93,7 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBeUndefined();
+    expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
   });
 
   it("matches a smart category rule", async () => {
@@ -112,7 +112,7 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBeUndefined();
+    expect(result.reason).toBe('Matched category: "category"');
   });
 
   it("matches a smart category rule with exclude", async () => {
@@ -161,7 +161,9 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBeUndefined();
+    expect(result.reason).toBe(
+      `Matched group item: "FROM: test@example.com", Matched category: "category"`,
+    );
   });
 
   it("matches a rule with multiple conditions AND (category and AI)", async () => {
@@ -265,7 +267,7 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBeUndefined();
+    expect(result.reason).toBe('Matched category: "category"');
   });
 });
 

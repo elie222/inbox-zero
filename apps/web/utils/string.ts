@@ -25,13 +25,14 @@ export function removeExcessiveWhitespace(str: string) {
 }
 
 export function generalizeSubject(subject = "") {
-  // replace numbers to make subject more generic
-  // also removes [], () ,and words that start with #
-  const regex =
-    /(\b\d+(\.\d+)?(-\d+(\.\d+)?)?(\b|[A-Za-z])|\[.*?\]|\(.*?\)|\b#\w+)/g;
-
-  // remove any words that contain numbers
-  const regexRemoveNumberWords = /\b\w*\d\w*\b/g;
-
-  return subject.replaceAll(regexRemoveNumberWords, "").replaceAll(regex, "");
+  return (
+    subject
+      // Remove content in parentheses
+      .replace(/\([^)]*\)/g, "")
+      // Remove numbers and IDs
+      .replace(/(?:#\d+|\b\d+\b)/g, "")
+      // Clean up extra whitespace
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
