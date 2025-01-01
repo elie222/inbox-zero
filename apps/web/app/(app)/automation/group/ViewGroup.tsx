@@ -129,7 +129,12 @@ export function ViewGroup({
                 <Badge>Rule: {group.rule.name || group.rule.id}</Badge>
               </Link>
             ) : (
-              <Button variant="outline" asChild className="w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="w-full sm:w-auto"
+              >
                 <Link
                   href={`/automation/rule/create?groupId=${groupId}&type=${RuleType.GROUP}`}
                 >
