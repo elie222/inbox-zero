@@ -10,6 +10,7 @@ export function TokenCheck() {
 
   useEffect(() => {
     if (session?.error === "RefreshAccessTokenError") {
+      console.log("Token check error");
       router.replace("/login?error=RefreshAccessTokenError");
     }
   }, [session, router]);
