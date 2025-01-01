@@ -23,9 +23,9 @@ export const SCOPES = [
     : []),
 ];
 
-export const getAuthOptions: (options?: {
-  consent: boolean;
-}) => NextAuthConfig = (options) => ({
+const getAuthOptions: (options?: { consent: boolean }) => NextAuthConfig = (
+  options,
+) => ({
   // debug: true,
   providers: [
     GoogleProvider({
@@ -187,7 +187,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
     });
     return {
       ...token,
-      error: "RefreshAccessTokenError",
+      error: "RequiresReconsent",
     };
   }
 
@@ -305,6 +305,9 @@ declare module "@auth/core/jwt" {
     access_token?: string;
     expires_at?: number;
     refresh_token?: string;
-    error?: "RefreshAccessTokenError" | "MissingAccountError";
+    error?:
+      | "RefreshAccessTokenError"
+      | "MissingAccountError"
+      | "RequiresReconsent";
   }
 }
