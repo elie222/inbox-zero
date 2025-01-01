@@ -58,7 +58,7 @@ export async function executeAct({
 
   for (const action of executedRule.actionItems) {
     try {
-      await runActionFunction(gmail, email, action, userEmail);
+      await runActionFunction(gmail, email, action, userEmail, executedRule);
     } catch (error) {
       await prisma.executedRule.update({
         where: { id: executedRule.id },

@@ -1,17 +1,24 @@
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
+import type { ExecutedRule } from "@prisma/client";
 
 const logger = createScopedLogger("webhook");
 
 type WebhookPayload = {
-  threadId: string;
-  messageId: string;
-  subject: string;
-  from: string;
-  cc?: string;
-  bcc?: string;
-  headerMessageId: string;
+  email: {
+    threadId: string;
+    messageId: string;
+    subject: string;
+    from: string;
+    cc?: string;
+    bcc?: string;
+    headerMessageId: string;
+  };
+  executedRule: Pick<
+    ExecutedRule,
+    "id" | "ruleId" | "reason" | "automated" | "createdAt"
+  >;
 };
 
 export const callWebhook = async (

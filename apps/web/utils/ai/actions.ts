@@ -1,6 +1,10 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
-import { ActionType, type ExecutedAction } from "@prisma/client";
+import {
+  ActionType,
+  type ExecutedRule,
+  type ExecutedAction,
+} from "@prisma/client";
 import type { PartialRecord } from "@/utils/types";
 import {
   archiveThread,
@@ -43,6 +47,7 @@ type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (
   email: EmailForAction,
   args: T,
   userEmail: string,
+  executedRule: ExecutedRule,
 ) => Promise<any>;
 
 export type Properties = PartialRecord<
@@ -393,15 +398,25 @@ const call_webhook: ActionFunction<any> = async (
   email: EmailForAction,
   args: { url: string },
   userEmail: string,
+  executedRule: ExecutedRule,
 ) => {
   await callWebhook(userEmail, args.url, {
-    threadId: email.threadId,
-    messageId: email.messageId,
-    subject: email.subject,
-    from: email.from,
-    cc: email.cc,
-    bcc: email.bcc,
-    headerMessageId: email.headerMessageId,
+    email: {
+      threadId: email.threadId,
+      messageId: email.messageId,
+      subject: email.subject,
+      from: email.from,
+      cc: email.cc,
+      bcc: email.bcc,
+      headerMessageId: email.headerMessageId,
+    },
+    executedRule: {
+      id: executedRule.id,
+      ruleId: executedRule.ruleId,
+      reason: executedRule.reason,
+      automated: executedRule.automated,
+      createdAt: executedRule.createdAt,
+    },
   });
 };
 
@@ -410,6 +425,7 @@ export const runActionFunction = async (
   email: EmailForAction,
   action: ActionItem,
   userEmail: string,
+  executedRule: ExecutedRule,
 ) => {
   logger.info("Running action", {
     actionType: action.type,
@@ -421,21 +437,21 @@ export const runActionFunction = async (
   const { type, ...args } = action;
   switch (type) {
     case ActionType.ARCHIVE:
-      return archive(gmail, email, args, userEmail);
+      return archive(gmail, email, args, userEmail, executedRule);
     case ActionType.LABEL:
-      return label(gmail, email, args, userEmail);
+      return label(gmail, email, args, userEmail, executedRule);
     case ActionType.DRAFT_EMAIL:
-      return draft(gmail, email, args, userEmail);
+      return draft(gmail, email, args, userEmail, executedRule);
     case ActionType.REPLY:
-      return reply(gmail, email, args, userEmail);
+      return reply(gmail, email, args, userEmail, executedRule);
     case ActionType.SEND_EMAIL:
-      return send_email(gmail, email, args, userEmail);
+      return send_email(gmail, email, args, userEmail, executedRule);
     case ActionType.FORWARD:
-      return forward(gmail, email, args, userEmail);
+      return forward(gmail, email, args, userEmail, executedRule);
     case ActionType.MARK_SPAM:
-      return mark_spam(gmail, email, args, userEmail);
+      return mark_spam(gmail, email, args, userEmail, executedRule);
     case ActionType.CALL_WEBHOOK:
-      return call_webhook(gmail, email, args, userEmail);
+      return call_webhook(gmail, email, args, userEmail, executedRule);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
