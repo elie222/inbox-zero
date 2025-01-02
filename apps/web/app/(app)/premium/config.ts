@@ -97,8 +97,10 @@ const basicTier = {
   cta: "Try free for 7 days",
 };
 
+export const businessTierName = "AI Assistant";
+
 const businessTier = {
-  name: "AI Assistant",
+  name: businessTierName,
   tiers: {
     monthly: PremiumTier.BUSINESS_MONTHLY,
     annually: PremiumTier.BUSINESS_ANNUALLY,
@@ -133,7 +135,7 @@ const businessTier = {
 };
 
 export const businessSingleTier: Tier = {
-  name: "AI Assistant",
+  name: businessTierName,
   tiers: {
     monthly: PremiumTier.BUSINESS_MONTHLY,
     annually: PremiumTier.BUSINESS_ANNUALLY,

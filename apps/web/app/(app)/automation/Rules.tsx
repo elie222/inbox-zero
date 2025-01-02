@@ -60,12 +60,7 @@ export function Rules() {
 
   return (
     <div>
-      {/* only show once a rule has been created */}
-      {hasRules && (
-        <div className="my-2">
-          <PremiumAlertWithData />
-        </div>
-      )}
+      <PremiumAlertWithData className="my-2" />
 
       <Card>
         <LoadingContent loading={isLoading} error={error}>
