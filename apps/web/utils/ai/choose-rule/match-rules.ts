@@ -14,6 +14,9 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("match-rules");
 
 // if we find a match, return it
 // if we don't find a match, return the potential matches
@@ -177,7 +180,7 @@ export function matchesStaticRule(
     try {
       return new RegExp(pattern).test(text);
     } catch (error) {
-      console.error(`Invalid regex pattern: ${pattern}`, error);
+      logger.error("Invalid regex pattern", { pattern, error });
       return false;
     }
   };
