@@ -21,7 +21,22 @@ export const checkPermissionsAction = withActionInstrumentation(
         token.token,
       );
       if (error) return { error };
-      return { hasAllPermissions };
+
+      if (!hasAllPermissions) return { hasAllPermissions: false };
+
+      // Check for refresh token
+      const user = await prisma.account.findFirst({
+        where: {
+          userId: session.user.id,
+          provider: "google",
+        },
+        select: { refresh_token: true },
+      });
+
+      if (!user?.refresh_token)
+        return { hasRefreshToken: false, hasAllPermissions };
+
+      return { hasRefreshToken: true, hasAllPermissions };
     } catch (error) {
       return { error: "Failed to check permissions" };
     }

@@ -41,7 +41,7 @@ export default async function AuthenticationPage({
           </Suspense>
         </div>
 
-        {searchParams?.error && (
+        {searchParams?.error && searchParams?.error !== "RequiresReconsent" && (
           <>
             <AlertBasic
               variant="destructive"

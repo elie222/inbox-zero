@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { logOut } from "@/utils/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
 
-export default function PermissionsErrorPage() {
+export default function PermissionsConsentPage() {
   return (
     <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
       <PageHeading className="text-center">
-        We are missing permissions 😔
+        We are missing consent 😔
       </PageHeading>
 
       <TypographyP className="mx-auto mt-4 max-w-prose text-center">
