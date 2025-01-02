@@ -42,18 +42,18 @@ async function findPotentialMatchingRules({
   // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   // only load once and only when needed
-  async function getGroups(rule: RuleWithActionsAndCategories) {
-    if (!groups) groups = await getGroupsWithRules(rule.userId);
+  async function getGroups(userId: string) {
+    if (!groups) groups = await getGroupsWithRules(userId);
     return groups;
   }
 
   // sender singleton
   let sender: { categoryId: string | null } | null | undefined;
-  async function getSender(rule: RuleWithActionsAndCategories) {
+  async function getSender(userId: string) {
     if (typeof sender === "undefined") {
       sender = await prisma.newsletter.findUnique({
         where: {
-          email_userId: { email: message.headers.from, userId: rule.userId },
+          email_userId: { email: message.headers.from, userId },
         },
         select: { categoryId: true },
       });
@@ -89,7 +89,8 @@ async function findPotentialMatchingRules({
     // group
     if (conditionTypes.GROUP) {
       const { matchingItem } = await matchesGroupRule(
-        await getGroups(rule),
+        rule,
+        await getGroups(rule.userId),
         message,
       );
       if (matchingItem) {
@@ -111,7 +112,10 @@ async function findPotentialMatchingRules({
 
     // category
     if (conditionTypes.CATEGORY) {
-      const match = await matchesCategoryRule(rule, await getSender(rule));
+      const match = await matchesCategoryRule(
+        rule,
+        await getSender(rule.userId),
+      );
       if (match) {
         unmatchedConditions.delete("CATEGORY");
         if (typeof match !== "boolean")
@@ -189,10 +193,13 @@ export function matchesStaticRule(
 }
 
 async function matchesGroupRule(
+  rule: RuleWithActionsAndCategories,
   groups: Awaited<ReturnType<typeof getGroupsWithRules>>,
   message: ParsedMessage,
 ) {
-  return findMatchingGroup(message, groups);
+  const ruleGroup = groups.find((g) => g.rule?.id === rule.id);
+  if (!ruleGroup) return { group: null, matchingItem: null };
+  return findMatchingGroup(message, ruleGroup);
 }
 
 async function matchesCategoryRule(

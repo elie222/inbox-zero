@@ -13,14 +13,10 @@ export async function getGroupsWithRules(userId: string) {
 
 export function findMatchingGroup(
   message: ParsedMessage,
-  groups: GroupsWithRules,
+  group: GroupsWithRules[number],
 ) {
-  for (const group of groups) {
-    const matchingItem = findMatchingGroupItem(message.headers, group.items);
-    if (matchingItem) {
-      return { group, matchingItem };
-    }
-  }
+  const matchingItem = findMatchingGroupItem(message.headers, group.items);
+  if (matchingItem) return { group, matchingItem };
   return { group: null, matchingItem: null };
 }
 

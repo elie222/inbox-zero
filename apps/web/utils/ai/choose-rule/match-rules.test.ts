@@ -74,16 +74,18 @@ describe("findMatchingRule", () => {
   });
 
   it("matches a group rule", async () => {
+    const rule = getRule({ groupId: "group1" });
+
     prisma.group.findMany.mockResolvedValue([
       getGroup({
         id: "group1",
         items: [
           getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
         ],
+        rule,
       }),
     ]);
 
-    const rule = getRule({ groupId: "group1" });
     const rules = [rule];
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
@@ -135,23 +137,29 @@ describe("findMatchingRule", () => {
   });
 
   it("matches a rule with multiple conditions AND (category and group)", async () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      categoryFilters: [getCategory({ id: "category1" })],
+      groupId: "group1",
+    });
+
     prisma.group.findMany.mockResolvedValue([
       getGroup({
         id: "group1",
         items: [
-          getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
+          getGroupItem({
+            groupId: "group1",
+            type: GroupItemType.FROM,
+            value: "test@example.com",
+          }),
         ],
+        rule,
       }),
     ]);
     prisma.newsletter.findUnique.mockResolvedValue(
       getNewsletter({ categoryId: "category1" }),
     );
 
-    const rule = getRule({
-      conditionalOperator: LogicalOperator.AND,
-      categoryFilters: [getCategory({ id: "category1" })],
-      groupId: "group1",
-    });
     const rules = [rule];
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
@@ -269,6 +277,130 @@ describe("findMatchingRule", () => {
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe('Matched category: "category"');
   });
+
+  it("should not match when item matches but is in wrong group", async () => {
+    const rule = getRule({
+      groupId: "correctGroup", // Rule specifically looks for correctGroup
+    });
+
+    // Set up two groups - one referenced by the rule, one not
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "wrongGroup",
+        items: [
+          getGroupItem({
+            groupId: "wrongGroup",
+            type: GroupItemType.FROM,
+            value: "test@example.com",
+          }),
+        ],
+      }),
+      getGroup({
+        id: "correctGroup",
+        items: [
+          getGroupItem({
+            groupId: "correctGroup",
+            type: GroupItemType.FROM,
+            value: "wrong@example.com",
+          }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }), // This matches item in wrongGroup
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule).toBeUndefined();
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("should match only when item is in the correct group", async () => {
+    const rule = getRule({ groupId: "correctGroup" });
+
+    // Set up two groups with similar items
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "correctGroup",
+        items: [
+          getGroupItem({
+            groupId: "correctGroup",
+            type: GroupItemType.FROM,
+            value: "test@example.com",
+          }),
+        ],
+        rule,
+      }),
+      getGroup({
+        id: "otherGroup",
+        items: [
+          getGroupItem({
+            groupId: "otherGroup",
+            type: GroupItemType.FROM,
+            value: "test@example.com", // Same value, different group
+          }),
+        ],
+      }),
+    ]);
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toContain("test@example.com");
+  });
+
+  it("should handle multiple rules with different group conditions correctly", async () => {
+    const rule1 = getRule({ id: "rule1", groupId: "group1" });
+    const rule2 = getRule({ id: "rule2", groupId: "group2" });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group1",
+        items: [
+          getGroupItem({
+            groupId: "group1",
+            type: GroupItemType.FROM,
+            value: "test@example.com",
+          }),
+        ],
+        rule: rule1,
+      }),
+      getGroup({
+        id: "group2",
+        items: [
+          getGroupItem({
+            groupId: "group2",
+            type: GroupItemType.FROM,
+            value: "test@example.com",
+          }),
+        ],
+        rule: rule2,
+      }),
+    ]);
+
+    const rules = [rule1, rule2];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const user = getUser();
+
+    const result = await findMatchingRule(rules, message, user);
+
+    // Should match the first rule only
+    expect(result.rule?.id).toBe("rule1");
+    expect(result.reason).toContain("test@example.com");
+  });
 });
 
 function getRule(
@@ -329,8 +461,10 @@ function getCategory(overrides: Partial<Category> = {}): Category {
 }
 
 function getGroup(
-  overrides: Partial<Prisma.GroupGetPayload<{ include: { items: true } }>> = {},
-): Prisma.GroupGetPayload<{ include: { items: true } }> {
+  overrides: Partial<
+    Prisma.GroupGetPayload<{ include: { items: true; rule: true } }>
+  > = {},
+): Prisma.GroupGetPayload<{ include: { items: true; rule: true } }> {
   return {
     id: "group1",
     name: "group",
@@ -339,6 +473,7 @@ function getGroup(
     userId: "userId",
     prompt: null,
     items: [],
+    rule: null,
     ...overrides,
   };
 }
