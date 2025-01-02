@@ -9,7 +9,7 @@ export default function PermissionsErrorPage() {
   return (
     <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
       <PageHeading className="text-center">
-        We are missing permissions 😔
+        We are missing consent 😔
       </PageHeading>
 
       <TypographyP className="mx-auto mt-4 max-w-prose text-center">

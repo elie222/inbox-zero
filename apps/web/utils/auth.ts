@@ -23,9 +23,9 @@ export const SCOPES = [
     : []),
 ];
 
-const getAuthOptions: (options?: { consent: boolean }) => NextAuthConfig = (
-  options,
-) => ({
+export const getAuthOptions: (options?: {
+  consent: boolean;
+}) => NextAuthConfig = (options) => ({
   // debug: true,
   providers: [
     GoogleProvider({
@@ -45,7 +45,7 @@ const getAuthOptions: (options?: { consent: boolean }) => NextAuthConfig = (
       },
     }),
   ],
-  adapter: PrismaAdapter(prisma) as any, // TODO
+  adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   // based on: https://authjs.dev/guides/basics/refresh-token-rotation
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
@@ -158,8 +158,6 @@ const getAuthOptions: (options?: { consent: boolean }) => NextAuthConfig = (
   },
 });
 
-export const authOptions = getAuthOptions();
-
 /**
  * Takes a token, and returns a new token with updated
  * `access_token` and `expires_at`. If an error occurs,
@@ -262,11 +260,23 @@ export async function saveRefreshToken(
   },
   account: Pick<Account, "refresh_token" | "providerAccountId">,
 ) {
+  const refreshToken = tokens.refresh_token ?? account.refresh_token;
+
+  if (!refreshToken) {
+    logger.error("Attempted to save null refresh token", {
+      providerAccountId: account.providerAccountId,
+    });
+    captureException("Cannot save null refresh token", {
+      extra: { providerAccountId: account.providerAccountId },
+    });
+    return;
+  }
+
   return await prisma.account.update({
     data: {
       access_token: tokens.access_token,
       expires_at: tokens.expires_at,
-      refresh_token: tokens.refresh_token ?? account.refresh_token,
+      refresh_token: refreshToken,
     },
     where: {
       provider_providerAccountId: {
