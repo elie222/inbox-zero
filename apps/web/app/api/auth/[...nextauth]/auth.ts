@@ -4,7 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("Auth API");
 
-const authOptions = getAuthOptions();
+const defaultAuthOptions = getAuthOptions();
 
 export const {
   handlers: { GET, POST },
@@ -19,5 +19,5 @@ export const {
     }
   }
 
-  return authOptions;
+  return defaultAuthOptions;
 });
