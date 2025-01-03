@@ -115,7 +115,7 @@ function RulesPromptForm({
           throw new Error(result.error);
         }
 
-        router.push("/automation?tab=rules");
+        router.push("/automation?tab=test");
         mutate();
         setIsSubmitting(false);
 
