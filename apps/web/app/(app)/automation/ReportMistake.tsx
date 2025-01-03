@@ -199,36 +199,43 @@ function Content({
     );
   }
 
-  if (expectedRule) {
-    if (isGroupRule(expectedRule)) {
-      return (
-        <GroupMismatchMessage
-          expectedRuleId={expectedRule.id}
-          onBack={onBack}
-        />
-      );
-    }
+  const isExpectedGroupRule = !!(expectedRule && isGroupRule(expectedRule));
+  const isActualGroupRule = !!(actualRule && isGroupRule(actualRule));
 
-    if (isStaticRule(expectedRule)) {
-      return (
-        <StaticMismatchMessage
-          expectedRuleId={expectedRule.id}
-          onBack={onBack}
-        />
-      );
-    }
+  if (isExpectedGroupRule || isActualGroupRule) {
+    return (
+      <GroupMismatchMessage
+        ruleId={expectedRule?.id || actualRule?.id!}
+        isExpectedGroupRule={isExpectedGroupRule}
+        onBack={onBack}
+      />
+    );
+  }
 
-    if (
-      !expectedRule.runOnThreads &&
-      isReplyInThread(message.id, message.threadId)
-    ) {
-      return (
-        <ThreadSettingsMismatchMessage
-          expectedRuleId={expectedRule.id}
-          onBack={onBack}
-        />
-      );
-    }
+  const isExpectedStaticRule = !!(expectedRule && isStaticRule(expectedRule));
+  const isActualStaticRule = !!(actualRule && isStaticRule(actualRule));
+
+  if (isExpectedStaticRule || isActualStaticRule) {
+    return (
+      <StaticMismatchMessage
+        ruleId={expectedRule?.id || actualRule?.id!}
+        isExpectedStaticRule={isExpectedStaticRule}
+        onBack={onBack}
+      />
+    );
+  }
+
+  if (
+    expectedRule &&
+    !expectedRule.runOnThreads &&
+    isReplyInThread(message.id, message.threadId)
+  ) {
+    return (
+      <ThreadSettingsMismatchMessage
+        expectedRuleId={expectedRule.id}
+        onBack={onBack}
+      />
+    );
   }
 
   if (view === "ai-fix") {
@@ -385,21 +392,26 @@ function ThreadSettingsMismatchMessage({
 
 // TODO: Could auto fix the group for the user
 function GroupMismatchMessage({
-  expectedRuleId,
+  ruleId,
+  isExpectedGroupRule,
   onBack,
 }: {
-  expectedRuleId: string;
+  ruleId: string;
+  isExpectedGroupRule: boolean;
   onBack: () => void;
 }) {
   return (
     <div>
       <SectionDescription>
-        The expected rule is a group rule, but this message didn't match any of
-        the group items. You can edit the group to include this email.
+        {isExpectedGroupRule
+          ? // Case 1: User expected this group rule to match, but it didn't
+            "The rule you expected it to match is a group rule, but this message didn't match any of the group items. You can edit the group to include this email."
+          : // Case 2: User didn't expect this group rule to match, but it did
+            "This email matched because it's part of a group rule. To prevent it from matching, you'll need to remove it from the group or adjust the group settings."}
       </SectionDescription>
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={expectedRuleId} />
+        <EditRuleButton ruleId={ruleId} />
       </div>
     </div>
   );
@@ -407,21 +419,26 @@ function GroupMismatchMessage({
 
 // TODO: Could auto fix the static rule for the user
 function StaticMismatchMessage({
-  expectedRuleId,
+  ruleId,
+  isExpectedStaticRule,
   onBack,
 }: {
-  expectedRuleId: string;
+  ruleId: string;
+  isExpectedStaticRule: boolean;
   onBack: () => void;
 }) {
   return (
     <div>
       <SectionDescription>
-        The rule you expected it to match is set to match static conditions, but
-        this message doesn't match any of the static conditions.
+        {isExpectedStaticRule
+          ? // Case 1: User expected this static rule to match, but it didn't
+            " The rule you expected it to match is set to match static conditions, but this message doesn't match any of the static conditions."
+          : // Case 2: User didn't expect this static rule to match, but it did
+            "This email matched because of static conditions in the rule. To prevent it from matching, you'll need to remove or adjust the matching conditions in the rule settings."}
       </SectionDescription>
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={expectedRuleId} />
+        <EditRuleButton ruleId={ruleId} />
       </div>
     </div>
   );
