@@ -57,9 +57,9 @@ export function BulkRunRules() {
               </SectionDescription>
 
               {!!queue.size && (
-                <SectionDescription className="mt-2">
-                  Processing progress: {totalThreads - queue.size}/
-                  {totalThreads} emails completed
+                <SectionDescription className="mt-2 rounded-md border border-green-200 bg-green-50 px-2 py-1.5">
+                  Progress: {totalThreads - queue.size}/{totalThreads} emails
+                  completed
                 </SectionDescription>
               )}
               <div className="mt-4">
