@@ -22,6 +22,8 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
 import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
+import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
+import type { ParsedMessage } from "@/utils/types";
 
 export function EmailCell({
   from,
@@ -61,43 +63,48 @@ export function EmailCell({
 export function RuleCell({
   rule,
   reason,
+  message,
 }: {
   rule: PendingExecutedRules["executedRules"][number]["rule"];
   reason?: string | null;
+  message: ParsedMessage;
 }) {
   if (!rule) return null;
 
   return (
-    <HoverCard
-      className="w-80"
-      content={
-        <div>
-          <div className="flex justify-between font-medium">
-            {rule.name}
-            <Badge color="blue">{conditionTypesToString(rule)}</Badge>
-          </div>
-          <div className="mt-2">{conditionsToString(rule)}</div>
-          <div className="mt-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/automation/rule/${rule.id}`}>View</Link>
-            </Button>
-          </div>
-          {!!reason && (
-            <div className="mt-4 space-y-2">
-              <div className="font-medium">
-                AI reason for choosing this rule:
-              </div>
-              <MessageText>{reason}</MessageText>
+    <div className="flex gap-2">
+      <HoverCard
+        className="w-80"
+        content={
+          <div>
+            <div className="flex justify-between font-medium">
+              {rule.name}
+              <Badge color="blue">{conditionTypesToString(rule)}</Badge>
             </div>
-          )}
-        </div>
-      }
-    >
-      <Badge color="green">
-        {rule.name}
-        <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
-      </Badge>
-    </HoverCard>
+            <div className="mt-2">{conditionsToString(rule)}</div>
+            <div className="mt-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/automation/rule/${rule.id}`}>View</Link>
+              </Button>
+            </div>
+            {!!reason && (
+              <div className="mt-4 space-y-2">
+                <div className="font-medium">
+                  AI reason for choosing this rule:
+                </div>
+                <MessageText>{reason}</MessageText>
+              </div>
+            )}
+          </div>
+        }
+      >
+        <Badge color="green">
+          {rule.name}
+          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+        </Badge>
+      </HoverCard>
+      <ReportMistake result={{ rule, reason }} message={message} />
+    </div>
   );
 }
 

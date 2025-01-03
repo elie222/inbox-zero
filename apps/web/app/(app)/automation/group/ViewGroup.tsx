@@ -133,7 +133,7 @@ export function ViewGroup({
                 variant="outline"
                 size="sm"
                 asChild
-                className="w-full sm:w-auto"
+                className="mr-4 w-full sm:w-auto"
               >
                 <Link
                   href={`/automation/rule/create?groupId=${groupId}&type=${RuleType.GROUP}`}
