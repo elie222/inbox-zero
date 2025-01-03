@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
 import { env } from "@/env";
+import Image from "next/image";
 
 const userNavigation = [
   ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD
@@ -83,9 +84,10 @@ function ProfileDropdown() {
         <MenuButton className="-m-1.5 flex items-center p-1.5">
           <span className="sr-only">Open user menu</span>
           {session.user.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              className="h-8 w-8 rounded-full bg-gray-50"
+            <Image
+              width={32}
+              height={32}
+              className="rounded-full bg-gray-50"
               src={session.user.image}
               alt="Profile"
             />
