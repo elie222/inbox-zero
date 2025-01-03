@@ -35,8 +35,8 @@ export default async function AutomationPage() {
               <TabsTrigger value="prompt">Prompt</TabsTrigger>
               <TabsTrigger value="rules">Rules</TabsTrigger>
               <TabsTrigger value="test">Test</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="groups">Groups</TabsTrigger>
             </TabsList>
           </div>
@@ -62,12 +62,6 @@ export default async function AutomationPage() {
         <TabsContent value="rules" className="content-container mb-10">
           <Rules />
         </TabsContent>
-        <TabsContent value="pending" className="content-container mb-10">
-          <Pending />
-        </TabsContent>
-        <TabsContent value="history" className="content-container mb-10">
-          <History />
-        </TabsContent>
         <TabsContent value="test" className="content-container mb-10">
           <Card>
             <CardHeader>
@@ -79,6 +73,12 @@ export default async function AutomationPage() {
             </CardHeader>
             <TestRulesContent />
           </Card>
+        </TabsContent>
+        <TabsContent value="history" className="content-container mb-10">
+          <History />
+        </TabsContent>
+        <TabsContent value="pending" className="content-container mb-10">
+          <Pending />
         </TabsContent>
         <TabsContent value="groups" className="content-container mb-10">
           <Groups />
