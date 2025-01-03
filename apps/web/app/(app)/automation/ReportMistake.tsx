@@ -43,7 +43,7 @@ import { SectionDescription } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
 import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
 import { isReplyInThread } from "@/utils/thread";
-import { isAIRule } from "@/utils/condition";
+import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { Loading } from "@/components/Loading";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
@@ -118,21 +118,19 @@ function Content({
     [rules, expectedRuleId],
   );
 
-  const [view, setView] = useState<ReportMistakeView>("select-expected-rule");
-  const [_viewStack, setViewStack] = useState<ReportMistakeView[]>([
+  const [viewStack, setViewStack] = useState<ReportMistakeView[]>([
     "select-expected-rule",
   ]);
+  const view = useMemo(() => viewStack[viewStack.length - 1], [viewStack]);
 
   const onSetView = useCallback((newView: ReportMistakeView) => {
     setViewStack((stack) => [...stack, newView]);
-    setView(newView);
   }, []);
 
   const onBack = useCallback(() => {
     setViewStack((stack) => {
       if (stack.length <= 1) return stack;
       const newStack = stack.slice(0, -1);
-      setView(newStack[newStack.length - 1]);
       return newStack;
     });
   }, []);
@@ -141,11 +139,14 @@ function Content({
     async (expectedRuleId: string | null) => {
       setExpectedRuleId(expectedRuleId);
 
+      const expectedRule = rules.find((rule) => rule.id === expectedRuleId);
+
       // if AI rule, then use AI to suggest a fix
-      if (
+      const isEitherAIRule =
         (expectedRule && isAIRule(expectedRule)) ||
-        (actualRule && isAIRule(actualRule))
-      ) {
+        (actualRule && isAIRule(actualRule));
+
+      if (isEitherAIRule) {
         onSetView("ai-fix");
         setLoadingAiFix(true);
         const response = await reportAiMistakeAction({
@@ -185,57 +186,78 @@ function Content({
         onSetView("manual-fix");
       }
     },
-    [message, result?.rule?.id, onSetView, expectedRule, actualRule],
+    [message, result?.rule?.id, onSetView, actualRule, rules],
   );
 
-  if (
-    expectedRule &&
-    !expectedRule.runOnThreads &&
-    isReplyInThread(message.id, message.threadId)
-  ) {
+  if (view === "select-expected-rule") {
     return (
-      <ThreadSettingsMismatchMessage
-        expectedRuleId={expectedRule.id}
+      <RuleMismatch
+        result={result}
+        onSelectExpectedRuleId={onSelectExpectedRule}
+        rules={rules}
+      />
+    );
+  }
+
+  if (expectedRule) {
+    if (isGroupRule(expectedRule)) {
+      return (
+        <GroupMismatchMessage
+          expectedRuleId={expectedRule.id}
+          onBack={onBack}
+        />
+      );
+    }
+
+    if (isStaticRule(expectedRule)) {
+      return (
+        <StaticMismatchMessage
+          expectedRuleId={expectedRule.id}
+          onBack={onBack}
+        />
+      );
+    }
+
+    if (
+      !expectedRule.runOnThreads &&
+      isReplyInThread(message.id, message.threadId)
+    ) {
+      return (
+        <ThreadSettingsMismatchMessage
+          expectedRuleId={expectedRule.id}
+          onBack={onBack}
+        />
+      );
+    }
+  }
+
+  if (view === "ai-fix") {
+    return (
+      <AIFixView
+        loadingAiFix={loadingAiFix}
+        fixedInstructions={fixedInstructions ?? null}
+        fixedInstructionsRule={fixedInstructionsRule ?? null}
+        messageId={message.id}
+        onBack={onBack}
+        onReject={() => onSetView("manual-fix")}
+      />
+    );
+  }
+
+  if (view === "manual-fix") {
+    return (
+      <ManualFixView
+        actualRule={actualRule}
+        expectedRule={expectedRule}
+        message={message}
+        result={result}
         onBack={onBack}
       />
     );
   }
 
-  switch (view) {
-    case "select-expected-rule":
-      return (
-        <RuleMismatch
-          result={result}
-          onSelectExpectedRuleId={onSelectExpectedRule}
-          rules={rules}
-        />
-      );
-    case "ai-fix":
-      return (
-        <AIFixView
-          loadingAiFix={loadingAiFix}
-          fixedInstructions={fixedInstructions ?? null}
-          fixedInstructionsRule={fixedInstructionsRule ?? null}
-          messageId={message.id}
-          onBack={onBack}
-          onReject={() => onSetView("manual-fix")}
-        />
-      );
-    case "manual-fix":
-      return (
-        <ManualFixView
-          actualRule={actualRule}
-          expectedRule={expectedRule}
-          message={message}
-          result={result}
-          onBack={onBack}
-        />
-      );
-    default:
-      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
-      const exhaustiveCheck: never = view;
-      return exhaustiveCheck;
-  }
+  const exhaustiveCheck: never = view;
+  return exhaustiveCheck;
 }
 
 function AIFixView({
@@ -352,6 +374,50 @@ function ThreadSettingsMismatchMessage({
       <SectionDescription>
         This rule didn't match because the message is part of a thread, but this
         rule is set to not run on threads.
+      </SectionDescription>
+      <div className="mt-2 flex gap-2">
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={expectedRuleId} />
+      </div>
+    </div>
+  );
+}
+
+// TODO: Could auto fix the group for the user
+function GroupMismatchMessage({
+  expectedRuleId,
+  onBack,
+}: {
+  expectedRuleId: string;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      <SectionDescription>
+        The expected rule is a group rule, but this message didn't match any of
+        the group items. You can edit the group to include this email.
+      </SectionDescription>
+      <div className="mt-2 flex gap-2">
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={expectedRuleId} />
+      </div>
+    </div>
+  );
+}
+
+// TODO: Could auto fix the static rule for the user
+function StaticMismatchMessage({
+  expectedRuleId,
+  onBack,
+}: {
+  expectedRuleId: string;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      <SectionDescription>
+        The rule you expected it to match is set to match static conditions, but
+        this message doesn't match any of the static conditions.
       </SectionDescription>
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
@@ -685,7 +751,7 @@ function RerunTestButton({ messageId }: { messageId: string }) {
 
 function BackButton({ onBack }: { onBack: () => void }) {
   return (
-    <Button variant="outline" onClick={onBack}>
+    <Button variant="outline" size="sm" onClick={onBack}>
       <ArrowLeftIcon className="mr-2 size-4" />
       Back
     </Button>
