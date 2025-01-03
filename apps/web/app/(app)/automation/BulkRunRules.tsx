@@ -52,9 +52,8 @@ export function BulkRunRules() {
           {data && (
             <>
               <SectionDescription className="mt-2">
-                This feature applies AI processing to emails currently in your
-                inbox that haven't been handled by AI yet. Select a date range
-                to define which emails to process.
+                This runs your rules on emails currently in your inbox (that
+                have not been previously processed).
               </SectionDescription>
 
               {!!queue.size && (
@@ -113,14 +112,6 @@ export function BulkRunRules() {
                   )}
                 </LoadingContent>
               </div>
-
-              <SectionDescription className="mt-4">
-                Note:
-                <ul className="mt-1 list-inside list-disc">
-                  <li>This only affects emails in your inbox.</li>
-                  <li>Emails already processed by AI will be skipped.</li>
-                </ul>
-              </SectionDescription>
 
               <SectionDescription className="mt-4">
                 To process specific emails:
