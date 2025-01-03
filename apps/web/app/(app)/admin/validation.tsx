@@ -21,6 +21,7 @@ export const changePremiumStatusSchema = z.object({
     PremiumTier.COPILOT_MONTHLY,
     PremiumTier.LIFETIME,
   ]),
+  count: z.number().default(1),
   upgrade: z.boolean(),
 });
 export type ChangePremiumStatusOptions = z.infer<
