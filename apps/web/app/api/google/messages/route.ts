@@ -10,7 +10,13 @@ import { isDefined } from "@/utils/types";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
-async function getMessages(query?: string | null) {
+async function getMessages({
+  query,
+  pageToken,
+}: {
+  query?: string | null;
+  pageToken?: string | null;
+}) {
   const session = await auth();
   if (!session?.user.email) throw new SafeError("Not authenticated");
 
@@ -19,6 +25,7 @@ async function getMessages(query?: string | null) {
   const messages = await gmail.users.messages.list({
     userId: "me",
     maxResults: 20,
+    pageToken: pageToken ?? undefined,
     q: query?.trim(),
   });
 
@@ -38,13 +45,20 @@ async function getMessages(query?: string | null) {
     (message) => !message.headers.from.includes(session.user.email!),
   );
 
-  return { messages: incomingMessages };
+  return {
+    messages: incomingMessages,
+    nextPageToken: messages.data.nextPageToken,
+  };
 }
 
 export const GET = withError(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
-  const r = messageQuerySchema.parse({ q: query });
-  const result = await getMessages(r.q);
+  const pageToken = searchParams.get("page");
+  const r = messageQuerySchema.parse({ q: query, pageToken });
+  const result = await getMessages({
+    query: r.q,
+    pageToken: r.pageToken,
+  });
   return NextResponse.json(result);
 });

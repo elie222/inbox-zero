@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, useMemo } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { parseAsBoolean, useQueryState } from "nuqs";
@@ -15,6 +16,7 @@ import {
   PauseIcon,
   EyeIcon,
   ExternalLinkIcon,
+  ChevronsDownIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -44,6 +46,7 @@ import {
   isGroupRule,
   isStaticRule,
 } from "@/utils/condition";
+import { ButtonLoader } from "@/components/Loading";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -73,12 +76,25 @@ export function TestRulesContent() {
     parseAsBoolean.withDefault(false),
   );
 
-  const { data, isLoading, error } = useSWR<MessagesResponse>(
-    `/api/google/messages${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ""}`,
-    {
-      keepPreviousData: true,
-      dedupingInterval: 1_000,
-    },
+  const { data, isLoading, isValidating, error, setSize } =
+    useSWRInfinite<MessagesResponse>((_index, previousPageData) => {
+      const pageToken = previousPageData?.nextPageToken;
+      if (previousPageData && !pageToken) return null;
+
+      const params = new URLSearchParams();
+      if (searchQuery) params.set("q", searchQuery);
+      if (pageToken) params.set("pageToken", pageToken);
+      const paramsString = params.toString();
+      return `/api/google/messages${paramsString ? `?${paramsString}` : ""}`;
+    });
+
+  const onLoadMore = () => {
+    setSize((size) => size + 1);
+  };
+
+  const messages = useMemo(
+    () => data?.flatMap((page) => page.messages) || [],
+    [data],
   );
 
   const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
@@ -119,7 +135,7 @@ export function TestRulesContent() {
   const handleTestAll = async () => {
     handleStart();
 
-    for (const message of data?.messages || []) {
+    for (const message of messages) {
       if (!isTestingAllRef.current) break;
       if (testResults[message.id]) continue;
       await onTest(message);
@@ -177,25 +193,39 @@ export function TestRulesContent() {
       )}
 
       <LoadingContent loading={isLoading} error={error}>
-        {data?.messages.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="p-4 text-center text-sm text-gray-500">
             No emails found
           </div>
         ) : (
-          <Table>
-            <TableBody>
-              {data?.messages.map((message) => (
-                <TestRulesContentRow
-                  key={message.id}
-                  message={message}
-                  userEmail={email!}
-                  isTesting={isTesting[message.id]}
-                  testResult={testResults[message.id]}
-                  onTest={() => onTest(message)}
-                />
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            <Table>
+              <TableBody>
+                {messages.map((message) => (
+                  <TestRulesContentRow
+                    key={message.id}
+                    message={message}
+                    userEmail={email!}
+                    isTesting={isTesting[message.id]}
+                    testResult={testResults[message.id]}
+                    onTest={() => onTest(message)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+
+            <div className="mx-4 mb-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={onLoadMore}
+                loading={isValidating}
+              >
+                {!isValidating && <ChevronsDownIcon className="mr-2 size-4" />}
+                Load More
+              </Button>
+            </div>
+          </>
         )}
       </LoadingContent>
     </div>
