@@ -11,10 +11,7 @@ import {
 } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
-import {
-  runRulesOnMessage,
-  testRulesOnMessage,
-} from "@/utils/ai/choose-rule/run-rules";
+import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import {
@@ -32,8 +29,8 @@ import {
   type ReportAiMistakeBody,
   saveRulesPromptBody,
   type SaveRulesPromptBody,
-  testAiBody,
-  type TestAiBody,
+  runRulesBody,
+  type RunRulesBody,
 } from "@/utils/actions/validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
@@ -50,7 +47,12 @@ const logger = createScopedLogger("ai-rule");
 
 export const runRulesAction = withActionInstrumentation(
   "runRules",
-  async ({ email, force }: { email: EmailForAction; force: boolean }) => {
+  async (unsafeBody: RunRulesBody) => {
+    const { success, data, error } = runRulesBody.safeParse(unsafeBody);
+    if (!success) return { error: error.message };
+
+    const { email, force, isTest } = data;
+
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
     const { gmail, user: u } = sessionResult;
@@ -74,16 +76,18 @@ export const runRulesAction = withActionInstrumentation(
 
     const [gmailMessage, hasExistingRule] = await Promise.all([
       getMessage(email.messageId, gmail, "full"),
-      prisma.executedRule.findUnique({
-        where: {
-          unique_user_thread_message: {
-            userId: user.id,
-            threadId: email.threadId,
-            messageId: email.messageId,
-          },
-        },
-        select: { id: true },
-      }),
+      isTest
+        ? null
+        : prisma.executedRule.findUnique({
+            where: {
+              unique_user_thread_message: {
+                userId: user.id,
+                threadId: email.threadId,
+                messageId: email.messageId,
+              },
+            },
+            select: { id: true },
+          }),
     ]);
 
     if (hasExistingRule && !force) {
@@ -97,50 +101,8 @@ export const runRulesAction = withActionInstrumentation(
 
     const message = parseMessage(gmailMessage);
 
-    await runRulesOnMessage({
-      gmail,
-      message,
-      rules: user.rules,
-      user: { ...user, email: user.email },
-      isTest: false,
-    });
-  },
-);
-
-export const testAiAction = withActionInstrumentation(
-  "testAi",
-  async (unsafeBody: TestAiBody) => {
-    const sessionResult = await getSessionAndGmailClient();
-    if (isActionError(sessionResult)) return sessionResult;
-
-    const { success, data, error } = testAiBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-    const { messageId } = data;
-
-    const { gmail, user: u } = sessionResult;
-
-    const user = await prisma.user.findUnique({
-      where: { id: u.id },
-      select: {
-        id: true,
-        email: true,
-        about: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        rules: {
-          where: { enabled: true },
-          include: { actions: true, categoryFilters: true },
-        },
-      },
-    });
-    if (!user) return { error: "User not found" };
-
-    const gmailMessage = await getMessage(messageId, gmail, "full");
-
-    const message = parseMessage(gmailMessage);
-
-    const result = await testRulesOnMessage({
+    const result = await runRulesOnMessage({
+      isTest,
       gmail,
       message,
       rules: user.rules,
@@ -175,7 +137,8 @@ export const testAiCustomContentAction = withActionInstrumentation(
     });
     if (!user) return { error: "User not found" };
 
-    const result = await testRulesOnMessage({
+    const result = await runRulesOnMessage({
+      isTest: true,
       gmail,
       message: {
         id: "testMessageId",

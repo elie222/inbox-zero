@@ -159,6 +159,22 @@ export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 export const testAiBody = z.object({ messageId: z.string() });
 export type TestAiBody = z.infer<typeof testAiBody>;
 
+export const runRulesBody = z.object({
+  email: z.object({
+    threadId: z.string(),
+    messageId: z.string(),
+    references: z.string().nullish(),
+    headerMessageId: z.string().nullish(),
+    subject: z.string(),
+    from: z.string(),
+    cc: z.string().nullish(),
+    replyTo: z.string().nullish(),
+  }),
+  force: z.boolean().nullish(),
+  isTest: z.boolean(),
+});
+export type RunRulesBody = z.infer<typeof runRulesBody>;
+
 export const reportAiMistakeBody = z
   .object({
     email: z.object({

@@ -14,9 +14,9 @@ export const runAiRules = async (threadsArray: Thread[], force: boolean) => {
 
   aiQueue.addAll(
     threads.map((thread) => async () => {
-      const message = threadToRunRulesEmail(thread);
-      if (!message) return;
-      await runRulesAction({ email: message, force });
+      const email = threadToRunRulesEmail(thread);
+      if (!email) return;
+      await runRulesAction({ email, force, isTest: false });
       removeFromAiQueueAtom(thread.id);
     }),
   );

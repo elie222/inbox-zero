@@ -27,7 +27,7 @@ import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 import {
-  testAiAction,
+  runRulesAction,
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
@@ -115,22 +115,38 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, TestResult>>({});
 
-  const onRun = useCallback(async (message: Message) => {
-    setIsRunning((prev) => ({ ...prev, [message.id]: true }));
+  const onRun = useCallback(
+    async (message: Message) => {
+      setIsRunning((prev) => ({ ...prev, [message.id]: true }));
 
-    const result = await testAiAction({ messageId: message.id });
-    if (isActionError(result)) {
-      toastError({
-        title: "There was an error testing the email",
-        description: result.error,
+      const result = await runRulesAction({
+        email: {
+          messageId: message.id,
+          threadId: message.threadId,
+          from: message.headers.from,
+          subject: message.headers.subject,
+          headerMessageId: message.headers["message-id"],
+          cc: message.headers.cc,
+          references: message.headers.references,
+          replyTo: message.headers["reply-to"],
+        },
+        isTest: testMode,
       });
-    } else {
-      setResults((prev) => ({ ...prev, [message.id]: result }));
-    }
-    setIsRunning((prev) => ({ ...prev, [message.id]: false }));
-  }, []);
+      if (isActionError(result)) {
+        toastError({
+          title: "There was an error processing the email",
+          description: result.error,
+        });
+      } else {
+        // TODO: fix as
+        setResults((prev) => ({ ...prev, [message.id]: result as TestResult }));
+      }
+      setIsRunning((prev) => ({ ...prev, [message.id]: false }));
+    },
+    [testMode],
+  );
 
-  const handleTestAll = async () => {
+  const handleRunAll = async () => {
     handleStart();
 
     for (const message of messages) {
@@ -162,7 +178,7 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
               Stop
             </Button>
           ) : (
-            <Button onClick={handleTestAll}>
+            <Button onClick={handleRunAll}>
               <BookOpenCheckIcon className="mr-2 h-4 w-4" />
               {testMode ? "Test All" : "Run on All"}
             </Button>

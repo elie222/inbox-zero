@@ -135,28 +135,6 @@ async function saveSkippedExecutedRule({
   });
 }
 
-export async function testRulesOnMessage({
-  gmail,
-  message,
-  rules,
-  user,
-}: {
-  gmail: gmail_v1.Gmail;
-  message: ParsedMessage;
-  rules: RuleWithActionsAndCategories[];
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields;
-}): Promise<TestResult> {
-  const result = await runRulesOnMessage({
-    gmail,
-    message,
-    rules,
-    user,
-    isTest: true,
-  });
-
-  return result;
-}
-
 async function saveExecutedRule(
   {
     userId,
