@@ -504,7 +504,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
     const { data, success, error } = saveRulesPromptBody.safeParse(unsafeData);
     if (!success) {
-      console.error("Input validation failed:", error.message);
+      logger.error("Input validation failed", {
+        email: session.user.email,
+        error: error.message,
+      });
       return { error: error.message };
     }
 
@@ -520,11 +523,11 @@ export const saveRulesPromptAction = withActionInstrumentation(
     });
 
     if (!user) {
-      console.error("User not found");
+      logger.error("User not found");
       return { error: "User not found" };
     }
     if (!user.email) {
-      console.error("User email not found");
+      logger.error("User email not found");
       return { error: "User email not found" };
     }
 
@@ -668,7 +671,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
         for (const rule of editedRules) {
           if (!rule.ruleId) {
-            console.error(`Rule ID not found for rule. Prompt: ${rule.name}`);
+            logger.error("Rule ID not found for rule", {
+              email: user.email,
+              promptRule: rule.name,
+            });
             continue;
           }
 
