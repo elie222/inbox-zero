@@ -27,7 +27,10 @@ export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
   const userId = payload.meta.custom_data?.user_id;
 
-  console.log("===Lemon event type:", payload.meta.event_name);
+  logger.info("Lemon Squeezy webhook", {
+    event: payload.meta.event_name,
+    userId,
+  });
 
   // ignored events
   if (["subscription_payment_success"].includes(payload.meta.event_name)) {
@@ -58,9 +61,7 @@ export const POST = withError(async (request: Request) => {
   const premiumId = premium?.id;
 
   if (!premiumId) {
-    console.warn(
-      `No user found for lemonSqueezyCustomerId ${lemonSqueezyCustomerId}`,
-    );
+    logger.warn("No user found", { lemonSqueezyCustomerId });
 
     return NextResponse.json({ ok: true });
   }
@@ -150,6 +151,13 @@ async function subscriptionCreated({
   payload: Payload;
   userId: string;
 }) {
+  logger.info("Subscription created", {
+    lemonSqueezyRenewsAt:
+      payload.data.attributes.renews_at &&
+      new Date(payload.data.attributes.renews_at),
+    userId,
+  });
+
   const { updatedPremium, tier } = await handleSubscriptionCreated(
     payload,
     userId,
@@ -194,6 +202,13 @@ async function subscriptionPlanChanged({
   payload: Payload;
   userId: string;
 }) {
+  logger.info("Subscription plan changed", {
+    lemonSqueezyRenewsAt:
+      payload.data.attributes.renews_at &&
+      new Date(payload.data.attributes.renews_at),
+    userId,
+  });
+
   const { updatedPremium, tier } = await handleSubscriptionCreated(
     payload,
     userId,
@@ -234,6 +249,14 @@ async function handleSubscriptionCreated(payload: Payload, userId: string) {
   if (!payload.data.attributes.first_subscription_item)
     throw new Error("No subscription item");
 
+  logger.info("Subscription created", {
+    lemonSqueezyRenewsAt: lemonSqueezyRenewsAt,
+    lemonSqueezySubscriptionId:
+      payload.data.attributes.first_subscription_item.subscription_id,
+    lemonSqueezySubscriptionItemId:
+      payload.data.attributes.first_subscription_item.id,
+  });
+
   const tier = getSubscriptionTier({
     variantId: payload.data.attributes.variant_id,
   });
@@ -264,6 +287,13 @@ async function lifetimeOrder({
 }) {
   if (!payload.data.attributes.first_order_item)
     throw new Error("No order item");
+
+  logger.info("Lifetime order", {
+    lemonSqueezyOrderId: payload.data.attributes.first_order_item.order_id,
+    lemonSqueezyCustomerId: payload.data.attributes.customer_id,
+    lemonSqueezyProductId: payload.data.attributes.product_id,
+    lemonSqueezyVariantId: payload.data.attributes.variant_id,
+  });
 
   const updatedPremium = await upgradeToPremium({
     userId,
@@ -301,6 +331,11 @@ async function lifetimeSeatOrder({
   if (!payload.data.attributes.first_order_item)
     throw new Error("No order item");
 
+  logger.info("Lifetime seat order", {
+    quantity: payload.data.attributes.first_order_item.quantity,
+    premiumId,
+  });
+
   const updatedPremium = await editEmailAccountsAccess({
     premiumId,
     count: payload.data.attributes.first_order_item.quantity,
@@ -326,6 +361,11 @@ async function subscriptionUpdated({
 }) {
   if (!payload.data.attributes.renews_at)
     throw new Error("No renews_at provided");
+
+  logger.info("Subscription updated", {
+    lemonSqueezyRenewsAt: new Date(payload.data.attributes.renews_at),
+    premiumId,
+  });
 
   const updatedPremium = await extendPremium({
     premiumId,
@@ -364,6 +404,12 @@ async function subscriptionCancelled({
   endsAt: NonNullable<Payload["data"]["attributes"]["ends_at"]>;
   variantId: NonNullable<Payload["data"]["attributes"]["variant_id"]>;
 }) {
+  logger.info("Subscription cancelled", {
+    endsAt: new Date(endsAt),
+    variantId,
+    premiumId,
+  });
+
   const updatedPremium = await cancelPremium({
     premiumId,
     variantId,
@@ -397,6 +443,12 @@ async function subscriptionPaymentSuccess({
   payload: Payload;
   premiumId: string;
 }) {
+  logger.info("Subscription payment success", {
+    premiumId,
+    lemonSqueezyId: payload.data.id,
+    lemonSqueezyType: payload.data.type,
+  });
+
   if (payload.data.attributes.status !== "paid") {
     throw new Error(
       `Unexpected status for subscription payment success: ${payload.data.attributes.status}`,
