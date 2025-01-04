@@ -50,7 +50,7 @@ export const runRulesAction = withActionInstrumentation(
     const { success, data, error } = runRulesBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
 
-    const { message: email, force, isTest } = data;
+    const { messageId, threadId, force, isTest } = data;
 
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
@@ -74,15 +74,15 @@ export const runRulesAction = withActionInstrumentation(
     if (!user?.email) return { error: "User email not found" };
 
     const [gmailMessage, hasExistingRule] = await Promise.all([
-      getMessage(email.id, gmail, "full"),
+      getMessage(messageId, gmail, "full"),
       isTest
         ? null
         : prisma.executedRule.findUnique({
             where: {
               unique_user_thread_message: {
                 userId: user.id,
-                threadId: email.threadId,
-                messageId: email.id,
+                threadId,
+                messageId,
               },
             },
             select: { id: true },
@@ -92,8 +92,8 @@ export const runRulesAction = withActionInstrumentation(
     if (hasExistingRule && !force) {
       logger.info("Skipping. Rule already exists.", {
         email: user.email,
-        messageId: email.id,
-        threadId: email.threadId,
+        messageId,
+        threadId,
       });
       return;
     }

@@ -741,7 +741,11 @@ function RerunTestButton({ message }: { message: ParsedMessage }) {
         onClick={async () => {
           setChecking(true);
 
-          const result = await runRulesAction({ isTest: true, message });
+          const result = await runRulesAction({
+            isTest: true,
+            messageId: message.id,
+            threadId: message.threadId,
+          });
           if (isActionError(result)) {
             toastError({
               title: "There was an error testing the email",

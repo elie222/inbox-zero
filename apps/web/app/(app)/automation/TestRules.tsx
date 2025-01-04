@@ -119,7 +119,11 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
     async (message: Message) => {
       setIsRunning((prev) => ({ ...prev, [message.id]: true }));
 
-      const result = await runRulesAction({ message, isTest: testMode });
+      const result = await runRulesAction({
+        messageId: message.id,
+        threadId: message.threadId,
+        isTest: testMode,
+      });
       if (isActionError(result)) {
         toastError({
           title: "There was an error processing the email",

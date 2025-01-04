@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { CategoryFilterType, GroupItemType } from "@prisma/client";
 import { ActionType, RuleType } from "@prisma/client";
-import type { ParsedMessage } from "@/utils/types";
 
 // groups
 export const createGroupBody = z.object({
@@ -160,23 +159,9 @@ export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 export const testAiBody = z.object({ messageId: z.string() });
 export type TestAiBody = z.infer<typeof testAiBody>;
 
-const parsedMessage = z.object({
-  id: z.string(),
-  threadId: z.string(),
-  headers: z.object({
-    from: z.string(),
-    to: z.string(),
-    date: z.string(),
-    subject: z.string(),
-    cc: z.string().optional(),
-    references: z.string().optional(),
-    "message-id": z.string().optional(),
-    "reply-to": z.string().optional(),
-  }),
-}) satisfies z.ZodType<Partial<ParsedMessage>>;
-
 export const runRulesBody = z.object({
-  message: parsedMessage,
+  messageId: z.string(),
+  threadId: z.string(),
   force: z.boolean().nullish(),
   isTest: z.boolean(),
 });
