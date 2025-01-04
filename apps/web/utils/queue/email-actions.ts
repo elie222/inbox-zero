@@ -1,7 +1,6 @@
 "use client";
 
 import { runRulesAction } from "@/utils/actions/ai-rule";
-import type { EmailForAction } from "@/utils/ai/actions";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/ai-queue";
 import type { Thread } from "@/components/email-list/types";
 import { isDefined } from "@/utils/types";
@@ -14,26 +13,10 @@ export const runAiRules = async (threadsArray: Thread[], force: boolean) => {
 
   aiQueue.addAll(
     threads.map((thread) => async () => {
-      const email = threadToRunRulesEmail(thread);
-      if (!email) return;
-      await runRulesAction({ email, force, isTest: false });
+      const message = thread.messages?.[thread.messages.length - 1];
+      if (!message) return;
+      await runRulesAction({ message, force, isTest: false });
       removeFromAiQueueAtom(thread.id);
     }),
   );
 };
-
-function threadToRunRulesEmail(thread: Thread): EmailForAction | undefined {
-  const message = thread.messages?.[thread.messages.length - 1];
-  if (!message) return;
-  const email: EmailForAction = {
-    from: message.headers.from,
-    replyTo: message.headers["reply-to"],
-    subject: message.headers.subject,
-    threadId: message.threadId || "",
-    messageId: message.id || "",
-    headerMessageId: message.headers["message-id"] || "",
-    references: message.headers.references,
-  };
-
-  return email;
-}

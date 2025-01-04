@@ -19,7 +19,6 @@ import {
   createReceiptGroupAction,
 } from "@/utils/actions/group";
 import { GroupName } from "@/utils/config";
-import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
@@ -51,7 +50,7 @@ export const runRulesAction = withActionInstrumentation(
     const { success, data, error } = runRulesBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
 
-    const { email, force, isTest } = data;
+    const { message: email, force, isTest } = data;
 
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
@@ -75,7 +74,7 @@ export const runRulesAction = withActionInstrumentation(
     if (!user?.email) return { error: "User email not found" };
 
     const [gmailMessage, hasExistingRule] = await Promise.all([
-      getMessage(email.messageId, gmail, "full"),
+      getMessage(email.id, gmail, "full"),
       isTest
         ? null
         : prisma.executedRule.findUnique({
@@ -83,7 +82,7 @@ export const runRulesAction = withActionInstrumentation(
               unique_user_thread_message: {
                 userId: user.id,
                 threadId: email.threadId,
-                messageId: email.messageId,
+                messageId: email.id,
               },
             },
             select: { id: true },
@@ -93,7 +92,7 @@ export const runRulesAction = withActionInstrumentation(
     if (hasExistingRule && !force) {
       logger.info("Skipping. Rule already exists.", {
         email: user.email,
-        messageId: email.messageId,
+        messageId: email.id,
         threadId: email.threadId,
       });
       return;

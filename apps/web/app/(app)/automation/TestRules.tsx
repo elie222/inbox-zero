@@ -34,7 +34,7 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
 import { isActionError } from "@/utils/error";
-import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
+import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
@@ -113,33 +113,23 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
   const isRunningAllRef = useRef(false);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
-  const [results, setResults] = useState<Record<string, TestResult>>({});
+  const [results, setResults] = useState<Record<string, RunRulesResult>>({});
 
   const onRun = useCallback(
     async (message: Message) => {
       setIsRunning((prev) => ({ ...prev, [message.id]: true }));
 
-      const result = await runRulesAction({
-        email: {
-          messageId: message.id,
-          threadId: message.threadId,
-          from: message.headers.from,
-          subject: message.headers.subject,
-          headerMessageId: message.headers["message-id"],
-          cc: message.headers.cc,
-          references: message.headers.references,
-          replyTo: message.headers["reply-to"],
-        },
-        isTest: testMode,
-      });
+      const result = await runRulesAction({ message, isTest: testMode });
       if (isActionError(result)) {
         toastError({
           title: "There was an error processing the email",
           description: result.error,
         });
       } else {
-        // TODO: fix as
-        setResults((prev) => ({ ...prev, [message.id]: result as TestResult }));
+        setResults((prev) => ({
+          ...prev,
+          [message.id]: result as RunRulesResult,
+        }));
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
@@ -254,7 +244,7 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [testResult, setTestResult] = useState<TestResult | undefined>();
+  const [testResult, setTestResult] = useState<RunRulesResult | undefined>();
 
   const {
     register,
@@ -311,7 +301,7 @@ function TestRulesContentRow({
   message: Message;
   userEmail: string;
   isRunning: boolean;
-  result: TestResult;
+  result: RunRulesResult;
   onRun: () => void;
   testMode: boolean;
 }) {
@@ -355,7 +345,7 @@ export function TestResultDisplay({
   result,
   prefix,
 }: {
-  result: TestResult;
+  result: RunRulesResult;
   prefix?: string;
 }) {
   if (!result) return null;

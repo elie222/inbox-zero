@@ -20,7 +20,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-run-rules");
 
-export type TestResult = {
+export type RunRulesResult = {
   rule?: Rule | null;
   actionItems?: ActionItem[];
   reason?: string | null;
@@ -38,7 +38,7 @@ export async function runRulesOnMessage({
   rules: RuleWithActionsAndCategories[];
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   isTest: boolean;
-}) {
+}): Promise<RunRulesResult> {
   const result = await findMatchingRule(rules, message, user);
   if (result.rule) {
     return await runRule(
