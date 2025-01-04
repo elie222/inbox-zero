@@ -46,7 +46,7 @@ import {
   isGroupRule,
   isStaticRule,
 } from "@/utils/condition";
-import { ButtonLoader } from "@/components/Loading";
+import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -155,17 +155,21 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-6 pb-4">
-        {isRunningAll ? (
-          <Button onClick={handleStop} variant="outline">
-            <PauseIcon className="mr-2 h-4 w-4" />
-            Stop
-          </Button>
-        ) : (
-          <Button onClick={handleTestAll}>
-            <BookOpenCheckIcon className="mr-2 h-4 w-4" />
-            {testMode ? "Test All" : "Run on All"}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isRunningAll ? (
+            <Button onClick={handleStop} variant="outline">
+              <PauseIcon className="mr-2 h-4 w-4" />
+              Stop
+            </Button>
+          ) : (
+            <Button onClick={handleTestAll}>
+              <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+              {testMode ? "Test All" : "Run on All"}
+            </Button>
+          )}
+
+          {!testMode && <BulkRunRules />}
+        </div>
 
         <div className="flex items-center gap-2">
           {hasAiRules && testMode && (

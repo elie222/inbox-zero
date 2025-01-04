@@ -114,21 +114,15 @@ export function BulkRunRules() {
               </div>
 
               <SectionDescription className="mt-4">
-                To process specific emails:
-                <ol className="mt-1 list-inside list-decimal">
-                  <li>
-                    Go to the{" "}
-                    <Link
-                      href="/mail"
-                      className="font-semibold hover:underline"
-                    >
-                      Mail
-                    </Link>{" "}
-                    page
-                  </li>
-                  <li>Select the desired emails</li>
-                  <li>Click the "Run AI Rules" button</li>
-                </ol>
+                You can also process specific emails by visiting the{" "}
+                <Link
+                  href="/mail"
+                  target="_blank"
+                  className="font-semibold hover:underline"
+                >
+                  Mail
+                </Link>{" "}
+                page.
               </SectionDescription>
             </>
           )}

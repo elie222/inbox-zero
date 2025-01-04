@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Rules } from "@/app/(app)/automation/Rules";
 import { Process } from "@/app/(app)/automation/Process";
-import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { Groups } from "@/app/(app)/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
@@ -35,19 +34,16 @@ export default async function AutomationPage() {
             </TabsList>
           </div>
 
-          <div className="flex gap-2">
-            <BulkRunRules />
-            <OnboardingModal
-              title="Getting started with AI Personal Assistant"
-              description={
-                <>
-                  Learn how to use the AI Personal Assistant to automatically
-                  label, archive, and more.
-                </>
-              }
-              videoId="1LSt3dyyZtQ"
-            />
-          </div>
+          <OnboardingModal
+            title="Getting started with AI Personal Assistant"
+            description={
+              <>
+                Learn how to use the AI Personal Assistant to automatically
+                label, archive, and more.
+              </>
+            }
+            videoId="1LSt3dyyZtQ"
+          />
         </div>
 
         <TabsContent value="prompt" className="content-container mb-10">
