@@ -57,7 +57,7 @@ export function TestRules(props: { disabled?: boolean }) {
       description="Test how your rules perform against real emails."
       content={
         <div className="mt-4">
-          <TestRulesContent />
+          <TestRulesContent testMode />
         </div>
       }
     >
@@ -69,7 +69,7 @@ export function TestRules(props: { disabled?: boolean }) {
   );
 }
 
-export function TestRulesContent() {
+export function TestRulesContent({ testMode }: { testMode: boolean }) {
   const [searchQuery, setSearchQuery] = useQueryState("search");
   const [showCustomForm, setShowCustomForm] = useQueryState(
     "custom",
@@ -110,15 +110,13 @@ export function TestRulesContent() {
       !isCategoryRule(rule),
   );
 
-  const isTestingAllRef = useRef(false);
-  const [isTestingAll, setIsTestingAll] = useState(false);
-  const [isTesting, setIsTesting] = useState<Record<string, boolean>>({});
-  const [testResults, setTestResults] = useState<Record<string, TestResult>>(
-    {},
-  );
+  const isRunningAllRef = useRef(false);
+  const [isRunningAll, setIsRunningAll] = useState(false);
+  const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
+  const [results, setResults] = useState<Record<string, TestResult>>({});
 
-  const onTest = useCallback(async (message: Message) => {
-    setIsTesting((prev) => ({ ...prev, [message.id]: true }));
+  const onRun = useCallback(async (message: Message) => {
+    setIsRunning((prev) => ({ ...prev, [message.id]: true }));
 
     const result = await testAiAction({ messageId: message.id });
     if (isActionError(result)) {
@@ -127,37 +125,37 @@ export function TestRulesContent() {
         description: result.error,
       });
     } else {
-      setTestResults((prev) => ({ ...prev, [message.id]: result }));
+      setResults((prev) => ({ ...prev, [message.id]: result }));
     }
-    setIsTesting((prev) => ({ ...prev, [message.id]: false }));
+    setIsRunning((prev) => ({ ...prev, [message.id]: false }));
   }, []);
 
   const handleTestAll = async () => {
     handleStart();
 
     for (const message of messages) {
-      if (!isTestingAllRef.current) break;
-      if (testResults[message.id]) continue;
-      await onTest(message);
+      if (!isRunningAllRef.current) break;
+      if (results[message.id]) continue;
+      await onRun(message);
     }
 
     handleStop();
   };
 
   const handleStart = () => {
-    setIsTestingAll(true);
-    isTestingAllRef.current = true;
+    setIsRunningAll(true);
+    isRunningAllRef.current = true;
   };
 
   const handleStop = () => {
-    isTestingAllRef.current = false;
-    setIsTestingAll(false);
+    isRunningAllRef.current = false;
+    setIsRunningAll(false);
   };
 
   return (
     <div>
       <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-6 pb-4">
-        {isTestingAll ? (
+        {isRunningAll ? (
           <Button onClick={handleStop} variant="outline">
             <PauseIcon className="mr-2 h-4 w-4" />
             Stop
@@ -165,12 +163,12 @@ export function TestRulesContent() {
         ) : (
           <Button onClick={handleTestAll}>
             <BookOpenCheckIcon className="mr-2 h-4 w-4" />
-            Test All
+            {testMode ? "Test All" : "Run on All"}
           </Button>
         )}
 
         <div className="flex items-center gap-2">
-          {hasAiRules && (
+          {hasAiRules && testMode && (
             <Button
               variant="ghost"
               onClick={() => setShowCustomForm((show) => !show)}
@@ -183,7 +181,7 @@ export function TestRulesContent() {
         </div>
       </div>
 
-      {hasAiRules && showCustomForm && (
+      {hasAiRules && showCustomForm && testMode && (
         <div className="mt-2">
           <CardContent>
             <TestRulesForm />
@@ -206,9 +204,10 @@ export function TestRulesContent() {
                     key={message.id}
                     message={message}
                     userEmail={email!}
-                    isTesting={isTesting[message.id]}
-                    testResult={testResults[message.id]}
-                    onTest={() => onTest(message)}
+                    isRunning={isRunning[message.id]}
+                    result={results[message.id]}
+                    onRun={() => onRun(message)}
+                    testMode={testMode}
                   />
                 ))}
               </TableBody>
@@ -284,20 +283,22 @@ const TestRulesForm = () => {
 function TestRulesContentRow({
   message,
   userEmail,
-  isTesting,
-  testResult,
-  onTest,
+  isRunning,
+  result,
+  onRun,
+  testMode,
 }: {
   message: Message;
   userEmail: string;
-  isTesting: boolean;
-  testResult: TestResult;
-  onTest: () => void;
+  isRunning: boolean;
+  result: TestResult;
+  onRun: () => void;
+  testMode: boolean;
 }) {
   return (
     <TableRow
       className={
-        isTesting ? "animate-pulse bg-blue-50 dark:bg-blue-950/20" : undefined
+        isRunning ? "animate-pulse bg-blue-50 dark:bg-blue-950/20" : undefined
       }
     >
       <TableCell>
@@ -310,17 +311,17 @@ function TestRulesContentRow({
             messageId={message.id}
           />
           <div className="ml-4 flex gap-1">
-            {testResult ? (
+            {result ? (
               <>
                 <div className="flex max-w-xs items-center whitespace-nowrap">
-                  <TestResultDisplay result={testResult} />
+                  <TestResultDisplay result={result} />
                 </div>
-                <ReportMistake result={testResult} message={message} />
+                <ReportMistake result={result} message={message} />
               </>
             ) : (
-              <Button variant="default" loading={isTesting} onClick={onTest}>
-                {!isTesting && <SparklesIcon className="mr-2 h-4 w-4" />}
-                Test
+              <Button variant="default" loading={isRunning} onClick={onRun}>
+                {!isRunning && <SparklesIcon className="mr-2 h-4 w-4" />}
+                {testMode ? "Test" : "Run"}
               </Button>
             )}
           </div>
