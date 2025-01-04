@@ -334,6 +334,7 @@ export const changePremiumStatusAction = withActionInstrumentation(
         await cancelPremium({
           premiumId: userToUpgrade.premiumId,
           lemonSqueezyEndsAt: new Date(),
+          expired: true,
         });
       } else {
         return { error: "User not premium." };
