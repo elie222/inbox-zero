@@ -94,7 +94,7 @@ export const POST = withError(async (request: Request) => {
     return await subscriptionPlanChanged({ payload, userId });
   }
 
-  // cancellation
+  // cancelled or expired
   if (payload.data.attributes.ends_at) {
     return await subscriptionCancelled({
       payload,
@@ -414,6 +414,7 @@ async function subscriptionCancelled({
     premiumId,
     variantId,
     lemonSqueezyEndsAt: new Date(endsAt),
+    expired: payload.data.attributes.status === "expired",
   });
 
   if (!updatedPremium) return NextResponse.json({ ok: true });

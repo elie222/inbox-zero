@@ -75,10 +75,12 @@ export async function cancelPremium({
   premiumId,
   lemonSqueezyEndsAt,
   variantId,
+  expired,
 }: {
   premiumId: string;
   lemonSqueezyEndsAt: Date;
   variantId?: number;
+  expired: boolean;
 }) {
   if (variantId) {
     // Check if the premium exists for the given variant
@@ -95,9 +97,13 @@ export async function cancelPremium({
     where: { id: premiumId },
     data: {
       lemonSqueezyRenewsAt: lemonSqueezyEndsAt,
-      bulkUnsubscribeAccess: null,
-      aiAutomationAccess: null,
-      coldEmailBlockerAccess: null,
+      ...(expired
+        ? {
+            bulkUnsubscribeAccess: null,
+            aiAutomationAccess: null,
+            coldEmailBlockerAccess: null,
+          }
+        : {}),
     },
     select: {
       users: {
