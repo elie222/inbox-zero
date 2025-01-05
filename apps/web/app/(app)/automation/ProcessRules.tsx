@@ -48,7 +48,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     parseAsBoolean.withDefault(false),
   );
 
-  const { data, isLoading, isValidating, error, setSize } =
+  const { data, isLoading, isValidating, error, setSize, mutate } =
     useSWRInfinite<MessagesResponse>((_index, previousPageData) => {
       const pageToken = previousPageData?.nextPageToken;
       if (previousPageData && !pageToken) return null;
@@ -60,9 +60,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       return `/api/google/messages${paramsString ? `?${paramsString}` : ""}`;
     });
 
-  const onLoadMore = () => {
-    setSize((size) => size + 1);
-  };
+  const onLoadMore = () => setSize((size) => size + 1);
 
   const messages = useMemo(
     () => data?.flatMap((page) => page.messages) || [],
@@ -113,10 +111,27 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const handleRunAll = async () => {
     handleStart();
 
-    for (const message of messages) {
-      if (!isRunningAllRef.current) break;
-      if (results[message.id]) continue;
-      await onRun(message);
+    const PAGE_LIMIT = testMode ? 1 : 10;
+
+    for (let page = 0; page < PAGE_LIMIT; page++) {
+      // Get current data, only fetch if we don't have this page yet
+      let currentData = data;
+      if (!currentData?.[page]) {
+        await setSize((size) => size + 1);
+        currentData = await mutate();
+      }
+
+      const currentBatch = currentData?.[page]?.messages || [];
+
+      for (const message of currentBatch) {
+        if (!isRunningAllRef.current) break;
+        if (results[message.id]) continue;
+        await onRun(message);
+      }
+
+      // Check if we got new data in the last request
+      const lastPage = currentData?.[page];
+      if (!lastPage?.nextPageToken || !isRunningAllRef.current) break;
     }
 
     handleStop();
