@@ -4,7 +4,7 @@ import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { env } from "@/env";
 import { getGmailClient } from "@/utils/gmail/client";
 import { captureException } from "@/utils/error";
-import { unWatchUser, watchUser } from "@/utils/gmail/misc";
+import { unwatchUser, watchUser } from "@/utils/gmail/misc";
 
 export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
   const res = await watchUser(gmail, {
@@ -26,7 +26,7 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
 
 async function unwatch(gmail: gmail_v1.Gmail) {
   console.log("Unwatching emails");
-  await unWatchUser(gmail);
+  await unwatchUser(gmail);
 }
 
 export async function unwatchEmails({

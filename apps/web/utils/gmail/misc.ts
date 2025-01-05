@@ -44,6 +44,6 @@ export async function watchUser(
   return res.data;
 }
 
-export async function unWatchUser(gmail: gmail_v1.Gmail) {
+export async function unwatchUser(gmail: gmail_v1.Gmail) {
   await gmail.users.stop({ userId: "me" });
 }
