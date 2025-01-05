@@ -135,3 +135,13 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Prisma, Pos
     }
   );
   ```
+
+- Logging example:
+
+```tsx
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Rules");
+
+logger.log("Created rule", { userId });
+```
