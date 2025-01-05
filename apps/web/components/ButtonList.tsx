@@ -30,7 +30,7 @@ export function ButtonList({
         <SectionDescription className="mt-2">{emptyMessage}</SectionDescription>
       )}
 
-      <div className="flex flex-col gap-1">
+      <div className="mt-1 flex flex-col gap-1">
         {items.map((item) => (
           <Button
             key={item.id}
