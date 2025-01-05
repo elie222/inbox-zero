@@ -1,6 +1,7 @@
 import { SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/Input";
+import { cn } from "@/utils";
 
 type ButtonListItem = {
   id: string;
@@ -13,6 +14,7 @@ interface ButtonListProps {
   onSelect: (id: string) => void;
   selectedId?: string;
   emptyMessage: string;
+  columns?: number;
 }
 
 export function ButtonList({
@@ -21,6 +23,7 @@ export function ButtonList({
   onSelect,
   selectedId,
   emptyMessage,
+  columns = 1,
 }: ButtonListProps) {
   return (
     <div>
@@ -30,7 +33,12 @@ export function ButtonList({
         <SectionDescription className="mt-2">{emptyMessage}</SectionDescription>
       )}
 
-      <div className="mt-1 flex flex-col gap-1">
+      <div
+        className={cn("mt-1 grid gap-1", {
+          "grid-cols-2": columns === 2,
+          "grid-cols-3": columns === 3,
+        })}
+      >
         {items.map((item) => (
           <Button
             key={item.id}

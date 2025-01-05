@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { SparklesIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -32,53 +32,58 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { handleActionCall } from "@/utils/server-action";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { AutomationOnboarding } from "@/app/(app)/automation/AutomationOnboarding";
+import { examplePrompts, personas } from "@/app/(app)/automation/examples";
+import { PersonaDialog } from "@/app/(app)/automation/PersonaDialog";
+import { useModal } from "@/components/Modal";
 // import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
-
-export const examplePrompts = [
-  'Label newsletters as "Newsletter" and archive them',
-  'Label marketing emails as "Marketing" and archive them',
-  'Label emails that require a reply as "Reply Required"',
-  'Label urgent emails as "Urgent"',
-  'Label receipts as "Receipt" and forward them to jane@accounting.com',
-  'Label pitch decks as "Pitch Deck" and forward them to john@investing.com',
-  "Reply to cold emails by telling them to check out Inbox Zero. Then mark them as spam",
-  'Label high priority emails as "High Priority"',
-  "If a founder asks to set up a call, send them my Cal link: https://cal.com/example",
-  "If someone asks to cancel a plan, ask to set up a call by sending my Cal link",
-  'If a founder sends me an investor update, label it "Investor Update" and archive it',
-  'If someone pitches me their startup, label it as "Investing", archive it, and respond with a friendly reply that I no longer have time to look at the email but if they get a warm intro, that\'s their best bet to get funding from me',
-  "If someone asks for a discount, reply with the discount code INBOX20",
-  "If someone asks for help with MakerPad, tell them I no longer work there, but they should reach out to the Zapier team for support",
-  "Review any emails from questions@pr.com and see if any are about finance. If so, draft a friendly reply that answers the question",
-  'If people ask me to speak at an event, label the email "Speaker Opportunity" and archive it',
-  'Label customer emails as "Customer"',
-  'Label legal documents as "Legal"',
-  'Label server errors as "Error"',
-  'Label Stripe emails as "Stripe"',
-];
 
 export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
     RulesPromptResponse,
     { error: string }
   >("/api/user/rules/prompt");
+  const { isModalOpen, setIsModalOpen } = useModal();
+  const onOpenPersonaDialog = useCallback(() => {
+    setIsModalOpen(true);
+  }, [setIsModalOpen]);
+
+  const [persona, setPersona] = useState<string | null>(null);
+
+  const personaPrompt = persona
+    ? personas[persona as keyof typeof personas]?.prompt
+    : undefined;
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
-      <RulesPromptForm
-        rulesPrompt={data?.rulesPrompt || undefined}
-        mutate={mutate}
+    <>
+      <LoadingContent loading={isLoading} error={error}>
+        <RulesPromptForm
+          rulesPrompt={data?.rulesPrompt || undefined}
+          personaPrompt={personaPrompt}
+          mutate={mutate}
+          onOpenPersonaDialog={onOpenPersonaDialog}
+        />
+      </LoadingContent>
+      <AutomationOnboarding onComplete={onOpenPersonaDialog} />
+      <PersonaDialog
+        isOpen={isModalOpen}
+        setIsOpen={setIsModalOpen}
+        onSelect={setPersona}
       />
-    </LoadingContent>
+    </>
   );
 }
 
 function RulesPromptForm({
   rulesPrompt,
+  personaPrompt,
   mutate,
+  onOpenPersonaDialog,
 }: {
   rulesPrompt?: string;
+  personaPrompt?: string;
   mutate: () => void;
+  onOpenPersonaDialog: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -94,10 +99,16 @@ function RulesPromptForm({
     formState: { errors },
     getValues,
     setValue,
+    reset,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
     defaultValues: { rulesPrompt },
   });
+
+  useEffect(() => {
+    reset({ rulesPrompt: personaPrompt || rulesPrompt });
+  }, [rulesPrompt, personaPrompt, reset]);
+
   const router = useRouter();
 
   const onSubmit = useCallback(
@@ -260,6 +271,11 @@ Feel free to add as many as you want:
                       Give me ideas
                     </Button>
                   </Tooltip>
+
+                  <Button variant="outline" onClick={onOpenPersonaDialog}>
+                    <UserPenIcon className="mr-2 size-4" />
+                    Choose persona
+                  </Button>
                 </div>
               </div>
             </form>

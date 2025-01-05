@@ -29,7 +29,7 @@ import {
   rulesExamplesBody,
   type RulesExamplesBody,
 } from "@/utils/actions/validation";
-import { examplePrompts } from "@/app/(app)/automation/RulesPrompt";
+import { examplePrompts } from "@/app/(app)/automation/examples";
 
 type RulesExamplesResponse = Awaited<ReturnType<typeof getRuleExamplesAction>>;
 
