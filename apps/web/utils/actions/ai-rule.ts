@@ -33,6 +33,8 @@ import {
   type SaveRulesPromptBody,
   runRulesBody,
   type RunRulesBody,
+  testAiCustomContentBody,
+  type TestAiCustomContentBody,
 } from "@/utils/actions/validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
@@ -131,7 +133,12 @@ export const runRulesAction = withActionInstrumentation(
 
 export const testAiCustomContentAction = withActionInstrumentation(
   "testAiCustomContent",
-  async ({ content }: { content: string }) => {
+  async (unsafeBody: TestAiCustomContentBody) => {
+    const { data, error } = testAiCustomContentBody.safeParse(unsafeBody);
+    if (error) return { error: error.message };
+
+    const { content } = data;
+
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
     const gmail = getGmailClient(session);

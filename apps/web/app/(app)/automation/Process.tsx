@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TestRulesContent } from "@/app/(app)/automation/TestRules";
+import { ProcessRulesContent } from "@/app/(app)/automation/ProcessRules";
 import { Toggle } from "@/components/Toggle";
 import {
   Card,
@@ -34,7 +34,7 @@ export function Process() {
           />
         </div>
       </CardHeader>
-      <TestRulesContent testMode={!applyMode} />
+      <ProcessRulesContent testMode={!applyMode} />
     </Card>
   );
 }
