@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useQueryState } from "nuqs";
 import { ProcessRulesContent } from "@/app/(app)/automation/ProcessRules";
 import { Toggle } from "@/components/Toggle";
 import {
@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/card";
 
 export function Process() {
-  const [applyMode, setApplyMode] = useState(false);
+  const [mode, setMode] = useQueryState("mode");
+  const isApplyMode = mode === "apply";
 
   return (
     <Card>
@@ -19,7 +20,7 @@ export function Process() {
         <CardTitle>Process your emails</CardTitle>
 
         <CardDescription>
-          {applyMode
+          {isApplyMode
             ? "Run your rules on previous emails."
             : "Check how your rules perform against previous emails."}
         </CardDescription>
@@ -29,12 +30,12 @@ export function Process() {
             name="test-mode"
             label="Test"
             labelRight="Apply"
-            enabled={applyMode}
-            onChange={setApplyMode}
+            enabled={isApplyMode}
+            onChange={(enabled) => setMode(enabled ? "apply" : "test")}
           />
         </div>
       </CardHeader>
-      <ProcessRulesContent testMode={!applyMode} />
+      <ProcessRulesContent testMode={!isApplyMode} />
     </Card>
   );
 }
