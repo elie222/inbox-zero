@@ -37,10 +37,10 @@ export function BulkRunRules() {
 
   return (
     <div>
-      <Tooltip content="Select emails to process with AI">
+      <Tooltip content="Bulk process emails">
         <Button type="button" size="icon" variant="outline" onClick={openModal}>
           <HistoryIcon className="size-4" />
-          <span className="sr-only">Select emails to process with AI</span>
+          <span className="sr-only">Select emails to process</span>
         </Button>
       </Tooltip>
       <Modal
