@@ -162,7 +162,7 @@ export type TestAiBody = z.infer<typeof testAiBody>;
 export const runRulesBody = z.object({
   messageId: z.string(),
   threadId: z.string(),
-  force: z.boolean().nullish(),
+  rerun: z.boolean().nullish(),
   isTest: z.boolean(),
 });
 export type RunRulesBody = z.infer<typeof runRulesBody>;

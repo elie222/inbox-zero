@@ -17,6 +17,7 @@ import {
   EyeIcon,
   ExternalLinkIcon,
   ChevronsDownIcon,
+  RefreshCcwIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -47,6 +48,7 @@ import {
   isStaticRule,
 } from "@/utils/condition";
 import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
+import { cn } from "@/utils";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -116,13 +118,14 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
   const [results, setResults] = useState<Record<string, RunRulesResult>>({});
 
   const onRun = useCallback(
-    async (message: Message) => {
+    async (message: Message, rerun?: boolean) => {
       setIsRunning((prev) => ({ ...prev, [message.id]: true }));
 
       const result = await runRulesAction({
         messageId: message.id,
         threadId: message.threadId,
         isTest: testMode,
+        rerun,
       });
       if (isActionError(result)) {
         toastError({
@@ -220,7 +223,7 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
                     userEmail={email!}
                     isRunning={isRunning[message.id]}
                     result={results[message.id]}
-                    onRun={() => onRun(message)}
+                    onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
                   />
                 ))}
@@ -306,7 +309,7 @@ function TestRulesContentRow({
   userEmail: string;
   isRunning: boolean;
   result: RunRulesResult;
-  onRun: () => void;
+  onRun: (rerun?: boolean) => void;
   testMode: boolean;
 }) {
   return (
@@ -327,14 +330,31 @@ function TestRulesContentRow({
           <div className="ml-4 flex gap-1">
             {result ? (
               <>
-                <div className="flex max-w-xs items-center whitespace-nowrap">
+                <div className="flex max-w-xs flex-col items-center justify-center gap-0.5 whitespace-nowrap">
+                  {result.existing && (
+                    <Badge color="yellow">Already processed</Badge>
+                  )}
                   <TestResultDisplay result={result} />
                 </div>
                 <ReportMistake result={result} message={message} />
+                <Button
+                  variant="outline"
+                  disabled={isRunning}
+                  onClick={() => onRun(true)}
+                >
+                  <RefreshCcwIcon
+                    className={cn("size-4", isRunning && "animate-spin")}
+                  />
+                  <span className="sr-only">{testMode ? "Test" : "Run"}</span>
+                </Button>
               </>
             ) : (
-              <Button variant="default" loading={isRunning} onClick={onRun}>
-                {!isRunning && <SparklesIcon className="mr-2 h-4 w-4" />}
+              <Button
+                variant="default"
+                loading={isRunning}
+                onClick={() => onRun()}
+              >
+                {!isRunning && <SparklesIcon className="mr-2 size-4" />}
                 {testMode ? "Test" : "Run"}
               </Button>
             )}

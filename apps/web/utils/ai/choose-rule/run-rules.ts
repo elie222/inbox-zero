@@ -24,6 +24,7 @@ export type RunRulesResult = {
   rule?: Rule | null;
   actionItems?: ActionItem[];
   reason?: string | null;
+  existing?: boolean;
 };
 
 export async function runRulesOnMessage({

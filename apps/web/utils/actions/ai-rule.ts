@@ -11,7 +11,10 @@ import {
 } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
-import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
+import {
+  runRulesOnMessage,
+  type RunRulesResult,
+} from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import {
@@ -22,7 +25,7 @@ import { GroupName } from "@/utils/config";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { isActionError } from "@/utils/error";
+import { type ActionError, isActionError } from "@/utils/error";
 import {
   reportAiMistakeBody,
   type ReportAiMistakeBody,
@@ -46,11 +49,11 @@ const logger = createScopedLogger("ai-rule");
 
 export const runRulesAction = withActionInstrumentation(
   "runRules",
-  async (unsafeBody: RunRulesBody) => {
+  async (unsafeBody: RunRulesBody): Promise<RunRulesResult | ActionError> => {
     const { success, data, error } = runRulesBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
 
-    const { messageId, threadId, force, isTest } = data;
+    const { messageId, threadId, rerun, isTest } = data;
 
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
@@ -73,11 +76,12 @@ export const runRulesAction = withActionInstrumentation(
     });
     if (!user?.email) return { error: "User email not found" };
 
-    const [gmailMessage, hasExistingRule] = await Promise.all([
+    const fetchExecutedRule = !isTest && !rerun;
+
+    const [gmailMessage, executedRule] = await Promise.all([
       getMessage(messageId, gmail, "full"),
-      isTest
-        ? null
-        : prisma.executedRule.findUnique({
+      fetchExecutedRule
+        ? prisma.executedRule.findUnique({
             where: {
               unique_user_thread_message: {
                 userId: user.id,
@@ -85,17 +89,30 @@ export const runRulesAction = withActionInstrumentation(
                 messageId,
               },
             },
-            select: { id: true },
-          }),
+            select: {
+              id: true,
+              reason: true,
+              actionItems: true,
+              rule: true,
+            },
+          })
+        : null,
     ]);
 
-    if (hasExistingRule && !force) {
+    if (executedRule) {
       logger.info("Skipping. Rule already exists.", {
         email: user.email,
         messageId,
         threadId,
       });
-      return;
+
+      return {
+        rule: executedRule.rule,
+        actionItems: executedRule.actionItems,
+        reason: executedRule.reason,
+        existing: true,
+        error: undefined,
+      };
     }
 
     const message = parseMessage(gmailMessage);
