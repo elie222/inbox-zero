@@ -159,6 +159,11 @@ export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 export const testAiBody = z.object({ messageId: z.string() });
 export type TestAiBody = z.infer<typeof testAiBody>;
 
+export const testAiCustomContentBody = z.object({
+  content: z.string().min(1, "Please enter a message"),
+});
+export type TestAiCustomContentBody = z.infer<typeof testAiCustomContentBody>;
+
 export const runRulesBody = z.object({
   messageId: z.string(),
   threadId: z.string(),

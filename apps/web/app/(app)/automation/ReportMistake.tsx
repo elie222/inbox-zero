@@ -41,7 +41,7 @@ import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
-import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
+import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
 import { isReplyInThread } from "@/utils/thread";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { Loading } from "@/components/Loading";
@@ -299,7 +299,7 @@ function AIFixView({
     <div className="space-y-2">
       {fixedInstructionsRule?.instructions ? (
         <div className="space-y-2">
-          <TestResultDisplay result={{ rule: fixedInstructionsRule }} />
+          <ProcessResultDisplay result={{ rule: fixedInstructionsRule }} />
           <Instructions
             label="Original:"
             instructions={fixedInstructionsRule?.instructions}
@@ -338,7 +338,7 @@ function RuleMismatch({
       <Label name="matchedRule" label="Matched:" />
       <div className="mt-1">
         {result ? (
-          <TestResultDisplay result={result} />
+          <ProcessResultDisplay result={result} />
         ) : (
           <p>No rule matched</p>
         )}
@@ -461,7 +461,7 @@ function ManualFixView({
   return (
     <>
       <>
-        {result && <TestResultDisplay result={result} prefix="Matched: " />}
+        {result && <ProcessResultDisplay result={result} prefix="Matched: " />}
         {actualRule && (
           <>
             {isAIRule(actualRule) ? (
@@ -764,7 +764,7 @@ function RerunTestButton({ message }: { message: ParsedMessage }) {
       {testResult && (
         <div className="mt-2 flex items-center gap-2">
           <SectionDescription>Test Result:</SectionDescription>
-          <TestResultDisplay result={testResult} />
+          <ProcessResultDisplay result={testResult} />
         </div>
       )}
     </>
