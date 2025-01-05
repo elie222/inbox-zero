@@ -41,7 +41,7 @@ import {
   PremiumTooltip,
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
-import { NewsletterStatus } from "@prisma/client";
+import { GroupItemType, NewsletterStatus } from "@prisma/client";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -499,7 +499,7 @@ function GroupsSubMenu({ sender }: { sender: string }) {
                 onClick={async () => {
                   const result = await addGroupItemAction({
                     groupId: group.id,
-                    type: "FROM",
+                    type: GroupItemType.FROM,
                     value: sender,
                   });
 

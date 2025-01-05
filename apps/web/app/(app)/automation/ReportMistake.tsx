@@ -25,7 +25,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { reportAiMistakeAction, runRulesAction } from "@/utils/actions/ai-rule";
-import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   reportAiMistakeBody,
@@ -36,7 +35,7 @@ import {
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Input } from "@/components/Input";
-import type { Rule } from "@prisma/client";
+import { GroupItemType, type Rule } from "@prisma/client";
 import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
@@ -46,6 +45,11 @@ import { isReplyInThread } from "@/utils/thread";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { Loading } from "@/components/Loading";
 import type { ParsedMessage } from "@/utils/types";
+import {
+  addGroupItemAction,
+  deleteGroupItemAction,
+} from "@/utils/actions/group";
+import { toast } from "sonner";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -55,7 +59,7 @@ export function ReportMistake({
   message,
   result,
 }: {
-  message: MessagesResponse["messages"][number];
+  message: ParsedMessage;
   result: RunRulesResult | null;
 }) {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
@@ -99,7 +103,7 @@ function Content({
   actualRule,
 }: {
   rules: RulesResponse;
-  message: MessagesResponse["messages"][number];
+  message: ParsedMessage;
   result: RunRulesResult | null;
   actualRule: Rule | null;
 }) {
@@ -205,8 +209,10 @@ function Content({
 
   if (isExpectedGroupRule || isActualGroupRule) {
     return (
-      <GroupMismatchMessage
+      <GroupMismatch
         ruleId={expectedRule?.id || actualRule?.id!}
+        groupId={expectedRule?.groupId || actualRule?.groupId!}
+        message={message}
         isExpectedGroupRule={isExpectedGroupRule}
         onBack={onBack}
       />
@@ -218,7 +224,7 @@ function Content({
 
   if (isExpectedStaticRule || isActualStaticRule) {
     return (
-      <StaticMismatchMessage
+      <StaticMismatch
         ruleId={expectedRule?.id || actualRule?.id!}
         isExpectedStaticRule={isExpectedStaticRule}
         onBack={onBack}
@@ -391,13 +397,16 @@ function ThreadSettingsMismatchMessage({
   );
 }
 
-// TODO: Could auto fix the group for the user
-function GroupMismatchMessage({
+function GroupMismatch({
   ruleId,
+  groupId,
+  message,
   isExpectedGroupRule,
   onBack,
 }: {
   ruleId: string;
+  groupId: string;
+  message: ParsedMessage;
   isExpectedGroupRule: boolean;
   onBack: () => void;
 }) {
@@ -410,6 +419,38 @@ function GroupMismatchMessage({
           : // Case 2: User didn't expect this group rule to match, but it did
             "This email matched because it's part of a group rule. To prevent it from matching, you'll need to remove it from the group or adjust the group settings."}
       </SectionDescription>
+
+      {isExpectedGroupRule && (
+        <div className="mt-2 flex gap-2">
+          <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm">
+            From: {message.headers.from}
+          </div>
+          <Button
+            className="mt-2"
+            onClick={() => {
+              toast.promise(
+                async () => {
+                  const result = await addGroupItemAction({
+                    groupId,
+                    type: GroupItemType.FROM,
+                    value: message.headers.from,
+                  });
+
+                  if (isActionError(result)) throw new Error(result.error);
+                },
+                {
+                  loading: "Adding to group...",
+                  success: "Added to group",
+                  error: (error) => `Failed to add to group: ${error.message}`,
+                },
+              );
+            }}
+          >
+            Add to group
+          </Button>
+        </div>
+      )}
+
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
         <EditRuleButton ruleId={ruleId} />
@@ -419,7 +460,7 @@ function GroupMismatchMessage({
 }
 
 // TODO: Could auto fix the static rule for the user
-function StaticMismatchMessage({
+function StaticMismatch({
   ruleId,
   isExpectedStaticRule,
   onBack,
@@ -454,7 +495,7 @@ function ManualFixView({
 }: {
   actualRule?: Rule | null;
   expectedRule?: Rule | null;
-  message: MessagesResponse["messages"][number];
+  message: ParsedMessage;
   result: RunRulesResult | null;
   onBack: () => void;
 }) {
@@ -559,7 +600,7 @@ function AIFixForm({
   result,
   expectedRuleId,
 }: {
-  message: MessagesResponse["messages"][number];
+  message: ParsedMessage;
   result: RunRulesResult | null;
   expectedRuleId: string | null;
 }) {

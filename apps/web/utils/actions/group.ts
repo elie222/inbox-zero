@@ -387,18 +387,21 @@ export const deleteGroupAction = withActionInstrumentation(
 
 export const addGroupItemAction = withActionInstrumentation(
   "addGroupItem",
-  async (body: AddGroupItemBody) => {
+  async (unsafeData: AddGroupItemBody) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
+    const { error, data } = addGroupItemBody.safeParse(unsafeData);
+    if (error) return { error: error.message };
+
     const group = await prisma.group.findUnique({
-      where: { id: body.groupId },
+      where: { id: data.groupId },
     });
     if (!group) return { error: "Group not found" };
     if (group.userId !== session.user.id)
       return { error: "You don't have permission to add items to this group" };
 
-    await prisma.groupItem.create({ data: addGroupItemBody.parse(body) });
+    await prisma.groupItem.create({ data });
 
     revalidatePath("/automation");
   },
