@@ -1,16 +1,7 @@
 import { parseMessages } from "@/utils/mail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
-import {
-  DRAFT_LABEL_ID,
-  IMPORTANT_LABEL_ID,
-  INBOX_LABEL_ID,
-  SENT_LABEL_ID,
-  SPAM_LABEL_ID,
-  STARRED_LABEL_ID,
-  TRASH_LABEL_ID,
-  UNREAD_LABEL_ID,
-} from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 import { type ThreadWithPayloadMessages, isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
@@ -41,7 +32,7 @@ export async function getThreads(query: ThreadsQuery) {
       return `from:${query.fromEmail}`;
     }
     if (query.type === "archive") {
-      return `-label:${INBOX_LABEL_ID}`;
+      return `-label:${GmailLabel.INBOX}`;
     }
     return undefined;
   }
@@ -107,28 +98,28 @@ export async function getThreads(query: ThreadsQuery) {
 function getLabelIds(type?: string | null) {
   switch (type) {
     case "inbox":
-      return [INBOX_LABEL_ID];
+      return [GmailLabel.INBOX];
     case "sent":
-      return [SENT_LABEL_ID];
+      return [GmailLabel.SENT];
     case "draft":
-      return [DRAFT_LABEL_ID];
+      return [GmailLabel.DRAFT];
     case "trash":
-      return [TRASH_LABEL_ID];
+      return [GmailLabel.TRASH];
     case "spam":
-      return [SPAM_LABEL_ID];
+      return [GmailLabel.SPAM];
     case "starred":
-      return [STARRED_LABEL_ID];
+      return [GmailLabel.STARRED];
     case "important":
-      return [IMPORTANT_LABEL_ID];
+      return [GmailLabel.IMPORTANT];
     case "unread":
-      return [UNREAD_LABEL_ID];
+      return [GmailLabel.UNREAD];
     case "archive":
       return undefined;
     case "all":
       return undefined;
     default:
       if (!type || type === "undefined" || type === "null")
-        return [INBOX_LABEL_ID];
+        return [GmailLabel.INBOX];
       return [type];
   }
 }

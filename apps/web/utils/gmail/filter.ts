@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { INBOX_LABEL_ID } from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 
 export async function createFilter(options: {
   gmail: gmail_v1.Gmail;
@@ -39,7 +39,7 @@ export async function createAutoArchiveFilter({
     return await createFilter({
       gmail,
       from,
-      removeLabelIds: [INBOX_LABEL_ID],
+      removeLabelIds: [GmailLabel.INBOX],
       addLabelIds: gmailLabelId ? [gmailLabelId] : undefined,
     });
   } catch (error) {

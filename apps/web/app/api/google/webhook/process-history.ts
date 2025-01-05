@@ -4,11 +4,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
-import {
-  DRAFT_LABEL_ID,
-  INBOX_LABEL_ID,
-  SENT_LABEL_ID,
-} from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import {
   getMessage,
@@ -158,7 +154,7 @@ export async function processHistoryForUser(
       // NOTE this can cause problems if we're way behind
       // NOTE this doesn't include startHistoryId in the results
       startHistoryId,
-      labelId: INBOX_LABEL_ID,
+      labelId: GmailLabel.INBOX,
       historyTypes: ["messageAdded", "labelAdded"],
       maxResults: 500,
     });
@@ -263,9 +259,9 @@ async function processHistory(options: ProcessHistoryOptions) {
 
     const inboxMessages = historyMessages.filter(
       (m) =>
-        m.message?.labelIds?.includes(INBOX_LABEL_ID) &&
-        !m.message?.labelIds?.includes(DRAFT_LABEL_ID) &&
-        !m.message?.labelIds?.includes(SENT_LABEL_ID),
+        m.message?.labelIds?.includes(GmailLabel.INBOX) &&
+        !m.message?.labelIds?.includes(GmailLabel.DRAFT) &&
+        !m.message?.labelIds?.includes(GmailLabel.SENT),
     );
     const uniqueMessages = uniqBy(inboxMessages, (m) => m.message?.id);
 

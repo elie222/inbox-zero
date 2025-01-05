@@ -5,7 +5,7 @@ import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { isActionError } from "@/utils/error";
 import { createFilter } from "@/utils/gmail/filter";
-import { SPAM_LABEL_ID } from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 
 export const whitelistInboxZeroAction = withActionInstrumentation(
   "whitelistInboxZero",
@@ -20,7 +20,7 @@ export const whitelistInboxZeroAction = withActionInstrumentation(
       gmail,
       from: env.WHITELIST_FROM,
       addLabelIds: ["CATEGORY_PERSONAL"],
-      removeLabelIds: [SPAM_LABEL_ID],
+      removeLabelIds: [GmailLabel.SPAM],
     });
   },
 );

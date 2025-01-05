@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { INBOX_LABEL_ID } from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 import { env } from "@/env";
 import { getGmailClient } from "@/utils/gmail/client";
 import { captureException } from "@/utils/error";
@@ -9,7 +9,7 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.watch({
     userId: "me",
     requestBody: {
-      labelIds: [INBOX_LABEL_ID],
+      labelIds: [GmailLabel.INBOX],
       labelFilterBehavior: "include",
       topicName: env.GOOGLE_PUBSUB_TOPIC_NAME,
     },

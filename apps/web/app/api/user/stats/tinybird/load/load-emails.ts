@@ -8,12 +8,7 @@ import { extractDomainFromEmail } from "@/utils/email";
 import { type TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { env } from "@/env";
-import {
-  DRAFT_LABEL_ID,
-  INBOX_LABEL_ID,
-  SENT_LABEL_ID,
-  UNREAD_LABEL_ID,
-} from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
@@ -176,10 +171,10 @@ async function saveBatch(
         subject: m.headers.subject,
         timestamp: +new Date(m.headers.date),
         unsubscribeLink,
-        read: !m.labelIds?.includes(UNREAD_LABEL_ID),
-        sent: !!m.labelIds?.includes(SENT_LABEL_ID),
-        draft: !!m.labelIds?.includes(DRAFT_LABEL_ID),
-        inbox: !!m.labelIds?.includes(INBOX_LABEL_ID),
+        read: !m.labelIds?.includes(GmailLabel.UNREAD),
+        sent: !!m.labelIds?.includes(GmailLabel.SENT),
+        draft: !!m.labelIds?.includes(GmailLabel.DRAFT),
+        inbox: !!m.labelIds?.includes(GmailLabel.INBOX),
         sizeEstimate: m.sizeEstimate ?? 0,
       };
 

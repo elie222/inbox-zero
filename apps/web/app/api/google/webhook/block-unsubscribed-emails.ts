@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
   getOrCreateInboxZeroLabel,
-  INBOX_LABEL_ID,
+  GmailLabel,
   labelMessage,
 } from "@/utils/gmail/label";
 import prisma from "@/utils/prisma";
@@ -40,7 +40,7 @@ export async function blockUnsubscribedEmails({
     // label email as "Unsubscribed"
     addLabelIds: unsubscribeLabel?.id ? [unsubscribeLabel.id] : undefined,
     // archive email
-    removeLabelIds: [INBOX_LABEL_ID],
+    removeLabelIds: [GmailLabel.INBOX],
   });
 
   return true;

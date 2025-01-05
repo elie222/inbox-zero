@@ -5,7 +5,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { getFiltersList } from "@/utils/gmail/filter";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
-import { INBOX_LABEL_ID, TRASH_LABEL_ID } from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 
 export async function getAutoArchiveFilters() {
@@ -68,7 +68,7 @@ export function filterNewsletters<
 
 function isAutoArchiveFilter(filter: gmail_v1.Schema$Filter) {
   return (
-    filter.action?.removeLabelIds?.includes(INBOX_LABEL_ID) ||
-    filter.action?.addLabelIds?.includes(TRASH_LABEL_ID)
+    filter.action?.removeLabelIds?.includes(GmailLabel.INBOX) ||
+    filter.action?.addLabelIds?.includes(GmailLabel.TRASH)
   );
 }

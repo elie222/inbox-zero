@@ -15,14 +15,16 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("gmail/label");
 
-export const INBOX_LABEL_ID = "INBOX";
-export const SENT_LABEL_ID = "SENT";
-export const UNREAD_LABEL_ID = "UNREAD";
-export const STARRED_LABEL_ID = "STARRED";
-export const IMPORTANT_LABEL_ID = "IMPORTANT";
-export const SPAM_LABEL_ID = "SPAM";
-export const TRASH_LABEL_ID = "TRASH";
-export const DRAFT_LABEL_ID = "DRAFT";
+export const GmailLabel = {
+  INBOX: "INBOX",
+  SENT: "SENT",
+  UNREAD: "UNREAD",
+  STARRED: "STARRED",
+  IMPORTANT: "IMPORTANT",
+  SPAM: "SPAM",
+  TRASH: "TRASH",
+  DRAFT: "DRAFT",
+};
 
 export async function labelThread(options: {
   gmail: gmail_v1.Gmail;
@@ -59,7 +61,7 @@ export async function archiveThread({
     userId: "me",
     id: threadId,
     requestBody: {
-      removeLabelIds: [INBOX_LABEL_ID],
+      removeLabelIds: [GmailLabel.INBOX],
       ...(labelId ? { addLabelIds: [labelId] } : {}),
     },
   });
@@ -123,10 +125,10 @@ export async function markReadThread(options: {
     id: threadId,
     requestBody: read
       ? {
-          removeLabelIds: [UNREAD_LABEL_ID],
+          removeLabelIds: [GmailLabel.UNREAD],
         }
       : {
-          addLabelIds: [UNREAD_LABEL_ID],
+          addLabelIds: [GmailLabel.UNREAD],
         },
   });
 }
@@ -143,10 +145,10 @@ export async function markImportantMessage(options: {
     id: messageId,
     requestBody: important
       ? {
-          addLabelIds: [IMPORTANT_LABEL_ID],
+          addLabelIds: [GmailLabel.IMPORTANT],
         }
       : {
-          removeLabelIds: [IMPORTANT_LABEL_ID],
+          removeLabelIds: [GmailLabel.IMPORTANT],
         },
   });
 }

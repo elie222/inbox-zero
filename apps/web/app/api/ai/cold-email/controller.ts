@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
-import { getOrCreateInboxZeroLabel, INBOX_LABEL_ID } from "@/utils/gmail/label";
+import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
 import prisma from "@/utils/prisma";
@@ -175,7 +175,7 @@ async function blockColdEmail(options: {
       // label email as "Cold Email"
       addLabelIds: coldEmailLabel?.id ? [coldEmailLabel.id] : undefined,
       // archive email
-      removeLabelIds: shouldArchive ? [INBOX_LABEL_ID] : undefined,
+      removeLabelIds: shouldArchive ? [GmailLabel.INBOX] : undefined,
     });
   }
 }
