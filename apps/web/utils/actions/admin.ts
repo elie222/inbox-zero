@@ -4,6 +4,9 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { isAdmin } from "@/utils/admin";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Admin Action");
 
 export const adminProcessHistoryAction = withActionInstrumentation(
   "adminProcessHistory",
@@ -21,7 +24,7 @@ export const adminProcessHistoryAction = withActionInstrumentation(
     if (!userId) return { error: "Not logged in" };
     if (!isAdmin(session.user.email)) return { error: "Not admin" };
 
-    console.log(`Processing history for ${emailAddress}`);
+    logger.info("Admin processing history", { emailAddress });
 
     await processHistoryForUser(
       {

@@ -31,6 +31,7 @@ export const zodActionType = z.enum([
   ActionType.MARK_SPAM,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
+  ActionType.CALL_WEBHOOK,
 ]);
 
 const zodField = z
@@ -40,15 +41,41 @@ const zodField = z
   })
   .nullish();
 
-const zodAction = z.object({
-  type: zodActionType,
-  label: zodField,
-  subject: zodField,
-  content: zodField,
-  to: zodField,
-  cc: zodField,
-  bcc: zodField,
-});
+const zodAction = z
+  .object({
+    id: z.string().optional(),
+    type: zodActionType,
+    label: zodField,
+    subject: zodField,
+    content: zodField,
+    to: zodField,
+    cc: zodField,
+    bcc: zodField,
+    url: zodField,
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a label name for the Label action",
+        path: ["label"],
+      });
+    }
+    if (data.type === ActionType.FORWARD && !data.to?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter an email address to forward to",
+        path: ["to"],
+      });
+    }
+    if (data.type === ActionType.CALL_WEBHOOK && !data.url?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a webhook URL",
+        path: ["url"],
+      });
+    }
+  });
 
 export const zodRuleType = z.enum([
   RuleType.AI,
@@ -110,10 +137,7 @@ export const createRuleBody = z.object({
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
-export const updateRuleBody = createRuleBody.extend({
-  id: z.string(),
-  actions: z.array(zodAction.extend({ id: z.string().optional() })),
-});
+export const updateRuleBody = createRuleBody.extend({ id: z.string() });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const updateRuleInstructionsBody = z.object({

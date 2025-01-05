@@ -9,7 +9,7 @@ export default function PermissionsErrorPage() {
   return (
     <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
       <PageHeading className="text-center">
-        You are missing permissions 😔
+        We are missing permissions 😔
       </PageHeading>
 
       <TypographyP className="mx-auto mt-4 max-w-prose text-center">
@@ -17,7 +17,10 @@ export default function PermissionsErrorPage() {
         work.
       </TypographyP>
 
-      <Button className="mt-4" onClick={() => logOut("/login")}>
+      <Button
+        className="mt-4"
+        onClick={() => logOut("/login?error=RequiresReconsent")}
+      >
         Sign in again
       </Button>
 

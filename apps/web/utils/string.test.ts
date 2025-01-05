@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { removeExcessiveWhitespace, truncate } from "./string";
+import {
+  removeExcessiveWhitespace,
+  truncate,
+  generalizeSubject,
+} from "./string";
 
 // Run with:
 // pnpm test utils/string.test.ts
@@ -61,6 +65,24 @@ describe("string utils", () => {
     it("should handle mixed special characters and whitespace", () => {
       const input = "hello\u00AD   world\n\n\u034F\n\u200B  test";
       expect(removeExcessiveWhitespace(input)).toBe("hello world\n\ntest");
+    });
+  });
+  describe("generalizeSubject", () => {
+    it("should remove numbers and IDs", () => {
+      expect(generalizeSubject("Order #123")).toBe("Order");
+      expect(generalizeSubject("Invoice 456")).toBe("Invoice");
+      expect(generalizeSubject("[org/repo] PR #789: Fix bug (abc123)")).toBe(
+        "[org/repo] PR : Fix bug",
+      );
+    });
+
+    it("should preserve normal text", () => {
+      expect(generalizeSubject("Welcome to our service")).toBe(
+        "Welcome to our service",
+      );
+      expect(generalizeSubject("Your account has been created")).toBe(
+        "Your account has been created",
+      );
     });
   });
 });

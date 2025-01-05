@@ -105,7 +105,7 @@ ${
 
 Your response should only include the list of general rules. Aim for 3-10 broadly applicable rules that would be useful for this user's email management.`;
 
-  logger.trace({ system, prompt });
+  logger.trace("generate-rules-prompt", { system, prompt });
 
   const aiResponse = await chatCompletionTools({
     userAi: user,

@@ -101,12 +101,6 @@ export function ColdEmailForm({
           "Label cold emails as 'Cold Email', but keep them in my inbox",
       },
       {
-        value: ColdEmailSetting.LIST,
-        label: "List in Inbox Zero",
-        description:
-          "List cold emails in Inbox Zero. Make no changes to my inbox",
-      },
-      {
         value: ColdEmailSetting.DISABLED,
         label: "Turn Off",
         description: "Disable cold email blocker",

@@ -22,3 +22,10 @@ export function isDuplicateError(error: unknown, key?: string) {
 
   return duplicateError;
 }
+
+export function isNotFoundError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2025"
+  );
+}

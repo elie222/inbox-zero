@@ -12,14 +12,25 @@ import {
 } from "@/utils/premium/server";
 import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { PremiumTier } from "@prisma/client";
-import { cancelledPremium, upgradedToPremium } from "@inboxzero/loops";
+import {
+  cancelledPremium,
+  switchedPremiumPlan,
+  upgradedToPremium,
+} from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
+import { getSubscriptionTier } from "@/app/(app)/premium/config";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Lemon Squeezy Webhook");
 
 export const POST = withError(async (request: Request) => {
   const payload = await getPayload(request);
   const userId = payload.meta.custom_data?.user_id;
 
-  console.log("===Lemon event type:", payload.meta.event_name);
+  logger.info("Lemon Squeezy webhook", {
+    event: payload.meta.event_name,
+    userId,
+  });
 
   // ignored events
   if (["subscription_payment_success"].includes(payload.meta.event_name)) {
@@ -50,9 +61,7 @@ export const POST = withError(async (request: Request) => {
   const premiumId = premium?.id;
 
   if (!premiumId) {
-    console.warn(
-      `No user found for lemonSqueezyCustomerId ${lemonSqueezyCustomerId}`,
-    );
+    logger.warn("No user found", { lemonSqueezyCustomerId });
 
     return NextResponse.json({ ok: true });
   }
@@ -73,12 +82,25 @@ export const POST = withError(async (request: Request) => {
     return await subscriptionUpdated({ payload, premiumId });
   }
 
-  // cancellation
+  // changed plan
+  if (payload.meta.event_name === "subscription_plan_changed") {
+    if (!userId) {
+      logger.error("No userId provided", {
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+      throw new SafeError("No userId provided");
+    }
+    return await subscriptionPlanChanged({ payload, userId });
+  }
+
+  // cancelled or expired
   if (payload.data.attributes.ends_at) {
     return await subscriptionCancelled({
       payload,
       premiumId,
       endsAt: payload.data.attributes.ends_at,
+      variantId: payload.data.attributes.variant_id,
     });
   }
 
@@ -88,7 +110,13 @@ export const POST = withError(async (request: Request) => {
       payload,
       premiumId,
       endsAt: new Date().toISOString(),
+      variantId: payload.data.attributes.variant_id,
     });
+  }
+
+  // payment success
+  if (payload.meta.event_name === "subscription_payment_success") {
+    return await subscriptionPaymentSuccess({ payload, premiumId });
   }
 
   return NextResponse.json({ ok: true });
@@ -123,6 +151,96 @@ async function subscriptionCreated({
   payload: Payload;
   userId: string;
 }) {
+  logger.info("Subscription created", {
+    lemonSqueezyRenewsAt:
+      payload.data.attributes.renews_at &&
+      new Date(payload.data.attributes.renews_at),
+    userId,
+  });
+
+  const { updatedPremium, tier } = await handleSubscriptionCreated(
+    payload,
+    userId,
+  );
+
+  const email = getEmailFromPremium(updatedPremium);
+  if (email) {
+    try {
+      await Promise.allSettled([
+        posthogCaptureEvent(
+          email,
+          payload.data.attributes.status === "on_trial"
+            ? "Premium trial started"
+            : "Upgraded to premium",
+          {
+            ...payload.data.attributes,
+            $set: {
+              premium: true,
+              premiumTier: "subscription",
+              premiumStatus: payload.data.attributes.status,
+            },
+          },
+        ),
+        upgradedToPremium(email, tier),
+      ]);
+    } catch (error) {
+      logger.error("Error capturing event", {
+        error,
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+async function subscriptionPlanChanged({
+  payload,
+  userId,
+}: {
+  payload: Payload;
+  userId: string;
+}) {
+  logger.info("Subscription plan changed", {
+    lemonSqueezyRenewsAt:
+      payload.data.attributes.renews_at &&
+      new Date(payload.data.attributes.renews_at),
+    userId,
+  });
+
+  const { updatedPremium, tier } = await handleSubscriptionCreated(
+    payload,
+    userId,
+  );
+
+  const email = getEmailFromPremium(updatedPremium);
+  if (email) {
+    try {
+      await Promise.allSettled([
+        posthogCaptureEvent(email, "Switched premium plan", {
+          ...payload.data.attributes,
+          $set: {
+            premium: true,
+            premiumTier: "subscription",
+            premiumStatus: payload.data.attributes.status,
+          },
+        }),
+        switchedPremiumPlan(email, tier),
+      ]);
+    } catch (error) {
+      logger.error("Error capturing event", {
+        error,
+        webhookId: payload.data.id,
+        event: payload.meta.event_name,
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+async function handleSubscriptionCreated(payload: Payload, userId: string) {
   if (!payload.data.attributes.renews_at)
     throw new Error("No renews_at provided");
 
@@ -130,6 +248,14 @@ async function subscriptionCreated({
 
   if (!payload.data.attributes.first_subscription_item)
     throw new Error("No subscription item");
+
+  logger.info("Subscription created", {
+    lemonSqueezyRenewsAt: lemonSqueezyRenewsAt,
+    lemonSqueezySubscriptionId:
+      payload.data.attributes.first_subscription_item.subscription_id,
+    lemonSqueezySubscriptionItemId:
+      payload.data.attributes.first_subscription_item.id,
+  });
 
   const tier = getSubscriptionTier({
     variantId: payload.data.attributes.variant_id,
@@ -149,28 +275,7 @@ async function subscriptionCreated({
     lemonSqueezyVariantId: payload.data.attributes.variant_id,
   });
 
-  const email = getEmailFromPremium(updatedPremium);
-  if (email) {
-    await Promise.allSettled([
-      posthogCaptureEvent(
-        email,
-        payload.data.attributes.status === "on_trial"
-          ? "Premium trial started"
-          : "Upgraded to premium",
-        {
-          ...payload.data.attributes,
-          $set: {
-            premium: true,
-            premiumTier: "subscription",
-            premiumStatus: payload.data.attributes.status,
-          },
-        },
-      ),
-      upgradedToPremium(email, tier),
-    ]);
-  }
-
-  return NextResponse.json({ ok: true });
+  return { updatedPremium, tier };
 }
 
 async function lifetimeOrder({
@@ -182,6 +287,13 @@ async function lifetimeOrder({
 }) {
   if (!payload.data.attributes.first_order_item)
     throw new Error("No order item");
+
+  logger.info("Lifetime order", {
+    lemonSqueezyOrderId: payload.data.attributes.first_order_item.order_id,
+    lemonSqueezyCustomerId: payload.data.attributes.customer_id,
+    lemonSqueezyProductId: payload.data.attributes.product_id,
+    lemonSqueezyVariantId: payload.data.attributes.variant_id,
+  });
 
   const updatedPremium = await upgradeToPremium({
     userId,
@@ -219,6 +331,11 @@ async function lifetimeSeatOrder({
   if (!payload.data.attributes.first_order_item)
     throw new Error("No order item");
 
+  logger.info("Lifetime seat order", {
+    quantity: payload.data.attributes.first_order_item.quantity,
+    premiumId,
+  });
+
   const updatedPremium = await editEmailAccountsAccess({
     premiumId,
     count: payload.data.attributes.first_order_item.quantity,
@@ -244,6 +361,11 @@ async function subscriptionUpdated({
 }) {
   if (!payload.data.attributes.renews_at)
     throw new Error("No renews_at provided");
+
+  logger.info("Subscription updated", {
+    lemonSqueezyRenewsAt: new Date(payload.data.attributes.renews_at),
+    premiumId,
+  });
 
   const updatedPremium = await extendPremium({
     premiumId,
@@ -275,15 +397,27 @@ async function subscriptionCancelled({
   payload,
   premiumId,
   endsAt,
+  variantId,
 }: {
   payload: Payload;
   premiumId: string;
   endsAt: NonNullable<Payload["data"]["attributes"]["ends_at"]>;
+  variantId: NonNullable<Payload["data"]["attributes"]["variant_id"]>;
 }) {
+  logger.info("Subscription cancelled", {
+    endsAt: new Date(endsAt),
+    variantId,
+    premiumId,
+  });
+
   const updatedPremium = await cancelPremium({
     premiumId,
+    variantId,
     lemonSqueezyEndsAt: new Date(endsAt),
+    expired: payload.data.attributes.status === "expired",
   });
+
+  if (!updatedPremium) return NextResponse.json({ ok: true });
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
@@ -303,36 +437,45 @@ async function subscriptionCancelled({
   return NextResponse.json({ ok: true });
 }
 
+async function subscriptionPaymentSuccess({
+  payload,
+  premiumId,
+}: {
+  payload: Payload;
+  premiumId: string;
+}) {
+  logger.info("Subscription payment success", {
+    premiumId,
+    lemonSqueezyId: payload.data.id,
+    lemonSqueezyType: payload.data.type,
+  });
+
+  if (payload.data.attributes.status !== "paid") {
+    throw new Error(
+      `Unexpected status for subscription payment success: ${payload.data.attributes.status}`,
+    );
+  }
+
+  const premium = await prisma.premium.findUnique({
+    where: { id: premiumId },
+    select: {
+      admins: { select: { email: true } },
+      users: { select: { email: true } },
+    },
+  });
+
+  const email = premium?.admins?.[0]?.email || premium?.users?.[0]?.email;
+  if (!email) throw new Error("No email found");
+  await posthogCaptureEvent(email, "Payment success", {
+    totalPaidUSD: payload.data.attributes.total_usd,
+    lemonSqueezyId: payload.data.id,
+    lemonSqueezyType: payload.data.type,
+  });
+  return NextResponse.json({ ok: true });
+}
+
 function getEmailFromPremium(premium: {
   users: Array<{ email: string | null }>;
 }) {
   return premium.users?.[0]?.email;
-}
-
-function getSubscriptionTier({
-  variantId,
-}: {
-  variantId: number;
-}): PremiumTier {
-  switch (variantId) {
-    case env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID:
-      return PremiumTier.BASIC_MONTHLY;
-    case env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID:
-      return PremiumTier.BASIC_ANNUALLY;
-
-    case env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID:
-      return PremiumTier.PRO_MONTHLY;
-    case env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID:
-      return PremiumTier.PRO_ANNUALLY;
-
-    case env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID:
-      return PremiumTier.BUSINESS_MONTHLY;
-    case env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID:
-      return PremiumTier.BUSINESS_ANNUALLY;
-
-    case env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID:
-      return PremiumTier.COPILOT_MONTHLY;
-  }
-
-  throw new Error(`Unknown variant id: ${variantId}`);
 }

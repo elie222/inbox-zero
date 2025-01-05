@@ -85,7 +85,8 @@ export async function getActionItemsWithAiArgs({
         field === "content" ||
         field === "to" ||
         field === "cc" ||
-        field === "bcc"
+        field === "bcc" ||
+        field === "url"
       ) {
         const originalValue = action[field];
         if (typeof originalValue === "string") {
@@ -114,24 +115,31 @@ async function getArgsAiResponse({
   selectedRule: RuleWithActions;
   parameters: ActionRequiringAi[];
 }): Promise<ActionArgResponse | undefined> {
-  logger.info(
-    `Generating args for rule ${selectedRule.name} (${selectedRule.id})`,
-  );
+  logger.info("Generating args for rule", {
+    email: user.email,
+    ruleId: selectedRule.id,
+    ruleName: selectedRule.name,
+  });
 
   // If no parameters, skip
   if (parameters.length === 0) {
-    logger.info(
-      `Skipping. No parameters for rule ${selectedRule.name} (${selectedRule.id})`,
-    );
+    logger.info("Skipping. No parameters for rule", {
+      email: user.email,
+      ruleId: selectedRule.id,
+      ruleName: selectedRule.name,
+    });
     return;
   }
 
   const system = getSystemPrompt({ user });
   const prompt = getPrompt({ email, selectedRule });
 
-  logger.info("Calling chat completion tools");
-  logger.trace(`System: ${system}`);
-  logger.trace(`Prompt: ${prompt}`);
+  logger.info("Calling chat completion tools", {
+    email: user.email,
+    ruleId: selectedRule.id,
+    ruleName: selectedRule.name,
+  });
+  logger.trace("System and prompt", { system, prompt });
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
   const aiResponse = await withRetry(
@@ -169,7 +177,7 @@ async function getArgsAiResponse({
 
   const toolCallArgs = toolCall.args;
 
-  logger.trace(`Tool call args: ${JSON.stringify(toolCallArgs, null, 2)}`);
+  logger.trace("Tool call args", { toolCallArgs });
 
   return toolCallArgs;
 }
@@ -298,7 +306,10 @@ function extractActionsNeedingAiGeneration(actions: Action[]) {
  * Note: Only processes string fields that contain {{template variables}}
  */
 export function getParameterFieldsForAction(
-  action: Pick<Action, "label" | "subject" | "content" | "to" | "cc" | "bcc">,
+  action: Pick<
+    Action,
+    "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
+  >,
 ) {
   const fields: Record<string, z.ZodObject<Record<string, z.ZodString>>> = {};
   const fieldNames = [
@@ -308,6 +319,7 @@ export function getParameterFieldsForAction(
     "to",
     "cc",
     "bcc",
+    "url",
   ] as const;
 
   for (const field of fieldNames) {

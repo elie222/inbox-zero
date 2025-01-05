@@ -11,6 +11,11 @@ export function TokenCheck() {
   useEffect(() => {
     if (session?.error === "RefreshAccessTokenError") {
       router.replace("/login?error=RefreshAccessTokenError");
+      return;
+    }
+    if (session?.error === "RequiresReconsent") {
+      router.replace("/login?error=RequiresReconsent");
+      return;
     }
   }, [session, router]);
 

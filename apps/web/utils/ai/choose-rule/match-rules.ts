@@ -14,12 +14,16 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("match-rules");
 
 // if we find a match, return it
 // if we don't find a match, return the potential matches
 // ai rules need further processing to determine if they match
 type MatchingRuleResult = {
   match?: RuleWithActionsAndCategories;
+  reason?: string;
   potentialMatches?: (RuleWithActionsAndCategories & {
     instructions: string;
   })[];
@@ -41,18 +45,18 @@ async function findPotentialMatchingRules({
   // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   // only load once and only when needed
-  async function getGroups(rule: RuleWithActionsAndCategories) {
-    if (!groups) groups = await getGroupsWithRules(rule.userId);
+  async function getGroups(userId: string) {
+    if (!groups) groups = await getGroupsWithRules(userId);
     return groups;
   }
 
   // sender singleton
   let sender: { categoryId: string | null } | null | undefined;
-  async function getSender(rule: RuleWithActionsAndCategories) {
+  async function getSender(userId: string) {
     if (typeof sender === "undefined") {
       sender = await prisma.newsletter.findUnique({
         where: {
-          email_userId: { email: message.headers.from, userId: rule.userId },
+          email_userId: { email: message.headers.from, userId },
         },
         select: { categoryId: true },
       });
@@ -69,14 +73,16 @@ async function findPotentialMatchingRules({
 
     const conditionTypes = getConditionTypes(rule);
     const unmatchedConditions = new Set<string>(Object.keys(conditionTypes));
+    const matchReasons: string[] = [];
 
     // static
     if (conditionTypes.STATIC) {
       const match = matchesStaticRule(rule, message);
       if (match) {
         unmatchedConditions.delete("STATIC");
+        matchReasons.push("Matched static conditions");
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
-          return { match: rule };
+          return { match: rule, reason: matchReasons.join(", ") };
       } else {
         // no match, so can't be a match with AND
         if (operator === LogicalOperator.AND) continue;
@@ -85,11 +91,22 @@ async function findPotentialMatchingRules({
 
     // group
     if (conditionTypes.GROUP) {
-      const match = await matchesGroupRule(await getGroups(rule), message);
-      if (match) {
+      const { matchingItem } = await matchesGroupRule(
+        rule,
+        await getGroups(rule.userId),
+        message,
+      );
+      if (matchingItem) {
         unmatchedConditions.delete("GROUP");
-        if (operator === LogicalOperator.OR || !unmatchedConditions.size)
-          return { match: rule };
+        matchReasons.push(
+          `Matched group item: "${matchingItem.type}: ${matchingItem.value}"`,
+        );
+        if (operator === LogicalOperator.OR || !unmatchedConditions.size) {
+          return {
+            match: rule,
+            reason: matchReasons.join(", "),
+          };
+        }
       } else {
         // no match, so can't be a match with AND
         if (operator === LogicalOperator.AND) continue;
@@ -98,11 +115,16 @@ async function findPotentialMatchingRules({
 
     // category
     if (conditionTypes.CATEGORY) {
-      const match = await matchesCategoryRule(rule, await getSender(rule));
+      const match = await matchesCategoryRule(
+        rule,
+        await getSender(rule.userId),
+      );
       if (match) {
         unmatchedConditions.delete("CATEGORY");
+        if (typeof match !== "boolean")
+          matchReasons.push(`Matched category: "${match.name}"`);
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
-          return { match: rule };
+          return { match: rule, reason: matchReasons.join(", ") };
       } else {
         // no match, so can't be a match with AND
         if (operator === LogicalOperator.AND) continue;
@@ -125,13 +147,13 @@ export async function findMatchingRule(
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
 ): Promise<{ rule?: RuleWithActionsAndCategories; reason?: string }> {
   const isThread = isReplyInThread(message.id, message.threadId);
-  const { match, potentialMatches } = await findPotentialMatchingRules({
+  const { match, reason, potentialMatches } = await findPotentialMatchingRules({
     rules,
     message,
     isThread,
   });
 
-  if (match) return { rule: match, reason: undefined };
+  if (match) return { rule: match, reason };
 
   if (potentialMatches?.length) {
     const result = await aiChooseRule({
@@ -158,7 +180,7 @@ export function matchesStaticRule(
     try {
       return new RegExp(pattern).test(text);
     } catch (error) {
-      console.error(`Invalid regex pattern: ${pattern}`, error);
+      logger.error("Invalid regex pattern", { pattern, error });
       return false;
     }
   };
@@ -174,11 +196,13 @@ export function matchesStaticRule(
 }
 
 async function matchesGroupRule(
+  rule: RuleWithActionsAndCategories,
   groups: Awaited<ReturnType<typeof getGroupsWithRules>>,
   message: ParsedMessage,
 ) {
-  const match = findMatchingGroup(message, groups);
-  return !!match;
+  const ruleGroup = groups.find((g) => g.rule?.id === rule.id);
+  if (!ruleGroup) return { group: null, matchingItem: null };
+  return findMatchingGroup(message, ruleGroup);
 }
 
 async function matchesCategoryRule(
@@ -190,16 +214,17 @@ async function matchesCategoryRule(
 
   if (!sender) return false;
 
-  const isIncluded = rule.categoryFilters.some(
+  const matchedFilter = rule.categoryFilters.find(
     (c) => c.id === sender.categoryId,
   );
 
   if (
-    (rule.categoryFilterType === CategoryFilterType.INCLUDE && !isIncluded) ||
-    (rule.categoryFilterType === CategoryFilterType.EXCLUDE && isIncluded)
+    (rule.categoryFilterType === CategoryFilterType.INCLUDE &&
+      !matchedFilter) ||
+    (rule.categoryFilterType === CategoryFilterType.EXCLUDE && matchedFilter)
   ) {
     return false;
   }
 
-  return true;
+  return matchedFilter;
 }

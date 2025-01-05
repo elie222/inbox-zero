@@ -14,6 +14,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { PremiumTier } from "@prisma/client";
 import { useUser } from "@/hooks/useUser";
+import { businessTierName } from "@/app/(app)/premium/config";
 
 export function usePremium() {
   const swrResponse = useUser();
@@ -44,48 +45,64 @@ export function usePremium() {
       aiApiKey,
     ),
     isProPlanWithoutApiKey,
+    tier: premium?.tier,
   };
 }
 
-function PremiumAlert({
-  plan = "Inbox Zero AI",
+function PremiumAiAssistantAlert({
   showSetApiKey,
   className,
+  tier,
 }: {
-  plan?: "Inbox Zero AI" | "Inbox Zero Pro";
   showSetApiKey: boolean;
   className?: string;
+  tier?: PremiumTier | null;
 }) {
   const { PremiumModal, openModal } = usePremiumModal();
 
+  const isBasicPlan =
+    tier === PremiumTier.BASIC_MONTHLY || tier === PremiumTier.BASIC_ANNUALLY;
+
   return (
     <div className={className}>
-      <AlertWithButton
-        title="Premium"
-        description={
-          <>
-            This is a premium feature. Upgrade to the {plan}
-            {showSetApiKey ? (
-              <>
-                {" "}
-                or set an AI API key on the{" "}
-                <Link
-                  href="/settings"
-                  className="font-semibold hover:text-gray-700"
-                >
-                  settings
-                </Link>{" "}
-                page.
-              </>
-            ) : (
-              <>.</>
-            )}
-          </>
-        }
-        icon={<CrownIcon className="h-4 w-4" />}
-        button={<Button onClick={openModal}>Upgrade</Button>}
-        variant="blue"
-      />
+      {isBasicPlan ? (
+        <AlertWithButton
+          title={`${businessTierName} Plan Required`}
+          description={
+            <>Switch to the {businessTierName} plan to use this feature.</>
+          }
+          icon={<CrownIcon className="h-4 w-4" />}
+          button={<Button onClick={openModal}>Switch Plan</Button>}
+          variant="blue"
+        />
+      ) : (
+        <AlertWithButton
+          title="Premium"
+          description={
+            <>
+              This is a premium feature. Upgrade to the {businessTierName} plan
+              {showSetApiKey ? (
+                <>
+                  {" "}
+                  or set an AI API key on the{" "}
+                  <Link
+                    href="/settings"
+                    className="font-semibold hover:text-gray-700"
+                  >
+                    settings
+                  </Link>{" "}
+                  page.
+                </>
+              ) : (
+                <>.</>
+              )}
+            </>
+          }
+          icon={<CrownIcon className="h-4 w-4" />}
+          button={<Button onClick={openModal}>Upgrade</Button>}
+          variant="blue"
+        />
+      )}
       <PremiumModal />
     </div>
   );
@@ -96,15 +113,18 @@ export function PremiumAlertWithData({ className }: { className?: string }) {
     hasAiAccess,
     isLoading: isLoadingPremium,
     isProPlanWithoutApiKey,
+    tier,
   } = usePremium();
 
-  if (!isLoadingPremium && !hasAiAccess)
+  if (!isLoadingPremium && !hasAiAccess) {
     return (
-      <PremiumAlert
+      <PremiumAiAssistantAlert
         showSetApiKey={isProPlanWithoutApiKey}
         className={className}
+        tier={tier}
       />
     );
+  }
 
   return null;
 }

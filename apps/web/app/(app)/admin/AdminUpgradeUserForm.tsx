@@ -60,7 +60,7 @@ export const AdminUpgradeUserForm = () => {
         error={errors.emailAccountsAccess}
       />
       <Select
-        label="Period"
+        label="Plan"
         options={[
           {
             label: PremiumTier.BUSINESS_ANNUALLY,
@@ -98,6 +98,13 @@ export const AdminUpgradeUserForm = () => {
         {...register("period")}
         error={errors.period}
       />
+      <Input
+        type="number"
+        name="count"
+        label="Months/Years"
+        registerProps={register("count", { valueAsNumber: true })}
+        error={errors.count}
+      />
       <div className="space-x-2">
         <Button
           type="button"
@@ -108,6 +115,7 @@ export const AdminUpgradeUserForm = () => {
               lemonSqueezyCustomerId: getValues("lemonSqueezyCustomerId"),
               emailAccountsAccess: getValues("emailAccountsAccess"),
               period: getValues("period"),
+              count: getValues("count"),
               upgrade: true,
             });
           }}
@@ -122,6 +130,7 @@ export const AdminUpgradeUserForm = () => {
             onSubmit({
               email: getValues("email"),
               period: getValues("period"),
+              count: getValues("count"),
               upgrade: false,
             });
           }}

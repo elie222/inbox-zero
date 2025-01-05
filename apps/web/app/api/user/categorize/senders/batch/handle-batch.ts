@@ -26,7 +26,7 @@ export async function handleBatchRequest(
       return NextResponse.json({ error: handleBatchResult.error });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    logger.error("handleBatchRequest", { error });
+    logger.error("Handle batch request error", { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -39,7 +39,10 @@ async function handleBatchInternal(request: Request) {
   const body = aiCategorizeSendersSchema.parse(json);
   const { userId, senders } = body;
 
-  logger.trace(`handleBatch ${userId}: ${senders.length} senders`);
+  logger.trace("Handle batch request", {
+    userId,
+    senders: senders.length,
+  });
 
   const userResult = await validateUserAndAiAccess(userId);
   if (isActionError(userResult)) return userResult;

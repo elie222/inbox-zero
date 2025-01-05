@@ -75,7 +75,7 @@ export async function processHistoryForUser(
   });
 
   if (!account) {
-    logger.error(`Account not found. email: ${email}`);
+    logger.error("Account not found", { email });
     return NextResponse.json({ ok: true });
   }
 
@@ -84,7 +84,7 @@ export async function processHistoryForUser(
     : undefined;
 
   if (!premium) {
-    logger.info(`Account not premium. email: ${email}`);
+    logger.info("Account not premium", { email });
     await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }
@@ -99,7 +99,7 @@ export async function processHistoryForUser(
   );
 
   if (!userHasAiAccess && !userHasColdEmailAccess) {
-    console.debug(`does not have hasAiOrColdEmailAccess. email: ${email}`);
+    logger.trace("Does not have hasAiOrColdEmailAccess", { email });
     await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }
@@ -109,22 +109,18 @@ export async function processHistoryForUser(
     account.user.coldEmailBlocker &&
     account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
   if (!hasAutomationRules && !shouldBlockColdEmails) {
-    console.debug(
-      `has no rules set and cold email blocker disabled. email: ${email}`,
-    );
+    logger.trace("Has no rules set and cold email blocker disabled", { email });
     return NextResponse.json({ ok: true });
   }
 
   if (!account.access_token || !account.refresh_token) {
-    logger.error(
-      `Missing access or refresh token. User needs to re-authenticate. email: ${email}`,
-    );
+    logger.error("Missing access or refresh token", { email });
     return NextResponse.json({ ok: true });
   }
 
   if (!account.user.email) {
     // shouldn't ever happen
-    logger.error(`Missing user email: ${email}`);
+    logger.error("Missing user email", { email });
     return NextResponse.json({ ok: true });
   }
 
@@ -139,7 +135,10 @@ export async function processHistoryForUser(
     );
 
     // couldn't refresh the token
-    if (!gmail) return NextResponse.json({ ok: true });
+    if (!gmail) {
+      logger.error("Failed to refresh token", { email });
+      return NextResponse.json({ ok: true });
+    }
 
     const startHistoryId =
       options?.startHistoryId ||
@@ -148,9 +147,12 @@ export async function processHistoryForUser(
         historyId - 500, // avoid going too far back
       ).toString();
 
-    logger.info(
-      `Listing history... Start: ${startHistoryId} lastSyncedHistoryId: ${account.user.lastSyncedHistoryId} gmailHistoryId: ${startHistoryId} email: ${email}`,
-    );
+    logger.info("Listing history", {
+      startHistoryId,
+      lastSyncedHistoryId: account.user.lastSyncedHistoryId,
+      gmailHistoryId: startHistoryId,
+      email,
+    });
 
     const history = await getHistory(gmail, {
       // NOTE this can cause problems if we're way behind
@@ -162,9 +164,11 @@ export async function processHistoryForUser(
     });
 
     if (history.data.history) {
-      logger.info(
-        `Processing... email: ${email} startHistoryId: ${startHistoryId} historyId: ${history.data.historyId}`,
-      );
+      logger.info("Processing history", {
+        email,
+        startHistoryId,
+        historyId: history.data.historyId,
+      });
 
       await processHistory({
         history: history.data.history,
@@ -188,9 +192,10 @@ export async function processHistoryForUser(
         },
       });
     } else {
-      logger.info(
-        `No history. startHistoryId: ${startHistoryId}. ${JSON.stringify(decodedData)}`,
-      );
+      logger.info("No history", {
+        startHistoryId,
+        decodedData,
+      });
 
       // important to save this or we can get into a loop with never receiving history
       await prisma.user.update({
@@ -199,18 +204,23 @@ export async function processHistoryForUser(
       });
     }
 
-    logger.info(`Completed. ${JSON.stringify(decodedData)}`);
+    logger.info("Completed processing history", { decodedData });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     captureException(error, { extra: { decodedData } }, email);
-    logger.error(
-      "Error processing webhook",
-      error instanceof Error
-        ? { message: error.message, stack: error.stack, name: error.name }
-        : String(error),
+    logger.error("Error processing webhook", {
       decodedData,
-    );
+      email,
+      error:
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+            }
+          : String(error),
+    });
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
     // return NextResponse.error();
@@ -268,7 +278,12 @@ async function processHistory(options: ProcessHistoryOptions) {
           { extra: { email, messageId: m.message?.id } },
           email,
         );
-        logger.error(`Error processing history item. email: ${email}`, error);
+        logger.error("Error processing history item", {
+          email,
+          messageId: m.message?.id,
+          threadId: m.message?.threadId,
+          error,
+        });
       }
     }
   }
@@ -305,15 +320,19 @@ async function processHistoryItem(
   });
 
   if (!isFree) {
-    logger.info(
-      `Skipping. Message already being processed. email: ${user.email} messageId: ${messageId}`,
-    );
+    logger.info("Skipping. Message already being processed.", {
+      email: user.email,
+      messageId,
+      threadId,
+    });
     return;
   }
 
-  logger.info(
-    `Getting message... email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
-  );
+  logger.info("Getting message", {
+    email: user.email,
+    messageId,
+    threadId,
+  });
 
   try {
     const [gmailMessage, hasExistingRule] = await Promise.all([
@@ -328,7 +347,11 @@ async function processHistoryItem(
 
     // if the rule has already been executed, skip
     if (hasExistingRule) {
-      logger.info("Skipping. Rule already exists.");
+      logger.info("Skipping. Rule already exists.", {
+        email: user.email,
+        messageId,
+        threadId,
+      });
       return;
     }
 
@@ -342,9 +365,11 @@ async function processHistoryItem(
     });
 
     if (blocked) {
-      logger.info(
-        `Skipping. Blocked unsubscribed email. email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
-      );
+      logger.info("Skipping. Blocked unsubscribed email.", {
+        email: user.email,
+        messageId,
+        threadId,
+      });
       return;
     }
 
@@ -357,7 +382,11 @@ async function processHistoryItem(
     );
 
     if (shouldRunBlocker) {
-      logger.info("Running cold email blocker...");
+      logger.info("Running cold email blocker...", {
+        email: user.email,
+        messageId,
+        threadId,
+      });
 
       const hasPreviousEmail = await hasPreviousEmailsFromSenderOrDomain(
         gmail,
@@ -374,7 +403,7 @@ async function processHistoryItem(
         snippet: message.snippet,
       });
 
-      await runColdEmailBlocker({
+      const response = await runColdEmailBlocker({
         hasPreviousEmail,
         email: {
           from: message.headers.from,
@@ -386,6 +415,15 @@ async function processHistoryItem(
         gmail,
         user,
       });
+
+      if (response.isColdEmail) {
+        logger.info("Skipping. Cold email detected.", {
+          email: user.email,
+          messageId,
+          threadId,
+        });
+        return;
+      }
     }
 
     // categorize a sender if we haven't already
@@ -402,7 +440,11 @@ async function processHistoryItem(
     }
 
     if (hasAutomationRules && hasAiAutomationAccess) {
-      logger.info("Running rules...");
+      logger.info("Running rules...", {
+        email: user.email,
+        messageId,
+        threadId,
+      });
 
       await runRulesOnMessage({
         gmail,
@@ -415,9 +457,11 @@ async function processHistoryItem(
   } catch (error: any) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
-      logger.info(
-        `Message not found. email: ${user.email} messageId: ${messageId} threadId: ${threadId}`,
-      );
+      logger.info("Message not found", {
+        email: user.email,
+        messageId,
+        threadId,
+      });
       return;
     }
 
@@ -431,8 +475,8 @@ function shouldRunColdEmailBlocker(
   isThread: boolean,
 ) {
   return (
-    coldEmailBlocker &&
-    coldEmailBlocker !== ColdEmailSetting.DISABLED &&
+    (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+      coldEmailBlocker === ColdEmailSetting.LABEL) &&
     hasColdEmailAccess &&
     !isThread
   );

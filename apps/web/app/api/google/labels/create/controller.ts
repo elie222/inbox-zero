@@ -21,8 +21,15 @@ export async function createLabel(body: CreateLabelBody) {
 
   if (!label.id) throw new SafeError("Failed to create label");
 
-  await prisma.label.create({
-    data: {
+  const dbPromise = prisma.label.upsert({
+    where: {
+      gmailLabelId_userId: {
+        gmailLabelId: label.id,
+        userId: session.user.id,
+      },
+    },
+    update: {},
+    create: {
       name: body.name,
       description: body.description,
       gmailLabelId: label.id,
@@ -31,10 +38,12 @@ export async function createLabel(body: CreateLabelBody) {
     },
   });
 
-  await saveUserLabel({
+  const redisPromise = saveUserLabel({
     email: session.user.email,
     label: { id: label.id, name: body.name, description: body.description },
   });
+
+  await Promise.all([dbPromise, redisPromise]);
 
   return { label };
 }

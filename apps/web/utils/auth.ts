@@ -8,6 +8,9 @@ import { createContact as createResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("auth");
 
 export const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
@@ -42,7 +45,7 @@ export const getAuthOptions: (options?: {
       },
     }),
   ],
-  adapter: PrismaAdapter(prisma) as any, // TODO
+  adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   // based on: https://authjs.dev/guides/basics/refresh-token-rotation
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
@@ -54,7 +57,7 @@ export const getAuthOptions: (options?: {
         // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
         // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
-          console.log("Saving refresh token", token.email);
+          logger.info("Saving refresh token", { email: token.email });
           await saveRefreshToken(
             {
               access_token: account.access_token,
@@ -96,21 +99,19 @@ export const getAuthOptions: (options?: {
         return token;
       }
       // If the access token has expired, try to refresh it
-      console.log(
-        `Token expired at: ${
-          token.expires_at
-            ? new Date((token.expires_at as number) * 1000).toISOString()
-            : "not set"
-        }. Attempting refresh.`,
-      );
+      logger.info("Token expired at", {
+        email: token.email,
+        expiresAt: token.expires_at
+          ? new Date((token.expires_at as number) * 1000).toISOString()
+          : "not set",
+      });
       const refreshedToken = await refreshAccessToken(token);
-      console.log(
-        `Refresh attempt completed. New expiration: ${
-          refreshedToken.expires_at
-            ? new Date(refreshedToken.expires_at * 1000).toISOString()
-            : "undefined"
-        }`,
-      );
+      logger.info("Refresh attempt completed", {
+        email: token.email,
+        newExpiration: refreshedToken.expires_at
+          ? new Date(refreshedToken.expires_at * 1000).toISOString()
+          : "undefined",
+      });
       return refreshedToken;
     },
     session: async ({ session, token }) => {
@@ -123,7 +124,12 @@ export const getAuthOptions: (options?: {
       session.accessToken = token?.access_token as string | undefined;
       session.error = token?.error as string | undefined;
 
-      if (session.error) console.error("session.error", session.error);
+      if (session.error) {
+        logger.error("session.error", {
+          email: token.email,
+          error: session.error,
+        });
+      }
 
       return session;
     },
@@ -137,7 +143,10 @@ export const getAuthOptions: (options?: {
             createResendContact({ email: user.email }),
           ]);
         } catch (error) {
-          console.error("Error creating contacts", error);
+          logger.error("Error creating contacts", {
+            email: user.email,
+            error,
+          });
           captureException(error, undefined, user.email);
         }
       }
@@ -148,8 +157,6 @@ export const getAuthOptions: (options?: {
     error: "/login/error",
   },
 });
-
-export const authOptions = getAuthOptions();
 
 /**
  * Takes a token, and returns a new token with updated
@@ -167,19 +174,22 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   });
 
   if (!account) {
-    console.error("No account found in database for", token.sub);
+    logger.error("No account found in database", { email: token.email });
     return { error: "MissingAccountError" };
   }
 
   if (!account?.refresh_token) {
-    console.error("No refresh token found in database for", account.userId);
+    logger.error("No refresh token found in database", {
+      email: token.email,
+      userId: account.userId,
+    });
     return {
       ...token,
-      error: "RefreshAccessTokenError",
+      error: "RequiresReconsent",
     };
   }
 
-  console.log("Refreshing access token for", token.email);
+  logger.info("Refreshing access token", { email: token.email });
 
   try {
     const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -202,9 +212,12 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
     if (!response.ok) throw tokens;
 
     const expires_at = calculateExpiresAt(tokens.expires_in);
-    console.log(
-      `New token expires at: ${expires_at ? new Date(expires_at * 1000).toISOString() : "undefined"}`,
-    );
+    logger.info("New token expires at", {
+      email: token.email,
+      expiresAt: expires_at
+        ? new Date(expires_at * 1000).toISOString()
+        : "undefined",
+    });
 
     await saveRefreshToken(
       { ...tokens, expires_at },
@@ -224,7 +237,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       error: undefined,
     };
   } catch (error) {
-    console.error("Error refreshing access token", error);
+    logger.error("Error refreshing access token", { error });
 
     // The error property will be used client-side to handle the refresh token error
     return {
@@ -247,11 +260,23 @@ export async function saveRefreshToken(
   },
   account: Pick<Account, "refresh_token" | "providerAccountId">,
 ) {
+  const refreshToken = tokens.refresh_token ?? account.refresh_token;
+
+  if (!refreshToken) {
+    logger.error("Attempted to save null refresh token", {
+      providerAccountId: account.providerAccountId,
+    });
+    captureException("Cannot save null refresh token", {
+      extra: { providerAccountId: account.providerAccountId },
+    });
+    return;
+  }
+
   return await prisma.account.update({
     data: {
       access_token: tokens.access_token,
       expires_at: tokens.expires_at,
-      refresh_token: tokens.refresh_token ?? account.refresh_token,
+      refresh_token: refreshToken,
     },
     where: {
       provider_providerAccountId: {
@@ -290,6 +315,9 @@ declare module "@auth/core/jwt" {
     access_token?: string;
     expires_at?: number;
     refresh_token?: string;
-    error?: "RefreshAccessTokenError" | "MissingAccountError";
+    error?:
+      | "RefreshAccessTokenError"
+      | "MissingAccountError"
+      | "RequiresReconsent";
   }
 }

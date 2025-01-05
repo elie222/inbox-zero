@@ -1,12 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
 import { Modal, useModal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
-import { useState } from "react";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -53,12 +53,17 @@ export function LoginForm() {
                 loading={loading}
                 onClick={() => {
                   setLoading(true);
-                  signIn("google", {
-                    consent: error === "RefreshAccessTokenError",
-                    ...(next && next.length > 0
-                      ? { callbackUrl: next }
-                      : { callbackUrl: "/welcome" }),
-                  });
+                  signIn(
+                    "google",
+                    {
+                      ...(next && next.length > 0
+                        ? { callbackUrl: next }
+                        : { callbackUrl: "/welcome" }),
+                    },
+                    error === "RequiresReconsent"
+                      ? { consent: true }
+                      : undefined,
+                  );
                 }}
               >
                 I agree

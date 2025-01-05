@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Hero } from "@/app/(landing)/home/Hero";
-import { useHeroVariant, type HeroVariant } from "@/hooks/useFeatureFlags";
+import {
+  useHeroVariant,
+  useHeroVariantEnabled,
+  type HeroVariant,
+} from "@/hooks/useFeatureFlags";
 
 const copy: {
   [key in HeroVariant]: {
@@ -40,6 +44,8 @@ export function HeroAB() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   const variant = useHeroVariant();
+  // to prevent flickering text
+  const isFlagEnabled = useHeroVariantEnabled();
 
   useEffect(() => {
     if (variant && copy[variant]) {
@@ -49,12 +55,14 @@ export function HeroAB() {
     setIsHydrated(true);
   }, [variant]);
 
+  if (isFlagEnabled === false) return <Hero />;
+
   return (
     <Hero
       title={
         <span
-          className={`transition-opacity duration-500 ease-in-out ${
-            isHydrated ? "opacity-100" : "opacity-0"
+          className={`transition-opacity duration-300 ease-in-out ${
+            isHydrated && isFlagEnabled ? "opacity-100" : "opacity-0"
           }`}
         >
           {title}
@@ -62,8 +70,8 @@ export function HeroAB() {
       }
       subtitle={
         <span
-          className={`transition-opacity duration-500 ease-in-out ${
-            isHydrated ? "opacity-100" : "opacity-0"
+          className={`transition-opacity duration-300 ease-in-out ${
+            isHydrated && isFlagEnabled ? "opacity-100" : "opacity-0"
           }`}
         >
           {subtitle}

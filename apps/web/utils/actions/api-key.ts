@@ -13,6 +13,9 @@ import type {
 import prisma from "@/utils/prisma";
 import { generateSecureApiKey, hashApiKey } from "@/utils/api-key";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Api Key Action");
 
 export const createApiKeyAction = withActionInstrumentation(
   "createApiKey",
@@ -24,7 +27,7 @@ export const createApiKeyAction = withActionInstrumentation(
     const { data, success, error } = createApiKeyBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    console.log(`Creating API key for ${userId}`);
+    logger.info("Creating API key", { userId });
 
     const secretKey = generateSecureApiKey();
     const hashedKey = hashApiKey(secretKey);
@@ -54,7 +57,7 @@ export const deactivateApiKeyAction = withActionInstrumentation(
     const { data, success, error } = deactivateApiKeyBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    console.log(`Deactivating API key for ${userId}`);
+    logger.info("Deactivating API key", { userId });
 
     await prisma.apiKey.update({
       where: { id: data.id, userId },

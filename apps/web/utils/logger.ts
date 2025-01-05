@@ -1,5 +1,8 @@
+/* eslint-disable no-console */
+import { log } from "next-axiom";
+import { env } from "@/env";
+
 type LogLevel = "info" | "error" | "warn" | "trace";
-type LogMessage = string | Record<string, unknown>;
 
 const colors = {
   info: "\x1b[0m", // white
@@ -10,33 +13,44 @@ const colors = {
 } as const;
 
 export function createScopedLogger(scope: string) {
-  const formatMessage = (level: LogLevel, message: LogMessage) => {
-    const prefix = `[${scope}]: `;
+  if (env.NEXT_PUBLIC_AXIOM_TOKEN) return createAxiomLogger(scope);
 
-    if (process.env.NODE_ENV === "development") {
-      return `${colors[level]}${prefix} ${
-        typeof message === "string" ? message : JSON.stringify(message, null, 2)
-      }${colors.reset}`;
-    }
-
-    return `${prefix} ${
-      typeof message === "string" ? message : JSON.stringify(message)
-    }`;
+  const formatMessage = (level: LogLevel, message: string) => {
+    const msg = `[${scope}]: ${message}`;
+    if (process.env.NODE_ENV === "development")
+      return `${colors[level]}${msg}${colors.reset}`;
+    return msg;
   };
 
   return {
-    info: (message: LogMessage, ...args: unknown[]) =>
+    info: (message: string, ...args: unknown[]) =>
       console.log(formatMessage("info", message), ...args),
 
-    error: (message: LogMessage, ...args: unknown[]) =>
+    error: (message: string, ...args: unknown[]) =>
       console.error(formatMessage("error", message), ...args),
 
-    warn: (message: LogMessage, ...args: unknown[]) =>
+    warn: (message: string, ...args: unknown[]) =>
       console.warn(formatMessage("warn", message), ...args),
 
-    trace: (message: LogMessage, ...args: unknown[]) => {
+    trace: (message: string, ...args: unknown[]) => {
       if (process.env.NODE_ENV === "development") {
         console.log(formatMessage("trace", message), ...args);
+      }
+    },
+  };
+}
+
+function createAxiomLogger(scope: string) {
+  return {
+    info: (message: string, args?: Record<string, unknown>) =>
+      log.info(message, { scope, ...args }),
+    error: (message: string, args?: Record<string, unknown>) =>
+      log.error(message, { scope, ...args }),
+    warn: (message: string, args?: Record<string, unknown>) =>
+      log.warn(message, { scope, ...args }),
+    trace: (message: string, args?: Record<string, unknown>) => {
+      if (process.env.NODE_ENV === "development") {
+        log.debug(message, { scope, ...args });
       }
     },
   };

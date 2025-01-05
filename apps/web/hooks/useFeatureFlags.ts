@@ -1,9 +1,14 @@
-import { useFeatureFlagVariantKey } from "posthog-js/react";
+import {
+  useFeatureFlagEnabled,
+  useFeatureFlagVariantKey,
+} from "posthog-js/react";
 
 export function useSmartCategoriesEnabled() {
   // return useFeatureFlagEnabled("smart-categories");
   return true;
 }
+
+const HERO_FLAG_NAME = "hero-copy-5";
 
 export type HeroVariant =
   | "control"
@@ -12,7 +17,11 @@ export type HeroVariant =
   | "meet-your-ai-assistant-2";
 
 export function useHeroVariant() {
-  return (useFeatureFlagVariantKey("hero-copy-5") as HeroVariant) || "control";
+  return (useFeatureFlagVariantKey(HERO_FLAG_NAME) as HeroVariant) || "control";
+}
+
+export function useHeroVariantEnabled() {
+  return useFeatureFlagEnabled(HERO_FLAG_NAME);
 }
 
 export type LandingPageAIAssistantVariant = "control" | "magic";

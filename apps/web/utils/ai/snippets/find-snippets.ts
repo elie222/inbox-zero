@@ -74,7 +74,7 @@ ${sentEmails
     usageLabel: "ai-find-snippets",
   });
 
-  logger.trace({ snippets: aiResponse.object.snippets });
+  logger.trace("ai-find-snippets", { snippets: aiResponse.object.snippets });
 
   return aiResponse.object;
 }

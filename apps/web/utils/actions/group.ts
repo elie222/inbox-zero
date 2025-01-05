@@ -26,6 +26,9 @@ import { GroupName } from "@/utils/config";
 import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 import type { UserAIFields } from "@/utils/llms/types";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Group Action");
 
 export const createGroupAction = withActionInstrumentation(
   "createGroup",
@@ -72,7 +75,7 @@ export const createGroupAction = withActionInstrumentation(
       if (isDuplicateError(error, "name"))
         return { error: "Group with this name already exists" };
 
-      console.error("Error creating group", error);
+      logger.error("Error creating group", { error, name, prompt });
       captureException(error, { extra: { name, prompt } }, session?.user.email);
       return { error: "Error creating group" };
     }
@@ -87,16 +90,18 @@ async function generateGroupItemsFromPrompt(
   name: string,
   prompt: string,
 ) {
-  console.log(`generateGroupItemsFromPrompt: ${name} - ${prompt}`);
+  logger.info("generateGroupItemsFromPrompt", { name, prompt });
 
   const result = await aiGenerateGroupItems(user, gmail, token, {
     name,
     prompt,
   });
 
-  console.log(
-    `generateGroupItemsFromPrompt result. Senders: ${result.senders.length}, Subjects: ${result.subjects.length}`,
-  );
+  logger.info("generateGroupItemsFromPrompt result", {
+    name,
+    senders: result.senders.length,
+    subjects: result.subjects.length,
+  });
 
   await prisma.$transaction([
     ...result.senders.map((sender) =>

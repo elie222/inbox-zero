@@ -65,7 +65,7 @@ ${
 
 Please provide the fixed rule.`;
 
-  logger.trace({ system, prompt });
+  logger.trace("ai-rule-fix", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
     userAi: user,
@@ -81,7 +81,7 @@ Please provide the fixed rule.`;
     fixedInstructions: string;
   };
 
-  logger.trace(res);
+  logger.trace("ai-rule-fix", { res });
 
   return {
     rule: res.rule ?? (actualRule === null ? "expected_rule" : "actual_rule"),

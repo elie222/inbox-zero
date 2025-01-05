@@ -95,13 +95,15 @@ export function EmailAnalytics(props: {
             title="Who you email the most"
             col1="Recipient"
             col2="Emails"
-            data={dataRecipients.mostActiveRecipientEmails
-              .slice(0, expanded ? undefined : 5)
-              .map((d) => ({
-                ...d,
-                href: getGmailSearchUrl(d.name, email),
-                target: "_blank",
-              }))}
+            data={
+              dataRecipients.mostActiveRecipientEmails
+                ?.slice(0, expanded ? undefined : 5)
+                .map((d) => ({
+                  ...d,
+                  href: getGmailSearchUrl(d.name, email),
+                  target: "_blank",
+                })) || []
+            }
             extra={extra}
           />
         )}

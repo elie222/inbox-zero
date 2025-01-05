@@ -76,7 +76,14 @@ export function BulkActions({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onBulkAutoArchive(getSelectedValues())}
+              onClick={() => {
+                const yes = confirm(
+                  "Automatically archive all current and future emails from these senders?",
+                );
+                if (yes) {
+                  onBulkAutoArchive(getSelectedValues());
+                }
+              }}
               loading={bulkAutoArchiveLoading}
             >
               <ArchiveIcon className="mr-2 size-4" />

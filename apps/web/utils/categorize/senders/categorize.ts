@@ -44,7 +44,10 @@ export async function categorizeSender(
     return { categoryId: newsletter.categoryId };
   }
 
-  logger.error(`No AI result for sender: ${senderAddress}`);
+  logger.error("No AI result for sender", {
+    userEmail: user.email,
+    senderAddress,
+  });
 
   return { categoryId: undefined };
 }
@@ -156,6 +159,7 @@ export async function categorizeWithAi({
     .map((sender) => sender.sender);
 
   logger.info("Found senders to categorize with AI", {
+    userEmail: user.email,
     count: sendersToCategorizeWithAi.length,
   });
 

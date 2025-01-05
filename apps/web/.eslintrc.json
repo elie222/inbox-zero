@@ -4,5 +4,16 @@
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "project": true
-  }
+  },
+  "rules": {
+    "no-console": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**/*", "**/*.tsx"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
 }

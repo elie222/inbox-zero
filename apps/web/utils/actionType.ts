@@ -4,7 +4,7 @@ export const actionInputs: Record<
   ActionType,
   {
     fields: {
-      name: "label" | "subject" | "content" | "to" | "cc" | "bcc";
+      name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
       label: string;
       textArea?: boolean;
     }[];
@@ -108,6 +108,14 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.MARK_SPAM]: { fields: [] },
+  [ActionType.CALL_WEBHOOK]: {
+    fields: [
+      {
+        name: "url",
+        label: "URL",
+      },
+    ],
+  },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
@@ -118,6 +126,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
     to?: string;
     cc?: string;
     bcc?: string;
+    url?: string;
   } = {};
 
   // only return fields with a value
@@ -127,6 +136,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.to) res.to = fields.to;
   if (fields?.cc) res.cc = fields.cc;
   if (fields?.bcc) res.bcc = fields.bcc;
+  if (fields?.url) res.url = fields.url;
 
   return res;
 }

@@ -83,6 +83,14 @@ const costs: Record<
     input: 3 / 1_000_000,
     output: 15 / 1_000_000,
   },
+  "anthropic.claude-3-5-haiku-20241022-v1:0": {
+    input: 0.8 / 1_000_000,
+    output: 4 / 1_000_000,
+  },
+  "us.anthropic.claude-3-5-haiku-20241022-v1:0": {
+    input: 0.8 / 1_000_000,
+    output: 4 / 1_000_000,
+  },
 };
 
 // returns cost in cents

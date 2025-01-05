@@ -164,6 +164,18 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     trigger("conditions");
   }, [conditions]);
 
+  const actionErrors = useMemo(() => {
+    const actionErrors: string[] = [];
+    watch("actions")?.forEach((_, index) => {
+      const actionError =
+        errors?.actions?.[index]?.url?.root?.message ||
+        errors?.actions?.[index]?.label?.root?.message ||
+        errors?.actions?.[index]?.to?.root?.message;
+      if (actionError) actionErrors.push(actionError);
+    });
+    return actionErrors;
+  }, [errors, watch]);
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mt-4">
@@ -442,6 +454,21 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       )}
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
+
+      {actionErrors.length > 0 && (
+        <div className="mt-4">
+          <AlertError
+            title="Error"
+            description={
+              <ul className="list-inside list-disc">
+                {actionErrors.map((error, index) => (
+                  <li key={`action-${index}`}>{error}</li>
+                ))}
+              </ul>
+            }
+          />
+        </div>
+      )}
 
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
