@@ -269,7 +269,11 @@ function ProcessRulesRow({
                   )}
                   <ProcessResultDisplay result={result} />
                 </div>
-                <ReportMistake result={result} message={message} />
+                <ReportMistake
+                  result={result}
+                  message={message}
+                  isTest={testMode}
+                />
                 <Button
                   variant="outline"
                   disabled={isRunning}

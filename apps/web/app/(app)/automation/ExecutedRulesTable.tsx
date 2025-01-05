@@ -64,10 +64,12 @@ export function RuleCell({
   rule,
   reason,
   message,
+  isTest,
 }: {
   rule: PendingExecutedRules["executedRules"][number]["rule"];
   reason?: string | null;
   message: ParsedMessage;
+  isTest: boolean;
 }) {
   if (!rule) return null;
 
@@ -103,7 +105,11 @@ export function RuleCell({
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
-      <ReportMistake result={{ rule, reason }} message={message} />
+      <ReportMistake
+        result={{ rule, reason }}
+        message={message}
+        isTest={isTest}
+      />
     </div>
   );
 }

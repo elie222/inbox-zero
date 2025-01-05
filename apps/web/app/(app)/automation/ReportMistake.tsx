@@ -58,9 +58,11 @@ const NONE_RULE_ID = "__NONE__";
 export function ReportMistake({
   message,
   result,
+  isTest,
 }: {
   message: ParsedMessage;
   result: RunRulesResult | null;
+  isTest: boolean;
 }) {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
     "/api/user/rules",
@@ -88,6 +90,7 @@ export function ReportMistake({
               message={message}
               result={result}
               actualRule={actualRule ?? null}
+              isTest={isTest}
             />
           )}
         </LoadingContent>
@@ -101,11 +104,13 @@ function Content({
   message,
   result,
   actualRule,
+  isTest,
 }: {
   rules: RulesResponse;
   message: ParsedMessage;
   result: RunRulesResult | null;
   actualRule: Rule | null;
+  isTest: boolean;
 }) {
   const [loadingAiFix, setLoadingAiFix] = useState(false);
   const [fixedInstructions, setFixedInstructions] = useState<{
@@ -252,6 +257,7 @@ function Content({
         fixedInstructions={fixedInstructions ?? null}
         fixedInstructionsRule={fixedInstructionsRule ?? null}
         message={message}
+        isTest={isTest}
         onBack={onBack}
         onReject={() => onSetView("manual-fix")}
       />
@@ -265,6 +271,7 @@ function Content({
         expectedRule={expectedRule}
         message={message}
         result={result}
+        isTest={isTest}
         onBack={onBack}
       />
     );
@@ -279,6 +286,7 @@ function AIFixView({
   fixedInstructions,
   fixedInstructionsRule,
   message,
+  isTest,
   onBack,
   onReject,
 }: {
@@ -289,6 +297,7 @@ function AIFixView({
   } | null;
   fixedInstructionsRule: Rule | null;
   message: ParsedMessage;
+  isTest: boolean;
   onBack: () => void;
   onReject: () => void;
 }) {
@@ -321,7 +330,8 @@ function AIFixView({
           ruleId={fixedInstructions.ruleId}
           fixedInstructions={fixedInstructions.fixedInstructions}
           onReject={onReject}
-          showRerunTestButton
+          showRerunButton
+          isTest={isTest}
         />
       )}
 
@@ -492,12 +502,14 @@ function ManualFixView({
   message,
   result,
   onBack,
+  isTest,
 }: {
   actualRule?: Rule | null;
   expectedRule?: Rule | null;
   message: ParsedMessage;
   result: RunRulesResult | null;
   onBack: () => void;
+  isTest: boolean;
 }) {
   return (
     <>
@@ -533,11 +545,12 @@ function ManualFixView({
             message={message}
             result={result}
             expectedRuleId={expectedRule.id}
+            isTest={isTest}
           />
           <Separator />
         </>
       )}
-      <RerunTestButton message={message} />
+      <RerunButton message={message} isTest={isTest} />
       <BackButton onBack={onBack} />
     </>
   );
@@ -599,10 +612,12 @@ function AIFixForm({
   message,
   result,
   expectedRuleId,
+  isTest,
 }: {
   message: ParsedMessage;
   result: RunRulesResult | null;
   expectedRuleId: string | null;
+  isTest: boolean;
 }) {
   const [fixedInstructions, setFixedInstructions] = useState<{
     ruleId: string;
@@ -688,7 +703,8 @@ function AIFixForm({
           ruleId={fixedInstructions.ruleId}
           fixedInstructions={fixedInstructions.fixedInstructions}
           onReject={() => setFixedInstructions(undefined)}
-          showRerunTestButton={false}
+          showRerunButton={false}
+          isTest={isTest}
         />
       )}
     </div>
@@ -700,13 +716,15 @@ function SuggestedFix({
   ruleId,
   fixedInstructions,
   onReject,
-  showRerunTestButton,
+  showRerunButton,
+  isTest,
 }: {
   message: ParsedMessage;
   ruleId: string;
   fixedInstructions: string;
   onReject: () => void;
-  showRerunTestButton: boolean;
+  showRerunButton: boolean;
+  isTest: boolean;
 }) {
   const [isSaving, setIsSaving] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -716,9 +734,9 @@ function SuggestedFix({
       <Instructions label="Suggested fix:" instructions={fixedInstructions} />
 
       {accepted ? (
-        showRerunTestButton && (
+        showRerunButton && (
           <div className="mt-2">
-            <RerunTestButton message={message} />
+            <RerunButton message={message} isTest={isTest} />
           </div>
         )
       ) : (
@@ -771,9 +789,15 @@ function Instructions({
   );
 }
 
-function RerunTestButton({ message }: { message: ParsedMessage }) {
+function RerunButton({
+  message,
+  isTest,
+}: {
+  message: ParsedMessage;
+  isTest: boolean;
+}) {
   const [checking, setChecking] = useState(false);
-  const [testResult, setTestResult] = useState<RunRulesResult>();
+  const [result, setResult] = useState<RunRulesResult>();
 
   return (
     <>
@@ -783,9 +807,9 @@ function RerunTestButton({ message }: { message: ParsedMessage }) {
           setChecking(true);
 
           const result = await runRulesAction({
-            isTest: true,
             messageId: message.id,
             threadId: message.threadId,
+            isTest,
           });
           if (isActionError(result)) {
             toastError({
@@ -793,19 +817,19 @@ function RerunTestButton({ message }: { message: ParsedMessage }) {
               description: result.error,
             });
           } else {
-            setTestResult(result as RunRulesResult);
+            setResult(result);
           }
           setChecking(false);
         }}
       >
         <SparklesIcon className="mr-2 size-4" />
-        Rerun Test
+        Rerun
       </Button>
 
-      {testResult && (
+      {result && (
         <div className="mt-2 flex items-center gap-2">
-          <SectionDescription>Test Result:</SectionDescription>
-          <ProcessResultDisplay result={testResult} />
+          <SectionDescription>Result:</SectionDescription>
+          <ProcessResultDisplay result={result} />
         </div>
       )}
     </>
