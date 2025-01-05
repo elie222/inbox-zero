@@ -19,3 +19,20 @@ export const inboxZeroLabels = {
   },
 };
 export type InboxZeroLabel = keyof typeof inboxZeroLabels;
+
+const LABEL_COLORS = [
+  "#b6cff5", // Light blue
+  "#98d7e4", // Light cyan
+  "#e3d7ff", // Light purple
+  "#fbd3e0", // Light pink
+  "#f2b2a8", // Light red
+  "#ffc8af", // Light coral
+  "#ffdeb5", // Light orange
+  "#fdedc1", // Light yellow
+  "#b3efd3", // Light green
+  "#a2dcc1", // Mint green
+] as const;
+
+export function getRandomLabelColor() {
+  return LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)];
+}
