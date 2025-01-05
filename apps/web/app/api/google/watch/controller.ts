@@ -4,31 +4,29 @@ import { INBOX_LABEL_ID } from "@/utils/gmail/label";
 import { env } from "@/env";
 import { getGmailClient } from "@/utils/gmail/client";
 import { captureException } from "@/utils/error";
+import { unWatchUser, watchUser } from "@/utils/gmail/misc";
 
 export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.watch({
-    userId: "me",
-    requestBody: {
-      labelIds: [INBOX_LABEL_ID],
-      labelFilterBehavior: "include",
-      topicName: env.GOOGLE_PUBSUB_TOPIC_NAME,
-    },
+  const res = await watchUser(gmail, {
+    labelIds: [INBOX_LABEL_ID],
+    labelFilterBehavior: "include",
+    topicName: env.GOOGLE_PUBSUB_TOPIC_NAME,
   });
 
-  if (res.data.expiration) {
-    const expirationDate = new Date(+res.data.expiration);
+  if (res.expiration) {
+    const expirationDate = new Date(+res.expiration);
     await prisma.user.update({
       where: { id: userId },
       data: { watchEmailsExpirationDate: expirationDate },
     });
     return expirationDate;
   }
-  console.error("Error watching inbox", res.data);
+  console.error("Error watching inbox", res);
 }
 
 async function unwatch(gmail: gmail_v1.Gmail) {
   console.log("Unwatching emails");
-  await gmail.users.stop({ userId: "me" });
+  await unWatchUser(gmail);
 }
 
 export async function unwatchEmails({

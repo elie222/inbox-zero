@@ -2,7 +2,7 @@ import prisma from "@/utils/prisma";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { createHash } from "node:crypto";
 import groupBy from "lodash/groupBy";
-import { getMessage } from "@/utils/gmail/message";
+import { getMessage, getMessages } from "@/utils/gmail/message";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { parseMessage } from "@/utils/mail";
 import { extractEmailAddress } from "@/utils/email";
@@ -214,15 +214,14 @@ async function fetchGroupMessages(
 ): Promise<{ messages: MessageWithGroupItem[]; nextPageToken?: string }> {
   const q = buildQuery(groupItemType, groupItems, from, to);
 
-  const response = await gmail.users.messages.list({
-    userId: "me",
+  const response = await getMessages(gmail, {
     maxResults,
     pageToken,
-    q,
+    query: q,
   });
 
   const messages = await Promise.all(
-    (response.data.messages || []).map(async (message) => {
+    (response.messages || []).map(async (message) => {
       const m = await getMessage(message.id!, gmail);
       const parsedMessage = parseMessage(m);
       const matchingGroupItem = findMatchingGroupItem(
@@ -236,7 +235,7 @@ async function fetchGroupMessages(
   return {
     // search might include messages that don't match the rule, so we filter those out
     messages: messages.filter((message) => message.matchingGroupItem),
-    nextPageToken: response.data.nextPageToken || undefined,
+    nextPageToken: response.nextPageToken || undefined,
   };
 }
 
