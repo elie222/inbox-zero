@@ -62,7 +62,10 @@ async function removeColdEmailLabelFromSender(
   });
   if (!label?.id) return;
 
-  const threads = await getThreads(`from:${sender}`, [label.id], gmail);
+  const threads = await getThreads(gmail, {
+    q: `from:${sender}`,
+    labelIds: [label.id],
+  });
 
   for (const thread of threads.threads || []) {
     if (!thread.id) continue;

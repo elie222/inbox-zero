@@ -11,7 +11,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { SimpleModeOnboarding } from "@/app/(app)/simple/SimpleModeOnboarding";
 import { ClientOnly } from "@/components/ClientOnly";
-import { getMessage } from "@/utils/gmail/message";
+import { getMessage, getMessages } from "@/utils/gmail/message";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +28,10 @@ export default async function SimplePage({
 
   const categoryTitle = simpleEmailCategories.get(type);
 
-  const response = await gmail.users.messages.list({
-    userId: "me",
+  const response = await getMessages(gmail, {
     labelIds: type === "OTHER" ? undefined : [type],
     maxResults: 5,
-    q: getQuery(type),
+    query: getQuery(type),
     pageToken,
   });
 
@@ -40,7 +39,7 @@ export default async function SimplePage({
   // but don't want to show the same thread twice
   // only take the latest email in each thread
   // const filteredMessages = filterDuplicateThreads(response.data.messages || []);
-  const filteredMessages = response.data.messages;
+  const filteredMessages = response.messages;
 
   const messages = await Promise.all(
     filteredMessages?.map(async (message) => {
@@ -66,7 +65,7 @@ export default async function SimplePage({
         <PageHeading className="text-center">{title}</PageHeading>
         <SimpleList
           messages={messages}
-          nextPageToken={response.data.nextPageToken}
+          nextPageToken={response.nextPageToken}
           userEmail={email}
           type={type}
         />

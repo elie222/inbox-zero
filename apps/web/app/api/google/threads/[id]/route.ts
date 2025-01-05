@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
+import { getThread as getGmailThread } from "@/utils/gmail/thread";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import type { ThreadWithPayloadMessages } from "@/utils/types";
@@ -14,11 +15,7 @@ export type ThreadQuery = z.infer<typeof threadQuery>;
 export type ThreadResponse = Awaited<ReturnType<typeof getThread>>;
 
 async function getThread(query: ThreadQuery, gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.threads.get({
-    userId: "me",
-    id: query.id,
-  });
-  const thread = res.data;
+  const thread = await getGmailThread(query.id, gmail);
 
   const messages = parseMessages(thread as ThreadWithPayloadMessages);
 

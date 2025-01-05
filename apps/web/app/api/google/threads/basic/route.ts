@@ -17,12 +17,11 @@ async function getGetThreads(
   { from, labelId }: GetThreadsQuery,
   gmail: gmail_v1.Gmail,
 ) {
-  const threads = await getThreads(
-    `from:${from}`,
-    labelId ? [labelId] : [],
-    gmail,
-    500,
-  );
+  const threads = await getThreads(gmail, {
+    q: `from:${from}`,
+    labelIds: labelId ? [labelId] : [],
+    maxResults: 500,
+  });
   return threads.threads || [];
 }
 

@@ -17,6 +17,8 @@ import {
   UNREAD_LABEL_ID,
 } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
+import { getFiltersList } from "@/utils/gmail/filter";
+import { getForwardingAddresses } from "@/utils/gmail/misc";
 
 export type AssessUserResponse = Awaited<ReturnType<typeof assessUser>>;
 
@@ -99,17 +101,15 @@ async function getLabelCount(gmail: gmail_v1.Gmail) {
 }
 
 async function getFiltersCount(gmail: gmail_v1.Gmail) {
-  const res = await gmail.users.settings.filters.list({ userId: "me" });
+  const res = await getFiltersList({ gmail });
   const filters = res.data.filter || [];
   return filters.length;
 }
 
 async function getForwardingAddressesCount(gmail: gmail_v1.Gmail) {
   try {
-    const res = await gmail.users.settings.forwardingAddresses.list({
-      userId: "me",
-    });
-    return res.data.forwardingAddresses?.length || 0;
+    const res = await getForwardingAddresses(gmail);
+    return res.forwardingAddresses?.length || 0;
   } catch (error) {
     // Can happen due to "Forwarding features disabled by administrator"
     console.error("Error getting forwarding addresses", error);

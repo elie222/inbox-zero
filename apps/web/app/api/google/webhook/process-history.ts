@@ -26,6 +26,7 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 import { createScopedLogger } from "@/utils/logger";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import { getHistory } from "@/utils/gmail/misc";
 
 const logger = createScopedLogger("Process History");
 
@@ -153,8 +154,7 @@ export async function processHistoryForUser(
       email,
     });
 
-    const history = await gmail.users.history.list({
-      userId: "me",
+    const history = await getHistory(gmail, {
       // NOTE this can cause problems if we're way behind
       // NOTE this doesn't include startHistoryId in the results
       startHistoryId,

@@ -7,16 +7,18 @@ export async function getThread(threadId: string, gmail: gmail_v1.Gmail) {
 }
 
 export async function getThreads(
-  q: string,
-  labelIds: string[],
   gmail: gmail_v1.Gmail,
-  maxResults = 100,
+  options: {
+    q?: string;
+    labelIds?: string[];
+    maxResults?: number;
+    pageToken?: string;
+  },
 ) {
   const threads = await gmail.users.threads.list({
     userId: "me",
-    q,
-    labelIds,
-    maxResults,
+    ...options,
+    maxResults: options.maxResults ?? 100,
   });
   return threads.data || [];
 }
@@ -80,4 +82,19 @@ export async function getThreadsFromSender(
   });
 
   return response.data.threads || [];
+}
+
+export async function modifyThread(
+  gmail: gmail_v1.Gmail,
+  id: string,
+  requestBody: {
+    addLabelIds: string[] | null;
+    removeLabelIds: string[] | null;
+  },
+) {
+  await gmail.users.threads.modify({
+    userId: "me",
+    id,
+    requestBody,
+  });
 }

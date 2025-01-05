@@ -126,10 +126,12 @@ export async function getMessages(
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    labelIds?: string[] | undefined;
   },
 ) {
   const messages = await gmail.users.messages.list({
     userId: "me",
+    labelIds: options.labelIds,
     maxResults: options.maxResults,
     q: options.query,
     pageToken: options.pageToken,
