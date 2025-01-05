@@ -36,7 +36,11 @@ const defaultReceiptSubjects = [
 ];
 
 // Find additional receipts from the user's inbox that don't match the predefined lists
-export async function findReceipts(gmail: gmail_v1.Gmail, accessToken: string) {
+export async function findReceipts(
+  gmail: gmail_v1.Gmail,
+  accessToken: string,
+  userEmail: string,
+) {
   const senders = await findReceiptSenders(gmail, accessToken);
   const subjects = await findReceiptSubjects(gmail, accessToken);
 
@@ -49,7 +53,7 @@ export async function findReceipts(gmail: gmail_v1.Gmail, accessToken: string) {
           type: GroupItemType.FROM,
           value: sender,
         })),
-      ),
+      ) && !sender.includes(userEmail),
   );
 
   const sendersList = uniq([...filteredSenders, ...defaultReceiptSenders]);
