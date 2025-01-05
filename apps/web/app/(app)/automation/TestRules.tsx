@@ -133,10 +133,7 @@ export function TestRulesContent({ testMode }: { testMode: boolean }) {
           description: result.error,
         });
       } else {
-        setResults((prev) => ({
-          ...prev,
-          [message.id]: result as RunRulesResult,
-        }));
+        setResults((prev) => ({ ...prev, [message.id]: result }));
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
