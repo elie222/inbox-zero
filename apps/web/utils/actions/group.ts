@@ -104,23 +104,25 @@ async function generateGroupItemsFromPrompt(
   });
 
   await prisma.$transaction([
-    ...result.senders.map((sender) =>
-      prisma.groupItem.upsert({
-        where: {
-          groupId_type_value: {
-            groupId,
+    ...result.senders
+      .filter((sender) => !sender.includes(user.email!))
+      .map((sender) =>
+        prisma.groupItem.upsert({
+          where: {
+            groupId_type_value: {
+              groupId,
+              type: GroupItemType.FROM,
+              value: sender,
+            },
+          },
+          update: {}, // No update needed if it exists
+          create: {
             type: GroupItemType.FROM,
             value: sender,
+            groupId,
           },
-        },
-        update: {}, // No update needed if it exists
-        create: {
-          type: GroupItemType.FROM,
-          value: sender,
-          groupId,
-        },
-      }),
-    ),
+        }),
+      ),
     ...result.subjects.map((subject) =>
       prisma.groupItem.upsert({
         where: {
@@ -159,7 +161,7 @@ export const createNewsletterGroupAction = withActionInstrumentation(
   "createNewsletterGroup",
   async () => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    if (!session?.user.email) return { error: "Not logged in" };
 
     const name = GroupName.NEWSLETTER;
     const existingGroup = await prisma.group.findFirst({
@@ -173,7 +175,11 @@ export const createNewsletterGroupAction = withActionInstrumentation(
 
     if (!token.token) return { error: "No access token" };
 
-    const newsletters = await findNewsletters(gmail, token.token);
+    const newsletters = await findNewsletters(
+      gmail,
+      token.token,
+      session.user.email,
+    );
 
     const group = await prisma.group.create({
       data: {
@@ -198,7 +204,7 @@ export const createReceiptGroupAction = withActionInstrumentation(
   "createReceiptGroup",
   async () => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    if (!session?.user.email) return { error: "Not logged in" };
 
     const name = GroupName.RECEIPT;
     const existingGroup = await prisma.group.findFirst({
@@ -212,7 +218,7 @@ export const createReceiptGroupAction = withActionInstrumentation(
 
     if (!token.token) return { error: "No access token" };
 
-    const receipts = await findReceipts(gmail, token.token);
+    const receipts = await findReceipts(gmail, token.token, session.user.email);
 
     const group = await prisma.group.create({
       data: {
@@ -241,7 +247,7 @@ export const regenerateGroupAction = withActionInstrumentation(
   "regenerateGroup",
   async (groupId: string) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    if (!session?.user.email) return { error: "Not logged in" };
 
     const existingGroup = await prisma.group.findUnique({
       where: { id: groupId, userId: session.user.id },
@@ -260,9 +266,19 @@ export const regenerateGroupAction = withActionInstrumentation(
     if (!token.token) return { error: "No access token" };
 
     if (existingGroup.name === GroupName.NEWSLETTER) {
-      await regenerateNewsletterGroup(existingGroup, gmail, token.token);
+      await regenerateNewsletterGroup(
+        existingGroup,
+        gmail,
+        token.token,
+        session.user.email,
+      );
     } else if (existingGroup.name === GroupName.RECEIPT) {
-      await regenerateReceiptGroup(existingGroup, gmail, token.token);
+      await regenerateReceiptGroup(
+        existingGroup,
+        gmail,
+        token.token,
+        session.user.email,
+      );
     } else if (existingGroup.prompt) {
       const user = await prisma.user.findUnique({
         where: { id: session.user.id },
@@ -295,8 +311,9 @@ async function regenerateNewsletterGroup(
   existingGroup: ExistingGroup,
   gmail: gmail_v1.Gmail,
   token: string,
+  userEmail: string,
 ) {
-  const newsletters = await findNewsletters(gmail, token);
+  const newsletters = await findNewsletters(gmail, token, userEmail);
 
   const items = newsletters.map((item) => ({
     type: GroupItemType.FROM,
@@ -314,8 +331,9 @@ async function regenerateReceiptGroup(
   existingGroup: ExistingGroup,
   gmail: gmail_v1.Gmail,
   token: string,
+  userEmail: string,
 ) {
-  const receipts = await findReceipts(gmail, token);
+  const receipts = await findReceipts(gmail, token, userEmail);
   const newItems = filterOutExisting(receipts, existingGroup.items);
 
   await createGroupItems(

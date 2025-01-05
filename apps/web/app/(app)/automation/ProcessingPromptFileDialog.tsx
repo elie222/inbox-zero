@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TestRulesContent } from "@/app/(app)/automation/TestRules";
 import { Loading } from "@/components/Loading";
 
 /*

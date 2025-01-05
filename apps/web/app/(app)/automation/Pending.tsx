@@ -178,7 +178,7 @@ function PendingTable({
                 />
               </TableCell>
               <TableCell>
-                <RuleCell rule={p.rule} reason={p.reason} />
+                <RuleCell rule={p.rule} reason={p.reason} message={p.message} />
               </TableCell>
               <TableCell>
                 <ActionItemsCell actionItems={p.actionItems} />

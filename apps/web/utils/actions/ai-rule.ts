@@ -13,7 +13,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
   runRulesOnMessage,
-  testRulesOnMessage,
+  type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
@@ -22,18 +22,17 @@ import {
   createReceiptGroupAction,
 } from "@/utils/actions/group";
 import { GroupName } from "@/utils/config";
-import type { EmailForAction } from "@/utils/ai/actions";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { isActionError } from "@/utils/error";
+import { type ActionError, isActionError } from "@/utils/error";
 import {
   reportAiMistakeBody,
   type ReportAiMistakeBody,
   saveRulesPromptBody,
   type SaveRulesPromptBody,
-  testAiBody,
-  type TestAiBody,
+  runRulesBody,
+  type RunRulesBody,
 } from "@/utils/actions/validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
@@ -50,7 +49,12 @@ const logger = createScopedLogger("ai-rule");
 
 export const runRulesAction = withActionInstrumentation(
   "runRules",
-  async ({ email, force }: { email: EmailForAction; force: boolean }) => {
+  async (unsafeBody: RunRulesBody): Promise<RunRulesResult | ActionError> => {
+    const { success, data, error } = runRulesBody.safeParse(unsafeBody);
+    if (!success) return { error: error.message };
+
+    const { messageId, threadId, rerun, isTest } = data;
+
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
     const { gmail, user: u } = sessionResult;
@@ -72,75 +76,49 @@ export const runRulesAction = withActionInstrumentation(
     });
     if (!user?.email) return { error: "User email not found" };
 
-    const [gmailMessage, hasExistingRule] = await Promise.all([
-      getMessage(email.messageId, gmail, "full"),
-      prisma.executedRule.findUnique({
-        where: {
-          unique_user_thread_message: {
-            userId: user.id,
-            threadId: email.threadId,
-            messageId: email.messageId,
-          },
-        },
-        select: { id: true },
-      }),
+    const fetchExecutedRule = !isTest && !rerun;
+
+    const [gmailMessage, executedRule] = await Promise.all([
+      getMessage(messageId, gmail, "full"),
+      fetchExecutedRule
+        ? prisma.executedRule.findUnique({
+            where: {
+              unique_user_thread_message: {
+                userId: user.id,
+                threadId,
+                messageId,
+              },
+            },
+            select: {
+              id: true,
+              reason: true,
+              actionItems: true,
+              rule: true,
+            },
+          })
+        : null,
     ]);
 
-    if (hasExistingRule && !force) {
+    if (executedRule) {
       logger.info("Skipping. Rule already exists.", {
         email: user.email,
-        messageId: email.messageId,
-        threadId: email.threadId,
+        messageId,
+        threadId,
       });
-      return;
+
+      return {
+        rule: executedRule.rule,
+        actionItems: executedRule.actionItems,
+        reason: executedRule.reason,
+        existing: true,
+        error: undefined,
+      };
     }
 
     const message = parseMessage(gmailMessage);
 
-    await runRulesOnMessage({
-      gmail,
-      message,
-      rules: user.rules,
-      user: { ...user, email: user.email },
-      isTest: false,
-    });
-  },
-);
-
-export const testAiAction = withActionInstrumentation(
-  "testAi",
-  async (unsafeBody: TestAiBody) => {
-    const sessionResult = await getSessionAndGmailClient();
-    if (isActionError(sessionResult)) return sessionResult;
-
-    const { success, data, error } = testAiBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-    const { messageId } = data;
-
-    const { gmail, user: u } = sessionResult;
-
-    const user = await prisma.user.findUnique({
-      where: { id: u.id },
-      select: {
-        id: true,
-        email: true,
-        about: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        rules: {
-          where: { enabled: true },
-          include: { actions: true, categoryFilters: true },
-        },
-      },
-    });
-    if (!user) return { error: "User not found" };
-
-    const gmailMessage = await getMessage(messageId, gmail, "full");
-
-    const message = parseMessage(gmailMessage);
-
-    const result = await testRulesOnMessage({
+    const result = await runRulesOnMessage({
+      isTest,
       gmail,
       message,
       rules: user.rules,
@@ -175,7 +153,8 @@ export const testAiCustomContentAction = withActionInstrumentation(
     });
     if (!user) return { error: "User not found" };
 
-    const result = await testRulesOnMessage({
+    const result = await runRulesOnMessage({
+      isTest: true,
       gmail,
       message: {
         id: "testMessageId",
@@ -542,7 +521,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
     const { data, success, error } = saveRulesPromptBody.safeParse(unsafeData);
     if (!success) {
-      console.error("Input validation failed:", error.message);
+      logger.error("Input validation failed", {
+        email: session.user.email,
+        error: error.message,
+      });
       return { error: error.message };
     }
 
@@ -558,11 +540,11 @@ export const saveRulesPromptAction = withActionInstrumentation(
     });
 
     if (!user) {
-      console.error("User not found");
+      logger.error("User not found");
       return { error: "User not found" };
     }
     if (!user.email) {
-      console.error("User email not found");
+      logger.error("User email not found");
       return { error: "User email not found" };
     }
 
@@ -706,7 +688,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
         for (const rule of editedRules) {
           if (!rule.ruleId) {
-            console.error(`Rule ID not found for rule. Prompt: ${rule.name}`);
+            logger.error("Rule ID not found for rule", {
+              email: user.email,
+              promptRule: rule.name,
+            });
             continue;
           }
 

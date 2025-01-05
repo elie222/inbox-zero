@@ -17,6 +17,7 @@ import {
   EyeIcon,
   ExternalLinkIcon,
   ChevronsDownIcon,
+  RefreshCcwIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -27,14 +28,14 @@ import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
 import {
-  testAiAction,
+  runRulesAction,
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
 import { isActionError } from "@/utils/error";
-import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
+import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
@@ -46,7 +47,8 @@ import {
   isGroupRule,
   isStaticRule,
 } from "@/utils/condition";
-import { ButtonLoader } from "@/components/Loading";
+import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
+import { cn } from "@/utils";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -57,7 +59,7 @@ export function TestRules(props: { disabled?: boolean }) {
       description="Test how your rules perform against real emails."
       content={
         <div className="mt-4">
-          <TestRulesContent />
+          <TestRulesContent testMode />
         </div>
       }
     >
@@ -69,7 +71,7 @@ export function TestRules(props: { disabled?: boolean }) {
   );
 }
 
-export function TestRulesContent() {
+export function TestRulesContent({ testMode }: { testMode: boolean }) {
   const [searchQuery, setSearchQuery] = useQueryState("search");
   const [showCustomForm, setShowCustomForm] = useQueryState(
     "custom",
@@ -110,67 +112,77 @@ export function TestRulesContent() {
       !isCategoryRule(rule),
   );
 
-  const isTestingAllRef = useRef(false);
-  const [isTestingAll, setIsTestingAll] = useState(false);
-  const [isTesting, setIsTesting] = useState<Record<string, boolean>>({});
-  const [testResults, setTestResults] = useState<Record<string, TestResult>>(
-    {},
+  const isRunningAllRef = useRef(false);
+  const [isRunningAll, setIsRunningAll] = useState(false);
+  const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
+  const [results, setResults] = useState<Record<string, RunRulesResult>>({});
+
+  const onRun = useCallback(
+    async (message: Message, rerun?: boolean) => {
+      setIsRunning((prev) => ({ ...prev, [message.id]: true }));
+
+      const result = await runRulesAction({
+        messageId: message.id,
+        threadId: message.threadId,
+        isTest: testMode,
+        rerun,
+      });
+      if (isActionError(result)) {
+        toastError({
+          title: "There was an error processing the email",
+          description: result.error,
+        });
+      } else {
+        setResults((prev) => ({ ...prev, [message.id]: result }));
+      }
+      setIsRunning((prev) => ({ ...prev, [message.id]: false }));
+    },
+    [testMode],
   );
 
-  const onTest = useCallback(async (message: Message) => {
-    setIsTesting((prev) => ({ ...prev, [message.id]: true }));
-
-    const result = await testAiAction({ messageId: message.id });
-    if (isActionError(result)) {
-      toastError({
-        title: "There was an error testing the email",
-        description: result.error,
-      });
-    } else {
-      setTestResults((prev) => ({ ...prev, [message.id]: result }));
-    }
-    setIsTesting((prev) => ({ ...prev, [message.id]: false }));
-  }, []);
-
-  const handleTestAll = async () => {
+  const handleRunAll = async () => {
     handleStart();
 
     for (const message of messages) {
-      if (!isTestingAllRef.current) break;
-      if (testResults[message.id]) continue;
-      await onTest(message);
+      if (!isRunningAllRef.current) break;
+      if (results[message.id]) continue;
+      await onRun(message);
     }
 
     handleStop();
   };
 
   const handleStart = () => {
-    setIsTestingAll(true);
-    isTestingAllRef.current = true;
+    setIsRunningAll(true);
+    isRunningAllRef.current = true;
   };
 
   const handleStop = () => {
-    isTestingAllRef.current = false;
-    setIsTestingAll(false);
+    isRunningAllRef.current = false;
+    setIsRunningAll(false);
   };
 
   return (
     <div>
       <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-6 pb-4">
-        {isTestingAll ? (
-          <Button onClick={handleStop} variant="outline">
-            <PauseIcon className="mr-2 h-4 w-4" />
-            Stop
-          </Button>
-        ) : (
-          <Button onClick={handleTestAll}>
-            <BookOpenCheckIcon className="mr-2 h-4 w-4" />
-            Test All
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isRunningAll ? (
+            <Button onClick={handleStop} variant="outline">
+              <PauseIcon className="mr-2 h-4 w-4" />
+              Stop
+            </Button>
+          ) : (
+            <Button onClick={handleRunAll}>
+              <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+              {testMode ? "Test All" : "Run on All"}
+            </Button>
+          )}
+
+          {!testMode && <BulkRunRules />}
+        </div>
 
         <div className="flex items-center gap-2">
-          {hasAiRules && (
+          {hasAiRules && testMode && (
             <Button
               variant="ghost"
               onClick={() => setShowCustomForm((show) => !show)}
@@ -183,7 +195,7 @@ export function TestRulesContent() {
         </div>
       </div>
 
-      {hasAiRules && showCustomForm && (
+      {hasAiRules && showCustomForm && testMode && (
         <div className="mt-2">
           <CardContent>
             <TestRulesForm />
@@ -206,9 +218,10 @@ export function TestRulesContent() {
                     key={message.id}
                     message={message}
                     userEmail={email!}
-                    isTesting={isTesting[message.id]}
-                    testResult={testResults[message.id]}
-                    onTest={() => onTest(message)}
+                    isRunning={isRunning[message.id]}
+                    result={results[message.id]}
+                    onRun={(rerun) => onRun(message, rerun)}
+                    testMode={testMode}
                   />
                 ))}
               </TableBody>
@@ -235,7 +248,7 @@ export function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [testResult, setTestResult] = useState<TestResult | undefined>();
+  const [testResult, setTestResult] = useState<RunRulesResult | undefined>();
 
   const {
     register,
@@ -284,20 +297,22 @@ const TestRulesForm = () => {
 function TestRulesContentRow({
   message,
   userEmail,
-  isTesting,
-  testResult,
-  onTest,
+  isRunning,
+  result,
+  onRun,
+  testMode,
 }: {
   message: Message;
   userEmail: string;
-  isTesting: boolean;
-  testResult: TestResult;
-  onTest: () => void;
+  isRunning: boolean;
+  result: RunRulesResult;
+  onRun: (rerun?: boolean) => void;
+  testMode: boolean;
 }) {
   return (
     <TableRow
       className={
-        isTesting ? "animate-pulse bg-blue-50 dark:bg-blue-950/20" : undefined
+        isRunning ? "animate-pulse bg-blue-50 dark:bg-blue-950/20" : undefined
       }
     >
       <TableCell>
@@ -309,18 +324,35 @@ function TestRulesContentRow({
             userEmail={userEmail}
             messageId={message.id}
           />
-          <div className="ml-4 flex gap-1">
-            {testResult ? (
+          <div className="ml-4 flex items-center gap-1">
+            {result ? (
               <>
-                <div className="flex max-w-xs items-center whitespace-nowrap">
-                  <TestResultDisplay result={testResult} />
+                <div className="flex max-w-xs flex-col justify-center gap-0.5 whitespace-nowrap">
+                  {result.existing && (
+                    <Badge color="yellow">Already processed</Badge>
+                  )}
+                  <TestResultDisplay result={result} />
                 </div>
-                <ReportMistake result={testResult} message={message} />
+                <ReportMistake result={result} message={message} />
+                <Button
+                  variant="outline"
+                  disabled={isRunning}
+                  onClick={() => onRun(true)}
+                >
+                  <RefreshCcwIcon
+                    className={cn("size-4", isRunning && "animate-spin")}
+                  />
+                  <span className="sr-only">{testMode ? "Test" : "Run"}</span>
+                </Button>
               </>
             ) : (
-              <Button variant="default" loading={isTesting} onClick={onTest}>
-                {!isTesting && <SparklesIcon className="mr-2 h-4 w-4" />}
-                Test
+              <Button
+                variant="default"
+                loading={isRunning}
+                onClick={() => onRun()}
+              >
+                {!isRunning && <SparklesIcon className="mr-2 size-4" />}
+                {testMode ? "Test" : "Run"}
               </Button>
             )}
           </div>
@@ -334,7 +366,7 @@ export function TestResultDisplay({
   result,
   prefix,
 }: {
-  result: TestResult;
+  result: RunRulesResult;
   prefix?: string;
 }) {
   if (!result) return null;

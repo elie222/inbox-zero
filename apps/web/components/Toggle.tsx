@@ -1,4 +1,4 @@
-import { Switch, SwitchGroup } from "@headlessui/react";
+import { Switch, Field } from "@headlessui/react";
 import clsx from "clsx";
 import type { FieldError } from "react-hook-form";
 import { ErrorMessage, ExplainText, Label } from "./Input";
@@ -6,6 +6,7 @@ import { ErrorMessage, ExplainText, Label } from "./Input";
 export interface ToggleProps {
   name: string;
   label?: string;
+  labelRight?: string;
   enabled: boolean;
   explainText?: string;
   error?: FieldError;
@@ -13,11 +14,11 @@ export interface ToggleProps {
 }
 
 export const Toggle = (props: ToggleProps) => {
-  const { label, enabled, onChange } = props;
+  const { label, labelRight, enabled, onChange } = props;
 
   return (
     <div>
-      <SwitchGroup as="div" className="flex items-center justify-center">
+      <Field as="div" className="flex items-center justify-center">
         {label && (
           <span className="mr-3 text-nowrap">
             <Label name={props.name} label={label} />
@@ -40,7 +41,12 @@ export const Toggle = (props: ToggleProps) => {
             )}
           />
         </Switch>
-      </SwitchGroup>
+        {labelRight && (
+          <span className="ml-3 text-nowrap">
+            <Label name={props.name} label={labelRight} />
+          </span>
+        )}
+      </Field>
       {props.explainText ? (
         <ExplainText>{props.explainText}</ExplainText>
       ) : null}

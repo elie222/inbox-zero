@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
-import type { TestResult } from "@/utils/ai/choose-rule/run-rules";
+import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { reportAiMistakeAction, testAiAction } from "@/utils/actions/ai-rule";
+import { reportAiMistakeAction, runRulesAction } from "@/utils/actions/ai-rule";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -45,6 +45,7 @@ import { TestResultDisplay } from "@/app/(app)/automation/TestRules";
 import { isReplyInThread } from "@/utils/thread";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { Loading } from "@/components/Loading";
+import type { ParsedMessage } from "@/utils/types";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -55,7 +56,7 @@ export function ReportMistake({
   result,
 }: {
   message: MessagesResponse["messages"][number];
-  result: TestResult | null;
+  result: RunRulesResult | null;
 }) {
   const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
     "/api/user/rules",
@@ -99,7 +100,7 @@ function Content({
 }: {
   rules: RulesResponse;
   message: MessagesResponse["messages"][number];
-  result: TestResult | null;
+  result: RunRulesResult | null;
   actualRule: Rule | null;
 }) {
   const [loadingAiFix, setLoadingAiFix] = useState(false);
@@ -244,7 +245,7 @@ function Content({
         loadingAiFix={loadingAiFix}
         fixedInstructions={fixedInstructions ?? null}
         fixedInstructionsRule={fixedInstructionsRule ?? null}
-        messageId={message.id}
+        message={message}
         onBack={onBack}
         onReject={() => onSetView("manual-fix")}
       />
@@ -271,7 +272,7 @@ function AIFixView({
   loadingAiFix,
   fixedInstructions,
   fixedInstructionsRule,
-  messageId,
+  message,
   onBack,
   onReject,
 }: {
@@ -281,7 +282,7 @@ function AIFixView({
     fixedInstructions: string;
   } | null;
   fixedInstructionsRule: Rule | null;
-  messageId: string;
+  message: ParsedMessage;
   onBack: () => void;
   onReject: () => void;
 }) {
@@ -310,7 +311,7 @@ function AIFixView({
 
       {fixedInstructions?.ruleId && (
         <SuggestedFix
-          messageId={messageId}
+          message={message}
           ruleId={fixedInstructions.ruleId}
           fixedInstructions={fixedInstructions.fixedInstructions}
           onReject={onReject}
@@ -328,7 +329,7 @@ function RuleMismatch({
   rules,
   onSelectExpectedRuleId,
 }: {
-  result: TestResult | null;
+  result: RunRulesResult | null;
   rules: RulesResponse;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
@@ -454,7 +455,7 @@ function ManualFixView({
   actualRule?: Rule | null;
   expectedRule?: Rule | null;
   message: MessagesResponse["messages"][number];
-  result: TestResult | null;
+  result: RunRulesResult | null;
   onBack: () => void;
 }) {
   return (
@@ -495,7 +496,7 @@ function ManualFixView({
           <Separator />
         </>
       )}
-      <RerunTestButton messageId={message.id} />
+      <RerunTestButton message={message} />
       <BackButton onBack={onBack} />
     </>
   );
@@ -559,7 +560,7 @@ function AIFixForm({
   expectedRuleId,
 }: {
   message: MessagesResponse["messages"][number];
-  result: TestResult | null;
+  result: RunRulesResult | null;
   expectedRuleId: string | null;
 }) {
   const [fixedInstructions, setFixedInstructions] = useState<{
@@ -642,7 +643,7 @@ function AIFixForm({
 
       {fixedInstructions && (
         <SuggestedFix
-          messageId={message.id}
+          message={message}
           ruleId={fixedInstructions.ruleId}
           fixedInstructions={fixedInstructions.fixedInstructions}
           onReject={() => setFixedInstructions(undefined)}
@@ -654,13 +655,13 @@ function AIFixForm({
 }
 
 function SuggestedFix({
-  messageId,
+  message,
   ruleId,
   fixedInstructions,
   onReject,
   showRerunTestButton,
 }: {
-  messageId: string;
+  message: ParsedMessage;
   ruleId: string;
   fixedInstructions: string;
   onReject: () => void;
@@ -676,7 +677,7 @@ function SuggestedFix({
       {accepted ? (
         showRerunTestButton && (
           <div className="mt-2">
-            <RerunTestButton messageId={messageId} />
+            <RerunTestButton message={message} />
           </div>
         )
       ) : (
@@ -729,9 +730,9 @@ function Instructions({
   );
 }
 
-function RerunTestButton({ messageId }: { messageId: string }) {
+function RerunTestButton({ message }: { message: ParsedMessage }) {
   const [checking, setChecking] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult>();
+  const [testResult, setTestResult] = useState<RunRulesResult>();
 
   return (
     <>
@@ -740,14 +741,18 @@ function RerunTestButton({ messageId }: { messageId: string }) {
         onClick={async () => {
           setChecking(true);
 
-          const result = await testAiAction({ messageId });
+          const result = await runRulesAction({
+            isTest: true,
+            messageId: message.id,
+            threadId: message.threadId,
+          });
           if (isActionError(result)) {
             toastError({
               title: "There was an error testing the email",
               description: result.error,
             });
           } else {
-            setTestResult(result);
+            setTestResult(result as RunRulesResult);
           }
           setChecking(false);
         }}

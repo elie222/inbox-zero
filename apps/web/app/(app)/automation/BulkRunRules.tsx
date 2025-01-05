@@ -37,10 +37,10 @@ export function BulkRunRules() {
 
   return (
     <div>
-      <Tooltip content="Select emails to process with AI">
+      <Tooltip content="Bulk process emails">
         <Button type="button" size="icon" variant="outline" onClick={openModal}>
           <HistoryIcon className="size-4" />
-          <span className="sr-only">Select emails to process with AI</span>
+          <span className="sr-only">Select emails to process</span>
         </Button>
       </Tooltip>
       <Modal
@@ -114,21 +114,15 @@ export function BulkRunRules() {
               </div>
 
               <SectionDescription className="mt-4">
-                To process specific emails:
-                <ol className="mt-1 list-inside list-decimal">
-                  <li>
-                    Go to the{" "}
-                    <Link
-                      href="/mail"
-                      className="font-semibold hover:underline"
-                    >
-                      Mail
-                    </Link>{" "}
-                    page
-                  </li>
-                  <li>Select the desired emails</li>
-                  <li>Click the "Run AI Rules" button</li>
-                </ol>
+                You can also process specific emails by visiting the{" "}
+                <Link
+                  href="/mail"
+                  target="_blank"
+                  className="font-semibold hover:underline"
+                >
+                  Mail
+                </Link>{" "}
+                page.
               </SectionDescription>
             </>
           )}

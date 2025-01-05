@@ -20,10 +20,11 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-run-rules");
 
-export type TestResult = {
+export type RunRulesResult = {
   rule?: Rule | null;
   actionItems?: ActionItem[];
   reason?: string | null;
+  existing?: boolean;
 };
 
 export async function runRulesOnMessage({
@@ -38,7 +39,7 @@ export async function runRulesOnMessage({
   rules: RuleWithActionsAndCategories[];
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   isTest: boolean;
-}) {
+}): Promise<RunRulesResult> {
   const result = await findMatchingRule(rules, message, user);
   if (result.rule) {
     return await runRule(
@@ -133,28 +134,6 @@ async function saveSkippedExecutedRule({
     messageId,
     data,
   });
-}
-
-export async function testRulesOnMessage({
-  gmail,
-  message,
-  rules,
-  user,
-}: {
-  gmail: gmail_v1.Gmail;
-  message: ParsedMessage;
-  rules: RuleWithActionsAndCategories[];
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields;
-}): Promise<TestResult> {
-  const result = await runRulesOnMessage({
-    gmail,
-    message,
-    rules,
-    user,
-    isTest: true,
-  });
-
-  return result;
 }
 
 async function saveExecutedRule(
