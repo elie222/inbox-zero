@@ -6,7 +6,7 @@ import type { Thread } from "@/components/email-list/types";
 import { isDefined } from "@/utils/types";
 import { aiQueue } from "@/utils/queue/ai-queue";
 
-export const runAiRules = async (threadsArray: Thread[], force: boolean) => {
+export const runAiRules = async (threadsArray: Thread[], rerun: boolean) => {
   const threads = threadsArray.filter(isDefined);
   const threadIds = threads.map((t) => t.id);
   pushToAiQueueAtom(threadIds);
@@ -18,7 +18,7 @@ export const runAiRules = async (threadsArray: Thread[], force: boolean) => {
       await runRulesAction({
         messageId: message.id,
         threadId: thread.id,
-        force,
+        rerun,
         isTest: false,
       });
       removeFromAiQueueAtom(thread.id);
