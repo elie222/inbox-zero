@@ -327,10 +327,10 @@ function TestRulesContentRow({
             userEmail={userEmail}
             messageId={message.id}
           />
-          <div className="ml-4 flex gap-1">
+          <div className="ml-4 flex items-center gap-1">
             {result ? (
               <>
-                <div className="flex max-w-xs flex-col items-center justify-center gap-0.5 whitespace-nowrap">
+                <div className="flex max-w-xs flex-col justify-center gap-0.5 whitespace-nowrap">
                   {result.existing && (
                     <Badge color="yellow">Already processed</Badge>
                   )}
