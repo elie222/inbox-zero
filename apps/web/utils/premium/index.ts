@@ -31,6 +31,14 @@ export const getUserTier = (
   return premium?.tier || getUserPlan(premium?.lemonSqueezyRenewsAt);
 };
 
+export const isPremiumExpired = (
+  premium?: Pick<Premium, "lemonSqueezyRenewsAt"> | null,
+) => {
+  return (
+    !!premium?.lemonSqueezyRenewsAt && premium.lemonSqueezyRenewsAt < new Date()
+  );
+};
+
 export const isAdminForPremium = (
   premiumAdmins: { id: string }[],
   userId?: string,
