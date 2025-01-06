@@ -53,6 +53,7 @@ services:
     environment:
       DATABASE_URL: "postgresql://postgres:password@db:5432/inboxzero?schema=public"
       DIRECT_URL: "postgresql://postgres:password@db:5432/inboxzero?schema=public"
+      UPSTASH_REDIS_URL: "redis://redis:6379"
 
 volumes:
   database-data:
