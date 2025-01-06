@@ -28,7 +28,12 @@ export const AdminUpgradeUserForm = () => {
 
   const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
     async (data) => {
-      const result = await changePremiumStatusAction(data);
+      const result = await changePremiumStatusAction({
+        ...data,
+        count: data.count || 1,
+        lemonSqueezyCustomerId: data.lemonSqueezyCustomerId || undefined,
+        emailAccountsAccess: data.emailAccountsAccess || undefined,
+      });
       handleActionResult(result, data.upgrade ? "Upgraded!" : "Downgraded!");
     },
     [],
