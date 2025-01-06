@@ -3,14 +3,8 @@ import { PremiumTier } from "@prisma/client";
 
 export const changePremiumStatusSchema = z.object({
   email: z.string().email(),
-  lemonSqueezyCustomerId: z
-    .number()
-    .optional()
-    .transform((v) => v || undefined),
-  emailAccountsAccess: z
-    .number()
-    .optional()
-    .transform((v) => v || undefined),
+  lemonSqueezyCustomerId: z.coerce.number().optional(),
+  emailAccountsAccess: z.coerce.number().optional(),
   period: z.enum([
     PremiumTier.BASIC_MONTHLY,
     PremiumTier.BASIC_ANNUALLY,
@@ -21,7 +15,7 @@ export const changePremiumStatusSchema = z.object({
     PremiumTier.COPILOT_MONTHLY,
     PremiumTier.LIFETIME,
   ]),
-  count: z.number().default(1),
+  count: z.coerce.number().optional(),
   upgrade: z.boolean(),
 });
 export type ChangePremiumStatusOptions = z.infer<

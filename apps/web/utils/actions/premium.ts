@@ -306,12 +306,12 @@ export const changePremiumStatusAction = withActionInstrumentation(
           case PremiumTier.PRO_ANNUALLY:
           case PremiumTier.BUSINESS_ANNUALLY:
           case PremiumTier.BASIC_ANNUALLY:
-            return new Date(now.getTime() + ONE_YEAR_MS * data.count);
+            return new Date(now.getTime() + ONE_YEAR_MS * (data.count || 1));
           case PremiumTier.PRO_MONTHLY:
           case PremiumTier.BUSINESS_MONTHLY:
           case PremiumTier.BASIC_MONTHLY:
           case PremiumTier.COPILOT_MONTHLY:
-            return new Date(now.getTime() + ONE_MONTH_MS * data.count);
+            return new Date(now.getTime() + ONE_MONTH_MS * (data.count || 1));
           default:
             return null;
         }
