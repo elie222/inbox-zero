@@ -220,7 +220,7 @@ Let me know if you're interested!
 </email>`}
                 />
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="submit"
                     disabled={isSubmitting || isGenerating}
