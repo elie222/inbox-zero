@@ -26,7 +26,7 @@ function NavBarBottom({
       // safe area for iOS PWA
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <nav className="flex h-14 items-center justify-around">
+      <nav className="grid h-14 grid-cols-4">
         {links.map((link) => {
           return (
             <Link
@@ -50,7 +50,7 @@ function NavBarBottom({
 const links = [
   {
     path: "/automation",
-    label: "AI Personal Assistant",
+    label: "Assistant",
     icon: SparklesIcon,
   },
   {

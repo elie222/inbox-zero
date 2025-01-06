@@ -63,8 +63,12 @@ export function RulesPrompt() {
           mutate={mutate}
           onOpenPersonaDialog={onOpenPersonaDialog}
         />
+        <AutomationOnboarding
+          onComplete={() => {
+            if (!data?.rulesPrompt) onOpenPersonaDialog();
+          }}
+        />
       </LoadingContent>
-      <AutomationOnboarding onComplete={onOpenPersonaDialog} />
       <PersonaDialog
         isOpen={isModalOpen}
         setIsOpen={setIsModalOpen}
@@ -220,7 +224,7 @@ Let me know if you're interested!
 </email>`}
                 />
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="submit"
                     disabled={isSubmitting || isGenerating}
@@ -286,7 +290,7 @@ Let me know if you're interested!
             </form>
           </CardContent>
         </div>
-        <div className="px-6 pb-4 sm:mt-8 sm:p-0">
+        <div className="px-4 pb-4 sm:mt-8 sm:p-0 sm:px-6">
           <SectionHeader>Examples</SectionHeader>
 
           <ScrollArea className="mt-2 sm:h-[600px] sm:max-h-[600px]">
