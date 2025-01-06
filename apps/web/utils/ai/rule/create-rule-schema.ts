@@ -1,47 +1,52 @@
 import { z } from "zod";
 import { GroupName } from "@/utils/config";
-import { ActionType, RuleType } from "@prisma/client";
+import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
+
+const typeSchema = z.enum([RuleType.AI, RuleType.STATIC, RuleType.GROUP]);
+const allTypesSchema = z.enum([
+  RuleType.AI,
+  RuleType.STATIC,
+  RuleType.GROUP,
+  RuleType.CATEGORY,
+]);
+
+const conditionSchema = z
+  .object({
+    aiInstructions: z
+      .string()
+      .optional()
+      .describe(
+        "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule. Leave blank if using static conditions or groups.",
+      ),
+    static: z
+      .object({
+        from: z.string().optional().describe("The from email address to match"),
+        to: z.string().optional().describe("The to email address to match"),
+        subject: z
+          .string()
+          .optional()
+          .describe(
+            "The subject to match. Leave blank if AI is required to process the subject line.",
+          ),
+      })
+      .optional()
+      .describe("The static conditions to match"),
+    group: z
+      .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
+      .optional()
+      .describe(
+        "The group to match. Only 'Receipt' and 'Newsletter' are supported.",
+      ),
+  })
+  .describe("The conditions to match");
 
 export const createRuleSchema = z.object({
   name: z
     .string()
     .describe("The name of the rule. No need to include 'Rule' in the name."),
-  condition: z
-    .object({
-      type: z
-        .enum([RuleType.AI, RuleType.STATIC, RuleType.GROUP])
-        .describe("The type of the condition"),
-
-      aiInstructions: z
-        .string()
-        .optional()
-        .describe(
-          "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule. Leave blank if using static conditions or groups.",
-        ),
-      static: z
-        .object({
-          from: z
-            .string()
-            .optional()
-            .describe("The from email address to match"),
-          to: z.string().optional().describe("The to email address to match"),
-          subject: z
-            .string()
-            .optional()
-            .describe(
-              "The subject to match. Leave blank if AI is required to process the subject line.",
-            ),
-        })
-        .optional()
-        .describe("The static conditions to match"),
-      group: z
-        .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
-        .optional()
-        .describe(
-          "The group to match. Only 'Receipt' and 'Newsletter' are supported.",
-        ),
-    })
-    .describe("The conditions to match"),
+  condition: conditionSchema.extend({
+    type: typeSchema.describe("The type of the condition"),
+  }),
   actions: z
     .array(
       z.object({
@@ -78,6 +83,11 @@ export const createRuleSchema = z.object({
               .nullish()
               .transform((v) => v ?? null)
               .describe("The content of the email"),
+            webhookUrl: z
+              .string()
+              .nullish()
+              .transform((v) => v ?? null)
+              .describe("The webhook URL to call"),
           })
           .optional()
           .describe(
@@ -86,4 +96,20 @@ export const createRuleSchema = z.object({
       }),
     )
     .describe("The actions to take"),
+});
+
+export const createRuleSchemaWithCategories = createRuleSchema.extend({
+  condition: conditionSchema.extend({
+    type: allTypesSchema.describe("The type of the condition"),
+    categoryFilterType: z
+      .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+      .optional()
+      .describe(
+        "Whether senders in this categoryFilters should be included or excluded",
+      ),
+    categoryFilters: z
+      .array(z.string())
+      .optional()
+      .describe("The categories to match"),
+  }),
 });
