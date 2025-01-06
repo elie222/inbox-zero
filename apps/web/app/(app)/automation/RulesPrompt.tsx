@@ -99,15 +99,18 @@ function RulesPromptForm({
     formState: { errors },
     getValues,
     setValue,
-    reset,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
     defaultValues: { rulesPrompt },
   });
 
   useEffect(() => {
-    reset({ rulesPrompt: personaPrompt || rulesPrompt });
-  }, [rulesPrompt, personaPrompt, reset]);
+    if (!personaPrompt) return;
+
+    const currentPrompt = getValues("rulesPrompt") || "";
+    const updatedPrompt = `${currentPrompt}\n\n${personaPrompt}`.trim();
+    setValue("rulesPrompt", updatedPrompt);
+  }, [personaPrompt, getValues, setValue]);
 
   const router = useRouter();
 
