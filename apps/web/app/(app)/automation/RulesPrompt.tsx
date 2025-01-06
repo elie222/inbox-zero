@@ -211,7 +211,7 @@ Feel free to add as many as you want:
 * Archive all marketing emails.
 * Label receipts as "Receipt" and forward them to jane@accounting.com.
 * Label emails that require a reply as "Reply Required".
-* If a customer asks to set up a call, send them my Cal link: https://cal.com/example
+* If a customer asks to set up a call, send them my calendar link: https://cal.com/example
 * Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question.`}
                 />
 
