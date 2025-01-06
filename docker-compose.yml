@@ -53,7 +53,8 @@ services:
     environment:
       DATABASE_URL: "postgresql://postgres:password@db:5432/inboxzero?schema=public"
       DIRECT_URL: "postgresql://postgres:password@db:5432/inboxzero?schema=public"
-      UPSTASH_REDIS_URL: "redis://redis:6379"
+      UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
+      UPSTASH_REDIS_TOKEN: "${UPSTASH_REDIS_TOKEN}"
 
 volumes:
   database-data:
