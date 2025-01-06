@@ -7,7 +7,7 @@ const commonPrompts = [
   "Label receipts as 'Receipt' and archive them",
 ];
 
-const common = commonPrompts.join(".\n");
+const common = `${commonPrompts.join(".\n")}.`;
 
 export const examplePrompts = [
   ...commonPrompts,
@@ -36,7 +36,6 @@ Label customer support emails as "Customer Support".
 Label emails from @mycompany.com addresses as "Team".
 Label emails from investors as "Investor".
 Label legal documents as "Legal".
-Label receipts as "Receipt".
 Label emails about travel as "Travel".
 Label recruitment related emails as "Hiring".
 Label press inquiries as "Press" and forward to PR@company.com.`;

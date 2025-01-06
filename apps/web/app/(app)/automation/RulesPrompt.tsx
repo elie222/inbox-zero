@@ -203,16 +203,18 @@ function RulesPromptForm({
                   rows={25}
                   maxRows={50}
                   error={errors.rulesPrompt}
-                  placeholder={`Here's an example of what your prompt might look like.
-You can use the examples on the right or come up with your own.
-Feel free to add as many as you want:
+                  placeholder={`Here's an example of what your prompt might look like:
 
-* Label and archive newsletters as "Newsletter".
-* Archive all marketing emails.
-* Label receipts as "Receipt" and forward them to jane@accounting.com.
-* Label emails that require a reply as "Reply Required".
-* If a customer asks to set up a call, send them my calendar link: https://cal.com/example
-* Review any emails from questions@pr.com and see if any are about finance. If so, respond with a friendly draft a reply that answers the question.`}
+${personas.other.prompt}
+
+If someone asks about pricing, reply with:
+<email>
+Hi NAME!
+
+I'm currently offering a 10% discount for the first 10 customers.
+
+Let me know if you're interested!
+</email>`}
                 />
 
                 <div className="flex gap-2">
