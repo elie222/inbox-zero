@@ -233,7 +233,7 @@ async function createRule(
       userId,
       actions: { createMany: { data: result.actions } },
       automate: shouldAutomate(result.actions),
-      runOnThreads: false,
+      runOnThreads: shouldRunOnThreads(result.condition.type),
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
