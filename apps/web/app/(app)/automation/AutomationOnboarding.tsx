@@ -12,7 +12,11 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ListChecksIcon, ReplyIcon, SlidersIcon } from "lucide-react";
 
-export function AutomationOnboarding() {
+export function AutomationOnboarding({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
   const { isOpen, setIsOpen, onClose } = useOnboarding("Automation");
 
   return (
@@ -41,7 +45,13 @@ export function AutomationOnboarding() {
           </Card>
         </div>
         <div>
-          <Button className="w-full" onClick={onClose}>
+          <Button
+            className="w-full"
+            onClick={() => {
+              onComplete();
+              onClose();
+            }}
+          >
             Get Started
           </Button>
         </div>

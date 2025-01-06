@@ -132,7 +132,7 @@ function parseRulesResponse(args: unknown, hasSnippets: boolean): string[] {
   if (hasSnippets) {
     const parsedRules = args as z.infer<typeof parametersSnippets>;
     return parsedRules.rules.map(({ rule, snippet }) =>
-      snippet ? `${rule}\n<snippet>\n${snippet}\n</snippet>` : rule,
+      snippet ? `${rule}\n<email>\n${snippet}\n</email>` : rule,
     );
   }
 

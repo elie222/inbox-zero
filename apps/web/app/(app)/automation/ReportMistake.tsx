@@ -14,6 +14,7 @@ import useSWR from "swr";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/Input";
+import { ButtonList } from "@/components/ButtonList";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
@@ -45,10 +46,7 @@ import { isReplyInThread } from "@/utils/thread";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { Loading } from "@/components/Loading";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  addGroupItemAction,
-  deleteGroupItemAction,
-} from "@/utils/actions/group";
+import { addGroupItemAction } from "@/utils/actions/group";
 import { toast } from "sonner";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
@@ -360,27 +358,14 @@ function RuleMismatch({
         )}
       </div>
       <div className="mt-4">
-        <Label name="ruleId" label="Which rule did you expect it to match?" />
-      </div>
-
-      {!rules.length && (
-        <SectionDescription className="mt-2">
-          You haven't created any rules yet!
-        </SectionDescription>
-      )}
-
-      <div className="mt-1 flex flex-col gap-1">
-        {[{ id: NONE_RULE_ID, name: "None" }, ...rules]
-          .filter((rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID))
-          .map((rule) => (
-            <Button
-              key={rule.id}
-              variant="outline"
-              onClick={() => onSelectExpectedRuleId(rule.id)}
-            >
-              {rule.name}
-            </Button>
-          ))}
+        <ButtonList
+          title="Which rule did you expect it to match?"
+          emptyMessage="You haven't created any rules yet!"
+          items={[{ id: NONE_RULE_ID, name: "None" }, ...rules].filter(
+            (rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID),
+          )}
+          onSelect={onSelectExpectedRuleId}
+        />
       </div>
     </div>
   );
