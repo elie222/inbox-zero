@@ -131,6 +131,8 @@ OLLAMA_BASE_URL=http://localhost:11434/api
 NEXT_PUBLIC_OLLAMA_MODEL=phi3
 ```
 
+Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
+
 You can select the model you wish to use in the app on the `/settings` page of the app.
 
 ### Setting up Google OAuth and Gmail API
