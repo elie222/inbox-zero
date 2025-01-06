@@ -259,7 +259,7 @@ async function updateRule(
         createMany: { data: result.actions },
       },
       automate: shouldAutomate(result.actions),
-      runOnThreads: false,
+      runOnThreads: shouldRunOnThreads(result.condition.type),
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
@@ -798,6 +798,15 @@ function shouldAutomate(actions: Pick<Action, "type">[]) {
   }
 
   return true;
+}
+
+// run on threads for static, group, and smart category rules
+function shouldRunOnThreads(ruleType: RuleType) {
+  return (
+    ruleType === RuleType.STATIC ||
+    ruleType === RuleType.GROUP ||
+    ruleType === RuleType.CATEGORY
+  );
 }
 
 /**
