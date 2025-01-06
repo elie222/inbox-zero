@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
-import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import {
+  createRuleSchema,
+  createRuleSchemaWithCategories,
+} from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
@@ -9,17 +12,30 @@ const logger = createScopedLogger("ai-prompt-to-rules");
 const updateRuleSchema = createRuleSchema.extend({
   ruleId: z.string().optional(),
 });
+const updateRuleSchemaWithCategories = createRuleSchemaWithCategories.extend({
+  ruleId: z.string().optional(),
+});
 
 export async function aiPromptToRules({
   user,
   promptFile,
   isEditing,
+  hasSmartCategories,
 }: {
   user: UserAIFields & { email: string };
   promptFile: string;
   isEditing: boolean;
+  hasSmartCategories: boolean;
 }) {
-  const schema = isEditing ? updateRuleSchema : createRuleSchema;
+  function getSchema() {
+    if (hasSmartCategories)
+      return isEditing
+        ? updateRuleSchemaWithCategories
+        : createRuleSchemaWithCategories;
+    return isEditing ? updateRuleSchema : createRuleSchema;
+  }
+
+  const schema = getSchema();
 
   const parameters = z.object({
     rules: z
@@ -69,6 +85,7 @@ IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don'
       bcc: action.fields?.bcc ?? undefined,
       subject: action.fields?.subject ?? undefined,
       content: action.fields?.content ?? undefined,
+      webhookUrl: action.fields?.webhookUrl ?? undefined,
     })),
   }));
 }

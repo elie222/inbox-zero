@@ -40,6 +40,7 @@ export async function aiCreateRule(
       bcc: action.fields?.bcc ?? undefined,
       subject: action.fields?.subject ?? undefined,
       content: action.fields?.content ?? undefined,
+      webhookUrl: action.fields?.webhookUrl ?? undefined,
     })),
   };
 }
