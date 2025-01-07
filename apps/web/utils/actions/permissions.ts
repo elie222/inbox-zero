@@ -11,7 +11,7 @@ export const checkPermissionsAction = withActionInstrumentation(
   "checkPermissions",
   async () => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    if (!session?.user.email) return { error: "Not logged in" };
 
     try {
       const token = await getGmailAccessToken(session);
@@ -19,6 +19,7 @@ export const checkPermissionsAction = withActionInstrumentation(
 
       const { hasAllPermissions, error } = await checkGmailPermissions(
         token.token,
+        session.user.email,
       );
       if (error) return { error };
 
@@ -66,6 +67,7 @@ export const adminCheckPermissionsAction = withActionInstrumentation(
 
       const { hasAllPermissions, error } = await checkGmailPermissions(
         token.token,
+        email,
       );
       if (error) return { error };
       return { hasAllPermissions };

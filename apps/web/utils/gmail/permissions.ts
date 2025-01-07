@@ -1,12 +1,18 @@
 import { SCOPES } from "@/utils/auth";
+import { createScopedLogger } from "@/utils/logger";
 
-export async function checkGmailPermissions(accessToken: string): Promise<{
+const logger = createScopedLogger("Gmail Permissions");
+
+export async function checkGmailPermissions(
+  accessToken: string,
+  email: string,
+): Promise<{
   hasAllPermissions: boolean;
   missingScopes: string[];
   error?: string;
 }> {
   if (!accessToken) {
-    console.error("No access token available");
+    logger.error("No access token available", { email });
     return {
       hasAllPermissions: false,
       missingScopes: SCOPES,
@@ -22,7 +28,10 @@ export async function checkGmailPermissions(accessToken: string): Promise<{
     const data = await response.json();
 
     if (data.error) {
-      console.error("Error checking Gmail permissions:", data.error);
+      logger.error("Error checking Gmail permissions:", {
+        email,
+        error: data.error,
+      });
       return {
         hasAllPermissions: false,
         missingScopes: SCOPES, // Assume all scopes are missing if we can't check
@@ -35,12 +44,17 @@ export async function checkGmailPermissions(accessToken: string): Promise<{
       (scope) => !grantedScopes.includes(scope),
     );
 
-    return {
-      hasAllPermissions: missingScopes.length === 0,
+    const hasAllPermissions = missingScopes.length === 0;
+
+    logger.info("Gmail permissions check", {
+      email,
+      hasAllPermissions,
       missingScopes,
-    };
+    });
+
+    return { hasAllPermissions, missingScopes };
   } catch (error) {
-    console.error("Error checking Gmail permissions:", error);
+    logger.error("Error checking Gmail permissions:", { email, error });
     return {
       hasAllPermissions: false,
       missingScopes: SCOPES, // Assume all scopes are missing if we can't check
