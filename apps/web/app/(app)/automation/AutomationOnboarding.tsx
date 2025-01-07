@@ -26,18 +26,18 @@ export function AutomationOnboarding({
           <DialogTitle>Welcome to your AI Personal Assistant</DialogTitle>
           <DialogDescription>
             Your personal assistant helps manage your inbox by following your
-            custom instructions and automating routine email tasks.
+            instructions and automating routine tasks.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-2 sm:gap-4">
           <Card className="flex items-center">
             <ListChecksIcon className="mr-3 h-5 w-5" />
-            Create custom rules to handle different types of emails
+            Create rules to handle different types of emails
           </Card>
           <Card className="flex items-center">
             <ReplyIcon className="mr-3 h-5 w-5" />
-            Automate responses and actions based on your preferences
+            Automate responses and actions
           </Card>
           <Card className="flex items-center">
             <SlidersIcon className="mr-3 h-5 w-5" />
