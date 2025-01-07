@@ -97,8 +97,8 @@ The required environment variables:
 - `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
 - `OPENAI_API_KEY` -- OpenAI API key.
-- `UPSTASH_REDIS_URL` -- Redis URL from Upstash.
-- `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash.
+- `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
+- `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
 - `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region). You can also decide to disabled Tinybird and then the analytics and bulk unsubscribe features will be disabled. Set `NEXT_PUBLIC_DISABLE_TINYBIRD=true` if you decide to disable Tinybird.
 
 To run the migrations:
@@ -130,6 +130,8 @@ For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You can
 OLLAMA_BASE_URL=http://localhost:11434/api
 NEXT_PUBLIC_OLLAMA_MODEL=phi3
 ```
+
+Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
 
 You can select the model you wish to use in the app on the `/settings` page of the app.
 
