@@ -33,7 +33,6 @@ const founderPrompt = `${common}
 If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example.
 Label customer feedback emails as "Customer Feedback".
 Label customer support emails as "Customer Support".
-Label emails from @mycompany.com addresses as "Team".
 Label emails from investors as "Investor".
 Label legal documents as "Legal".
 Label emails about travel as "Travel".
