@@ -237,7 +237,10 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       error: undefined,
     };
   } catch (error) {
-    logger.error("Error refreshing access token", { error });
+    logger.error("Error refreshing access token", {
+      email: token.email,
+      error,
+    });
 
     // The error property will be used client-side to handle the refresh token error
     return {
@@ -286,18 +289,6 @@ export async function saveRefreshToken(
     },
   });
 }
-
-// export function getAuthSession() {
-//   return auth(authOptions) as Promise<{
-//     user: {
-//       id: string;
-//       name: string;
-//       email: string;
-//       image: string;
-//     };
-//     accessToken?: string;
-//   } | null>;
-// }
 
 declare module "next-auth" {
   /**
