@@ -36,7 +36,7 @@ import { AutomationOnboarding } from "@/app/(app)/automation/AutomationOnboardin
 import { examplePrompts, personas } from "@/app/(app)/automation/examples";
 import { PersonaDialog } from "@/app/(app)/automation/PersonaDialog";
 import { useModal } from "@/components/Modal";
-// import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
+import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
 
 export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -91,12 +91,12 @@ function RulesPromptForm({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  // const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // const [result, setResult] = useState<{
-  //   createdRules: number;
-  //   editedRules: number;
-  //   removedRules: number;
-  // }>();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [result, setResult] = useState<{
+    createdRules: number;
+    editedRules: number;
+    removedRules: number;
+  }>();
   const {
     register,
     handleSubmit,
@@ -140,13 +140,13 @@ function RulesPromptForm({
         return result;
       };
 
-      // setIsDialogOpen(true);
-      // setResult(undefined);
+      setIsDialogOpen(true);
+      setResult(undefined);
 
       toast.promise(() => saveRulesPromise(data), {
         loading: "Saving rules... This may take a while to process...",
         success: (result) => {
-          // setResult(result);
+          setResult(result);
           const { createdRules, editedRules, removedRules } = result || {};
 
           const message = [
@@ -183,12 +183,11 @@ function RulesPromptForm({
 
       <Card className="grid grid-cols-1 sm:grid-cols-3">
         <div className="sm:col-span-2">
-          {/* <ProcessingPromptFileDialog
-          open={isDialogOpen}
-          result={result}
-          onOpenChange={setIsDialogOpen}
-          isLoading={isSubmitting}
-        /> */}
+          <ProcessingPromptFileDialog
+            open={isDialogOpen}
+            result={result}
+            onOpenChange={setIsDialogOpen}
+          />
 
           <CardHeader>
             <CardTitle>
