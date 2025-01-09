@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { CategoryFilterType, GroupItemType } from "@prisma/client";
+import {
+  CategoryFilterType,
+  GroupItemType,
+  LogicalOperator,
+} from "@prisma/client";
 import { ActionType, RuleType } from "@prisma/client";
 
 // groups
@@ -134,6 +138,9 @@ export const createRuleBody = z.object({
         message: "You can't have two conditions with the same type.",
       },
     ),
+  conditionalOperator: z
+    .enum([LogicalOperator.AND, LogicalOperator.OR])
+    .default(LogicalOperator.AND),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
