@@ -91,6 +91,16 @@ const costs: Record<
     input: 0.8 / 1_000_000,
     output: 4 / 1_000_000,
   },
+  // https://ai.google.dev/pricing#1_5pro
+  "gemini-1.5-pro-latest": {
+    input: 1.25 / 1_000_000,
+    output: 5 / 1_000_000,
+  },
+  // https://ai.google.dev/pricing#1_5flash
+  "gemini-1.5-flash-latest": {
+    input: 0.075 / 1_000_000,
+    output: 0.3 / 1_000_000,
+  },
 };
 
 // returns cost in cents

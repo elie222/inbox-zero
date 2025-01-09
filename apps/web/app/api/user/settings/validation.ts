@@ -3,7 +3,12 @@ import { z } from "zod";
 
 export const saveSettingsBody = z
   .object({
-    aiProvider: z.enum([Provider.ANTHROPIC, Provider.OPEN_AI]),
+    aiProvider: z.enum([
+      Provider.ANTHROPIC,
+      Provider.OPEN_AI,
+      Provider.GOOGLE,
+      ...(Provider.OLLAMA ? [Provider.OLLAMA] : []),
+    ]),
     aiModel: z.string(),
     aiApiKey: z.string().optional(),
   })

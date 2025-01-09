@@ -5,6 +5,7 @@ const supportsOllama = env.NEXT_PUBLIC_OLLAMA_MODEL;
 export const Provider = {
   OPEN_AI: "openai",
   ANTHROPIC: "anthropic",
+  GOOGLE: "google",
   ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
 
@@ -15,12 +16,15 @@ export const Model = {
   // BEDROCK_ANTHROPIC_BACKUP_MODEL:
   //   env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
   CLAUDE_3_5_SONNET_ANTHROPIC: "claude-3-5-sonnet-20241022",
+  GEMINI_1_5_PRO: "gemini-1.5-pro-latest",
+  GEMINI_1_5_FLASH: "gemini-1.5-flash-latest",
   ...(supportsOllama ? { OLLAMA: env.NEXT_PUBLIC_OLLAMA_MODEL } : {}),
 };
 
 export const providerOptions: { label: string; value: string }[] = [
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Anthropic", value: Provider.ANTHROPIC },
+  { label: "Google", value: Provider.GOOGLE },
   ...(supportsOllama && Provider.OLLAMA
     ? [{ label: "Ollama", value: Provider.OLLAMA }]
     : []),
@@ -36,6 +40,16 @@ export const modelOptions: Record<string, { label: string; value: string }[]> =
       {
         label: "Claude 3.5 Sonnet",
         value: "claude-3-5-sonnet", // used in ui only. can be either anthropic or bedrock
+      },
+    ],
+    [Provider.GOOGLE]: [
+      {
+        label: "Gemini 1.5 Pro",
+        value: Model.GEMINI_1_5_PRO,
+      },
+      {
+        label: "Gemini 1.5 Flash",
+        value: Model.GEMINI_1_5_FLASH,
       },
     ],
     ...(Provider.OLLAMA && Model.OLLAMA

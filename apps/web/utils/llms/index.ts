@@ -10,6 +10,7 @@ import {
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -67,6 +68,17 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
           },
         },
       })(model),
+    };
+  }
+
+  if (provider === Provider.GOOGLE) {
+    if (!aiApiKey) throw new Error("Google API key is not set");
+
+    const model = aiModel || Model.GEMINI_1_5_PRO;
+    return {
+      provider: Provider.GOOGLE,
+      model,
+      llmModel: createGoogleGenerativeAI({ apiKey: aiApiKey })(model),
     };
   }
 
