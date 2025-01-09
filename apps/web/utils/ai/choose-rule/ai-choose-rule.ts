@@ -63,12 +63,13 @@ ${stringifyEmail(email, 500)}
 
   const aiResponse = await chatCompletionObject({
     userAi: user,
-    prompt,
     system,
+    prompt,
     schema: z.object({
       reason: z.string(),
       rule: z.number(),
     }),
+    cacheSystemPrompt: true,
     userEmail: user.email || "",
     usageLabel: "Choose rule",
   });

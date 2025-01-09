@@ -47,7 +47,9 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
       return {
         provider: Provider.ANTHROPIC,
         model,
-        llmModel: createAnthropic({ apiKey: aiApiKey })(model),
+        llmModel: createAnthropic({ apiKey: aiApiKey })(model, {
+          cacheControl: true,
+        }),
       };
     }
     if (!env.BEDROCK_ACCESS_KEY)
@@ -110,10 +112,11 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
 type ChatCompletionObjectArgs<T> = {
   userAi: UserAIFields;
   prompt: string;
-  system?: string;
+  system: string;
   schema: z.Schema<T>;
   userEmail: string;
   usageLabel: string;
+  cacheSystemPrompt?: boolean;
 };
 
 export async function chatCompletionObject<T>(
@@ -129,14 +132,25 @@ async function chatCompletionObjectInternal<T>({
   schema,
   userEmail,
   usageLabel,
+  cacheSystemPrompt,
 }: ChatCompletionObjectArgs<T>) {
   try {
     const { provider, model, llmModel } = getModel(userAi);
 
     const result = await generateObject({
       model: llmModel,
-      prompt,
-      system,
+      messages: [
+        {
+          role: "system",
+          content: system,
+          experimental_providerMetadata: cacheSystemPrompt
+            ? {
+                anthropic: { cacheControl: { type: "ephemeral" } },
+              }
+            : undefined,
+        },
+        { role: "user", content: prompt },
+      ],
       schema,
       experimental_telemetry: { isEnabled: true },
     });
