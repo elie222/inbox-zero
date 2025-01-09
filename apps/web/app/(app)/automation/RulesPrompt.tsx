@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -44,9 +45,10 @@ export function RulesPrompt() {
     { error: string }
   >("/api/user/rules/prompt");
   const { isModalOpen, setIsModalOpen } = useModal();
-  const onOpenPersonaDialog = useCallback(() => {
-    setIsModalOpen(true);
-  }, [setIsModalOpen]);
+  const onOpenPersonaDialog = useCallback(
+    () => setIsModalOpen(true),
+    [setIsModalOpen],
+  );
 
   const [persona, setPersona] = useState<string | null>(null);
 
@@ -97,6 +99,12 @@ function RulesPromptForm({
     editedRules: number;
     removedRules: number;
   }>();
+
+  const [
+    viewedProcessingPromptFileDialog,
+    setViewedProcessingPromptFileDialog,
+  ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
+
   const {
     register,
     handleSubmit,
@@ -133,14 +141,19 @@ function RulesPromptForm({
           throw new Error(result.error);
         }
 
-        router.push("/automation?tab=test");
+        if (viewedProcessingPromptFileDialog) {
+          router.push("/automation?tab=test");
+        }
+
         mutate();
         setIsSubmitting(false);
 
         return result;
       };
 
-      setIsDialogOpen(true);
+      if (!viewedProcessingPromptFileDialog) {
+        setIsDialogOpen(true);
+      }
       setResult(undefined);
 
       toast.promise(() => saveRulesPromise(data), {
@@ -164,7 +177,7 @@ function RulesPromptForm({
         },
       });
     },
-    [router, mutate],
+    [mutate, router, viewedProcessingPromptFileDialog],
   );
 
   const addExamplePrompt = useCallback(
@@ -187,6 +200,9 @@ function RulesPromptForm({
             open={isDialogOpen}
             result={result}
             onOpenChange={setIsDialogOpen}
+            setViewedProcessingPromptFileDialog={
+              setViewedProcessingPromptFileDialog
+            }
           />
 
           <CardHeader>
@@ -289,7 +305,7 @@ Let me know if you're interested!
             </form>
           </CardContent>
         </div>
-        <div className="px-4 pb-4 sm:mt-8 sm:p-0 sm:px-6">
+        <div className="px-4 pb-4 sm:mt-8 sm:px-0 sm:py-0 xl:px-4">
           <SectionHeader>Examples</SectionHeader>
 
           <ScrollArea className="mt-2 sm:h-[600px] sm:max-h-[600px]">

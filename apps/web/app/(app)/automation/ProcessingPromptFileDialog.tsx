@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -28,22 +28,16 @@ type ResultProps = {
   removedRules: number;
 };
 
-/*
-When the modal first opens we'll tell them the AI is processing their prompt file.
-And that they can learn about the AI assistant in the meantime.
-When completed, we'll show them the test view and automatically start testing
-the rules.
-If they notice a mistake, they can mark an error.
-*/
-
 export function ProcessingPromptFileDialog({
   open,
   onOpenChange,
   result,
+  setViewedProcessingPromptFileDialog,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   result?: ResultProps;
+  setViewedProcessingPromptFileDialog: (viewed: boolean) => void;
 }) {
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -55,28 +49,24 @@ export function ProcessingPromptFileDialog({
     setCurrentStep((currentStep) => Math.min(4, currentStep + 1));
   }, []);
 
+  useEffect(() => {
+    if (currentStep > 3) {
+      setViewedProcessingPromptFileDialog(true);
+    }
+  }, [currentStep, setViewedProcessingPromptFileDialog]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* <DialogContent className="max-h-[90vh] overflow-y-auto px-0 sm:max-w-7xl"> */}
-      <DialogContent
-      // className={
-      //   currentStep !== 0
-      //     ? "max-h-[90vh] overflow-y-auto px-0 sm:max-w-7xl"
-      //     : undefined
-      // }
-      >
+      <DialogContent>
         {currentStep === 0 && <IntroStep next={next} />}
         {currentStep === 1 && <Step1 back={back} next={next} />}
         {currentStep === 2 && <Step2 back={back} next={next} />}
         {currentStep === 3 && <Step3 back={back} next={next} />}
-
         {currentStep > 3 &&
           (result ? (
             <FinalStepReady
               back={back}
-              next={() => {
-                onOpenChange(false);
-              }}
+              next={() => onOpenChange(false)}
               result={result}
             />
           ) : (
@@ -255,7 +245,7 @@ function FinalStepReady({
         <Button variant="outline" onClick={back}>
           Back
         </Button>
-        <Button asChild>
+        <Button asChild onClick={next}>
           <Link href="/automation?tab=test">Try them out!</Link>
         </Button>
       </div>
