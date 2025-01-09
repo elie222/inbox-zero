@@ -101,6 +101,11 @@ const costs: Record<
     input: 0.075 / 1_000_000,
     output: 0.3 / 1_000_000,
   },
+  // https://groq.com/pricing
+  "llama-3.3-70b-versatile": {
+    input: 0.59 / 1_000_000,
+    output: 0.79 / 1_000_000,
+  },
 };
 
 // returns cost in cents
