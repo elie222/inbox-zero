@@ -140,7 +140,8 @@ export const createRuleBody = z.object({
     ),
   conditionalOperator: z
     .enum([LogicalOperator.AND, LogicalOperator.OR])
-    .default(LogicalOperator.AND),
+    .default(LogicalOperator.AND)
+    .optional(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
