@@ -128,10 +128,11 @@ function IntroStep({ next }: StepProps) {
 function Step1({ back, next }: StepProps) {
   return (
     <Step back={back} next={next} title="What's happening now?">
-      <p>We're converting your prompt into specific, actionable rules.</p>
       <p>
-        These are more reliable and give you fine-grained control over your
-        email automation.
+        We're turning your instructions into clear rules.
+        <br />
+        This makes your automations more reliable and gives you better control
+        over how each rule is applied.
       </p>
 
       <Image
