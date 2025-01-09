@@ -7,6 +7,7 @@ export const saveSettingsBody = z
       Provider.ANTHROPIC,
       Provider.OPEN_AI,
       Provider.GOOGLE,
+      Provider.GROQ,
       ...(Provider.OLLAMA ? [Provider.OLLAMA] : []),
     ]),
     aiModel: z.string(),
