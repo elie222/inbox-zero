@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^1.0.6",
-    "@ai-sdk/anthropic": "^1.0.6",
+    "@ai-sdk/anthropic": "^1.0.8",
     "@ai-sdk/google": "^1.0.12",
     "@ai-sdk/groq": "^1.0.10",
     "@ai-sdk/openai": "^1.0.11",
@@ -70,7 +70,7 @@
     "@upstash/qstash": "^2.7.20",
     "@upstash/redis": "^1.34.3",
     "@vercel/analytics": "^1.4.1",
-    "ai": "^4.0.22",
+    "ai": "^4.0.31",
     "capital-case": "^2.0.0",
     "cheerio": "1.0.0",
     "class-variance-authority": "^0.7.1",
