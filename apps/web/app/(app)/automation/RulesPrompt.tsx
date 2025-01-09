@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -36,7 +37,7 @@ import { AutomationOnboarding } from "@/app/(app)/automation/AutomationOnboardin
 import { examplePrompts, personas } from "@/app/(app)/automation/examples";
 import { PersonaDialog } from "@/app/(app)/automation/PersonaDialog";
 import { useModal } from "@/components/Modal";
-// import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
+import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
 
 export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -44,9 +45,10 @@ export function RulesPrompt() {
     { error: string }
   >("/api/user/rules/prompt");
   const { isModalOpen, setIsModalOpen } = useModal();
-  const onOpenPersonaDialog = useCallback(() => {
-    setIsModalOpen(true);
-  }, [setIsModalOpen]);
+  const onOpenPersonaDialog = useCallback(
+    () => setIsModalOpen(true),
+    [setIsModalOpen],
+  );
 
   const [persona, setPersona] = useState<string | null>(null);
 
@@ -91,12 +93,18 @@ function RulesPromptForm({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  // const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // const [result, setResult] = useState<{
-  //   createdRules: number;
-  //   editedRules: number;
-  //   removedRules: number;
-  // }>();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [result, setResult] = useState<{
+    createdRules: number;
+    editedRules: number;
+    removedRules: number;
+  }>();
+
+  const [
+    viewedProcessingPromptFileDialog,
+    setViewedProcessingPromptFileDialog,
+  ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
+
   const {
     register,
     handleSubmit,
@@ -133,20 +141,25 @@ function RulesPromptForm({
           throw new Error(result.error);
         }
 
-        router.push("/automation?tab=test");
+        if (viewedProcessingPromptFileDialog) {
+          router.push("/automation?tab=test");
+        }
+
         mutate();
         setIsSubmitting(false);
 
         return result;
       };
 
-      // setIsDialogOpen(true);
-      // setResult(undefined);
+      if (!viewedProcessingPromptFileDialog) {
+        setIsDialogOpen(true);
+      }
+      setResult(undefined);
 
       toast.promise(() => saveRulesPromise(data), {
         loading: "Saving rules... This may take a while to process...",
         success: (result) => {
-          // setResult(result);
+          setResult(result);
           const { createdRules, editedRules, removedRules } = result || {};
 
           const message = [
@@ -164,7 +177,7 @@ function RulesPromptForm({
         },
       });
     },
-    [router, mutate],
+    [mutate, router, viewedProcessingPromptFileDialog],
   );
 
   const addExamplePrompt = useCallback(
@@ -183,12 +196,14 @@ function RulesPromptForm({
 
       <Card className="grid grid-cols-1 sm:grid-cols-3">
         <div className="sm:col-span-2">
-          {/* <ProcessingPromptFileDialog
-          open={isDialogOpen}
-          result={result}
-          onOpenChange={setIsDialogOpen}
-          isLoading={isSubmitting}
-        /> */}
+          <ProcessingPromptFileDialog
+            open={isDialogOpen}
+            result={result}
+            onOpenChange={setIsDialogOpen}
+            setViewedProcessingPromptFileDialog={
+              setViewedProcessingPromptFileDialog
+            }
+          />
 
           <CardHeader>
             <CardTitle>
@@ -290,7 +305,7 @@ Let me know if you're interested!
             </form>
           </CardContent>
         </div>
-        <div className="px-4 pb-4 sm:mt-8 sm:p-0 sm:px-6">
+        <div className="px-4 pb-4 sm:mt-8 sm:px-0 sm:py-0 xl:px-4">
           <SectionHeader>Examples</SectionHeader>
 
           <ScrollArea className="mt-2 sm:h-[600px] sm:max-h-[600px]">
