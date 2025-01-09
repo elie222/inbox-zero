@@ -123,7 +123,7 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
 
   const args = aiResponse.toolCalls[0].args;
 
-  logger.trace(args);
+  logger.trace("Args", { args });
 
   return parseRulesResponse(args, hasSnippets);
 }
