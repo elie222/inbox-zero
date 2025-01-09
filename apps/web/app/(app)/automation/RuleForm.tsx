@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import { ExternalLinkIcon, PlusIcon } from "lucide-react";
+import { ExternalLinkIcon, PlusIcon, FilterIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -28,7 +28,12 @@ import {
   SectionDescription,
   TypographyH3,
 } from "@/components/Typography";
-import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
+import {
+  ActionType,
+  CategoryFilterType,
+  LogicalOperator,
+  RuleType,
+} from "@prisma/client";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -58,6 +63,13 @@ import { hasVariables } from "@/utils/template";
 import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -189,7 +201,36 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         />
       </div>
 
-      <TypographyH3 className="mt-6">Conditions</TypographyH3>
+      <div className="mt-6 flex items-end justify-between">
+        <TypographyH3>Conditions</TypographyH3>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FilterIcon className="mr-2 h-4 w-4" />
+              Match{" "}
+              {watch("conditionalOperator") === LogicalOperator.AND
+                ? "all"
+                : "any"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup
+              value={watch("conditionalOperator")}
+              onValueChange={(value) =>
+                setValue("conditionalOperator", value as LogicalOperator)
+              }
+            >
+              <DropdownMenuRadioItem value={LogicalOperator.AND}>
+                Match all conditions
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value={LogicalOperator.OR}>
+                Match any condition
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {errors.conditions?.root?.message && (
         <div className="mt-4">

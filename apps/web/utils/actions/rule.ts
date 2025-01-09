@@ -19,6 +19,7 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
+import { LogicalOperator } from "@prisma/client";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -58,6 +59,7 @@ export const createRuleAction = withActionInstrumentation(
               }
             : undefined,
           userId: session.user.id,
+          conditionalOperator: body.conditionalOperator || LogicalOperator.AND,
           // conditions
           instructions: conditions.instructions || null,
           from: conditions.from || null,
@@ -124,6 +126,8 @@ export const updateRuleAction = withActionInstrumentation(
             automate: body.automate ?? undefined,
             runOnThreads: body.runOnThreads ?? undefined,
             name: body.name || undefined,
+            conditionalOperator:
+              body.conditionalOperator || LogicalOperator.AND,
             // conditions
             instructions: conditions.instructions || null,
             from: conditions.from || null,
