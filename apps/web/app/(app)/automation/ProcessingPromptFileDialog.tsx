@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { useCallback, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/Loading";
+import { pluralize } from "@/utils/string";
 
 type StepProps = {
   back?: () => void;
@@ -138,9 +140,17 @@ function Step1({ back, next }: StepProps) {
     <Step back={back} next={next} title="What's happening now?">
       <p>We're converting your prompt into specific, actionable rules.</p>
       <p>
-        These rules are more predictable and give you fine-grained control over
-        your email automation.
+        These are more reliable and give you fine-grained control over your
+        email automation.
       </p>
+
+      <Image
+        src="/images/automation/rules.png"
+        alt="Analyzing prompt file"
+        width={500}
+        height={300}
+        className="rounded-lg shadow"
+      />
     </Step>
   );
 }
@@ -148,12 +158,14 @@ function Step1({ back, next }: StepProps) {
 function Step2({ back, next }: StepProps) {
   return (
     <Step back={back} next={next} title="Customize Your Rules">
-      <p>Once created, you can fine-tune each rule to your needs:</p>
-      <ul className="mt-1 list-disc pl-6 text-left">
-        <li>Manually adjust conditions and actions</li>
-        <li>Toggle automation on/off</li>
-        <li>Toggle whether a rule runs on conversations (threads)</li>
-      </ul>
+      <p>Once created, you can fine-tune each rule to your needs.</p>
+      <Image
+        src="/images/automation/rule-edit.png"
+        alt="Editing a rule"
+        width={500}
+        height={300}
+        className="rounded-lg shadow"
+      />
     </Step>
   );
 }
@@ -161,14 +173,20 @@ function Step2({ back, next }: StepProps) {
 function Step3({ back, next }: StepProps) {
   return (
     <Step back={back} next={next} title="Test Your Rules">
-      <p>
-        Shortly, you'll be taken to the "Test" tab. Here you can:
-        <ul className="mt-1 list-disc pl-6 text-left">
-          <li>Check the AI rules are working as expected</li>
-          <li>Understand why the AI made certain choices</li>
-          <li>Fix any mistakes easily</li>
-        </ul>
-      </p>
+      <p>Shortly, you'll be taken to the "Test" tab. Here you can:</p>
+      <ul className="mt-1 list-disc pl-6 text-left">
+        <li>Check the AI rules are working as expected</li>
+        <li>Understand why the AI made certain choices</li>
+        <li>Fix any mistakes easily</li>
+      </ul>
+
+      <Image
+        src="/images/automation/process.png"
+        alt="Test Rules"
+        width={500}
+        height={300}
+        className="rounded-lg shadow"
+      />
     </Step>
   );
 }
@@ -197,197 +215,50 @@ function FinalStepReady({
 }: StepProps & {
   result: ResultProps;
 }) {
+  function getDescription() {
+    let message = "";
+
+    if (result.createdRules > 0) {
+      message += `We've created ${result.createdRules} ${pluralize(
+        result.createdRules,
+        "rule",
+      )} for you.`;
+    }
+
+    if (result.editedRules > 0) {
+      message += ` We edited ${result.editedRules} ${pluralize(
+        result.editedRules,
+        "rule",
+      )}.`;
+    }
+
+    if (result.removedRules > 0) {
+      message += ` We removed ${result.removedRules} ${pluralize(
+        result.removedRules,
+        "rule",
+      )}.`;
+    }
+
+    return message;
+  }
+
   return (
     <>
       <DialogHeader className="flex flex-col items-center justify-center">
         <DialogTitle>All done!</DialogTitle>
         <DialogDescription className="text-center">
-          We've created your rules.
+          {getDescription()}
         </DialogDescription>
       </DialogHeader>
 
-      <ResultContent result={result} />
-
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-2">
         <Button variant="outline" onClick={back}>
           Back
         </Button>
-        <Button onClick={next}>Test them now!</Button>
+        <Button asChild>
+          <Link href="/automation?tab=test">Try them out!</Link>
+        </Button>
       </div>
     </>
   );
 }
-
-function ResultContent({ result }: { result: ResultProps }) {
-  return (
-    <div className="text-center">
-      <p className="text-green-500">Rules saved!</p>
-      <ul className="text-sm text-muted-foreground">
-        {result.createdRules > 0 && (
-          <li>{result.createdRules} rules created</li>
-        )}
-        {result.editedRules > 0 && <li>{result.editedRules} rules edited</li>}
-        {result.removedRules > 0 && (
-          <li>{result.removedRules} rules removed</li>
-        )}
-      </ul>
-      <Button asChild className="mt-4">
-        <Link href="?modal=rules" shallow>
-          View
-        </Link>
-      </Button>
-    </div>
-  );
-}
-
-// function ProcessingPromptFileDialogStep1({ onNext }: { onNext: () => void }) {
-//   return (
-//     <div className="p-6">
-//       <Image
-//         src="/images/automation/rules.png"
-//         alt="Analyzing prompt file"
-//         width={1000}
-//         height={500}
-//         className="rounded-lg"
-//       />
-//       <p className="mt-4">
-//         First, our AI analyzes your prompt file and extracts rules from it.
-//       </p>
-//       <Button className="mt-2" onClick={onNext}>
-//         Next
-//       </Button>
-//     </div>
-//   );
-// }
-
-// function ProcessingPromptFileDialogStep2({ onNext }: { onNext: () => void }) {
-//   return (
-//     <div className="flex flex-col items-center p-6">
-//       <Image
-//         src="/images/automation/edit-rule.png"
-//         alt="Saving rules"
-//         width={700}
-//         height={500}
-//         className="rounded-lg"
-//       />
-//       <div className="mt-4 space-y-2">
-//         <p>Next, you can click a rule to edit it.</p>
-//         <p>Each rule is made up of two parts:</p>
-//         <ol className="list-inside list-decimal space-y-1 pl-4">
-//           <li>A condition</li>
-//           <li>An action</li>
-//         </ol>
-//         <p>
-//           Conditions need to be met for actions to happen. For example, "apply
-//           this to marketing emails".
-//         </p>
-//         <p>Example actions include:</p>
-//         <ul className="list-inside list-disc space-y-1 pl-4">
-//           <li>Drafting an email</li>
-//           <li>Labeling</li>
-//           <li>Archiving</li>
-//         </ul>
-//       </div>
-//       <Button className="mt-2" onClick={onNext}>
-//         Next
-//       </Button>
-//     </div>
-//   );
-// }
-
-// function ProcessingPromptFileDialogStep3({ onNext }: { onNext: () => void }) {
-//   return (
-//     <div>
-//       <Image
-//         src="/images/automation/rules.png"
-//         alt="Saving rules"
-//         width={500}
-//         height={300}
-//         className="w-full"
-//       />
-//       <p>Next, you can click on a rule to edit it even further.</p>
-//       <p>Each rule is made up of two parts: a condition and an action.</p>
-//       <p>Our AI sets these up for you, but you can adjust them as needed.</p>
-//       <Button className="mt-2" onClick={onNext}>
-//         Next
-//       </Button>
-//     </div>
-//   );
-// }
-
-// function ProcessingPromptFileDialogStep4({ onNext }: { onNext: () => void }) {
-//   return (
-//     <div>
-//       <Image
-//         src="/images/automation/rules.png"
-//         alt="Testing rules"
-//         width={500}
-//         height={300}
-//         className="w-full"
-//       />
-//       <p>Test the rules to see how they perform.</p>
-//       <p>
-//         This allows you to ensure the rules work as expected before applying
-//         them.
-//       </p>
-//       <Button className="mt-2" onClick={onNext}>
-//         Next
-//       </Button>
-//     </div>
-//   );
-// }
-
-// function ProcessingPromptFileDialogCarousel({
-//   currentStep,
-//   onStepChange,
-// }: {
-//   currentStep: number;
-//   onStepChange: (step: number) => void;
-// }) {
-//   const [api, setApi] = useState<CarouselApi>();
-
-//   useEffect(() => {
-//     if (api) {
-//       api.scrollTo(currentStep);
-//     }
-//   }, [api, currentStep]);
-
-//   useEffect(() => {
-//     if (!api) return;
-
-//     api.on("select", () => {
-//       onStepChange(api.selectedScrollSnap());
-//     });
-//   }, [api, onStepChange]);
-
-//   const steps = useMemo(
-//     () => [
-//       <ProcessingPromptFileDialogStep1 key="step-1" onNext={() => {}} />,
-//       <ProcessingPromptFileDialogStep2 key="step-2" onNext={() => {}} />,
-//       <ProcessingPromptFileDialogStep3 key="step-3" onNext={() => {}} />,
-//       <ProcessingPromptFileDialogStep4 key="step-4" onNext={() => {}} />,
-//     ],
-//     [],
-//   );
-
-//   return (
-//     <Carousel setApi={setApi} className="mx-auto w-full max-w-xs">
-//       <CarouselContent>
-//         {steps.map((step, index) => (
-//           <CarouselItem key={index}>
-//             <div className="p-1">
-//               <Card>
-//                 <CardContent className="flex aspect-square items-center justify-center p-6">
-//                   {/* <span className="text-3xl font-semibold">{step}</span> */}
-//                   <span>{step}</span>
-//                 </CardContent>
-//               </Card>
-//             </div>
-//           </CarouselItem>
-//         ))}
-//       </CarouselContent>
-//       <CarouselPrevious />
-//       <CarouselNext />
-//     </Carousel>
-//   );
-// }

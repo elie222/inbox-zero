@@ -79,7 +79,6 @@
     "crisp-sdk-web": "^1.0.25",
     "date-fns": "^3.6.0",
     "diff": "^7.0.0",
-    "embla-carousel-react": "^8.5.1",
     "encoding": "^0.1.13",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.15",
