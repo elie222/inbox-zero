@@ -753,7 +753,7 @@ function GroupsTab(props: {
   return (
     <div className="mt-4">
       <SectionDescription>
-        A group is a collection of senders or subjects.
+        A group is a static collection of senders or subjects.
       </SectionDescription>
 
       {loadingCreateGroup && (
