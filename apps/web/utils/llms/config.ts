@@ -24,8 +24,8 @@ export const Model = {
 };
 
 export const providerOptions: { label: string; value: string }[] = [
-  { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Anthropic", value: Provider.ANTHROPIC },
+  { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },
   ...(supportsOllama && Provider.OLLAMA
