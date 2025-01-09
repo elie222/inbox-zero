@@ -11,6 +11,21 @@ import { SafeError } from "@/utils/error";
 
 export type SaveSettingsResponse = Awaited<ReturnType<typeof saveAISettings>>;
 
+/**
+ * Saves AI settings for the authenticated user.
+ *
+ * @remarks
+ * Updates the user's AI provider, model, and optional API key in the database.
+ * Requires an authenticated session with a valid user email.
+ *
+ * @param options - Configuration options for AI settings
+ * @returns The updated user record with new AI settings
+ *
+ * @throws {SafeError} If the user is not logged in
+ * @throws {Error} If an invalid AI provider is specified
+ *
+ * @beta
+ */
 async function saveAISettings(options: SaveSettingsBody) {
   const session = await auth();
   if (!session?.user.email) throw new SafeError("Not logged in");

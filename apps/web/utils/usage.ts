@@ -108,7 +108,21 @@ const costs: Record<
   },
 };
 
-// returns cost in cents
+/**
+ * Calculates the cost of AI model usage based on token consumption.
+ *
+ * @param model - The name of the AI model used
+ * @param usage - An object containing the number of prompt and completion tokens
+ * @returns The total cost in cents, or 0 if the model is not found in the cost record
+ *
+ * @remarks
+ * This function uses predefined token costs for different AI models to compute usage expenses.
+ * If the model is not present in the cost record, it returns zero to prevent errors.
+ *
+ * @example
+ * const cost = calcuateCost('gpt-4', { promptTokens: 1000, completionTokens: 500 });
+ * // Returns the calculated cost in cents
+ */
 function calcuateCost(
   model: string,
   usage: {

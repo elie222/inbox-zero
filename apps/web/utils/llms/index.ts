@@ -29,6 +29,33 @@ import {
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
 
+/**
+ * Selects and configures an AI model based on the specified provider and model parameters.
+ *
+ * @remarks
+ * This function supports multiple AI providers including OpenAI, Anthropic, Google, Groq, and Ollama.
+ * It handles model and API key selection with fallback mechanisms and environment variable support.
+ *
+ * @param aiProvider - The AI service provider to use (defaults to Anthropic if not specified)
+ * @param aiModel - The specific model to use (optional, defaults vary by provider)
+ * @param aiApiKey - The API key for the selected provider (optional, can use environment variables)
+ * @returns An object containing the provider, selected model, and configured LLM model
+ *
+ * @throws {Error} If required API keys or environment variables are not set
+ * @throws {Error} If an unsupported AI provider is specified
+ *
+ * @example
+ * // Use default OpenAI model with API key from environment
+ * const openAiModel = getModel({ aiProvider: Provider.OPEN_AI });
+ *
+ * @example
+ * // Specify a custom Anthropic model with a specific API key
+ * const anthropicModel = getModel({
+ *   aiProvider: Provider.ANTHROPIC,
+ *   aiModel: Model.CLAUDE_3_5_SONNET_ANTHROPIC,
+ *   aiApiKey: 'your-anthropic-api-key'
+ * });
+ */
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   const provider = aiProvider || Provider.ANTHROPIC;
 
