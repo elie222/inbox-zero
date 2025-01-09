@@ -10,6 +10,8 @@ import {
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
 import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -67,6 +69,28 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
           },
         },
       })(model),
+    };
+  }
+
+  if (provider === Provider.GOOGLE) {
+    if (!aiApiKey) throw new Error("Google API key is not set");
+
+    const model = aiModel || Model.GEMINI_1_5_PRO;
+    return {
+      provider: Provider.GOOGLE,
+      model,
+      llmModel: createGoogleGenerativeAI({ apiKey: aiApiKey })(model),
+    };
+  }
+
+  if (provider === Provider.GROQ) {
+    if (!aiApiKey) throw new Error("Groq API key is not set");
+
+    const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
+    return {
+      provider: Provider.GROQ,
+      model,
+      llmModel: createGroq({ apiKey: aiApiKey })(model),
     };
   }
 

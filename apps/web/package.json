@@ -15,6 +15,8 @@
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^1.0.6",
     "@ai-sdk/anthropic": "^1.0.6",
+    "@ai-sdk/google": "^1.0.12",
+    "@ai-sdk/groq": "^1.0.10",
     "@ai-sdk/openai": "^1.0.11",
     "@asteasolutions/zod-to-openapi": "^7.3.0",
     "@auth/core": "^0.37.4",
