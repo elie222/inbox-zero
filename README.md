@@ -11,9 +11,7 @@
     ·
     <a href="https://www.getinboxzero.com/discord">Discord</a>
     ·
-    <a href="https://github.com/elie222/inbox-zero">Issues</a>
-    ·
-    <a href="https://github.com/users/elie222/projects/1">Kanban</a>
+    <a href="https://github.com/elie222/inbox-zero/issues">Issues</a>
   </p>
 </p>
 
