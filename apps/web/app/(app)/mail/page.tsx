@@ -49,16 +49,16 @@ export default function Mail({
   // store `refetch` in the atom so we can refresh the list upon archive via command k
   // TODO is this the best way to do this?
   const refetch = useCallback(
-    (removedThreadIds?: string[]) => {
+    (options?: { removedThreadIds?: string[] }) => {
       mutate(
         (currentData) => {
           if (!currentData) return currentData;
-          if (!removedThreadIds) return currentData;
+          if (!options?.removedThreadIds) return currentData;
 
           return currentData.map((page) => ({
             ...page,
             threads: page.threads.filter(
-              (t) => !removedThreadIds.includes(t.id),
+              (t) => !options?.removedThreadIds?.includes(t.id),
             ),
           }));
         },
