@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import useSWR from "swr";
+import { Loader2Icon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { PendingExecutedRules } from "@/app/api/user/planned/route";
@@ -23,42 +25,46 @@ import {
   ActionItemsCell,
   EmailCell,
   RuleCell,
-  // DateCell,
 } from "@/app/(app)/automation/ExecutedRulesTable";
 import { TablePagination } from "@/components/TablePagination";
-import { useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/Checkbox";
-import { Loader2Icon } from "lucide-react";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { isActionError } from "@/utils/error";
+import { RulesSelect } from "@/app/(app)/automation/RulesSelect";
 
 export function Pending() {
-  const searchParams = useSearchParams();
-  const page = Number.parseInt(searchParams.get("page") || "1");
+  const [page] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [ruleId, setRuleId] = useQueryState(
+    "ruleId",
+    parseAsString.withDefault("all"),
+  );
+
   const { data, isLoading, error, mutate } = useSWR<PendingExecutedRules>(
-    `/api/user/planned?page=${page}`,
+    `/api/user/planned?page=${page}&ruleId=${ruleId}`,
   );
 
   const session = useSession();
 
   return (
-    <Card>
-      <LoadingContent loading={isLoading} error={error}>
-        {data?.executedRules.length ? (
-          <PendingTable
-            pending={data.executedRules}
-            totalPages={data.totalPages}
-            userEmail={session.data?.user.email || ""}
-            mutate={mutate}
-          />
-        ) : (
-          <AlertBasic
-            title="No pending actions"
-            description="Set automations for our AI to handle incoming emails for you."
-          />
-        )}
-      </LoadingContent>
-    </Card>
+    <>
+      <div className="flex">
+        <RulesSelect ruleId={ruleId} setRuleId={setRuleId} />
+      </div>
+      <Card className="mt-2">
+        <LoadingContent loading={isLoading} error={error}>
+          {data?.executedRules.length ? (
+            <PendingTable
+              pending={data.executedRules}
+              totalPages={data.totalPages}
+              userEmail={session.data?.user.email || ""}
+              mutate={mutate}
+            />
+          ) : (
+            <AlertBasic title="No pending actions" description="" />
+          )}
+        </LoadingContent>
+      </Card>
+    </>
   );
 }
 
