@@ -23,9 +23,9 @@ import {
   ActionItemsCell,
   EmailCell,
   RuleCell,
-  TablePagination,
   // DateCell,
 } from "@/app/(app)/automation/ExecutedRulesTable";
+import { TablePagination } from "@/components/TablePagination";
 import { useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/Checkbox";
 import { Loader2Icon } from "lucide-react";

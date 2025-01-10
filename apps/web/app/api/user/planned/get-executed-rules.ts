@@ -12,11 +12,17 @@ const LIMIT = 50;
 export async function getExecutedRules(
   status: ExecutedRuleStatus,
   page: number,
+  ruleId?: string,
 ) {
   const session = await auth();
   if (!session?.user.email) throw new SafeError("Not authenticated");
 
-  const where = { userId: session.user.id, status, rule: { isNot: null } };
+  const where = {
+    userId: session.user.id,
+    status,
+    rule: { isNot: null },
+    ruleId: ruleId === "all" ? undefined : ruleId,
+  };
 
   const [pendingExecutedRules, total] = await Promise.all([
     prisma.executedRule.findMany({

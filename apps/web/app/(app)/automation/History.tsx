@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useSearchParams } from "next/navigation";
+import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
@@ -20,35 +20,86 @@ import {
   DateCell,
   EmailCell,
   RuleCell,
-  TablePagination,
 } from "@/app/(app)/automation/ExecutedRulesTable";
+import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useRules } from "@/hooks/useRules";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function History() {
-  const searchParams = useSearchParams();
-  const page = searchParams.get("page") || "1";
+  const [page] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [ruleId, setRuleId] = useQueryState(
+    "ruleId",
+    parseAsString.withDefault("all"),
+  );
+
   const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
-    `/api/user/planned/history?page=${page}`,
+    `/api/user/planned/history?page=${page}&ruleId=${ruleId}`,
   );
   const session = useSession();
 
+  const {
+    data: rules,
+    isLoading: rulesLoading,
+    error: rulesError,
+  } = useRules();
+
   return (
-    <Card>
-      <LoadingContent loading={isLoading} error={error}>
-        {data?.executedRules.length ? (
-          <HistoryTable
-            data={data.executedRules}
-            totalPages={data.totalPages}
-            userEmail={session.data?.user.email || ""}
-          />
-        ) : (
-          <AlertBasic
-            title="No history"
-            description="No Personal Assistant actions have been taken yet."
-          />
-        )}
-      </LoadingContent>
-    </Card>
+    <>
+      <div className="flex">
+        <LoadingContent
+          loading={rulesLoading}
+          error={rulesError}
+          loadingComponent={<Skeleton className="h-10 w-32" />}
+        >
+          <div>
+            <Select
+              defaultValue={ruleId}
+              onValueChange={(value) => setRuleId(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by rule" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All rules</SelectItem>
+                {rules?.map((rule) => (
+                  <SelectItem key={rule.id} value={rule.id}>
+                    {rule.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </LoadingContent>
+      </div>
+      <Card className="mt-2">
+        <LoadingContent loading={isLoading} error={error}>
+          {data?.executedRules.length ? (
+            <HistoryTable
+              data={data.executedRules}
+              totalPages={data.totalPages}
+              userEmail={session.data?.user.email || ""}
+            />
+          ) : (
+            <AlertBasic
+              title="No history"
+              description={
+                ruleId === "all"
+                  ? "No emails have been processed yet."
+                  : "No emails have been processed for this rule."
+              }
+            />
+          )}
+        </LoadingContent>
+      </Card>
+    </>
   );
 }
 

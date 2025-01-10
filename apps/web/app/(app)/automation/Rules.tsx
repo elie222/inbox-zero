@@ -1,6 +1,5 @@
 "use client";
 
-import useSWR from "swr";
 import Link from "next/link";
 import { capitalCase } from "capital-case";
 import {
@@ -49,12 +48,10 @@ import { isActionError } from "@/utils/error";
 import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/utils";
 import { type RiskLevel, getRiskLevel } from "@/utils/risk";
+import { useRules } from "@/hooks/useRules";
 
 export function Rules() {
-  const { data, isLoading, error, mutate } = useSWR<
-    RulesResponse,
-    { error: string }
-  >("/api/user/rules");
+  const { data, isLoading, error, mutate } = useRules();
 
   const hasRules = !!data?.length;
 
