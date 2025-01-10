@@ -15,10 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DateCell,
-  TablePagination,
-} from "@/app/(app)/automation/ExecutedRulesTable";
+import { DateCell } from "@/app/(app)/automation/ExecutedRulesTable";
+import { TablePagination } from "@/components/TablePagination";
 import { AlertBasic } from "@/components/Alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGmailSearchUrl } from "@/utils/url";

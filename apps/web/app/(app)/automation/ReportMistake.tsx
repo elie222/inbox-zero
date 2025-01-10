@@ -10,8 +10,8 @@ import {
   SparklesIcon,
   XIcon,
 } from "lucide-react";
-import useSWR from "swr";
 import { type SubmitHandler, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/Input";
 import { ButtonList } from "@/components/ButtonList";
@@ -47,7 +47,7 @@ import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { Loading } from "@/components/Loading";
 import type { ParsedMessage } from "@/utils/types";
 import { addGroupItemAction } from "@/utils/actions/group";
-import { toast } from "sonner";
+import { useRules } from "@/hooks/useRules";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -62,9 +62,7 @@ export function ReportMistake({
   result: RunRulesResult | null;
   isTest: boolean;
 }) {
-  const { data, isLoading, error } = useSWR<RulesResponse, { error: string }>(
-    "/api/user/rules",
-  );
+  const { data, isLoading, error } = useRules();
   const actualRule = result?.rule;
 
   return (

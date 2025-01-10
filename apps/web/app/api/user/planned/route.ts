@@ -11,6 +11,11 @@ export type PendingExecutedRules = Awaited<ReturnType<typeof getExecutedRules>>;
 export const GET = withError(async (request) => {
   const url = new URL(request.url);
   const page = Number.parseInt(url.searchParams.get("page") || "1");
-  const messages = await getExecutedRules(ExecutedRuleStatus.PENDING, page);
+  const ruleId = url.searchParams.get("ruleId") || "all";
+  const messages = await getExecutedRules(
+    ExecutedRuleStatus.PENDING,
+    page,
+    ruleId,
+  );
   return NextResponse.json(messages);
 });

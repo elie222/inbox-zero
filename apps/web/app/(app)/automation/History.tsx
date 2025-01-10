@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useSearchParams } from "next/navigation";
+import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
@@ -20,35 +20,49 @@ import {
   DateCell,
   EmailCell,
   RuleCell,
-  TablePagination,
 } from "@/app/(app)/automation/ExecutedRulesTable";
+import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
+import { RulesSelect } from "@/app/(app)/automation/RulesSelect";
 
 export function History() {
-  const searchParams = useSearchParams();
-  const page = searchParams.get("page") || "1";
+  const [page] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [ruleId, setRuleId] = useQueryState(
+    "ruleId",
+    parseAsString.withDefault("all"),
+  );
+
   const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
-    `/api/user/planned/history?page=${page}`,
+    `/api/user/planned/history?page=${page}&ruleId=${ruleId}`,
   );
   const session = useSession();
 
   return (
-    <Card>
-      <LoadingContent loading={isLoading} error={error}>
-        {data?.executedRules.length ? (
-          <HistoryTable
-            data={data.executedRules}
-            totalPages={data.totalPages}
-            userEmail={session.data?.user.email || ""}
-          />
-        ) : (
-          <AlertBasic
-            title="No history"
-            description="No Personal Assistant actions have been taken yet."
-          />
-        )}
-      </LoadingContent>
-    </Card>
+    <>
+      <div className="flex">
+        <RulesSelect ruleId={ruleId} setRuleId={setRuleId} />
+      </div>
+      <Card className="mt-2">
+        <LoadingContent loading={isLoading} error={error}>
+          {data?.executedRules.length ? (
+            <HistoryTable
+              data={data.executedRules}
+              totalPages={data.totalPages}
+              userEmail={session.data?.user.email || ""}
+            />
+          ) : (
+            <AlertBasic
+              title="No history"
+              description={
+                ruleId === "all"
+                  ? "No emails have been processed yet."
+                  : "No emails have been processed for this rule."
+              }
+            />
+          )}
+        </LoadingContent>
+      </Card>
+    </>
   );
 }
 
