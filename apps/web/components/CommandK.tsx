@@ -32,7 +32,7 @@ export function CommandK() {
     if (selectedEmail) {
       const threadIds = [selectedEmail];
       archiveEmails(threadIds, undefined, () => {
-        return refreshEmailList?.refetch(threadIds);
+        return refreshEmailList?.refetch({ removedThreadIds: threadIds });
       });
       setSelectedEmail(undefined);
     }

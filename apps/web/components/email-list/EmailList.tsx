@@ -47,7 +47,7 @@ export function List({
 }: {
   emails: Thread[];
   type?: string;
-  refetch: (removedThreadIds?: string[]) => void;
+  refetch: (options?: { removedThreadIds?: string[] }) => void;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
@@ -175,7 +175,7 @@ export function EmailList({
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch?: (removedThreadIds?: string[]) => void;
+  refetch?: (options?: { removedThreadIds?: string[] }) => void;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
@@ -278,7 +278,7 @@ export function EmailList({
               threadIds,
               undefined,
               (threadId) => {
-                refetch([threadId]);
+                refetch({ removedThreadIds: [threadId] });
                 resolve();
               },
               reject,
@@ -361,7 +361,7 @@ export function EmailList({
             threadIds,
             undefined,
             () => {
-              refetch(threadIds);
+              refetch({ removedThreadIds: threadIds });
               resolve();
             },
             reject,
@@ -387,7 +387,7 @@ export function EmailList({
           deleteEmails(
             threadIds,
             () => {
-              refetch(threadIds);
+              refetch({ removedThreadIds: threadIds });
               resolve();
             },
             reject,
@@ -490,7 +490,7 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads([thread.id], () => refetch([thread.id]));
+                  markReadThreads([thread.id], () => refetch());
                 };
 
                 return (
