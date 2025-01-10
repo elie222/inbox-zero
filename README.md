@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero</h1>
+    <h1 align="center">Inbox Zero - Your AI Personal Assistant for Email</h1>
   </a>
   <p align="center">
     Open source email app to reach inbox zero fast.
@@ -19,21 +19,21 @@
 
 ## About
 
-Inbox Zero is an open-source email app whose goal is to help you reach inbox zero fast with AI assistance.
+Inbox Zero is the open-source AI personal assistant for people who want to spend less time on email.
+
+## Features
+
+- **AI Personal Assistant:** Manages your email for you based on a plain text prompt file. It can take any action a human assistant can take on your behalf (Draft reply, Label, Archive, Reply, Forward, Mark Spam, and even call a webhook).
+- **Smart Categories:** Categorize everyone that's ever emailed you.
+- **Bulk Unsubscriber:** Quickly unsubscribe from emails you never read in one-click.
+- **Cold Email Blocker:** Automatically block cold emails.
+- **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
+
+Learn more in our [docs](https://docs.getinboxzero.com).
 
 ## Demo Video
 
 [![Inbox Zero demo](/video-thumbnail.png)](http://www.youtube.com/watch?v=hfvKvTHBjG0)
-
-## Key Features
-
-- **Newsletter Cleaner:** Easily manage and unsubscribe from newsletters.
-- **AI Assistant:** Auto respond, archive, label, and forward emails based on plain text prompt rules.
-- **Cold Email Blocker:** Automatically block cold emails.
-- **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
-- **New Senders:** Identify and block new spam senders.
-- **Unreplied Emails:** Keep track of emails awaiting responses.
-- **Large Email Finder:** Free up space by locating and deleting large emails.
 
 ## Built with
 
