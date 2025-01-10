@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useQueryState } from "nuqs";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
@@ -27,7 +27,6 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { runAiRules } from "@/utils/queue/email-actions";
-import { selectedEmailAtom } from "@/store/email";
 import { categorizeEmailAction } from "@/utils/actions/categorize-email";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -36,6 +35,7 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 export function List({
   emails,
@@ -52,8 +52,7 @@ export function List({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const params = useSearchParams();
-  const selectedTab = params.get("tab") || "all";
+  const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
 
   const categories = useMemo(() => {
     return countBy(
@@ -182,11 +181,8 @@ export function EmailList({
 }) {
   const session = useSession();
   // if right panel is open
-  const [openedRowId, setOpenedRowId] = useAtom(selectedEmailAtom);
-  const closePanel = useCallback(
-    () => setOpenedRowId(undefined),
-    [setOpenedRowId],
-  );
+  const { threadId: openedRowId, showEmail } = useDisplayedEmail();
+  const closePanel = useCallback(() => showEmail(null), [showEmail]);
 
   const openedRow = useMemo(
     () => threads.find((thread) => thread.id === openedRowId),
@@ -486,7 +482,10 @@ export function EmailList({
               {threads.map((thread) => {
                 const onOpen = () => {
                   const alreadyOpen = !!openedRowId;
-                  setOpenedRowId(thread.id);
+                  showEmail({
+                    messageId: thread.id,
+                    threadId: thread.id,
+                  });
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
