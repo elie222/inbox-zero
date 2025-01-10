@@ -92,7 +92,7 @@ export function EmailPanel(props: {
   );
 }
 
-function EmailThread(props: {
+export function EmailThread(props: {
   messages: Thread["messages"];
   refetch: () => void;
 }) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLinkIcon, EyeIcon } from "lucide-react";
+import { ExternalLinkIcon, EyeIcon, MailIcon } from "lucide-react";
 import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,29 +14,34 @@ import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import type { ParsedMessage } from "@/utils/types";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 export function EmailCell({
   from,
   subject,
   snippet,
+  threadId,
   messageId,
   userEmail,
 }: {
   from: string;
   subject: string;
   snippet: string;
+  threadId: string;
   messageId: string;
   userEmail: string;
 }) {
   // use regex to find first letter
   const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
 
+  const { showEmail } = useDisplayedEmail();
+
   return (
     <div className="flex items-center gap-4">
       <Avatar>
         <AvatarFallback>{firstLetter}</AvatarFallback>
       </Avatar>
-      <div className="flex flex-col justify-center">
+      <div className="flex flex-1 flex-col justify-center">
         <div className="font-semibold">{from}</div>
         <div className="mt-1 flex items-center font-medium">
           {subject}{" "}
@@ -46,6 +51,14 @@ export function EmailCell({
           {decodeSnippet(snippet)}
         </div>
       </div>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => showEmail({ threadId, messageId })}
+      >
+        <MailIcon className="h-4 w-4" />
+        <span className="sr-only">View email</span>
+      </Button>
     </div>
   );
 }
@@ -136,14 +149,12 @@ function OpenInGmailButton({
   userEmail: string;
 }) {
   return (
-    <button
-      type="button"
+    <Link
+      href={getGmailUrl(messageId, userEmail)}
+      target="_blank"
       className="ml-2 text-gray-700 hover:text-gray-900"
-      onClick={() => {
-        window.open(getGmailUrl(messageId, userEmail), "_blank");
-      }}
     >
       <ExternalLinkIcon className="h-4 w-4" />
-    </button>
+    </Link>
   );
 }

@@ -3,27 +3,35 @@
 import { useCallback } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
+import { EmailThread } from "@/components/email-list/EmailPanel";
+import { useThread } from "@/hooks/useThread";
+import { LoadingContent } from "@/components/LoadingContent";
 
 export function EmailViewer() {
-  const { messageId, showEmail } = useDisplayedEmail();
+  const { threadId, showEmail } = useDisplayedEmail();
 
   const hideEmail = useCallback(() => showEmail(null), [showEmail]);
 
   return (
-    <Sheet open={!!messageId} onOpenChange={hideEmail}>
-      <SheetContent side="right" className="w-full sm:w-4/5 md:w-3/4 lg:w-2/3">
-        {messageId && <EmailContent messageId={messageId} />}
+    <Sheet open={!!threadId} onOpenChange={hideEmail}>
+      <SheetContent
+        side="right"
+        size="5xl"
+        className="overflow-y-auto p-0"
+        overlay="transparent"
+      >
+        {threadId && <EmailContent threadId={threadId} />}
       </SheetContent>
     </Sheet>
   );
 }
 
-function EmailContent({ messageId }: { messageId: string }) {
-  // Fetch and display email content
+function EmailContent({ threadId }: { threadId: string }) {
+  const { data, isLoading, error, mutate } = useThread({ id: threadId });
+
   return (
-    <div className="p-4">
-      {/* Email content */}
-      <h2>Email {messageId}</h2>
-    </div>
+    <LoadingContent loading={isLoading} error={error}>
+      {data && <EmailThread messages={data.thread.messages} refetch={mutate} />}
+    </LoadingContent>
   );
 }

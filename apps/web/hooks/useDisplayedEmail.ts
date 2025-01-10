@@ -2,30 +2,25 @@ import { useCallback } from "react";
 import { useQueryState } from "nuqs";
 
 export const useDisplayedEmail = () => {
-  const [messageId, setMessageId] = useQueryState("messageId");
-  const [threadId, setThreadId] = useQueryState("threadId");
+  const [threadId, setThreadId] = useQueryState("side-panel-thread-id");
+  const [messageId, setMessageId] = useQueryState("side-panel-message-id");
 
   const showEmail = useCallback(
     (
       options: {
-        messageId: string;
         threadId: string;
+        messageId?: string;
       } | null,
     ) => {
-      if (options) {
-        setMessageId(options.messageId);
-        setThreadId(options.threadId);
-      } else {
-        setMessageId(null);
-        setThreadId(null);
-      }
+      setThreadId(options?.threadId ?? null);
+      setMessageId(options?.messageId ?? null);
     },
     [setMessageId, setThreadId],
   );
 
   return {
-    messageId,
     threadId,
+    messageId,
     showEmail,
   };
 };

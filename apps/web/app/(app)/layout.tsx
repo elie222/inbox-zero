@@ -15,6 +15,7 @@ import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { QueueInitializer } from "@/store/QueueInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { EmailViewer } from "@/components/EmailViewer";
 
 export const viewport = {
   themeColor: "#FFF",
@@ -43,6 +44,7 @@ export default async function AppLayout({
         <ErrorMessages />
         {children}
       </SideNavWithTopNav>
+      <EmailViewer />
       <ErrorBoundary extra={{ component: "AppLayout" }}>
         <PostHogIdentify />
         <TokenCheck />
