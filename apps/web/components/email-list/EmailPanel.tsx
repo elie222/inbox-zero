@@ -19,7 +19,19 @@ import {
 } from "@/utils/gmail/forward";
 import { useIsInAiQueue } from "@/store/ai-queue";
 
-export function EmailPanel(props: {
+export function EmailPanel({
+  row,
+  isCategorizing,
+  onPlanAiAction,
+  onAiCategorize,
+  onArchive,
+  close,
+  executingPlan,
+  rejectingPlan,
+  executePlan,
+  rejectPlan,
+  refetch,
+}: {
   row: Thread;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
@@ -33,11 +45,11 @@ export function EmailPanel(props: {
   rejectPlan: (thread: Thread) => Promise<void>;
   refetch: () => void;
 }) {
-  const isPlanning = useIsInAiQueue(props.row.id);
+  const isPlanning = useIsInAiQueue(row.id);
 
-  const lastMessage = props.row.messages?.[props.row.messages.length - 1];
+  const lastMessage = row.messages?.[row.messages.length - 1];
 
-  const plan = props.row.plan;
+  const plan = row.plan;
 
   return (
     <div className="flex h-full flex-col overflow-y-hidden border-l border-l-gray-100">
@@ -56,19 +68,19 @@ export function EmailPanel(props: {
 
         <div className="mt-3 flex items-center md:ml-2 md:mt-0">
           <ActionButtons
-            threadId={props.row.id!}
+            threadId={row.id!}
             isPlanning={isPlanning}
-            isCategorizing={props.isCategorizing}
-            onPlanAiAction={() => props.onPlanAiAction(props.row)}
-            onAiCategorize={() => props.onAiCategorize(props.row)}
+            isCategorizing={isCategorizing}
+            onPlanAiAction={() => onPlanAiAction(row)}
+            onAiCategorize={() => onAiCategorize(row)}
             onArchive={() => {
-              props.onArchive(props.row);
-              props.close();
+              onArchive(row);
+              close();
             }}
-            refetch={props.refetch}
+            refetch={refetch}
           />
           <Tooltip content="Close">
-            <Button onClick={props.close} size="icon" variant="ghost">
+            <Button onClick={close} size="icon" variant="ghost">
               <span className="sr-only">Close</span>
               <XIcon className="h-4 w-4" aria-hidden="true" />
             </Button>
@@ -78,31 +90,41 @@ export function EmailPanel(props: {
       <div className="flex flex-1 flex-col overflow-y-auto">
         {plan?.rule && (
           <PlanExplanation
-            thread={props.row}
-            executePlan={props.executePlan}
-            rejectPlan={props.rejectPlan}
-            executingPlan={props.executingPlan}
-            rejectingPlan={props.rejectingPlan}
+            thread={row}
+            executePlan={executePlan}
+            rejectPlan={rejectPlan}
+            executingPlan={executingPlan}
+            rejectingPlan={rejectingPlan}
           />
         )}
-        <EmailThread messages={props.row.messages} refetch={props.refetch} />
+        <EmailThread
+          messages={row.messages}
+          refetch={refetch}
+          showReplyButton
+        />
       </div>
     </div>
   );
 }
 
-export function EmailThread(props: {
+export function EmailThread({
+  messages,
+  refetch,
+  showReplyButton,
+}: {
   messages: Thread["messages"];
   refetch: () => void;
+  showReplyButton: boolean;
 }) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul className="space-y-2 sm:space-y-4">
-        {props.messages?.map((message) => (
+        {messages?.map((message) => (
           <EmailMessage
             key={message.id}
             message={message}
-            refetch={props.refetch}
+            showReplyButton={showReplyButton}
+            refetch={refetch}
           />
         ))}
       </ul>
@@ -110,12 +132,15 @@ export function EmailThread(props: {
   );
 }
 
-function EmailMessage(props: {
+function EmailMessage({
+  message,
+  refetch,
+  showReplyButton,
+}: {
   message: Thread["messages"][0];
   refetch: () => void;
+  showReplyButton: boolean;
 }) {
-  const { message } = props;
-
   const [showReply, setShowReply] = useState(false);
   const onReply = useCallback(() => setShowReply(true), []);
   const [showForward, setShowForward] = useState(false);
@@ -164,20 +189,22 @@ function EmailMessage(props: {
               {formatShortDate(new Date(message.headers.date))}
             </time>
           </p>
-          <div className="flex items-center">
-            <Tooltip content="Reply">
-              <Button variant="ghost" size="icon" onClick={onReply}>
-                <ReplyIcon className="h-4 w-4" />
-                <span className="sr-only">Reply</span>
-              </Button>
-            </Tooltip>
-            <Tooltip content="Forward">
-              <Button variant="ghost" size="icon">
-                <ForwardIcon className="h-4 w-4" onClick={onForward} />
-                <span className="sr-only">Forward</span>
-              </Button>
-            </Tooltip>
-          </div>
+          {showReplyButton && (
+            <div className="flex items-center">
+              <Tooltip content="Reply">
+                <Button variant="ghost" size="icon" onClick={onReply}>
+                  <ReplyIcon className="h-4 w-4" />
+                  <span className="sr-only">Reply</span>
+                </Button>
+              </Tooltip>
+              <Tooltip content="Forward">
+                <Button variant="ghost" size="icon">
+                  <ForwardIcon className="h-4 w-4" onClick={onForward} />
+                  <span className="sr-only">Forward</span>
+                </Button>
+              </Tooltip>
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-4">
@@ -226,7 +253,7 @@ function EmailMessage(props: {
                   : prepareForwardingEmail(message)
               }
               novelEditorClassName="h-40 overflow-auto"
-              refetch={props.refetch}
+              refetch={refetch}
               onSuccess={onCloseCompose}
               onDiscard={onCloseCompose}
             />
@@ -237,8 +264,8 @@ function EmailMessage(props: {
   );
 }
 
-export function HtmlEmail(props: { html: string }) {
-  const srcDoc = useMemo(() => getIframeHtml(props.html), [props.html]);
+export function HtmlEmail({ html }: { html: string }) {
+  const srcDoc = useMemo(() => getIframeHtml(html), [html]);
 
   const onLoad = useCallback(
     (event: SyntheticEvent<HTMLIFrameElement, Event>) => {
@@ -265,8 +292,8 @@ export function HtmlEmail(props: { html: string }) {
   );
 }
 
-function PlainEmail(props: { text: string }) {
-  return <pre className="whitespace-pre-wrap">{props.text}</pre>;
+function PlainEmail({ text }: { text: string }) {
+  return <pre className="whitespace-pre-wrap">{text}</pre>;
 }
 
 function getIframeHtml(html: string) {

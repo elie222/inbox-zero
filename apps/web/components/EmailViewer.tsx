@@ -31,7 +31,13 @@ function EmailContent({ threadId }: { threadId: string }) {
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data && <EmailThread messages={data.thread.messages} refetch={mutate} />}
+      {data && (
+        <EmailThread
+          messages={data.thread.messages}
+          refetch={mutate}
+          showReplyButton={false}
+        />
+      )}
     </LoadingContent>
   );
 }
