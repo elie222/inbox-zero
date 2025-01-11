@@ -1,12 +1,11 @@
 "use client";
 
-import { ExternalLinkIcon, EyeIcon } from "lucide-react";
+import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { MessageText } from "@/components/Typography";
 import { getGmailUrl } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { Button } from "@/components/ui/button";
-import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
+import { ViewEmailButton } from "@/components/ViewEmailButton";
 
 export function TestRulesMessage({
   from,
@@ -23,8 +22,6 @@ export function TestRulesMessage({
   threadId: string;
   messageId: string;
 }) {
-  const { showEmail } = useDisplayedEmail();
-
   return (
     <div className="min-w-0 break-words">
       <MessageText className="flex items-center">
@@ -36,15 +33,12 @@ export function TestRulesMessage({
         >
           <ExternalLinkIcon className="h-4 w-4" />
         </Link>
-        <Button
-          className="ml-1"
-          variant="outline"
+        <ViewEmailButton
+          threadId={threadId}
+          messageId={messageId}
           size="xs"
-          onClick={() => showEmail({ threadId, messageId })}
-        >
-          <EyeIcon className="h-4 w-4" />
-          <span className="sr-only">View email</span>
-        </Button>
+          className="ml-1.5"
+        />
       </MessageText>
       <MessageText className="mt-1 font-bold">{subject}</MessageText>
       <MessageText className="mt-1">

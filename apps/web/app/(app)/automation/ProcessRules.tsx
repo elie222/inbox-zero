@@ -12,7 +12,6 @@ import {
   PauseIcon,
   ChevronsDownIcon,
   RefreshCcwIcon,
-  MailIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
@@ -39,7 +38,6 @@ import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/automation/TestCustomEmailForm";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
-import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -247,8 +245,6 @@ function ProcessRulesRow({
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
 }) {
-  const { showEmail } = useDisplayedEmail();
-
   return (
     <TableRow
       className={
