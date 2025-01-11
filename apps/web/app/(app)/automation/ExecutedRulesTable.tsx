@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLinkIcon, EyeIcon, MailIcon } from "lucide-react";
+import { ExternalLinkIcon, EyeIcon } from "lucide-react";
 import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,6 +15,7 @@ import { MessageText } from "@/components/Typography";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import type { ParsedMessage } from "@/utils/types";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
+import { ViewEmailButton } from "@/components/ViewEmailButton";
 
 export function EmailCell({
   from,
@@ -51,14 +52,7 @@ export function EmailCell({
           {decodeSnippet(snippet)}
         </div>
       </div>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => showEmail({ threadId, messageId })}
-      >
-        <MailIcon className="h-4 w-4" />
-        <span className="sr-only">View email</span>
-      </Button>
+      <ViewEmailButton threadId={threadId} messageId={messageId} />
     </div>
   );
 }
