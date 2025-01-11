@@ -175,6 +175,7 @@ function TestRulesContentRow(props: {
           subject={message.headers.subject}
           snippet={decodeSnippet(message.snippet)}
           userEmail={props.userEmail}
+          threadId={message.threadId}
           messageId={message.id}
         />
         <div className="ml-4">

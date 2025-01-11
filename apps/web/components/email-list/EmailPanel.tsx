@@ -1,6 +1,5 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useAtomValue } from "jotai";
 import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
@@ -178,21 +177,6 @@ function EmailMessage(props: {
                 <span className="sr-only">Forward</span>
               </Button>
             </Tooltip>
-
-            {/* <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                  <span className="sr-only">More</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Delete this message</DropdownMenuItem>
-                <DropdownMenuItem>Report spam</DropdownMenuItem>
-                <DropdownMenuItem>Mark as unread</DropdownMenuItem>
-                <DropdownMenuItem>Open in Gmail</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu> */}
           </div>
         </div>
       </div>

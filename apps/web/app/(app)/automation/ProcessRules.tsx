@@ -12,6 +12,7 @@ import {
   PauseIcon,
   ChevronsDownIcon,
   RefreshCcwIcon,
+  MailIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
@@ -38,6 +39,7 @@ import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/automation/TestCustomEmailForm";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -245,6 +247,8 @@ function ProcessRulesRow({
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
 }) {
+  const { showEmail } = useDisplayedEmail();
+
   return (
     <TableRow
       className={
@@ -258,6 +262,7 @@ function ProcessRulesRow({
             subject={message.headers.subject}
             snippet={message.snippet?.trim() || ""}
             userEmail={userEmail}
+            threadId={message.threadId}
             messageId={message.id}
           />
           <div className="ml-4 flex items-center gap-1">
