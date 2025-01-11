@@ -35,7 +35,7 @@ import { RulesSelect } from "@/app/(app)/automation/RulesSelect";
 export function Pending() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
   const [ruleId, setRuleId] = useQueryState(
-    "ruleId",
+    "rule-id",
     parseAsString.withDefault("all"),
   );
 
@@ -179,6 +179,7 @@ function PendingTable({
                   from={p.message.headers.from}
                   subject={p.message.headers.subject}
                   snippet={p.message.snippet}
+                  threadId={p.message.threadId}
                   messageId={p.message.id}
                   userEmail={userEmail}
                 />

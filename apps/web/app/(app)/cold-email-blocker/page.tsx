@@ -19,7 +19,7 @@ export default function ColdEmailBlockerPage() {
         <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white pb-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
           <TabsList>
             <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
-            <TabsTrigger value="rejected">Not Cold</TabsTrigger>
+            <TabsTrigger value="rejected">Marked Not Cold</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
         </div>

@@ -112,8 +112,8 @@ function NoRejectedColdEmails() {
   return (
     <div className="p-2">
       <AlertBasic
-        title="You have not marked any emails as 'Not Cold'"
-        description=""
+        title="No emails marked as 'Not a cold email'"
+        description="When you mark an AI-detected cold email as 'Not a cold email', it will appear here."
       />
     </div>
   );

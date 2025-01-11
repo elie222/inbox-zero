@@ -258,6 +258,7 @@ function ProcessRulesRow({
             subject={message.headers.subject}
             snippet={message.snippet?.trim() || ""}
             userEmail={userEmail}
+            threadId={message.threadId}
             messageId={message.id}
           />
           <div className="ml-4 flex items-center gap-1">

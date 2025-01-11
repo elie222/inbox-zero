@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useRef, useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useQueryState } from "nuqs";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useAtom } from "jotai";
 import { ChevronsDownIcon } from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
@@ -27,7 +26,6 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { runAiRules } from "@/utils/queue/email-actions";
-import { selectedEmailAtom } from "@/store/email";
 import { categorizeEmailAction } from "@/utils/actions/categorize-email";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -52,8 +50,7 @@ export function List({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const params = useSearchParams();
-  const selectedTab = params.get("tab") || "all";
+  const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
 
   const categories = useMemo(() => {
     return countBy(
@@ -182,15 +179,15 @@ export function EmailList({
 }) {
   const session = useSession();
   // if right panel is open
-  const [openedRowId, setOpenedRowId] = useAtom(selectedEmailAtom);
+  const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
   const closePanel = useCallback(
-    () => setOpenedRowId(undefined),
-    [setOpenedRowId],
+    () => setOpenThreadId(null),
+    [setOpenThreadId],
   );
 
   const openedRow = useMemo(
-    () => threads.find((thread) => thread.id === openedRowId),
-    [openedRowId, threads],
+    () => threads.find((thread) => thread.id === openThreadId),
+    [openThreadId, threads],
   );
 
   // if checkbox for a row has been checked
@@ -485,8 +482,8 @@ export function EmailList({
             >
               {threads.map((thread) => {
                 const onOpen = () => {
-                  const alreadyOpen = !!openedRowId;
-                  setOpenedRowId(thread.id);
+                  const alreadyOpen = !!openThreadId;
+                  setOpenThreadId(thread.id);
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
@@ -506,11 +503,11 @@ export function EmailList({
                     }}
                     userEmailAddress={session.data?.user.email || ""}
                     thread={thread}
-                    opened={openedRowId === thread.id}
+                    opened={openThreadId === thread.id}
                     closePanel={closePanel}
                     selected={selectedRows[thread.id]}
                     onSelected={onSetSelectedRow}
-                    splitView={!!openedRowId}
+                    splitView={!!openThreadId}
                     onClick={onOpen}
                     isCategorizing={isCategorizing[thread.id]}
                     onPlanAiAction={onPlanAiAction}
@@ -547,18 +544,18 @@ export function EmailList({
             </ul>
           }
           right={
-            !!(openedRowId && openedRow) && (
+            !!(openThreadId && openedRow) && (
               <EmailPanel
                 row={openedRow}
-                isCategorizing={isCategorizing[openedRowId]}
+                isCategorizing={isCategorizing[openThreadId]}
                 onPlanAiAction={onPlanAiAction}
                 onAiCategorize={onAiCategorize}
                 onArchive={onArchive}
                 close={closePanel}
                 executePlan={executePlan}
                 rejectPlan={rejectPlan}
-                executingPlan={executingPlan[openedRowId]}
-                rejectingPlan={rejectingPlan[openedRowId]}
+                executingPlan={executingPlan[openThreadId]}
+                rejectingPlan={rejectingPlan[openThreadId]}
                 refetch={refetch}
               />
             )

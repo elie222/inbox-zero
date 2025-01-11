@@ -47,7 +47,7 @@ export function SetUpCategories({
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
   const [selectedCategoryName, setSelectedCategoryName] =
-    useQueryState("categoryName");
+    useQueryState("category-name");
 
   const combinedCategories = uniqBy(
     [

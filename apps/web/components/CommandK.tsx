@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArchiveIcon, PenLineIcon } from "lucide-react";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
 import {
   CommandDialog,
   CommandEmpty,
@@ -15,28 +15,29 @@ import {
 } from "@/components/ui/command";
 import { useNavigation } from "@/components/SideNav";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { refetchEmailListAtom, selectedEmailAtom } from "@/store/email";
+import { refetchEmailListAtom } from "@/store/email";
 import { archiveEmails } from "@/store/archive-queue";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
 
   const router = useRouter();
 
-  const [selectedEmail, setSelectedEmail] = useAtom(selectedEmailAtom);
+  const { threadId, showEmail } = useDisplayedEmail();
   const refreshEmailList = useAtomValue(refetchEmailListAtom);
 
   const { onOpen: onOpenComposeModal } = useComposeModal();
 
   const onArchive = React.useCallback(() => {
-    if (selectedEmail) {
-      const threadIds = [selectedEmail];
+    if (threadId) {
+      const threadIds = [threadId];
       archiveEmails(threadIds, undefined, () => {
         return refreshEmailList?.refetch({ removedThreadIds: threadIds });
       });
-      setSelectedEmail(undefined);
+      showEmail(null);
     }
-  }, [refreshEmailList, selectedEmail, setSelectedEmail]);
+  }, [refreshEmailList, threadId, showEmail]);
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -89,7 +90,7 @@ export function CommandK() {
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Actions">
-            {selectedEmail && (
+            {threadId && (
               <CommandItem
                 onSelect={() => {
                   onArchive();

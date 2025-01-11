@@ -33,7 +33,7 @@ export function TestRules() {
       description="Test which emails are flagged as cold emails. We also check if the sender has emailed you before and if it includes unsubscribe links."
       content={<TestRulesContent />}
     >
-      <Button type="button" variant="outline">
+      <Button type="button">
         <BookOpenCheckIcon className="mr-2 h-4 w-4" />
         Test
       </Button>
@@ -175,6 +175,7 @@ function TestRulesContentRow(props: {
           subject={message.headers.subject}
           snippet={decodeSnippet(message.snippet)}
           userEmail={props.userEmail}
+          threadId={message.threadId}
           messageId={message.id}
         />
         <div className="ml-4">

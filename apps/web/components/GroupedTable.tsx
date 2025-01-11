@@ -59,6 +59,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { CategoryWithRules } from "@/utils/category.server";
+import { ViewEmailButton } from "@/components/ViewEmailButton";
 
 const COLUMNS = 4;
 
@@ -540,7 +541,9 @@ function ExpandedRows({
     <>
       {data.threads.map((thread) => (
         <TableRow key={thread.id} className="bg-muted/50">
-          <TableCell className="py-3" />
+          <TableCell className="py-3">
+            <ViewEmailButton threadId={thread.id} messageId={thread.id} />
+          </TableCell>
           <TableCell className="py-3">
             <Link
               href={getGmailUrl(thread.id, userEmail)}
