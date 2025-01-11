@@ -6,6 +6,7 @@ import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { EmailThread } from "@/components/email-list/EmailPanel";
 import { useThread } from "@/hooks/useThread";
 import { LoadingContent } from "@/components/LoadingContent";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export function EmailViewer() {
   const { threadId, showEmail } = useDisplayedEmail();
@@ -30,14 +31,16 @@ function EmailContent({ threadId }: { threadId: string }) {
   const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
-      {data && (
-        <EmailThread
-          messages={data.thread.messages}
-          refetch={mutate}
-          showReplyButton={false}
-        />
-      )}
-    </LoadingContent>
+    <ErrorBoundary extra={{ component: "EmailContent", threadId }}>
+      <LoadingContent loading={isLoading} error={error}>
+        {data && (
+          <EmailThread
+            messages={data.thread.messages}
+            refetch={mutate}
+            showReplyButton={false}
+          />
+        )}
+      </LoadingContent>
+    </ErrorBoundary>
   );
 }
