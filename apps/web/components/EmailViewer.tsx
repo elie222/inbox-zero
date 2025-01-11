@@ -18,7 +18,7 @@ export function EmailViewer() {
       <SheetContent
         side="right"
         size="5xl"
-        className="overflow-y-auto p-0"
+        className="overflow-y-auto bg-slate-100 p-0"
         overlay="transparent"
       >
         {threadId && <EmailContent threadId={threadId} />}
