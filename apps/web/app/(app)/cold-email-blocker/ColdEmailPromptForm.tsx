@@ -1,8 +1,6 @@
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PenIcon } from "lucide-react";
-import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import {
@@ -15,39 +13,7 @@ import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
 
-export function ColdEmailPromptModal(props: {
-  coldEmailPrompt?: string | null;
-  refetch: () => void;
-}) {
-  const { isModalOpen, openModal, closeModal } = useModal();
-  const { refetch } = props;
-
-  const onSuccess = useCallback(() => {
-    refetch();
-    closeModal();
-  }, [closeModal, refetch]);
-
-  return (
-    <>
-      <Button onClick={openModal} type="button" variant="outline">
-        <PenIcon className="mr-2 h-4 w-4" />
-        Edit Prompt
-      </Button>
-      <Modal
-        isOpen={isModalOpen}
-        hideModal={closeModal}
-        title="Edit Cold Email Prompt"
-      >
-        <ColdEmailPromptForm
-          coldEmailPrompt={props.coldEmailPrompt}
-          onSuccess={onSuccess}
-        />
-      </Modal>
-    </>
-  );
-}
-
-function ColdEmailPromptForm(props: {
+export function ColdEmailPromptForm(props: {
   coldEmailPrompt?: string | null;
   onSuccess: () => void;
 }) {
@@ -95,10 +61,10 @@ function ColdEmailPromptForm(props: {
         autosizeTextarea
         rows={10}
         name="coldEmailPrompt"
-        label="Prompt to classify cold emails."
+        label="Prompt to classify cold emails"
         registerProps={register("coldEmailPrompt")}
         error={errors.coldEmailPrompt}
-        explainText=" The default prompt we use is shown above if none set. Use a similar style for best results. Delete your prompt to revert to the default prompt."
+        explainText="Adjust to your needs.Use a similar style for best results. Delete your prompt to revert to the default prompt."
       />
 
       <div className="mt-2">
