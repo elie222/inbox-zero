@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, MailIcon } from "lucide-react";
+import { ExternalLinkIcon, EyeIcon } from "lucide-react";
 import Link from "next/link";
 import { MessageText } from "@/components/Typography";
 import { getGmailUrl } from "@/utils/url";
@@ -42,7 +42,7 @@ export function TestRulesMessage({
           size="xs"
           onClick={() => showEmail({ threadId, messageId })}
         >
-          <MailIcon className="h-4 w-4" />
+          <EyeIcon className="h-4 w-4" />
           <span className="sr-only">View email</span>
         </Button>
       </MessageText>
