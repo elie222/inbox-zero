@@ -136,7 +136,11 @@ async function deleteEmptyQueues(prefix: string) {
     if (!queue.name.startsWith(prefix)) continue;
 
     if (!queue.lag) {
-      await deleteQueue(queue.name);
+      try {
+        await deleteQueue(queue.name);
+      } catch (error) {
+        logger.error("Error deleting queue", { queueName: queue.name, error });
+      }
     }
   }
 }
