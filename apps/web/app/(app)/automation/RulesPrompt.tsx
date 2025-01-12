@@ -38,6 +38,7 @@ import { examplePrompts, personas } from "@/app/(app)/automation/examples";
 import { PersonaDialog } from "@/app/(app)/automation/PersonaDialog";
 import { useModal } from "@/components/Modal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
+import { AlertBasic } from "@/components/Alert";
 
 export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -99,6 +100,7 @@ function RulesPromptForm({
     editedRules: number;
     removedRules: number;
   }>();
+  const [showClearWarning, setShowClearWarning] = useState(false);
 
   const [
     viewedProcessingPromptFileDialog,
@@ -111,10 +113,17 @@ function RulesPromptForm({
     formState: { errors },
     getValues,
     setValue,
+    watch,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
     defaultValues: { rulesPrompt },
   });
+
+  const currentPrompt = watch("rulesPrompt");
+
+  useEffect(() => {
+    setShowClearWarning(!!rulesPrompt && currentPrompt === "");
+  }, [currentPrompt, rulesPrompt]);
 
   useEffect(() => {
     if (!personaPrompt) return;
@@ -214,6 +223,15 @@ function RulesPromptForm({
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {showClearWarning && (
+              <AlertBasic
+                className="mb-2"
+                variant="blue"
+                title="Warning: Deleting text will remove your rules"
+                description="Add new rules at the end to keep your existing rules."
+              />
+            )}
+
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="space-y-4 sm:col-span-2">
                 <Input

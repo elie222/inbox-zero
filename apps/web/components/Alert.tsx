@@ -3,7 +3,13 @@ import { AlertCircle, TerminalIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/utils";
 
-export function AlertBasic(props: {
+export function AlertBasic({
+  title,
+  description,
+  icon,
+  variant,
+  className,
+}: {
   title: string;
   description: React.ReactNode;
   icon?: React.ReactNode | null;
@@ -11,19 +17,22 @@ export function AlertBasic(props: {
   className?: string;
 }) {
   return (
-    <Alert variant={props.variant} className={props.className}>
-      {props.icon === null
-        ? null
-        : props.icon || <TerminalIcon className="h-4 w-4" />}
-      {props.title ? <AlertTitle>{props.title}</AlertTitle> : null}
-      {props.description ? (
-        <AlertDescription>{props.description}</AlertDescription>
-      ) : null}
+    <Alert variant={variant} className={className}>
+      {icon === null ? null : icon || <TerminalIcon className="h-4 w-4" />}
+      {title ? <AlertTitle>{title}</AlertTitle> : null}
+      {description ? <AlertDescription>{description}</AlertDescription> : null}
     </Alert>
   );
 }
 
-export function AlertWithButton(props: {
+export function AlertWithButton({
+  title,
+  description,
+  icon,
+  variant,
+  button,
+  className,
+}: {
   title: string;
   description: React.ReactNode;
   icon?: React.ReactNode;
@@ -32,30 +41,33 @@ export function AlertWithButton(props: {
   className?: string;
 }) {
   return (
-    <Alert variant={props.variant} className={cn("pb-3 pt-5", props.className)}>
-      {props.icon === null
-        ? null
-        : props.icon || <TerminalIcon className="h-4 w-4" />}
+    <Alert variant={variant} className={cn("pb-3 pt-5", className)}>
+      {icon === null ? null : icon || <TerminalIcon className="h-4 w-4" />}
       <div className="flex items-center justify-between">
         <div>
-          <AlertTitle>{props.title}</AlertTitle>
-          <AlertDescription>{props.description}</AlertDescription>
+          <AlertTitle>{title}</AlertTitle>
+          <AlertDescription>{description}</AlertDescription>
         </div>
-        <div>{props.button}</div>
+        <div>{button}</div>
       </div>
     </Alert>
   );
 }
 
-export function AlertError(props: {
+export function AlertError({
+  title,
+  description,
+  className,
+}: {
   title: string;
   description: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <Alert variant="destructive">
+    <Alert variant="destructive" className={className}>
       <AlertCircle className="h-4 w-4" />
-      <AlertTitle>{props.title}</AlertTitle>
-      <AlertDescription>{props.description}</AlertDescription>
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{description}</AlertDescription>
     </Alert>
   );
 }
