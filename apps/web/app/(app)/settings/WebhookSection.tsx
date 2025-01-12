@@ -8,7 +8,7 @@ import { RegenerateSecretButton } from "@/app/(app)/settings/WebhookGenerate";
 export async function WebhookSection() {
   const session = await auth();
   const userId = session?.user.id;
-  if (!userId) throw new Error("Not authenticated");
+  if (!userId) return null;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

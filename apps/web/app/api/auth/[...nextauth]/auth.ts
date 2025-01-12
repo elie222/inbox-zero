@@ -9,6 +9,7 @@ const defaultAuthOptions = getAuthOptions();
 export const {
   handlers: { GET, POST },
   auth,
+  signOut,
 } = NextAuth((req) => {
   if (req?.url) {
     const url = new URL(req?.url);

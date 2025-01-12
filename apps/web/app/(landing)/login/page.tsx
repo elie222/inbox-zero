@@ -20,7 +20,6 @@ export default async function AuthenticationPage({
   searchParams?: Record<string, string>;
 }) {
   const session = await auth();
-  console.log("🚀 ~ session:", session?.user);
   if (session?.user.email && !searchParams?.error) {
     if (searchParams?.next) {
       redirect(searchParams?.next);
