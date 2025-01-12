@@ -6,3 +6,5 @@ export const GroupName = {
   NEWSLETTER: "Newsletters",
   RECEIPT: "Receipts",
 };
+
+export const userCount = "10,000+";
