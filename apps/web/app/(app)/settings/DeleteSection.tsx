@@ -7,10 +7,13 @@ import {
   deleteAccountAction,
   resetAnalyticsAction,
 } from "@/utils/actions/user";
-import { handleActionResult } from "@/utils/server-action";
 import { logOut } from "@/utils/user";
+import { isActionError } from "@/utils/error";
+import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 export function DeleteSection() {
+  const { onCancelLoadBatch } = useStatLoader();
+
   return (
     <FormSection>
       <FormSectionLeft
@@ -45,9 +48,19 @@ export function DeleteSection() {
 
             if (!yes) return;
 
-            const result = await deleteAccountAction();
-            handleActionResult(result, "Account deleted!");
-            await logOut("/");
+            toast.promise(
+              async () => {
+                onCancelLoadBatch();
+                const result = await deleteAccountAction();
+                await logOut("/");
+                if (isActionError(result)) throw new Error(result.error);
+              },
+              {
+                loading: "Deleting account...",
+                success: "Account deleted!",
+                error: (err) => `Error deleting account: ${err.message}`,
+              },
+            );
           }}
         >
           Yes, delete my account

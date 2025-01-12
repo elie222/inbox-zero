@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/resend";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth, signOut } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { deleteInboxZeroLabels, deleteUserLabels } from "@/utils/redis/label";
 import { deleteUserStats } from "@/utils/redis/stats";
@@ -66,9 +66,13 @@ export const deleteAccountAction = withActionInstrumentation(
         }),
       ]);
     } catch (error) {
-      console.error("Error while deleting account: ", error);
+      console.error("Error while deleting account:", error);
       captureException(error, undefined, session.user.email);
     }
+
+    try {
+      await signOut();
+    } catch (error) {}
 
     await prisma.user.delete({ where: { email: session.user.email } });
   },

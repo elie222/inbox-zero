@@ -23,12 +23,14 @@ type Context = {
     loadBefore: boolean;
     showToast: boolean;
   }) => Promise<void>;
+  onCancelLoadBatch: () => void;
 };
 
 const StatLoaderContext = createContext<Context>({
   isLoading: false,
   onLoad: async () => {},
   onLoadBatch: async () => {},
+  onCancelLoadBatch: () => {},
 });
 
 export const useStatLoader = () => useContext(StatLoaderContext);
@@ -64,6 +66,7 @@ const statLoader = new StatLoader();
 
 export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [stopLoading, setStopLoading] = useState(false);
 
   const onLoad = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
@@ -78,18 +81,26 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
     async (options: { loadBefore: boolean; showToast: boolean }) => {
       const batchSize = 50;
       for (let i = 0; i < batchSize; i++) {
+        if (stopLoading) break;
         console.log("Loading batch", i);
         await onLoad({
           ...options,
           showToast: options.showToast && i === batchSize - 1,
         });
       }
+      setStopLoading(false);
     },
-    [onLoad],
+    [onLoad, stopLoading],
   );
 
+  const onCancelLoadBatch = useCallback(() => {
+    setStopLoading(true);
+  }, []);
+
   return (
-    <StatLoaderContext.Provider value={{ isLoading, onLoad, onLoadBatch }}>
+    <StatLoaderContext.Provider
+      value={{ isLoading, onLoad, onLoadBatch, onCancelLoadBatch }}
+    >
       {props.children}
     </StatLoaderContext.Provider>
   );
