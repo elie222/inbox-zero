@@ -186,32 +186,6 @@ export async function updateMultiAccountPremiumAction(
   );
 }
 
-export async function handlePendingPremiumInvite(user: { email: string }) {
-  // Check for pending invite
-  const premium = await prisma.premium.findFirst({
-    where: { pendingInvites: { has: user.email } },
-    select: {
-      id: true,
-      pendingInvites: true,
-      lemonSqueezySubscriptionItemId: true,
-      _count: { select: { users: true } },
-    },
-  });
-
-  if (premium?.lemonSqueezySubscriptionItemId) {
-    // Add user to premium and remove from pending invites
-    await prisma.premium.update({
-      where: { id: premium.id },
-      data: {
-        users: { connect: { email: user.email } },
-        pendingInvites: {
-          set: premium.pendingInvites.filter((email) => email !== user.email),
-        },
-      },
-    });
-  }
-}
-
 export const switchPremiumPlanAction = withActionInstrumentation(
   "switchPremiumPlan",
   async (premiumTier: PremiumTier) => {

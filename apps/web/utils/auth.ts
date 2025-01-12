@@ -9,7 +9,6 @@ import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
-import { handlePendingPremiumInvite } from "@/utils/actions/premium";
 
 const logger = createScopedLogger("auth");
 
@@ -297,6 +296,32 @@ export async function saveRefreshToken(
       },
     },
   });
+}
+
+async function handlePendingPremiumInvite(user: { email: string }) {
+  // Check for pending invite
+  const premium = await prisma.premium.findFirst({
+    where: { pendingInvites: { has: user.email } },
+    select: {
+      id: true,
+      pendingInvites: true,
+      lemonSqueezySubscriptionItemId: true,
+      _count: { select: { users: true } },
+    },
+  });
+
+  if (premium?.lemonSqueezySubscriptionItemId) {
+    // Add user to premium and remove from pending invites
+    await prisma.premium.update({
+      where: { id: premium.id },
+      data: {
+        users: { connect: { email: user.email } },
+        pendingInvites: {
+          set: premium.pendingInvites.filter((email) => email !== user.email),
+        },
+      },
+    });
+  }
 }
 
 declare module "next-auth" {
