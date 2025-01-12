@@ -8,6 +8,8 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("upstash");
 
+const CATEGORIZE_SENDERS_PREFIX = "ai-categorize-senders";
+
 function getQstashClient() {
   if (!env.QSTASH_TOKEN) return null;
   return new Client({ token: env.QSTASH_TOKEN });
@@ -88,8 +90,12 @@ export async function publishToAiCategorizeSendersQueue(
   const BATCH_SIZE = 50;
   const chunks = chunkArray(body.senders, BATCH_SIZE);
 
-  logger.trace("Publishing to AI categorize senders queue in chunks", {
+  // Create new queue for each user so we can run multiple users in parallel
+  const queueName = `${CATEGORIZE_SENDERS_PREFIX}-${body.userId}`;
+
+  logger.info("Publishing to AI categorize senders queue in chunks", {
     url,
+    queueName,
     totalSenders: body.senders.length,
     numberOfChunks: chunks.length,
   });
@@ -98,13 +104,10 @@ export async function publishToAiCategorizeSendersQueue(
   await Promise.all(
     chunks.map((senderChunk) =>
       publishToQstashQueue({
-        queueName: "ai-categorize-senders",
+        queueName,
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
-        body: {
-          userId: body.userId,
-          senders: senderChunk,
-        },
+        body: { userId: body.userId, senders: senderChunk },
       }),
     ),
   );
@@ -120,4 +123,40 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return Array.from({ length: Math.ceil(array.length / size) }, (_, index) =>
     array.slice(index * size, (index + 1) * size),
   );
+}
+
+export async function deleteEmptyCategorizeSendersQueues() {
+  return deleteEmptyQueues(CATEGORIZE_SENDERS_PREFIX);
+}
+
+async function deleteEmptyQueues(prefix: string) {
+  const queues = await listQueues();
+  logger.info("Found queues", { count: queues.length });
+  for (const queue of queues) {
+    if (!queue.name.startsWith(prefix)) continue;
+
+    if (!queue.lag) {
+      try {
+        await deleteQueue(queue.name);
+      } catch (error) {
+        logger.error("Error deleting queue", { queueName: queue.name, error });
+      }
+    }
+  }
+}
+
+async function listQueues() {
+  const client = getQstashClient();
+  if (client) {
+    return await client.queue().list();
+  }
+  return [];
+}
+
+async function deleteQueue(queueName: string) {
+  const client = getQstashClient();
+  if (client) {
+    logger.info("Deleting queue", { queueName });
+    await client.queue({ queueName }).delete();
+  }
 }

@@ -14,7 +14,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
-import { publishToAiCategorizeSendersQueue } from "@/utils/upstash";
+import {
+  deleteEmptyCategorizeSendersQueues,
+  publishToAiCategorizeSendersQueue,
+} from "@/utils/upstash";
 import { createScopedLogger } from "@/utils/logger";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
 
@@ -29,6 +32,12 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
 
     const userResult = await validateUserAndAiAccess(user.id);
     if (isActionError(userResult)) return userResult;
+
+    // Delete empty queues as Qstash has a limit on how many queues we can have
+    // We could run this in a cron too but simplest to do here for now
+    deleteEmptyCategorizeSendersQueues().catch((error) => {
+      logger.error("Error deleting empty queues", { error });
+    });
 
     const LIMIT = 100;
 
@@ -72,11 +81,6 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       await saveCategorizationTotalItems({
         userId: user.id,
         totalItems: totalUncategorizedSenders,
-      });
-
-      logger.trace("Publishing to queue", {
-        userId: user.id,
-        uncategorizedSenders: uncategorizedSenders.length,
       });
 
       // publish to qstash
