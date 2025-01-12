@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { handlePendingPremiumInvite } from "@/utils/actions/premium";
 
 const logger = createScopedLogger("auth");
 
@@ -149,6 +150,12 @@ export const getAuthOptions: (options?: {
           });
           captureException(error, undefined, user.email);
         }
+      }
+
+      if (isNewUser && user.email) {
+        logger.info("Handling pending premium invite", { email: user.email });
+        await handlePendingPremiumInvite({ email: user.email });
+        logger.info("Added user to premium from invite", { email: user.email });
       }
     },
   },
