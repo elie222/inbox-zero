@@ -165,6 +165,8 @@ export const getAuthOptions: (options?: {
   },
 });
 
+export const authOptions = getAuthOptions();
+
 /**
  * Takes a token, and returns a new token with updated
  * `access_token` and `expires_at`. If an error occurs,
