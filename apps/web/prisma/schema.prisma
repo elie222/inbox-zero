@@ -104,6 +104,8 @@ model Premium {
   users  User[] @relation(name: "userPremium")
   admins User[]
 
+  pendingInvites String[]
+
   // lemon squeezy
   lemonSqueezyRenewsAt           DateTime?
   lemonSqueezyCustomerId         Int?
@@ -130,6 +132,8 @@ model Premium {
   unsubscribeCredits Int?
   aiMonth            Int? // 1-12
   aiCredits          Int?
+
+  @@index([pendingInvites])
 }
 
 // not in use as it's only used for passwordless login
