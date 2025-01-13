@@ -31,7 +31,14 @@ export async function saveCategorizationTotalItems({
 }) {
   const key = getKey(userId);
   const existingProgress = await getCategorizationProgress({ userId });
-  await redis.set(key, { ...existingProgress, totalItems }, { ex: 2 * 60 });
+  await redis.set(
+    key,
+    {
+      ...existingProgress,
+      totalItems: (existingProgress?.totalItems || 0) + totalItems,
+    },
+    { ex: 2 * 60 },
+  );
 }
 
 export async function saveCategorizationProgress({
