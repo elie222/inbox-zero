@@ -4,6 +4,9 @@ import { isDefined } from "@/utils/types";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-categorize-senders");
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
 export const UNKNOWN_CATEGORY = "Unknown";
@@ -67,6 +70,8 @@ Remember:
 - Only use the categories provided above
 - Respond with "Unknown" if unsure`;
 
+  logger.trace("Categorize senders", { system, prompt });
+
   const aiResponse = await chatCompletionObject({
     userAi: user,
     system,
@@ -82,7 +87,7 @@ Remember:
   );
 
   // filter out any senders that don't have a valid category
-  return matchedSenders.map((r) => {
+  const results = matchedSenders.map((r) => {
     if (!categories.find((c) => c.name === r.category)) {
       return {
         category: undefined,
@@ -92,6 +97,10 @@ Remember:
 
     return r;
   });
+
+  logger.trace("Categorize senders results", { results });
+
+  return results;
 }
 
 // match up emails with full email

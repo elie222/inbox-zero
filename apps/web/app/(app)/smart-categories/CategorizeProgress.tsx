@@ -46,7 +46,7 @@ export function CategorizeSendersProgress({
         return prev < maxProgress ? prev + 1 : prev;
       });
     },
-    isBulkCategorizing ? 1_000 : null,
+    isBulkCategorizing ? 1_500 : null,
   );
 
   const { setIsBulkCategorizing } = useCategorizeProgress();
