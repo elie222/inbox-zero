@@ -7,7 +7,7 @@ const commonPrompts = [
   "Label receipts as 'Receipt' and archive them",
 ];
 
-const common = `${commonPrompts.map((prompt) => `• ${prompt}`).join(".\n")}.`;
+const common = `${commonPrompts.map((prompt) => `* ${prompt}`).join(".\n")}.`;
 
 export const examplePrompts = [
   ...commonPrompts,
