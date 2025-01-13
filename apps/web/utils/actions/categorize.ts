@@ -35,9 +35,11 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
 
     // Delete empty queues as Qstash has a limit on how many queues we can have
     // We could run this in a cron too but simplest to do here for now
-    deleteEmptyCategorizeSendersQueues().catch((error) => {
-      logger.error("Error deleting empty queues", { error });
-    });
+    deleteEmptyCategorizeSendersQueues({ skipUserId: user.id }).catch(
+      (error) => {
+        logger.error("Error deleting empty queues", { error });
+      },
+    );
 
     const LIMIT = 100;
 

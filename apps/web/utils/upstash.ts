@@ -77,6 +77,10 @@ export async function publishToQstashQueue({
   await sleep(100);
 }
 
+function getCategorizeSendersQueueName(userId: string) {
+  return `${CATEGORIZE_SENDERS_PREFIX}-${userId}`;
+}
+
 /**
  * Publishes sender categorization tasks to QStash queue in batches
  * Splits large arrays of senders into chunks of BATCH_SIZE to prevent overwhelming the system
@@ -91,7 +95,7 @@ export async function publishToAiCategorizeSendersQueue(
   const chunks = chunkArray(body.senders, BATCH_SIZE);
 
   // Create new queue for each user so we can run multiple users in parallel
-  const queueName = `${CATEGORIZE_SENDERS_PREFIX}-${body.userId}`;
+  const queueName = getCategorizeSendersQueueName(body.userId);
 
   logger.info("Publishing to AI categorize senders queue in chunks", {
     url,
@@ -125,15 +129,21 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   );
 }
 
-export async function deleteEmptyCategorizeSendersQueues() {
-  return deleteEmptyQueues(CATEGORIZE_SENDERS_PREFIX);
+export async function deleteEmptyCategorizeSendersQueues({
+  skipUserId,
+}: {
+  skipUserId: string;
+}) {
+  return deleteEmptyQueues(CATEGORIZE_SENDERS_PREFIX, skipUserId);
 }
 
-async function deleteEmptyQueues(prefix: string) {
+async function deleteEmptyQueues(prefix: string, skipUserId: string) {
   const queues = await listQueues();
   logger.info("Found queues", { count: queues.length });
   for (const queue of queues) {
     if (!queue.name.startsWith(prefix)) continue;
+    if (skipUserId && queue.name === getCategorizeSendersQueueName(skipUserId))
+      continue;
 
     if (!queue.lag) {
       try {
