@@ -106,20 +106,6 @@ function preCategorizeSendersWithStaticRules(
   senders: string[],
 ): { sender: string; category: SenderCategory | undefined }[] {
   return senders.map((sender) => {
-    // if the sender is @gmail.com, @yahoo.com, etc.
-    // then mark as "Unknown" (LLM will categorize these as "Personal")
-    const personalEmailDomains = [
-      "gmail.com",
-      "googlemail.com",
-      "yahoo.com",
-      "hotmail.com",
-      "outlook.com",
-      "aol.com",
-    ];
-
-    if (personalEmailDomains.some((domain) => sender.includes(`@${domain}>`)))
-      return { sender, category: defaultCategory.UNKNOWN.name };
-
     if (isNewsletterSender(sender))
       return { sender, category: defaultCategory.NEWSLETTER.name };
 

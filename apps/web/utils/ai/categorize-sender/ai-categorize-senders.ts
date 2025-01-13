@@ -49,25 +49,24 @@ Provide accurate categorizations to help users efficiently manage their inbox.`;
 
   ${senders
     .map(
-      ({ emailAddress, emails }) => `
-  <sender>
-    <email_address>${emailAddress}</email_address>
-    ${
-      emails.length
-        ? `<recent_emails>
-            ${emails
-              .map(
-                (s) => `
-              <email>
-                <subject>${s.subject}</subject>
-                <snippet>${s.snippet}</snippet>
-              </email>`,
-              )
-              .join("")}
-           </recent_emails>`
-        : "<recent_emails>No emails available</recent_emails>"
-    }
-  </sender>`,
+      ({ emailAddress, emails }) => `<sender>
+  <email_address>${emailAddress}</email_address>
+  ${
+    emails.length
+      ? `<recent_emails>
+          ${emails
+            .map(
+              (s) => `
+            <email>
+              <subject>${s.subject}</subject>
+              <snippet>${s.snippet}</snippet>
+            </email>`,
+            )
+            .join("")}
+          </recent_emails>`
+      : "<recent_emails>No emails available</recent_emails>"
+  }
+</sender>`,
     )
     .join("\n")}
 

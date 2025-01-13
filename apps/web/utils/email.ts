@@ -15,7 +15,7 @@ export function extractNameFromEmail(email: string) {
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"
 export function extractEmailAddress(email: string): string {
   const match = email.match(/<(.*)>/);
-  return match ? match[1] : "";
+  return match ? match[1] : email;
 }
 
 // Converts "Name <hey@domain.com>" to "domain.com"
