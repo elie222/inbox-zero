@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect } from "react";
-import type { AssessUserResponse } from "@/app/api/user/assess/route";
-import { postRequest } from "@/utils/api";
 import { whitelistInboxZeroAction } from "@/utils/actions/whitelist";
+import { assessUserAction } from "@/utils/actions/assess";
+
+async function assessUser() {
+  const result = await assessUserAction();
+  // no need to run this over and over after the first time
+  if (!result.skipped) {
+    await whitelistInboxZeroAction();
+  }
+}
 
 export function AssessUser() {
   useEffect(() => {
-    postRequest<AssessUserResponse>("/api/user/assess", {});
-  }, []);
-
-  useEffect(() => {
-    whitelistInboxZeroAction();
+    assessUser();
   }, []);
 
   return null;

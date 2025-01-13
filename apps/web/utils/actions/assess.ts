@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+"use server";
+
 import uniq from "lodash/uniq";
 import countBy from "lodash/countBy";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { queryBatchMessages } from "@/utils/gmail/message";
@@ -11,8 +11,34 @@ import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import { getLabelById, getLabels, GmailLabel } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
+import { withActionInstrumentation } from "@/utils/actions/middleware";
 
-export type AssessUserResponse = Awaited<ReturnType<typeof assessUser>>;
+// to help with onboarding and provide the best flow to new users
+export const assessUserAction = withActionInstrumentation(
+  "assessUser",
+  async () => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not authenticated" };
+
+    const gmail = getGmailClient(session);
+    const token = await getGmailAccessToken(session);
+    const accessToken = token?.token;
+
+    if (!accessToken) throw new SafeError("Missing access token");
+
+    const assessedUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { behaviorProfile: true },
+    });
+
+    if (assessedUser?.behaviorProfile) return { success: true, skipped: true };
+
+    const result = await assessUser({ gmail, accessToken });
+    await saveBehaviorProfile(session.user.email, result);
+
+    return { success: true };
+  },
+);
 
 async function assessUser({
   gmail,
@@ -135,29 +161,3 @@ async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
     console.error("Error getting email clients");
   }
 }
-
-// to help with onboarding and provide the best flow to new users
-export const POST = withError(async () => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
-
-  const gmail = getGmailClient(session);
-  const token = await getGmailAccessToken(session);
-  const accessToken = token?.token;
-
-  if (!accessToken) throw new SafeError("Missing access token");
-
-  const assessedUser = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { behaviorProfile: true },
-  });
-
-  if (assessedUser?.behaviorProfile)
-    return NextResponse.json({ success: true });
-
-  const result = await assessUser({ gmail, accessToken });
-  await saveBehaviorProfile(session.user.email, result);
-
-  return NextResponse.json({ success: true });
-});
