@@ -71,6 +71,8 @@ export function BulkUnsubscribeRowMobile({
     posthog,
   });
 
+  const hasUnsubscribeLink = unsubscribeLink !== "#";
+
   return (
     <Card className="overflow-hidden">
       <CardHeader>
@@ -127,8 +129,12 @@ export function BulkUnsubscribeRowMobile({
                   <MailMinusIcon className="size-4" />
                 )}
                 {item.status === NewsletterStatus.UNSUBSCRIBED
-                  ? "Unsubscribed"
-                  : "Unsubscribe"}
+                  ? hasUnsubscribeLink
+                    ? "Unsubscribed"
+                    : "Blocked"
+                  : hasUnsubscribeLink
+                    ? "Unsubscribe"
+                    : "Block"}
               </span>
             </Link>
           </Button>

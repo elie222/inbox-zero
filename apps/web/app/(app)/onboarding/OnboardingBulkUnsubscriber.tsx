@@ -147,6 +147,7 @@ function UnsubscribeRow({
   const archivedPercentage = row.value ? (archivedEmails / row.value) * 100 : 0;
 
   const isUnsubscribed = row.status === NewsletterStatus.UNSUBSCRIBED;
+  const hasUnsubscribeLink = unsubscribeLink !== "#";
 
   return (
     <TableRow key={row.name}>
@@ -186,7 +187,13 @@ function UnsubscribeRow({
               mutate();
             }}
           >
-            {isUnsubscribed ? "Unsubscribed" : "Unsubscribe"}
+            {isUnsubscribed
+              ? hasUnsubscribeLink
+                ? "Unsubscribed"
+                : "Blocked"
+              : hasUnsubscribeLink
+                ? "Unsubscribe"
+                : "Block"}
           </Link>
         </Button>
       </TableCell>

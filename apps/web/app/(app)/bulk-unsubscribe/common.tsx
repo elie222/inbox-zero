@@ -169,6 +169,8 @@ function UnsubscribeButton<T extends Row>({
     },
   );
 
+  const hasUnsubscribeLink = unsubscribeLink !== "#";
+
   return (
     <Button
       size="sm"
@@ -179,14 +181,16 @@ function UnsubscribeButton<T extends Row>({
     >
       <Link
         href={unsubscribeLink}
-        target={unsubscribeLink !== "#" ? "_blank" : undefined}
+        target={hasUnsubscribeLink ? "_blank" : undefined}
         onClick={onUnsubscribe}
         rel="noreferrer"
       >
         {unsubscribeLoading && <ButtonLoader />}
-        <span className="hidden xl:block">Unsubscribe</span>
+        <span className="hidden xl:block">
+          {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
+        </span>
         <span className="block xl:hidden">
-          <Tooltip content="Unsubscribe">
+          <Tooltip content={hasUnsubscribeLink ? "Unsubscribe" : "Block"}>
             <MailMinusIcon className="size-4" />
           </Tooltip>
         </span>
