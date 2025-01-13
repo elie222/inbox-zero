@@ -42,11 +42,9 @@ export function BulkUnsubscribeRowMobile({
   mutate,
   hasUnsubscribeAccess,
   onOpenNewsletter,
+  readPercentage,
+  archivedPercentage,
 }: RowProps) {
-  const readPercentage = (item.readEmails / item.value) * 100;
-  const archivedEmails = item.value - item.inboxEmails;
-  const archivedPercentage = (archivedEmails / item.value) * 100;
-
   const name = extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
 

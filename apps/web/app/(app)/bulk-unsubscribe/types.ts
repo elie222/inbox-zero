@@ -13,6 +13,10 @@ type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 export interface RowProps {
   item: Newsletter;
+  readPercentage: number;
+  archivedEmails: number;
+  archivedPercentage: number;
+
   onOpenNewsletter: (row: Newsletter) => void;
   labels: UserLabel[];
   userEmail: string;

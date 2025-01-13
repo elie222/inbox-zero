@@ -83,11 +83,10 @@ export function BulkUnsubscribeRowDesktop({
   userEmail,
   onToggleSelect,
   checked,
+  readPercentage,
+  archivedEmails,
+  archivedPercentage,
 }: RowProps) {
-  const readPercentage = (item.readEmails / item.value) * 100;
-  const archivedEmails = item.value - item.inboxEmails;
-  const archivedPercentage = (archivedEmails / item.value) * 100;
-
   return (
     <TableRow
       key={item.name}

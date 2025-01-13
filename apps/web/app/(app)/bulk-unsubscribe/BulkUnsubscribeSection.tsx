@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
 import { FilterIcon } from "lucide-react";
+import sortBy from "lodash/sortBy";
 import { Title } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -133,8 +134,12 @@ export function BulkUnsubscribeSection({
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
 
-  const tableRows = rows?.map((item) => {
-    return (
+  const unsortedTableRows = rows?.map((item) => {
+    const readPercentage = (item.readEmails / item.value) * 100;
+    const archivedEmails = item.value - item.inboxEmails;
+    const archivedPercentage = (archivedEmails / item.value) * 100;
+
+    const row = (
       <RowComponent
         key={item.name}
         item={item}
@@ -150,8 +155,18 @@ export function BulkUnsubscribeSection({
         openPremiumModal={openModal}
         checked={selected.get(item.name) || false}
         onToggleSelect={onToggleSelect}
+        readPercentage={readPercentage}
+        archivedEmails={archivedEmails}
+        archivedPercentage={archivedPercentage}
       />
     );
+
+    return { row, readPercentage, archivedEmails, archivedPercentage };
+  });
+
+  const tableRows = sortBy(unsortedTableRows, (row) => {
+    if (sortColumn === "unread") return row.readPercentage;
+    if (sortColumn === "unarchived") return row.archivedPercentage;
   });
 
   const onlyUnhandled =
@@ -282,12 +297,14 @@ export function BulkUnsubscribeSection({
             {tableRows?.length ? (
               <>
                 {isMobile ? (
-                  <BulkUnsubscribeMobile tableRows={tableRows} />
+                  <BulkUnsubscribeMobile
+                    tableRows={tableRows.map((row) => row.row)}
+                  />
                 ) : (
                   <BulkUnsubscribeDesktop
                     sortColumn={sortColumn}
                     setSortColumn={setSortColumn}
-                    tableRows={tableRows}
+                    tableRows={tableRows.map((row) => row.row)}
                     isAllSelected={isAllSelected}
                     onToggleSelectAll={onToggleSelectAll}
                   />
