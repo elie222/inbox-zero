@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { aiCategorizeSendersSchema } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
-import { getThreadsFromSender } from "@/utils/gmail/thread";
+import { getThreadsFromSenderWithSubject } from "@/utils/gmail/thread";
 import {
   categorizeWithAi,
   getCategories,
   updateSenderCategory,
 } from "@/utils/categorize/senders/categorize";
-import { isDefined } from "@/utils/types";
 import { isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
@@ -76,19 +75,24 @@ async function handleBatchInternal(request: Request) {
   );
   if (!gmail) return { error: "No Gmail client" };
 
-  const sendersWithSnippets: Map<string, string[]> = new Map();
+  const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =
+    new Map();
 
   // 1. fetch 3 messages for each sender
   for (const sender of senders) {
-    const threadsFromSender = await getThreadsFromSender(gmail, sender, 3);
-    const snippets = threadsFromSender.map((t) => t.snippet).filter(isDefined);
-    sendersWithSnippets.set(sender, snippets);
+    const threadsFromSender = await getThreadsFromSenderWithSubject(
+      gmail,
+      account.access_token,
+      sender,
+      3,
+    );
+    sendersWithEmails.set(sender, threadsFromSender);
   }
 
   // 2. categorize senders with ai
   const results = await categorizeWithAi({
     user,
-    sendersWithSnippets,
+    sendersWithEmails,
     categories,
   });
 

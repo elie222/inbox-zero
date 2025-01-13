@@ -5,6 +5,7 @@ import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 import { createScopedLogger } from "@/utils/logger";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("ai-categorize-senders");
 
@@ -27,7 +28,10 @@ export async function aiCategorizeSenders({
   categories,
 }: {
   user: UserEmailWithAI;
-  senders: { emailAddress: string; snippets: string[] }[];
+  senders: {
+    emailAddress: string;
+    emails: { subject: string; snippet: string }[];
+  }[];
   categories: Pick<Category, "name" | "description">[];
 }): Promise<
   {
@@ -41,34 +45,48 @@ export async function aiCategorizeSenders({
 Your task is to categorize email accounts based on their names, email addresses, and emails they've sent us.
 Provide accurate categorizations to help users efficiently manage their inbox.`;
 
-  const prompt = `Categorize the following email accounts:
+  const prompt = `Categorize the following senders:
 
   ${senders
     .map(
-      ({ emailAddress, snippets }) => `
-  Email: ${emailAddress}
-  ${
-    snippets.length
-      ? `Recent emails from this sender:\n${snippets.map((s) => `• ${s}`).join("\n")}`
-      : "No emails available"
-  }
-  ---`,
+      ({ emailAddress, emails }) => `
+  <sender>
+    <email_address>${emailAddress}</email_address>
+    ${
+      emails.length
+        ? `<recent_emails>
+            ${emails
+              .map(
+                (s) => `
+              <email>
+                <subject>${s.subject}</subject>
+                <snippet>${s.snippet}</snippet>
+              </email>`,
+              )
+              .join("")}
+           </recent_emails>`
+        : "<recent_emails>No emails available</recent_emails>"
+    }
+  </sender>`,
     )
-    .join("\n\n")}
+    .join("\n")}
 
-Categories:
+<categories>
 ${formatCategoriesForPrompt(categories)}
+</categories>
 
-Instructions:
+<instructions>
 1. Analyze each sender's email address and their recent emails for categorization.
 2. If the sender's category is clear, assign it.
 3. Use "Unknown" if the category is unclear or multiple categories could apply.
 4. Use "${REQUEST_MORE_INFORMATION_CATEGORY}" if more context is needed.
+</instructions>
 
-Remember:
+<important>
 - Accuracy is more important than completeness
 - Only use the categories provided above
-- Respond with "Unknown" if unsure`;
+- Respond with "Unknown" if unsure
+</important>`;
 
   logger.trace("Categorize senders", { system, prompt });
 
@@ -79,6 +97,10 @@ Remember:
     schema: categorizeSendersSchema,
     userEmail: user.email || "",
     usageLabel: "Categorize senders bulk",
+  });
+
+  logger.trace("Categorize senders response", {
+    senders: aiResponse.object.senders,
   });
 
   const matchedSenders = matchSendersWithFullEmail(
@@ -111,16 +133,21 @@ function matchSendersWithFullEmail(
   aiResponseSenders: z.infer<typeof categorizeSendersSchema>["senders"],
   originalSenders: string[],
 ) {
+  const normalizedOriginalSenders: Record<string, string> = {};
+  for (const sender of originalSenders) {
+    normalizedOriginalSenders[sender] = extractEmailAddress(sender);
+  }
+
   return aiResponseSenders
     .map((r) => {
-      const sender = originalSenders.find((s) => s.includes(r.sender));
+      const normalizedResponseSender = extractEmailAddress(r.sender);
+      const sender = originalSenders.find(
+        (s) => normalizedOriginalSenders[s] === normalizedResponseSender,
+      );
 
       if (!sender) return;
 
-      return {
-        category: r.category,
-        sender,
-      };
+      return { sender, category: r.category };
     })
     .filter(isDefined);
 }

@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { getBatch } from "@/utils/gmail/batch";
+import { isDefined } from "@/utils/types";
 
 export async function getThread(threadId: string, gmail: gmail_v1.Gmail) {
   const thread = await gmail.users.threads.get({ userId: "me", id: threadId });
@@ -61,7 +62,7 @@ export async function getThreadsBatch(
   return batch;
 }
 
-export async function getThreadsFromSender(
+async function getThreadsFromSender(
   gmail: gmail_v1.Gmail,
   sender: string,
   limit: number,
@@ -80,4 +81,35 @@ export async function getThreadsFromSender(
   });
 
   return response.data.threads || [];
+}
+
+export async function getThreadsFromSenderWithSubject(
+  gmail: gmail_v1.Gmail,
+  accessToken: string,
+  sender: string,
+  limit: number,
+): Promise<
+  Array<{
+    id: string;
+    snippet: string;
+    subject: string;
+  }>
+> {
+  const threads = await getThreadsFromSender(gmail, sender, limit);
+  const threadIds = threads.map((t) => t.id).filter(isDefined);
+  const threadsWithSubject = await getThreadsBatch(threadIds, accessToken);
+  return threadsWithSubject
+    .map((t) =>
+      t.id
+        ? {
+            id: t.id,
+            subject:
+              t.messages?.[0]?.payload?.headers?.find(
+                (h) => h.name === "Subject",
+              )?.value || "",
+            snippet: t.messages?.[0]?.snippet || "",
+          }
+        : undefined,
+    )
+    .filter(isDefined);
 }

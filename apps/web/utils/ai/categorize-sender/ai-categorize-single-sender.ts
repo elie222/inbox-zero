@@ -23,7 +23,7 @@ export async function aiCategorizeSender({
 }: {
   user: UserEmailWithAI;
   sender: string;
-  previousEmails: string[];
+  previousEmails: { subject: string; snippet: string }[];
   categories: Pick<Category, "name" | "description">[];
 }) {
   const system = `You are an AI assistant specializing in email management and organization.
@@ -36,19 +36,24 @@ ${sender}
 Previous emails from them:
 ${previousEmails
   .slice(0, 3)
-  .map((email) => `* ${email}`)
+  .map(
+    (email) =>
+      `<email><subject>${email.subject}</subject><snippet>${email.snippet}</snippet></email>`,
+  )
   .join("\n")}
 ${previousEmails.length === 0 ? "No previous emails found" : ""}
 
-Categories:
+<categories>
 ${formatCategoriesForPrompt(categories)}
+</categories>
 
-Instructions:
+<instructions>
 1. Analyze the sender's name and email address for clues about their category.
 2. Review the content of previous emails to gain more context about the account's relationship with us.
 3. If the category is clear, assign it.
 4. If you're not certain, respond with "Unknown".
-5. If multiple categories are possible, respond with "Unknown".`;
+5. If multiple categories are possible, respond with "Unknown".
+</instructions>`;
 
   logger.trace("aiCategorizeSender", { system, prompt });
 

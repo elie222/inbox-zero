@@ -108,13 +108,20 @@ export const categorizeSenderAction = withActionInstrumentation(
   async (senderAddress: string) => {
     const sessionResult = await getSessionAndGmailClient();
     if (isActionError(sessionResult)) return sessionResult;
-    const { gmail, user: u } = sessionResult;
+    const { gmail, user: u, session } = sessionResult;
+
+    if (!session.accessToken) return { error: "No access token" };
 
     const userResult = await validateUserAndAiAccess(u.id);
     if (isActionError(userResult)) return userResult;
     const { user } = userResult;
 
-    const result = await categorizeSender(senderAddress, user, gmail);
+    const result = await categorizeSender(
+      senderAddress,
+      user,
+      gmail,
+      session.accessToken,
+    );
 
     revalidatePath("/smart-categories");
 

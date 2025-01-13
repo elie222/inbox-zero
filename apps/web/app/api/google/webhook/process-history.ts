@@ -297,6 +297,7 @@ async function processHistoryItem(
   {
     gmail,
     user,
+    accessToken,
     hasColdEmailAccess,
     hasAutomationRules,
     hasAiAutomationAccess,
@@ -431,7 +432,7 @@ async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, user, gmail);
+        await categorizeSender(sender, user, gmail, accessToken);
       }
     }
 

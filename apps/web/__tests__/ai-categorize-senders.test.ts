@@ -22,27 +22,31 @@ const testUser = {
 const testSenders = [
   {
     emailAddress: "newsletter@company.com",
-    snippets: ["Latest updates and news from our company"],
+    emails: [
+      { subject: "Latest updates and news from our company", snippet: "" },
+    ],
     expectedCategory: "Newsletter",
   },
   {
     emailAddress: "support@service.com",
-    snippets: ["Your ticket #1234 has been updated"],
+    emails: [{ subject: "Your ticket #1234 has been updated", snippet: "" }],
     expectedCategory: "Support",
   },
   {
     emailAddress: "unknown@example.com",
-    snippets: [],
+    emails: [],
     expectedCategory: "Unknown",
   },
   {
     emailAddress: "sales@business.com",
-    snippets: ["Special offer: 20% off our enterprise plan"],
+    emails: [
+      { subject: "Special offer: 20% off our enterprise plan", snippet: "" },
+    ],
     expectedCategory: "Marketing",
   },
   {
     emailAddress: "noreply@socialnetwork.com",
-    snippets: ["John Smith mentioned you in a comment"],
+    emails: [{ subject: "John Smith mentioned you in a comment", snippet: "" }],
     expectedCategory: "Social",
   },
 ];
@@ -94,7 +98,7 @@ describe.skipIf(!isAiTest)("AI Sender Categorization", () => {
         user: testUser,
         senders: senders.map((sender) => ({
           emailAddress: sender,
-          snippets: [],
+          emails: [],
         })),
         categories: getEnabledCategories(),
       });
@@ -112,11 +116,11 @@ describe.skipIf(!isAiTest)("AI Sender Categorization", () => {
 
   describe("Single Sender Categorization", () => {
     it("should categorize individual senders with snippets", async () => {
-      for (const { emailAddress, snippets, expectedCategory } of testSenders) {
+      for (const { emailAddress, emails, expectedCategory } of testSenders) {
         const result = await aiCategorizeSender({
           user: testUser,
           sender: emailAddress,
-          previousEmails: snippets,
+          previousEmails: emails,
           categories: getEnabledCategories(),
         });
 
@@ -160,11 +164,11 @@ describe.skipIf(!isAiTest)("AI Sender Categorization", () => {
 
       // Run individual categorizations and pair with senders
       const singleResults = await Promise.all(
-        testSenders.map(async ({ emailAddress, snippets }) => {
+        testSenders.map(async ({ emailAddress, emails }) => {
           const result = await aiCategorizeSender({
             user: testUser,
             sender: emailAddress,
-            previousEmails: snippets,
+            previousEmails: emails,
             categories: getEnabledCategories(),
           });
           return {
