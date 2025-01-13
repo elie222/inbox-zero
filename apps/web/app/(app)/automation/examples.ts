@@ -201,28 +201,18 @@ If someone withdraws their application, label as "Withdrawn".`,
   },
   student: {
     label: "👩‍🎓 Student",
-    prompt: `Label emails that require a reply as 'Reply Required'
-Label newsletters as 'Newsletter' and archive them
-Label marketing emails as 'Marketing' and archive them
-Label emails from professors and teaching assistants as "School".
-Label emails about assignments and homework as "Assignment".
-Label emails about group projects as "Group Project".
-Label emails about internships as "Internship" and forward to my personal email me@example.com.
-Label emails about scholarships as "Scholarship".
-Label emails about student organizations as "Club".
-Label emails about campus events as "Event" and archive them.
-If someone sends class notes or study materials, label as "Study Materials".
-Label emails about course registration as "Registration".
-Label emails about financial aid as "Financial Aid".
-Label emails about student housing as "Housing".
-If someone asks to join a study group, draft a reply asking about their availability.
-Label emails about career fairs or job opportunities as "Career".
-Label emails about research opportunities as "Research".
-If someone asks for class notes, draft a reply with our shared Google Drive folder link: https://drive.google.com/drive/u/0/folders/1234567890.
-Label emails about exam schedules as "Exam".
-Label emails from the library about due dates as "Library" and add to todo list.
-Label emails about student discounts or campus deals as "Deals" and archive them.
-Label emails about tutoring opportunities as "Tutoring" and draft a reply with that my rate is $70/hour or $40/hour for group tutoring.`,
+    prompt: `* Label emails that require a reply as 'Reply Required'
+* Label emails from professors and teaching assistants as "School".
+* Label emails about assignments and homework as "Assignment".
+* If someone sends class notes or study materials, label as "Study Materials".
+* Label emails about internships as "Internship" and forward to my personal email me@example.com.
+* Label emails about exam schedules as "Exam".
+* Label emails about campus events as "Event" and archive them.
+* If someone asks for class notes, draft a reply with our shared Google Drive folder link: https://drive.google.com/drive/u/0/folders/1234567890.
+* Label emails about tutoring opportunities as "Tutoring" and draft a reply with that my rate is $70/hour or $40/hour for group tutoring.
+
+* Label newsletters as 'Newsletter' and archive them
+* Label marketing emails as 'Marketing' and archive them`,
   },
   reachout: {
     label: "💬 Reachout",
