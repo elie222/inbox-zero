@@ -47,7 +47,11 @@ export function MultiAccountSection() {
 
   const { openModal, PremiumModal } = usePremiumModal();
 
-  if (!isAdminForPremium(data?.admins || [], session?.user.id)) return null;
+  if (
+    isPremium &&
+    !isAdminForPremium(data?.admins || [], session?.user.id || "")
+  )
+    return null;
 
   return (
     <FormSection id="manage-users">
