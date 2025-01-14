@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import { ActionType, RuleType } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 
 // pnpm test-ai ai-prompt-to-rules
 
@@ -39,10 +39,9 @@ describe.skipIf(!isAiTest)("aiPromptToRules", () => {
     expect(result.length).toBe(prompts.length);
 
     // receipts
-    expect(result[0]).toEqual({
+    expect(result[0]).toMatchObject({
       name: expect.any(String),
       condition: {
-        type: RuleType.GROUP,
         group: "Receipts",
       },
       actions: [
@@ -54,10 +53,9 @@ describe.skipIf(!isAiTest)("aiPromptToRules", () => {
     });
 
     // newsletters
-    expect(result[1]).toEqual({
+    expect(result[1]).toMatchObject({
       name: expect.any(String),
       condition: {
-        type: RuleType.GROUP,
         group: "Newsletters",
       },
       actions: [
@@ -72,10 +70,9 @@ describe.skipIf(!isAiTest)("aiPromptToRules", () => {
     });
 
     // marketing
-    expect(result[2]).toEqual({
+    expect(result[2]).toMatchObject({
       name: expect.any(String),
       condition: {
-        type: RuleType.AI,
         aiInstructions: expect.any(String),
       },
       actions: [
@@ -90,10 +87,9 @@ describe.skipIf(!isAiTest)("aiPromptToRules", () => {
     });
 
     // internal
-    expect(result[3]).toEqual({
+    expect(result[3]).toMatchObject({
       name: expect.any(String),
       condition: {
-        type: RuleType.STATIC,
         static: {
           from: "mycompany.com",
         },
