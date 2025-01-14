@@ -776,7 +776,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       data: { rulesPrompt: data.rulesPrompt },
     });
 
-    logger.info("saveRulesPromptAction completed", {
+    logger.info("Completed", {
       email: user.email,
       createdRules: addedRules?.length || 0,
       editedRules: editRulesCount,
