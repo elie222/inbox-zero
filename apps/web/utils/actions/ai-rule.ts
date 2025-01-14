@@ -807,7 +807,7 @@ function shouldAutomate(actions: Pick<Action, "type">[]) {
 }
 
 // run on threads for static, group, and smart category rules
-function shouldRunOnThreads(ruleType: RuleType) {
+function shouldRunOnThreads(ruleType?: RuleType) {
   return (
     ruleType === RuleType.STATIC ||
     ruleType === RuleType.GROUP ||

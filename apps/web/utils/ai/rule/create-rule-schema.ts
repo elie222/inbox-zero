@@ -44,9 +44,14 @@ export const createRuleSchema = z.object({
   name: z
     .string()
     .describe("The name of the rule. No need to include 'Rule' in the name."),
-  condition: conditionSchema.extend({
-    type: typeSchema.describe("The type of the condition"),
-  }),
+  condition: conditionSchema
+    .extend({
+      type: typeSchema.optional().describe("The type of the condition"),
+    })
+    .transform((condition) => ({
+      ...condition,
+      type: determineRuleType(condition),
+    })),
   actions: z
     .array(
       z.object({
@@ -99,17 +104,43 @@ export const createRuleSchema = z.object({
 });
 
 export const createRuleSchemaWithCategories = createRuleSchema.extend({
-  condition: conditionSchema.extend({
-    type: allTypesSchema.describe("The type of the condition"),
-    categoryFilterType: z
-      .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-      .optional()
-      .describe(
-        "Whether senders in this categoryFilters should be included or excluded",
-      ),
-    categoryFilters: z
-      .array(z.string())
-      .optional()
-      .describe("The categories to match"),
-  }),
+  condition: conditionSchema
+    .extend({
+      type: allTypesSchema.optional().describe("The type of the condition"),
+      categoryFilterType: z
+        .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+        .optional()
+        .describe(
+          "Whether senders in this categoryFilters should be included or excluded",
+        ),
+      categoryFilters: z
+        .array(z.string())
+        .optional()
+        .describe("The categories to match"),
+    })
+    .transform((condition) => ({
+      ...condition,
+      type: determineRuleType(condition),
+    })),
 });
+
+// For some reason OpenAI was skipping the type field in the schema.
+// This function is a workaround to determine the rule type, and the type field is now optional.
+const determineRuleType = (condition: {
+  type?: RuleType;
+  aiInstructions?: string;
+  static?: Record<string, string>;
+  group?: string;
+  categoryFilters?: string[];
+}) => {
+  if (condition.type) return condition.type;
+  if (condition.aiInstructions) return RuleType.AI;
+  if (
+    condition.static?.from ||
+    condition.static?.to ||
+    condition.static?.subject
+  )
+    return RuleType.STATIC;
+  if (condition.group) return RuleType.GROUP;
+  if (condition.categoryFilters?.length) return RuleType.CATEGORY;
+};
