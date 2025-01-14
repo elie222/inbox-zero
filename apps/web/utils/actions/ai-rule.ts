@@ -429,6 +429,13 @@ const getUserCategoriesForNames = async (userId: string, names: string[]) => {
     where: { userId, name: { in: names } },
     select: { id: true },
   });
+  if (categories.length !== names.length) {
+    logger.warn("Not all categories were found", {
+      requested: names.length,
+      found: categories.length,
+      names,
+    });
+  }
   return categories.map((c) => c.id);
 };
 
