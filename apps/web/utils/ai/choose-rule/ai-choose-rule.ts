@@ -32,7 +32,10 @@ async function getAiResponse(options: GetAiResponseOptions) {
   ];
 
   const system = `You are an AI assistant that helps people manage their emails.
-It's better not to act if you don't know how.
+IMPORTANT: You must strictly follow the exclusions mentioned in each rule.
+- If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
+- If you're unsure, select the last rule (not enough information).
+- It's better to select "not enough information" than to make an incorrect choice.
   
 These are the rules you can select from:
 ${rulesWithUnknownRule
@@ -44,7 +47,8 @@ ${
     ? `Some additional information the user has provided:\n\n${user.about}`
     : ""
 }
-`;
+
+REMINDER: Pay careful attention to any exclusions mentioned in the rules. If an email matches an exclusion, that rule MUST NOT be selected.`;
 
   const prompt = `An email was received for processing. Select a rule to apply to it.
 
@@ -56,8 +60,7 @@ Respond with a JSON object with the following fields:
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>
-`;
+</email>`;
 
   logger.trace("AI choose rule prompt", { system, prompt });
 
