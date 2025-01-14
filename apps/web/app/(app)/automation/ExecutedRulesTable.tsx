@@ -89,7 +89,7 @@ export function RuleCell({
             {!!reason && (
               <div className="mt-4 space-y-2">
                 <div className="font-medium">
-                  AI reason for choosing this rule:
+                  Reason for choosing this rule:
                 </div>
                 <MessageText>{reason}</MessageText>
               </div>
