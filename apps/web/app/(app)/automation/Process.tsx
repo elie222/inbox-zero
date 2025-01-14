@@ -17,7 +17,9 @@ export function Process() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Process your emails</CardTitle>
+        <CardTitle>
+          {isApplyMode ? "Process your emails" : "Test your rules"}
+        </CardTitle>
 
         <CardDescription>
           {isApplyMode

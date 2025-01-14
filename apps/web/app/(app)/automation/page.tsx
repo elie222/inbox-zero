@@ -27,7 +27,7 @@ export default async function AutomationPage() {
             <TabsList>
               <TabsTrigger value="prompt">Prompt</TabsTrigger>
               <TabsTrigger value="rules">Rules</TabsTrigger>
-              <TabsTrigger value="test">Process</TabsTrigger>
+              <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="groups">Groups</TabsTrigger>
