@@ -233,7 +233,7 @@ async function createRule(
       userId,
       actions: { createMany: { data: result.actions } },
       automate: shouldAutomate(result.actions),
-      runOnThreads: shouldRunOnThreads(result.condition.type),
+      runOnThreads: shouldRunOnThreads(result.condition),
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
@@ -259,7 +259,7 @@ async function updateRule(
         createMany: { data: result.actions },
       },
       automate: shouldAutomate(result.actions),
-      runOnThreads: shouldRunOnThreads(result.condition.type),
+      runOnThreads: shouldRunOnThreads(result.condition),
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
@@ -338,7 +338,7 @@ async function getGroupId(
 ) {
   let groupId: string | null = null;
 
-  if (result.condition.group && result.condition.type === RuleType.GROUP) {
+  if (result.condition.group && result.condition.group) {
     const groups = await prisma.group.findMany({
       where: { userId },
       select: { id: true, name: true, rule: true },
@@ -543,7 +543,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
         aiModel: true,
         aiApiKey: true,
         email: true,
-        categories: { select: { id: true } },
+        categories: { select: { id: true, name: true } },
       },
     });
 
@@ -612,7 +612,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
           user: { ...user, email: user.email },
           promptFile: diff.addedRules.join("\n\n"),
           isEditing: false,
-          hasSmartCategories,
+          availableCategories: user.categories.map((c) => c.name),
         });
         logger.info("Added rules", {
           email: user.email,
@@ -695,7 +695,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
             )
             .join("\n\n"),
           isEditing: true,
-          hasSmartCategories,
+          availableCategories: user.categories.map((c) => c.name),
         });
 
         for (const rule of editedRules) {
@@ -741,7 +741,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
         user: { ...user, email: user.email },
         promptFile: data.rulesPrompt,
         isEditing: false,
-        hasSmartCategories,
+        availableCategories: user.categories.map((c) => c.name),
       });
       logger.info("Rules to be added", {
         email: user.email,
@@ -807,12 +807,9 @@ function shouldAutomate(actions: Pick<Action, "type">[]) {
 }
 
 // run on threads for static, group, and smart category rules
-function shouldRunOnThreads(ruleType?: RuleType) {
-  return (
-    ruleType === RuleType.STATIC ||
-    ruleType === RuleType.GROUP ||
-    ruleType === RuleType.CATEGORY
-  );
+// user can enable to run on threads for ai rules themselves
+function shouldRunOnThreads(condition?: { aiInstructions?: string }) {
+  return !condition?.aiInstructions;
 }
 
 /**

@@ -31,7 +31,6 @@ describe.skipIf(!isAiTest)("aiPromptToRules", () => {
       user,
       promptFile,
       isEditing: false,
-      hasSmartCategories: false,
     });
 
     console.log(JSON.stringify(result, null, 2));
@@ -127,7 +126,6 @@ describe.skipIf(!isAiTest)("aiPromptToRules", () => {
         user,
         promptFile,
         isEditing: false,
-        hasSmartCategories: false,
       }),
     ).rejects.toThrow();
   });
