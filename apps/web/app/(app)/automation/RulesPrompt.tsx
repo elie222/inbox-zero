@@ -227,7 +227,7 @@ function RulesPromptForm({
               <AlertBasic
                 className="mb-2"
                 variant="blue"
-                title="Warning: Deleting text will remove your rules"
+                title="Warning: Deleting text will remove or disable rules"
                 description="Add new rules at the end to keep your existing rules."
               />
             )}

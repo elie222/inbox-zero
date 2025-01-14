@@ -1,17 +1,19 @@
 import { z } from "zod";
 import { GroupName } from "@/utils/config";
-import { ActionType, CategoryFilterType, RuleType } from "@prisma/client";
-
-const typeSchema = z.enum([RuleType.AI, RuleType.STATIC, RuleType.GROUP]);
-const allTypesSchema = z.enum([
-  RuleType.AI,
-  RuleType.STATIC,
-  RuleType.GROUP,
-  RuleType.CATEGORY,
-]);
+import {
+  ActionType,
+  CategoryFilterType,
+  LogicalOperator,
+} from "@prisma/client";
 
 const conditionSchema = z
   .object({
+    conditionalOperator: z
+      .enum([LogicalOperator.AND, LogicalOperator.OR])
+      .optional()
+      .describe(
+        "The conditional operator to use. AND means all conditions must be true for the rule to match. OR means any condition can be true for the rule to match. This does not impact sub-conditions.",
+      ),
     aiInstructions: z
       .string()
       .optional()
@@ -22,15 +24,12 @@ const conditionSchema = z
       .object({
         from: z.string().optional().describe("The from email address to match"),
         to: z.string().optional().describe("The to email address to match"),
-        subject: z
-          .string()
-          .optional()
-          .describe(
-            "The subject to match. Leave blank if AI is required to process the subject line.",
-          ),
+        subject: z.string().optional().describe("The subject to match."),
       })
       .optional()
-      .describe("The static conditions to match"),
+      .describe(
+        "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
+      ),
     group: z
       .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
       .optional()
@@ -44,14 +43,7 @@ export const createRuleSchema = z.object({
   name: z
     .string()
     .describe("The name of the rule. No need to include 'Rule' in the name."),
-  condition: conditionSchema
-    .extend({
-      type: typeSchema.optional().describe("The type of the condition"),
-    })
-    .transform((condition) => ({
-      ...condition,
-      type: determineRuleType(condition),
-    })),
+  condition: conditionSchema,
   actions: z
     .array(
       z.object({
@@ -103,44 +95,42 @@ export const createRuleSchema = z.object({
     .describe("The actions to take"),
 });
 
-export const createRuleSchemaWithCategories = createRuleSchema.extend({
-  condition: conditionSchema
-    .extend({
-      type: allTypesSchema.optional().describe("The type of the condition"),
-      categoryFilterType: z
-        .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+export const getCreateRuleSchemaWithCategories = (
+  availableCategories: [string, ...string[]],
+) => {
+  return createRuleSchema.extend({
+    condition: conditionSchema.extend({
+      categories: z
+        .object({
+          categoryFilterType: z
+            .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+            .optional()
+            .describe(
+              "Whether senders in `categoryFilters` should be included or excluded",
+            ),
+          categoryFilters: z
+            .array(z.enum(availableCategories))
+            .optional()
+            .describe(
+              "The categories to match. If multiple categories are specified, the rule will match if ANY of the categories match (OR operation)",
+            ),
+        })
         .optional()
-        .describe(
-          "Whether senders in this categoryFilters should be included or excluded",
-        ),
-      categoryFilters: z
-        .array(z.string())
-        .optional()
-        .describe("The categories to match"),
-    })
-    .transform((condition) => ({
-      ...condition,
-      type: determineRuleType(condition),
-    })),
-});
-
-// For some reason OpenAI was skipping the type field in the schema.
-// This function is a workaround to determine the rule type, and the type field is now optional.
-const determineRuleType = (condition: {
-  type?: RuleType;
-  aiInstructions?: string;
-  static?: Record<string, string>;
-  group?: string;
-  categoryFilters?: string[];
-}) => {
-  if (condition.type) return condition.type;
-  if (condition.aiInstructions) return RuleType.AI;
-  if (
-    condition.static?.from ||
-    condition.static?.to ||
-    condition.static?.subject
-  )
-    return RuleType.STATIC;
-  if (condition.group) return RuleType.GROUP;
-  if (condition.categoryFilters?.length) return RuleType.CATEGORY;
+        .describe("The categories to match or skip"),
+    }),
+  });
 };
+
+type CreateRuleSchema = z.infer<typeof createRuleSchema>;
+type CreateRuleSchemaWithCategories = CreateRuleSchema & {
+  condition: CreateRuleSchema["condition"] & {
+    categories?: {
+      categoryFilterType: CategoryFilterType;
+      categoryFilters: string[];
+    };
+  };
+};
+export type CreateOrUpdateRuleSchemaWithCategories =
+  CreateRuleSchemaWithCategories & {
+    ruleId?: string;
+  };
