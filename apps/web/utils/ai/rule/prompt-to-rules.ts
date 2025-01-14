@@ -5,6 +5,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import {
   createRuleSchema,
   getCreateRuleSchemaWithCategories,
+  type CreateOrUpdateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { env } from "@/env";
@@ -84,7 +85,7 @@ ${promptFile}
   });
 
   const { rules } = aiResponse.toolCalls[0].args as {
-    rules: z.infer<typeof updateRuleSchema>[];
+    rules: CreateOrUpdateRuleSchemaWithCategories[];
   };
 
   logger.trace("Result", { rules });

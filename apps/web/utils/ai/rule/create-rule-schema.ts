@@ -120,3 +120,17 @@ export const getCreateRuleSchemaWithCategories = (
     }),
   });
 };
+
+type CreateRuleSchema = z.infer<typeof createRuleSchema>;
+type CreateRuleSchemaWithCategories = CreateRuleSchema & {
+  condition: CreateRuleSchema["condition"] & {
+    categories?: {
+      categoryFilterType: CategoryFilterType;
+      categoryFilters: string[];
+    };
+  };
+};
+export type CreateOrUpdateRuleSchemaWithCategories =
+  CreateRuleSchemaWithCategories & {
+    ruleId?: string;
+  };
