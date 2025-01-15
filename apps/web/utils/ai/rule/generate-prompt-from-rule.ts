@@ -1,12 +1,12 @@
 import type { Action, Rule, Category, Group } from "@prisma/client";
 
-type RuleWithActions = Rule & {
+type RuleWithRelations = Rule & {
   actions: Action[];
   categoryFilters?: Category[];
-  group?: Group;
+  group?: Group | null;
 };
 
-export function generatePromptFromRule(rule: RuleWithActions): string {
+export function generatePromptFromRule(rule: RuleWithRelations): string {
   const conditions: string[] = [];
   const actions: string[] = [];
 
@@ -84,6 +84,6 @@ export function generatePromptFromRule(rule: RuleWithActions): string {
   return `${conditionText}, ${actionText}`;
 }
 
-export function generatePromptFromRules(rules: RuleWithActions[]): string {
-  return rules.map((rule) => `* ${generatePromptFromRule(rule)}`).join("\n");
-}
+// export function generatePromptFromRules(rules: RuleWithRelations[]): string {
+//   return rules.map((rule) => `* ${generatePromptFromRule(rule)}.`).join("\n");
+// }

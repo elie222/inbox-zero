@@ -20,6 +20,7 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
+import { generatePromptFromRule } from "@/utils/ai/rule/generate-prompt-from-rule";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -75,7 +76,12 @@ export const createRuleAction = withActionInstrumentation(
                 }
               : {},
         },
+        include: { actions: true, categoryFilters: true, group: true },
       });
+
+      const prompt = generatePromptFromRule(rule);
+
+      await updateUserPrompt(session.user.id, prompt);
 
       return { rule };
     } catch (error) {
@@ -256,3 +262,17 @@ export const getRuleExamplesAction = withActionInstrumentation(
     return { matches };
   },
 );
+
+async function updateUserPrompt(userId: string, rulePrompt: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { rulesPrompt: true },
+  });
+
+  const updatedPrompt = `${user?.rulesPrompt || ""}\n\n* ${rulePrompt}.`.trim();
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { rulesPrompt: updatedPrompt },
+  });
+}
