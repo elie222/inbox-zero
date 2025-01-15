@@ -33,11 +33,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  deleteRuleAction,
   setRuleAutomatedAction,
   setRuleRunOnThreadsAction,
   setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
+import { deleteRuleAction } from "@/utils/actions/rule";
 import { Toggle } from "@/components/Toggle";
 import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";

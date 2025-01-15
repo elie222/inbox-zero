@@ -1,6 +1,6 @@
 import type { Action, Rule, Category, Group } from "@prisma/client";
 
-type RuleWithRelations = Rule & {
+export type RuleWithRelations = Rule & {
   actions: Action[];
   categoryFilters?: Category[];
   group?: Group | null;

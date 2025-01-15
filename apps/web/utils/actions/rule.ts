@@ -10,7 +10,7 @@ import {
   type UpdateRuleInstructionsBody,
 } from "@/utils/actions/validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
 import {
   rulesExamplesBody,
   type RulesExamplesBody,
@@ -21,6 +21,7 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
 import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
+import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -224,6 +225,56 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
       where: { id: body.id, userId: session.user.id },
       data: { instructions: body.instructions },
     });
+  },
+);
+
+export const deleteRuleAction = withActionInstrumentation(
+  "deleteRule",
+  async ({ ruleId }: { ruleId: string }) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const rule = await prisma.rule.findUnique({
+      where: { id: ruleId },
+      include: { actions: true, categoryFilters: true, group: true },
+    });
+    if (!rule) return; // already deleted
+    if (rule.userId !== session.user.id)
+      return { error: "You don't have permission to delete this rule" };
+
+    try {
+      await prisma.rule.delete({
+        where: { id: ruleId, userId: session.user.id },
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          email: true,
+          aiModel: true,
+          aiProvider: true,
+          aiApiKey: true,
+          rulesPrompt: true,
+        },
+      });
+      if (!user) return { error: "User not found" };
+
+      if (!user.rulesPrompt) return;
+
+      const updatedPrompt = await generatePromptOnDeleteRule({
+        user,
+        existingPrompt: user.rulesPrompt,
+        deletedRule: rule,
+      });
+
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { rulesPrompt: updatedPrompt },
+      });
+    } catch (error) {
+      if (isNotFoundError(error)) return;
+      throw error;
+    }
   },
 );
 
