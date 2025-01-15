@@ -84,6 +84,6 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
   return `${conditionText}, ${actionText}`;
 }
 
-// export function generatePromptFromRules(rules: RuleWithRelations[]): string {
+// export function createPromptFromRules(rules: RuleWithRelations[]): string {
 //   return rules.map((rule) => `* ${generatePromptFromRule(rule)}.`).join("\n");
 // }

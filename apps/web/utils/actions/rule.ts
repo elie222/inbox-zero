@@ -20,7 +20,7 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
-import { createPromptFromRule } from "@/utils/ai/rule/generate-prompt-from-rule";
+import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",

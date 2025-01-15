@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createPromptFromRule } from "./generate-prompt-from-rule";
+import { createPromptFromRule } from "./create-prompt-from-rule";
 import type { Action, Rule, Category, Group } from "@prisma/client";
 
 describe("generatePromptFromRule", () => {
