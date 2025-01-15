@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generatePromptFromRule } from "./generate-prompt-from-rule";
+import { createPromptFromRule } from "./generate-prompt-from-rule";
 import type { Action, Rule, Category, Group } from "@prisma/client";
 
 describe("generatePromptFromRule", () => {
@@ -9,7 +9,7 @@ describe("generatePromptFromRule", () => {
       actions: [{ type: "ARCHIVE" }] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails from "newsletter@example.com", archive',
     );
   });
@@ -25,7 +25,7 @@ describe("generatePromptFromRule", () => {
       ],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails from "support@company.com" and with subject containing "urgent" and with body containing "priority", label as "Important" and forward to manager@company.com',
     );
   });
@@ -40,7 +40,7 @@ describe("generatePromptFromRule", () => {
       actions: [{ type: "LABEL", label: "Priority" }] as Action[],
     } as Rule & { actions: Action[]; categoryFilters: Category[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails from senders in categories: Finance, Important, label as "Priority"',
     );
   });
@@ -52,7 +52,7 @@ describe("generatePromptFromRule", () => {
       actions: [{ type: "ARCHIVE" }] as Action[],
     } as Rule & { actions: Action[]; categoryFilters: Category[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       "For emails from senders not in categories: Spam, archive",
     );
   });
@@ -66,7 +66,7 @@ describe("generatePromptFromRule", () => {
       ] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails matching AI criteria: "contains a meeting request", create a draft and label as "Meeting"',
     );
   });
@@ -86,7 +86,7 @@ describe("generatePromptFromRule", () => {
       ],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails from "test@example.com", archive and label as "Test" and send a reply and send email to other@example.com and forward to forward@example.com and create a draft and mark as spam and call webhook at https://example.com/webhook',
     );
   });
@@ -96,7 +96,7 @@ describe("generatePromptFromRule", () => {
       actions: [{ type: "ARCHIVE" }] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe("For all emails, archive");
+    expect(createPromptFromRule(rule)).toBe("For all emails, archive");
   });
 
   it("handles templated reply", () => {
@@ -114,7 +114,7 @@ Alice`,
       ] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails from "job@company.com", send a templated reply: "Hi {{name}},\n{{personalized reply}}\n\nI\'d love to set up a time to chat.\nAlice"',
     );
   });
@@ -130,7 +130,7 @@ Alice`,
       ] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails with subject containing "newsletter", send a static reply: "Please unsubscribe me from your mailing list."',
     );
   });
@@ -141,7 +141,7 @@ Alice`,
       actions: [{ type: "REPLY" }] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails matching AI criteria: "is a meeting request", send a reply',
     );
   });
@@ -154,7 +154,7 @@ Alice`,
       actions: [{ type: "LABEL", label: "Sales" }] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails from "sales@company.com" or with subject containing "invoice", label as "Sales"',
     );
   });
@@ -166,7 +166,7 @@ Alice`,
       actions: [{ type: "LABEL", label: "Sales" }] as Action[],
     } as Rule & { actions: Action[] };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails from "sales@company.com" and with subject containing "invoice", label as "Sales"',
     );
   });
@@ -180,7 +180,7 @@ Alice`,
       ] as Action[],
     } as Rule & { actions: Action[]; group: Group };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails in group "Receipts", label as "Receipt" and archive',
     );
   });
@@ -192,7 +192,7 @@ Alice`,
       actions: [{ type: "ARCHIVE" }] as Action[],
     } as Rule & { actions: Action[]; group: Group };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails with subject containing "order" and in group "Receipts", archive',
     );
   });
@@ -205,7 +205,7 @@ Alice`,
       actions: [{ type: "ARCHIVE" }] as Action[],
     } as Rule & { actions: Action[]; group: Group };
 
-    expect(generatePromptFromRule(rule)).toBe(
+    expect(createPromptFromRule(rule)).toBe(
       'For emails with subject containing "order" or in group "Receipts", archive',
     );
   });

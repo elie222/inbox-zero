@@ -20,7 +20,7 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
-import { generatePromptFromRule } from "@/utils/ai/rule/generate-prompt-from-rule";
+import { createPromptFromRule } from "@/utils/ai/rule/generate-prompt-from-rule";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -79,7 +79,7 @@ export const createRuleAction = withActionInstrumentation(
         include: { actions: true, categoryFilters: true, group: true },
       });
 
-      const prompt = generatePromptFromRule(rule);
+      const prompt = createPromptFromRule(rule);
 
       await updateUserPrompt(session.user.id, prompt);
 

@@ -6,7 +6,7 @@ type RuleWithRelations = Rule & {
   group?: Group | null;
 };
 
-export function generatePromptFromRule(rule: RuleWithRelations): string {
+export function createPromptFromRule(rule: RuleWithRelations): string {
   const conditions: string[] = [];
   const actions: string[] = [];
 
