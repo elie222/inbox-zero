@@ -18,7 +18,7 @@ import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
-import { EmailRow } from "@/components/EmailRow";
+import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
@@ -253,7 +253,7 @@ function ProcessRulesRow({
     >
       <TableCell>
         <div className="flex items-center justify-between">
-          <EmailRow
+          <EmailMessageCell
             from={message.headers.from}
             subject={message.headers.subject}
             snippet={message.snippet}

@@ -29,6 +29,10 @@ import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { handleActionResult } from "@/utils/server-action";
 import { useUser } from "@/hooks/useUser";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
+import {
+  EmailMessageCell,
+  EmailMessageCellWithData,
+} from "@/components/EmailMessageCell";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -112,7 +116,7 @@ export function ColdEmailList() {
                     onChange={onToggleSelectAll}
                   />
                 </TableHead>
-                <TableHead>Sender</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>AI Reason</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>
@@ -167,7 +171,12 @@ function Row({
         />
       </TableCell>
       <TableCell>
-        <SenderCell from={row.fromEmail} userEmail={userEmail} />
+        <EmailMessageCellWithData
+          from={row.fromEmail}
+          userEmail={userEmail}
+          threadId={row.threadId || ""}
+          messageId={row.messageId || ""}
+        />
       </TableCell>
       <TableCell>{row.reason || "-"}</TableCell>
       <TableCell>
@@ -196,49 +205,6 @@ function Row({
         </div>
       </TableCell>
     </TableRow>
-  );
-}
-
-export function SenderCell({
-  from,
-  userEmail,
-}: {
-  from: string;
-  userEmail: string;
-}) {
-  // use regex to find first letter
-  const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
-
-  return (
-    <div className="flex items-center gap-4">
-      <Avatar>
-        <AvatarFallback>{firstLetter}</AvatarFallback>
-      </Avatar>
-      <div className="flex items-center">
-        <span className="mr-2 font-semibold">{from}</span>
-        <OpenInGmailButton from={from} userEmail={userEmail} />
-      </div>
-    </div>
-  );
-}
-
-function OpenInGmailButton({
-  from,
-  userEmail,
-}: {
-  from: string;
-  userEmail: string;
-}) {
-  return (
-    <button
-      type="button"
-      className="ml-2 text-gray-700 hover:text-gray-900"
-      onClick={() => {
-        window.open(getGmailSearchUrl(from, userEmail), "_blank");
-      }}
-    >
-      <ExternalLinkIcon className="h-4 w-4" />
-    </button>
   );
 }
 
