@@ -21,7 +21,6 @@ import { AlertBasic } from "@/components/Alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGmailSearchUrl } from "@/utils/url";
 import { Button } from "@/components/ui/button";
-import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 import { SectionDescription } from "@/components/Typography";
@@ -29,6 +28,7 @@ import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { handleActionResult } from "@/utils/server-action";
 import { useUser } from "@/hooks/useUser";
+import { ViewEmailButton } from "@/components/ViewEmailButton";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -39,10 +39,6 @@ export function ColdEmailList() {
 
   const session = useSession();
   const userEmail = session.data?.user?.email || "";
-
-  const [openedRow, setOpenedRow] = useState<
-    ColdEmailsResponse["coldEmails"][number] | undefined
-  >(undefined);
 
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(data?.coldEmails || []);
@@ -131,7 +127,6 @@ export function ColdEmailList() {
                   row={coldEmail}
                   userEmail={userEmail}
                   mutate={mutate}
-                  setOpenedRow={setOpenedRow}
                   selected={selected}
                   onToggleSelect={onToggleSelect}
                 />
@@ -140,13 +135,6 @@ export function ColdEmailList() {
           </Table>
 
           <TablePagination totalPages={data.totalPages} />
-
-          <NewsletterModal
-            newsletter={
-              openedRow ? { name: openedRow.fromEmail || "" } : undefined
-            }
-            onClose={() => setOpenedRow(undefined)}
-          />
         </div>
       ) : (
         <NoColdEmails />
@@ -159,14 +147,12 @@ function Row({
   row,
   userEmail,
   mutate,
-  setOpenedRow,
   selected,
   onToggleSelect,
 }: {
   row: ColdEmailsResponse["coldEmails"][number];
   userEmail: string;
   mutate: () => void;
-  setOpenedRow: (row: ColdEmailsResponse["coldEmails"][number]) => void;
   selected: Map<string, boolean>;
   onToggleSelect: (id: string) => void;
 }) {
@@ -189,9 +175,7 @@ function Row({
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end space-x-2">
-          <Button variant="outline" onClick={() => setOpenedRow(row)}>
-            View
-          </Button>
+          <ViewEmailButton threadId={row.id} messageId={row.id} />
           <Button
             variant="outline"
             onClick={async () => {

@@ -14,7 +14,6 @@ import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import type { ParsedMessage } from "@/utils/types";
-import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 
 export function EmailCell({
@@ -34,8 +33,6 @@ export function EmailCell({
 }) {
   // use regex to find first letter
   const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
-
-  const { showEmail } = useDisplayedEmail();
 
   return (
     <div className="flex items-center gap-4">

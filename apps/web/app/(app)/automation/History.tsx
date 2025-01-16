@@ -24,7 +24,6 @@ import {
 import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
 import { RulesSelect } from "@/app/(app)/automation/RulesSelect";
-import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
