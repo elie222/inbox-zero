@@ -6,7 +6,7 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import { BookOpenCheckIcon, SparklesIcon } from "lucide-react";
+import { SparklesIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -14,7 +14,6 @@ import { toastError } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SlideOverSheet } from "@/components/SlideOverSheet";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
@@ -24,23 +23,10 @@ import type {
 } from "@/app/api/ai/cold-email/route";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { SearchForm } from "@/components/SearchForm";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { CardContent } from "@/components/ui/card";
 
-export function TestRules() {
-  return (
-    <SlideOverSheet
-      title="Test Cold Emails"
-      description="Test which emails are flagged as cold emails. We also check if the sender has emailed you before and if it includes unsubscribe links."
-      content={<TestRulesContent />}
-    >
-      <Button type="button">
-        <BookOpenCheckIcon className="mr-2 h-4 w-4" />
-        Test
-      </Button>
-    </SlideOverSheet>
-  );
-}
-
-function TestRulesContent() {
+export function TestRulesContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data, isLoading, error } = useSWR<MessagesResponse>(
     `/api/google/messages?q=${searchQuery}`,
@@ -55,17 +41,15 @@ function TestRulesContent() {
 
   return (
     <div>
-      <div className="mt-4">
+      <CardContent>
         <TestRulesForm />
 
-        <div className="mt-4">
+        <div className="mt-4 max-w-sm">
           <SearchForm onSearch={setSearchQuery} />
         </div>
-      </div>
+      </CardContent>
 
-      <div className="mt-4">
-        <Separator />
-      </div>
+      <Separator />
 
       <LoadingContent loading={isLoading} error={error}>
         {data && (
@@ -162,63 +146,69 @@ function TestRulesContentRow(props: {
 }) {
   const { message } = props;
 
-  const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [coldEmailResponse, setColdEmailResponse] =
     useState<ColdEmailBlockerResponse | null>(null);
 
   return (
-    <div className="border-b border-gray-200">
-      <div className="flex items-center justify-between py-2">
-        <EmailMessageCell
-          from={message.headers.from}
-          subject={message.headers.subject}
-          snippet={message.snippet}
-          userEmail={props.userEmail}
-          threadId={message.threadId}
-          messageId={message.id}
-        />
-        <div className="ml-4">
-          <Button
-            color="white"
-            loading={loading}
-            onClick={async () => {
-              setLoading(true);
+    <TableRow
+      className={
+        testing ? "animate-pulse bg-blue-50 dark:bg-blue-950/20" : undefined
+      }
+    >
+      <TableCell>
+        <div className="flex items-center justify-between">
+          <EmailMessageCell
+            from={message.headers.from}
+            subject={message.headers.subject}
+            snippet={message.snippet}
+            userEmail={props.userEmail}
+            threadId={message.threadId}
+            messageId={message.id}
+          />
+          <div className="ml-4">
+            <Button
+              color="white"
+              loading={testing}
+              onClick={async () => {
+                setTesting(true);
 
-              const res = await postRequest<
-                ColdEmailBlockerResponse,
-                ColdEmailBlockerBody
-              >("/api/ai/cold-email", {
-                email: {
-                  from: message.headers.from,
-                  subject: message.headers.subject,
-                  textHtml: message.textHtml || null,
-                  textPlain: message.textPlain || null,
-                  snippet: message.snippet || null,
-                  threadId: message.threadId,
-                },
-              });
-
-              if (isError(res)) {
-                console.error(res);
-                toastError({
-                  title: "Error checking whether it's a cold email.",
-                  description: res.error,
+                const res = await postRequest<
+                  ColdEmailBlockerResponse,
+                  ColdEmailBlockerBody
+                >("/api/ai/cold-email", {
+                  email: {
+                    from: message.headers.from,
+                    subject: message.headers.subject,
+                    textHtml: message.textHtml || null,
+                    textPlain: message.textPlain || null,
+                    snippet: message.snippet || null,
+                    threadId: message.threadId,
+                  },
                 });
-              } else {
-                setColdEmailResponse(res);
-              }
-              setLoading(false);
-            }}
-          >
-            <SparklesIcon className="mr-2 h-4 w-4" />
-            Test
-          </Button>
+
+                if (isError(res)) {
+                  console.error(res);
+                  toastError({
+                    title: "Error checking whether it's a cold email.",
+                    description: res.error,
+                  });
+                } else {
+                  setColdEmailResponse(res);
+                }
+                setTesting(false);
+              }}
+            >
+              <SparklesIcon className="mr-2 h-4 w-4" />
+              Test
+            </Button>
+          </div>
         </div>
-      </div>
-      <div className="pb-4">
+      </TableCell>
+      <TableCell>
         <Result coldEmailResponse={coldEmailResponse} />
-      </div>
-    </div>
+      </TableCell>
+    </TableRow>
   );
 }
 

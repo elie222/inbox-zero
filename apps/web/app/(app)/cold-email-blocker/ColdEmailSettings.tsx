@@ -14,7 +14,6 @@ import {
   type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
 } from "@/app/api/user/settings/cold-email/validation";
-import { TestRules } from "@/app/(app)/cold-email-blocker/TestRules";
 import { ColdEmailPromptForm } from "@/app/(app)/cold-email-blocker/ColdEmailPromptForm";
 import { RadioGroup } from "@/components/RadioGroup";
 import { useUser } from "@/hooks/useUser";
@@ -26,14 +25,11 @@ export function ColdEmailSettings() {
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <>
-          <TestRules />
-          <div className="mt-2">
-            <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
-            <ColdEmailPromptForm
-              coldEmailPrompt={data.coldEmailPrompt}
-              onSuccess={mutate}
-            />
-          </div>
+          <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
+          <ColdEmailPromptForm
+            coldEmailPrompt={data.coldEmailPrompt}
+            onSuccess={mutate}
+          />
         </>
       )}
     </LoadingContent>
