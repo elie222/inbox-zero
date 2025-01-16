@@ -31,7 +31,8 @@ export async function generatePromptOnUpdateRule({
   if (!existingPrompt) return "";
   if (!updatedRulePrompt) return "";
 
-  const system = `You are an AI assistant that helps maintain email management rule prompts. Your task is Core requirements:
+  const system = `You are an AI assistant that helps maintain email management rule prompts.
+Your task is to update an existing prompt file by modifying a specific rule while maintaining the exact format and style.
 
 Requirements:
 1. Maintain the exact same format and style as the original

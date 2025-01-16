@@ -26,6 +26,7 @@ import {
 } from "@/utils/ai/rule/create-prompt-from-rule";
 import { generatePromptOnUpdateRule } from "@/utils/ai/rule/generate-prompt-on-update-rule";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
+import { SafeError } from "@/utils/error";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -356,7 +357,7 @@ async function updatePromptFileOnUpdate(
       rulesPrompt: true,
     },
   });
-  if (!user) return { error: "User not found" };
+  if (!user) return;
 
   const updatedPrompt = await generatePromptOnUpdateRule({
     user,
@@ -377,7 +378,9 @@ async function updateUserPrompt(userId: string, rulePrompt: string) {
     select: { rulesPrompt: true },
   });
 
-  const updatedPrompt = `${user?.rulesPrompt || ""}\n\n* ${rulePrompt}.`.trim();
+  if (!user?.rulesPrompt) return;
+
+  const updatedPrompt = `${user.rulesPrompt || ""}\n\n* ${rulePrompt}.`.trim();
 
   await prisma.user.update({
     where: { id: userId },

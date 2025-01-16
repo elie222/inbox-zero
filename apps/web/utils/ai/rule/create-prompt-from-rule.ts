@@ -1,4 +1,10 @@
-import type { Action, Rule, Category, Group } from "@prisma/client";
+import {
+  type Action,
+  type Rule,
+  type Category,
+  type Group,
+  ActionType,
+} from "@prisma/client";
 
 export type RuleWithRelations = Rule & {
   actions: Action[];
@@ -37,13 +43,13 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
   // Process actions
   rule.actions.forEach((action) => {
     switch (action.type) {
-      case "ARCHIVE":
+      case ActionType.ARCHIVE:
         actions.push("archive");
         break;
-      case "LABEL":
+      case ActionType.LABEL:
         if (action.label) actions.push(`label as "${action.label}"`);
         break;
-      case "REPLY":
+      case ActionType.REPLY:
         if (action.content) {
           const isTemplate = action.content.includes("{{");
           actions.push(
@@ -55,21 +61,26 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
           actions.push("send a reply");
         }
         break;
-      case "SEND_EMAIL":
+      case ActionType.SEND_EMAIL:
         actions.push(`send email${action.to ? ` to ${action.to}` : ""}`);
         break;
-      case "FORWARD":
+      case ActionType.FORWARD:
         if (action.to) actions.push(`forward to ${action.to}`);
         break;
-      case "DRAFT_EMAIL":
+      case ActionType.DRAFT_EMAIL:
         actions.push("create a draft");
         break;
-      case "MARK_SPAM":
+      case ActionType.MARK_SPAM:
         actions.push("mark as spam");
         break;
-      case "CALL_WEBHOOK":
+      case ActionType.CALL_WEBHOOK:
         if (action.url) actions.push(`call webhook at ${action.url}`);
         break;
+      default:
+        console.warn(`Unknown action type: ${action.type}`);
+        // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
+        const exhaustiveCheck: never = action.type;
+        return exhaustiveCheck;
     }
   });
 
@@ -83,7 +94,3 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
 
   return `${conditionText}, ${actionText}`;
 }
-
-// export function createPromptFromRules(rules: RuleWithRelations[]): string {
-//   return rules.map((rule) => `* ${generatePromptFromRule(rule)}.`).join("\n");
-// }
