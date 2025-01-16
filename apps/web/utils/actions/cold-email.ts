@@ -82,13 +82,14 @@ export const testColdEmailAction = withActionInstrumentation(
   "testColdEmail",
   async (unsafeBody: ColdEmailBlockerBody) => {
     const session = await auth();
-    if (!session?.user.email) return { error: "Not authenticated" };
+    if (!session?.user.email) return { error: "Not logged in" };
 
     const gmail = getGmailClient(session);
 
-    const body = coldEmailBlockerBody.parse(unsafeBody);
+    const { data, error } = coldEmailBlockerBody.safeParse(unsafeBody);
+    if (error) return { error: error.message };
 
-    const result = await checkColdEmail(body, gmail, session.user.email);
+    const result = await checkColdEmail(data, gmail, session.user.email);
 
     return result;
   },
