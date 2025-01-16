@@ -175,7 +175,12 @@ function Row({
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end space-x-2">
-          <ViewEmailButton threadId={row.id} messageId={row.id} />
+          {row.threadId && (
+            <ViewEmailButton
+              threadId={row.threadId}
+              messageId={row.messageId || row.threadId}
+            />
+          )}
           <Button
             variant="outline"
             onClick={async () => {
