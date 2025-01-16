@@ -88,6 +88,8 @@ export const createRuleAction = withActionInstrumentation(
 
       await updateUserPrompt(session.user.id, prompt);
 
+      revalidatePath("/automation");
+
       return { rule };
     } catch (error) {
       if (isDuplicateError(error, "name")) {
@@ -204,6 +206,7 @@ export const updateRuleAction = withActionInstrumentation(
       await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
 
       revalidatePath(`/automation/rule/${body.id}`);
+      revalidatePath("/automation");
 
       return { rule: updatedRule };
     } catch (error) {
@@ -243,6 +246,9 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
 
     // update prompt file
     await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
+
+    revalidatePath(`/automation/rule/${body.id}`);
+    revalidatePath("/automation");
   },
 );
 
@@ -289,6 +295,9 @@ export const deleteRuleAction = withActionInstrumentation(
         where: { id: session.user.id },
         data: { rulesPrompt: updatedPrompt },
       });
+
+      revalidatePath(`/automation/rule/${ruleId}`);
+      revalidatePath("/automation");
     } catch (error) {
       if (isNotFoundError(error)) return;
       throw error;
