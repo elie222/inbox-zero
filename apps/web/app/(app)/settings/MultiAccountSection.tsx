@@ -98,6 +98,7 @@ export function MultiAccountSection() {
                     emailAccountsAccess={
                       dataPremium?.premium?.emailAccountsAccess || 0
                     }
+                    pendingInvites={dataPremium?.premium?.pendingInvites || []}
                   />
                 </div>
               </div>
@@ -123,10 +124,12 @@ function MultiAccountForm({
   emailAddresses,
   isLifetime,
   emailAccountsAccess,
+  pendingInvites,
 }: {
   emailAddresses: { email: string }[];
   isLifetime: boolean;
   emailAccountsAccess: number;
+  pendingInvites: string[];
 }) {
   const {
     register,
@@ -136,7 +139,9 @@ function MultiAccountForm({
   } = useForm<SaveMultiAccountPremiumBody>({
     resolver: zodResolver(saveMultiAccountPremiumBody),
     defaultValues: {
-      emailAddresses: emailAddresses?.length ? emailAddresses : [{ email: "" }],
+      emailAddresses: emailAddresses?.length
+        ? [...emailAddresses, ...pendingInvites.map((email) => ({ email }))]
+        : [{ email: "" }],
     },
   });
 
