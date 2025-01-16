@@ -7,7 +7,7 @@ import { getGmailUrl } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 
-export function TestRulesMessage({
+export function EmailRow({
   from,
   userEmail,
   subject,

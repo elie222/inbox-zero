@@ -18,7 +18,7 @@ import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
-import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
+import { EmailRow } from "@/components/EmailRow";
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
@@ -253,10 +253,10 @@ function ProcessRulesRow({
     >
       <TableCell>
         <div className="flex items-center justify-between">
-          <TestRulesMessage
+          <EmailRow
             from={message.headers.from}
             subject={message.headers.subject}
-            snippet={message.snippet?.trim() || ""}
+            snippet={message.snippet}
             userEmail={userEmail}
             threadId={message.threadId}
             messageId={message.id}

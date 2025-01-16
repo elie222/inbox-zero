@@ -22,7 +22,7 @@ import type {
   ColdEmailBlockerBody,
   ColdEmailBlockerResponse,
 } from "@/app/api/ai/cold-email/route";
-import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
+import { EmailRow } from "@/components/EmailRow";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { SearchForm } from "@/components/SearchForm";
 
@@ -170,10 +170,10 @@ function TestRulesContentRow(props: {
   return (
     <div className="border-b border-gray-200">
       <div className="flex items-center justify-between py-2">
-        <TestRulesMessage
+        <EmailRow
           from={message.headers.from}
           subject={message.headers.subject}
-          snippet={decodeSnippet(message.snippet)}
+          snippet={message.snippet}
           userEmail={props.userEmail}
           threadId={message.threadId}
           messageId={message.id}
