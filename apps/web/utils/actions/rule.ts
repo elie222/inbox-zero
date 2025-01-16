@@ -20,7 +20,11 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
-import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
+import {
+  createPromptFromRule,
+  type RuleWithRelations,
+} from "@/utils/ai/rule/create-prompt-from-rule";
+import { generatePromptOnUpdateRule } from "@/utils/ai/rule/generate-prompt-on-update-rule";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 
 export const createRuleAction = withActionInstrumentation(
@@ -113,7 +117,7 @@ export const updateRuleAction = withActionInstrumentation(
     try {
       const currentRule = await prisma.rule.findUnique({
         where: { id: body.id, userId: session.user.id },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true, categoryFilters: true, group: true },
       });
       if (!currentRule) return { error: "Rule not found" };
 
@@ -125,7 +129,7 @@ export const updateRuleAction = withActionInstrumentation(
       const actionsToUpdate = body.actions.filter((a) => a.id);
       const actionsToCreate = body.actions.filter((a) => !a.id);
 
-      const [rule] = await prisma.$transaction([
+      const [updatedRule] = await prisma.$transaction([
         // update rule
         prisma.rule.update({
           where: { id: body.id, userId: session.user.id },
@@ -150,6 +154,7 @@ export const updateRuleAction = withActionInstrumentation(
                   }
                 : { set: [] },
           },
+          include: { actions: true, categoryFilters: true, group: true },
         }),
         // delete removed actions
         ...(actionsToDelete.length
@@ -195,9 +200,12 @@ export const updateRuleAction = withActionInstrumentation(
           : []),
       ]);
 
+      // update prompt file
+      await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
+
       revalidatePath(`/automation/rule/${body.id}`);
 
-      return { rule };
+      return { rule: updatedRule };
     } catch (error) {
       if (isDuplicateError(error, "name")) {
         return { error: "Rule name already exists" };
@@ -221,10 +229,20 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
     const { data: body, error } = updateRuleInstructionsBody.safeParse(options);
     if (error) return { error: error.message };
 
-    await prisma.rule.update({
+    const currentRule = await prisma.rule.findUnique({
+      where: { id: body.id, userId: session.user.id },
+      include: { actions: true, categoryFilters: true, group: true },
+    });
+    if (!currentRule) return { error: "Rule not found" };
+
+    const updatedRule = await prisma.rule.update({
       where: { id: body.id, userId: session.user.id },
       data: { instructions: body.instructions },
+      include: { actions: true, categoryFilters: true, group: true },
     });
+
+    // update prompt file
+    await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
   },
 );
 
@@ -313,6 +331,36 @@ export const getRuleExamplesAction = withActionInstrumentation(
     return { matches };
   },
 );
+
+async function updatePromptFileOnUpdate(
+  userId: string,
+  currentRule: RuleWithRelations,
+  updatedRule: RuleWithRelations,
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      email: true,
+      aiModel: true,
+      aiProvider: true,
+      aiApiKey: true,
+      rulesPrompt: true,
+    },
+  });
+  if (!user) return { error: "User not found" };
+
+  const updatedPrompt = await generatePromptOnUpdateRule({
+    user,
+    existingPrompt: user.rulesPrompt || "",
+    currentRule,
+    updatedRule,
+  });
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { rulesPrompt: updatedPrompt },
+  });
+}
 
 async function updateUserPrompt(userId: string, rulePrompt: string) {
   const user = await prisma.user.findUnique({
