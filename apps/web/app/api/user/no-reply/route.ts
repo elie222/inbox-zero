@@ -5,6 +5,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { type MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
 import { withError } from "@/utils/middleware";
+import { getThread } from "@/utils/gmail/thread";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 
@@ -18,12 +19,7 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
   const sentEmailsWithThreads = (
     await Promise.all(
       sentEmails.data.messages?.map(async (message) => {
-        const thread = (
-          await options.gmail.users.threads.get({
-            userId: "me",
-            id: message.threadId!,
-          })
-        ).data;
+        const thread = await getThread(message.threadId || "", options.gmail);
 
         const lastMessage = thread.messages?.[thread.messages?.length - 1];
         const lastMessageFrom = lastMessage?.payload?.headers?.find(
