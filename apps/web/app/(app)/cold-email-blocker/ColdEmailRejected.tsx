@@ -16,9 +16,12 @@ import { DateCell } from "@/app/(app)/automation/ExecutedRulesTable";
 import { TablePagination } from "@/components/TablePagination";
 import { AlertBasic } from "@/components/Alert";
 import { useSearchParams } from "next/navigation";
-import { SenderCell } from "@/app/(app)/cold-email-blocker/ColdEmailList";
 import { ColdEmailStatus } from "@prisma/client";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
+import {
+  EmailMessageCell,
+  EmailMessageCellWithData,
+} from "@/components/EmailMessageCell";
 
 export function ColdEmailRejected() {
   const searchParams = useSearchParams();
@@ -37,7 +40,7 @@ export function ColdEmailRejected() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sender</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>AI Reason</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead />
@@ -69,7 +72,12 @@ function Row({
   return (
     <TableRow key={row.id}>
       <TableCell>
-        <SenderCell from={row.fromEmail} userEmail={userEmail} />
+        <EmailMessageCellWithData
+          from={row.fromEmail}
+          userEmail={userEmail}
+          threadId={row.threadId || ""}
+          messageId={row.messageId || ""}
+        />
       </TableCell>
       <TableCell>{row.reason || "-"}</TableCell>
       <TableCell>

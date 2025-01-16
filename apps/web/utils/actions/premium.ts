@@ -1,7 +1,6 @@
 "use server";
 
 import uniq from "lodash/uniq";
-import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
@@ -80,111 +79,100 @@ export const decrementUnsubscribeCreditAction = withActionInstrumentation(
   },
 );
 
-export async function updateMultiAccountPremiumAction(
-  emails: string[],
-): Promise<
-  | undefined
-  | { error: string; warning?: string }
-  | { error?: string; warning: string }
-> {
-  return await withServerActionInstrumentation(
-    "updateMultiAccountPremium",
-    {
-      recordResponse: true,
-    },
-    async () => {
-      const session = await auth();
-      if (!session?.user.id) return { error: "Not logged in" };
+export const updateMultiAccountPremiumAction = withActionInstrumentation(
+  "updateMultiAccountPremium",
+  async (emails: string[]) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: {
-          premium: {
-            select: {
-              id: true,
-              tier: true,
-              lemonSqueezySubscriptionItemId: true,
-              emailAccountsAccess: true,
-              admins: { select: { id: true } },
-              pendingInvites: true,
-            },
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        premium: {
+          select: {
+            id: true,
+            tier: true,
+            lemonSqueezySubscriptionItemId: true,
+            emailAccountsAccess: true,
+            admins: { select: { id: true } },
+            pendingInvites: true,
           },
         },
-      });
+      },
+    });
 
-      if (!user) return { error: "User not found" };
+    if (!user) return { error: "User not found" };
 
-      if (!isAdminForPremium(user.premium?.admins || [], session.user.id))
-        return { error: "Not admin" };
+    if (!isAdminForPremium(user.premium?.admins || [], session.user.id))
+      return { error: "Not admin" };
 
-      // check all users exist
-      const uniqueEmails = uniq(emails);
-      const users = await prisma.user.findMany({
-        where: { email: { in: uniqueEmails } },
-        select: { id: true, premium: true, email: true },
-      });
+    // check all users exist
+    const uniqueEmails = uniq(emails);
+    const users = await prisma.user.findMany({
+      where: { email: { in: uniqueEmails } },
+      select: { id: true, premium: true, email: true },
+    });
 
-      const premium =
-        user.premium || (await createPremiumForUser(session.user.id));
+    const premium =
+      user.premium || (await createPremiumForUser(session.user.id));
 
-      const otherUsers = users.filter((u) => u.id !== session.user.id);
+    const otherUsers = users.filter((u) => u.id !== session.user.id);
 
-      // make sure that the users being added to this plan are not on higher tiers already
-      for (const userToAdd of otherUsers) {
-        if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
-          return {
-            error:
-              "One of the users you are adding to your plan already has premium and cannot be added.",
-          };
-        }
+    // make sure that the users being added to this plan are not on higher tiers already
+    for (const userToAdd of otherUsers) {
+      if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
+        return {
+          error:
+            "One of the users you are adding to your plan already has premium and cannot be added.",
+        };
+      }
+    }
+
+    if ((premium.emailAccountsAccess || 0) < uniqueEmails.length) {
+      // TODO lifetime users
+      if (!premium.lemonSqueezySubscriptionItemId) {
+        return {
+          error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+        };
       }
 
-      if ((premium.emailAccountsAccess || 0) < uniqueEmails.length) {
-        // TODO lifetime users
-        if (!premium.lemonSqueezySubscriptionItemId) {
-          return {
-            error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
-          };
-        }
-
-        await updateSubscriptionItemQuantity({
-          id: premium.lemonSqueezySubscriptionItemId,
-          quantity: uniqueEmails.length,
-        });
-      }
-
-      // delete premium for other users when adding them to this premium plan
-      // don't delete the premium for the current user
-      await prisma.premium.deleteMany({
-        where: {
-          id: { not: premium.id },
-          users: { some: { id: { in: otherUsers.map((u) => u.id) } } },
-        },
+      await updateSubscriptionItemQuantity({
+        id: premium.lemonSqueezySubscriptionItemId,
+        quantity: uniqueEmails.length,
       });
+    }
 
-      // add users to plan
-      await prisma.premium.update({
-        where: { id: premium.id },
-        data: {
-          users: { connect: otherUsers.map((user) => ({ id: user.id })) },
-        },
-      });
+    // delete premium for other users when adding them to this premium plan
+    // don't delete the premium for the current user
+    await prisma.premium.deleteMany({
+      where: {
+        id: { not: premium.id },
+        users: { some: { id: { in: otherUsers.map((u) => u.id) } } },
+      },
+    });
 
-      // add users to pending invites
-      const nonExistingUsers = uniqueEmails.filter(
-        (email) => !users.some((u) => u.email === email),
-      );
-      await prisma.premium.update({
-        where: { id: premium.id },
-        data: {
-          pendingInvites: {
-            set: uniq([...(premium.pendingInvites || []), ...nonExistingUsers]),
-          },
+    // add users to plan
+    await prisma.premium.update({
+      where: { id: premium.id },
+      data: {
+        users: { connect: otherUsers.map((user) => ({ id: user.id })) },
+      },
+    });
+
+    // add users to pending invites
+    const nonExistingUsers = uniqueEmails.filter(
+      (email) => !users.some((u) => u.email === email),
+    );
+    await prisma.premium.update({
+      where: { id: premium.id },
+      data: {
+        pendingInvites: {
+          set: uniq([...(premium.pendingInvites || []), ...nonExistingUsers]),
         },
-      });
-    },
-  );
-}
+      },
+    });
+  },
+);
 
 export const switchPremiumPlanAction = withActionInstrumentation(
   "switchPremiumPlan",

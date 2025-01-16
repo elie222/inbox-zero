@@ -213,3 +213,15 @@ export type CreateApiKeyBody = z.infer<typeof createApiKeyBody>;
 
 export const deactivateApiKeyBody = z.object({ id: z.string() });
 export type DeactivateApiKeyBody = z.infer<typeof deactivateApiKeyBody>;
+
+// cold email
+export const coldEmailBlockerBody = z.object({
+  from: z.string(),
+  subject: z.string(),
+  textHtml: z.string().nullable(),
+  textPlain: z.string().nullable(),
+  snippet: z.string().nullable(),
+  date: z.string().optional(),
+  threadId: z.string().nullable(),
+});
+export type ColdEmailBlockerBody = z.infer<typeof coldEmailBlockerBody>;

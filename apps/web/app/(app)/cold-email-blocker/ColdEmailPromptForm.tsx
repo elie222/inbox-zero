@@ -9,7 +9,7 @@ import {
 } from "@/app/api/user/settings/cold-email/validation";
 import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { postRequest } from "@/utils/api";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
 

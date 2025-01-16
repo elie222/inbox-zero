@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { withServerActionInstrumentation } from "@sentry/nextjs";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
@@ -11,42 +10,43 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getThreads } from "@/utils/gmail/thread";
 import { inboxZeroLabels } from "@/utils/label";
+import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { emailToContent } from "@/utils/mail";
+import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
+import { isColdEmail } from "@/utils/cold-email/is-cold-email";
+import {
+  coldEmailBlockerBody,
+  type ColdEmailBlockerBody,
+} from "@/utils/actions/validation";
 
 const markNotColdEmailBody = z.object({ sender: z.string() });
 
-export async function markNotColdEmailAction(body: { sender: string }) {
-  return await withServerActionInstrumentation(
-    "markNotColdEmail",
-    {
-      recordResponse: true,
-    },
-    async () => {
-      const session = await auth();
-      if (!session?.user.id) return { error: "Not logged in" };
+export const markNotColdEmailAction = withActionInstrumentation(
+  "markNotColdEmail",
+  async (body: { sender: string }) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
 
-      const { data, error } = markNotColdEmailBody.safeParse(body);
-      if (error) return { error: error.message };
+    const { data, error } = markNotColdEmailBody.safeParse(body);
+    if (error) return { error: error.message };
 
-      const { sender } = data;
+    const { sender } = data;
 
-      const gmail = getGmailClient(session);
+    const gmail = getGmailClient(session);
 
-      await Promise.all([
-        prisma.coldEmail.update({
-          where: {
-            userId_fromEmail: { userId: session.user.id, fromEmail: sender },
-          },
-          data: {
-            status: ColdEmailStatus.USER_REJECTED_COLD,
-          },
-        }),
-        removeColdEmailLabelFromSender(gmail, sender),
-      ]);
-
-      return { ok: true };
-    },
-  );
-}
+    await Promise.all([
+      prisma.coldEmail.update({
+        where: {
+          userId_fromEmail: { userId: session.user.id, fromEmail: sender },
+        },
+        data: {
+          status: ColdEmailStatus.USER_REJECTED_COLD,
+        },
+      }),
+      removeColdEmailLabelFromSender(gmail, sender),
+    ]);
+  },
+);
 
 async function removeColdEmailLabelFromSender(
   gmail: gmail_v1.Gmail,
@@ -73,4 +73,69 @@ async function removeColdEmailLabelFromSender(
       removeLabelIds: [label.id],
     });
   }
+}
+
+export type ColdEmailBlockerResponse = Awaited<
+  ReturnType<typeof checkColdEmail>
+>;
+export const testColdEmailAction = withActionInstrumentation(
+  "testColdEmail",
+  async (unsafeBody: ColdEmailBlockerBody) => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not logged in" };
+
+    const gmail = getGmailClient(session);
+
+    const { data, error } = coldEmailBlockerBody.safeParse(unsafeBody);
+    if (error) return { error: error.message };
+
+    const result = await checkColdEmail(data, gmail, session.user.email);
+
+    return result;
+  },
+);
+
+async function checkColdEmail(
+  body: ColdEmailBlockerBody,
+  gmail: gmail_v1.Gmail,
+  userEmail: string,
+) {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { email: userEmail },
+    select: {
+      id: true,
+      email: true,
+      coldEmailPrompt: true,
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+    },
+  });
+
+  const hasPreviousEmail =
+    body.date && body.threadId
+      ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
+          from: body.from,
+          date: body.date,
+          threadId: body.threadId,
+        })
+      : false;
+
+  const content = emailToContent({
+    textHtml: body.textHtml || null,
+    textPlain: body.textPlain || null,
+    snippet: body.snippet,
+  });
+
+  const response = await isColdEmail({
+    email: {
+      from: body.from,
+      subject: body.subject,
+      content,
+    },
+    user,
+    hasPreviousEmail,
+  });
+
+  return response;
 }
