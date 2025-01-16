@@ -11,20 +11,19 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
-import { postRequest } from "@/utils/api";
-import { isError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
-import type {
-  ColdEmailBlockerBody,
-  ColdEmailBlockerResponse,
-} from "@/app/api/ai/cold-email/route";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { SearchForm } from "@/components/SearchForm";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
+import {
+  type ColdEmailBlockerResponse,
+  testColdEmailAction,
+} from "@/utils/actions/cold-email";
 
 export function TestRulesContent() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,10 +87,7 @@ const TestRulesForm = () => {
   });
 
   const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const res = await postRequest<
-      ColdEmailBlockerResponse,
-      ColdEmailBlockerBody
-    >("/api/ai/cold-email", {
+    const res = await testColdEmailAction({
       email: {
         from: "",
         subject: "",
@@ -102,7 +98,7 @@ const TestRulesForm = () => {
       },
     });
 
-    if (isError(res)) {
+    if (isActionError(res)) {
       console.error(res);
       toastError({
         title: "Error checking if cold email.",
@@ -173,10 +169,7 @@ function TestRulesContentRow(props: {
               onClick={async () => {
                 setTesting(true);
 
-                const res = await postRequest<
-                  ColdEmailBlockerResponse,
-                  ColdEmailBlockerBody
-                >("/api/ai/cold-email", {
+                const res = await testColdEmailAction({
                   email: {
                     from: message.headers.from,
                     subject: message.headers.subject,
@@ -187,7 +180,7 @@ function TestRulesContentRow(props: {
                   },
                 });
 
-                if (isError(res)) {
+                if (isActionError(res)) {
                   console.error(res);
                   toastError({
                     title: "Error checking whether it's a cold email.",

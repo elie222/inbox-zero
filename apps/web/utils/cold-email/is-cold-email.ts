@@ -6,7 +6,7 @@ import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
 import prisma from "@/utils/prisma";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 

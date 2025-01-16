@@ -11,6 +11,13 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { getThreads } from "@/utils/gmail/thread";
 import { inboxZeroLabels } from "@/utils/label";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { emailToContent } from "@/utils/mail";
+import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
+import { isColdEmail } from "@/utils/cold-email/is-cold-email";
+import {
+  coldEmailBlockerBody,
+  type ColdEmailBlockerBody,
+} from "@/utils/actions/validation";
 
 const markNotColdEmailBody = z.object({ sender: z.string() });
 
@@ -66,4 +73,68 @@ async function removeColdEmailLabelFromSender(
       removeLabelIds: [label.id],
     });
   }
+}
+
+export type ColdEmailBlockerResponse = Awaited<
+  ReturnType<typeof checkColdEmail>
+>;
+export const testColdEmailAction = withActionInstrumentation(
+  "testColdEmail",
+  async (unsafeBody: ColdEmailBlockerBody) => {
+    const session = await auth();
+    if (!session?.user.email) return { error: "Not authenticated" };
+
+    const gmail = getGmailClient(session);
+
+    const body = coldEmailBlockerBody.parse(unsafeBody);
+
+    const result = await checkColdEmail(body, gmail, session.user.email);
+
+    return result;
+  },
+);
+
+async function checkColdEmail(
+  body: ColdEmailBlockerBody,
+  gmail: gmail_v1.Gmail,
+  userEmail: string,
+) {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { email: userEmail },
+    select: {
+      id: true,
+      email: true,
+      coldEmailPrompt: true,
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+    },
+  });
+
+  const hasPreviousEmail =
+    body.email.date && body.email.threadId
+      ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
+          from: body.email.from,
+          date: body.email.date,
+          threadId: body.email.threadId,
+        })
+      : false;
+
+  const content = emailToContent({
+    textHtml: body.email.textHtml || null,
+    textPlain: body.email.textPlain || null,
+    snippet: body.email.snippet,
+  });
+
+  const response = await isColdEmail({
+    email: {
+      from: body.email.from,
+      subject: body.email.subject,
+      content,
+    },
+    user,
+    hasPreviousEmail,
+  });
+
+  return response;
 }

@@ -14,7 +14,7 @@ import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting, type User } from "@prisma/client";
-import { runColdEmailBlocker } from "@/app/api/ai/cold-email/controller";
+import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { captureException } from "@/utils/error";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
