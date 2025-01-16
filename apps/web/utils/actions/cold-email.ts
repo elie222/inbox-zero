@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { withServerActionInstrumentation } from "@sentry/nextjs";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
@@ -11,42 +10,36 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getThreads } from "@/utils/gmail/thread";
 import { inboxZeroLabels } from "@/utils/label";
+import { withActionInstrumentation } from "@/utils/actions/middleware";
 
 const markNotColdEmailBody = z.object({ sender: z.string() });
 
-export async function markNotColdEmailAction(body: { sender: string }) {
-  return await withServerActionInstrumentation(
-    "markNotColdEmail",
-    {
-      recordResponse: true,
-    },
-    async () => {
-      const session = await auth();
-      if (!session?.user.id) return { error: "Not logged in" };
+export const markNotColdEmailAction = withActionInstrumentation(
+  "markNotColdEmail",
+  async (body: { sender: string }) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
 
-      const { data, error } = markNotColdEmailBody.safeParse(body);
-      if (error) return { error: error.message };
+    const { data, error } = markNotColdEmailBody.safeParse(body);
+    if (error) return { error: error.message };
 
-      const { sender } = data;
+    const { sender } = data;
 
-      const gmail = getGmailClient(session);
+    const gmail = getGmailClient(session);
 
-      await Promise.all([
-        prisma.coldEmail.update({
-          where: {
-            userId_fromEmail: { userId: session.user.id, fromEmail: sender },
-          },
-          data: {
-            status: ColdEmailStatus.USER_REJECTED_COLD,
-          },
-        }),
-        removeColdEmailLabelFromSender(gmail, sender),
-      ]);
-
-      return { ok: true };
-    },
-  );
-}
+    await Promise.all([
+      prisma.coldEmail.update({
+        where: {
+          userId_fromEmail: { userId: session.user.id, fromEmail: sender },
+        },
+        data: {
+          status: ColdEmailStatus.USER_REJECTED_COLD,
+        },
+      }),
+      removeColdEmailLabelFromSender(gmail, sender),
+    ]);
+  },
+);
 
 async function removeColdEmailLabelFromSender(
   gmail: gmail_v1.Gmail,
