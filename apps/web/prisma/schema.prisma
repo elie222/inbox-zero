@@ -75,7 +75,7 @@ model User {
   rulesPrompt           String?
   webhookSecret         String?
 
-  // categorization  
+  // categorization
   autoCategorizeSenders Boolean @default(false)
 
   // premium can be shared among multiple users
@@ -375,6 +375,7 @@ enum ActionType {
   DRAFT_EMAIL
   MARK_SPAM
   CALL_WEBHOOK
+  MARK_READ
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO
