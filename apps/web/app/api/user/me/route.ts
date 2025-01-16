@@ -30,6 +30,7 @@ async function getUser(userId: string) {
           tier: true,
           emailAccountsAccess: true,
           lemonLicenseKey: true,
+          pendingInvites: true,
         },
       },
     },
