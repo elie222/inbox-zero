@@ -439,28 +439,6 @@ const getUserCategoriesForNames = async (userId: string, names: string[]) => {
   return categories.map((c) => c.id);
 };
 
-export const deleteRuleAction = withActionInstrumentation(
-  "deleteRule",
-  async ({ ruleId }: { ruleId: string }) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const rule = await prisma.rule.findUnique({ where: { id: ruleId } });
-    if (!rule) return; // already deleted
-    if (rule.userId !== session.user.id)
-      return { error: "You don't have permission to delete this rule" };
-
-    try {
-      await prisma.rule.delete({
-        where: { id: ruleId, userId: session.user.id },
-      });
-    } catch (error) {
-      if (isNotFoundError(error)) return;
-      throw error;
-    }
-  },
-);
-
 export const setRuleAutomatedAction = withActionInstrumentation(
   "setRuleAutomated",
   async ({ ruleId, automate }: { ruleId: string; automate: boolean }) => {
