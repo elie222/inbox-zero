@@ -36,6 +36,7 @@ export const zodActionType = z.enum([
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
+  ActionType.MARK_READ,
 ]);
 
 const zodField = z

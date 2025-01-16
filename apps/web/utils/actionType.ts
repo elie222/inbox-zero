@@ -116,6 +116,7 @@ export const actionInputs: Record<
       },
     ],
   },
+  [ActionType.MARK_READ]: { fields: [] },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
