@@ -113,24 +113,24 @@ async function checkColdEmail(
   });
 
   const hasPreviousEmail =
-    body.email.date && body.email.threadId
+    body.date && body.threadId
       ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
-          from: body.email.from,
-          date: body.email.date,
-          threadId: body.email.threadId,
+          from: body.from,
+          date: body.date,
+          threadId: body.threadId,
         })
       : false;
 
   const content = emailToContent({
-    textHtml: body.email.textHtml || null,
-    textPlain: body.email.textPlain || null,
-    snippet: body.email.snippet,
+    textHtml: body.textHtml || null,
+    textPlain: body.textPlain || null,
+    snippet: body.snippet,
   });
 
   const response = await isColdEmail({
     email: {
-      from: body.email.from,
-      subject: body.email.subject,
+      from: body.from,
+      subject: body.subject,
       content,
     },
     user,

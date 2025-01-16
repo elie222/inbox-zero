@@ -24,6 +24,7 @@ import {
   type ColdEmailBlockerResponse,
   testColdEmailAction,
 } from "@/utils/actions/cold-email";
+import type { ColdEmailBlockerBody } from "@/utils/actions/validation";
 
 export function TestRulesContent() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,8 +73,7 @@ export function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
-  const [coldEmailResponse, setColdEmailResponse] =
-    useState<ColdEmailBlockerResponse | null>(null);
+  const { response, testEmail } = useColdEmailTest();
 
   const {
     register,
@@ -86,28 +86,19 @@ const TestRulesForm = () => {
     },
   });
 
-  const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
-    const res = await testColdEmailAction({
-      email: {
+  const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(
+    async (data) => {
+      await testEmail({
         from: "",
         subject: "",
         textHtml: null,
         textPlain: data.message,
         snippet: null,
         threadId: null,
-      },
-    });
-
-    if (isActionError(res)) {
-      console.error(res);
-      toastError({
-        title: "Error checking if cold email.",
-        description: res.error,
       });
-    } else {
-      setColdEmailResponse(res);
-    }
-  }, []);
+    },
+    [testEmail],
+  );
 
   return (
     <div>
@@ -127,9 +118,9 @@ const TestRulesForm = () => {
           Test
         </Button>
       </form>
-      {coldEmailResponse && (
+      {response && (
         <div className="mt-4">
-          <Result coldEmailResponse={coldEmailResponse} />
+          <Result coldEmailResponse={response} />
         </div>
       )}
     </div>
@@ -142,9 +133,7 @@ function TestRulesContentRow(props: {
 }) {
   const { message } = props;
 
-  const [testing, setTesting] = useState(false);
-  const [coldEmailResponse, setColdEmailResponse] =
-    useState<ColdEmailBlockerResponse | null>(null);
+  const { testing, response, testEmail } = useColdEmailTest();
 
   return (
     <TableRow
@@ -167,29 +156,14 @@ function TestRulesContentRow(props: {
               color="white"
               loading={testing}
               onClick={async () => {
-                setTesting(true);
-
-                const res = await testColdEmailAction({
-                  email: {
-                    from: message.headers.from,
-                    subject: message.headers.subject,
-                    textHtml: message.textHtml || null,
-                    textPlain: message.textPlain || null,
-                    snippet: message.snippet || null,
-                    threadId: message.threadId,
-                  },
+                await testEmail({
+                  from: message.headers.from,
+                  subject: message.headers.subject,
+                  textHtml: message.textHtml || null,
+                  textPlain: message.textPlain || null,
+                  snippet: message.snippet || null,
+                  threadId: message.threadId,
                 });
-
-                if (isActionError(res)) {
-                  console.error(res);
-                  toastError({
-                    title: "Error checking whether it's a cold email.",
-                    description: res.error,
-                  });
-                } else {
-                  setColdEmailResponse(res);
-                }
-                setTesting(false);
               }}
             >
               <SparklesIcon className="mr-2 h-4 w-4" />
@@ -199,7 +173,7 @@ function TestRulesContentRow(props: {
         </div>
       </TableCell>
       <TableCell>
-        <Result coldEmailResponse={coldEmailResponse} />
+        <Result coldEmailResponse={response} />
       </TableCell>
     </TableRow>
   );
@@ -230,4 +204,30 @@ function Result(props: { coldEmailResponse: ColdEmailBlockerResponse | null }) {
       description={coldEmailResponse.aiReason}
     />
   );
+}
+
+function useColdEmailTest() {
+  const [testing, setTesting] = useState(false);
+  const [response, setResponse] = useState<ColdEmailBlockerResponse | null>(
+    null,
+  );
+
+  const testEmail = async (data: ColdEmailBlockerBody) => {
+    setTesting(true);
+    try {
+      const res = await testColdEmailAction(data);
+      if (isActionError(res)) {
+        toastError({
+          title: "Error checking whether it's a cold email.",
+          description: res.error,
+        });
+      } else {
+        setResponse(res);
+      }
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return { testing, response, testEmail };
 }
