@@ -28,7 +28,10 @@ export const GET = withError(async () => {
   if (!user || !user.aiApiKey || user.aiProvider !== Provider.OPEN_AI)
     return NextResponse.json([]);
 
-  const result = await getOpenAiModels({ apiKey: user.aiApiKey });
-
-  return NextResponse.json(result);
+  try {
+    const result = await getOpenAiModels({ apiKey: user.aiApiKey });
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to get OpenAI models" });
+  }
 });
