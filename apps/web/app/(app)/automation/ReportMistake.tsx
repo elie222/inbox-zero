@@ -8,6 +8,7 @@ import {
   ExternalLinkIcon,
   HammerIcon,
   SparklesIcon,
+  TrashIcon,
   XIcon,
 } from "lucide-react";
 import { type SubmitHandler, useForm } from "react-hook-form";
@@ -36,7 +37,7 @@ import {
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Input } from "@/components/Input";
-import { GroupItemType, type Rule } from "@prisma/client";
+import { GroupItemType, RuleType, type Rule } from "@prisma/client";
 import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
@@ -46,8 +47,14 @@ import { isReplyInThread } from "@/utils/thread";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { Loading } from "@/components/Loading";
 import type { ParsedMessage } from "@/utils/types";
-import { addGroupItemAction } from "@/utils/actions/group";
+import {
+  addGroupItemAction,
+  deleteGroupItemAction,
+} from "@/utils/actions/group";
 import { useRules } from "@/hooks/useRules";
+import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import { GroupItemDisplay } from "@/app/(app)/automation/group/ViewGroup";
+import { Card, CardContent } from "@/components/ui/card";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -213,6 +220,7 @@ function Content({
       <GroupMismatch
         ruleId={expectedRule?.id || actualRule?.id!}
         groupId={expectedRule?.groupId || actualRule?.groupId!}
+        matchReasons={result?.matchReasons}
         message={message}
         isExpectedGroupRule={isExpectedGroupRule}
         onBack={onBack}
@@ -345,6 +353,7 @@ function RuleMismatch({
   rules: RulesResponse;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
+  console.log("🚀 ~ result:", result);
   return (
     <div>
       <Label name="matchedRule" label="Matched:" />
@@ -394,60 +403,129 @@ function GroupMismatch({
   ruleId,
   groupId,
   message,
+  matchReasons,
   isExpectedGroupRule,
   onBack,
 }: {
   ruleId: string;
   groupId: string;
   message: ParsedMessage;
+  matchReasons?: MatchReason[];
   isExpectedGroupRule: boolean;
   onBack: () => void;
 }) {
   return (
     <div>
-      <SectionDescription>
-        {isExpectedGroupRule
-          ? // Case 1: User expected this group rule to match, but it didn't
-            "The rule you expected it to match is a group rule, but this message didn't match any of the group items. You can edit the group to include this email."
-          : // Case 2: User didn't expect this group rule to match, but it did
-            "This email matched because it's part of a group rule. To prevent it from matching, you'll need to remove it from the group or adjust the group settings."}
-      </SectionDescription>
-
-      {isExpectedGroupRule && (
-        <div className="mt-2 flex gap-2">
-          <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm">
-            From: {message.headers.from}
-          </div>
-          <Button
-            className="mt-2"
-            onClick={() => {
-              toast.promise(
-                async () => {
-                  const result = await addGroupItemAction({
-                    groupId,
-                    type: GroupItemType.FROM,
-                    value: message.headers.from,
-                  });
-
-                  if (isActionError(result)) throw new Error(result.error);
-                },
-                {
-                  loading: "Adding to group...",
-                  success: "Added to group",
-                  error: (error) => `Failed to add to group: ${error.message}`,
-                },
-              );
-            }}
-          >
-            Add to group
-          </Button>
-        </div>
+      {isExpectedGroupRule ? (
+        <GroupMismatchAdd groupId={groupId} message={message} />
+      ) : (
+        <GroupMismatchRemove matchReasons={matchReasons} />
       )}
 
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
         <EditRuleButton ruleId={ruleId} />
       </div>
+    </div>
+  );
+}
+
+function GroupMismatchAdd({
+  groupId,
+  message,
+}: {
+  groupId: string;
+  message: ParsedMessage;
+}) {
+  return (
+    <div>
+      <SectionDescription>
+        The rule you expected it to match is a group rule, but this message
+        didn't match any of the group items. You can edit the group to include
+        this email.
+      </SectionDescription>
+
+      <div className="mt-2 flex gap-2">
+        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm">
+          From: {message.headers.from}
+        </div>
+        <Button
+          className="mt-2"
+          onClick={() => {
+            toast.promise(
+              async () => {
+                const result = await addGroupItemAction({
+                  groupId,
+                  type: GroupItemType.FROM,
+                  value: message.headers.from,
+                });
+
+                if (isActionError(result)) throw new Error(result.error);
+              },
+              {
+                loading: "Adding to group...",
+                success: "Added to group",
+                error: (error) => `Failed to add to group: ${error.message}`,
+              },
+            );
+          }}
+        >
+          Add to group
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function GroupMismatchRemove({
+  matchReasons,
+}: {
+  matchReasons?: MatchReason[];
+}) {
+  const groupMatch = matchReasons?.find(
+    (reason) => reason.type === RuleType.GROUP,
+  );
+
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  return (
+    <div>
+      <SectionDescription>
+        This email matched because it was part of a group rule.
+      </SectionDescription>
+
+      <div className="mt-2 rounded-md border border-green-200 bg-green-50 p-2 text-sm">
+        {groupMatch?.groupItem ? (
+          <GroupItemDisplay item={groupMatch?.groupItem} />
+        ) : (
+          <div>No group item found</div>
+        )}
+      </div>
+
+      <Button
+        className="mt-2"
+        loading={isRemoving}
+        onClick={async () => {
+          setIsRemoving(true);
+          toast.promise(
+            async () => {
+              const groupItemId = groupMatch?.groupItem.id;
+              if (!groupItemId) throw new Error("No group item ID found");
+              const result = await deleteGroupItemAction(groupItemId);
+              setIsRemoving(false);
+              if (isActionError(result)) throw new Error(result.error);
+            },
+            {
+              loading: "Removing from group...",
+              success: "Removed from group",
+              error: (error) => `Failed to remove from group: ${error.message}`,
+            },
+          );
+        }}
+        Icon={TrashIcon}
+      >
+        Remove from group
+      </Button>
     </div>
   );
 }
@@ -781,6 +859,7 @@ function RerunButton({
 }) {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<RunRulesResult>();
+  console.log("🚀 ~ result:", result);
 
   return (
     <>
