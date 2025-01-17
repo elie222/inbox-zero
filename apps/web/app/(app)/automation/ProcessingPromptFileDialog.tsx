@@ -28,6 +28,8 @@ type ResultProps = {
   removedRules: number;
 };
 
+const STEPS = 5;
+
 export function ProcessingPromptFileDialog({
   open,
   onOpenChange,
@@ -46,11 +48,11 @@ export function ProcessingPromptFileDialog({
   }, []);
 
   const next = useCallback(() => {
-    setCurrentStep((currentStep) => Math.min(4, currentStep + 1));
+    setCurrentStep((currentStep) => Math.min(STEPS, currentStep + 1));
   }, []);
 
   useEffect(() => {
-    if (currentStep > 3) {
+    if (currentStep >= STEPS) {
       setViewedProcessingPromptFileDialog(true);
     }
   }, [currentStep, setViewedProcessingPromptFileDialog]);
@@ -62,7 +64,8 @@ export function ProcessingPromptFileDialog({
         {currentStep === 1 && <Step1 back={back} next={next} />}
         {currentStep === 2 && <Step2 back={back} next={next} />}
         {currentStep === 3 && <Step3 back={back} next={next} />}
-        {currentStep > 3 &&
+        {currentStep === 4 && <Step4 back={back} next={next} />}
+        {currentStep >= STEPS &&
           (result ? (
             <FinalStepReady
               back={back}
@@ -174,6 +177,25 @@ function Step3({ back, next }: StepProps) {
       <Image
         src="/images/automation/process.png"
         alt="Test Rules"
+        width={500}
+        height={300}
+        className="rounded-lg shadow"
+      />
+    </Step>
+  );
+}
+
+function Step4({ back, next }: StepProps) {
+  return (
+    <Step back={back} next={next} title="Improve Your Rules">
+      <p>
+        Use the "Fix" buttons to correct any mistakes. Each fix helps train the
+        AI to better match your needs.
+      </p>
+
+      <Image
+        src="/images/automation/fix.png"
+        alt="Fix rule"
         width={500}
         height={300}
         className="rounded-lg shadow"
