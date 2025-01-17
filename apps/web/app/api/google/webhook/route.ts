@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("google-webhook");
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -14,7 +17,7 @@ export const POST = withError(async (request: Request) => {
     env.GOOGLE_PUBSUB_VERIFICATION_TOKEN &&
     token !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN
   ) {
-    console.error("Invalid verification token");
+    logger.error("Invalid verification token");
     return NextResponse.json(
       {
         message: "Invalid verification token",
@@ -26,9 +29,10 @@ export const POST = withError(async (request: Request) => {
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
 
-  console.log(
-    `Webhook. Processing: ${decodedData.emailAddress} ${decodedData.historyId}`,
-  );
+  logger.info("Processing webhook", {
+    emailAddress: decodedData.emailAddress,
+    historyId: decodedData.historyId,
+  });
 
   return await processHistoryForUser(decodedData);
 });
