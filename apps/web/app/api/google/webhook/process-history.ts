@@ -365,7 +365,7 @@ async function processHistoryItem(
         messageId,
         threadId,
       });
-      return processAssistantEmail({ message, userEmail });
+      return processAssistantEmail({ message, userEmail, gmail });
     }
 
     const blocked = await blockUnsubscribedEmails({

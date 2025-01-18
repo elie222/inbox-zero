@@ -8,24 +8,21 @@ import {
   createPromptFromRule,
   type RuleWithRelations,
 } from "@/utils/ai/rule/create-prompt-from-rule";
+import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 
 const logger = createScopedLogger("AssistantCommand");
 
-const addRuleSchema = z.object({
-  name: z.string(),
-  instructions: z.string(),
-});
-
-const editRuleSchema = z.object({
-  ruleId: z.string(),
-  updates: z.object({
-    name: z.string().optional(),
-    instructions: z.string().optional(),
-  }),
+const fixRuleSchema = z.object({
+  explanation: z
+    .string()
+    .optional()
+    .describe(
+      "The explanation for why the rule is incorrect. Leave blank if you don't know why.",
+    ),
 });
 
 const replySchema = z.object({
-  content: z.string(),
+  content: z.string().describe("The content of the reply to the user"),
 });
 
 export async function processUserRequest({
@@ -33,19 +30,28 @@ export async function processUserRequest({
   messageContent,
   rules,
 }: {
-  user: Pick<User, "email"> & UserAIFields;
+  user: Pick<User, "email" | "about"> & UserAIFields;
   messageContent: string;
   rules: RuleWithRelations[];
 }) {
   const system = `You are an email management assistant that helps users manage their email rules.
-You can add rules, edit rules, or remove rules based on the user's request.
+You can fix rules based on the user's request.
 Always confirm your actions with clear, concise responses.
 
 You can also reply to the user with information or questions.
-When you've completed your actions, you should reply to the user with a confirmation message.`;
+When you've completed your actions, you should reply to the user with a confirmation message.
+
+If the user asks you to do an action which you can't do, you should reply to the user with a message saying you can't do that.`;
 
   const prompt = `<current_user_rules>
-${rules.map((rule) => `<rule>${createPromptFromRule(rule)}</rule>`).join("\n")}
+${rules
+  .map(
+    (rule) => `<rule>
+  <rule_id>${rule.id}</rule_id>
+  <rule_instructions>${createPromptFromRule(rule)}</rule_instructions>
+</rule>`,
+  )
+  .join("\n")}
 </current_user_rules>
 
 <user_request>
@@ -59,22 +65,25 @@ ${messageContent}
         prompt,
         system,
         tools: {
-          add_rule: tool({
-            description: "Add a new rule",
-            parameters: addRuleSchema,
-            execute: async ({ name, instructions }) => ({ name, instructions }),
-          }),
-          edit_rule: tool({
-            description: "Edit an existing rule",
-            parameters: editRuleSchema,
-            execute: async ({ ruleId, updates }) => ({ ruleId, updates }),
-          }),
-          remove_rule: tool({
-            description: "Remove an existing rule",
-            parameters: z.object({
-              ruleId: z.string(),
-            }),
-            execute: async ({ ruleId }) => ({ ruleId }),
+          fix_rule: tool({
+            description: "Fix a rule",
+            parameters: fixRuleSchema,
+            execute: async ({ explanation }) => {
+              const { rule, fixedInstructions } = await aiRuleFix({
+                user,
+                actualRule: null, // TODO: get actual rule
+                expectedRule: null, // TODO: get expected rule
+                email: {
+                  // TODO: email
+                  from: "",
+                  subject: "",
+                  content: "",
+                },
+                explanation,
+              });
+
+              return { rule, fixedInstructions };
+            },
           }),
           reply: tool({
             description: "Reply to the user with information or questions",
