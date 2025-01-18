@@ -45,16 +45,18 @@ import { Badge } from "@/components/Badge";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
 import { isReplyInThread } from "@/utils/thread";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
-import { Loading } from "@/components/Loading";
+import { Loading, LoadingMiniSpinner } from "@/components/Loading";
 import type { ParsedMessage } from "@/utils/types";
 import {
   addGroupItemAction,
   deleteGroupItemAction,
 } from "@/utils/actions/group";
 import { useRules } from "@/hooks/useRules";
-import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import type { CategoryMatch, GroupMatch } from "@/utils/ai/choose-rule/types";
 import { GroupItemDisplay } from "@/app/(app)/automation/group/ViewGroup";
-import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/utils";
+import { useCategories } from "@/hooks/useCategories";
+import { CategorySelect } from "@/components/CategorySelect";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -212,17 +214,39 @@ function Content({
     );
   }
 
-  const isExpectedGroupRule = !!(expectedRule && isGroupRule(expectedRule));
-  const isActualGroupRule = !!(actualRule && isGroupRule(actualRule));
-
-  if (isExpectedGroupRule || isActualGroupRule) {
+  if (
+    expectedRule &&
+    !expectedRule.runOnThreads &&
+    isReplyInThread(message.id, message.threadId)
+  ) {
     return (
-      <GroupMismatch
+      <ThreadSettingsMismatchMessage
+        expectedRuleId={expectedRule.id}
+        onBack={onBack}
+      />
+    );
+  }
+
+  const groupMatch = result?.matchReasons?.find(
+    (reason) => reason.type === RuleType.GROUP,
+  );
+  if (groupMatch) {
+    return (
+      <GroupMismatchRemove
+        groupMatch={groupMatch}
         ruleId={expectedRule?.id || actualRule?.id!}
-        groupId={expectedRule?.groupId || actualRule?.groupId!}
-        matchReasons={result?.matchReasons}
+        onBack={onBack}
+      />
+    );
+  }
+
+  const isExpectedGroupRule = !!(expectedRule && isGroupRule(expectedRule));
+  if (isExpectedGroupRule) {
+    return (
+      <GroupMismatchAdd
+        ruleId={expectedRule?.id}
+        groupId={expectedRule?.groupId}
         message={message}
-        isExpectedGroupRule={isExpectedGroupRule}
         onBack={onBack}
       />
     );
@@ -241,14 +265,15 @@ function Content({
     );
   }
 
-  if (
-    expectedRule &&
-    !expectedRule.runOnThreads &&
-    isReplyInThread(message.id, message.threadId)
-  ) {
+  const categoryMatch = result?.matchReasons?.find(
+    (reason) => reason.type === RuleType.CATEGORY,
+  );
+  if (categoryMatch) {
     return (
-      <ThreadSettingsMismatchMessage
-        expectedRuleId={expectedRule.id}
+      <CategoryMismatch
+        categoryMatch={categoryMatch}
+        ruleId={expectedRule?.id || actualRule?.id!}
+        message={message}
         onBack={onBack}
       />
     );
@@ -399,43 +424,16 @@ function ThreadSettingsMismatchMessage({
   );
 }
 
-function GroupMismatch({
-  ruleId,
-  groupId,
-  message,
-  matchReasons,
-  isExpectedGroupRule,
-  onBack,
-}: {
-  ruleId: string;
-  groupId: string;
-  message: ParsedMessage;
-  matchReasons?: MatchReason[];
-  isExpectedGroupRule: boolean;
-  onBack: () => void;
-}) {
-  return (
-    <div>
-      {isExpectedGroupRule ? (
-        <GroupMismatchAdd groupId={groupId} message={message} />
-      ) : (
-        <GroupMismatchRemove matchReasons={matchReasons} />
-      )}
-
-      <div className="mt-2 flex gap-2">
-        <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={ruleId} />
-      </div>
-    </div>
-  );
-}
-
 function GroupMismatchAdd({
   groupId,
   message,
+  ruleId,
+  onBack,
 }: {
   groupId: string;
   message: ParsedMessage;
+  ruleId: string;
+  onBack: () => void;
 }) {
   return (
     <div>
@@ -473,19 +471,24 @@ function GroupMismatchAdd({
           Add to group
         </Button>
       </div>
+
+      <div className="mt-2 flex gap-2">
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={ruleId} />
+      </div>
     </div>
   );
 }
 
 function GroupMismatchRemove({
-  matchReasons,
+  groupMatch,
+  ruleId,
+  onBack,
 }: {
-  matchReasons?: MatchReason[];
+  groupMatch: GroupMatch;
+  ruleId: string;
+  onBack: () => void;
 }) {
-  const groupMatch = matchReasons?.find(
-    (reason) => reason.type === RuleType.GROUP,
-  );
-
   const [isRemoving, setIsRemoving] = useState(false);
 
   return (
@@ -494,23 +497,30 @@ function GroupMismatchRemove({
         This email matched because it was part of a group rule.
       </SectionDescription>
 
-      <div className="mt-2 rounded-md border border-green-200 bg-green-50 p-2 text-sm">
-        {groupMatch?.groupItem ? (
-          <GroupItemDisplay item={groupMatch?.groupItem} />
-        ) : (
-          <div>No group item found</div>
+      <div
+        className={cn(
+          "mt-2 rounded-md border p-2 text-sm",
+          groupMatch.groupItem
+            ? "border-green-200 bg-green-50"
+            : "border-red-200 bg-red-50",
         )}
+      >
+        <GroupItemDisplay item={groupMatch.groupItem} />
       </div>
 
       <Button
         className="mt-2"
         loading={isRemoving}
+        Icon={TrashIcon}
         onClick={async () => {
-          setIsRemoving(true);
           toast.promise(
             async () => {
-              const groupItemId = groupMatch?.groupItem.id;
-              if (!groupItemId) throw new Error("No group item ID found");
+              setIsRemoving(true);
+              const groupItemId = groupMatch.groupItem.id;
+              if (!groupItemId) {
+                setIsRemoving(false);
+                throw new Error("No group item ID found");
+              }
               const result = await deleteGroupItemAction(groupItemId);
               setIsRemoving(false);
               if (isActionError(result)) throw new Error(result.error);
@@ -522,10 +532,63 @@ function GroupMismatchRemove({
             },
           );
         }}
-        Icon={TrashIcon}
       >
         Remove from group
       </Button>
+
+      <div className="mt-2 flex gap-2">
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={ruleId} />
+      </div>
+    </div>
+  );
+}
+
+function CategoryMismatch({
+  categoryMatch,
+  message,
+  ruleId,
+  onBack,
+}: {
+  categoryMatch: CategoryMatch;
+  message: ParsedMessage;
+  ruleId: string;
+  onBack: () => void;
+}) {
+  const { categories, isLoading } = useCategories();
+
+  return (
+    <div>
+      <SectionDescription>
+        This email matched because{" "}
+        <strong className="font-semibold text-blue-700">
+          {message.headers.from}
+        </strong>{" "}
+        was part of the{" "}
+        <strong className="font-semibold text-blue-700">
+          {categoryMatch.category.name}
+        </strong>{" "}
+        smart category.
+      </SectionDescription>
+
+      <div className="mb-1 mt-4">
+        <Label name="category" label="Change category" />
+      </div>
+
+      {isLoading ? (
+        <LoadingMiniSpinner />
+      ) : (
+        <CategorySelect
+          sender={message.headers.from}
+          senderCategory={categoryMatch.category}
+          categories={categories || []}
+        />
+      )}
+
+      <div className="mt-2 flex gap-2">
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={ruleId} />
+      </div>
     </div>
   );
 }

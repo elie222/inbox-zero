@@ -126,8 +126,7 @@ async function findPotentialMatchingRules({
         if (typeof matchedCategory !== "boolean") {
           matchReasons.push({
             type: RuleType.CATEGORY,
-            categoryId: matchedCategory.id,
-            categoryName: matchedCategory.name,
+            category: matchedCategory,
           });
         }
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
@@ -159,7 +158,7 @@ function getMatchReason(matchReasons?: MatchReason[]): string {
         case RuleType.GROUP:
           return `Matched group item: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
         case RuleType.CATEGORY:
-          return `Matched category: "${reason.categoryName}"`;
+          return `Matched category: "${reason.category.name}"`;
       }
     })
     .join(", ");
