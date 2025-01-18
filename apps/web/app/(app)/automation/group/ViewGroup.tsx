@@ -44,7 +44,7 @@ import {
   updateGroupPromptAction,
 } from "@/utils/actions/group";
 import { GroupName } from "@/utils/config";
-import { GroupItemType, RuleType } from "@prisma/client";
+import { type GroupItem, GroupItemType, RuleType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -259,10 +259,7 @@ export function ViewGroup({
                               </Badge>
                             )}
 
-                            <Badge variant="secondary" className="mr-2">
-                              {capitalCase(item.type)}
-                            </Badge>
-                            {item.value}
+                            <GroupItemDisplay item={item} />
                           </TableCell>
                           <TableCell className="py-2 text-right">
                             <Button
@@ -468,5 +465,20 @@ function UpdatePromptForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+export function GroupItemDisplay({
+  item,
+}: {
+  item: Pick<GroupItem, "type" | "value">;
+}) {
+  return (
+    <>
+      <Badge variant="secondary" className="mr-2">
+        {capitalCase(item.type)}
+      </Badge>
+      {item.value}
+    </>
   );
 }

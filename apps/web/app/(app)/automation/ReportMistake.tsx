@@ -8,6 +8,7 @@ import {
   ExternalLinkIcon,
   HammerIcon,
   SparklesIcon,
+  TrashIcon,
   XIcon,
 } from "lucide-react";
 import { type SubmitHandler, useForm } from "react-hook-form";
@@ -36,7 +37,7 @@ import {
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Input } from "@/components/Input";
-import { GroupItemType, type Rule } from "@prisma/client";
+import { GroupItemType, RuleType, type Rule } from "@prisma/client";
 import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
@@ -44,10 +45,19 @@ import { Badge } from "@/components/Badge";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
 import { isReplyInThread } from "@/utils/thread";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
-import { Loading } from "@/components/Loading";
+import { Loading, LoadingMiniSpinner } from "@/components/Loading";
 import type { ParsedMessage } from "@/utils/types";
-import { addGroupItemAction } from "@/utils/actions/group";
+import {
+  addGroupItemAction,
+  deleteGroupItemAction,
+} from "@/utils/actions/group";
 import { useRules } from "@/hooks/useRules";
+import type { CategoryMatch, GroupMatch } from "@/utils/ai/choose-rule/types";
+import { GroupItemDisplay } from "@/app/(app)/automation/group/ViewGroup";
+import { cn } from "@/utils";
+import { useCategories } from "@/hooks/useCategories";
+import { CategorySelect } from "@/components/CategorySelect";
+import { useModal } from "@/components/Modal";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -65,8 +75,10 @@ export function ReportMistake({
   const { data, isLoading, error } = useRules();
   const actualRule = result?.rule;
 
+  const { isModalOpen, closeModal, setIsModalOpen } = useModal();
+
   return (
-    <Dialog>
+    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <HammerIcon className="mr-2 size-4" />
@@ -87,6 +99,7 @@ export function ReportMistake({
               result={result}
               actualRule={actualRule ?? null}
               isTest={isTest}
+              onClose={closeModal}
             />
           )}
         </LoadingContent>
@@ -101,12 +114,14 @@ function Content({
   result,
   actualRule,
   isTest,
+  onClose,
 }: {
   rules: RulesResponse;
   message: ParsedMessage;
   result: RunRulesResult | null;
   actualRule: Rule | null;
   isTest: boolean;
+  onClose: () => void;
 }) {
   const [loadingAiFix, setLoadingAiFix] = useState(false);
   const [fixedInstructions, setFixedInstructions] = useState<{
@@ -205,17 +220,42 @@ function Content({
     );
   }
 
-  const isExpectedGroupRule = !!(expectedRule && isGroupRule(expectedRule));
-  const isActualGroupRule = !!(actualRule && isGroupRule(actualRule));
-
-  if (isExpectedGroupRule || isActualGroupRule) {
+  if (
+    expectedRule &&
+    !expectedRule.runOnThreads &&
+    isReplyInThread(message.id, message.threadId)
+  ) {
     return (
-      <GroupMismatch
-        ruleId={expectedRule?.id || actualRule?.id!}
-        groupId={expectedRule?.groupId || actualRule?.groupId!}
-        message={message}
-        isExpectedGroupRule={isExpectedGroupRule}
+      <ThreadSettingsMismatchMessage
+        expectedRuleId={expectedRule.id}
         onBack={onBack}
+      />
+    );
+  }
+
+  const groupMatch = result?.matchReasons?.find(
+    (reason) => reason.type === RuleType.GROUP,
+  );
+  if (groupMatch) {
+    return (
+      <GroupMismatchRemove
+        groupMatch={groupMatch}
+        ruleId={expectedRule?.id || actualRule?.id!}
+        onBack={onBack}
+        onClose={onClose}
+      />
+    );
+  }
+
+  const isExpectedGroupRule = !!(expectedRule && isGroupRule(expectedRule));
+  if (isExpectedGroupRule) {
+    return (
+      <GroupMismatchAdd
+        ruleId={expectedRule?.id}
+        groupId={expectedRule?.groupId}
+        message={message}
+        onBack={onBack}
+        onClose={onClose}
       />
     );
   }
@@ -233,15 +273,17 @@ function Content({
     );
   }
 
-  if (
-    expectedRule &&
-    !expectedRule.runOnThreads &&
-    isReplyInThread(message.id, message.threadId)
-  ) {
+  const categoryMatch = result?.matchReasons?.find(
+    (reason) => reason.type === RuleType.CATEGORY,
+  );
+  if (categoryMatch) {
     return (
-      <ThreadSettingsMismatchMessage
-        expectedRuleId={expectedRule.id}
+      <CategoryMismatch
+        categoryMatch={categoryMatch}
+        ruleId={expectedRule?.id || actualRule?.id!}
+        message={message}
         onBack={onBack}
+        onClose={onClose}
       />
     );
   }
@@ -345,6 +387,7 @@ function RuleMismatch({
   rules: RulesResponse;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
+  console.log("🚀 ~ result:", result);
   return (
     <div>
       <Label name="matchedRule" label="Matched:" />
@@ -390,58 +433,174 @@ function ThreadSettingsMismatchMessage({
   );
 }
 
-function GroupMismatch({
-  ruleId,
+function GroupMismatchAdd({
   groupId,
   message,
-  isExpectedGroupRule,
+  ruleId,
   onBack,
+  onClose,
 }: {
-  ruleId: string;
   groupId: string;
   message: ParsedMessage;
-  isExpectedGroupRule: boolean;
+  ruleId: string;
   onBack: () => void;
+  onClose: () => void;
 }) {
   return (
     <div>
       <SectionDescription>
-        {isExpectedGroupRule
-          ? // Case 1: User expected this group rule to match, but it didn't
-            "The rule you expected it to match is a group rule, but this message didn't match any of the group items. You can edit the group to include this email."
-          : // Case 2: User didn't expect this group rule to match, but it did
-            "This email matched because it's part of a group rule. To prevent it from matching, you'll need to remove it from the group or adjust the group settings."}
+        The rule you expected it to match is a group rule, but this message
+        didn't match any of the group items. You can edit the group to include
+        this email.
       </SectionDescription>
 
-      {isExpectedGroupRule && (
-        <div className="mt-2 flex gap-2">
-          <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm">
-            From: {message.headers.from}
-          </div>
-          <Button
-            className="mt-2"
-            onClick={() => {
-              toast.promise(
-                async () => {
-                  const result = await addGroupItemAction({
-                    groupId,
-                    type: GroupItemType.FROM,
-                    value: message.headers.from,
-                  });
-
-                  if (isActionError(result)) throw new Error(result.error);
-                },
-                {
-                  loading: "Adding to group...",
-                  success: "Added to group",
-                  error: (error) => `Failed to add to group: ${error.message}`,
-                },
-              );
-            }}
-          >
-            Add to group
-          </Button>
+      <div className="mt-2 flex gap-2">
+        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm">
+          From: {message.headers.from}
         </div>
+        <Button
+          className="mt-2"
+          onClick={() => {
+            toast.promise(
+              async () => {
+                const result = await addGroupItemAction({
+                  groupId,
+                  type: GroupItemType.FROM,
+                  value: message.headers.from,
+                });
+
+                if (isActionError(result)) throw new Error(result.error);
+                onClose();
+              },
+              {
+                loading: "Adding to group...",
+                success: "Added to group",
+                error: (error) => `Failed to add to group: ${error.message}`,
+              },
+            );
+          }}
+        >
+          Add to group
+        </Button>
+      </div>
+
+      <div className="mt-2 flex gap-2">
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={ruleId} />
+      </div>
+    </div>
+  );
+}
+
+function GroupMismatchRemove({
+  groupMatch,
+  ruleId,
+  onBack,
+  onClose,
+}: {
+  groupMatch: GroupMatch;
+  ruleId: string;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  return (
+    <div>
+      <SectionDescription>
+        This email matched because it was part of a group rule.
+      </SectionDescription>
+
+      <div
+        className={cn(
+          "mt-2 rounded-md border p-2 text-sm",
+          groupMatch.groupItem
+            ? "border-green-200 bg-green-50"
+            : "border-red-200 bg-red-50",
+        )}
+      >
+        <GroupItemDisplay item={groupMatch.groupItem} />
+      </div>
+
+      <Button
+        className="mt-2"
+        loading={isRemoving}
+        Icon={TrashIcon}
+        onClick={async () => {
+          toast.promise(
+            async () => {
+              setIsRemoving(true);
+              const groupItemId = groupMatch.groupItem.id;
+              if (!groupItemId) {
+                setIsRemoving(false);
+                throw new Error("No group item ID found");
+              }
+              const result = await deleteGroupItemAction(groupItemId);
+              setIsRemoving(false);
+              if (isActionError(result)) throw new Error(result.error);
+              onClose();
+            },
+            {
+              loading: "Removing from group...",
+              success: "Removed from group",
+              error: (error) => `Failed to remove from group: ${error.message}`,
+            },
+          );
+        }}
+      >
+        Remove from "{groupMatch.group.name}" group
+      </Button>
+
+      <div className="mt-2 flex gap-2">
+        <BackButton onBack={onBack} />
+        <EditRuleButton ruleId={ruleId} />
+      </div>
+    </div>
+  );
+}
+
+function CategoryMismatch({
+  categoryMatch,
+  message,
+  ruleId,
+  onBack,
+  onClose,
+}: {
+  categoryMatch: CategoryMatch;
+  message: ParsedMessage;
+  ruleId: string;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const { categories, isLoading } = useCategories();
+
+  return (
+    <div>
+      <SectionDescription>
+        This email matched because{" "}
+        <strong className="font-semibold text-blue-700">
+          {message.headers.from}
+        </strong>{" "}
+        was part of the{" "}
+        <strong className="font-semibold text-blue-700">
+          {categoryMatch.category.name}
+        </strong>{" "}
+        smart category.
+      </SectionDescription>
+
+      <div className="mb-1 mt-4">
+        <Label name="category" label="Change category" />
+      </div>
+
+      {isLoading ? (
+        <LoadingMiniSpinner />
+      ) : (
+        <CategorySelect
+          sender={message.headers.from}
+          senderCategory={categoryMatch.category}
+          categories={categories || []}
+          onSuccess={onClose}
+        />
       )}
 
       <div className="mt-2 flex gap-2">
@@ -781,6 +940,7 @@ function RerunButton({
 }) {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<RunRulesResult>();
+  console.log("🚀 ~ result:", result);
 
   return (
     <>

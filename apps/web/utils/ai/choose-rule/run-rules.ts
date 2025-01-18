@@ -17,6 +17,7 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import type { MatchReason } from "@/utils/ai/choose-rule/types";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -24,6 +25,7 @@ export type RunRulesResult = {
   rule?: Rule | null;
   actionItems?: ActionItem[];
   reason?: string | null;
+  matchReasons?: MatchReason[];
   existing?: boolean;
 };
 
@@ -48,6 +50,7 @@ export async function runRulesOnMessage({
       user,
       gmail,
       result.reason,
+      result.matchReasons,
       isTest,
     );
   } else {
@@ -67,6 +70,7 @@ async function runRule(
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
   gmail: gmail_v1.Gmail,
   reason: string | undefined,
+  matchReasons: MatchReason[] | undefined,
   isTest: boolean,
 ) {
   const email = getEmailFromMessage(message);
@@ -105,7 +109,13 @@ async function runRule(
     });
   }
 
-  return { rule, actionItems, executedRule, reason };
+  return {
+    rule,
+    actionItems,
+    executedRule,
+    reason,
+    matchReasons,
+  };
 }
 
 async function saveSkippedExecutedRule({

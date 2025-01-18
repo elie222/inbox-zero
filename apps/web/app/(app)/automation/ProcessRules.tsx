@@ -38,6 +38,7 @@ import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/automation/TestCustomEmailForm";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
+import { Tooltip } from "@/components/Tooltip";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -275,16 +276,18 @@ function ProcessRulesRow({
                   message={message}
                   isTest={testMode}
                 />
-                <Button
-                  variant="outline"
-                  disabled={isRunning}
-                  onClick={() => onRun(true)}
-                >
-                  <RefreshCcwIcon
-                    className={cn("size-4", isRunning && "animate-spin")}
-                  />
-                  <span className="sr-only">{testMode ? "Test" : "Run"}</span>
-                </Button>
+                <Tooltip content={testMode ? "Retest" : "Rerun"}>
+                  <Button
+                    variant="outline"
+                    disabled={isRunning}
+                    onClick={() => onRun(true)}
+                  >
+                    <RefreshCcwIcon
+                      className={cn("size-4", isRunning && "animate-spin")}
+                    />
+                    <span className="sr-only">{testMode ? "Test" : "Run"}</span>
+                  </Button>
+                </Tooltip>
               </>
             ) : (
               <Button
