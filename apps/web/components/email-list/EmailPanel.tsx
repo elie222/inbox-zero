@@ -297,23 +297,24 @@ function PlainEmail({ text }: { text: string }) {
 }
 
 function getIframeHtml(html: string) {
-  let htmlWithFontFamily = "";
-  // Set font to sans-serif if font not set
-  if (html.indexOf("font-family") === -1) {
-    htmlWithFontFamily = `<style>* { font-family: sans-serif; }</style>${html}`;
-  } else {
-    htmlWithFontFamily = html;
-  }
+  // Always inject our default font styles with lower specificity
+  // This ensures styled elements keep their fonts while unstyled ones get our defaults
+  const defaultFontStyles = `
+    <style>
+      /* Base styles with low specificity */
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+    </style>
+  `;
 
   let htmlWithHead = "";
-
-  // Open all links in a new tab
-  if (htmlWithFontFamily.indexOf("</head>") === -1) {
-    htmlWithHead = `<head><base target="_blank"></head>${htmlWithFontFamily}`;
+  if (html.indexOf("</head>") === -1) {
+    htmlWithHead = `<head>${defaultFontStyles}<base target="_blank"></head>${html}`;
   } else {
-    htmlWithHead = htmlWithFontFamily.replace(
+    htmlWithHead = html.replace(
       "</head>",
-      `<base target="_blank"></head>`,
+      `${defaultFontStyles}<base target="_blank"></head>`,
     );
   }
 
