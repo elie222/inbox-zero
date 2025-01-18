@@ -22,6 +22,8 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 import { createScopedLogger } from "@/utils/logger";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
+import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 
 const logger = createScopedLogger("Process History");
 
@@ -296,6 +298,7 @@ async function processHistoryItem(
   m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
+    email: userEmail,
     user,
     accessToken,
     hasColdEmailAccess,
@@ -311,14 +314,11 @@ async function processHistoryItem(
   if (!messageId) return;
   if (!threadId) return;
 
-  const isFree = await markMessageAsProcessing({
-    userEmail: user.email!,
-    messageId,
-  });
+  const isFree = await markMessageAsProcessing({ userEmail, messageId });
 
   if (!isFree) {
     logger.info("Skipping. Message already being processed.", {
-      email: user.email,
+      email: userEmail,
       messageId,
       threadId,
     });
@@ -326,7 +326,7 @@ async function processHistoryItem(
   }
 
   logger.info("Getting message", {
-    email: user.email,
+    email: userEmail,
     messageId,
     threadId,
   });
@@ -345,7 +345,7 @@ async function processHistoryItem(
     // if the rule has already been executed, skip
     if (hasExistingRule) {
       logger.info("Skipping. Rule already exists.", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -353,6 +353,20 @@ async function processHistoryItem(
     }
 
     const message = parseMessage(gmailMessage);
+
+    if (
+      isAssistantEmail({
+        userEmail,
+        recipientEmail: message.headers.from,
+      })
+    ) {
+      logger.info("Skipping. Assistant email.", {
+        email: userEmail,
+        messageId,
+        threadId,
+      });
+      return processAssistantEmail({ message, userEmail });
+    }
 
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
@@ -363,7 +377,7 @@ async function processHistoryItem(
 
     if (blocked) {
       logger.info("Skipping. Blocked unsubscribed email.", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -380,7 +394,7 @@ async function processHistoryItem(
 
     if (shouldRunBlocker) {
       logger.info("Running cold email blocker...", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -415,7 +429,7 @@ async function processHistoryItem(
 
       if (response.isColdEmail) {
         logger.info("Skipping. Cold email detected.", {
-          email: user.email,
+          email: userEmail,
           messageId,
           threadId,
         });
@@ -438,7 +452,7 @@ async function processHistoryItem(
 
     if (hasAutomationRules && hasAiAutomationAccess) {
       logger.info("Running rules...", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -455,7 +469,7 @@ async function processHistoryItem(
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
       logger.info("Message not found", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
