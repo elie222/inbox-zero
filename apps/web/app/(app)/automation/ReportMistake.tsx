@@ -57,6 +57,7 @@ import { GroupItemDisplay } from "@/app/(app)/automation/group/ViewGroup";
 import { cn } from "@/utils";
 import { useCategories } from "@/hooks/useCategories";
 import { CategorySelect } from "@/components/CategorySelect";
+import { useModal } from "@/components/Modal";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -74,8 +75,10 @@ export function ReportMistake({
   const { data, isLoading, error } = useRules();
   const actualRule = result?.rule;
 
+  const { isModalOpen, closeModal, setIsModalOpen } = useModal();
+
   return (
-    <Dialog>
+    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <HammerIcon className="mr-2 size-4" />
@@ -96,6 +99,7 @@ export function ReportMistake({
               result={result}
               actualRule={actualRule ?? null}
               isTest={isTest}
+              onClose={closeModal}
             />
           )}
         </LoadingContent>
@@ -110,12 +114,14 @@ function Content({
   result,
   actualRule,
   isTest,
+  onClose,
 }: {
   rules: RulesResponse;
   message: ParsedMessage;
   result: RunRulesResult | null;
   actualRule: Rule | null;
   isTest: boolean;
+  onClose: () => void;
 }) {
   const [loadingAiFix, setLoadingAiFix] = useState(false);
   const [fixedInstructions, setFixedInstructions] = useState<{
@@ -236,6 +242,7 @@ function Content({
         groupMatch={groupMatch}
         ruleId={expectedRule?.id || actualRule?.id!}
         onBack={onBack}
+        onClose={onClose}
       />
     );
   }
@@ -248,6 +255,7 @@ function Content({
         groupId={expectedRule?.groupId}
         message={message}
         onBack={onBack}
+        onClose={onClose}
       />
     );
   }
@@ -275,6 +283,7 @@ function Content({
         ruleId={expectedRule?.id || actualRule?.id!}
         message={message}
         onBack={onBack}
+        onClose={onClose}
       />
     );
   }
@@ -429,11 +438,13 @@ function GroupMismatchAdd({
   message,
   ruleId,
   onBack,
+  onClose,
 }: {
   groupId: string;
   message: ParsedMessage;
   ruleId: string;
   onBack: () => void;
+  onClose: () => void;
 }) {
   return (
     <div>
@@ -459,6 +470,7 @@ function GroupMismatchAdd({
                 });
 
                 if (isActionError(result)) throw new Error(result.error);
+                onClose();
               },
               {
                 loading: "Adding to group...",
@@ -484,10 +496,12 @@ function GroupMismatchRemove({
   groupMatch,
   ruleId,
   onBack,
+  onClose,
 }: {
   groupMatch: GroupMatch;
   ruleId: string;
   onBack: () => void;
+  onClose: () => void;
 }) {
   const [isRemoving, setIsRemoving] = useState(false);
 
@@ -524,6 +538,7 @@ function GroupMismatchRemove({
               const result = await deleteGroupItemAction(groupItemId);
               setIsRemoving(false);
               if (isActionError(result)) throw new Error(result.error);
+              onClose();
             },
             {
               loading: "Removing from group...",
@@ -533,7 +548,7 @@ function GroupMismatchRemove({
           );
         }}
       >
-        Remove from group
+        Remove from "{groupMatch.group.name}" group
       </Button>
 
       <div className="mt-2 flex gap-2">
@@ -549,11 +564,13 @@ function CategoryMismatch({
   message,
   ruleId,
   onBack,
+  onClose,
 }: {
   categoryMatch: CategoryMatch;
   message: ParsedMessage;
   ruleId: string;
   onBack: () => void;
+  onClose: () => void;
 }) {
   const { categories, isLoading } = useCategories();
 
@@ -582,6 +599,7 @@ function CategoryMismatch({
           sender={message.headers.from}
           senderCategory={categoryMatch.category}
           categories={categories || []}
+          onSuccess={onClose}
         />
       )}
 

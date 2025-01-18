@@ -95,7 +95,7 @@ async function findPotentialMatchingRules({
 
     // group
     if (conditionTypes.GROUP) {
-      const { matchingItem } = await matchesGroupRule(
+      const { matchingItem, group } = await matchesGroupRule(
         rule,
         await getGroups(rule.userId),
         message,
@@ -105,6 +105,7 @@ async function findPotentialMatchingRules({
         matchReasons.push({
           type: RuleType.GROUP,
           groupItem: matchingItem,
+          group,
         });
         if (operator === LogicalOperator.OR || !unmatchedConditions.size) {
           return { match: rule, matchReasons };

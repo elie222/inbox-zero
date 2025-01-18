@@ -1,5 +1,5 @@
 import type { RuleWithActionsAndCategories } from "@/utils/types";
-import type { Category, GroupItem, RuleType } from "@prisma/client";
+import type { Category, Group, GroupItem, RuleType } from "@prisma/client";
 
 export type StaticMatch = {
   type: Extract<RuleType, "STATIC">;
@@ -7,6 +7,7 @@ export type StaticMatch = {
 
 export type GroupMatch = {
   type: Extract<RuleType, "GROUP">;
+  group: Pick<Group, "id" | "name">;
   groupItem: Pick<GroupItem, "id" | "type" | "value">;
 };
 

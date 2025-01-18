@@ -18,10 +18,12 @@ export function CategorySelect({
   sender,
   senderCategory,
   categories,
+  onSuccess,
 }: {
   sender: string;
   senderCategory: Pick<Category, "id"> | null;
   categories: Pick<Category, "id" | "name">[];
+  onSuccess?: (categoryId: string) => void;
 }) {
   const item = useAiCategorizationQueueItem(sender);
 
@@ -47,6 +49,7 @@ export function CategorySelect({
           toastError({ description: result.error });
         } else {
           toastSuccess({ description: "Category changed" });
+          onSuccess?.(value);
         }
       }}
     >
