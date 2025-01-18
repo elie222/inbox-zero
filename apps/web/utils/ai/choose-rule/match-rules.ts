@@ -148,8 +148,8 @@ async function findPotentialMatchingRules({
   return { potentialMatches };
 }
 
-function getMatchReason(matchReasons?: MatchReason[]): string {
-  if (!matchReasons || matchReasons.length === 0) return "";
+function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
+  if (!matchReasons || matchReasons.length === 0) return;
 
   return matchReasons
     .map((reason) => {
@@ -171,7 +171,10 @@ export async function findMatchingRule(
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
 ) {
   const result = await findMatchingRuleWithReasons(rules, message, user);
-  return { ...result, reason: getMatchReason(result.matchReasons || []) };
+  return {
+    ...result,
+    reason: result.reason || getMatchReason(result.matchReasons || []),
+  };
 }
 
 async function findMatchingRuleWithReasons(
@@ -181,6 +184,7 @@ async function findMatchingRuleWithReasons(
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
   matchReasons?: MatchReason[];
+  reason?: string;
 }> {
   const isThread = isReplyInThread(message.id, message.threadId);
   const { match, matchReasons, potentialMatches } =

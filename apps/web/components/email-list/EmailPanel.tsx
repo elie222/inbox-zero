@@ -314,7 +314,7 @@ function getIframeHtml(html: string) {
   } else {
     htmlWithHead = html.replace(
       "</head>",
-      `${defaultFontStyles}<base target="_blank"></head>`,
+      `${defaultFontStyles}<base target="_blank" rel="noopener noreferrer"></head>`,
     );
   }
 
