@@ -367,6 +367,9 @@ async function processHistoryItem(
       return processAssistantEmail({ message, userEmail, gmail });
     }
 
+    // skip SENT emails that are not assistant emails
+    if (message.labelIds?.includes(GmailLabel.SENT)) return;
+
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
       userId: user.id,
