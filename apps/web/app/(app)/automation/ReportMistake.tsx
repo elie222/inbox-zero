@@ -253,6 +253,7 @@ function Content({
       <GroupMismatchAdd
         ruleId={expectedRule?.id}
         groupId={expectedRule?.groupId}
+        groupName={expectedRule?.group?.name || ""}
         message={message}
         onBack={onBack}
         onClose={onClose}
@@ -435,12 +436,14 @@ function ThreadSettingsMismatchMessage({
 
 function GroupMismatchAdd({
   groupId,
+  groupName,
   message,
   ruleId,
   onBack,
   onClose,
 }: {
   groupId: string;
+  groupName: string;
   message: ParsedMessage;
   ruleId: string;
   onBack: () => void;
@@ -449,15 +452,21 @@ function GroupMismatchAdd({
   return (
     <div>
       <SectionDescription>
-        The rule you expected it to match is a group rule, but this message
-        didn't match any of the group items. You can edit the group to include
-        this email.
+        Suggested fix: Add this email to the {groupName} group.
       </SectionDescription>
 
-      <div className="mt-2 flex gap-2">
-        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm">
-          From: {message.headers.from}
+      <div className="mt-2">
+        <div
+          className={cn(
+            "mt-2 rounded-md border p-2 text-sm",
+            "border-green-200 bg-green-50",
+          )}
+        >
+          <GroupItemDisplay
+            item={{ type: GroupItemType.FROM, value: message.headers.from }}
+          />
         </div>
+
         <Button
           className="mt-2"
           onClick={() => {
@@ -480,7 +489,7 @@ function GroupMismatchAdd({
             );
           }}
         >
-          Add to group
+          Add to {groupName} group
         </Button>
       </div>
 
