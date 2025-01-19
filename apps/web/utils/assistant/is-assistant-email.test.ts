@@ -25,4 +25,20 @@ describe("isAssistantEmail", () => {
     });
     expect(result).toBe(false);
   });
+
+  it("should handle email addresses with multiple dots", () => {
+    const result = isAssistantEmail({
+      userEmail: "john.middle.doe@sub.example.com",
+      recipientEmail: "john.middle.doe+assistant@sub.example.com",
+    });
+    expect(result).toBe(true);
+  });
+
+  it("should handle recipient email with display name and angle brackets", () => {
+    const result = isAssistantEmail({
+      userEmail: "john@example.com",
+      recipientEmail: "John Doe <john+assistant@example.com>",
+    });
+    expect(result).toBe(true);
+  });
 });

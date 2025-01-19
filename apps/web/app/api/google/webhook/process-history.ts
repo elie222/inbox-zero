@@ -262,8 +262,7 @@ async function processHistory(options: ProcessHistoryOptions) {
     const inboxMessages = historyMessages.filter(
       (m) =>
         m.message?.labelIds?.includes(GmailLabel.INBOX) &&
-        !m.message?.labelIds?.includes(GmailLabel.DRAFT) &&
-        !m.message?.labelIds?.includes(GmailLabel.SENT),
+        !m.message?.labelIds?.includes(GmailLabel.DRAFT),
     );
     const uniqueMessages = uniqBy(inboxMessages, (m) => m.message?.id);
 
@@ -354,13 +353,13 @@ async function processHistoryItem(
 
     const message = parseMessage(gmailMessage);
 
-    if (
-      isAssistantEmail({
-        userEmail,
-        recipientEmail: message.headers.from,
-      })
-    ) {
-      logger.info("Skipping. Assistant email.", {
+    const isForAssistant = isAssistantEmail({
+      userEmail,
+      recipientEmail: message.headers.to,
+    });
+
+    if (isForAssistant) {
+      logger.info("Passing through assistant email.", {
         email: userEmail,
         messageId,
         threadId,
