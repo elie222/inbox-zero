@@ -48,20 +48,20 @@ export const personas = {
     label: "📹 Creator",
     prompt: `${common}
 * Label sponsorship inquiries as "Sponsorship" and draft a reply as follows:
-<email>
+---
 Hey NAME,
 
 SENTENCE RELATED TO THEIR INQUIRY
 
 I've attached my media kit and pricing.
-</email>
+---
 
 * If someone asks for fitness advice, draft a reply as follows:
-<email>
+---
 Hey,
 
 I've attached my workout program link: https://example.com/program
-</email>
+---
 
 * If someone asks for medical advice, draft a reply explaining I can't give personal medical advice and to consult their doctor.
 * If someone asks for free coaching, draft a reply with my coaching packages link: https://example.com/coaching
