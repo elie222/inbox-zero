@@ -83,6 +83,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   const isRunningAllRef = useRef(false);
   const [isRunningAll, setIsRunningAll] = useState(false);
+  const [currentPageLimit, setCurrentPageLimit] = useState(testMode ? 1 : 10);
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, RunRulesResult>>({});
 
@@ -112,9 +113,10 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const handleRunAll = async () => {
     handleStart();
 
-    const PAGE_LIMIT = testMode ? 1 : 10;
+    // Increment the page limit each time we run
+    setCurrentPageLimit((prev) => prev + (testMode ? 1 : 10));
 
-    for (let page = 0; page < PAGE_LIMIT; page++) {
+    for (let page = 0; page < currentPageLimit; page++) {
       // Get current data, only fetch if we don't have this page yet
       let currentData = data;
       if (!currentData?.[page]) {

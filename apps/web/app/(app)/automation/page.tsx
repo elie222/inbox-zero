@@ -30,7 +30,7 @@ export default async function AutomationPage() {
               <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="groups">Groups</TabsTrigger>
+              {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
             </TabsList>
           </div>
 

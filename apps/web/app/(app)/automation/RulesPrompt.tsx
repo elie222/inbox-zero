@@ -248,13 +248,13 @@ function RulesPromptForm({
 ${personas.other.prompt}
 
 If someone asks about pricing, reply with:
-<email>
+---
 Hi NAME!
 
 I'm currently offering a 10% discount for the first 10 customers.
 
 Let me know if you're interested!
-</email>`}
+---`}
                 />
 
                 <div className="flex flex-wrap gap-2">

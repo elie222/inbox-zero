@@ -123,7 +123,7 @@ const businessTier = {
   },
   description: "Unlock full AI-powered email management",
   features: [
-    "Everything in Basic",
+    "Everything in Unsubscriber tier",
     "AI personal assistant",
     "Smart categories",
     "Cold email blocker",
@@ -190,7 +190,7 @@ const copilotTier = {
   discount: { monthly: 0, annually: 0 },
   description: "Expert human assistant to manage your email",
   features: [
-    "Everything in Business",
+    "Everything in AI Assistant tier",
     "Human assistant to manage your email daily",
     "30-minute 1:1 monthly call",
     "Full refund if not satisfied after first 3 days",
