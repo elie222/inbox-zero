@@ -4,6 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { getOriginalMessageId } from "@/utils/assistant/get-original-message-id";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("AssistantEmail");
 
@@ -50,5 +51,8 @@ export async function processAssistantEmail({
 }
 
 function verifyUserSentEmail(message: ParsedMessage, userEmail: string) {
-  return message.headers.from.toLowerCase() === userEmail.toLowerCase();
+  return (
+    extractEmailAddress(message.headers.from).toLowerCase() ===
+    userEmail.toLowerCase()
+  );
 }
