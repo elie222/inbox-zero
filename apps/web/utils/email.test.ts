@@ -43,6 +43,40 @@ describe("email utils", () => {
         "john.doe@gmail.com",
       );
     });
+
+    it("handles nested angle brackets", () => {
+      expect(
+        extractEmailAddress("Hacker <fake@email.com> <real@email.com>"),
+      ).toBe("real@email.com");
+    });
+
+    it("handles malformed angle brackets", () => {
+      expect(extractEmailAddress("Bad <<not@an@email>>")).toBe("");
+    });
+
+    it("extracts valid email when mixed with invalid ones", () => {
+      expect(
+        extractEmailAddress("Test <not@valid@email> <valid@email.com>"),
+      ).toBe("valid@email.com");
+    });
+
+    it("handles empty angle brackets", () => {
+      expect(extractEmailAddress("Test <>")).toBe("");
+    });
+
+    it("handles multiple @ symbols", () => {
+      expect(extractEmailAddress("Test <user@@domain.com>")).toBe("");
+    });
+
+    it("validates email format", () => {
+      expect(extractEmailAddress("Test <notanemail>")).toBe("");
+    });
+
+    it("extracts raw email when no valid bracketed email exists", () => {
+      expect(extractEmailAddress("Test <invalid> valid@email.com")).toBe(
+        "valid@email.com",
+      );
+    });
   });
 
   describe("extractDomainFromEmail", () => {
