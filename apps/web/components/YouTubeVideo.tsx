@@ -19,7 +19,10 @@ export function YouTubeVideo(props: {
       videoId={props.videoId}
       className={cn("aspect-video h-full w-full rounded-lg", props.className)}
       iframeClassName={props.iframeClassName}
-      opts={props.opts}
+      opts={{
+        ...props.opts,
+        rel: 0,
+      }}
     />
   );
 }
