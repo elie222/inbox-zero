@@ -30,8 +30,8 @@ export const AboutSectionForm = (props: { about?: string }) => {
     >
       <FormSection>
         <FormSectionLeft
-          title="Prompt Settings"
-          description="Provide extra information to GPT to help it write better emails for you."
+          title="About you"
+          description="Provide extra information that will help our AI better understand how to process your emails."
         />
         <div className="md:col-span-2">
           <FormSectionRight>
