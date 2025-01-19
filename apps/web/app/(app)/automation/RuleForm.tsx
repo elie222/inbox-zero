@@ -352,6 +352,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                     setValue={setValue}
                     errors={errors}
                     groupId={watch(`conditions.${index}.groupId`)}
+                    ruleId={rule.id}
                   />
                 )}
 
@@ -718,8 +719,9 @@ function GroupsTab(props: {
   setValue: UseFormSetValue<CreateRuleBody>;
   errors: FieldErrors<CreateRuleBody>;
   groupId?: string | null;
+  ruleId?: string | null;
 }) {
-  const { setValue } = props;
+  const { setValue, ruleId } = props;
   const { data, isLoading, error, mutate } =
     useSWR<GroupsResponse>("/api/user/group");
   const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
@@ -769,7 +771,7 @@ function GroupsTab(props: {
               <Select
                 label=""
                 options={data.groups.map((group) => ({
-                  label: group.name,
+                  label: `${group.name}${group.rule && group.rule.id !== ruleId ? " (already in use)" : ""}`,
                   value: group.id,
                 }))}
                 {...props.registerProps}
