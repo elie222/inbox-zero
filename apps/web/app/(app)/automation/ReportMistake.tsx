@@ -517,7 +517,7 @@ function GroupMismatchRemove({
   return (
     <div>
       <SectionDescription>
-        This email matched because it was part of a group rule.
+        Suggested fix: Remove this email from the {groupMatch.group.name} group.
       </SectionDescription>
 
       <div
