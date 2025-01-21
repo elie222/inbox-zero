@@ -6,9 +6,8 @@ import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
-import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
-import { replyToUser } from "@/utils/assistant/reply";
 import { parseMessage } from "@/utils/mail";
+import { replyToEmail } from "@/utils/gmail/mail";
 
 const logger = createScopedLogger("AssistantEmail");
 
@@ -48,7 +47,11 @@ export async function processAssistantEmail({
   const originalMessage = await getMessageByRfc822Id(originalMessageId, gmail);
   if (!originalMessage) {
     logger.error("No original message found", { messageId: message.id });
-    await replyToUser("I only work with forwarded emails for now.");
+    await replyToEmail(
+      gmail,
+      message,
+      "I only work with forwarded emails for now.",
+    );
     return;
   }
 
@@ -100,9 +103,10 @@ export async function processAssistantEmail({
   await processUserRequest({
     user,
     rules: user.rules,
-    userEmailForLLM: getEmailFromMessage(message),
-    originalEmailForLLM: getEmailFromMessage(parsedOriginalMessage),
+    userRequestEmail: message,
+    originalEmail: parsedOriginalMessage,
     actualRule: executedRule?.rule || null,
+    gmail,
   });
 }
 

@@ -1,4 +1,5 @@
 import { InvalidToolArgumentsError, tool } from "ai";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
 import { chatCompletionTools, withRetry } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
@@ -9,11 +10,12 @@ import {
   type RuleWithRelations,
 } from "@/utils/ai/rule/create-prompt-from-rule";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
-import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
 import { updateRuleInstructionsAndPromptFile } from "@/utils/actions/rule";
-import { replyToUser } from "@/utils/assistant/reply";
+import { replyToEmail } from "@/utils/gmail/mail";
+import type { ParsedMessage } from "@/utils/types";
+import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 
-const logger = createScopedLogger("AssistantCommand");
+const logger = createScopedLogger("ProcessUserRequest");
 
 const fixRuleSchema = z.object({
   expectedRuleName: z
@@ -37,16 +39,21 @@ const replySchema = z.object({
 export async function processUserRequest({
   user,
   rules,
-  userEmailForLLM,
-  originalEmailForLLM,
+  userRequestEmail,
+  originalEmail,
   actualRule,
+  gmail,
 }: {
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   rules: RuleWithRelations[];
-  userEmailForLLM: EmailForLLM;
-  originalEmailForLLM: EmailForLLM;
+  userRequestEmail: ParsedMessage;
+  originalEmail: ParsedMessage;
   actualRule: RuleWithRelations | null;
+  gmail: gmail_v1.Gmail;
 }) {
+  const userRequestEmailForLLM = getEmailFromMessage(userRequestEmail);
+  const originalEmailForLLM = getEmailFromMessage(originalEmail);
+
   const system = `You are an email management assistant that helps users manage their email rules.
 You can fix rules based on the user's request.
 Always confirm your actions with clear, concise responses.
@@ -68,7 +75,7 @@ ${rules
 </current_user_rules>
 
 <user_request>
-${userEmailForLLM.content}
+${userRequestEmailForLLM.content}
 </user_request>`;
 
   logger.trace("Input", { system, prompt });
@@ -90,7 +97,9 @@ ${userEmailForLLM.content}
 
               if (expectedRule === actualRule) {
                 logger.info("Expected rule is the same as actual rule");
-                await replyToUser(
+                await replyToEmail(
+                  gmail,
+                  originalEmail,
                   "The rule you expected to be applied is already applied.",
                 );
                 return;
@@ -124,11 +133,11 @@ ${userEmailForLLM.content}
             description: "Reply to the user with information or questions",
             parameters: replySchema,
             execute: async ({ content }) => {
-              return replyToUser(content);
+              return replyToEmail(gmail, originalEmail, content);
             },
           }),
         },
-        maxSteps: 1,
+        maxSteps: 2,
         label: "Assistant Command",
         userEmail: user.email || "",
       }),

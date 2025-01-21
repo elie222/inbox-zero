@@ -11,6 +11,7 @@ import {
   forwardEmailSubject,
   forwardEmailText,
 } from "@/utils/gmail/forward";
+import type { ParsedMessage } from "@/utils/types";
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -93,6 +94,23 @@ export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
   });
 
   return result;
+}
+
+export async function replyToEmail(
+  gmail: gmail_v1.Gmail,
+  message: ParsedMessage,
+  reply: string,
+) {
+  return sendEmail(gmail, {
+    to: message.headers.from,
+    subject: message.headers.subject,
+    messageText: reply,
+    replyToEmail: {
+      threadId: message.threadId,
+      headerMessageId: message.headers["message-id"] || "",
+      references: message.headers.references,
+    },
+  });
 }
 
 export async function forwardEmail(
