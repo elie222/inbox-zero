@@ -41,7 +41,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.rule).toBe("actual_rule");
+    expect(result.ruleToFix).toBe("actual_rule");
     expect(result.fixedInstructions).toContain("sales");
     expect(result.fixedInstructions).not.toBe(rule.instructions);
     // The new instructions should be more specific to exclude sales pitches
@@ -81,7 +81,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.rule).toBe("correct_rule");
+    expect(result.ruleToFix).toBe("correct_rule");
     expect(result.fixedInstructions).toContain("technical");
     // The incorrect rule should be more specific to exclude feature requests
     expect(result.fixedInstructions.toLowerCase()).toMatch(
@@ -117,7 +117,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.rule).toBe("actual_rule");
+    expect(result.ruleToFix).toBe("actual_rule");
     expect(result.fixedInstructions).toContain("collaboration");
     // The fixed rule should exclude newsletters and automated updates
     expect(result.fixedInstructions.toLowerCase()).toMatch(
@@ -153,7 +153,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.rule).toBe("correct_rule");
+    expect(result.ruleToFix).toBe("correct_rule");
     expect(result.fixedInstructions).toContain("pric");
     // The fixed rule should be more inclusive of various pricing inquiries
     expect(result.fixedInstructions.toLowerCase()).toMatch(

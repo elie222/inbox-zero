@@ -279,7 +279,14 @@ async function processHistory(options: ProcessHistoryOptions) {
           email,
           messageId: m.message?.id,
           threadId: m.message?.threadId,
-          error,
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : String(error),
         });
       }
     }
@@ -364,7 +371,12 @@ async function processHistoryItem(
         messageId,
         threadId,
       });
-      return processAssistantEmail({ message, userEmail, gmail });
+      return processAssistantEmail({
+        message,
+        userEmail,
+        userId: user.id,
+        gmail,
+      });
     }
 
     // skip SENT emails that are not assistant emails

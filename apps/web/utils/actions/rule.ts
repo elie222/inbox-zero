@@ -239,14 +239,12 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
     });
     if (!currentRule) return { error: "Rule not found" };
 
-    const updatedRule = await prisma.rule.update({
-      where: { id: body.id, userId: session.user.id },
-      data: { instructions: body.instructions },
-      include: { actions: true, categoryFilters: true, group: true },
+    await updateRuleInstructionsAndPromptFile({
+      userId: session.user.id,
+      ruleId: body.id,
+      instructions: body.instructions,
+      currentRule,
     });
-
-    // update prompt file
-    await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
 
     revalidatePath(`/automation/rule/${body.id}`);
     revalidatePath("/automation");
@@ -341,6 +339,31 @@ export const getRuleExamplesAction = withActionInstrumentation(
     return { matches };
   },
 );
+
+export async function updateRuleInstructionsAndPromptFile({
+  userId,
+  ruleId,
+  instructions,
+  currentRule,
+}: {
+  userId: string;
+  ruleId: string;
+  instructions: string;
+  currentRule: RuleWithRelations | null;
+}) {
+  const updatedRule = await prisma.rule.update({
+    where: { id: ruleId, userId },
+    data: { instructions },
+    include: { actions: true, categoryFilters: true, group: true },
+  });
+
+  // update prompt file
+  if (currentRule) {
+    await updatePromptFileOnUpdate(userId, currentRule, updatedRule);
+  } else {
+    await updateUserPrompt(userId, instructions);
+  }
+}
 
 async function updatePromptFileOnUpdate(
   userId: string,

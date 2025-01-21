@@ -1017,7 +1017,8 @@ export const reportAiMistakeAction = withActionInstrumentation(
     if (!result) return { error: "Error fixing rule" };
 
     return {
-      ruleId: result.rule === "actual_rule" ? actualRuleId : expectedRuleId,
+      ruleId:
+        result.ruleToFix === "actual_rule" ? actualRuleId : expectedRuleId,
       fixedInstructions: result.fixedInstructions,
     };
   },

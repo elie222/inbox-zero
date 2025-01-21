@@ -11,7 +11,7 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("AI Rule Fix");
 
 export type RuleFixResponse = {
-  rule: "actual_rule" | "expected_rule";
+  ruleToFix: "actual_rule" | "expected_rule";
   fixedInstructions: string;
 };
 
@@ -84,7 +84,8 @@ Please provide the fixed rule.`;
   logger.trace("ai-rule-fix", { res });
 
   return {
-    rule: res.rule ?? (actualRule === null ? "expected_rule" : "actual_rule"),
+    ruleToFix:
+      res.rule ?? (actualRule === null ? "expected_rule" : "actual_rule"),
     fixedInstructions: res.fixedInstructions,
   };
 }

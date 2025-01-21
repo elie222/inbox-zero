@@ -5,6 +5,10 @@ import { getOriginalMessageId } from "@/utils/assistant/get-original-message-id"
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import { extractEmailAddress } from "@/utils/email";
+import prisma from "@/utils/prisma";
+import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
+import { replyToUser } from "@/utils/assistant/reply";
+import { parseMessage } from "@/utils/mail";
 
 const logger = createScopedLogger("AssistantEmail");
 
@@ -12,10 +16,12 @@ const logger = createScopedLogger("AssistantEmail");
 
 export async function processAssistantEmail({
   userEmail,
+  userId,
   message,
   gmail,
 }: {
   userEmail: string;
+  userId: string;
   message: ParsedMessage;
   gmail: gmail_v1.Gmail;
 }) {
@@ -42,12 +48,62 @@ export async function processAssistantEmail({
   const originalMessage = await getMessageByRfc822Id(originalMessageId, gmail);
   if (!originalMessage) {
     logger.error("No original message found", { messageId: message.id });
+    await replyToUser("I only work with forwarded emails for now.");
     return;
   }
 
-  // TODO:
-  // await processUserRequest({
-  // });
+  const user = await prisma.user.findUnique({
+    where: { email: userEmail },
+    select: {
+      id: true,
+      email: true,
+      about: true,
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+      rules: {
+        include: {
+          actions: true,
+          categoryFilters: true,
+          group: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    logger.error("User not found", { userEmail });
+    return;
+  }
+
+  const executedRule = await prisma.executedRule.findUnique({
+    where: {
+      unique_user_thread_message: {
+        userId,
+        threadId: originalMessage.threadId ?? "",
+        messageId: originalMessageId,
+      },
+    },
+    select: {
+      rule: {
+        include: {
+          actions: true,
+          categoryFilters: true,
+          group: true,
+        },
+      },
+    },
+  });
+
+  const parsedOriginalMessage = parseMessage(originalMessage);
+
+  await processUserRequest({
+    user,
+    rules: user.rules,
+    userEmailForLLM: getEmailFromMessage(message),
+    originalEmailForLLM: getEmailFromMessage(parsedOriginalMessage),
+    actualRule: executedRule?.rule || null,
+  });
 }
 
 function verifyUserSentEmail(message: ParsedMessage, userEmail: string) {
