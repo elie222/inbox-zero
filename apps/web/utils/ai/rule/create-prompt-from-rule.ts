@@ -2,14 +2,17 @@ import {
   type Action,
   type Rule,
   type Category,
-  type Group,
   ActionType,
+  type Prisma,
 } from "@prisma/client";
 
 export type RuleWithRelations = Rule & {
   actions: Action[];
   categoryFilters?: Category[];
-  group?: Group | null;
+  group?: Prisma.GroupGetPayload<{ select: { name: true } }> | null;
+  groupItems?: Prisma.GroupItemGetPayload<{
+    select: { type: true; value: true };
+  }>[];
 };
 
 export function createPromptFromRule(rule: RuleWithRelations): string {

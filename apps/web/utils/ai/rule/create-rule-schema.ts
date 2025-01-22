@@ -24,7 +24,7 @@ const conditionSchema = z
       .object({
         from: z.string().optional().describe("The from email address to match"),
         to: z.string().optional().describe("The to email address to match"),
-        subject: z.string().optional().describe("The subject to match."),
+        subject: z.string().optional().describe("The subject to match"),
       })
       .optional()
       .describe(
