@@ -127,7 +127,7 @@ export async function processAssistantEmail({
 
   const parsedOriginalMessage = parseMessage(originalMessage);
 
-  await processUserRequest({
+  const result = await processUserRequest({
     user,
     rules: user.rules,
     userRequestEmail: message,
@@ -139,6 +139,18 @@ export async function processAssistantEmail({
     senderCategory: senderCategory?.category?.name ?? null,
     gmail,
   });
+
+  const toolCalls = result.steps.flatMap((step) => step.toolCalls);
+  const lastToolCall = toolCalls[toolCalls.length - 1];
+
+  if (lastToolCall?.toolName === "reply") {
+    await replyToEmail(
+      gmail,
+      message,
+      lastToolCall.args.content,
+      replaceName(message.headers.to, "Assistant"),
+    );
+  }
 }
 
 function verifyUserSentEmail(message: ParsedMessage, userEmail: string) {
@@ -146,4 +158,9 @@ function verifyUserSentEmail(message: ParsedMessage, userEmail: string) {
     extractEmailAddress(message.headers.from).toLowerCase() ===
     userEmail.toLowerCase()
   );
+}
+
+function replaceName(email: string, name: string) {
+  const emailAddress = extractEmailAddress(email);
+  return `${name} <${emailAddress}>`;
 }

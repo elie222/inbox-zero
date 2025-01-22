@@ -49,8 +49,10 @@ const createMail = async (options: Mail.Options) => {
 
 const createRawMailMessage = async (
   body: Omit<SendEmailBody, "attachments"> & { attachments?: Attachment[] },
+  from?: string,
 ) => {
   return await createMail({
+    from,
     to: body.to,
     cc: body.cc,
     bcc: body.bcc,
@@ -82,8 +84,12 @@ const createRawMailMessage = async (
 
 // https://developers.google.com/gmail/api/guides/sending
 // https://www.labnol.org/google-api-service-account-220405
-export async function sendEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
-  const raw = await createRawMailMessage(body);
+export async function sendEmail(
+  gmail: gmail_v1.Gmail,
+  body: SendEmailBody,
+  from?: string,
+) {
+  const raw = await createRawMailMessage(body, from);
 
   const result = await gmail.users.messages.send({
     userId: "me",
@@ -100,17 +106,22 @@ export async function replyToEmail(
   gmail: gmail_v1.Gmail,
   message: ParsedMessage,
   reply: string,
+  from?: string,
 ) {
-  return sendEmail(gmail, {
-    to: message.headers.from,
-    subject: message.headers.subject,
-    messageText: reply,
-    replyToEmail: {
-      threadId: message.threadId,
-      headerMessageId: message.headers["message-id"] || "",
-      references: message.headers.references,
+  return sendEmail(
+    gmail,
+    {
+      to: message.headers.from,
+      subject: message.headers.subject,
+      messageText: reply,
+      replyToEmail: {
+        threadId: message.threadId,
+        headerMessageId: message.headers["message-id"] || "",
+        references: message.headers.references,
+      },
     },
-  });
+    from,
+  );
 }
 
 export async function forwardEmail(
