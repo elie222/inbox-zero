@@ -4,9 +4,9 @@ import { processUserRequest } from "@/utils/ai/assistant/fix-rules";
 import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import {
-  type Group,
   type Category,
   type GroupItem,
+  type Prisma,
   RuleType,
 } from "@prisma/client";
 import { GroupItemType, LogicalOperator } from "@prisma/client";
@@ -178,27 +178,24 @@ describe(
 
     test("should fix group conditions when user reports incorrect matching", async () => {
       const group = getGroup({
-        id: "group1",
         name: "Newsletters",
+        items: [
+          getGroupItem({
+            id: "1",
+            type: GroupItemType.FROM,
+            value: "david@hello.com",
+          }),
+          getGroupItem({
+            id: "2",
+            type: GroupItemType.FROM,
+            value: "@beehiiv.com",
+          }),
+        ],
       });
-      const groupItems = [
-        getGroupItem({
-          id: "1",
-          type: GroupItemType.FROM,
-          value: "david@hello.com",
-        }),
-        getGroupItem({
-          id: "2",
-          type: GroupItemType.FROM,
-          value: "@beehiiv.com",
-        }),
-      ];
 
       const rule = getRule({
         name: "Newsletter Rule",
-        groupId: group.id,
         group,
-        groupItems,
       });
 
       const userRequestEmail = getParsedMessage({
@@ -246,27 +243,22 @@ describe(
 
     test("should suggest adding sender to group when identified as missing", async () => {
       const group = getGroup({
-        id: "group1",
         name: "Newsletters",
+        items: [
+          getGroupItem({
+            type: GroupItemType.FROM,
+            value: "ainewsletter@substack.com",
+          }),
+          getGroupItem({
+            type: GroupItemType.FROM,
+            value: "milkroad@beehiiv.com",
+          }),
+        ],
       });
-      const groupItems = [
-        getGroupItem({
-          id: "1",
-          type: GroupItemType.FROM,
-          value: "ainewsletter@substack.com",
-        }),
-        getGroupItem({
-          id: "2",
-          type: GroupItemType.FROM,
-          value: "milkroad@beehiiv.com",
-        }),
-      ];
 
       const rule = getRule({
         name: "Newsletter Rule",
-        groupId: group.id,
         group,
-        groupItems,
       });
 
       const userRequestEmail = getParsedMessage({
@@ -478,14 +470,14 @@ function getUser() {
   };
 }
 
+type Group = Prisma.GroupGetPayload<{
+  select: { name: true; items: { select: { type: true; value: true } } };
+}>;
+
 function getGroup(group: Partial<Group>): Group {
   return {
-    id: "group1",
     name: "Group name",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    userId: "user1",
-    prompt: null,
+    items: [],
     ...group,
   };
 }

@@ -252,14 +252,6 @@ ${senderCategory}
               return { success: true };
             },
           }),
-          // list_rules: tool({
-          //   description: "List all rules",
-          //   parameters: z.object({}),
-          //   execute: async () => {
-          //     logger.info("List Rules");
-          //     return rules.map((rule) => ruleToXML(rule)).join("\n");
-          //   },
-          // }),
           reply: tool({
             description: "Send an email reply to the user",
             parameters: z.object({
@@ -312,8 +304,8 @@ function ruleToXML(rule: RuleWithRelations) {
       <group>${rule.group.name}</group>
       <group_items>
         ${
-          rule.groupItems
-            ? rule.groupItems
+          rule.group.items
+            ? rule.group.items
                 .map(
                   (item) =>
                     `<item>

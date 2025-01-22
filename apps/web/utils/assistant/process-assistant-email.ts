@@ -69,7 +69,17 @@ export async function processAssistantEmail({
           include: {
             actions: true,
             categoryFilters: true,
-            group: true,
+            group: {
+              select: {
+                name: true,
+                items: {
+                  select: {
+                    type: true,
+                    value: true,
+                  },
+                },
+              },
+            },
           },
         },
         categories: true,

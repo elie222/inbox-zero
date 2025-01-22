@@ -9,10 +9,17 @@ import {
 export type RuleWithRelations = Rule & {
   actions: Action[];
   categoryFilters?: Category[];
-  group?: Prisma.GroupGetPayload<{ select: { name: true } }> | null;
-  groupItems?: Prisma.GroupItemGetPayload<{
-    select: { type: true; value: true };
-  }>[];
+  group?:
+    | (Prisma.GroupGetPayload<{
+        select: { name: true };
+      }> & {
+        items?:
+          | Prisma.GroupItemGetPayload<{
+              select: { type: true; value: true };
+            }>[]
+          | null;
+      })
+    | null;
 };
 
 export function createPromptFromRule(rule: RuleWithRelations): string {
