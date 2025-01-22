@@ -3,7 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import { getOriginalMessageId } from "@/utils/assistant/get-original-message-id";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
-import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
+import { processUserRequest } from "@/utils/ai/assistant/fix-rules";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
@@ -11,7 +11,7 @@ import { replyToEmail } from "@/utils/gmail/mail";
 
 const logger = createScopedLogger("AssistantEmail");
 
-// TODO: load full email thread history
+// TODO: load full email thread history for ongoing conversations
 
 export async function processAssistantEmail({
   userEmail,
@@ -55,48 +55,65 @@ export async function processAssistantEmail({
     return;
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: userEmail },
-    select: {
-      id: true,
-      email: true,
-      about: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
-      rules: {
-        include: {
-          actions: true,
-          categoryFilters: true,
-          group: true,
+  const [user, executedRule, senderCategory] = await Promise.all([
+    prisma.user.findUnique({
+      where: { email: userEmail },
+      select: {
+        id: true,
+        email: true,
+        about: true,
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+        rules: {
+          include: {
+            actions: true,
+            categoryFilters: true,
+            group: true,
+          },
+        },
+        categories: true,
+      },
+    }),
+    prisma.executedRule.findUnique({
+      where: {
+        unique_user_thread_message: {
+          userId,
+          threadId: originalMessage.threadId ?? "",
+          messageId: originalMessageId,
         },
       },
-    },
-  });
+      select: {
+        rule: {
+          include: {
+            actions: true,
+            categoryFilters: true,
+            group: true,
+          },
+        },
+      },
+    }),
+    prisma.newsletter.findUnique({
+      where: {
+        email_userId: {
+          userId,
+          email: message.headers.from,
+        },
+      },
+      select: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+  ]);
 
   if (!user) {
     logger.error("User not found", { userEmail });
     return;
   }
-
-  const executedRule = await prisma.executedRule.findUnique({
-    where: {
-      unique_user_thread_message: {
-        userId,
-        threadId: originalMessage.threadId ?? "",
-        messageId: originalMessageId,
-      },
-    },
-    select: {
-      rule: {
-        include: {
-          actions: true,
-          categoryFilters: true,
-          group: true,
-        },
-      },
-    },
-  });
 
   const parsedOriginalMessage = parseMessage(originalMessage);
 
@@ -105,7 +122,11 @@ export async function processAssistantEmail({
     rules: user.rules,
     userRequestEmail: message,
     originalEmail: parsedOriginalMessage,
-    actualRule: executedRule?.rule || null,
+    matchedRule: executedRule?.rule || null,
+    categories: user.categories.length
+      ? (user.categories.map((c) => c.name) as [string, ...string[]])
+      : null,
+    senderCategory: senderCategory?.category?.name ?? null,
     gmail,
   });
 }
