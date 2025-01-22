@@ -1,7 +1,7 @@
 export const DEFAULT_COLD_EMAIL_PROMPT = `Examples of cold emails:
-- Agency trying to sell something
-- Recruiter trying to hire you
-- Analyst at a VC trying to invest in your company
+- Sell a product or service (e.g., agency pitching their services)
+- Recruit for a job position
+- Request a partnership or collaboration
 
 Emails that are NOT cold emails include:
 - Email from a friend or colleague
@@ -16,4 +16,4 @@ Emails that are NOT cold emails include:
 - Updates
 - Calendar invites
 
-Most emails are not cold emails, even if they are annoying.`;
+Regular marketing or automated emails are not cold emails, even if unwanted.`;
