@@ -71,9 +71,11 @@ export async function processAssistantEmail({
             categoryFilters: true,
             group: {
               select: {
+                id: true,
                 name: true,
                 items: {
                   select: {
+                    id: true,
                     type: true,
                     value: true,
                   },

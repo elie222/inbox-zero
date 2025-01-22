@@ -11,11 +11,11 @@ export type RuleWithRelations = Rule & {
   categoryFilters?: Category[];
   group?:
     | (Prisma.GroupGetPayload<{
-        select: { name: true };
+        select: { id: true; name: true };
       }> & {
         items?:
           | Prisma.GroupItemGetPayload<{
-              select: { type: true; value: true };
+              select: { id: true; type: true; value: true };
             }>[]
           | null;
       })

@@ -471,11 +471,16 @@ function getUser() {
 }
 
 type Group = Prisma.GroupGetPayload<{
-  select: { name: true; items: { select: { type: true; value: true } } };
+  select: {
+    id: true;
+    name: true;
+    items: { select: { id: true; type: true; value: true } };
+  };
 }>;
 
 function getGroup(group: Partial<Group>): Group {
   return {
+    id: "id",
     name: "Group name",
     items: [],
     ...group,

@@ -3,7 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
 import { chatCompletionTools, withRetry } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
-import type { User } from "@prisma/client";
+import { GroupItemType, type User } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import type { ParsedMessage } from "@/utils/types";
@@ -12,6 +12,7 @@ import {
   createRuleSchema,
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
+import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -144,64 +145,6 @@ ${senderCategory}
                 return { error: "Rule not found" };
               }
 
-              // // Update rule in database
-              // const updates: Partial<RuleWithRelations> = {};
-
-              // if (condition.aiInstructions) {
-              //   updates.instructions = condition.aiInstructions;
-              // }
-
-              // if (condition.static) {
-              //   Object.assign(updates, condition.static);
-              // }
-
-              // if (condition.conditionalOperator) {
-              //   updates.conditionalOperator = condition.conditionalOperator;
-              // }
-
-              // if (condition.categories) {
-              //   if (condition.categories.categoryFilters?.length) {
-              //     const categories = await prisma.category.findMany({
-              //       where: {
-              //         name: { in: condition.categories.categoryFilters },
-              //         userId: user.id,
-              //       },
-              //     });
-
-              //     if (categories.length) {
-              //       updates.categoryFilters = {
-              //         set: categories.map((cat) => ({ id: cat.id })),
-              //       };
-              //     }
-              //   }
-
-              //   if (condition.categories.categoryFilterType) {
-              //     updates.categoryFilterType =
-              //       condition.categories.categoryFilterType;
-              //   }
-              // }
-
-              // await prisma.rule.update({
-              //   where: { id: rule.id },
-              //   data: updates,
-              // });
-
-              // // Update user's prompt file if AI instructions changed
-              // if (condition.aiInstructions) {
-              //   await updateRuleAction({
-              //     userId: user.id,
-              //     ruleId: rule.id,
-              //     instructions: condition.aiInstructions,
-              //   });
-              // }
-
-              // // Send confirmation email
-              // await replyToEmail(
-              //   gmail,
-              //   originalEmail,
-              //   `I've updated the rule "${rule.name}". ${explanation}`,
-              // );
-
               return { success: true };
             },
           }),
@@ -223,43 +166,88 @@ ${senderCategory}
           add_to_group: tool({
             description: "Add a group item",
             parameters: z.object({
+              groupName: z
+                .string()
+                .optional()
+                .describe("The name of the group to add the group item to"),
               type: z
-                .enum(["from", "to", "subject"])
+                .enum(["from", "subject"])
                 .describe("The type of the group item to add"),
               value: z
                 .string()
                 .describe(
-                  "The value of the group item to add. eg '@company.com', 'matt@company.com', 'Receipt from'",
+                  "The value of the group item to add. e.g. '@company.com', 'matt@company.com', 'Receipt from'",
                 ),
             }),
-            execute: async ({ type, value }) => {
-              logger.info("Add To Group", { type, value });
+            execute: async ({ groupName, type, value }) => {
+              logger.info("Add To Group", { groupName, type, value });
+
+              const groupId = rules.find((r) => r.group?.name === groupName)
+                ?.group?.id;
+
+              if (!groupId) {
+                logger.error("Group not found", { groupName });
+                return { error: "Group not found" };
+              }
+
+              const groupItemType = getGroupItemType(type);
+
+              if (!groupItemType) {
+                logger.error("Invalid group item type", { type });
+                return { error: "Invalid group item type" };
+              }
+
+              await addGroupItem({ groupId, type: groupItemType, value });
+
               return { success: true };
             },
           }),
-          remove_from_group: tool({
-            description: "Remove a group item ",
-            parameters: z.object({
-              type: z
-                .enum(["from", "to", "subject"])
-                .describe("The type of the group item to remove"),
-              value: z
-                .string()
-                .describe("The value of the group item to remove"),
-            }),
-            execute: async ({ type, value }) => {
-              logger.info("Remove From Group", { type, value });
-              return { success: true };
-            },
-          }),
+          ...(matchedRule?.group
+            ? {
+                remove_from_group: tool({
+                  description: "Remove a group item ",
+                  parameters: z.object({
+                    type: z
+                      .enum(["from", "subject"])
+                      .describe("The type of the group item to remove"),
+                    value: z
+                      .string()
+                      .describe("The value of the group item to remove"),
+                  }),
+                  execute: async ({ type, value }) => {
+                    logger.info("Remove From Group", { type, value });
+
+                    const groupItemType = getGroupItemType(type);
+
+                    if (!groupItemType) {
+                      logger.error("Invalid group item type", { type });
+                      return { error: "Invalid group item type" };
+                    }
+
+                    const groupItem = matchedRule?.group?.items?.find(
+                      (item) =>
+                        item.type === groupItemType && item.value === value,
+                    );
+
+                    if (!groupItem) {
+                      logger.error("Group item not found", { type, value });
+                      return { error: "Group item not found" };
+                    }
+
+                    await deleteGroupItem({
+                      id: groupItem.id,
+                      userId: user.id,
+                    });
+
+                    return { success: true };
+                  },
+                }),
+              }
+            : {}),
           reply: tool({
             description: "Send an email reply to the user",
             parameters: z.object({
-              content: z
-                .string()
-                .describe(
-                  "The reply content. Do not send multiple replies in a row.",
-                ),
+              content: z.string().describe("The content of the reply"),
             }),
             // no execute function - invoking it will terminate the agent
           }),
@@ -338,4 +326,9 @@ function hasStaticConditions(rule: RuleWithRelations) {
 
 function hasCategoryConditions(rule: RuleWithRelations) {
   return rule.categoryFilters && rule.categoryFilters.length > 0;
+}
+
+function getGroupItemType(type: string) {
+  if (type === "from") return GroupItemType.FROM;
+  if (type === "subject") return GroupItemType.SUBJECT;
 }

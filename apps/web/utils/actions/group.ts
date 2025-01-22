@@ -401,11 +401,26 @@ export const addGroupItemAction = withActionInstrumentation(
     if (group.userId !== session.user.id)
       return { error: "You don't have permission to add items to this group" };
 
-    await prisma.groupItem.create({ data });
+    await addGroupItem(data);
 
     revalidatePath("/automation");
   },
 );
+
+export async function addGroupItem(data: {
+  groupId: string;
+  type: GroupItemType;
+  value: string;
+}) {
+  try {
+    return await prisma.groupItem.create({ data });
+  } catch (error) {
+    if (isDuplicateError(error))
+      captureException(error, { extra: { items: data } });
+
+    throw error;
+  }
+}
 
 export const deleteGroupItemAction = withActionInstrumentation(
   "deleteGroupItem",
@@ -413,13 +428,21 @@ export const deleteGroupItemAction = withActionInstrumentation(
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
-    await prisma.groupItem.delete({
-      where: { id, group: { userId: session.user.id } },
-    });
+    await deleteGroupItem({ id, userId: session.user.id });
 
     revalidatePath("/automation");
   },
 );
+
+export async function deleteGroupItem({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}) {
+  await prisma.groupItem.delete({ where: { id, group: { userId } } });
+}
 
 export const updateGroupPromptAction = withActionInstrumentation(
   "updateGroupPrompt",
