@@ -8,7 +8,10 @@ import type { UserAIFields } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
-import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import {
+  createRuleSchema,
+  getCreateRuleSchemaWithCategories,
+} from "@/utils/ai/rule/create-rule-schema";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -204,7 +207,9 @@ ${senderCategory}
           }),
           create_rule: tool({
             description: "Create a new rule",
-            parameters: createRuleSchema,
+            parameters: categories
+              ? getCreateRuleSchemaWithCategories(categories)
+              : createRuleSchema,
             execute: async ({ name, condition, actions }) => {
               logger.info("Create Rule", { name, condition, actions });
               return { success: true };
