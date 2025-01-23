@@ -96,6 +96,7 @@ export interface ParsedMessageHeaders {
   date: string;
   "message-id"?: string;
   "reply-to"?: string;
+  "in-reply-to"?: string;
   references?: string;
   "list-unsubscribe"?: string;
 }

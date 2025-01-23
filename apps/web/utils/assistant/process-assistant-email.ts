@@ -1,7 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { getOriginalMessageId } from "@/utils/assistant/get-original-message-id";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/fix-rules";
 import { extractEmailAddress } from "@/utils/email";
@@ -35,10 +34,7 @@ export async function processAssistantEmail({
 
   logger.info("Processing assistant email", { messageId: message.id });
 
-  const originalMessageId = getOriginalMessageId({
-    references: message.headers.references,
-    inReplyTo: message.headers["reply-to"],
-  });
+  const originalMessageId = message.headers["in-reply-to"];
   if (!originalMessageId) {
     logger.error("No original message ID found", { messageId: message.id });
     return;
