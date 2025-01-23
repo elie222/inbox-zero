@@ -1,10 +1,17 @@
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { type Action, ActionType } from "@prisma/client";
+import { type Action, ActionType, type Rule } from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 
 const logger = createScopedLogger("rule");
+
+export function partialUpdateRule(ruleId: string, data: Partial<Rule>) {
+  return prisma.rule.update({
+    where: { id: ruleId },
+    data,
+  });
+}
 
 export async function safeCreateRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
@@ -166,4 +173,41 @@ function shouldAutomate(actions: Pick<Action, "type">[]) {
 // user can enable to run on threads for ai rules themselves
 function shouldRunOnThreads(condition?: { aiInstructions?: string }) {
   return !condition?.aiInstructions;
+}
+
+export async function addRuleCategories(ruleId: string, categoryIds: string[]) {
+  const rule = await prisma.rule.findUnique({
+    where: { id: ruleId },
+    include: { categoryFilters: true },
+  });
+
+  if (!rule) throw new Error("Rule not found");
+
+  const existingIds = rule.categoryFilters.map((c) => c.id) || [];
+  const newIds = [...new Set([...existingIds, ...categoryIds])];
+
+  return prisma.rule.update({
+    where: { id: ruleId },
+    data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
+  });
+}
+
+export async function removeRuleCategories(
+  ruleId: string,
+  categoryIds: string[],
+) {
+  const rule = await prisma.rule.findUnique({
+    where: { id: ruleId },
+    include: { categoryFilters: true },
+  });
+
+  if (!rule) throw new Error("Rule not found");
+
+  const existingIds = rule.categoryFilters.map((c) => c.id) || [];
+  const newIds = existingIds.filter((id) => !categoryIds.includes(id));
+
+  return prisma.rule.update({
+    where: { id: ruleId },
+    data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
+  });
 }

@@ -10,7 +10,7 @@ import {
 } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
-import type { ParsedMessage } from "@/utils/types";
+import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 import {
   createRuleSchema,
@@ -18,7 +18,12 @@ import {
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
-import { safeCreateRule } from "@/utils/rule/rule";
+import {
+  addRuleCategories,
+  partialUpdateRule,
+  removeRuleCategories,
+  safeCreateRule,
+} from "@/utils/rule/rule";
 import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
 
@@ -164,6 +169,10 @@ ${senderCategory}
             ruleName,
             conditionalOperator,
           });
+
+          await partialUpdateRule(ruleName, { conditionalOperator });
+
+          return { success: true };
         },
       }),
       update_ai_instructions: tool({
@@ -174,6 +183,10 @@ ${senderCategory}
         }),
         execute: async ({ ruleName, aiInstructions }) => {
           logger.info("Edit AI Instructions", { ruleName, aiInstructions });
+
+          await partialUpdateRule(ruleName, { instructions: aiInstructions });
+
+          return { success: true };
         },
       }),
       update_static_conditions: tool({
@@ -184,6 +197,14 @@ ${senderCategory}
         }),
         execute: async ({ ruleName, staticConditions }) => {
           logger.info("Edit Static Conditions", { ruleName, staticConditions });
+
+          await partialUpdateRule(ruleName, {
+            from: staticConditions?.from,
+            to: staticConditions?.to,
+            subject: staticConditions?.subject,
+          });
+
+          return { success: true };
         },
       }),
       add_to_group: tool({
@@ -278,8 +299,26 @@ ${senderCategory}
                   .array(z.string())
                   .describe("The categories to add"),
               }),
-              execute: async ({ ruleName, categories }) => {
-                logger.info("Add Rule Categories", { ruleName, categories });
+              execute: async (options) => {
+                logger.info("Add Rule Categories", options);
+
+                const { ruleName } = options;
+
+                const rule = rules.find((r) => r.name === ruleName);
+
+                if (!rule) {
+                  logger.error("Rule not found", { ruleName });
+                  return { error: "Rule not found" };
+                }
+
+                const categoryIds = options.categories
+                  .map((c) => categories.find((cat) => cat.name === c))
+                  .filter(isDefined)
+                  .map((c) => c.id);
+
+                await addRuleCategories(rule.id, categoryIds);
+
+                return { success: true };
               },
             }),
             remove_categories: tool({
@@ -292,8 +331,26 @@ ${senderCategory}
                   .array(z.string())
                   .describe("The categories to remove"),
               }),
-              execute: async ({ ruleName, categories }) => {
-                logger.info("Remove Rule Categories", { ruleName, categories });
+              execute: async (options) => {
+                logger.info("Remove Rule Categories", options);
+
+                const { ruleName } = options;
+
+                const rule = rules.find((r) => r.name === ruleName);
+
+                if (!rule) {
+                  logger.error("Rule not found", { ruleName });
+                  return { error: "Rule not found" };
+                }
+
+                const categoryIds = options.categories
+                  .map((c) => categories.find((cat) => cat.name === c))
+                  .filter(isDefined)
+                  .map((c) => c.id);
+
+                await removeRuleCategories(rule.id, categoryIds);
+
+                return { success: true };
               },
             }),
           }
