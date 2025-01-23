@@ -17,7 +17,7 @@ import {
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
-import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { safeCreateRule } from "@/utils/rule/rule";
 import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
 
@@ -112,45 +112,6 @@ ${senderCategory}
     prompt,
     system,
     tools: {
-      edit_rule: tool({
-        description: "Fix a rule by adjusting its conditions",
-        parameters: z.object({
-          ruleName: z
-            .string()
-            .optional()
-            .describe("The exact name of the rule to fix"),
-          explanation: z
-            .string()
-            .describe("Explanation of the changes being made to the rule"),
-          condition: createRuleSchema.shape.condition,
-        }),
-        execute: async ({ ruleName, explanation, condition }) => {
-          logger.trace("Edit Rule", { ruleName, explanation, condition });
-
-          const rule = ruleName
-            ? rules.find((r) => r.name === ruleName)
-            : matchedRule;
-
-          if (!rule) {
-            logger.error("Rule not found", { ruleName });
-            return { error: "Rule not found" };
-          }
-
-          await safeUpdateRule(
-            rule.id,
-            {
-              name: rule.name,
-              condition,
-              actions: rule.actions,
-            },
-            user.id,
-            undefined, // groupId - I don't think there's a situation we want the AI updating the full group
-            null, // TODO: categoryIds: string[] | null
-          );
-
-          return { success: true };
-        },
-      }),
       create_rule: tool({
         description: "Create a new rule",
         parameters: categories
