@@ -8,7 +8,6 @@ import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
 import { replyToEmail } from "@/utils/gmail/mail";
-import { findSenderByEmail } from "@/utils/sender";
 
 const logger = createScopedLogger("AssistantEmail");
 
@@ -55,6 +54,8 @@ export async function processAssistantEmail({
     );
     return;
   }
+
+  const parsedOriginalMessage = parseMessage(originalMessage);
 
   const [user, executedRule, senderCategory] = await Promise.all([
     prisma.user.findUnique({
@@ -106,20 +107,23 @@ export async function processAssistantEmail({
         },
       },
     }),
-    findSenderByEmail(
-      { userId, email: message.headers.from },
-      {
+    prisma.newsletter.findUnique({
+      where: {
+        email_userId: {
+          userId,
+          email: parsedOriginalMessage.headers.from,
+        },
+      },
+      select: {
         category: { select: { name: true } },
       },
-    ),
+    }),
   ]);
 
   if (!user) {
     logger.error("User not found", { userEmail });
     return;
   }
-
-  const parsedOriginalMessage = parseMessage(originalMessage);
 
   const result = await processUserRequest({
     user,
