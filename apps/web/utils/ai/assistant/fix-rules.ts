@@ -13,7 +13,7 @@ import {
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
-import { safeCreateRule } from "@/utils/actions/ai-rule";
+import { safeCreateRule, safeUpdateRule } from "@/utils/actions/ai-rule";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -144,6 +144,18 @@ ${senderCategory}
             return { error: "Rule not found" };
           }
 
+          await safeUpdateRule(
+            rule.id,
+            {
+              name: rule.name,
+              condition,
+              actions: rule.actions,
+            },
+            user.id,
+            null, // TODO: groupId: string | null
+            null, // TODO: categoryIds: string[] | null
+          );
+
           return { success: true };
         },
       }),
@@ -158,8 +170,8 @@ ${senderCategory}
           await safeCreateRule(
             { name, condition, actions },
             user.id,
-            null, // TODO: group
-            null, // TODO: categories
+            null, // TODO: groupId: string | null
+            null, // TODO: categoryIds: string[] | null
           );
 
           return { success: true };

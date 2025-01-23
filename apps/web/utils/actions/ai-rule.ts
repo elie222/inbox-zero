@@ -323,7 +323,7 @@ export async function safeCreateRule(
   }
 }
 
-async function safeUpdateRule(
+export async function safeUpdateRule(
   ruleId: string,
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
