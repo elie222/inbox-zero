@@ -13,7 +13,7 @@ import {
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
-import { safeCreateRule, safeUpdateRule } from "@/utils/actions/ai-rule";
+import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 
 const logger = createScopedLogger("ai-fix-rules");
 

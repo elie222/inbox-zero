@@ -145,3 +145,16 @@ const logger = createScopedLogger("Rules");
 
 logger.log("Created rule", { userId });
 ```
+
+- This is how we import Prisma:
+
+```ts
+import prisma from "@/utils/prisma";
+```
+
+- If an import is a type then use `type` to import it:
+
+```ts
+import type { Action } from "@prisma/client";
+import { type Action, GroupItemType } from "@prisma/client";
+```
