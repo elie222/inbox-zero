@@ -122,7 +122,7 @@ export const getCreateRuleSchemaWithCategories = (
 };
 
 type CreateRuleSchema = z.infer<typeof createRuleSchema>;
-type CreateRuleSchemaWithCategories = CreateRuleSchema & {
+export type CreateRuleSchemaWithCategories = CreateRuleSchema & {
   condition: CreateRuleSchema["condition"] & {
     categories?: {
       categoryFilterType: CategoryFilterType;

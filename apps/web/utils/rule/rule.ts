@@ -2,6 +2,7 @@ import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/cre
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { type Action, ActionType } from "@prisma/client";
+import { getUserCategoriesForNames } from "@/utils/category.server";
 
 const logger = createScopedLogger("rule");
 
@@ -9,10 +10,15 @@ export async function safeCreateRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
   groupId?: string | null,
-  categoryIds?: string[] | null,
+  categoryNames?: string[] | null,
 ) {
+  const categoryIds = await getUserCategoriesForNames(
+    userId,
+    categoryNames || [],
+  );
+
   try {
-    const rule = await createRule(result, userId, groupId, categoryIds);
+    const rule = await createRule(result, userId, groupId, categoryNames);
     return { id: rule.id };
   } catch (error) {
     if (isDuplicateError(error, "name")) {

@@ -43,6 +43,7 @@ import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { getUserCategoriesForNames } from "@/utils/category.server";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -283,23 +284,6 @@ async function getGroupId(
 
   return groupId;
 }
-
-const getUserCategoriesForNames = async (userId: string, names: string[]) => {
-  if (!names.length) return [];
-
-  const categories = await prisma.category.findMany({
-    where: { userId, name: { in: names } },
-    select: { id: true },
-  });
-  if (categories.length !== names.length) {
-    logger.warn("Not all categories were found", {
-      requested: names.length,
-      found: categories.length,
-      names,
-    });
-  }
-  return categories.map((c) => c.id);
-};
 
 export const setRuleAutomatedAction = withActionInstrumentation(
   "setRuleAutomated",
@@ -653,12 +637,12 @@ export const saveRulesPromptAction = withActionInstrumentation(
         continue;
       }
 
-      const categoryIds = await getUserCategoriesForNames(
+      await safeCreateRule(
+        rule,
         session.user.id,
+        groupIdResult,
         rule.condition.categories?.categoryFilters || [],
       );
-
-      await safeCreateRule(rule, session.user.id, groupIdResult, categoryIds);
     }
 
     // update rules prompt for user

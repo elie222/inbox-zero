@@ -14,6 +14,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 import {
   createRuleSchema,
+  type CreateRuleSchemaWithCategories,
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
@@ -130,11 +131,14 @@ ${senderCategory}
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
 
+          const conditions =
+            condition as CreateRuleSchemaWithCategories["condition"];
+
           await safeCreateRule(
             { name, condition, actions },
             user.id,
-            null, // TODO: groupId: string | null
-            null, // TODO: categoryIds: string[] | null
+            null, // groupId
+            conditions.categories?.categoryFilters || [],
           );
 
           return { success: true };
