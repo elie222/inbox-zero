@@ -8,6 +8,7 @@ import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { parseMessage } from "@/utils/mail";
 import { replyToEmail } from "@/utils/gmail/mail";
+import { findSenderByEmail } from "@/utils/sender";
 
 const logger = createScopedLogger("AssistantEmail");
 
@@ -105,21 +106,12 @@ export async function processAssistantEmail({
         },
       },
     }),
-    prisma.newsletter.findUnique({
-      where: {
-        email_userId: {
-          userId,
-          email: message.headers.from,
-        },
+    findSenderByEmail(
+      { userId, email: message.headers.from },
+      {
+        category: { select: { name: true } },
       },
-      select: {
-        category: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    }),
+    ),
   ]);
 
   if (!user) {

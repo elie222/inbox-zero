@@ -114,7 +114,7 @@ ${originalEmailForLLM.content}
 ${
   categories?.length
     ? `<sender_category>
-${senderCategory}
+${senderCategory || "No category"}
 </sender_category>`
     : ""
 }`;
@@ -393,7 +393,10 @@ const getUpdateCategoryTool = (
     execute: async ({ sender, category }) => {
       logger.info("Update Category", { sender, category });
 
-      const existingSender = await findSenderByEmail(userId, sender);
+      const existingSender = await findSenderByEmail({
+        userId,
+        email: sender,
+      });
 
       if (!existingSender) {
         logger.error("Sender not found", { sender });
