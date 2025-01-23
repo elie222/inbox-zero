@@ -377,6 +377,20 @@ async function processHistoryItem(
       });
     }
 
+    const isFromAssistant = isAssistantEmail({
+      userEmail,
+      recipientEmail: message.headers.from,
+    });
+
+    if (isFromAssistant) {
+      logger.info("Skipping. Assistant email.", {
+        email: userEmail,
+        messageId,
+        threadId,
+      });
+      return;
+    }
+
     // skip SENT emails that are not assistant emails
     if (message.labelIds?.includes(GmailLabel.SENT)) return;
 
