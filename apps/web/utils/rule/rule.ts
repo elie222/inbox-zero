@@ -8,8 +8,8 @@ const logger = createScopedLogger("rule");
 export async function safeCreateRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
+  groupId?: string | null,
+  categoryIds?: string[] | null,
 ) {
   try {
     const rule = await createRule(result, userId, groupId, categoryIds);
@@ -42,8 +42,8 @@ export async function safeUpdateRule(
   ruleId: string,
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
+  groupId?: string | null,
+  categoryIds?: string[] | null,
 ) {
   try {
     const rule = await updateRule(ruleId, result, userId, groupId, categoryIds);
@@ -75,8 +75,8 @@ export async function safeUpdateRule(
 async function createRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
+  groupId?: string | null,
+  categoryIds?: string[] | null,
 ) {
   return prisma.rule.create({
     data: {
@@ -107,8 +107,8 @@ async function updateRule(
   ruleId: string,
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
+  groupId?: string | null,
+  categoryIds?: string[] | null,
 ) {
   return prisma.rule.update({
     where: { id: ruleId },

@@ -299,7 +299,9 @@ async function processHistory(options: ProcessHistoryOptions) {
 }
 
 async function processHistoryItem(
-  m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
+  {
+    message,
+  }: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
     email: userEmail,
@@ -311,12 +313,10 @@ async function processHistoryItem(
     rules,
   }: ProcessHistoryOptions,
 ) {
-  const message = m.message;
   const messageId = message?.id;
   const threadId = message?.threadId;
 
-  if (!messageId) return;
-  if (!threadId) return;
+  if (!messageId || !threadId) return;
 
   const isFree = await markMessageAsProcessing({ userEmail, messageId });
 
