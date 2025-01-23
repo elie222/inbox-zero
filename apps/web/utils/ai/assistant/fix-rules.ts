@@ -32,8 +32,9 @@ const logger = createScopedLogger("ai-fix-rules");
 export async function processUserRequest({
   user,
   rules,
-  userRequestEmail,
   originalEmail,
+  userRequestEmail,
+  additionalMessages,
   matchedRule,
   categories,
   senderCategory,
@@ -41,6 +42,7 @@ export async function processUserRequest({
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   rules: RuleWithRelations[];
   userRequestEmail: ParsedMessage;
+  additionalMessages?: { role: "assistant" | "user"; content: string }[];
   originalEmail: ParsedMessage;
   matchedRule: RuleWithRelations | null;
   categories: Pick<Category, "id" | "name">[] | null;
@@ -123,8 +125,17 @@ ${senderCategory || "No category"}
 
   const result = await chatCompletionTools({
     userAi: user,
-    prompt,
-    system,
+    messages: [
+      {
+        role: "system",
+        content: system,
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+      ...(additionalMessages || []),
+    ],
     tools: {
       create_rule: tool({
         description: "Create a new rule",

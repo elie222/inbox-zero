@@ -1,16 +1,16 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { ParsedMessage } from "@/utils/types";
+import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/fix-rules";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
-import { parseMessage } from "@/utils/mail";
+import { emailToContent, parseMessage } from "@/utils/mail";
 import { replyToEmail } from "@/utils/gmail/mail";
+import { getThread } from "@/utils/gmail/thread";
+import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 
-const logger = createScopedLogger("AssistantEmail");
-
-// TODO: load full email thread history for ongoing conversations
+const logger = createScopedLogger("process-assistant-email");
 
 export async function processAssistantEmail({
   userEmail,
@@ -34,9 +34,52 @@ export async function processAssistantEmail({
 
   logger.info("Processing assistant email", { messageId: message.id });
 
-  const originalMessageId = message.headers["in-reply-to"];
+  // 1. get thread
+  // 2. get first message in thread to the personal assistant
+  // 3. get the referenced message from that message
+
+  const thread = await getThread(message.threadId, gmail);
+  const threadMessages = thread?.messages?.map((m) =>
+    parseMessage(m as MessageWithPayload),
+  );
+
+  if (!threadMessages?.length) {
+    logger.error("No thread messages found", { messageId: message.id });
+    await replyToEmail(
+      gmail,
+      message,
+      "Something went wrong. I couldn't read any messages.",
+    );
+    return;
+  }
+
+  const firstMessageToAssistant = threadMessages.find((m) =>
+    isAssistantEmail({
+      userEmail,
+      emailToCheck: m.headers.to,
+    }),
+  );
+
+  if (!firstMessageToAssistant) {
+    logger.error("No first message to assistant found", {
+      messageId: message.id,
+    });
+    await replyToEmail(
+      gmail,
+      message,
+      "Something went wrong. I couldn't find the first message to the personal assistant.",
+    );
+    return;
+  }
+
+  const originalMessageId = firstMessageToAssistant.headers["in-reply-to"];
   if (!originalMessageId) {
     logger.error("No original message ID found", { messageId: message.id });
+    await replyToEmail(
+      gmail,
+      message,
+      "I only work with forwarded emails for now.",
+    );
     return;
   }
 
@@ -121,11 +164,28 @@ export async function processAssistantEmail({
     return;
   }
 
+  const firstMessageToAssistantDate = new Date(
+    firstMessageToAssistant.headers.date,
+  );
+
+  const additionalMessages = threadMessages
+    .filter((m) => new Date(m.headers.date) > firstMessageToAssistantDate)
+    .map((m) => ({
+      role: isAssistantEmail({
+        userEmail,
+        emailToCheck: m.headers.from,
+      })
+        ? ("assistant" as const)
+        : ("user" as const),
+      content: emailToContent(m),
+    }));
+
   const result = await processUserRequest({
     user,
     rules: user.rules,
-    userRequestEmail: message,
     originalEmail: parsedOriginalMessage,
+    userRequestEmail: message,
+    additionalMessages,
     matchedRule: executedRule?.rule || null,
     categories: user.categories.length ? user.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,

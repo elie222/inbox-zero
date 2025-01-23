@@ -4,15 +4,15 @@ const ASSISTANT_SUFFIX = "assistant";
 
 export function isAssistantEmail({
   userEmail,
-  recipientEmail,
+  emailToCheck,
 }: {
   userEmail: string;
-  recipientEmail: string;
+  emailToCheck: string;
 }): boolean {
   const [localPart, domain] = userEmail.split("@");
-  const extractedRecipientEmail = extractEmailAddress(recipientEmail);
+  const extractedEmailToCheck = extractEmailAddress(emailToCheck);
   const pattern = new RegExp(
     `^${localPart}\\+${ASSISTANT_SUFFIX}\\d*@${domain}$`,
   );
-  return pattern.test(extractedRecipientEmail);
+  return pattern.test(extractedEmailToCheck);
 }

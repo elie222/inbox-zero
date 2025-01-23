@@ -75,10 +75,11 @@ export function getEmailClient(messageId: string) {
 
 export function emailToContent(
   email: Pick<ParsedMessage, "textHtml" | "textPlain" | "snippet">,
-  options?: { maxLength: number },
+  options?: { maxLength?: number; extractReply?: boolean },
 ): string {
   const content =
-    (email.textHtml && parseEmail(email.textHtml, false, options?.maxLength)) ||
+    (email.textHtml &&
+      parseEmail(email.textHtml, options?.extractReply, options?.maxLength)) ||
     email.textPlain ||
     email.snippet;
 
