@@ -123,21 +123,28 @@ ${senderCategory}
     tools: {
       create_rule: tool({
         description: "Create a new rule",
-        parameters: categories
+        parameters: (categories
           ? getCreateRuleSchemaWithCategories(
               categories.map((c) => c.name) as [string, ...string[]],
             )
-          : createRuleSchema,
+          : createRuleSchema
+        )
+          // Simplify rule creation to not include groups
+          .extend({
+            condition: createRuleSchema.shape.condition.omit({ group: true }),
+          }),
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
 
           const conditions =
             condition as CreateRuleSchemaWithCategories["condition"];
 
+          const groupId = null;
+
           await safeCreateRule(
             { name, condition, actions },
             user.id,
-            null, // groupId
+            groupId,
             conditions.categories?.categoryFilters || [],
           );
 
