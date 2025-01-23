@@ -104,16 +104,43 @@ export async function sendEmail(
 
 export async function replyToEmail(
   gmail: gmail_v1.Gmail,
-  message: ParsedMessage,
+  message: Pick<
+    ParsedMessage,
+    "threadId" | "headers" | "textPlain" | "textHtml"
+  >,
   reply: string,
   from?: string,
 ) {
+  const quotedDate = formatEmailDate(new Date(message.headers.date));
+  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
+
+  // Format plain text version
+  const quotedContent = message.textPlain
+    ?.split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+  const plainText = `${reply}\n\n${quotedHeader}\n${quotedContent}`;
+
+  // Format HTML version
+  const htmlContent = `
+    <div>${reply}</div>
+    <br/>
+    <div class="gmail_quote">
+      ${quotedHeader}<br/>
+      <blockquote class="gmail_quote" 
+        style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">
+        ${message.textHtml || message.textPlain?.replace(/\n/g, "<br/>")}
+      </blockquote>
+    </div>
+  `;
+
   return sendEmail(
     gmail,
     {
-      to: message.headers.from,
+      to: message.headers["reply-to"] || message.headers.from,
       subject: message.headers.subject,
-      messageText: reply,
+      messageText: plainText,
+      messageHtml: htmlContent,
       replyToEmail: {
         threadId: message.threadId,
         headerMessageId: message.headers["message-id"] || "",
@@ -122,6 +149,18 @@ export async function replyToEmail(
     },
     from,
   );
+}
+
+function formatEmailDate(date: Date): string {
+  return date.toLocaleString("en-US", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  });
 }
 
 export async function forwardEmail(

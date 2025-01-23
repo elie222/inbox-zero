@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import stripIndent from "strip-indent";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
-import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
+import type { EmailForLLM } from "@/utils/types";
 
 // pnpm test-ai ai-rule-fix
 

@@ -11,7 +11,6 @@ import {
 import type { UserAIFields } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import { isDefined, type ParsedMessage } from "@/utils/types";
-import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
 import {
   createRuleSchema,
   type CreateRuleSchemaWithCategories,
@@ -26,6 +25,7 @@ import {
 } from "@/utils/rule/rule";
 import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
+import { emailToContent } from "@/utils/mail";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -46,8 +46,8 @@ export async function processUserRequest({
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
-  const userRequestEmailForLLM = getEmailFromMessage(userRequestEmail);
-  const originalEmailForLLM = getEmailFromMessage(originalEmail);
+  const userRequestContent = emailToContent(userRequestEmail);
+  const originalEmailContent = emailToContent(originalEmail);
 
   const system = `You are an email management assistant that helps users manage their email rules.
 You can fix rules using these specific operations:
@@ -96,7 +96,7 @@ ${rules.map((rule) => ruleToXML(rule)).join("\n")}
 }
 
 <user_request>
-${userRequestEmailForLLM.content}
+${userRequestContent}
 </user_request>
 
 ${
@@ -108,7 +108,7 @@ ${
 }
 
 <original_email>
-${originalEmailForLLM.content}
+${originalEmailContent}
 </original_email>
 
 ${

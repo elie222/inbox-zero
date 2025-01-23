@@ -339,15 +339,7 @@ export const approvePlanAction = withActionInstrumentation(
 
     await executeAct({
       gmail,
-      email: {
-        messageId: executedRule.messageId,
-        threadId: executedRule.threadId,
-        from: message.headers.from,
-        subject: message.headers.subject,
-        references: message.headers.references,
-        replyTo: message.headers["reply-to"],
-        headerMessageId: message.headers["message-id"] || "",
-      },
+      email: message,
       executedRule,
       userEmail: session.user.email,
     });
@@ -726,14 +718,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
       )
     ).filter(isDefined);
     const lastSentEmails = lastSentMessages?.map((message) => {
-      return emailToContent(
-        {
-          textHtml: message.textHtml || null,
-          textPlain: message.textPlain || null,
-          snippet: message.snippet || null,
-        },
-        { maxLength: 500 },
-      );
+      return emailToContent(message, { maxLength: 500 });
     });
 
     const snippetsResult = await aiFindSnippets({
@@ -743,11 +728,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
         replyTo: message.headers["reply-to"],
         cc: message.headers.cc,
         subject: message.headers.subject,
-        content: emailToContent({
-          textHtml: message.textHtml || null,
-          textPlain: message.textPlain || null,
-          snippet: message.snippet,
-        }),
+        content: emailToContent(message),
       })),
     });
 
@@ -822,9 +803,9 @@ export const reportAiMistakeAction = withActionInstrumentation(
     if (!user) return { error: "User not found" };
 
     const content = emailToContent({
-      textHtml: email.textHtml || null,
-      textPlain: email.textPlain || null,
-      snippet: email.snippet,
+      textHtml: email.textHtml || undefined,
+      textPlain: email.textPlain || undefined,
+      snippet: email.snippet || "",
     });
 
     const result = await aiRuleFix({

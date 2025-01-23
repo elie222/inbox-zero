@@ -14,7 +14,7 @@ export function parseMessage(message: MessageWithPayload): ParsedMessage {
 }
 
 // if the email content contains a lot of replies this parses it and finds the content from the last message
-export function parseReply(content: string) {
+function parseReply(content: string) {
   const email = replyParser(content);
   return email.getVisibleText();
 }
@@ -74,11 +74,7 @@ export function getEmailClient(messageId: string) {
 }
 
 export function emailToContent(
-  email: {
-    textHtml: string | null;
-    textPlain: string | null;
-    snippet: string | null;
-  },
+  email: Pick<ParsedMessage, "textHtml" | "textPlain" | "snippet">,
   options?: { maxLength: number },
 ): string {
   const content =

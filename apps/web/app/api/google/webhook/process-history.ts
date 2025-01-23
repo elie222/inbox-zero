@@ -434,11 +434,7 @@ async function processHistoryItem(
         },
       );
 
-      const content = emailToContent({
-        textHtml: message.textHtml || null,
-        textPlain: message.textPlain || null,
-        snippet: message.snippet,
-      });
+      const content = emailToContent(message);
 
       const response = await runColdEmailBlocker({
         hasPreviousEmail,

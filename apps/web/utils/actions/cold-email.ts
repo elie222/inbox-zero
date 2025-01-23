@@ -122,9 +122,9 @@ async function checkColdEmail(
       : false;
 
   const content = emailToContent({
-    textHtml: body.textHtml || null,
-    textPlain: body.textPlain || null,
-    snippet: body.snippet,
+    textHtml: body.textHtml || undefined,
+    textPlain: body.textPlain || undefined,
+    snippet: body.snippet || "",
   });
 
   const response = await isColdEmail({

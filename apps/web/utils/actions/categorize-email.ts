@@ -32,7 +32,11 @@ export const categorizeEmailAction = withActionInstrumentation(
     } = categorizeBodyWithHtml.safeParse(unsafeData);
     if (!success) return { error: parseError.message };
 
-    const content = emailToContent(data);
+    const content = emailToContent({
+      textHtml: data.textHtml || undefined,
+      textPlain: data.textPlain || undefined,
+      snippet: data.snippet || "",
+    });
 
     const unsubscribeLink = findUnsubscribeLink(data.textHtml);
     const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, data);

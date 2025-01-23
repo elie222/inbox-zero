@@ -16,7 +16,7 @@ import {
 } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -198,7 +198,7 @@ async function findMatchingRuleWithReasons(
 
   if (potentialMatches?.length) {
     const result = await aiChooseRule({
-      email: getEmailFromMessage(message),
+      email: getEmailForLLM(message),
       rules: potentialMatches,
       user,
     });

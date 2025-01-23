@@ -1,8 +1,6 @@
 import { z } from "zod";
-import {
-  type EmailForLLM,
-  stringifyEmail,
-} from "@/utils/ai/choose-rule/stringify-email";
+import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import type { EmailForLLM } from "@/utils/types";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { Rule, User } from "@prisma/client";
