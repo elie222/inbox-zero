@@ -290,7 +290,7 @@ async function updateRule(
   });
 }
 
-async function safeCreateRule(
+export async function safeCreateRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
   groupId: string | null,

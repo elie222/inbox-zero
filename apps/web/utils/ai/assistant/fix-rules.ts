@@ -1,7 +1,7 @@
-import { InvalidToolArgumentsError, tool } from "ai";
+import { tool } from "ai";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
-import { chatCompletionTools, withRetry } from "@/utils/llms";
+import { chatCompletionTools } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
 import { GroupItemType, type User } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -13,6 +13,7 @@ import {
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
+import { safeCreateRule } from "@/utils/actions/ai-rule";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -114,154 +115,153 @@ ${senderCategory}
 
   logger.trace("Input", { system, prompt });
 
-  const result = await withRetry(
-    () =>
-      chatCompletionTools({
-        userAi: user,
-        prompt,
-        system,
-        tools: {
-          edit_rule: tool({
-            description: "Fix a rule by adjusting its conditions",
-            parameters: z.object({
-              ruleName: z
-                .string()
-                .optional()
-                .describe("The exact name of the rule to fix"),
-              explanation: z
-                .string()
-                .describe("Explanation of the changes being made to the rule"),
-              condition: createRuleSchema.shape.condition,
-            }),
-            execute: async ({ ruleName, explanation, condition }) => {
-              logger.trace("Edit Rule", { ruleName, explanation, condition });
+  const result = await chatCompletionTools({
+    userAi: user,
+    prompt,
+    system,
+    tools: {
+      edit_rule: tool({
+        description: "Fix a rule by adjusting its conditions",
+        parameters: z.object({
+          ruleName: z
+            .string()
+            .optional()
+            .describe("The exact name of the rule to fix"),
+          explanation: z
+            .string()
+            .describe("Explanation of the changes being made to the rule"),
+          condition: createRuleSchema.shape.condition,
+        }),
+        execute: async ({ ruleName, explanation, condition }) => {
+          logger.trace("Edit Rule", { ruleName, explanation, condition });
 
-              const rule = ruleName
-                ? rules.find((r) => r.name === ruleName)
-                : matchedRule;
+          const rule = ruleName
+            ? rules.find((r) => r.name === ruleName)
+            : matchedRule;
 
-              if (!rule) {
-                logger.error("Rule not found", { ruleName });
-                return { error: "Rule not found" };
-              }
+          if (!rule) {
+            logger.error("Rule not found", { ruleName });
+            return { error: "Rule not found" };
+          }
 
-              return { success: true };
-            },
-          }),
-          create_rule: tool({
-            description: "Create a new rule",
-            parameters: categories
-              ? getCreateRuleSchemaWithCategories(categories)
-              : createRuleSchema,
-            execute: async ({ name, condition, actions }) => {
-              logger.info("Create Rule", { name, condition, actions });
-              return { success: true };
-            },
-          }),
-          ...(categories
-            ? {
-                change_sender_category: getChangeCategoryTool(categories),
-              }
-            : {}),
-          add_to_group: tool({
-            description: "Add a group item",
-            parameters: z.object({
-              groupName: z
-                .string()
-                .optional()
-                .describe("The name of the group to add the group item to"),
-              type: z
-                .enum(["from", "subject"])
-                .describe("The type of the group item to add"),
-              value: z
-                .string()
-                .describe(
-                  "The value of the group item to add. e.g. '@company.com', 'matt@company.com', 'Receipt from'",
-                ),
-            }),
-            execute: async ({ groupName, type, value }) => {
-              logger.info("Add To Group", { groupName, type, value });
-
-              const groupId = rules.find((r) => r.group?.name === groupName)
-                ?.group?.id;
-
-              if (!groupId) {
-                logger.error("Group not found", { groupName });
-                return { error: "Group not found" };
-              }
-
-              const groupItemType = getGroupItemType(type);
-
-              if (!groupItemType) {
-                logger.error("Invalid group item type", { type });
-                return { error: "Invalid group item type" };
-              }
-
-              await addGroupItem({ groupId, type: groupItemType, value });
-
-              return { success: true };
-            },
-          }),
-          ...(matchedRule?.group
-            ? {
-                remove_from_group: tool({
-                  description: "Remove a group item ",
-                  parameters: z.object({
-                    type: z
-                      .enum(["from", "subject"])
-                      .describe("The type of the group item to remove"),
-                    value: z
-                      .string()
-                      .describe("The value of the group item to remove"),
-                  }),
-                  execute: async ({ type, value }) => {
-                    logger.info("Remove From Group", { type, value });
-
-                    const groupItemType = getGroupItemType(type);
-
-                    if (!groupItemType) {
-                      logger.error("Invalid group item type", { type });
-                      return { error: "Invalid group item type" };
-                    }
-
-                    const groupItem = matchedRule?.group?.items?.find(
-                      (item) =>
-                        item.type === groupItemType && item.value === value,
-                    );
-
-                    if (!groupItem) {
-                      logger.error("Group item not found", { type, value });
-                      return { error: "Group item not found" };
-                    }
-
-                    await deleteGroupItem({
-                      id: groupItem.id,
-                      userId: user.id,
-                    });
-
-                    return { success: true };
-                  },
-                }),
-              }
-            : {}),
-          reply: tool({
-            description: "Send an email reply to the user",
-            parameters: z.object({
-              content: z.string().describe("The content of the reply"),
-            }),
-            // no execute function - invoking it will terminate the agent
-          }),
+          return { success: true };
         },
-        maxSteps: 5,
-        label: "Fix Rule",
-        userEmail: user.email || "",
       }),
-    {
-      retryIf: (error: unknown) => InvalidToolArgumentsError.isInstance(error),
-      maxRetries: 3,
-      delayMs: 1000,
+      create_rule: tool({
+        description: "Create a new rule",
+        parameters: categories
+          ? getCreateRuleSchemaWithCategories(categories)
+          : createRuleSchema,
+        execute: async ({ name, condition, actions }) => {
+          logger.info("Create Rule", { name, condition, actions });
+
+          await safeCreateRule(
+            { name, condition, actions },
+            user.id,
+            null, // TODO: group
+            null, // TODO: categories
+          );
+
+          return { success: true };
+        },
+      }),
+      ...(categories
+        ? {
+            change_sender_category: getChangeCategoryTool(categories),
+          }
+        : {}),
+      add_to_group: tool({
+        description: "Add a group item",
+        parameters: z.object({
+          groupName: z
+            .string()
+            .optional()
+            .describe("The name of the group to add the group item to"),
+          type: z
+            .enum(["from", "subject"])
+            .describe("The type of the group item to add"),
+          value: z
+            .string()
+            .describe(
+              "The value of the group item to add. e.g. '@company.com', 'matt@company.com', 'Receipt from'",
+            ),
+        }),
+        execute: async ({ groupName, type, value }) => {
+          logger.info("Add To Group", { groupName, type, value });
+
+          const groupId = rules.find((r) => r.group?.name === groupName)?.group
+            ?.id;
+
+          if (!groupId) {
+            logger.error("Group not found", { groupName });
+            return { error: "Group not found" };
+          }
+
+          const groupItemType = getGroupItemType(type);
+
+          if (!groupItemType) {
+            logger.error("Invalid group item type", { type });
+            return { error: "Invalid group item type" };
+          }
+
+          await addGroupItem({ groupId, type: groupItemType, value });
+
+          return { success: true };
+        },
+      }),
+      ...(matchedRule?.group
+        ? {
+            remove_from_group: tool({
+              description: "Remove a group item ",
+              parameters: z.object({
+                type: z
+                  .enum(["from", "subject"])
+                  .describe("The type of the group item to remove"),
+                value: z
+                  .string()
+                  .describe("The value of the group item to remove"),
+              }),
+              execute: async ({ type, value }) => {
+                logger.info("Remove From Group", { type, value });
+
+                const groupItemType = getGroupItemType(type);
+
+                if (!groupItemType) {
+                  logger.error("Invalid group item type", { type });
+                  return { error: "Invalid group item type" };
+                }
+
+                const groupItem = matchedRule?.group?.items?.find(
+                  (item) => item.type === groupItemType && item.value === value,
+                );
+
+                if (!groupItem) {
+                  logger.error("Group item not found", { type, value });
+                  return { error: "Group item not found" };
+                }
+
+                await deleteGroupItem({
+                  id: groupItem.id,
+                  userId: user.id,
+                });
+
+                return { success: true };
+              },
+            }),
+          }
+        : {}),
+      reply: tool({
+        description: "Send an email reply to the user",
+        parameters: z.object({
+          content: z.string().describe("The content of the reply"),
+        }),
+        // no execute function - invoking it will terminate the agent
+      }),
     },
-  );
+    maxSteps: 5,
+    label: "Fix Rule",
+    userEmail: user.email || "",
+  });
 
   logger.trace("Tool Calls", {
     toolCalls: result.steps.flatMap((step) => step.toolCalls),
