@@ -44,30 +44,38 @@ export async function processUserRequest({
   const originalEmailForLLM = getEmailFromMessage(originalEmail);
 
   const system = `You are an email management assistant that helps users manage their email rules.
-You can fix rules by adjusting their conditions, including:
-- AI instructions
-- Static conditions (from, to, subject, body)
-- Static group conditions (from, subject)
-- Category assignments
+You can fix rules using these specific operations:
 
-Prefer to fix rules by editing them directly, rather than creating new ones.
+1. Edit Rule Components:
+- Change conditional operator (AND/OR logic)
+- Modify AI instructions
+- Update static conditions (from, to, subject, body)
+- Add or remove categories
 
-When fixing a rule, explain what changes you're making and why. Always confirm your actions with clear, concise responses.
+2. Manage Groups:
+- Add items to groups (email addresses or subject patterns)
+- Remove items from groups
+- Never mix static conditions with group conditions
+
+3. Create New Rules:
+- Create new rules when existing ones cannot be modified to fit the need
+
+When fixing rules:
+- Make one precise change at a time
+- Prefer minimal changes that solve the problem
+- Only add AI instructions if simpler conditions won't suffice
+- Keep rules general and maintainable
 
 Rule matching logic:
 - All static conditions (from, to, subject, body) use AND logic - meaning all conditions must match
 - Top level conditions (static, group, category, AI instructions) can use either AND or OR logic, controlled by the conditionalOperator setting
 
-Group conditions:
-- When a group exists, use add_to_group/remove_from_group instead of editing the rule directly
-- Never add static conditions to a rule that uses groups - this defeats the purpose of groups
-- Only add subject patterns to groups if they are recurring across multiple emails (e.g., "Monthly Statement", "Order Confirmation")
-- Groups should be used to maintain collections of similar items (e.g., newsletter senders, receipt patterns)
+Best practices:
+- For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
+- For groups, collect similar items that are likely to appear together (e.g., newsletter senders, receipt subject patterns)
+- Only use subject patterns if they are likely to be recurring (e.g., "Your Monthly Statement", "Order Confirmation")
 
-When fixing a rule, prefer minimal changes that solve the problem:
-- Only add AI instructions if simpler conditions won't suffice
-- Make the smallest change that will fix the issue
-- Keep rules general and maintainable`;
+Always end by using the reply tool to explain what changes were made.`;
 
   const prompt = `<matched_rule>
 ${matchedRule ? ruleToXML(matchedRule) : "No rule matched"}
@@ -132,9 +140,8 @@ ${senderCategory}
           return { success: true };
         },
       }),
-      // conditional operator
-      edit_conditional_operator: tool({
-        description: "Edit the conditional operator of a rule",
+      update_conditional_operator: tool({
+        description: "Update the conditional operator of a rule",
         parameters: z.object({
           ruleName: z.string().describe("The exact name of the rule to edit"),
           conditionalOperator: z
@@ -148,9 +155,8 @@ ${senderCategory}
           });
         },
       }),
-      // ai instructions
-      edit_ai_instructions: tool({
-        description: "Edit the AI instructions of a rule",
+      update_ai_instructions: tool({
+        description: "Update the AI instructions of a rule",
         parameters: z.object({
           ruleName: z.string().describe("The exact name of the rule to edit"),
           aiInstructions: z.string().describe("The new AI instructions"),
@@ -159,9 +165,8 @@ ${senderCategory}
           logger.info("Edit AI Instructions", { ruleName, aiInstructions });
         },
       }),
-      // static conditions
-      edit_static_conditions: tool({
-        description: "Edit the static conditions of a rule",
+      update_static_conditions: tool({
+        description: "Update the static conditions of a rule",
         parameters: z.object({
           ruleName: z.string().describe("The exact name of the rule to edit"),
           staticConditions: createRuleSchema.shape.condition.shape.static,
@@ -170,7 +175,6 @@ ${senderCategory}
           logger.info("Edit Static Conditions", { ruleName, staticConditions });
         },
       }),
-      // groups
       add_to_group: tool({
         description: "Add a group item",
         parameters: z.object({
@@ -250,10 +254,9 @@ ${senderCategory}
             }),
           }
         : {}),
-      // categories
       ...(categories
         ? {
-            change_sender_category: getChangeCategoryTool(user.id, categories),
+            update_sender_category: getUpdateCategoryTool(user.id, categories),
             add_categories: tool({
               description: "Add categories to a rule",
               parameters: z.object({
@@ -304,14 +307,14 @@ ${senderCategory}
   return result;
 }
 
-const getChangeCategoryTool = (
+const getUpdateCategoryTool = (
   userId: string,
   categories: Pick<Category, "id" | "name">[],
 ) =>
   tool({
-    description: "Change the category of a sender",
+    description: "Update the category of a sender",
     parameters: z.object({
-      sender: z.string().describe("The sender to change"),
+      sender: z.string().describe("The sender to update"),
       category: z
         .enum([
           ...(categories.map((c) => c.name) as [string, ...string[]]),
@@ -320,7 +323,7 @@ const getChangeCategoryTool = (
         .describe("The name of the category to assign"),
     }),
     execute: async ({ sender, category }) => {
-      logger.info("Change Category", { sender, category });
+      logger.info("Update Category", { sender, category });
 
       const existingSender = await findSenderByEmail(userId, sender);
 

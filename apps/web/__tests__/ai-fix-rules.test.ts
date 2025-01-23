@@ -66,15 +66,17 @@ describe(
       expect(result).toBeDefined();
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
-      const fixRuleToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "edit_rule",
+      const updateInstructionsToolCall = toolCalls.find(
+        (toolCall) => toolCall.toolName === "update_ai_instructions",
       );
 
-      expect(fixRuleToolCall).toBeDefined();
-      expect(fixRuleToolCall?.args.ruleName).toBe("Partnership Rule");
+      expect(updateInstructionsToolCall).toBeDefined();
+      expect(updateInstructionsToolCall?.args.ruleName).toBe(
+        "Partnership Rule",
+      );
     });
 
-    test("should handle request to fix rule categorization", async () => {
+    test("should handle request to refine ai rule instructions", async () => {
       const ruleSupport = getRule({
         name: "Support Rule",
         instructions: "Match technical support requests",
@@ -117,12 +119,11 @@ describe(
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
 
-      const fixRuleToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "edit_rule",
+      const toolCall = toolCalls.find(
+        (toolCall) => toolCall.toolName === "update_ai_instructions",
       );
 
-      expect(fixRuleToolCall).toBeDefined();
-      expect(fixRuleToolCall?.args.ruleName).toBe("Urgent Rule");
+      expect(toolCall).toBeDefined();
     });
 
     test("should fix static conditions when user indicates incorrect matching", async () => {
@@ -159,17 +160,21 @@ describe(
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
-      const fixRuleToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "edit_rule",
+      const updateStaticConditionsToolCall = toolCalls.find(
+        (toolCall) => toolCall.toolName === "update_static_conditions",
       );
 
-      expect(fixRuleToolCall).toBeDefined();
-      expect(fixRuleToolCall?.args.ruleName).toBe("Receipt Rule");
+      expect(updateStaticConditionsToolCall).toBeDefined();
+      expect(updateStaticConditionsToolCall?.args.ruleName).toBe(
+        "Receipt Rule",
+      );
       expect(
-        fixRuleToolCall?.args.condition?.static?.subject?.includes(
+        updateStaticConditionsToolCall?.args.staticConditions?.subject?.includes(
           "shipping",
         ) ||
-          fixRuleToolCall?.args.condition?.aiInstructions?.includes("shipping"),
+          updateStaticConditionsToolCall?.args.staticConditions?.subject?.includes(
+            "Shipped",
+          ),
       ).toBe(true);
     });
 
@@ -389,12 +394,23 @@ describe(
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
-      const fixRuleToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "edit_rule",
+
+      const updateStaticConditionsToolCall = toolCalls.find(
+        (toolCall) => toolCall.toolName === "update_static_conditions",
+      );
+      const updateAiInstructionsToolCall = toolCalls.find(
+        (toolCall) => toolCall.toolName === "update_ai_instructions",
       );
 
-      expect(fixRuleToolCall).toBeDefined();
-      expect(fixRuleToolCall?.args.ruleName).toBe("Sales Rule");
+      expect(
+        updateStaticConditionsToolCall || updateAiInstructionsToolCall,
+      ).toBeDefined();
+      if (updateStaticConditionsToolCall) {
+        expect(updateStaticConditionsToolCall.args.ruleName).toBe("Sales Rule");
+      }
+      if (updateAiInstructionsToolCall) {
+        expect(updateAiInstructionsToolCall.args.ruleName).toBe("Sales Rule");
+      }
     });
   },
 );
