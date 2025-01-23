@@ -115,6 +115,8 @@ async function updateRule(
     data: {
       name: result.name,
       userId,
+      // NOTE: this is safe for now as `Action` doesn't have relations
+      // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
       actions: {
         deleteMany: {},
         createMany: { data: result.actions },
