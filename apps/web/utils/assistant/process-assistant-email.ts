@@ -177,7 +177,7 @@ export async function processAssistantEmail({
       })
         ? ("assistant" as const)
         : ("user" as const),
-      content: emailToContent(m),
+      content: emailToContent(m, { extractReply: true }),
     }));
 
   const result = await processUserRequest({

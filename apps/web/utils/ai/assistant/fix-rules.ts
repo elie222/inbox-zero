@@ -48,7 +48,9 @@ export async function processUserRequest({
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
-  const userRequestContent = emailToContent(userRequestEmail);
+  const userRequestContent = emailToContent(userRequestEmail, {
+    extractReply: true,
+  });
   const originalEmailContent = emailToContent(originalEmail);
 
   const system = `You are an email management assistant that helps users manage their email rules.
