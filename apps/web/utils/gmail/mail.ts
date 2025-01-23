@@ -121,19 +121,17 @@ export async function replyToEmail(
     .join("\n");
   const plainText = `${reply}\n\n${quotedHeader}\n${quotedContent}`;
 
-  // Format HTML version
+  // Format HTML version with <br> tags for line breaks
+  const htmlReply = reply.replace(/\n/g, "<br>");
   const htmlContent = `
-    <div>${reply}</div>
-    <br/>
-    <div class="gmail_quote">
-      ${quotedHeader}<br/>
-      <blockquote class="gmail_quote" 
-        style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">
-        ${message.textHtml || message.textPlain?.replace(/\n/g, "<br/>")}
-      </blockquote>
+    <div>${htmlReply}</div>
+    <div style="margin-top: 20px; padding-left: 10px; color: #666; border-left: 1px solid #ccc;">
+      <div>${quotedHeader}</div>
+      ${message.textHtml || message.textPlain?.replace(/\n/g, "<br>")}
     </div>
   `;
 
+  // Create email
   return sendEmail(
     gmail,
     {
