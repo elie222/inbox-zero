@@ -2,7 +2,12 @@ import { tool } from "ai";
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
-import { type Category, GroupItemType, type User } from "@prisma/client";
+import {
+  type Category,
+  GroupItemType,
+  LogicalOperator,
+  type User,
+} from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import type { ParsedMessage } from "@/utils/types";
@@ -139,7 +144,7 @@ ${senderCategory}
               actions: rule.actions,
             },
             user.id,
-            null, // TODO: groupId: string | null
+            undefined, // groupId - I don't think there's a situation we want the AI updating the full group
             null, // TODO: categoryIds: string[] | null
           );
 
@@ -166,11 +171,45 @@ ${senderCategory}
           return { success: true };
         },
       }),
-      ...(categories
-        ? {
-            change_sender_category: getChangeCategoryTool(user.id, categories),
-          }
-        : {}),
+      // conditional operator
+      edit_conditional_operator: tool({
+        description: "Edit the conditional operator of a rule",
+        parameters: z.object({
+          ruleName: z.string().describe("The exact name of the rule to edit"),
+          conditionalOperator: z
+            .enum([LogicalOperator.AND, LogicalOperator.OR])
+            .describe("The new conditional operator"),
+        }),
+        execute: async ({ ruleName, conditionalOperator }) => {
+          logger.info("Edit Conditional Operator", {
+            ruleName,
+            conditionalOperator,
+          });
+        },
+      }),
+      // ai instructions
+      edit_ai_instructions: tool({
+        description: "Edit the AI instructions of a rule",
+        parameters: z.object({
+          ruleName: z.string().describe("The exact name of the rule to edit"),
+          aiInstructions: z.string().describe("The new AI instructions"),
+        }),
+        execute: async ({ ruleName, aiInstructions }) => {
+          logger.info("Edit AI Instructions", { ruleName, aiInstructions });
+        },
+      }),
+      // static conditions
+      edit_static_conditions: tool({
+        description: "Edit the static conditions of a rule",
+        parameters: z.object({
+          ruleName: z.string().describe("The exact name of the rule to edit"),
+          staticConditions: createRuleSchema.shape.condition.shape.static,
+        }),
+        execute: async ({ ruleName, staticConditions }) => {
+          logger.info("Edit Static Conditions", { ruleName, staticConditions });
+        },
+      }),
+      // groups
       add_to_group: tool({
         description: "Add a group item",
         parameters: z.object({
@@ -246,6 +285,40 @@ ${senderCategory}
                 });
 
                 return { success: true };
+              },
+            }),
+          }
+        : {}),
+      // categories
+      ...(categories
+        ? {
+            change_sender_category: getChangeCategoryTool(user.id, categories),
+            add_categories: tool({
+              description: "Add categories to a rule",
+              parameters: z.object({
+                ruleName: z
+                  .string()
+                  .describe("The exact name of the rule to edit"),
+                categories: z
+                  .array(z.string())
+                  .describe("The categories to add"),
+              }),
+              execute: async ({ ruleName, categories }) => {
+                logger.info("Add Rule Categories", { ruleName, categories });
+              },
+            }),
+            remove_categories: tool({
+              description: "Remove categories from a rule",
+              parameters: z.object({
+                ruleName: z
+                  .string()
+                  .describe("The exact name of the rule to edit"),
+                categories: z
+                  .array(z.string())
+                  .describe("The categories to remove"),
+              }),
+              execute: async ({ ruleName, categories }) => {
+                logger.info("Remove Rule Categories", { ruleName, categories });
               },
             }),
           }
