@@ -27,6 +27,7 @@ import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 import type { UserAIFields } from "@/utils/llms/types";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
+import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
 
 const logger = createScopedLogger("Group Action");
 
@@ -407,21 +408,6 @@ export const addGroupItemAction = withActionInstrumentation(
   },
 );
 
-export async function addGroupItem(data: {
-  groupId: string;
-  type: GroupItemType;
-  value: string;
-}) {
-  try {
-    return await prisma.groupItem.create({ data });
-  } catch (error) {
-    if (isDuplicateError(error))
-      captureException(error, { extra: { items: data } });
-
-    throw error;
-  }
-}
-
 export const deleteGroupItemAction = withActionInstrumentation(
   "deleteGroupItem",
   async (id: string) => {
@@ -433,16 +419,6 @@ export const deleteGroupItemAction = withActionInstrumentation(
     revalidatePath("/automation");
   },
 );
-
-export async function deleteGroupItem({
-  id,
-  userId,
-}: {
-  id: string;
-  userId: string;
-}) {
-  await prisma.groupItem.delete({ where: { id, group: { userId } } });
-}
 
 export const updateGroupPromptAction = withActionInstrumentation(
   "updateGroupPrompt",

@@ -16,7 +16,7 @@ import {
   type CreateRuleSchemaWithCategories,
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
-import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
+import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
 import {
   addRuleCategories,
   partialUpdateRule,
