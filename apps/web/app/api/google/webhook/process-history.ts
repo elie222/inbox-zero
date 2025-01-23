@@ -360,7 +360,7 @@ async function processHistoryItem(
 
     const isForAssistant = isAssistantEmail({
       userEmail,
-      recipientEmail: message.headers.to,
+      emailToCheck: message.headers.to,
     });
 
     if (isForAssistant) {
@@ -379,7 +379,7 @@ async function processHistoryItem(
 
     const isFromAssistant = isAssistantEmail({
       userEmail,
-      recipientEmail: message.headers.from,
+      emailToCheck: message.headers.from,
     });
 
     if (isFromAssistant) {
