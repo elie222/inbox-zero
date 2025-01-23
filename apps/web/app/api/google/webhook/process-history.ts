@@ -200,10 +200,7 @@ export async function processHistoryForUser(
       });
 
       // important to save this or we can get into a loop with never receiving history
-      await prisma.user.update({
-        where: { email: account.user.email },
-        data: { lastSyncedHistoryId: historyId.toString() },
-      });
+      await updateLastSyncedHistoryId(account.user.email, historyId.toString());
     }
 
     logger.info("Completed processing history", { decodedData });
@@ -298,10 +295,7 @@ async function processHistory(options: ProcessHistoryOptions) {
 
   const lastSyncedHistoryId = history[history.length - 1].id;
 
-  await prisma.user.update({
-    where: { email },
-    data: { lastSyncedHistoryId },
-  });
+  await updateLastSyncedHistoryId(email, lastSyncedHistoryId);
 }
 
 async function processHistoryItem(
@@ -509,4 +503,15 @@ function shouldRunColdEmailBlocker(
     hasColdEmailAccess &&
     !isThread
   );
+}
+
+async function updateLastSyncedHistoryId(
+  email: string,
+  lastSyncedHistoryId?: string | null,
+) {
+  if (!lastSyncedHistoryId) return;
+  await prisma.user.update({
+    where: { email },
+    data: { lastSyncedHistoryId },
+  });
 }
