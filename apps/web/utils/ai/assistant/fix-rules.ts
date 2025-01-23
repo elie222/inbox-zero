@@ -1,9 +1,8 @@
 import { tool } from "ai";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
-import { GroupItemType, type User } from "@prisma/client";
+import { type Category, GroupItemType, type User } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import type { ParsedMessage } from "@/utils/types";
@@ -14,23 +13,10 @@ import {
 } from "@/utils/ai/rule/create-rule-schema";
 import { addGroupItem, deleteGroupItem } from "@/utils/actions/group";
 import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
+import { findSenderByEmail } from "@/utils/sender";
 
 const logger = createScopedLogger("ai-fix-rules");
-
-const getChangeCategoryTool = (categories: [string, ...string[]]) =>
-  tool({
-    description: "Change the category of a sender",
-    parameters: z.object({
-      sender: z.string().describe("The sender to change"),
-      category: z
-        .enum([...categories, "none"])
-        .describe("The name of the category to assign"),
-    }),
-    execute: async ({ sender, category }) => {
-      logger.info("Change Category", { sender, category });
-      return { success: true };
-    },
-  });
 
 export async function processUserRequest({
   user,
@@ -38,7 +24,6 @@ export async function processUserRequest({
   userRequestEmail,
   originalEmail,
   matchedRule,
-  gmail,
   categories,
   senderCategory,
 }: {
@@ -47,8 +32,7 @@ export async function processUserRequest({
   userRequestEmail: ParsedMessage;
   originalEmail: ParsedMessage;
   matchedRule: RuleWithRelations | null;
-  gmail: gmail_v1.Gmail;
-  categories: [string, ...string[]] | null;
+  categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
   const userRequestEmailForLLM = getEmailFromMessage(userRequestEmail);
@@ -70,12 +54,15 @@ Rule matching logic:
 - Top level conditions (static, group, category, AI instructions) can use either AND or OR logic, controlled by the conditionalOperator setting
 
 Group conditions:
-- When a group exists, prefer to add/remove group items over changing AI instructions
+- When a group exists, use add_to_group/remove_from_group instead of editing the rule directly
+- Never add static conditions to a rule that uses groups - this defeats the purpose of groups
 - Only add subject patterns to groups if they are recurring across multiple emails (e.g., "Monthly Statement", "Order Confirmation")
+- Groups should be used to maintain collections of similar items (e.g., newsletter senders, receipt patterns)
 
 When fixing a rule, prefer minimal changes that solve the problem:
 - Only add AI instructions if simpler conditions won't suffice
-- Make the smallest change that will fix the issue`;
+- Make the smallest change that will fix the issue
+- Keep rules general and maintainable`;
 
   const prompt = `<matched_rule>
 ${matchedRule ? ruleToXML(matchedRule) : "No rule matched"}
@@ -162,7 +149,9 @@ ${senderCategory}
       create_rule: tool({
         description: "Create a new rule",
         parameters: categories
-          ? getCreateRuleSchemaWithCategories(categories)
+          ? getCreateRuleSchemaWithCategories(
+              categories.map((c) => c.name) as [string, ...string[]],
+            )
           : createRuleSchema,
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
@@ -179,7 +168,7 @@ ${senderCategory}
       }),
       ...(categories
         ? {
-            change_sender_category: getChangeCategoryTool(categories),
+            change_sender_category: getChangeCategoryTool(user.id, categories),
           }
         : {}),
       add_to_group: tool({
@@ -187,7 +176,6 @@ ${senderCategory}
         parameters: z.object({
           groupName: z
             .string()
-            .optional()
             .describe("The name of the group to add the group item to"),
           type: z
             .enum(["from", "subject"])
@@ -201,8 +189,8 @@ ${senderCategory}
         execute: async ({ groupName, type, value }) => {
           logger.info("Add To Group", { groupName, type, value });
 
-          const groupId = rules.find((r) => r.group?.name === groupName)?.group
-            ?.id;
+          const group = rules.find((r) => r.group?.name === groupName)?.group;
+          const groupId = group?.id;
 
           if (!groupId) {
             logger.error("Group not found", { groupName });
@@ -281,6 +269,47 @@ ${senderCategory}
 
   return result;
 }
+
+const getChangeCategoryTool = (
+  userId: string,
+  categories: Pick<Category, "id" | "name">[],
+) =>
+  tool({
+    description: "Change the category of a sender",
+    parameters: z.object({
+      sender: z.string().describe("The sender to change"),
+      category: z
+        .enum([
+          ...(categories.map((c) => c.name) as [string, ...string[]]),
+          "none",
+        ])
+        .describe("The name of the category to assign"),
+    }),
+    execute: async ({ sender, category }) => {
+      logger.info("Change Category", { sender, category });
+
+      const existingSender = await findSenderByEmail(userId, sender);
+
+      if (!existingSender) {
+        logger.error("Sender not found", { sender });
+        return { error: "Sender not found" };
+      }
+
+      const cat = categories.find((c) => c.name === category);
+
+      if (!cat) {
+        logger.error("Category not found", { category });
+        return { error: "Category not found" };
+      }
+
+      await updateCategoryForSender({
+        userId,
+        sender: existingSender.email,
+        categoryId: cat.id,
+      });
+      return { success: true };
+    },
+  });
 
 function ruleToXML(rule: RuleWithRelations) {
   return `<rule>

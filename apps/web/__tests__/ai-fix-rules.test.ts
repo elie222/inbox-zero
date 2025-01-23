@@ -59,7 +59,6 @@ describe(
         userRequestEmail,
         originalEmail,
         matchedRule: rule,
-        gmail: {} as any,
         categories: null,
         senderCategory: null,
       });
@@ -110,7 +109,6 @@ describe(
         userRequestEmail,
         originalEmail,
         matchedRule: ruleUrgent,
-        gmail: {} as any,
         categories: null,
         senderCategory: null,
       });
@@ -156,7 +154,6 @@ describe(
         userRequestEmail,
         originalEmail,
         matchedRule: rule,
-        gmail: {} as any,
         categories: null,
         senderCategory: null,
       });
@@ -227,7 +224,6 @@ describe(
         userRequestEmail,
         originalEmail,
         matchedRule: rule,
-        gmail: {} as any,
         categories: null,
         senderCategory: null,
       });
@@ -289,7 +285,6 @@ describe(
         userRequestEmail,
         originalEmail,
         matchedRule: null, // Important: rule didn't match initially
-        gmail: {} as any,
         categories: null,
         senderCategory: null,
       });
@@ -334,8 +329,11 @@ describe(
         userRequestEmail,
         originalEmail,
         matchedRule: rule,
-        gmail: {} as any,
-        categories: ["Marketing", "Sales", "Newsletter"],
+        categories: [
+          { id: "1", name: "Marketing" },
+          { id: "2", name: "Sales" },
+          { id: "3", name: "Newsletter" },
+        ],
         senderCategory: "Marketing",
       });
 
@@ -382,8 +380,11 @@ describe(
         userRequestEmail,
         originalEmail,
         matchedRule: rule,
-        gmail: {} as any,
-        categories: ["Marketing", "Sales", "Newsletter"],
+        categories: [
+          { id: "1", name: "Marketing" },
+          { id: "2", name: "Sales" },
+          { id: "3", name: "Newsletter" },
+        ],
         senderCategory: "Marketing",
       });
 

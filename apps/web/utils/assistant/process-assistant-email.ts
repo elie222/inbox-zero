@@ -135,11 +135,8 @@ export async function processAssistantEmail({
     userRequestEmail: message,
     originalEmail: parsedOriginalMessage,
     matchedRule: executedRule?.rule || null,
-    categories: user.categories.length
-      ? (user.categories.map((c) => c.name) as [string, ...string[]])
-      : null,
+    categories: user.categories.length ? user.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,
-    gmail,
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);
