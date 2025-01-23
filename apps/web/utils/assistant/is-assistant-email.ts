@@ -10,7 +10,9 @@ export function isAssistantEmail({
   recipientEmail: string;
 }): boolean {
   const [localPart, domain] = userEmail.split("@");
-  const assistantEmail = `${localPart}+${ASSISTANT_SUFFIX}@${domain}`;
   const extractedRecipientEmail = extractEmailAddress(recipientEmail);
-  return assistantEmail === extractedRecipientEmail;
+  const pattern = new RegExp(
+    `^${localPart}\\+${ASSISTANT_SUFFIX}\\d*@${domain}$`,
+  );
+  return pattern.test(extractedRecipientEmail);
 }

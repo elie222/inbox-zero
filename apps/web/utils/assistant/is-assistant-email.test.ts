@@ -41,4 +41,44 @@ describe("isAssistantEmail", () => {
     });
     expect(result).toBe(true);
   });
+
+  it("should reject malicious suffix injection", () => {
+    const result = isAssistantEmail({
+      userEmail: "john@example.com",
+      recipientEmail: "john+assistant@evil.com+assistant@example.com",
+    });
+    expect(result).toBe(false);
+  });
+
+  it("should reject multiple plus signs", () => {
+    const result = isAssistantEmail({
+      userEmail: "john@example.com",
+      recipientEmail: "john+evil+assistant@example.com",
+    });
+    expect(result).toBe(false);
+  });
+
+  it("should reject assistant in wrong position", () => {
+    const result = isAssistantEmail({
+      userEmail: "john@example.com",
+      recipientEmail: "john+evilassistant@example.com",
+    });
+    expect(result).toBe(false);
+  });
+
+  it("should reject case manipulation", () => {
+    const result = isAssistantEmail({
+      userEmail: "john@example.com",
+      recipientEmail: "john+ASSISTANT@example.com",
+    });
+    expect(result).toBe(false);
+  });
+
+  it("should match valid assistant email with number", () => {
+    const result = isAssistantEmail({
+      userEmail: "john@example.com",
+      recipientEmail: "john+assistant42@example.com",
+    });
+    expect(result).toBe(true);
+  });
 });
