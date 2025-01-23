@@ -1,18 +1,29 @@
-import type { Prisma } from "@prisma/client";
 import prisma from "@/utils/prisma";
+import { extractEmailAddress } from "@/utils/email";
 
-// in the database we store: Name <email@domain.com>
-// but the AI will often give us just email@domain.com
-// so we need to find the sender by email
-export async function findSenderByEmail<T extends Prisma.NewsletterSelect>(
-  { userId, email }: { userId: string; email: string },
-  select?: T,
-) {
-  return (await prisma.newsletter.findFirst({
+export async function findSenderByEmail({
+  userId,
+  email,
+}: {
+  userId: string;
+  email: string;
+}) {
+  const extractedEmail = extractEmailAddress(email);
+  if (!extractedEmail) return null;
+
+  const newsletter = await prisma.newsletter.findFirst({
     where: {
       userId,
-      OR: [{ email: { contains: `<${email}>` } }, { email }],
+      email: { contains: extractedEmail },
     },
-    select,
-  })) as Prisma.NewsletterGetPayload<{ select: T }>;
+  });
+
+  if (!newsletter) return null;
+  if (
+    newsletter.email !== extractedEmail ||
+    newsletter.email.endsWith(`<${extractedEmail}>`)
+  )
+    return null;
+
+  return newsletter;
 }
