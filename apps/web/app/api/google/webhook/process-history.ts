@@ -34,7 +34,11 @@ export async function processHistoryForUser(
   },
   options?: { startHistoryId?: string },
 ) {
-  const { emailAddress: email, historyId } = decodedData;
+  const { emailAddress, historyId } = decodedData;
+  // All emails in the database are stored in lowercase
+  // But it's possible that the email address in the webhook is not
+  // So we need to convert it to lowercase
+  const email = emailAddress.toLowerCase();
 
   const account = await prisma.account.findFirst({
     where: { user: { email }, provider: "google" },
