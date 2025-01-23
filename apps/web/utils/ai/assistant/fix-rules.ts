@@ -33,24 +33,19 @@ export async function processUserRequest({
   user,
   rules,
   originalEmail,
-  userRequestEmail,
-  additionalMessages,
+  messages,
   matchedRule,
   categories,
   senderCategory,
 }: {
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   rules: RuleWithRelations[];
-  userRequestEmail: ParsedMessage;
-  additionalMessages?: { role: "assistant" | "user"; content: string }[];
   originalEmail: ParsedMessage;
+  messages: { role: "assistant" | "user"; content: string }[];
   matchedRule: RuleWithRelations | null;
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
-  const userRequestContent = emailToContent(userRequestEmail, {
-    extractReply: true,
-  });
   const originalEmailContent = emailToContent(originalEmail);
 
   const system = `You are an email management assistant that helps users manage their email rules.
@@ -99,10 +94,6 @@ ${rules.map((rule) => ruleToXML(rule)).join("\n")}
     : ""
 }
 
-<user_request>
-${userRequestContent}
-</user_request>
-
 ${
   user.about
     ? `<user_about>
@@ -123,21 +114,23 @@ ${senderCategory || "No category"}
     : ""
 }`;
 
-  logger.trace("Input", { system, prompt });
+  const allMessages = [
+    {
+      role: "system" as const,
+      content: system,
+    },
+    {
+      role: "user" as const,
+      content: prompt,
+    },
+    ...(messages || []),
+  ];
+
+  logger.trace("Input", { allMessages });
 
   const result = await chatCompletionTools({
     userAi: user,
-    messages: [
-      {
-        role: "system",
-        content: system,
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-      ...(additionalMessages || []),
-    ],
+    messages: allMessages,
     tools: {
       create_rule: tool({
         description: "Create a new rule",

@@ -114,24 +114,30 @@ export async function replyToEmail(
   const quotedDate = formatEmailDate(new Date(message.headers.date));
   const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
 
-  // Format plain text version
+  // Detect text direction from original message
+  const textDirection = detectTextDirection(message.textPlain || "");
+  const dirAttribute = `dir="${textDirection}"`;
+
+  // Format plain text version with proper quoting
   const quotedContent = message.textPlain
     ?.split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
-  const plainText = `${reply}\n\n${quotedHeader}\n${quotedContent}`;
+  const plainText = `${reply}\n\n${quotedHeader}\n\n${quotedContent}`;
 
-  // Format HTML version with <br> tags for line breaks
-  const htmlReply = reply.replace(/\n/g, "<br>");
+  // Format HTML version with Gmail-style quote formatting
   const htmlContent = `
-    <div>${htmlReply}</div>
-    <div style="margin-top: 20px; padding-left: 10px; color: #666; border-left: 1px solid #ccc;">
-      <div>${quotedHeader}</div>
-      ${message.textHtml || message.textPlain?.replace(/\n/g, "<br>")}
+    <div ${dirAttribute}>${reply.replace(/\n/g, "<br>")}</div>
+    <br>
+    <div class="gmail_quote">
+      <div ${dirAttribute} class="gmail_attr">${quotedHeader}</div>
+      <blockquote class="gmail_quote" 
+        style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
+        ${message.textHtml || message.textPlain?.replace(/\n/g, "<br>")}
+      </blockquote>
     </div>
-  `;
+  `.trim();
 
-  // Create email
   return sendEmail(
     gmail,
     {
@@ -147,6 +153,13 @@ export async function replyToEmail(
     },
     from,
   );
+}
+
+function detectTextDirection(text: string): "ltr" | "rtl" {
+  // Basic RTL detection - checks for RTL characters at the start of the text
+  const rtlRegex =
+    /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
+  return rtlRegex.test(text.trim().charAt(0)) ? "rtl" : "ltr";
 }
 
 function formatEmailDate(date: Date): string {

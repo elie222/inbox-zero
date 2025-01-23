@@ -1,22 +1,23 @@
 import "server-only";
 import parse from "gmail-api-parse-message";
-import replyParser from "node-email-reply-parser";
+import EmailReplyParser from "email-reply-parser";
 import { convert } from "html-to-text";
 import type {
   ThreadWithPayloadMessages,
   MessageWithPayload,
   ParsedMessage,
 } from "@/utils/types";
-import { truncate } from "@/utils/string";
+import { removeExcessiveWhitespace, truncate } from "@/utils/string";
 
 export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
 }
 
 // if the email content contains a lot of replies this parses it and finds the content from the last message
-function parseReply(content: string) {
-  const email = replyParser(content);
-  return email.getVisibleText();
+function parseReply(plainText: string) {
+  const parser = new EmailReplyParser().read(plainText);
+  const result = parser.getVisibleText();
+  return result;
 }
 
 export function parseMessages(thread: ThreadWithPayloadMessages) {
@@ -46,23 +47,6 @@ function htmlToText(html: string, removeLinks = true, removeImages = true) {
   return text;
 }
 
-// extract replies can sometimes return no content.
-// as we don't run ai on threads with multiple messages, 'extractReply' can be disabled for now
-function parseEmail(
-  html: string,
-  extractReply = false,
-  maxLength: number | null = 2000,
-) {
-  // 1. remove replies
-  // 2. remove html
-  // 3. truncate
-
-  const text = htmlToText(extractReply ? parseReply(html) : html);
-  const truncatedText = maxLength === null ? text : truncate(text, maxLength);
-
-  return truncatedText;
-}
-
 export function getEmailClient(messageId: string) {
   if (messageId.includes("mail.gmail.com")) return "gmail";
   if (messageId.includes("we.are.superhuman.com")) return "superhuman";
@@ -73,15 +57,62 @@ export function getEmailClient(messageId: string) {
   return emailClient;
 }
 
+function removeForwardedContent(text: string): string {
+  const forwardPatterns = [
+    // Gmail style
+    /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forwarded message\s*(?:-{3,}|_{3,})/i,
+    // Simple forward markers
+    /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forward(?:ed)?(?:\s*message)?(?:-{3,}|_{3,})/i,
+    // Email headers
+    /(?:\r?\n|\r)?From:[\s\S]*?Subject:/m,
+    // iOS/Mac style
+    /(?:\r?\n|\r)?Begin forwarded message:/im,
+    // Outlook style
+    /(?:\r?\n|\r)?Original Message/i,
+  ];
+
+  for (const pattern of forwardPatterns) {
+    const parts = text.split(pattern);
+    if (parts.length > 1) {
+      // Take content before the forward marker and clean it
+      return removeExcessiveWhitespace(parts[0]);
+    }
+  }
+
+  return text;
+}
+
 export function emailToContent(
   email: Pick<ParsedMessage, "textHtml" | "textPlain" | "snippet">,
-  options?: { maxLength?: number; extractReply?: boolean },
+  {
+    maxLength = 2000,
+    extractReply = false,
+    removeForwarded = false,
+  }: {
+    maxLength?: number;
+    extractReply?: boolean;
+    removeForwarded?: boolean;
+  } = {},
 ): string {
-  const content =
-    (email.textHtml &&
-      parseEmail(email.textHtml, options?.extractReply, options?.maxLength)) ||
-    email.textPlain ||
-    email.snippet;
+  let content = "";
 
-  return content || "";
+  if (email.textHtml) {
+    content = htmlToText(email.textHtml);
+  } else if (email.textPlain) {
+    content = email.textPlain;
+  } else if (email.snippet) {
+    content = email.snippet;
+  }
+
+  if (extractReply) {
+    content = parseReply(content);
+  }
+
+  if (removeForwarded) {
+    content = removeForwardedContent(content);
+  }
+
+  content = removeExcessiveWhitespace(content);
+
+  return maxLength ? truncate(content, maxLength) : content;
 }

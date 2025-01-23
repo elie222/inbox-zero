@@ -168,8 +168,8 @@ export async function processAssistantEmail({
     firstMessageToAssistant.headers.date,
   );
 
-  const additionalMessages = threadMessages
-    .filter((m) => new Date(m.headers.date) > firstMessageToAssistantDate)
+  const messages = threadMessages
+    .filter((m) => new Date(m.headers.date) >= firstMessageToAssistantDate)
     .map((m) => ({
       role: isAssistantEmail({
         userEmail,
@@ -177,15 +177,17 @@ export async function processAssistantEmail({
       })
         ? ("assistant" as const)
         : ("user" as const),
-      content: emailToContent(m, { extractReply: true }),
+      content: emailToContent(m, {
+        extractReply: true,
+        removeForwarded: m.id === firstMessageToAssistant.id,
+      }),
     }));
 
   const result = await processUserRequest({
     user,
     rules: user.rules,
     originalEmail: parsedOriginalMessage,
-    userRequestEmail: message,
-    additionalMessages,
+    messages,
     matchedRule: executedRule?.rule || null,
     categories: user.categories.length ? user.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,

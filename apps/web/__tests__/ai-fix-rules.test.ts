@@ -31,10 +31,6 @@ describe(
         instructions: "Match emails discussing business opportunities",
       });
 
-      const userRequestEmail = getParsedMessage({
-        textPlain: "This is a promotional email",
-      });
-
       const originalEmail = getParsedMessage({
         headers: {
           from: "sales@company.com",
@@ -56,7 +52,12 @@ describe(
       const result = await processUserRequest({
         user: getUser(),
         rules: [rule],
-        userRequestEmail,
+        messages: [
+          {
+            role: "user",
+            content: "This is a promotional email",
+          },
+        ],
         originalEmail,
         matchedRule: rule,
         categories: null,
@@ -86,10 +87,6 @@ describe(
         instructions: "Match urgent requests",
       });
 
-      const userRequestEmail = getParsedMessage({
-        textPlain: "This isn't urgent.",
-      });
-
       const originalEmail = getParsedMessage({
         headers: {
           from: "user@test.com",
@@ -108,7 +105,12 @@ describe(
       const result = await processUserRequest({
         user: getUser(),
         rules: [ruleSupport, ruleUrgent],
-        userRequestEmail,
+        messages: [
+          {
+            role: "user",
+            content: "This isn't urgent.",
+          },
+        ],
         originalEmail,
         matchedRule: ruleUrgent,
         categories: null,
@@ -133,10 +135,6 @@ describe(
         subject: "Order",
       });
 
-      const userRequestEmail = getParsedMessage({
-        textPlain: "This isn't a receipt, it's a shipping notification.",
-      });
-
       const originalEmail = getParsedMessage({
         headers: {
           from: "shipping@amazon.com",
@@ -152,7 +150,12 @@ describe(
       const result = await processUserRequest({
         user: getUser(),
         rules: [rule],
-        userRequestEmail,
+        messages: [
+          {
+            role: "user",
+            content: "This isn't a receipt, it's a shipping notification.",
+          },
+        ],
         originalEmail,
         matchedRule: rule,
         categories: null,
@@ -200,10 +203,6 @@ describe(
         group,
       });
 
-      const userRequestEmail = getParsedMessage({
-        textPlain: "This isn't a newsletter",
-      });
-
       const originalEmail = getParsedMessage({
         headers: {
           from: "david@hello.com",
@@ -226,7 +225,12 @@ describe(
       const result = await processUserRequest({
         user: getUser(),
         rules: [rule],
-        userRequestEmail,
+        messages: [
+          {
+            role: "user",
+            content: "This isn't a newsletter",
+          },
+        ],
         originalEmail,
         matchedRule: rule,
         categories: null,
@@ -262,10 +266,6 @@ describe(
         group,
       });
 
-      const userRequestEmail = getParsedMessage({
-        textPlain: "This is a newsletter",
-      });
-
       const originalEmail = getParsedMessage({
         headers: {
           from: "mattsnews@convertkit.com",
@@ -287,7 +287,12 @@ describe(
       const result = await processUserRequest({
         user: getUser(),
         rules: [rule],
-        userRequestEmail,
+        messages: [
+          {
+            role: "user",
+            content: "This is a newsletter",
+          },
+        ],
         originalEmail,
         matchedRule: null, // Important: rule didn't match initially
         categories: null,
@@ -316,10 +321,6 @@ describe(
         categoryFilters: [marketingCategory],
       });
 
-      const userRequestEmail = getParsedMessage({
-        textPlain: "This is actually a sales email, not marketing.",
-      });
-
       const originalEmail = getParsedMessage({
         headers: {
           from: "marketing@company.com",
@@ -331,7 +332,12 @@ describe(
       const result = await processUserRequest({
         user: getUser(),
         rules: [rule],
-        userRequestEmail,
+        messages: [
+          {
+            role: "user",
+            content: "This is actually a sales email, not marketing.",
+          },
+        ],
         originalEmail,
         matchedRule: rule,
         categories: [
@@ -366,11 +372,6 @@ describe(
         categoryFilterType: "INCLUDE",
       });
 
-      const userRequestEmail = getParsedMessage({
-        textPlain:
-          "This is a spam email pretending to be a business opportunity.",
-      });
-
       const originalEmail = getParsedMessage({
         headers: {
           from: "contact@enterprise.com",
@@ -382,7 +383,13 @@ describe(
       const result = await processUserRequest({
         user: getUser(),
         rules: [rule],
-        userRequestEmail,
+        messages: [
+          {
+            role: "user",
+            content:
+              "This is a spam email pretending to be a business opportunity.",
+          },
+        ],
         originalEmail,
         matchedRule: rule,
         categories: [

@@ -1,5 +1,6 @@
 import { removeExcessiveWhitespace, truncate } from "@/utils/string";
 import type { EmailForLLM } from "@/utils/types";
+
 export function stringifyEmail(email: EmailForLLM, maxLength: number) {
   const emailParts = [
     `<from>${email.from}</from>`,
