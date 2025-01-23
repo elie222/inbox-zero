@@ -109,9 +109,14 @@ export async function updateCategoryForSender({
   sender: string;
   categoryId: string;
 }) {
-  await prisma.newsletter.update({
+  await prisma.newsletter.upsert({
     where: { email_userId: { email: sender, userId } },
-    data: { categoryId },
+    update: { categoryId },
+    create: {
+      email: sender,
+      userId,
+      categoryId,
+    },
   });
 }
 

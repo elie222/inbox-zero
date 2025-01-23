@@ -398,11 +398,6 @@ const getUpdateCategoryTool = (
         email: sender,
       });
 
-      if (!existingSender) {
-        logger.error("Sender not found", { sender });
-        return { error: "Sender not found" };
-      }
-
       const cat = categories.find((c) => c.name === category);
 
       if (!cat) {
@@ -412,7 +407,7 @@ const getUpdateCategoryTool = (
 
       await updateCategoryForSender({
         userId,
-        sender: existingSender.email,
+        sender: existingSender?.email || sender,
         categoryId: cat.id,
       });
       return { success: true };
