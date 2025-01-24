@@ -1,7 +1,12 @@
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { type Action, ActionType, type Rule } from "@prisma/client";
+import {
+  type Action,
+  ActionType,
+  type Prisma,
+  type Rule,
+} from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 
 const logger = createScopedLogger("rule");
@@ -219,14 +224,16 @@ export async function removeRuleCategories(
 function mapActionFields(
   actions: CreateOrUpdateRuleSchemaWithCategories["actions"],
 ) {
-  return actions.map((a) => ({
-    type: a.type,
-    label: a.fields?.label,
-    to: a.fields?.to,
-    cc: a.fields?.cc,
-    bcc: a.fields?.bcc,
-    subject: a.fields?.subject,
-    content: a.fields?.content,
-    webhookUrl: a.fields?.webhookUrl,
-  }));
+  return actions.map(
+    (a): Prisma.ActionCreateManyRuleInput => ({
+      type: a.type,
+      label: a.fields?.label,
+      to: a.fields?.to,
+      cc: a.fields?.cc,
+      bcc: a.fields?.bcc,
+      subject: a.fields?.subject,
+      content: a.fields?.content,
+      url: a.fields?.webhookUrl,
+    }),
+  );
 }
