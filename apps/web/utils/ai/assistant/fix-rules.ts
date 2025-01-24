@@ -155,13 +155,19 @@ ${senderCategory || "No category"}
 
           const groupId = null;
 
-          await safeCreateRule(
-            { name, condition, actions },
-            user.id,
-            groupId,
-            conditions.categories?.categoryFilters || [],
-          );
-
+          try {
+            await safeCreateRule(
+              { name, condition, actions },
+              user.id,
+              groupId,
+              conditions.categories?.categoryFilters || [],
+            );
+          } catch (error) {
+            return {
+              error: "Failed to create rule",
+              message: error instanceof Error ? error.message : String(error),
+            };
+          }
           return { success: true };
         },
       }),

@@ -95,7 +95,11 @@ async function createRule(
     data: {
       name: result.name,
       userId,
-      actions: { createMany: { data: result.actions } },
+      actions: {
+        createMany: {
+          data: mapActionFields(result.actions),
+        },
+      },
       automate: shouldAutomate(result.actions),
       runOnThreads: shouldRunOnThreads(result.condition),
       conditionalOperator: result.condition.conditionalOperator,
@@ -132,7 +136,7 @@ async function updateRule(
       // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
       actions: {
         deleteMany: {},
-        createMany: { data: result.actions },
+        createMany: { data: mapActionFields(result.actions) },
       },
       automate: shouldAutomate(result.actions),
       runOnThreads: shouldRunOnThreads(result.condition),
@@ -210,4 +214,19 @@ export async function removeRuleCategories(
     where: { id: ruleId },
     data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
   });
+}
+
+function mapActionFields(
+  actions: CreateOrUpdateRuleSchemaWithCategories["actions"],
+) {
+  return actions.map((a) => ({
+    type: a.type,
+    label: a.fields?.label,
+    to: a.fields?.to,
+    cc: a.fields?.cc,
+    bcc: a.fields?.bcc,
+    subject: a.fields?.subject,
+    content: a.fields?.content,
+    webhookUrl: a.fields?.webhookUrl,
+  }));
 }
