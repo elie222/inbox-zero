@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
-import { processUserRequest } from "@/utils/ai/assistant/fix-rules";
+import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";

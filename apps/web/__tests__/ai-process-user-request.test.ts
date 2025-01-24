@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import stripIndent from "strip-indent";
-import { processUserRequest } from "@/utils/ai/assistant/fix-rules";
+import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import {
@@ -11,7 +11,7 @@ import {
 } from "@prisma/client";
 import { GroupItemType, LogicalOperator } from "@prisma/client";
 
-// pnpm test-ai ai-fix-rules
+// pnpm test-ai ai-process-user-request
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
