@@ -52,7 +52,7 @@ async function handleBatchInternal(request: Request) {
   const { categories } = categoriesResult;
 
   const account = await prisma.account.findFirst({
-    where: { user: { id: userId }, provider: "google" },
+    where: { userId, provider: "google" },
     select: {
       access_token: true,
       refresh_token: true,

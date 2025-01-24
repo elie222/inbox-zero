@@ -84,11 +84,7 @@ export async function handleGmailPermissionsCheck({
     logger.info("Cleaning up invalid Gmail tokens", { email });
     // Clean up invalid tokens
     await prisma.account.update({
-      where: {
-        provider: "google",
-        userId,
-        user: { email },
-      },
+      where: { provider: "google", userId },
       data: {
         access_token: null,
         refresh_token: null,
