@@ -20,13 +20,13 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
+import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
 import {
-  createPromptFromRule,
-  type RuleWithRelations,
-} from "@/utils/ai/rule/create-prompt-from-rule";
-import { generatePromptOnUpdateRule } from "@/utils/ai/rule/generate-prompt-on-update-rule";
+  updateRulePromptOnRuleChange,
+  appendRulePrompt,
+  updateRuleInstructionsAndPromptFile,
+} from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
-import { SafeError } from "@/utils/error";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -87,7 +87,7 @@ export const createRuleAction = withActionInstrumentation(
 
       const prompt = createPromptFromRule(rule);
 
-      await updateUserPrompt(session.user.id, prompt);
+      await appendRulePrompt(session.user.id, prompt);
 
       revalidatePath("/automation");
 
@@ -204,7 +204,11 @@ export const updateRuleAction = withActionInstrumentation(
       ]);
 
       // update prompt file
-      await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
+      await updateRulePromptOnRuleChange(
+        session.user.id,
+        currentRule,
+        updatedRule,
+      );
 
       revalidatePath(`/automation/rule/${body.id}`);
       revalidatePath("/automation");
@@ -339,74 +343,3 @@ export const getRuleExamplesAction = withActionInstrumentation(
     return { matches };
   },
 );
-
-export async function updateRuleInstructionsAndPromptFile({
-  userId,
-  ruleId,
-  instructions,
-  currentRule,
-}: {
-  userId: string;
-  ruleId: string;
-  instructions: string;
-  currentRule: RuleWithRelations | null;
-}) {
-  const updatedRule = await prisma.rule.update({
-    where: { id: ruleId, userId },
-    data: { instructions },
-    include: { actions: true, categoryFilters: true, group: true },
-  });
-
-  // update prompt file
-  if (currentRule) {
-    await updatePromptFileOnUpdate(userId, currentRule, updatedRule);
-  } else {
-    await updateUserPrompt(userId, instructions);
-  }
-}
-
-async function updatePromptFileOnUpdate(
-  userId: string,
-  currentRule: RuleWithRelations,
-  updatedRule: RuleWithRelations,
-) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      email: true,
-      aiModel: true,
-      aiProvider: true,
-      aiApiKey: true,
-      rulesPrompt: true,
-    },
-  });
-  if (!user) return;
-
-  const updatedPrompt = await generatePromptOnUpdateRule({
-    user,
-    existingPrompt: user.rulesPrompt || "",
-    currentRule,
-    updatedRule,
-  });
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { rulesPrompt: updatedPrompt },
-  });
-}
-
-async function updateUserPrompt(userId: string, rulePrompt: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { rulesPrompt: true },
-  });
-
-  if (!user?.rulesPrompt) return;
-
-  const updatedPrompt = `${user.rulesPrompt || ""}\n\n* ${rulePrompt}.`.trim();
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { rulesPrompt: updatedPrompt },
-  });
-}
