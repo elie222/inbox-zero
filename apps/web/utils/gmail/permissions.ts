@@ -1,13 +1,17 @@
 import { SCOPES } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("Gmail Permissions");
 
 // TODO: this can also error on network error
-export async function checkGmailPermissions(
-  accessToken: string,
-  email: string,
-): Promise<{
+async function checkGmailPermissions({
+  accessToken,
+  email,
+}: {
+  accessToken: string;
+  email: string;
+}): Promise<{
   hasAllPermissions: boolean;
   missingScopes: string[];
   error?: string;
@@ -62,4 +66,41 @@ export async function checkGmailPermissions(
       error: "Failed to check permissions",
     };
   }
+}
+
+export async function handleGmailPermissionsCheck({
+  accessToken,
+  email,
+  userId,
+}: {
+  accessToken: string;
+  email: string;
+  userId: string;
+}) {
+  const { hasAllPermissions, error, missingScopes } =
+    await checkGmailPermissions({ accessToken, email });
+
+  if (error === "invalid_token") {
+    logger.info("Cleaning up invalid Gmail tokens", { email });
+    // Clean up invalid tokens
+    await prisma.account.update({
+      where: {
+        provider: "google",
+        userId,
+        user: { email },
+      },
+      data: {
+        access_token: null,
+        refresh_token: null,
+        expires_at: null,
+      },
+    });
+    return {
+      hasAllPermissions: false,
+      error: "Gmail access expired. Please reconnect your account.",
+      missingScopes,
+    };
+  }
+
+  return { hasAllPermissions, error, missingScopes };
 }
