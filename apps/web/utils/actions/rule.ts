@@ -20,13 +20,12 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
+import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
 import {
-  createPromptFromRule,
-  type RuleWithRelations,
-} from "@/utils/ai/rule/create-prompt-from-rule";
-import { generatePromptOnUpdateRule } from "@/utils/ai/rule/generate-prompt-on-update-rule";
+  updatePromptFileOnUpdate,
+  updateUserPrompt,
+} from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
-import { SafeError } from "@/utils/error";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -341,49 +340,3 @@ export const getRuleExamplesAction = withActionInstrumentation(
     return { matches };
   },
 );
-
-async function updatePromptFileOnUpdate(
-  userId: string,
-  currentRule: RuleWithRelations,
-  updatedRule: RuleWithRelations,
-) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      email: true,
-      aiModel: true,
-      aiProvider: true,
-      aiApiKey: true,
-      rulesPrompt: true,
-    },
-  });
-  if (!user) return;
-
-  const updatedPrompt = await generatePromptOnUpdateRule({
-    user,
-    existingPrompt: user.rulesPrompt || "",
-    currentRule,
-    updatedRule,
-  });
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { rulesPrompt: updatedPrompt },
-  });
-}
-
-async function updateUserPrompt(userId: string, rulePrompt: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { rulesPrompt: true },
-  });
-
-  if (!user?.rulesPrompt) return;
-
-  const updatedPrompt = `${user.rulesPrompt || ""}\n\n* ${rulePrompt}.`.trim();
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { rulesPrompt: updatedPrompt },
-  });
-}
