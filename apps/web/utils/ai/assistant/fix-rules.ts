@@ -25,7 +25,8 @@ import {
 } from "@/utils/rule/rule";
 import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
-import { emailToContent } from "@/utils/mail";
+import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
+import { stringifyEmailSimple } from "@/utils/ai/choose-rule/stringify-email";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -46,10 +47,6 @@ export async function processUserRequest({
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
-  const originalEmailContent = originalEmail
-    ? emailToContent(originalEmail)
-    : null;
-
   const userRules = rulesToXML(rules);
 
   const system = `You are an email management assistant that helps users manage their email rules.
@@ -107,7 +104,7 @@ ${
 ${
   originalEmail
     ? `<original_email>
-${originalEmailContent}
+${stringifyEmailSimple(getEmailForLLM(originalEmail))}
 </original_email>`
     : ""
 }
