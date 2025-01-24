@@ -153,18 +153,30 @@ export async function processAssistantEmail({
 
   const messages = threadMessages
     .filter((m) => new Date(m.headers.date) >= firstMessageToAssistantDate)
-    .map((m) => ({
-      role: isAssistantEmail({
+    .map((m) => {
+      const isAssistant = isAssistantEmail({
         userEmail,
         emailToCheck: m.headers.from,
-      })
-        ? ("assistant" as const)
-        : ("user" as const),
-      content: emailToContent(m, {
+      });
+      const isFirstMessageToAssistant = m.id === firstMessageToAssistant.id;
+
+      let content = "";
+
+      // use subject if first message
+      if (isFirstMessageToAssistant && !originalMessage) {
+        content += `Subject: ${m.headers.subject}\n\n`;
+      }
+
+      content += emailToContent(m, {
         extractReply: true,
-        removeForwarded: m.id === firstMessageToAssistant.id,
-      }),
-    }));
+        removeForwarded: isFirstMessageToAssistant,
+      });
+
+      return {
+        role: isAssistant ? "assistant" : "user",
+        content,
+      } as const;
+    });
 
   const result = await processUserRequest({
     user,
