@@ -23,7 +23,6 @@ export const checkPermissionsAction = withActionInstrumentation(
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken: token.token,
         email: session.user.email,
-        userId: session.user.id,
       });
       if (error) return { error };
 
@@ -76,7 +75,6 @@ export const adminCheckPermissionsAction = withActionInstrumentation(
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken: token.token,
         email,
-        userId,
       });
       if (error) return { error };
       return { hasAllPermissions };

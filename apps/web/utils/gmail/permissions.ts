@@ -71,11 +71,9 @@ async function checkGmailPermissions({
 export async function handleGmailPermissionsCheck({
   accessToken,
   email,
-  userId,
 }: {
   accessToken: string;
   email: string;
-  userId: string;
 }) {
   const { hasAllPermissions, error, missingScopes } =
     await checkGmailPermissions({ accessToken, email });
@@ -83,8 +81,11 @@ export async function handleGmailPermissionsCheck({
   if (error === "invalid_token") {
     logger.info("Cleaning up invalid Gmail tokens", { email });
     // Clean up invalid tokens
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return { hasAllPermissions: false, error: "User not found" };
+
     await prisma.account.update({
-      where: { provider: "google", userId },
+      where: { provider: "google", userId: user.id },
       data: {
         access_token: null,
         refresh_token: null,
