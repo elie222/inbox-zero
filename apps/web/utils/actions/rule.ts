@@ -22,8 +22,8 @@ import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
 import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
 import {
-  updatePromptFileOnUpdate,
-  updateUserPrompt,
+  updateRulePromptOnRuleChange,
+  appendRulePrompt,
 } from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 
@@ -86,7 +86,7 @@ export const createRuleAction = withActionInstrumentation(
 
       const prompt = createPromptFromRule(rule);
 
-      await updateUserPrompt(session.user.id, prompt);
+      await appendRulePrompt(session.user.id, prompt);
 
       revalidatePath("/automation");
 
@@ -203,7 +203,11 @@ export const updateRuleAction = withActionInstrumentation(
       ]);
 
       // update prompt file
-      await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
+      await updateRulePromptOnRuleChange(
+        session.user.id,
+        currentRule,
+        updatedRule,
+      );
 
       revalidatePath(`/automation/rule/${body.id}`);
       revalidatePath("/automation");
@@ -245,7 +249,11 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
     });
 
     // update prompt file
-    await updatePromptFileOnUpdate(session.user.id, currentRule, updatedRule);
+    await updateRulePromptOnRuleChange(
+      session.user.id,
+      currentRule,
+      updatedRule,
+    );
 
     revalidatePath(`/automation/rule/${body.id}`);
     revalidatePath("/automation");

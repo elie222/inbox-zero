@@ -2,7 +2,7 @@ import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule"
 import { generatePromptOnUpdateRule } from "@/utils/ai/rule/generate-prompt-on-update-rule";
 import prisma from "@/utils/prisma";
 
-export async function updatePromptFileOnUpdate(
+export async function updateRulePromptOnRuleChange(
   userId: string,
   currentRule: RuleWithRelations,
   updatedRule: RuleWithRelations,
@@ -32,7 +32,7 @@ export async function updatePromptFileOnUpdate(
   });
 }
 
-export async function updateUserPrompt(userId: string, rulePrompt: string) {
+export async function appendRulePrompt(userId: string, rulePrompt: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { rulesPrompt: true },
