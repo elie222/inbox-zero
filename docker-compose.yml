@@ -5,9 +5,9 @@ services:
     restart: always
     container_name: inbox-zero
     environment:
-      POSTGRES_USER: "postgres"
-      POSTGRES_DB: "inboxzero"
-      POSTGRES_PASSWORD: password
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-inboxzero}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
     volumes:
       - database-data:/var/lib/postgresql/data/
     ports:
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis
     ports:
-      - 6380:6379
+      - ${REDIS_PORT:-6380}:6379
     volumes:
       - database-data:/data
     networks:
@@ -26,7 +26,7 @@ services:
 
   serverless-redis-http:
     ports:
-      - "8079:80"
+      - "${REDIS_HTTP_PORT:-8079}:80"
     image: hiett/serverless-redis-http:latest
     env_file:
       - ./apps/web/.env
@@ -47,12 +47,12 @@ services:
       - db
       - redis
     ports:
-      - 3000:3000
+      - ${WEB_PORT:-3000}:3000
     networks:
       - inbox-zero-network
     environment:
-      DATABASE_URL: "postgresql://postgres:password@db:5432/inboxzero?schema=public"
-      DIRECT_URL: "postgresql://postgres:password@db:5432/inboxzero?schema=public"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
+      DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
       UPSTASH_REDIS_TOKEN: "${UPSTASH_REDIS_TOKEN}"
 
