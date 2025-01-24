@@ -40,13 +40,17 @@ export async function processUserRequest({
 }: {
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   rules: RuleWithRelations[];
-  originalEmail: ParsedMessage;
+  originalEmail: ParsedMessage | null;
   messages: { role: "assistant" | "user"; content: string }[];
   matchedRule: RuleWithRelations | null;
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
-  const originalEmailContent = emailToContent(originalEmail);
+  const originalEmailContent = originalEmail
+    ? emailToContent(originalEmail)
+    : null;
+
+  const userRules = rulesToXML(rules);
 
   const system = `You are an email management assistant that helps users manage their email rules.
 You can fix rules using these specific operations:
@@ -82,17 +86,15 @@ Best practices:
 
 Always end by using the reply tool to explain what changes were made.`;
 
-  const prompt = `<matched_rule>
+  const prompt = `${
+    originalEmail
+      ? `<matched_rule>
 ${matchedRule ? ruleToXML(matchedRule) : "No rule matched"}
-</matched_rule>
+</matched_rule>`
+      : ""
+  }
 
-${
-  !matchedRule
-    ? `<user_rules>
-${rules.map((rule) => ruleToXML(rule)).join("\n")}
-</user_rules>`
-    : ""
-}
+${!matchedRule ? userRules : ""}
 
 ${
   user.about
@@ -102,12 +104,16 @@ ${
     : ""
 }
 
-<original_email>
+${
+  originalEmail
+    ? `<original_email>
 ${originalEmailContent}
-</original_email>
+</original_email>`
+    : ""
+}
 
 ${
-  categories?.length
+  originalEmail && categories?.length
     ? `<sender_category>
 ${senderCategory || "No category"}
 </sender_category>`
@@ -161,6 +167,11 @@ ${senderCategory || "No category"}
 
           return { success: true };
         },
+      }),
+      list_rules: tool({
+        description: "",
+        parameters: z.object({}),
+        execute: async () => userRules,
       }),
       update_conditional_operator: tool({
         description: "Update the conditional operator of a rule",
@@ -468,6 +479,12 @@ function ruleToXML(rule: RuleWithRelations) {
     }
   </conditions>
 </rule>`;
+}
+
+function rulesToXML(rules: RuleWithRelations[]) {
+  return `<user_rules>
+${rules.map((rule) => ruleToXML(rule)).join("\n")}
+</user_rules>`;
 }
 
 function hasStaticConditions(rule: RuleWithRelations) {

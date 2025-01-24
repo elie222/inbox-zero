@@ -73,28 +73,7 @@ export async function processAssistantEmail({
   }
 
   const originalMessageId = firstMessageToAssistant.headers["in-reply-to"];
-  if (!originalMessageId) {
-    logger.error("No original message ID found", { messageId: message.id });
-    await replyToEmail(
-      gmail,
-      message,
-      "I only work with forwarded emails for now.",
-    );
-    return;
-  }
-
-  const originalMessage = await getMessageByRfc822Id(originalMessageId, gmail);
-  if (!originalMessage) {
-    logger.error("No original message found", { messageId: message.id });
-    await replyToEmail(
-      gmail,
-      message,
-      "I only work with forwarded emails for now.",
-    );
-    return;
-  }
-
-  const parsedOriginalMessage = parseMessage(originalMessage);
+  const originalMessage = await getOriginalMessage(originalMessageId, gmail);
 
   const [user, executedRule, senderCategory] = await Promise.all([
     prisma.user.findUnique({
@@ -128,35 +107,39 @@ export async function processAssistantEmail({
         categories: true,
       },
     }),
-    prisma.executedRule.findUnique({
-      where: {
-        unique_user_thread_message: {
-          userId,
-          threadId: originalMessage.threadId ?? "",
-          messageId: originalMessageId,
-        },
-      },
-      select: {
-        rule: {
-          include: {
-            actions: true,
-            categoryFilters: true,
-            group: true,
+    originalMessage
+      ? prisma.executedRule.findUnique({
+          where: {
+            unique_user_thread_message: {
+              userId,
+              threadId: originalMessage.threadId,
+              messageId: originalMessage.id,
+            },
           },
-        },
-      },
-    }),
-    prisma.newsletter.findUnique({
-      where: {
-        email_userId: {
-          userId,
-          email: parsedOriginalMessage.headers.from,
-        },
-      },
-      select: {
-        category: { select: { name: true } },
-      },
-    }),
+          select: {
+            rule: {
+              include: {
+                actions: true,
+                categoryFilters: true,
+                group: true,
+              },
+            },
+          },
+        })
+      : null,
+    originalMessage
+      ? prisma.newsletter.findUnique({
+          where: {
+            email_userId: {
+              userId,
+              email: originalMessage.headers.from,
+            },
+          },
+          select: {
+            category: { select: { name: true } },
+          },
+        })
+      : null,
   ]);
 
   if (!user) {
@@ -186,7 +169,7 @@ export async function processAssistantEmail({
   const result = await processUserRequest({
     user,
     rules: user.rules,
-    originalEmail: parsedOriginalMessage,
+    originalEmail: originalMessage,
     messages,
     matchedRule: executedRule?.rule || null,
     categories: user.categories.length ? user.categories : null,
@@ -216,4 +199,14 @@ function verifyUserSentEmail(message: ParsedMessage, userEmail: string) {
 function replaceName(email: string, name: string) {
   const emailAddress = extractEmailAddress(email);
   return `${name} <${emailAddress}>`;
+}
+
+async function getOriginalMessage(
+  originalMessageId: string | undefined,
+  gmail: gmail_v1.Gmail,
+) {
+  if (!originalMessageId) return null;
+  const originalMessage = await getMessageByRfc822Id(originalMessageId, gmail);
+  if (!originalMessage) return null;
+  return parseMessage(originalMessage);
 }
