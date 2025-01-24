@@ -3,6 +3,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("Gmail Permissions");
 
+// TODO: this can also error on network error
 export async function checkGmailPermissions(
   accessToken: string,
   email: string,
@@ -28,7 +29,7 @@ export async function checkGmailPermissions(
     const data = await response.json();
 
     if (data.error) {
-      logger.error("Error checking Gmail permissions:", {
+      logger.error("Invalid token or Google API error", {
         email,
         error: data.error,
       });
@@ -54,7 +55,7 @@ export async function checkGmailPermissions(
 
     return { hasAllPermissions, missingScopes };
   } catch (error) {
-    logger.error("Error checking Gmail permissions:", { email, error });
+    logger.error("Error checking Gmail permissions", { email, error });
     return {
       hasAllPermissions: false,
       missingScopes: SCOPES, // Assume all scopes are missing if we can't check
