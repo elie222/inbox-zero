@@ -3,7 +3,7 @@ import { Badge } from "@/components/Badge";
 import type { Thread } from "@/components/email-list/types";
 import { PlanActions } from "@/components/email-list/PlanActions";
 import { PlanBadge, getActionColor } from "@/components/PlanBadge";
-import { getActionFields } from "@/utils/actionType";
+import { getActionFields } from "@/utils/action-item";
 
 export function PlanExplanation(props: {
   thread: Thread;

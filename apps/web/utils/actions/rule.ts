@@ -26,6 +26,7 @@ import {
   appendRulePrompt,
 } from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
+import { sanitizeActionFields } from "@/utils/action-item";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -49,7 +50,7 @@ export const createRuleAction = withActionInstrumentation(
                 createMany: {
                   data: body.actions.map(
                     ({ type, label, subject, content, to, cc, bcc, url }) => {
-                      return {
+                      return sanitizeActionFields({
                         type,
                         label: label?.value,
                         subject: subject?.value,
@@ -58,7 +59,7 @@ export const createRuleAction = withActionInstrumentation(
                         cc: cc?.value,
                         bcc: bcc?.value,
                         url: url?.value,
-                      };
+                      });
                     },
                   ),
                 },
@@ -170,7 +171,7 @@ export const updateRuleAction = withActionInstrumentation(
         ...actionsToUpdate.map((a) => {
           return prisma.action.update({
             where: { id: a.id },
-            data: {
+            data: sanitizeActionFields({
               type: a.type,
               label: a.label?.value,
               subject: a.subject?.value,
@@ -179,24 +180,28 @@ export const updateRuleAction = withActionInstrumentation(
               cc: a.cc?.value,
               bcc: a.bcc?.value,
               url: a.url?.value,
-            },
+            }),
           });
         }),
         // create new actions
         ...(actionsToCreate.length
           ? [
               prisma.action.createMany({
-                data: actionsToCreate.map((a) => ({
-                  ruleId: body.id,
-                  type: a.type,
-                  label: a.label?.value,
-                  subject: a.subject?.value,
-                  content: a.content?.value,
-                  to: a.to?.value,
-                  cc: a.cc?.value,
-                  bcc: a.bcc?.value,
-                  url: a.url?.value,
-                })),
+                data: actionsToCreate.map((a) => {
+                  return {
+                    ...sanitizeActionFields({
+                      type: a.type,
+                      label: a.label?.value,
+                      subject: a.subject?.value,
+                      content: a.content?.value,
+                      to: a.to?.value,
+                      cc: a.cc?.value,
+                      bcc: a.bcc?.value,
+                      url: a.url?.value,
+                    }),
+                    ruleId: body.id,
+                  };
+                }),
               }),
             ]
           : []),
