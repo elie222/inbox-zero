@@ -41,7 +41,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 - [Prisma](https://www.prisma.io/)
 - [Tinybird](https://tinybird.co/)
 - [Upstash](https://upstash.com/)
-- [Turbo](https://turbo.build/)
+- [Turborepo](https://turbo.build/)
 
 ## Feature Requests
 
@@ -49,9 +49,14 @@ To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero
 
 ## Getting Started for Developers
 
+We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com). To self-host follow the steps below.
+
 ### Contributing to the project
 
-We have a public Kanban available [here](https://github.com/users/elie222/projects/1/views/1). Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
+You can view open tasks in our [GitHub Issues](https://github.com/elie222/inbox-zero/issues).
+Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
+
+[ARCHITECTURE.md](./ARCHITECTURE.md) explains the architecture of the project (LLM generated).
 
 ### Requirements
 

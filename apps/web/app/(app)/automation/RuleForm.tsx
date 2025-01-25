@@ -39,7 +39,7 @@ import {
   type CreateRuleBody,
   createRuleBody,
 } from "@/utils/actions/validation";
-import { actionInputs } from "@/utils/actionType";
+import { actionInputs } from "@/utils/action-item";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import type { GroupsResponse } from "@/app/api/user/group/route";

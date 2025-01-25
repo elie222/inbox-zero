@@ -18,6 +18,7 @@ import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import { sanitizeActionFields } from "@/utils/action-item";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -169,17 +170,7 @@ async function saveExecutedRule(
   const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: {
       createMany: {
-        data:
-          actionItems?.map((a) => ({
-            type: a.type,
-            label: a.label,
-            subject: a.subject,
-            content: a.content,
-            to: a.to,
-            cc: a.cc,
-            bcc: a.bcc,
-            url: a.url,
-          })) || [],
+        data: actionItems?.map(sanitizeActionFields) || [],
       },
     },
     messageId,
