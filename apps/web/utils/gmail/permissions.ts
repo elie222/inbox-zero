@@ -51,11 +51,8 @@ async function checkGmailPermissions({
 
     const hasAllPermissions = missingScopes.length === 0;
 
-    logger.info("Gmail permissions check", {
-      email,
-      hasAllPermissions,
-      missingScopes,
-    });
+    if (!hasAllPermissions)
+      logger.info("Missing Gmail permissions", { email, missingScopes });
 
     return { hasAllPermissions, missingScopes };
   } catch (error) {
