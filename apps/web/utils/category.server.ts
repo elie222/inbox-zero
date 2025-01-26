@@ -27,3 +27,23 @@ export const getUserCategoriesWithRules = async (userId: string) => {
   });
   return categories;
 };
+
+export const getUserCategoriesForNames = async (
+  userId: string,
+  names: string[],
+) => {
+  if (!names.length) return [];
+
+  const categories = await prisma.category.findMany({
+    where: { userId, name: { in: names } },
+    select: { id: true },
+  });
+  if (categories.length !== names.length) {
+    console.warn("Not all categories were found", {
+      requested: names.length,
+      found: categories.length,
+      names,
+    });
+  }
+  return categories.map((c) => c.id);
+};

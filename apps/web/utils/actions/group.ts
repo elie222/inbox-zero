@@ -27,6 +27,7 @@ import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 import type { UserAIFields } from "@/utils/llms/types";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
+import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
 
 const logger = createScopedLogger("Group Action");
 
@@ -349,11 +350,20 @@ async function regenerateReceiptGroup(
 async function createGroupItems(
   data: { groupId: string; type: GroupItemType; value: string }[],
 ) {
+  const uniqueItems = uniqBy(data, (item) => `${item.value}-${item.type}`);
   try {
-    return await prisma.groupItem.createMany({ data });
+    return await prisma.groupItem.createMany({ data: uniqueItems });
   } catch (error) {
-    if (isDuplicateError(error))
-      captureException(error, { extra: { items: data } });
+    if (isDuplicateError(error)) {
+      // Create items one by one, skipping duplicates
+      for (const item of uniqueItems) {
+        try {
+          await prisma.groupItem.create({ data: item });
+        } catch (error) {
+          if (!isDuplicateError(error)) throw error;
+        }
+      }
+    }
 
     throw error;
   }
@@ -401,7 +411,7 @@ export const addGroupItemAction = withActionInstrumentation(
     if (group.userId !== session.user.id)
       return { error: "You don't have permission to add items to this group" };
 
-    await prisma.groupItem.create({ data });
+    await addGroupItem(data);
 
     revalidatePath("/automation");
   },
@@ -413,9 +423,7 @@ export const deleteGroupItemAction = withActionInstrumentation(
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
-    await prisma.groupItem.delete({
-      where: { id, group: { userId: session.user.id } },
-    });
+    await deleteGroupItem({ id, userId: session.user.id });
 
     revalidatePath("/automation");
   },

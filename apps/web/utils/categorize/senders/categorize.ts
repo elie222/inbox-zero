@@ -100,6 +100,26 @@ export async function updateSenderCategory({
   };
 }
 
+export async function updateCategoryForSender({
+  userId,
+  sender,
+  categoryId,
+}: {
+  userId: string;
+  sender: string;
+  categoryId: string;
+}) {
+  await prisma.newsletter.upsert({
+    where: { email_userId: { email: sender, userId } },
+    update: { categoryId },
+    create: {
+      email: sender,
+      userId,
+      categoryId,
+    },
+  });
+}
+
 // TODO: what if user doesn't have all these categories set up?
 // Use static rules to categorize senders if we can, before sending to LLM
 function preCategorizeSendersWithStaticRules(

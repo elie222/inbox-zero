@@ -1,11 +1,16 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { draftEmail, forwardEmail, sendEmail } from "@/utils/gmail/mail";
+import {
+  draftEmail,
+  forwardEmail,
+  replyToEmail,
+  sendEmail,
+} from "@/utils/gmail/mail";
 import {
   ActionType,
   type ExecutedRule,
   type ExecutedAction,
 } from "@prisma/client";
-import type { PartialRecord } from "@/utils/types";
+import type { ParsedMessage, PartialRecord } from "@/utils/types";
 import {
   archiveThread,
   getOrCreateLabel,
@@ -18,17 +23,25 @@ import { callWebhook } from "@/utils/webhook";
 
 const logger = createScopedLogger("ai-actions");
 
-export type EmailForAction = {
-  threadId: string;
-  messageId: string;
-  references?: string;
-  headerMessageId: string;
-  subject: string;
-  from: string;
-  cc?: string;
-  bcc?: string;
-  replyTo?: string;
-};
+// export type EmailForAction = {
+//   threadId: string;
+//   messageId: string;
+//   references?: string;
+//   headerMessageId: string;
+//   subject: string;
+//   from: string;
+//   cc?: string;
+//   bcc?: string;
+//   replyTo?: string;
+//   date: string;
+//   textPlain: string;
+//   textHtml?: string;
+// };
+
+export type EmailForAction = Pick<
+  ParsedMessage,
+  "threadId" | "id" | "headers" | "textPlain" | "textHtml" | "attachments"
+>;
 
 export type ActionItem = {
   id: ExecutedAction["id"];
@@ -307,13 +320,13 @@ const draft: ActionFunction<any> = async (
   await draftEmail(gmail, {
     replyToEmail: {
       threadId: email.threadId,
-      references: email.references,
-      headerMessageId: email.headerMessageId,
+      references: email.headers.references,
+      headerMessageId: email.headers["message-id"] || "",
     },
-    to: args.to || email.replyTo || email.from,
-    cc: email.cc,
-    bcc: email.bcc,
-    subject: email.subject,
+    to: args.to || email.headers["reply-to"] || email.headers.from,
+    cc: email.headers.cc,
+    bcc: email.headers.bcc,
+    subject: email.headers.subject,
     messageText: args.content,
     attachments: args.attachments,
   });
@@ -346,24 +359,12 @@ const reply: ActionFunction<any> = async (
   email,
   args: {
     content: string;
-    cc: string; // TODO - do we allow the ai to adjust this?
-    bcc: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) => {
-  await sendEmail(gmail, {
-    replyToEmail: {
-      threadId: email.threadId,
-      references: email.references,
-      headerMessageId: email.headerMessageId,
-    },
-    to: email.replyTo || email.from,
-    cc: args.cc,
-    bcc: args.bcc,
-    subject: email.subject,
-    messageText: args.content,
-    attachments: args.attachments,
-  });
+  await replyToEmail(gmail, email, args.content, email.headers.from);
 };
 
 const forward: ActionFunction<any> = async (
@@ -378,7 +379,7 @@ const forward: ActionFunction<any> = async (
 ) => {
   // We may need to make sure the AI isn't adding the extra forward content on its own
   await forwardEmail(gmail, {
-    messageId: email.messageId,
+    messageId: email.id,
     to: args.to,
     cc: args.cc,
     bcc: args.bcc,
@@ -403,12 +404,12 @@ const call_webhook: ActionFunction<any> = async (
   await callWebhook(userEmail, args.url, {
     email: {
       threadId: email.threadId,
-      messageId: email.messageId,
-      subject: email.subject,
-      from: email.from,
-      cc: email.cc,
-      bcc: email.bcc,
-      headerMessageId: email.headerMessageId,
+      messageId: email.id,
+      subject: email.headers.subject,
+      from: email.headers.from,
+      cc: email.headers.cc,
+      bcc: email.headers.bcc,
+      headerMessageId: email.headers["message-id"] || "",
     },
     executedRule: {
       id: executedRule.id,

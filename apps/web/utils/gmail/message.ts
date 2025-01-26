@@ -24,6 +24,31 @@ export async function getMessage(
   return message.data as MessageWithPayload;
 }
 
+export async function getMessageByRfc822Id(
+  rfc822MessageId: string,
+  gmail: gmail_v1.Gmail,
+) {
+  // Search for message using RFC822 Message-ID header
+  // Remove any < > brackets if present
+  const cleanMessageId = rfc822MessageId.replace(/[<>]/g, "");
+
+  const response = await gmail.users.messages.list({
+    userId: "me",
+    q: `rfc822msgid:${cleanMessageId}`,
+    maxResults: 1,
+  });
+
+  const message = response.data.messages?.[0];
+  if (!message?.id) {
+    console.error("No message found for RFC822 Message-ID", {
+      rfc822MessageId,
+    });
+    return null;
+  }
+
+  return getMessage(message.id, gmail);
+}
+
 export async function getMessagesBatch(
   messageIds: string[],
   accessToken: string,

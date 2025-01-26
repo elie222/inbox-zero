@@ -2,13 +2,8 @@
 
 import { setUser } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
-import {
-  RuleType,
-  ExecutedRuleStatus,
-  type Action,
-  ActionType,
-} from "@prisma/client";
+import prisma, { isNotFoundError } from "@/utils/prisma";
+import { ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
@@ -47,6 +42,8 @@ import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
+import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { getUserCategoriesForNames } from "@/utils/category.server";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -223,140 +220,6 @@ export const createAutomationAction = withActionInstrumentation<
   return await safeCreateRule(result, userId, groupIdResult, null);
 });
 
-async function createRule(
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
-) {
-  return prisma.rule.create({
-    data: {
-      name: result.name,
-      userId,
-      actions: { createMany: { data: result.actions } },
-      automate: shouldAutomate(result.actions),
-      runOnThreads: shouldRunOnThreads(result.condition),
-      conditionalOperator: result.condition.conditionalOperator,
-      instructions: result.condition.aiInstructions,
-      from: result.condition.static?.from,
-      to: result.condition.static?.to,
-      subject: result.condition.static?.subject,
-      groupId,
-      categoryFilterType: result.condition.categories?.categoryFilterType,
-      categoryFilters: categoryIds
-        ? {
-            connect: categoryIds.map((id) => ({
-              id,
-            })),
-          }
-        : undefined,
-    },
-  });
-}
-
-async function updateRule(
-  ruleId: string,
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
-) {
-  return prisma.rule.update({
-    where: { id: ruleId },
-    data: {
-      name: result.name,
-      userId,
-      actions: {
-        deleteMany: {},
-        createMany: { data: result.actions },
-      },
-      automate: shouldAutomate(result.actions),
-      runOnThreads: shouldRunOnThreads(result.condition),
-      conditionalOperator: result.condition.conditionalOperator,
-      instructions: result.condition.aiInstructions,
-      from: result.condition.static?.from,
-      to: result.condition.static?.to,
-      subject: result.condition.static?.subject,
-      groupId,
-      categoryFilterType: result.condition.categories?.categoryFilterType,
-      categoryFilters: categoryIds
-        ? {
-            set: categoryIds.map((id) => ({
-              id,
-            })),
-          }
-        : undefined,
-    },
-  });
-}
-
-async function safeCreateRule(
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
-) {
-  try {
-    const rule = await createRule(result, userId, groupId, categoryIds);
-    return { id: rule.id };
-  } catch (error) {
-    if (isDuplicateError(error, "name")) {
-      // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule(
-        { ...result, name: `${result.name} - ${Date.now()}` },
-        userId,
-        groupId,
-        categoryIds,
-      );
-      return { id: rule.id };
-    }
-
-    logger.error("Error creating rule", {
-      userId,
-      error:
-        error instanceof Error
-          ? { message: error.message, stack: error.stack, name: error.name }
-          : error,
-    });
-
-    return { error: "Error creating rule." };
-  }
-}
-
-async function safeUpdateRule(
-  ruleId: string,
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  groupId: string | null,
-  categoryIds: string[] | null,
-) {
-  try {
-    const rule = await updateRule(ruleId, result, userId, groupId, categoryIds);
-    return { id: rule.id };
-  } catch (error) {
-    if (isDuplicateError(error, "name")) {
-      // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule(
-        { ...result, name: `${result.name} - ${Date.now()}` },
-        userId,
-        groupId,
-        categoryIds,
-      );
-      return { id: rule.id };
-    }
-
-    logger.error("Error updating rule", {
-      userId,
-      error:
-        error instanceof Error
-          ? { message: error.message, stack: error.stack, name: error.name }
-          : error,
-    });
-
-    return { error: "Error updating rule." };
-  }
-}
-
 async function getGroupId(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
@@ -422,23 +285,6 @@ async function getGroupId(
   return groupId;
 }
 
-const getUserCategoriesForNames = async (userId: string, names: string[]) => {
-  if (!names.length) return [];
-
-  const categories = await prisma.category.findMany({
-    where: { userId, name: { in: names } },
-    select: { id: true },
-  });
-  if (categories.length !== names.length) {
-    logger.warn("Not all categories were found", {
-      requested: names.length,
-      found: categories.length,
-      names,
-    });
-  }
-  return categories.map((c) => c.id);
-};
-
 export const setRuleAutomatedAction = withActionInstrumentation(
   "setRuleAutomated",
   async ({ ruleId, automate }: { ruleId: string; automate: boolean }) => {
@@ -493,15 +339,7 @@ export const approvePlanAction = withActionInstrumentation(
 
     await executeAct({
       gmail,
-      email: {
-        messageId: executedRule.messageId,
-        threadId: executedRule.threadId,
-        from: message.headers.from,
-        subject: message.headers.subject,
-        references: message.headers.references,
-        replyTo: message.headers["reply-to"],
-        headerMessageId: message.headers["message-id"] || "",
-      },
+      email: message,
       executedRule,
       userEmail: session.user.email,
     });
@@ -791,12 +629,12 @@ export const saveRulesPromptAction = withActionInstrumentation(
         continue;
       }
 
-      const categoryIds = await getUserCategoriesForNames(
+      await safeCreateRule(
+        rule,
         session.user.id,
+        groupIdResult,
         rule.condition.categories?.categoryFilters || [],
       );
-
-      await safeCreateRule(rule, session.user.id, groupIdResult, categoryIds);
     }
 
     // update rules prompt for user
@@ -819,27 +657,6 @@ export const saveRulesPromptAction = withActionInstrumentation(
     };
   },
 );
-
-function shouldAutomate(actions: Pick<Action, "type">[]) {
-  const types = new Set(actions.map((action) => action.type));
-
-  // don't automate replies, forwards, and send emails
-  if (
-    types.has(ActionType.REPLY) ||
-    types.has(ActionType.FORWARD) ||
-    types.has(ActionType.SEND_EMAIL)
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-// run on threads for static, group, and smart category rules
-// user can enable to run on threads for ai rules themselves
-function shouldRunOnThreads(condition?: { aiInstructions?: string }) {
-  return !condition?.aiInstructions;
-}
 
 /**
  * Generates a rules prompt based on the user's recent email activity and labels.
@@ -901,14 +718,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
       )
     ).filter(isDefined);
     const lastSentEmails = lastSentMessages?.map((message) => {
-      return emailToContent(
-        {
-          textHtml: message.textHtml || null,
-          textPlain: message.textPlain || null,
-          snippet: message.snippet || null,
-        },
-        { maxLength: 500 },
-      );
+      return emailToContent(message, { maxLength: 500 });
     });
 
     const snippetsResult = await aiFindSnippets({
@@ -918,11 +728,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
         replyTo: message.headers["reply-to"],
         cc: message.headers.cc,
         subject: message.headers.subject,
-        content: emailToContent({
-          textHtml: message.textHtml || null,
-          textPlain: message.textPlain || null,
-          snippet: message.snippet,
-        }),
+        content: emailToContent(message),
       })),
     });
 
@@ -997,9 +803,9 @@ export const reportAiMistakeAction = withActionInstrumentation(
     if (!user) return { error: "User not found" };
 
     const content = emailToContent({
-      textHtml: email.textHtml || null,
-      textPlain: email.textPlain || null,
-      snippet: email.snippet,
+      textHtml: email.textHtml || undefined,
+      textPlain: email.textPlain || undefined,
+      snippet: email.snippet || "",
     });
 
     const result = await aiRuleFix({
@@ -1017,7 +823,8 @@ export const reportAiMistakeAction = withActionInstrumentation(
     if (!result) return { error: "Error fixing rule" };
 
     return {
-      ruleId: result.rule === "actual_rule" ? actualRuleId : expectedRuleId,
+      ruleId:
+        result.ruleToFix === "actual_rule" ? actualRuleId : expectedRuleId,
       fixedInstructions: result.fixedInstructions,
     };
   },

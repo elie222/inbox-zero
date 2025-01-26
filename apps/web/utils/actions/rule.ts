@@ -20,10 +20,10 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
-import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
 import {
-  updateRulePromptOnRuleChange,
-  appendRulePrompt,
+  updatePromptFileOnRuleUpdated,
+  updateRuleInstructionsAndPromptFile,
+  updatePromptFileOnRuleCreated,
 } from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
@@ -85,9 +85,7 @@ export const createRuleAction = withActionInstrumentation(
         include: { actions: true, categoryFilters: true, group: true },
       });
 
-      const prompt = createPromptFromRule(rule);
-
-      await appendRulePrompt(session.user.id, prompt);
+      await updatePromptFileOnRuleCreated(session.user.id, rule);
 
       revalidatePath("/automation");
 
@@ -208,7 +206,7 @@ export const updateRuleAction = withActionInstrumentation(
       ]);
 
       // update prompt file
-      await updateRulePromptOnRuleChange(
+      await updatePromptFileOnRuleUpdated(
         session.user.id,
         currentRule,
         updatedRule,
@@ -247,18 +245,12 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
     });
     if (!currentRule) return { error: "Rule not found" };
 
-    const updatedRule = await prisma.rule.update({
-      where: { id: body.id, userId: session.user.id },
-      data: { instructions: body.instructions },
-      include: { actions: true, categoryFilters: true, group: true },
-    });
-
-    // update prompt file
-    await updateRulePromptOnRuleChange(
-      session.user.id,
+    await updateRuleInstructionsAndPromptFile({
+      userId: session.user.id,
+      ruleId: body.id,
+      instructions: body.instructions,
       currentRule,
-      updatedRule,
-    );
+    });
 
     revalidatePath(`/automation/rule/${body.id}`);
     revalidatePath("/automation");

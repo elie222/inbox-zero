@@ -11,7 +11,10 @@ import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { defaultCategory } from "@/utils/categories";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { categorizeSender } from "@/utils/categorize/senders/categorize";
+import {
+  categorizeSender,
+  updateCategoryForSender,
+} from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
 import {
@@ -140,9 +143,10 @@ export const changeSenderCategoryAction = withActionInstrumentation(
     });
     if (!category) return { error: "Category not found" };
 
-    await prisma.newsletter.update({
-      where: { email_userId: { email: sender, userId: session.user.id } },
-      data: { categoryId },
+    await updateCategoryForSender({
+      userId: session.user.id,
+      sender,
+      categoryId,
     });
 
     revalidatePath("/smart-categories");

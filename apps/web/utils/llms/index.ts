@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import {
   APICallError,
+  type CoreMessage,
   type CoreTool,
   generateObject,
   generateText,
@@ -198,22 +199,32 @@ export async function chatCompletionStream({
 
 type ChatCompletionToolsArgs = {
   userAi: UserAIFields;
-  prompt: string;
-  system?: string;
   tools: Record<string, CoreTool>;
   maxSteps?: number;
   label: string;
   userEmail: string;
-};
+} & (
+  | {
+      system?: string;
+      prompt: string;
+      messages?: never;
+    }
+  | {
+      system?: never;
+      prompt?: never;
+      messages: CoreMessage[];
+    }
+);
 
-export async function chatCompletionTools<T>(options: ChatCompletionToolsArgs) {
+export async function chatCompletionTools(options: ChatCompletionToolsArgs) {
   return withBackupModel(chatCompletionToolsInternal, options);
 }
 
 async function chatCompletionToolsInternal({
   userAi,
-  prompt,
   system,
+  prompt,
+  messages,
   tools,
   maxSteps,
   label,
@@ -226,8 +237,9 @@ async function chatCompletionToolsInternal({
       model: llmModel,
       tools,
       toolChoice: "required",
-      prompt,
       system,
+      prompt,
+      messages,
       maxSteps,
       experimental_telemetry: { isEnabled: true },
     });

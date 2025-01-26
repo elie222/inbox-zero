@@ -14,7 +14,7 @@ import type { ActionItem } from "@/utils/ai/actions";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
@@ -74,7 +74,7 @@ async function runRule(
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
 ) {
-  const email = getEmailFromMessage(message);
+  const email = getEmailForLLM(message);
 
   // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
@@ -89,8 +89,8 @@ async function runRule(
     : await saveExecutedRule(
         {
           userId: user.id,
-          threadId: email.threadId,
-          messageId: email.messageId,
+          threadId: message.threadId,
+          messageId: message.id,
         },
         {
           rule,
@@ -106,7 +106,7 @@ async function runRule(
       gmail,
       userEmail: user.email || "",
       executedRule,
-      email,
+      email: message,
     });
   }
 

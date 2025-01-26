@@ -18,13 +18,13 @@ const conditionSchema = z
       .string()
       .optional()
       .describe(
-        "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule. Leave blank if using static conditions or groups.",
+        "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule.",
       ),
     static: z
       .object({
         from: z.string().optional().describe("The from email address to match"),
         to: z.string().optional().describe("The to email address to match"),
-        subject: z.string().optional().describe("The subject to match."),
+        subject: z.string().optional().describe("The subject to match"),
       })
       .optional()
       .describe(
@@ -122,7 +122,7 @@ export const getCreateRuleSchemaWithCategories = (
 };
 
 type CreateRuleSchema = z.infer<typeof createRuleSchema>;
-type CreateRuleSchemaWithCategories = CreateRuleSchema & {
+export type CreateRuleSchemaWithCategories = CreateRuleSchema & {
   condition: CreateRuleSchema["condition"] & {
     categories?: {
       categoryFilterType: CategoryFilterType;

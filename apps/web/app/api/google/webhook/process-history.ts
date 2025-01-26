@@ -22,6 +22,8 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 import { createScopedLogger } from "@/utils/logger";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
+import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 
 const logger = createScopedLogger("Process History");
 
@@ -198,10 +200,7 @@ export async function processHistoryForUser(
       });
 
       // important to save this or we can get into a loop with never receiving history
-      await prisma.user.update({
-        where: { email: account.user.email },
-        data: { lastSyncedHistoryId: historyId.toString() },
-      });
+      await updateLastSyncedHistoryId(account.user.email, historyId.toString());
     }
 
     logger.info("Completed processing history", { decodedData });
@@ -264,8 +263,7 @@ async function processHistory(options: ProcessHistoryOptions) {
     const inboxMessages = historyMessages.filter(
       (m) =>
         m.message?.labelIds?.includes(GmailLabel.INBOX) &&
-        !m.message?.labelIds?.includes(GmailLabel.DRAFT) &&
-        !m.message?.labelIds?.includes(GmailLabel.SENT),
+        !m.message?.labelIds?.includes(GmailLabel.DRAFT),
     );
     const uniqueMessages = uniqBy(inboxMessages, (m) => m.message?.id);
 
@@ -282,7 +280,14 @@ async function processHistory(options: ProcessHistoryOptions) {
           email,
           messageId: m.message?.id,
           threadId: m.message?.threadId,
-          error,
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : String(error),
         });
       }
     }
@@ -290,16 +295,16 @@ async function processHistory(options: ProcessHistoryOptions) {
 
   const lastSyncedHistoryId = history[history.length - 1].id;
 
-  await prisma.user.update({
-    where: { email },
-    data: { lastSyncedHistoryId },
-  });
+  await updateLastSyncedHistoryId(email, lastSyncedHistoryId);
 }
 
 async function processHistoryItem(
-  m: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
+  {
+    message,
+  }: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
+    email: userEmail,
     user,
     accessToken,
     hasColdEmailAccess,
@@ -308,21 +313,16 @@ async function processHistoryItem(
     rules,
   }: ProcessHistoryOptions,
 ) {
-  const message = m.message;
   const messageId = message?.id;
   const threadId = message?.threadId;
 
-  if (!messageId) return;
-  if (!threadId) return;
+  if (!messageId || !threadId) return;
 
-  const isFree = await markMessageAsProcessing({
-    userEmail: user.email!,
-    messageId,
-  });
+  const isFree = await markMessageAsProcessing({ userEmail, messageId });
 
   if (!isFree) {
     logger.info("Skipping. Message already being processed.", {
-      email: user.email,
+      email: userEmail,
       messageId,
       threadId,
     });
@@ -330,7 +330,7 @@ async function processHistoryItem(
   }
 
   logger.info("Getting message", {
-    email: user.email,
+    email: userEmail,
     messageId,
     threadId,
   });
@@ -349,7 +349,7 @@ async function processHistoryItem(
     // if the rule has already been executed, skip
     if (hasExistingRule) {
       logger.info("Skipping. Rule already exists.", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -357,6 +357,42 @@ async function processHistoryItem(
     }
 
     const message = parseMessage(gmailMessage);
+
+    const isForAssistant = isAssistantEmail({
+      userEmail,
+      emailToCheck: message.headers.to,
+    });
+
+    if (isForAssistant) {
+      logger.info("Passing through assistant email.", {
+        email: userEmail,
+        messageId,
+        threadId,
+      });
+      return processAssistantEmail({
+        message,
+        userEmail,
+        userId: user.id,
+        gmail,
+      });
+    }
+
+    const isFromAssistant = isAssistantEmail({
+      userEmail,
+      emailToCheck: message.headers.from,
+    });
+
+    if (isFromAssistant) {
+      logger.info("Skipping. Assistant email.", {
+        email: userEmail,
+        messageId,
+        threadId,
+      });
+      return;
+    }
+
+    // skip SENT emails that are not assistant emails
+    if (message.labelIds?.includes(GmailLabel.SENT)) return;
 
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
@@ -367,7 +403,7 @@ async function processHistoryItem(
 
     if (blocked) {
       logger.info("Skipping. Blocked unsubscribed email.", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -384,7 +420,7 @@ async function processHistoryItem(
 
     if (shouldRunBlocker) {
       logger.info("Running cold email blocker...", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -398,11 +434,7 @@ async function processHistoryItem(
         },
       );
 
-      const content = emailToContent({
-        textHtml: message.textHtml || null,
-        textPlain: message.textPlain || null,
-        snippet: message.snippet,
-      });
+      const content = emailToContent(message);
 
       const response = await runColdEmailBlocker({
         hasPreviousEmail,
@@ -419,7 +451,7 @@ async function processHistoryItem(
 
       if (response.isColdEmail) {
         logger.info("Skipping. Cold email detected.", {
-          email: user.email,
+          email: userEmail,
           messageId,
           threadId,
         });
@@ -442,7 +474,7 @@ async function processHistoryItem(
 
     if (hasAutomationRules && hasAiAutomationAccess) {
       logger.info("Running rules...", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -459,7 +491,7 @@ async function processHistoryItem(
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
     if (error.message === "Requested entity was not found.") {
       logger.info("Message not found", {
-        email: user.email,
+        email: userEmail,
         messageId,
         threadId,
       });
@@ -481,4 +513,15 @@ function shouldRunColdEmailBlocker(
     hasColdEmailAccess &&
     !isThread
   );
+}
+
+async function updateLastSyncedHistoryId(
+  email: string,
+  lastSyncedHistoryId?: string | null,
+) {
+  if (!lastSyncedHistoryId) return;
+  await prisma.user.update({
+    where: { email },
+    data: { lastSyncedHistoryId },
+  });
 }

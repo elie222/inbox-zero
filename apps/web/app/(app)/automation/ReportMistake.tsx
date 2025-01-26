@@ -388,7 +388,6 @@ function RuleMismatch({
   rules: RulesResponse;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
-  console.log("🚀 ~ result:", result);
   return (
     <div>
       <Label name="matchedRule" label="Matched:" />
@@ -949,7 +948,6 @@ function RerunButton({
 }) {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<RunRulesResult>();
-  console.log("🚀 ~ result:", result);
 
   return (
     <>
