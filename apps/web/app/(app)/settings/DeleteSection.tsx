@@ -42,6 +42,7 @@ export function DeleteSection() {
         <Button
           color="red"
           onClick={async () => {
+            onCancelLoadBatch();
             const yes = window.confirm(
               "Are you sure you want to delete your account?",
             );
@@ -50,7 +51,6 @@ export function DeleteSection() {
 
             toast.promise(
               async () => {
-                onCancelLoadBatch();
                 const result = await deleteAccountAction();
                 await logOut("/");
                 if (isActionError(result)) throw new Error(result.error);
