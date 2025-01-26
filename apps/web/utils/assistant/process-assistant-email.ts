@@ -9,6 +9,7 @@ import { emailToContent, parseMessage } from "@/utils/mail";
 import { replyToEmail } from "@/utils/gmail/mail";
 import { getThread } from "@/utils/gmail/thread";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
+import { GmailLabel } from "@/utils/gmail/label";
 
 const logger = createScopedLogger("process-assistant-email");
 
@@ -39,9 +40,9 @@ export async function processAssistantEmail({
   // 3. get the referenced message from that message
 
   const thread = await getThread(message.threadId, gmail);
-  const threadMessages = thread?.messages?.map((m) =>
-    parseMessage(m as MessageWithPayload),
-  );
+  const threadMessages = thread?.messages
+    ?.map((m) => parseMessage(m as MessageWithPayload))
+    .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found", { messageId: message.id });
