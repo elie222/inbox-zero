@@ -26,14 +26,18 @@ export async function processAssistantEmail({
 }) {
   if (!verifyUserSentEmail(message, userEmail)) {
     logger.error("Unauthorized assistant access attempt", {
-      userEmail: userEmail,
+      userEmail,
       from: message.headers.from,
       to: message.headers.to,
     });
     throw new Error("Unauthorized assistant access attempt");
   }
 
-  logger.info("Processing assistant email", { messageId: message.id });
+  logger.info("Processing assistant email", {
+    userEmail,
+    threadId: message.threadId,
+    messageId: message.id,
+  });
 
   // 1. get thread
   // 2. get first message in thread to the personal assistant
@@ -45,7 +49,11 @@ export async function processAssistantEmail({
     .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
 
   if (!threadMessages?.length) {
-    logger.error("No thread messages found", { messageId: message.id });
+    logger.error("No thread messages found", {
+      userEmail,
+      threadId: message.threadId,
+      messageId: message.id,
+    });
     await replyToEmail(
       gmail,
       message,
