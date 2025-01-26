@@ -81,7 +81,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.ruleToFix).toBe("correct_rule");
+    expect(result.ruleToFix).toBe("expected_rule");
     expect(result.fixedInstructions).toContain("technical");
     // The incorrect rule should be more specific to exclude feature requests
     expect(result.fixedInstructions.toLowerCase()).toMatch(
@@ -153,7 +153,7 @@ describe.skipIf(!isAiTest)("aiRuleFix", () => {
     console.log(result);
 
     expect(result).toBeDefined();
-    expect(result.ruleToFix).toBe("correct_rule");
+    expect(result.ruleToFix).toBe("expected_rule");
     expect(result.fixedInstructions).toContain("pric");
     // The fixed rule should be more inclusive of various pricing inquiries
     expect(result.fixedInstructions.toLowerCase()).toMatch(
