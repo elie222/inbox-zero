@@ -10,13 +10,16 @@ import {
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { handleActionResult } from "@/utils/server-action";
-import { adminProcessHistoryAction } from "@/utils/actions/admin";
+import {
+  adminDeleteAccountAction,
+  adminProcessHistoryAction,
+} from "@/utils/actions/admin";
 import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
 
 export const AdminUserControls = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
-
+  const [isDeleting, setIsDeleting] = useState(false);
   const {
     register,
     formState: { errors },
@@ -69,6 +72,19 @@ export const AdminUserControls = () => {
           }}
         >
           Check Permissions
+        </Button>
+        <Button
+          variant="destructive"
+          loading={isDeleting}
+          onClick={async () => {
+            setIsDeleting(true);
+            const email = getValues("email");
+            const result = await adminDeleteAccountAction(email);
+            handleActionResult(result, "Deleted user");
+            setIsDeleting(false);
+          }}
+        >
+          Delete User
         </Button>
       </div>
     </form>
