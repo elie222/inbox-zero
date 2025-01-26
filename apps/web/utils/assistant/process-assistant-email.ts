@@ -1,5 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
+import {
+  isDefined,
+  type MessageWithPayload,
+  type ParsedMessage,
+} from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
@@ -9,21 +13,43 @@ import { emailToContent, parseMessage } from "@/utils/mail";
 import { replyToEmail } from "@/utils/gmail/mail";
 import { getThread } from "@/utils/gmail/thread";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import { GmailLabel } from "@/utils/gmail/label";
+import {
+  getOrCreateInboxZeroLabel,
+  GmailLabel,
+  labelMessage,
+} from "@/utils/gmail/label";
 
 const logger = createScopedLogger("process-assistant-email");
+
+type ProcessAssistantEmailArgs = {
+  userEmail: string;
+  userId: string;
+  message: ParsedMessage;
+  gmail: gmail_v1.Gmail;
+};
 
 export async function processAssistantEmail({
   userEmail,
   userId,
   message,
   gmail,
-}: {
-  userEmail: string;
-  userId: string;
-  message: ParsedMessage;
-  gmail: gmail_v1.Gmail;
-}) {
+}: ProcessAssistantEmailArgs) {
+  return withProcessingLabels(message.id, gmail, () =>
+    processAssistantEmailInternal({
+      userEmail,
+      userId,
+      message,
+      gmail,
+    }),
+  );
+}
+
+async function processAssistantEmailInternal({
+  userEmail,
+  userId,
+  message,
+  gmail,
+}: ProcessAssistantEmailArgs) {
   if (!verifyUserSentEmail(message, userEmail)) {
     logger.error("Unauthorized assistant access attempt", {
       email: userEmail,
@@ -230,4 +256,59 @@ async function getOriginalMessage(
   const originalMessage = await getMessageByRfc822Id(originalMessageId, gmail);
   if (!originalMessage) return null;
   return parseMessage(originalMessage);
+}
+
+// Label the message with processing and assistant labels, and remove the processing label when done
+async function withProcessingLabels<T>(
+  messageId: string,
+  gmail: gmail_v1.Gmail,
+  fn: () => Promise<T>,
+): Promise<T> {
+  // Get labels first so we can reuse them
+  const results = await Promise.allSettled([
+    getOrCreateInboxZeroLabel({
+      gmail,
+      key: "processing",
+    }),
+    getOrCreateInboxZeroLabel({
+      gmail,
+      key: "assistant",
+    }),
+  ]);
+
+  const labels = results
+    .map((result) =>
+      result.status === "fulfilled" ? result.value?.id : undefined,
+    )
+    .filter(isDefined);
+
+  if (labels.length) {
+    // Fire and forget the initial labeling
+    labelMessage({
+      gmail,
+      messageId,
+      addLabelIds: labels,
+    }).catch((error) => {
+      logger.error("Error labeling message", { error });
+    });
+  }
+
+  try {
+    return await fn();
+  } finally {
+    const processingLabel = results[0];
+    const processingLabelId =
+      processingLabel.status === "fulfilled"
+        ? processingLabel.value?.id
+        : undefined;
+    if (processingLabelId) {
+      await labelMessage({
+        gmail,
+        messageId,
+        removeLabelIds: [processingLabelId],
+      }).catch((error) => {
+        logger.error("Error removing processing label", { error });
+      });
+    }
+  }
 }

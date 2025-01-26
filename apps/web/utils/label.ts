@@ -1,37 +1,63 @@
+import { messageVisibility } from "@/utils/gmail/constants";
+
 export const PARENT_LABEL = "Inbox Zero";
+
+const blue = "#b6cff5";
+const cyan = "#98d7e4";
+const purple = "#e3d7ff";
+const pink = "#fbd3e0";
+const red = "#f2b2a8";
+const coral = "#ffc8af";
+const orange = "#ffdeb5";
+const yellow = "#fdedc1";
+const green = "#b3efd3";
+
+const LABEL_COLORS = [
+  blue,
+  cyan,
+  purple,
+  pink,
+  red,
+  coral,
+  orange,
+  yellow,
+  green,
+] as const;
 
 export const inboxZeroLabels = {
   archived: {
     name: `${PARENT_LABEL}/Archived`,
-    color: "#a4c2f4", // Light blue
+    color: blue,
+    messageListVisibility: messageVisibility.hide,
   },
   acted: {
     name: `${PARENT_LABEL}/Acted`,
-    color: "#b9e4d0", // Light green
+    color: green,
+    messageListVisibility: messageVisibility.hide,
   },
   cold_email: {
     name: `${PARENT_LABEL}/Cold Email`,
-    color: "#ffdeb5", // Light orange
+    color: orange,
+    messageListVisibility: messageVisibility.hide,
   },
   unsubscribed: {
     name: `${PARENT_LABEL}/Unsubscribed`,
-    color: "#f2b2a8", // Light red
+    color: red,
+    messageListVisibility: messageVisibility.hide,
   },
-};
-export type InboxZeroLabel = keyof typeof inboxZeroLabels;
+  processing: {
+    name: `${PARENT_LABEL}/Processing`,
+    color: yellow,
+    messageListVisibility: messageVisibility.show,
+  },
+  assistant: {
+    name: `${PARENT_LABEL}/Assistant`,
+    color: purple,
+    messageListVisibility: messageVisibility.show,
+  },
+} as const;
 
-const LABEL_COLORS = [
-  "#b6cff5", // Light blue
-  "#98d7e4", // Light cyan
-  "#e3d7ff", // Light purple
-  "#fbd3e0", // Light pink
-  "#f2b2a8", // Light red
-  "#ffc8af", // Light coral
-  "#ffdeb5", // Light orange
-  "#fdedc1", // Light yellow
-  "#b3efd3", // Light green
-  "#a2dcc1", // Mint green
-] as const;
+export type InboxZeroLabel = keyof typeof inboxZeroLabels;
 
 export function getRandomLabelColor() {
   return LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)];
