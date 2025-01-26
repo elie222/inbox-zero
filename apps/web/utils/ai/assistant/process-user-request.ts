@@ -6,6 +6,7 @@ import {
   type Category,
   GroupItemType,
   LogicalOperator,
+  type Rule,
   type User,
 } from "@prisma/client";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -27,6 +28,10 @@ import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
 import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import { stringifyEmailSimple } from "@/utils/ai/choose-rule/stringify-email";
+import {
+  updatePromptFileOnRuleCreated,
+  updatePromptFileOnRuleUpdated,
+} from "@/utils/rule/prompt-file";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -131,6 +136,22 @@ ${senderCategory || "No category"}
 
   logger.trace("Input", { allMessages });
 
+  const createdRules = new Map<string, RuleWithRelations>();
+  const updatedRules = new Map<string, RuleWithRelations>();
+
+  async function updateRule(ruleName: string, rule: Partial<Rule>) {
+    try {
+      const updatedRule = await partialUpdateRule(ruleName, rule);
+      updatedRules.set(updatedRule.id, updatedRule);
+      return { success: true };
+    } catch (error) {
+      return {
+        error: "Failed to update rule",
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   const result = await chatCompletionTools({
     userAi: user,
     messages: allMessages,
@@ -156,19 +177,29 @@ ${senderCategory || "No category"}
           const groupId = null;
 
           try {
-            await safeCreateRule(
+            const rule = await safeCreateRule(
               { name, condition, actions },
               user.id,
               groupId,
               conditions.categories?.categoryFilters || [],
             );
+
+            if ("error" in rule) {
+              return {
+                error: "Failed to create rule",
+                message: rule.error,
+              };
+            }
+
+            createdRules.set(rule.id, rule);
+
+            return { success: true };
           } catch (error) {
             return {
               error: "Failed to create rule",
               message: error instanceof Error ? error.message : String(error),
             };
           }
-          return { success: true };
         },
       }),
       list_rules: tool({
@@ -190,9 +221,7 @@ ${senderCategory || "No category"}
             conditionalOperator,
           });
 
-          await partialUpdateRule(ruleName, { conditionalOperator });
-
-          return { success: true };
+          return updateRule(ruleName, { conditionalOperator });
         },
       }),
       update_ai_instructions: tool({
@@ -204,9 +233,7 @@ ${senderCategory || "No category"}
         execute: async ({ ruleName, aiInstructions }) => {
           logger.info("Edit AI Instructions", { ruleName, aiInstructions });
 
-          await partialUpdateRule(ruleName, { instructions: aiInstructions });
-
-          return { success: true };
+          return updateRule(ruleName, { instructions: aiInstructions });
         },
       }),
       update_static_conditions: tool({
@@ -218,13 +245,11 @@ ${senderCategory || "No category"}
         execute: async ({ ruleName, staticConditions }) => {
           logger.info("Edit Static Conditions", { ruleName, staticConditions });
 
-          await partialUpdateRule(ruleName, {
+          return updateRule(ruleName, {
             from: staticConditions?.from,
             to: staticConditions?.to,
             subject: staticConditions?.subject,
           });
-
-          return { success: true };
         },
       }),
       add_to_group: tool({
@@ -320,25 +345,38 @@ ${senderCategory || "No category"}
                   .describe("The categories to add"),
               }),
               execute: async (options) => {
-                logger.info("Add Rule Categories", options);
+                try {
+                  logger.info("Add Rule Categories", options);
 
-                const { ruleName } = options;
+                  const { ruleName } = options;
 
-                const rule = rules.find((r) => r.name === ruleName);
+                  const rule = rules.find((r) => r.name === ruleName);
 
-                if (!rule) {
-                  logger.error("Rule not found", { ruleName });
-                  return { error: "Rule not found" };
+                  if (!rule) {
+                    logger.error("Rule not found", { ruleName });
+                    return { error: "Rule not found" };
+                  }
+
+                  const categoryIds = options.categories
+                    .map((c) => categories.find((cat) => cat.name === c))
+                    .filter(isDefined)
+                    .map((c) => c.id);
+
+                  const updatedRule = await addRuleCategories(
+                    rule.id,
+                    categoryIds,
+                  );
+
+                  updatedRules.set(updatedRule.id, updatedRule);
+
+                  return { success: true };
+                } catch (error) {
+                  return {
+                    error: "Failed to add categories to rule",
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  };
                 }
-
-                const categoryIds = options.categories
-                  .map((c) => categories.find((cat) => cat.name === c))
-                  .filter(isDefined)
-                  .map((c) => c.id);
-
-                await addRuleCategories(rule.id, categoryIds);
-
-                return { success: true };
               },
             }),
             remove_categories: tool({
@@ -352,25 +390,38 @@ ${senderCategory || "No category"}
                   .describe("The categories to remove"),
               }),
               execute: async (options) => {
-                logger.info("Remove Rule Categories", options);
+                try {
+                  logger.info("Remove Rule Categories", options);
 
-                const { ruleName } = options;
+                  const { ruleName } = options;
 
-                const rule = rules.find((r) => r.name === ruleName);
+                  const rule = rules.find((r) => r.name === ruleName);
 
-                if (!rule) {
-                  logger.error("Rule not found", { ruleName });
-                  return { error: "Rule not found" };
+                  if (!rule) {
+                    logger.error("Rule not found", { ruleName });
+                    return { error: "Rule not found" };
+                  }
+
+                  const categoryIds = options.categories
+                    .map((c) => categories.find((cat) => cat.name === c))
+                    .filter(isDefined)
+                    .map((c) => c.id);
+
+                  const updatedRule = await removeRuleCategories(
+                    rule.id,
+                    categoryIds,
+                  );
+
+                  updatedRules.set(updatedRule.id, updatedRule);
+
+                  return { success: true };
+                } catch (error) {
+                  return {
+                    error: "Failed to remove categories from rule",
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  };
                 }
-
-                const categoryIds = options.categories
-                  .map((c) => categories.find((cat) => cat.name === c))
-                  .filter(isDefined)
-                  .map((c) => c.id);
-
-                await removeRuleCategories(rule.id, categoryIds);
-
-                return { success: true };
               },
             }),
           }
@@ -388,9 +439,21 @@ ${senderCategory || "No category"}
     userEmail: user.email || "",
   });
 
-  logger.trace("Tool Calls", {
-    toolCalls: result.steps.flatMap((step) => step.toolCalls),
-  });
+  const toolCalls = result.steps.flatMap((step) => step.toolCalls);
+
+  logger.trace("Tool Calls", { toolCalls });
+
+  // Upon completion, check what changes were made and make sure the prompt file is updated
+
+  // Update prompt file for newly created rules
+  for (const rule of createdRules.values()) {
+    await updatePromptFileOnRuleCreated(user.id, rule);
+  }
+
+  // Update prompt file for modified rules
+  for (const rule of updatedRules.values()) {
+    await updatePromptFileOnRuleUpdated(user.id, rule, rule);
+  }
 
   return result;
 }

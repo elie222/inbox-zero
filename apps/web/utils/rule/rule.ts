@@ -15,6 +15,7 @@ export function partialUpdateRule(ruleId: string, data: Partial<Rule>) {
   return prisma.rule.update({
     where: { id: ruleId },
     data,
+    include: { actions: true, categoryFilters: true, group: true },
   });
 }
 
@@ -31,7 +32,7 @@ export async function safeCreateRule(
 
   try {
     const rule = await createRule(result, userId, groupId, categoryNames);
-    return { id: rule.id };
+    return rule;
   } catch (error) {
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
@@ -41,7 +42,7 @@ export async function safeCreateRule(
         groupId,
         categoryIds,
       );
-      return { id: rule.id };
+      return rule;
     }
 
     logger.error("Error creating rule", {
@@ -122,6 +123,7 @@ async function createRule(
           }
         : undefined,
     },
+    include: { actions: true, categoryFilters: true, group: true },
   });
 }
 
@@ -198,6 +200,7 @@ export async function addRuleCategories(ruleId: string, categoryIds: string[]) {
   return prisma.rule.update({
     where: { id: ruleId },
     data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
+    include: { actions: true, categoryFilters: true, group: true },
   });
 }
 
@@ -218,6 +221,7 @@ export async function removeRuleCategories(
   return prisma.rule.update({
     where: { id: ruleId },
     data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
+    include: { actions: true, categoryFilters: true, group: true },
   });
 }
 

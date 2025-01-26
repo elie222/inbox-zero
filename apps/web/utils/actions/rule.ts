@@ -20,11 +20,10 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
-import { createPromptFromRule } from "@/utils/ai/rule/create-prompt-from-rule";
 import {
-  updateRulePromptOnRuleChange,
-  appendRulePrompt,
+  updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
+  updatePromptFileOnRuleCreated,
 } from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
@@ -86,9 +85,7 @@ export const createRuleAction = withActionInstrumentation(
         include: { actions: true, categoryFilters: true, group: true },
       });
 
-      const prompt = createPromptFromRule(rule);
-
-      await appendRulePrompt(session.user.id, prompt);
+      await updatePromptFileOnRuleCreated(session.user.id, rule);
 
       revalidatePath("/automation");
 
@@ -209,7 +206,7 @@ export const updateRuleAction = withActionInstrumentation(
       ]);
 
       // update prompt file
-      await updateRulePromptOnRuleChange(
+      await updatePromptFileOnRuleUpdated(
         session.user.id,
         currentRule,
         updatedRule,
