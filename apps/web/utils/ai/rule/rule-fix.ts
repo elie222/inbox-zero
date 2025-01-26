@@ -90,48 +90,48 @@ Please provide the fixed rule.`;
 
 // But messy. May refactor this in the future into 3 functions above
 function getRuleFixPromptConfig(
-  incorrectRule: Pick<Rule, "instructions"> | null,
-  correctRule: Pick<Rule, "instructions"> | null,
+  actualRule: Pick<Rule, "instructions"> | null,
+  expectedRule: Pick<Rule, "instructions"> | null,
 ): {
   problem: string;
   schema: z.ZodSchema;
   examples: string[];
 } {
-  if (incorrectRule && correctRule) {
+  if (actualRule && expectedRule) {
     return {
       problem: `Here is the rule it matched against:
 <actual_rule>
-${incorrectRule.instructions}
+${actualRule.instructions}
 </actual_rule>
 
 Here is the rule it was expected to match:
 <expected_rule>
-${correctRule.instructions}
+${expectedRule.instructions}
 </expected_rule>
 
 Based on the email content, determine which rule needs fixing and provide its improved version. The fixed rule should correctly handle the email while maintaining the original rule's intent.`,
       schema: z.object({
-        rule: z.enum(["actual_rule", "expected_rule"]),
+        ruleToFix: z.enum(["actual_rule", "expected_rule"]),
         fixedInstructions: z.string().describe("The updated instructions"),
       }),
       examples: [
         `{
-  "rule": "actual_rule",
+  "ruleToFix": "actual_rule",
   "fixedInstructions": "Apply this rule to emails reporting technical issues, bugs, or website problems, but DO NOT apply this to technical newsletters."
 }`,
         `{
-  "rule": "expected_rule",
+  "ruleToFix": "expected_rule",
   "fixedInstructions": "Match cold emails from recruiters about job opportunities, but exclude automated job alerts or marketing emails from job boards."
 }`,
       ],
     };
   }
 
-  if (incorrectRule) {
+  if (actualRule) {
     return {
       problem: `Here is the rule it matched against that it shouldn't have matched:
 <rule>
-${incorrectRule.instructions}
+${actualRule.instructions}
 </rule>`,
       schema: z.object({
         fixedInstructions: z.string().describe("The updated instructions"),
@@ -144,11 +144,11 @@ ${incorrectRule.instructions}
     };
   }
 
-  if (correctRule) {
+  if (expectedRule) {
     return {
       problem: `Here is the rule it should have matched:
 <expected_rule>
-${correctRule.instructions}
+${expectedRule.instructions}
 </expected_rule>`,
       schema: z.object({
         fixedInstructions: z.string().describe("The updated instructions"),
