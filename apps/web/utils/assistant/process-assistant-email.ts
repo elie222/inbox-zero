@@ -26,7 +26,7 @@ export async function processAssistantEmail({
 }) {
   if (!verifyUserSentEmail(message, userEmail)) {
     logger.error("Unauthorized assistant access attempt", {
-      userEmail,
+      email: userEmail,
       from: message.headers.from,
       to: message.headers.to,
     });
@@ -34,7 +34,7 @@ export async function processAssistantEmail({
   }
 
   logger.info("Processing assistant email", {
-    userEmail,
+    email: userEmail,
     threadId: message.threadId,
     messageId: message.id,
   });
@@ -50,7 +50,7 @@ export async function processAssistantEmail({
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found", {
-      userEmail,
+      email: userEmail,
       threadId: message.threadId,
       messageId: message.id,
     });
