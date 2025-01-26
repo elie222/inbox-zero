@@ -10,10 +10,11 @@ export async function addGroupItem(data: {
   try {
     return await prisma.groupItem.create({ data });
   } catch (error) {
-    if (isDuplicateError(error))
+    if (isDuplicateError(error)) {
       captureException(error, { extra: { items: data } });
-
-    throw error;
+    } else {
+      throw error;
+    }
   }
 }
 
