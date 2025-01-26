@@ -349,12 +349,12 @@ describe(
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
-      const changeSenderCategoryToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "change_sender_category",
+      const updateSenderCategoryToolCall = toolCalls.find(
+        (toolCall) => toolCall.toolName === "update_sender_category",
       );
 
-      expect(changeSenderCategoryToolCall).toBeDefined();
-      expect(changeSenderCategoryToolCall?.args.category).toBe("Sales");
+      expect(updateSenderCategoryToolCall).toBeDefined();
+      expect(updateSenderCategoryToolCall?.args.category).toBe("Sales");
     });
 
     test("should handle complex rule fixes with multiple condition types", async () => {
