@@ -204,7 +204,7 @@ ${senderCategory || "No category"}
         },
       }),
       list_rules: tool({
-        description: "",
+        description: "List all existing rules for the user",
         parameters: z.object({}),
         execute: async () => userRules,
       }),
@@ -555,11 +555,11 @@ ${rules.map((rule) => ruleToXML(rule)).join("\n")}
 }
 
 function hasStaticConditions(rule: RuleWithRelations) {
-  return rule.from || rule.to || rule.subject || rule.body;
+  return Boolean(rule.from || rule.to || rule.subject || rule.body);
 }
 
 function hasCategoryConditions(rule: RuleWithRelations) {
-  return rule.categoryFilters && rule.categoryFilters.length > 0;
+  return Boolean(rule.categoryFilters && rule.categoryFilters.length > 0);
 }
 
 function getGroupItemType(type: string) {
