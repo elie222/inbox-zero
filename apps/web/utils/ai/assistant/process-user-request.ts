@@ -85,6 +85,7 @@ Best practices:
 - For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
 - For groups, collect similar items that are likely to appear together (e.g., newsletter senders, receipt subject patterns)
 - Only use subject patterns if they are likely to be recurring (e.g., "Your Monthly Statement", "Order Confirmation")
+- IMPORTANT: do not create new rules unless absolutely necessary and the user has asked for it.
 
 Always end by using the reply tool to explain what changes were made.`;
 
