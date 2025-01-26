@@ -350,11 +350,20 @@ async function regenerateReceiptGroup(
 async function createGroupItems(
   data: { groupId: string; type: GroupItemType; value: string }[],
 ) {
+  const uniqueItems = uniqBy(data, (item) => `${item.value}-${item.type}`);
   try {
-    return await prisma.groupItem.createMany({ data });
+    return await prisma.groupItem.createMany({ data: uniqueItems });
   } catch (error) {
-    if (isDuplicateError(error))
-      captureException(error, { extra: { items: data } });
+    if (isDuplicateError(error)) {
+      // Create items one by one, skipping duplicates
+      for (const item of uniqueItems) {
+        try {
+          await prisma.groupItem.create({ data: item });
+        } catch (error) {
+          if (!isDuplicateError(error)) throw error;
+        }
+      }
+    }
 
     throw error;
   }
