@@ -140,15 +140,31 @@ ${senderCategory || "No category"}
   const createdRules = new Map<string, RuleWithRelations>();
   const updatedRules = new Map<string, RuleWithRelations>();
 
+  const loggerOptions = {
+    userId: user.id,
+    email: user.email,
+    messageId: originalEmail?.id,
+    threadId: originalEmail?.threadId,
+  };
+
   async function updateRule(ruleName: string, rule: Partial<Rule>) {
     try {
       const updatedRule = await partialUpdateRule(ruleName, rule);
       updatedRules.set(updatedRule.id, updatedRule);
       return { success: true };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      logger.error("Error while updating rule", {
+        ...loggerOptions,
+        ruleName,
+        keys: Object.keys(rule),
+        error: message,
+      });
+
       return {
         error: "Failed to update rule",
-        message: error instanceof Error ? error.message : String(error),
+        message,
       };
     }
   }
@@ -186,6 +202,11 @@ ${senderCategory || "No category"}
             );
 
             if ("error" in rule) {
+              logger.error("Error while creating rule", {
+                ...loggerOptions,
+                error: rule.error,
+              });
+
               return {
                 error: "Failed to create rule",
                 message: rule.error,
@@ -196,9 +217,17 @@ ${senderCategory || "No category"}
 
             return { success: true };
           } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+
+            logger.error("Failed to create rule", {
+              ...loggerOptions,
+              error: message,
+            });
+
             return {
               error: "Failed to create rule",
-              message: error instanceof Error ? error.message : String(error),
+              message,
             };
           }
         },
@@ -275,18 +304,41 @@ ${senderCategory || "No category"}
           const groupId = group?.id;
 
           if (!groupId) {
-            logger.error("Group not found", { groupName });
+            logger.error("Group not found", {
+              ...loggerOptions,
+              groupName,
+            });
             return { error: "Group not found" };
           }
 
           const groupItemType = getGroupItemType(type);
 
           if (!groupItemType) {
-            logger.error("Invalid group item type", { type });
+            logger.error("Invalid group item type", {
+              ...loggerOptions,
+              type,
+            });
             return { error: "Invalid group item type" };
           }
 
-          await addGroupItem({ groupId, type: groupItemType, value });
+          try {
+            await addGroupItem({ groupId, type: groupItemType, value });
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+
+            logger.error("Error while adding group item", {
+              ...loggerOptions,
+              groupId,
+              type: groupItemType,
+              value,
+              error: message,
+            });
+            return {
+              error: "Failed to add group item",
+              message,
+            };
+          }
 
           return { success: true };
         },
@@ -309,7 +361,11 @@ ${senderCategory || "No category"}
                 const groupItemType = getGroupItemType(type);
 
                 if (!groupItemType) {
-                  logger.error("Invalid group item type", { type });
+                  logger.error("Invalid group item type", {
+                    ...loggerOptions,
+                    type,
+                    value,
+                  });
                   return { error: "Invalid group item type" };
                 }
 
@@ -318,14 +374,36 @@ ${senderCategory || "No category"}
                 );
 
                 if (!groupItem) {
-                  logger.error("Group item not found", { type, value });
+                  logger.error("Group item not found", {
+                    ...loggerOptions,
+                    type,
+                    value,
+                  });
                   return { error: "Group item not found" };
                 }
 
-                await deleteGroupItem({
-                  id: groupItem.id,
-                  userId: user.id,
-                });
+                try {
+                  await deleteGroupItem({
+                    id: groupItem.id,
+                    userId: user.id,
+                  });
+                } catch (error) {
+                  const message =
+                    error instanceof Error ? error.message : String(error);
+
+                  logger.error("Error while deleting group item", {
+                    ...loggerOptions,
+                    groupItemId: groupItem.id,
+                    type: groupItemType,
+                    value,
+                    error: message,
+                  });
+
+                  return {
+                    error: "Failed to delete group item",
+                    message,
+                  };
+                }
 
                 return { success: true };
               },
@@ -334,7 +412,11 @@ ${senderCategory || "No category"}
         : {}),
       ...(categories
         ? {
-            update_sender_category: getUpdateCategoryTool(user.id, categories),
+            update_sender_category: getUpdateCategoryTool(
+              user.id,
+              categories,
+              loggerOptions,
+            ),
             add_categories: tool({
               description: "Add categories to a rule",
               parameters: z.object({
@@ -354,7 +436,11 @@ ${senderCategory || "No category"}
                   const rule = rules.find((r) => r.name === ruleName);
 
                   if (!rule) {
-                    logger.error("Rule not found", { ruleName });
+                    logger.error("Rule not found", {
+                      ...loggerOptions,
+                      ...options,
+                      ruleName,
+                    });
                     return { error: "Rule not found" };
                   }
 
@@ -372,10 +458,18 @@ ${senderCategory || "No category"}
 
                   return { success: true };
                 } catch (error) {
+                  const message =
+                    error instanceof Error ? error.message : String(error);
+
+                  logger.error("Error while adding categories to rule", {
+                    ...loggerOptions,
+                    ...options,
+                    error: message,
+                  });
+
                   return {
                     error: "Failed to add categories to rule",
-                    message:
-                      error instanceof Error ? error.message : String(error),
+                    message,
                   };
                 }
               },
@@ -399,7 +493,11 @@ ${senderCategory || "No category"}
                   const rule = rules.find((r) => r.name === ruleName);
 
                   if (!rule) {
-                    logger.error("Rule not found", { ruleName });
+                    logger.error("Rule not found", {
+                      ...loggerOptions,
+                      ...options,
+                      ruleName,
+                    });
                     return { error: "Rule not found" };
                   }
 
@@ -417,10 +515,18 @@ ${senderCategory || "No category"}
 
                   return { success: true };
                 } catch (error) {
+                  const message =
+                    error instanceof Error ? error.message : String(error);
+
+                  logger.error("Error while removing categories from rule", {
+                    ...loggerOptions,
+                    ...options,
+                    error: message,
+                  });
+
                   return {
                     error: "Failed to remove categories from rule",
-                    message:
-                      error instanceof Error ? error.message : String(error),
+                    message,
                   };
                 }
               },
@@ -462,6 +568,12 @@ ${senderCategory || "No category"}
 const getUpdateCategoryTool = (
   userId: string,
   categories: Pick<Category, "id" | "name">[],
+  loggerOptions: {
+    userId: string;
+    email: string | null;
+    messageId?: string | null;
+    threadId?: string | null;
+  },
 ) =>
   tool({
     description: "Update the category of a sender",
@@ -485,16 +597,34 @@ const getUpdateCategoryTool = (
       const cat = categories.find((c) => c.name === category);
 
       if (!cat) {
-        logger.error("Category not found", { category });
+        logger.error("Category not found", {
+          ...loggerOptions,
+          category,
+        });
         return { error: "Category not found" };
       }
 
-      await updateCategoryForSender({
-        userId,
-        sender: existingSender?.email || sender,
-        categoryId: cat.id,
-      });
-      return { success: true };
+      try {
+        await updateCategoryForSender({
+          userId,
+          sender: existingSender?.email || sender,
+          categoryId: cat.id,
+        });
+        return { success: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        logger.error("Error while updating category for sender", {
+          ...loggerOptions,
+          sender,
+          category,
+          error: message,
+        });
+        return {
+          error: "Failed to update category for sender",
+          message,
+        };
+      }
     },
   });
 
