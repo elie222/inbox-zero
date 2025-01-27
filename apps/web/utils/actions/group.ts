@@ -17,7 +17,6 @@ import { findNewsletters } from "@/utils/ai/group/find-newsletters";
 import { findReceipts } from "@/utils/ai/group/find-receipts";
 import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
 import { GroupItemType, type Prisma, type User } from "@prisma/client";
-import { captureException } from "@/utils/error";
 import {
   NEWSLETTER_GROUP_ID,
   RECEIPT_GROUP_ID,
@@ -28,6 +27,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
+import { createGroup } from "@/utils/group/group";
 
 const logger = createScopedLogger("Group Action");
 
@@ -38,48 +38,43 @@ export const createGroupAction = withActionInstrumentation(
     const session = await auth();
     if (!session?.user.email) return { error: "Not logged in" };
 
-    try {
-      const group = await prisma.group.create({
-        data: { name, prompt, userId: session.user.id },
+    const group = await createGroup({
+      name,
+      prompt,
+      userId: session.user.id,
+    });
+
+    if ("error" in group) return { error: group.error };
+
+    if (prompt) {
+      const gmail = getGmailClient(session);
+      const token = await getGmailAccessToken(session);
+
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          email: true,
+          aiModel: true,
+          aiProvider: true,
+          aiApiKey: true,
+        },
       });
+      if (!user) return { error: "User not found" };
+      if (!token.token) return { error: "No access token" };
 
-      if (prompt) {
-        const gmail = getGmailClient(session);
-        const token = await getGmailAccessToken(session);
-
-        const user = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: {
-            email: true,
-            aiModel: true,
-            aiProvider: true,
-            aiApiKey: true,
-          },
-        });
-        if (!user) return { error: "User not found" };
-        if (!token.token) return { error: "No access token" };
-
-        await generateGroupItemsFromPrompt(
-          group.id,
-          user,
-          gmail,
-          token.token,
-          name,
-          prompt,
-        );
-      }
-
-      revalidatePath("/automation");
-
-      return { id: group.id };
-    } catch (error) {
-      if (isDuplicateError(error, "name"))
-        return { error: "Group with this name already exists" };
-
-      logger.error("Error creating group", { error, name, prompt });
-      captureException(error, { extra: { name, prompt } }, session?.user.email);
-      return { error: "Error creating group" };
+      await generateGroupItemsFromPrompt(
+        group.id,
+        user,
+        gmail,
+        token.token,
+        name,
+        prompt,
+      );
     }
+
+    revalidatePath("/automation");
+
+    return { id: group.id };
   },
 );
 
@@ -182,20 +177,18 @@ export const createNewsletterGroupAction = withActionInstrumentation(
       session.user.email,
     );
 
-    const group = await prisma.group.create({
-      data: {
-        name,
-        userId: session.user.id,
-        items: {
-          create: newsletters.map((newsletter) => ({
-            type: GroupItemType.FROM,
-            value: newsletter,
-          })),
-        },
-      },
+    const group = await createGroup({
+      name,
+      userId: session.user.id,
+      items: newsletters.map((newsletter) => ({
+        type: GroupItemType.FROM,
+        value: newsletter,
+      })),
     });
 
     revalidatePath("/automation");
+
+    if ("error" in group) return { error: group.error };
 
     return { id: group.id };
   },
@@ -221,16 +214,15 @@ export const createReceiptGroupAction = withActionInstrumentation(
 
     const receipts = await findReceipts(gmail, token.token, session.user.email);
 
-    const group = await prisma.group.create({
-      data: {
-        name,
-        userId: session.user.id,
-        items: { create: receipts },
-      },
+    const group = await createGroup({
+      name,
+      userId: session.user.id,
+      items: receipts,
     });
 
     revalidatePath("/automation");
 
+    if ("error" in group) return { error: group.error };
     return { id: group.id };
   },
 );
