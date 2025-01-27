@@ -9,6 +9,8 @@ export function isAssistantEmail({
   userEmail: string;
   emailToCheck: string;
 }): boolean {
+  if (!emailToCheck) return false;
+
   const [localPart, domain] = userEmail.split("@");
   const extractedEmailToCheck = extractEmailAddress(emailToCheck);
   const pattern = new RegExp(
