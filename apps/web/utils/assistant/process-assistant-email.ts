@@ -59,11 +59,13 @@ async function processAssistantEmailInternal({
     throw new Error("Unauthorized assistant access attempt");
   }
 
-  logger.info("Processing assistant email", {
+  const loggerOptions = {
     email: userEmail,
     threadId: message.threadId,
     messageId: message.id,
-  });
+  };
+
+  logger.info("Processing assistant email", loggerOptions);
 
   // 1. get thread
   // 2. get first message in thread to the personal assistant
@@ -75,11 +77,7 @@ async function processAssistantEmailInternal({
     .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
 
   if (!threadMessages?.length) {
-    logger.error("No thread messages found", {
-      email: userEmail,
-      threadId: message.threadId,
-      messageId: message.id,
-    });
+    logger.error("No thread messages found", loggerOptions);
     await replyToEmail(
       gmail,
       message,
@@ -178,7 +176,7 @@ async function processAssistantEmailInternal({
   ]);
 
   if (!user) {
-    logger.error("User not found", { userEmail });
+    logger.error("User not found", loggerOptions);
     return;
   }
 
@@ -212,6 +210,11 @@ async function processAssistantEmailInternal({
         content,
       } as const;
     });
+
+  if (messages[messages.length - 1].role === "assistant") {
+    logger.error("Assistant message cannot be last", loggerOptions);
+    return;
+  }
 
   const result = await processUserRequest({
     user,

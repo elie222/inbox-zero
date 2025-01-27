@@ -52,6 +52,9 @@ export async function processUserRequest({
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
+  if (messages[messages.length - 1].role === "assistant")
+    throw new Error("Assistant message cannot be last");
+
   const userRules = rulesToXML(rules);
 
   const system = `You are an email management assistant that helps users manage their email rules.
