@@ -90,7 +90,9 @@ Best practices:
 - Only use subject patterns if they are likely to be recurring (e.g., "Your Monthly Statement", "Order Confirmation")
 - IMPORTANT: do not create new rules unless absolutely necessary and the user has asked for it.
 
-Always end by using the reply tool to explain what changes were made.`;
+Always end by using the reply tool to explain what changes were made.
+Include the updated rule in your reply so that the user understands what was changed.
+Use simple language and avoid jargon in your reply.`;
 
   const prompt = `${
     originalEmail
