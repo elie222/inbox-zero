@@ -250,7 +250,9 @@ export async function draftEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
   return result;
 }
 
-const convertTextToHtmlParagraphs = (text: string): string => {
+const convertTextToHtmlParagraphs = (text?: string | null): string => {
+  if (!text) return "";
+
   // Split the text into paragraphs based on newline characters
   const paragraphs = text
     .split("\n")
