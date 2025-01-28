@@ -17,7 +17,7 @@ import {
   type CreateRuleSchemaWithCategories,
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
-import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
+import { addGroupItem, rejectGroupItem } from "@/utils/group/group-item";
 import {
   addRuleCategories,
   partialUpdateRule,
@@ -388,7 +388,7 @@ ${senderCategory || "No category"}
                 }
 
                 try {
-                  await deleteGroupItem({
+                  await rejectGroupItem({
                     id: groupItem.id,
                     userId: user.id,
                   });

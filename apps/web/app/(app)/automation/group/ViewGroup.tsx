@@ -9,6 +9,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import groupBy from "lodash/groupBy";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { capitalCase } from "capital-case";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -16,13 +17,20 @@ import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/ro
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableRow, TableBody, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableRow,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableHead,
+} from "@/components/ui/table";
 import { MessageText } from "@/components/Typography";
 import {
   addGroupItemAction,
-  deleteGroupItemAction,
+  rejectGroupItemAction,
 } from "@/utils/actions/group";
-import { type GroupItem, GroupItemType } from "@prisma/client";
+import { type GroupItem, GroupItemStatus, GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -94,56 +102,7 @@ export function ViewGroup({ groupId }: { groupId: string | null }) {
         >
           {data &&
             (group?.items.length ? (
-              <>
-                <Table>
-                  <TableBody>
-                    {group?.items.map((item) => {
-                      // within last 2 minutes
-                      const isRecent =
-                        new Date(item.createdAt) >
-                        new Date(Date.now() - 1000 * 60 * 2);
-
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div className="flex items-center">
-                              {isRecent && (
-                                <Badge variant="green" className="mr-1">
-                                  New!
-                                </Badge>
-                              )}
-
-                              <div className="text-wrap break-words">
-                                <GroupItemDisplay item={item} />
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-2 text-right">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={async () => {
-                                const result = await deleteGroupItemAction(
-                                  item.id,
-                                );
-                                if (isActionError(result)) {
-                                  toastError({
-                                    description: `Failed to remove ${item.value} from group. ${result.error}`,
-                                  });
-                                } else {
-                                  mutate();
-                                }
-                              }}
-                            >
-                              <TrashIcon className="size-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </>
+              <GroupItems items={group.items} mutate={mutate} />
             ) : (
               <MessageText className="mt-4">
                 There are no senders in this group.
@@ -241,6 +200,119 @@ const AddGroupItemForm = ({
     </div>
   );
 };
+
+function GroupItems({
+  items,
+  mutate,
+}: {
+  items: GroupItem[];
+  mutate: KeyedMutator<GroupItemsResponse>;
+}) {
+  const groupedByStatus = groupBy(
+    items,
+    (item) => item.status || GroupItemStatus.APPROVED,
+  );
+
+  return (
+    <div className="space-y-4">
+      <GroupItemList
+        title={
+          <div className="flex items-center space-x-1.5">
+            Match
+            <TooltipExplanation text="Automatically match incoming emails." />
+          </div>
+        }
+        items={groupedByStatus[GroupItemStatus.APPROVED] || []}
+        mutate={mutate}
+      />
+      <GroupItemList
+        title="Never Match"
+        items={groupedByStatus[GroupItemStatus.REJECTED] || []}
+        mutate={mutate}
+      />
+      <GroupItemList
+        title="Needs AI"
+        items={groupedByStatus[GroupItemStatus.NEEDS_AI] || []}
+        mutate={mutate}
+      />
+    </div>
+  );
+}
+
+function GroupItemList({
+  title,
+  items,
+  mutate,
+}: {
+  title?: React.ReactNode;
+  items: GroupItem[];
+  mutate: KeyedMutator<GroupItemsResponse>;
+}) {
+  return (
+    <Table>
+      {title && (
+        <TableHeader>
+          <TableRow>
+            <TableHead>{title}</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+      )}
+      <TableBody>
+        {items.map((item) => {
+          const twoMinutesAgo = new Date(Date.now() - 1000 * 60 * 2);
+          const isCreatedRecently = new Date(item.createdAt) > twoMinutesAgo;
+          const isUpdatedRecently = new Date(item.updatedAt) > twoMinutesAgo;
+
+          return (
+            <TableRow key={item.id}>
+              <TableCell>
+                <div className="flex items-center">
+                  {isCreatedRecently ||
+                    (isUpdatedRecently && (
+                      <Badge variant="green" className="mr-1">
+                        {isCreatedRecently ? "New!" : "Updated"}
+                      </Badge>
+                    ))}
+
+                  <div className="text-wrap break-words">
+                    <GroupItemDisplay item={item} />
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell className="py-2 text-right">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={async () => {
+                    const result = await rejectGroupItemAction(item.id);
+                    if (isActionError(result)) {
+                      toastError({
+                        description: `Failed to remove ${item.value} from group. ${result.error}`,
+                      });
+                    } else {
+                      mutate();
+                    }
+                  }}
+                >
+                  <TrashIcon className="size-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+
+        {items.length === 0 && (
+          <TableRow>
+            <TableCell colSpan={2}>
+              <MessageText>No items</MessageText>
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+}
 
 export function GroupItemDisplay({
   item,

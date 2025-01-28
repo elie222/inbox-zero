@@ -5,7 +5,7 @@ import clsx from "clsx";
 import type { Dictionary } from "lodash";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { deleteGroupItemAction } from "@/utils/actions/group";
+import { rejectGroupItemAction } from "@/utils/actions/group";
 import type { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
@@ -50,7 +50,7 @@ export function ExampleList({
                   size="sm"
                   className="mt-4 text-wrap"
                   onClick={() => {
-                    const result = deleteGroupItemAction(matchingGroupItem.id);
+                    const result = rejectGroupItemAction(matchingGroupItem.id);
                     if (isActionError(result)) {
                       toastError({
                         description: `Failed to remove ${matchingGroupItem.value} from group. ${result.error}`,

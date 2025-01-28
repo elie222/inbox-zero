@@ -1,5 +1,5 @@
 import prisma, { isDuplicateError } from "@/utils/prisma";
-import type { GroupItemType } from "@prisma/client";
+import { GroupItemStatus, type GroupItemType } from "@prisma/client";
 import { captureException } from "@/utils/error";
 
 export async function addGroupItem(data: {
@@ -18,12 +18,15 @@ export async function addGroupItem(data: {
   }
 }
 
-export async function deleteGroupItem({
+export async function rejectGroupItem({
   id,
   userId,
 }: {
   id: string;
   userId: string;
 }) {
-  await prisma.groupItem.delete({ where: { id, group: { userId } } });
+  await prisma.groupItem.update({
+    where: { id, group: { userId } },
+    data: { status: GroupItemStatus.REJECTED },
+  });
 }

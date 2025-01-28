@@ -49,7 +49,7 @@ import { Loading, LoadingMiniSpinner } from "@/components/Loading";
 import type { ParsedMessage } from "@/utils/types";
 import {
   addGroupItemAction,
-  deleteGroupItemAction,
+  rejectGroupItemAction,
 } from "@/utils/actions/group";
 import { useRules } from "@/hooks/useRules";
 import type { CategoryMatch, GroupMatch } from "@/utils/ai/choose-rule/types";
@@ -543,7 +543,7 @@ function GroupMismatchRemove({
                 setIsRemoving(false);
                 throw new Error("No group item ID found");
               }
-              const result = await deleteGroupItemAction(groupItemId);
+              const result = await rejectGroupItemAction(groupItemId);
               setIsRemoving(false);
               if (isActionError(result)) throw new Error(result.error);
               onClose();
