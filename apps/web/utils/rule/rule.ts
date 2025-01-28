@@ -31,17 +31,22 @@ export async function safeCreateRule(
   );
 
   try {
-    const rule = await createRule(result, userId, groupId, categoryNames);
+    const rule = await createRule({
+      result,
+      userId,
+      groupId,
+      categoryIds,
+    });
     return rule;
   } catch (error) {
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule(
-        { ...result, name: `${result.name} - ${Date.now()}` },
+      const rule = await createRule({
+        result: { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
         groupId,
         categoryIds,
-      );
+      });
       return rule;
     }
 
@@ -70,12 +75,12 @@ export async function safeUpdateRule(
   } catch (error) {
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule(
-        { ...result, name: `${result.name} - ${Date.now()}` },
+      const rule = await createRule({
+        result: { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
         groupId,
         categoryIds,
-      );
+      });
       return { id: rule.id };
     }
 
@@ -91,12 +96,17 @@ export async function safeUpdateRule(
   }
 }
 
-async function createRule(
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  groupId?: string | null,
-  categoryIds?: string[] | null,
-) {
+async function createRule({
+  result,
+  userId,
+  groupId,
+  categoryIds,
+}: {
+  result: CreateOrUpdateRuleSchemaWithCategories;
+  userId: string;
+  groupId?: string | null;
+  categoryIds?: string[] | null;
+}) {
   return prisma.rule.create({
     data: {
       name: result.name,
