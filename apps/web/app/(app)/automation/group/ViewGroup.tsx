@@ -32,6 +32,8 @@ import {
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
+import { Toggle } from "@/components/Toggle";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export function ViewGroup({ groupId }: { groupId: string | null }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
@@ -42,39 +44,47 @@ export function ViewGroup({ groupId }: { groupId: string | null }) {
   const [showAddItem, setShowAddItem] = useState(false);
 
   return (
-    <div>
-      <div className="sm:flex sm:items-center sm:justify-end">
-        {showAddItem ? (
-          <AddGroupItemForm
-            groupId={groupId}
-            mutate={mutate}
-            setShowAddItem={setShowAddItem}
-          />
-        ) : (
-          <>
-            <div className="mt-2 grid grid-cols-1 gap-1 sm:mt-0 sm:flex sm:items-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddItem(true)}
-              >
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
+    <div className="mt-2">
+      {showAddItem ? (
+        <AddGroupItemForm
+          groupId={groupId}
+          mutate={mutate}
+          setShowAddItem={setShowAddItem}
+        />
+      ) : (
+        <div className="sm:flex sm:items-center sm:justify-between">
+          <div className="flex items-center space-x-1.5">
+            <TooltipExplanation text="Automatically detect and add new matching patterns from incoming emails." />
+            <Toggle
+              name="auto-update"
+              label="Auto-add patterns"
+              enabled={true}
+              onChange={(enabled) => {}}
+            />
+          </div>
 
-              <Button variant="outline" size="sm" asChild>
-                <Link
-                  href={`/automation/group/${groupId}/examples`}
-                  target="_blank"
-                >
-                  <ExternalLinkIcon className="mr-2 size-4" />
-                  Matches
-                </Link>
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
+          <div className="mt-2 grid grid-cols-1 gap-1 sm:mt-0 sm:flex sm:items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddItem(true)}
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Add Item
+            </Button>
+
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                href={`/automation/group/${groupId}/examples`}
+                target="_blank"
+              >
+                <ExternalLinkIcon className="mr-2 size-4" />
+                Matches
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4">
         <LoadingContent
