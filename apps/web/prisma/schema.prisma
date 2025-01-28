@@ -191,7 +191,7 @@ model Rule {
 
   // group condition
   groupId String? @unique
-  group   Group?  @relation(fields: [groupId], references: [id])
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   // static condition
   // automatically apply this rule if it matches a filter. supports regex
@@ -276,6 +276,12 @@ model ExecutedAction {
   url     String?
 }
 
+// Notes:
+// In the past groups stood on their own. Now they are attached to a rule.
+// A group without a rule does not do anything anymore. I may delete all detached groups in the future, and then make rule required
+// "Prompt" is no longer in use. It was used to generate the group, but now it's based on the rule the group is attached to.
+// "Name" is no longer in use although still required.
+// If we really wanted we could remove Group and just have a relation between Rule and GroupItem, but leaving as is for now.
 model Group {
   id        String      @id @default(cuid())
   createdAt DateTime    @default(now())
