@@ -19,7 +19,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { GroupsResponse } from "@/app/api/user/group/route";
-import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroupModal";
 import { Button } from "@/components/ui/button";
 import { RuleType } from "@prisma/client";
 
@@ -37,11 +36,6 @@ export function Groups() {
               matching emails. Create custom groups manually or create a preset
               group using our AI.
             </CardDescription>
-          </div>
-          <div>
-            <CreateGroupModalButton
-              existingGroups={data?.groups.map((group) => group.name) || []}
-            />
           </div>
         </div>
       </CardHeader>

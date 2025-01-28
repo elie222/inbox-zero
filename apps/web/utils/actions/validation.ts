@@ -7,12 +7,6 @@ import {
 import { ActionType, RuleType } from "@prisma/client";
 
 // groups
-export const createGroupBody = z.object({
-  name: z.string(),
-  prompt: z.string().optional(),
-});
-export type CreateGroupBody = z.infer<typeof createGroupBody>;
-
 export const addGroupItemBody = z.object({
   groupId: z.string(),
   type: z.enum([GroupItemType.FROM, GroupItemType.SUBJECT]),

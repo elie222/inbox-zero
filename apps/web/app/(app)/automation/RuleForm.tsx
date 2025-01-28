@@ -349,10 +349,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 {watch(`conditions.${index}.type`) === RuleType.GROUP && (
                   <GroupsTab
                     registerProps={register(`conditions.${index}.groupId`)}
-                    setValue={setValue}
+                    // setValue={setValue}
                     errors={errors}
                     groupId={watch(`conditions.${index}.groupId`)}
-                    ruleId={rule.id}
                   />
                 )}
 
@@ -716,41 +715,37 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
 function GroupsTab(props: {
   registerProps: UseFormRegisterReturn;
-  setValue: UseFormSetValue<CreateRuleBody>;
+  // setValue: UseFormSetValue<CreateRuleBody>;
   errors: FieldErrors<CreateRuleBody>;
   groupId?: string | null;
-  ruleId?: string | null;
 }) {
-  const { setValue, ruleId } = props;
-  const { data, isLoading, error, mutate } =
-    useSWR<GroupsResponse>("/api/user/group");
-  const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
+  // const { setValue } = props;
+  // const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
 
-  useEffect(() => {
-    async function createGroup(groupId: string) {
-      setLoadingCreateGroup(true);
+  // useEffect(() => {
+  //   async function createGroup(groupId: string) {
+  //     setLoadingCreateGroup(true);
 
-      const result = await createPredefinedGroupAction(groupId);
+  //     const result = await createPredefinedGroupAction(groupId);
 
-      if (isActionError(result)) {
-        toastError({ description: result.error });
-      } else if (!result) {
-        toastError({ description: "Error creating group" });
-      } else {
-        mutate();
-        setValue("conditions", [{ groupId: result.id, type: RuleType.GROUP }]);
-      }
+  //     if (isActionError(result)) {
+  //       toastError({ description: result.error });
+  //     } else if (!result) {
+  //       toastError({ description: "Error creating group" });
+  //     } else {
+  //       setValue("conditions", [{ groupId: result.id, type: RuleType.GROUP }]);
+  //     }
 
-      setLoadingCreateGroup(false);
-    }
+  //     setLoadingCreateGroup(false);
+  //   }
 
-    if (
-      props.groupId === NEWSLETTER_GROUP_ID ||
-      props.groupId === RECEIPT_GROUP_ID
-    ) {
-      createGroup(props.groupId);
-    }
-  }, [mutate, props.groupId, setValue]);
+  //   if (
+  //     props.groupId === NEWSLETTER_GROUP_ID ||
+  //     props.groupId === RECEIPT_GROUP_ID
+  //   ) {
+  //     createGroup(props.groupId);
+  //   }
+  // }, [props.groupId, setValue]);
 
   return (
     <div className="mt-4">
@@ -760,21 +755,13 @@ function GroupsTab(props: {
         more efficiently match future emails.
       </SectionDescription>
 
-      {loadingCreateGroup && (
-        <MessageText className="my-4 text-center">
-          Creating group with AI... This will take up to 30 seconds.
-        </MessageText>
-      )}
-
-      <LoadingContent loading={isLoading || loadingCreateGroup} error={error}>
-        <div className="mt-2 grid gap-2 sm:flex sm:items-center">
-          {props.groupId && (
-            <ScrollArea className="h-[310px]">
-              <ViewGroup groupId={props.groupId} />
-            </ScrollArea>
-          )}
-        </div>
-      </LoadingContent>
+      <div className="mt-2 grid gap-2 sm:flex sm:items-center">
+        {props.groupId && (
+          <ScrollArea className="h-[310px]">
+            <ViewGroup groupId={props.groupId} />
+          </ScrollArea>
+        )}
+      </div>
     </div>
   );
 }
