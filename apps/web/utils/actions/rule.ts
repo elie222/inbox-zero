@@ -19,7 +19,7 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { LogicalOperator } from "@prisma/client";
+import { LogicalOperator, RuleType } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
@@ -27,6 +27,7 @@ import {
 } from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
+import { createGroup } from "@/utils/group/group";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -84,6 +85,18 @@ export const createRuleAction = withActionInstrumentation(
         },
         include: { actions: true, categoryFilters: true, group: true },
       });
+
+      const shouldCreateGroup = body.conditions.some(
+        (c) => c.type === RuleType.GROUP && !c.groupId,
+      );
+
+      if (shouldCreateGroup) {
+        await createGroup({
+          name: body.name,
+          userId: session.user.id,
+          ruleId: rule.id,
+        });
+      }
 
       await updatePromptFileOnRuleCreated(session.user.id, rule);
 

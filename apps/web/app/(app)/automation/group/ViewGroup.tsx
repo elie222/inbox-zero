@@ -1,7 +1,8 @@
 "use client";
 
 import useSWR, { type KeyedMutator } from "swr";
-import { PlusIcon, TrashIcon, PenIcon, ExternalLinkIcon } from "lucide-react";
+import Link from "next/link";
+import { PlusIcon, TrashIcon, ExternalLinkIcon } from "lucide-react";
 import {
   useState,
   useCallback,
@@ -13,15 +14,13 @@ import { capitalCase } from "capital-case";
 import { toastSuccess, toastError } from "@/components/Toast";
 import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableRow, TableBody, TableCell } from "@/components/ui/table";
-import { MessageText, SectionDescription } from "@/components/Typography";
+import { MessageText } from "@/components/Typography";
 import {
   addGroupItemAction,
   deleteGroupItemAction,
-  updateGroupPromptAction,
 } from "@/utils/actions/group";
 import { type GroupItem, GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
@@ -30,39 +29,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type AddGroupItemBody,
   addGroupItemBody,
-  updateGroupPromptBody,
-  type UpdateGroupPromptBody,
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 
-export function ViewGroupButton({
-  groupId,
-  ButtonComponent,
-}: {
-  groupId: string;
-  ButtonComponent?: React.ComponentType<{ onClick: () => void }>;
-}) {
-  const { isModalOpen, openModal, closeModal } = useModal();
-
-  return (
-    <>
-      {ButtonComponent ? (
-        <ButtonComponent onClick={openModal} />
-      ) : (
-        <Button size="sm" variant="outline" onClick={openModal}>
-          Edit
-        </Button>
-      )}
-      <Modal isOpen={isModalOpen} hideModal={closeModal} size="4xl">
-        <ViewGroup groupId={groupId} />
-      </Modal>
-    </>
-  );
-}
-
-export function ViewGroup({ groupId }: { groupId: string }) {
+export function ViewGroup({ groupId }: { groupId: string | null }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );
@@ -125,14 +96,16 @@ export function ViewGroup({ groupId }: { groupId: string }) {
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
-                            {isRecent && (
-                              <Badge variant="green" className="mr-2">
-                                New!
-                              </Badge>
-                            )}
+                            <div className="flex items-center">
+                              {isRecent && (
+                                <Badge variant="green" className="mr-1">
+                                  New!
+                                </Badge>
+                              )}
 
-                            <div className="text-wrap break-words">
-                              <GroupItemDisplay item={item} />
+                              <div className="text-wrap break-words">
+                                <GroupItemDisplay item={item} />
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="py-2 text-right">
@@ -177,7 +150,7 @@ const AddGroupItemForm = ({
   mutate,
   setShowAddItem,
 }: {
-  groupId: string;
+  groupId: string | null;
   mutate: KeyedMutator<GroupItemsResponse>;
   setShowAddItem: Dispatch<SetStateAction<boolean>>;
 }) => {
@@ -187,7 +160,7 @@ const AddGroupItemForm = ({
     formState: { errors, isSubmitting },
   } = useForm<AddGroupItemBody>({
     resolver: zodResolver(addGroupItemBody),
-    defaultValues: { groupId },
+    defaultValues: { groupId: groupId! },
   });
 
   const onClose = useCallback(() => {
@@ -210,10 +183,21 @@ const AddGroupItemForm = ({
     [mutate, onClose],
   );
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        void handleSubmit(onSubmit)(e);
+      }
+    },
+    [handleSubmit, onSubmit],
+  );
+
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
+    <div
       className="grid grid-cols-1 gap-2 sm:flex sm:items-center"
+      onKeyDown={handleKeyDown}
     >
       <Select
         label=""
@@ -227,120 +211,26 @@ const AddGroupItemForm = ({
       <Input
         type="text"
         name="value"
-        placeholder="e.g. elie@getinboxzero.com"
+        placeholder="e.g. hello@company.com"
         registerProps={register("value", { required: true })}
         error={errors.value}
         className="min-w-[250px]"
       />
-      <Button type="submit" loading={isSubmitting}>
+      <Button
+        type="button"
+        loading={isSubmitting}
+        onClick={() => {
+          handleSubmit(onSubmit)();
+        }}
+      >
         Add
       </Button>
-      <Button variant="outline" onClick={onClose}>
+      <Button type="button" variant="outline" onClick={onClose}>
         Cancel
       </Button>
-    </form>
-  );
-};
-
-function EditablePrompt({
-  groupId,
-  initialPrompt,
-  onUpdate,
-}: {
-  groupId: string;
-  initialPrompt: string;
-  onUpdate: () => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-
-  if (isEditing) {
-    return (
-      <UpdatePromptForm
-        groupId={groupId}
-        initialPrompt={initialPrompt}
-        onUpdate={onUpdate}
-        onFinishEditing={() => setIsEditing(false)}
-      />
-    );
-  }
-
-  return (
-    <div className="group relative mb-2 inline-flex items-center">
-      <SectionDescription>
-        Prompt: {initialPrompt}
-        <button
-          type="button"
-          onClick={() => setIsEditing(true)}
-          className="ml-2 opacity-0 transition-opacity group-hover:opacity-100"
-        >
-          <PenIcon className="h-4 w-4" />
-        </button>
-      </SectionDescription>
     </div>
   );
-}
-
-function UpdatePromptForm({
-  groupId,
-  initialPrompt,
-  onUpdate,
-  onFinishEditing,
-}: {
-  groupId: string;
-  initialPrompt: string;
-  onUpdate: () => void;
-  onFinishEditing: () => void;
-}) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<UpdateGroupPromptBody>({
-    resolver: zodResolver(updateGroupPromptBody),
-    defaultValues: { groupId, prompt: initialPrompt },
-  });
-
-  const onSubmit: SubmitHandler<UpdateGroupPromptBody> = useCallback(
-    async (data) => {
-      const result = await updateGroupPromptAction(data);
-      if (isActionError(result)) {
-        toastError({
-          description: `Failed to update prompt. ${result.error}`,
-        });
-      } else {
-        toastSuccess({
-          description: "Prompt updated! You should regenerate the group.",
-        });
-        onFinishEditing();
-        onUpdate();
-      }
-    },
-    [onUpdate, onFinishEditing],
-  );
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <Input
-        type="text"
-        autosizeTextarea
-        rows={3}
-        name="prompt"
-        label="Prompt"
-        placeholder=""
-        registerProps={register("prompt", { required: true })}
-        error={errors.prompt}
-      />
-      <div className="mt-2 flex items-center gap-2">
-        <Button type="submit" variant="outline" disabled={isSubmitting}>
-          Save
-        </Button>
-        <Button type="button" variant="outline" onClick={onFinishEditing}>
-          Cancel
-        </Button>
-      </div>
-    </form>
-  );
-}
+};
 
 export function GroupItemDisplay({
   item,

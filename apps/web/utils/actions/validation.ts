@@ -115,7 +115,7 @@ export type ZodCondition = z.infer<typeof zodCondition>;
 
 export const createRuleBody = z.object({
   id: z.string().optional(),
-  name: z.string(),
+  name: z.string().min(1, "Please enter a name"),
   instructions: z.string().nullish(),
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),

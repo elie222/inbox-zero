@@ -33,10 +33,10 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
     conditions.push(`with subject containing "${rule.subject}"`);
   if (rule.body) conditions.push(`with body containing "${rule.body}"`);
 
-  // Add group if present
-  if (rule.group?.name) {
-    conditions.push(`in group "${rule.group.name}"`);
-  }
+  // // Add group if present
+  // if (rule.group?.name) {
+  //   conditions.push(`in group "${rule.group.name}"`);
+  // }
 
   // Add category filters if present
   if (rule.categoryFilters?.length) {

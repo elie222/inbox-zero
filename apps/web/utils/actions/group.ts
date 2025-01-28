@@ -143,20 +143,3 @@ export const deleteGroupItemAction = withActionInstrumentation(
     revalidatePath("/automation");
   },
 );
-
-export const updateGroupPromptAction = withActionInstrumentation(
-  "updateGroupPrompt",
-  async (unsafeData: UpdateGroupPromptBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const { success, error, data } =
-      updateGroupPromptBody.safeParse(unsafeData);
-    if (!success) return { error: error.message };
-
-    await prisma.group.update({
-      where: { id: data.groupId, userId: session.user.id },
-      data: { prompt: data.prompt },
-    });
-  },
-);

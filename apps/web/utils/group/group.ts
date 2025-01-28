@@ -3,22 +3,22 @@ import type { Prisma } from "@prisma/client";
 
 export async function createGroup({
   userId,
+  ruleId,
   name,
-  prompt,
   items,
 }: {
   userId: string;
+  ruleId?: string;
   name: string;
-  prompt?: string;
   items?: Prisma.GroupItemCreateManyInput[];
 }) {
   try {
     const group = await prisma.group.create({
       data: {
         name,
-        prompt,
         userId,
         items: { create: items },
+        rule: ruleId ? { connect: { id: ruleId } } : undefined,
       },
     });
 

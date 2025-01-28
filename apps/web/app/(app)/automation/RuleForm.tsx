@@ -78,7 +78,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     watch,
     setValue,
     control,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isSubmitted },
     trigger,
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
@@ -188,8 +188,25 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     return actionErrors;
   }, [errors, watch]);
 
+  console.log(errors);
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      {isSubmitted && Object.keys(errors).length > 0 && (
+        <div className="mt-4">
+          <AlertError
+            title="Error"
+            description={
+              <ul className="list-disc">
+                {Object.values(errors).map((error) => (
+                  <li key={error.message}>{error.message}</li>
+                ))}
+              </ul>
+            }
+          />
+        </div>
+      )}
+
       <div className="mt-4">
         <Input
           type="text"
@@ -314,7 +331,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         (errors.conditions?.[index] as { from?: FieldError })
                           ?.from
                       }
-                      placeholder="e.g. elie@getinboxzero.com"
+                      placeholder="e.g. hello@company.com"
                       tooltipText="Only apply this rule to emails from this address."
                     />
                     <Input
@@ -325,7 +342,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       error={
                         (errors.conditions?.[index] as { to?: FieldError })?.to
                       }
-                      placeholder="e.g. elie@getinboxzero.com"
+                      placeholder="e.g. hello@company.com"
                       tooltipText="Only apply this rule to emails sent to this address."
                     />
                     <Input
@@ -349,7 +366,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 {watch(`conditions.${index}.type`) === RuleType.GROUP && (
                   <GroupsTab
                     registerProps={register(`conditions.${index}.groupId`)}
-                    // setValue={setValue}
                     errors={errors}
                     groupId={watch(`conditions.${index}.groupId`)}
                   />
@@ -715,38 +731,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
 function GroupsTab(props: {
   registerProps: UseFormRegisterReturn;
-  // setValue: UseFormSetValue<CreateRuleBody>;
   errors: FieldErrors<CreateRuleBody>;
   groupId?: string | null;
 }) {
-  // const { setValue } = props;
-  // const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
-
-  // useEffect(() => {
-  //   async function createGroup(groupId: string) {
-  //     setLoadingCreateGroup(true);
-
-  //     const result = await createPredefinedGroupAction(groupId);
-
-  //     if (isActionError(result)) {
-  //       toastError({ description: result.error });
-  //     } else if (!result) {
-  //       toastError({ description: "Error creating group" });
-  //     } else {
-  //       setValue("conditions", [{ groupId: result.id, type: RuleType.GROUP }]);
-  //     }
-
-  //     setLoadingCreateGroup(false);
-  //   }
-
-  //   if (
-  //     props.groupId === NEWSLETTER_GROUP_ID ||
-  //     props.groupId === RECEIPT_GROUP_ID
-  //   ) {
-  //     createGroup(props.groupId);
-  //   }
-  // }, [props.groupId, setValue]);
-
   return (
     <div className="mt-4">
       <SectionDescription>
@@ -755,11 +742,15 @@ function GroupsTab(props: {
         more efficiently match future emails.
       </SectionDescription>
 
-      <div className="mt-2 grid gap-2 sm:flex sm:items-center">
-        {props.groupId && (
+      <div className="mt-2">
+        {props.groupId ? (
           <ScrollArea className="h-[310px]">
             <ViewGroup groupId={props.groupId} />
           </ScrollArea>
+        ) : (
+          <div className="text-sm text-blue-700">
+            To add group items, create the rule first.
+          </div>
         )}
       </div>
     </div>
