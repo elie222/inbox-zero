@@ -39,7 +39,7 @@ import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
-import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { createNewsletterGroup, createReceiptGroup } from "@/utils/group/group";
 
@@ -549,8 +549,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
           });
         } else {
           try {
-            await prisma.rule.delete({
-              where: { id: rule.rule.id, userId: session.user.id },
+            await deleteRule({
+              ruleId: rule.rule.id,
+              userId: session.user.id,
+              groupId: rule.rule.groupId,
             });
           } catch (error) {
             if (!isNotFoundError(error)) {

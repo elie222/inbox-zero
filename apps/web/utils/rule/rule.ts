@@ -165,6 +165,22 @@ async function updateRule(
   });
 }
 
+export async function deleteRule({
+  userId,
+  ruleId,
+  groupId,
+}: {
+  ruleId: string;
+  userId: string;
+  groupId?: string | null;
+}) {
+  return Promise.all([
+    prisma.rule.delete({ where: { id: ruleId, userId } }),
+    // in the future, we can make this a cascade delete, but we need to change the schema for this to happen
+    groupId ? prisma.group.delete({ where: { id: groupId, userId } }) : null,
+  ]);
+}
+
 function shouldAutomate(actions: Pick<Action, "type">[]) {
   const types = new Set(actions.map((action) => action.type));
 

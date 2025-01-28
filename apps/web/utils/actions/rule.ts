@@ -28,6 +28,7 @@ import {
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { createGroup } from "@/utils/group/group";
+import { deleteRule } from "@/utils/rule/rule";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -285,8 +286,10 @@ export const deleteRuleAction = withActionInstrumentation(
       return { error: "You don't have permission to delete this rule" };
 
     try {
-      await prisma.rule.delete({
-        where: { id: ruleId, userId: session.user.id },
+      await deleteRule({
+        ruleId,
+        userId: session.user.id,
+        groupId: rule.groupId,
       });
 
       const user = await prisma.user.findUnique({

@@ -176,8 +176,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     return actionErrors;
   }, [errors, watch]);
 
-  console.log(errors);
-
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       {isSubmitted && Object.keys(errors).length > 0 && (
