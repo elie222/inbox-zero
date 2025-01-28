@@ -3,13 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import useSWR from "swr";
 import {
   type FieldError,
   type FieldErrors,
   type SubmitHandler,
   type UseFormRegisterReturn,
-  type UseFormSetValue,
   useFieldArray,
   useForm,
 } from "react-hook-form";
@@ -23,11 +21,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import {
-  MessageText,
-  SectionDescription,
-  TypographyH3,
-} from "@/components/Typography";
+import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import {
   ActionType,
   CategoryFilterType,
@@ -42,15 +36,9 @@ import {
 import { actionInputs } from "@/utils/action-item";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
-import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { ViewGroup } from "@/app/(app)/automation/group/ViewGroup";
-import { createPredefinedGroupAction } from "@/utils/actions/group";
-import {
-  NEWSLETTER_GROUP_ID,
-  RECEIPT_GROUP_ID,
-} from "@/app/(app)/automation/create/examples";
 import { isActionError } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
