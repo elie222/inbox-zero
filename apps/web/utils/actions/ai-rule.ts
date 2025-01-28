@@ -1,5 +1,6 @@
 "use server";
 
+import type { gmail_v1 } from "@googleapis/gmail";
 import { setUser } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isNotFoundError } from "@/utils/prisma";
@@ -12,10 +13,6 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import {
-  createNewsletterGroupAction,
-  createReceiptGroupAction,
-} from "@/utils/actions/group";
 import { GroupName } from "@/utils/config";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
@@ -44,6 +41,7 @@ import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
+import { createNewsletterGroup, createReceiptGroup } from "@/utils/group/group";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -192,6 +190,9 @@ export const createAutomationAction = withActionInstrumentation<
   const session = await auth();
   const userId = session?.user.id;
   if (!userId) return { error: "Not logged in" };
+  if (!session.accessToken) return { error: "No access token" };
+
+  const gmail = getGmailClient(session);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -215,15 +216,28 @@ export const createAutomationAction = withActionInstrumentation<
 
   if (!result) return { error: "AI error creating rule." };
 
-  const groupIdResult = await getGroupId(result, userId);
+  const groupIdResult = await getGroupId(
+    result,
+    userId,
+    user.email,
+    gmail,
+    session.accessToken,
+  );
   if (isActionError(groupIdResult)) return groupIdResult;
-  return await safeCreateRule(result, userId, groupIdResult, null);
+  return await safeCreateRule(result, userId, groupIdResult.groupId, null);
 });
 
 async function getGroupId(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-) {
+  userEmail: string,
+  gmail: gmail_v1.Gmail,
+  accessToken: string,
+): Promise<{
+  groupId?: string | null;
+  existingRuleId?: string | null;
+  error?: string;
+}> {
   let groupId: string | null = null;
 
   if (result.condition.group && result.condition.group) {
@@ -246,9 +260,14 @@ async function getGroupId(
 
         groupId = newsletterGroup.id;
       } else {
-        const result = await createNewsletterGroupAction();
-        if (isActionError(result)) {
-          return result;
+        const result = await createNewsletterGroup({
+          gmail,
+          accessToken,
+          userId,
+          userEmail,
+        });
+        if ("error" in result) {
+          return { error: result.error };
         }
         if (!result) {
           return { error: "Error creating newsletter group" };
@@ -270,9 +289,14 @@ async function getGroupId(
           };
         }
       } else {
-        const result = await createReceiptGroupAction();
-        if (isActionError(result)) {
-          return result;
+        const result = await createReceiptGroup({
+          gmail,
+          accessToken,
+          userId,
+          userEmail,
+        });
+        if ("error" in result) {
+          return { error: result.error };
         }
         if (!result) {
           return { error: "Error creating receipt group" };
@@ -282,7 +306,7 @@ async function getGroupId(
     }
   }
 
-  return groupId;
+  return { groupId };
 }
 
 export const setRuleAutomatedAction = withActionInstrumentation(
@@ -378,6 +402,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
   async (unsafeData: SaveRulesPromptBody) => {
     const session = await auth();
     if (!session?.user.email) return { error: "Not logged in" };
+    if (!session.accessToken) return { error: "No access token" };
     setUser({ email: session.user.email });
 
     logger.info("Starting saveRulesPromptAction", {
@@ -569,8 +594,15 @@ export const saveRulesPromptAction = withActionInstrumentation(
             ruleId: rule.ruleId,
           });
 
-          const groupIdResult = await getGroupId(rule, session.user.id);
-          if (isActionError(groupIdResult)) {
+          const gmail = getGmailClient(session);
+          const groupIdResult = await getGroupId(
+            rule,
+            session.user.id,
+            user.email,
+            gmail,
+            session.accessToken,
+          );
+          if (groupIdResult && "error" in groupIdResult) {
             logger.error("Error updating group for rule", {
               email: user.email,
               ruleId: rule.ruleId,
@@ -590,7 +622,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
             rule.ruleId,
             rule,
             session.user.id,
-            groupIdResult,
+            groupIdResult?.groupId,
             categoryIds,
           );
         }
@@ -619,7 +651,14 @@ export const saveRulesPromptAction = withActionInstrumentation(
         ruleId: rule.ruleId,
       });
 
-      const groupIdResult = await getGroupId(rule, session.user.id);
+      const gmail = getGmailClient(session);
+      const groupIdResult = await getGroupId(
+        rule,
+        session.user.id,
+        user.email,
+        gmail,
+        session.accessToken,
+      );
       if (isActionError(groupIdResult)) {
         logger.error("Error creating group for rule", {
           email: user.email,
@@ -632,7 +671,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       await safeCreateRule(
         rule,
         session.user.id,
-        groupIdResult,
+        groupIdResult?.groupId,
         rule.condition.categories?.categoryFilters || [],
       );
     }
