@@ -176,6 +176,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     return actionErrors;
   }, [errors, watch]);
 
+  const conditionalOperator = watch("conditionalOperator");
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       {isSubmitted && Object.keys(errors).length > 0 && (
@@ -212,14 +214,15 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             <Button variant="outline" size="sm">
               <FilterIcon className="mr-2 h-4 w-4" />
               Match{" "}
-              {watch("conditionalOperator") === LogicalOperator.AND
+              {!conditionalOperator ||
+              conditionalOperator === LogicalOperator.AND
                 ? "all"
                 : "any"}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuRadioGroup
-              value={watch("conditionalOperator")}
+              value={conditionalOperator}
               onValueChange={(value) =>
                 setValue("conditionalOperator", value as LogicalOperator)
               }
