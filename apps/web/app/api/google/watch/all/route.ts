@@ -6,6 +6,9 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
 import { hasAiAccess, hasColdEmailAccess } from "@/utils/premium";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/google/watch/all");
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -57,11 +60,11 @@ async function watchAllEmails() {
       return 0;
     });
 
-  console.log(`Watching emails for ${users.length} users`);
+  logger.info("Watching emails for users", { count: users.length });
 
   for (const user of users) {
     try {
-      console.log(`Watching emails for ${user.email}`);
+      logger.info("Watching emails for user", { email: user.email });
 
       const userHasAiAccess = hasAiAccess(
         user.premium.aiAutomationAccess,
@@ -73,9 +76,9 @@ async function watchAllEmails() {
       );
 
       if (!userHasAiAccess && !userHasColdEmailAccess) {
-        console.log(
-          `User ${user.email} does not have access to AI or cold email`,
-        );
+        logger.info("User does not have access to AI or cold email", {
+          email: user.email,
+        });
         if (
           user.watchEmailsExpirationDate &&
           new Date(user.watchEmailsExpirationDate) < new Date()
@@ -102,7 +105,9 @@ async function watchAllEmails() {
       const account = user.accounts[0];
 
       if (!account.access_token || !account.refresh_token) {
-        console.log(`User ${user.email} has no access token or refresh token`);
+        logger.info("User has no access token or refresh token", {
+          email: user.email,
+        });
         continue;
       }
 
@@ -120,8 +125,7 @@ async function watchAllEmails() {
 
       await watchEmails(user.id, gmail);
     } catch (error) {
-      console.error(`Error for user ${user.id}`);
-      console.error(error);
+      logger.error("Error for user", { userId: user.id, error });
     }
   }
 

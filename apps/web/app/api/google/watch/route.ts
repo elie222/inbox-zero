@@ -3,8 +3,11 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { watchEmails } from "./controller";
 import { withError } from "@/utils/middleware";
+import { createScopedLogger } from "@/utils/logger";
 
 export const dynamic = "force-dynamic";
+
+const logger = createScopedLogger("api/google/watch");
 
 export const GET = withError(async () => {
   const session = await auth();
@@ -17,6 +20,6 @@ export const GET = withError(async () => {
   if (expirationDate) {
     return NextResponse.json({ expirationDate });
   }
-  console.error("Error watching inbox");
+  logger.error("Error watching inbox", { userId: session.user.id });
   return NextResponse.json({ error: "Error watching inbox" });
 });
