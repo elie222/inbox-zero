@@ -45,8 +45,7 @@ import { Toggle } from "@/components/Toggle";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { ViewGroupButton } from "@/app/(app)/automation/group/ViewGroup";
-import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroupModal";
+import { ViewGroup } from "@/app/(app)/automation/group/ViewGroup";
 import { createPredefinedGroupAction } from "@/utils/actions/group";
 import {
   NEWSLETTER_GROUP_ID,
@@ -70,6 +69,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -251,8 +251,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   options={[
                     { label: "AI", value: RuleType.AI },
                     { label: "Static", value: RuleType.STATIC },
-                    { label: "Group", value: RuleType.GROUP },
                     { label: "Smart Category", value: RuleType.CATEGORY },
+                    { label: "Group", value: RuleType.GROUP },
                   ]}
                   error={
                     errors.conditions?.[index]?.type as FieldError | undefined
@@ -755,7 +755,9 @@ function GroupsTab(props: {
   return (
     <div className="mt-4">
       <SectionDescription>
-        A group is a static collection of senders or subjects.
+        Advanced: Groups are usually managed by our AI. A group is a static
+        collection of senders and subjects. Our AI collects these for you to
+        more efficiently match future emails.
       </SectionDescription>
 
       {loadingCreateGroup && (
@@ -766,35 +768,11 @@ function GroupsTab(props: {
 
       <LoadingContent loading={isLoading || loadingCreateGroup} error={error}>
         <div className="mt-2 grid gap-2 sm:flex sm:items-center">
-          {data?.groups && data?.groups.length > 0 && (
-            <div className="min-w-[250px] flex-1">
-              <Select
-                label=""
-                options={data.groups.map((group) => ({
-                  label: `${group.name}${group.rule && group.rule.id !== ruleId ? " (already in use)" : ""}`,
-                  value: group.id,
-                }))}
-                {...props.registerProps}
-                // TODO: fix this
-                // error={props.errors.groupId}
-              />
-            </div>
-          )}
-
           {props.groupId && (
-            <ViewGroupButton
-              groupId={props.groupId}
-              ButtonComponent={({ onClick }) => (
-                <Button variant="outline" onClick={onClick}>
-                  View
-                </Button>
-              )}
-            />
+            <ScrollArea className="h-[310px]">
+              <ViewGroup groupId={props.groupId} />
+            </ScrollArea>
           )}
-          <CreateGroupModalButton
-            existingGroups={data?.groups.map((group) => group.name) || []}
-            buttonVariant="outline"
-          />
         </div>
       </LoadingContent>
     </div>
