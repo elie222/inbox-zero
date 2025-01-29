@@ -18,6 +18,7 @@ import {
   GmailLabel,
   labelMessage,
 } from "@/utils/gmail/label";
+import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 
 const logger = createScopedLogger("process-assistant-email");
 
@@ -216,6 +217,16 @@ async function processAssistantEmailInternal({
     return;
   }
 
+  const reprocess = async () => {
+    return runRulesOnMessage({
+      gmail,
+      message,
+      rules: user.rules,
+      user,
+      isTest: false,
+    });
+  };
+
   const result = await processUserRequest({
     user,
     rules: user.rules,
@@ -224,6 +235,7 @@ async function processAssistantEmailInternal({
     matchedRule: executedRule?.rule || null,
     categories: user.categories.length ? user.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,
+    reprocess,
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);
