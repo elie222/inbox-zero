@@ -81,19 +81,18 @@ ${
 When fixing rules:
 - Make one precise change at a time
 - Prefer minimal changes that solve the problem
-- Only add AI instructions if simpler conditions won't suffice
 - Keep rules general and maintainable
 
 Rule matching logic:
-- All static conditions (from, to, subject, body) use AND logic - meaning all conditions must match
+- All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
 - Top level conditions (AI instructions, static, category) can use either AND or OR logic, controlled by the conditionalOperator setting
 
 Best practices:
 - For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
-- IMPORTANT: do not create new rules unless absolutely necessary and the user has asked for it.
+- IMPORTANT: do not create new rules unless absolutely necessary. Avoid duplicate rules, so make sure to check if the rule already exists.
 
 Always end by using the reply tool to explain what changes were made.
-Include the updated rule in your reply so that the user understands what was changed.
+Include the updated rule in simple English in your reply so that the user understands what was changed.
 Use simple language and avoid jargon in your reply.`;
 
   const prompt = `${

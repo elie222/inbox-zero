@@ -115,7 +115,8 @@ function getSystemPrompt({
 IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
 
 You can use multiple conditions in a rule, but aim for simplicity.
-If a rule can be handed without ai instructions, that's preferred, but often this won't be possible, so you can use the "aiInstructions" field.
+In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
+If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 
 <examples>
   <example>
