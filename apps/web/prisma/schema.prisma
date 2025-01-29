@@ -297,14 +297,13 @@ model Group {
 }
 
 model GroupItem {
-  id        String          @id @default(cuid())
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
   groupId   String?
-  group     Group?          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group     Group?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   type      GroupItemType
   value     String // eg "@gmail.com", "matt@gmail.com", "Receipt from"
-  status    GroupItemStatus @default(APPROVED)
 
   @@unique([groupId, type, value])
 }
@@ -461,10 +460,4 @@ enum CategoryFilterType {
 enum LogicalOperator {
   AND
   OR
-}
-
-enum GroupItemStatus {
-  APPROVED  // Auto match emails
-  REJECTED  // Never match emails
-  EVALUATE  // Neither auto-approve nor auto-reject; evaluate using other conditions
 }

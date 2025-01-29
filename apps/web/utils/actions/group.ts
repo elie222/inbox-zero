@@ -8,7 +8,7 @@ import {
   addGroupItemBody,
 } from "@/utils/actions/validation";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
-import { addGroupItem, rejectGroupItem } from "@/utils/group/group-item";
+import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
 
 export const addGroupItemAction = withActionInstrumentation(
   "addGroupItem",
@@ -32,13 +32,13 @@ export const addGroupItemAction = withActionInstrumentation(
   },
 );
 
-export const rejectGroupItemAction = withActionInstrumentation(
-  "rejectGroupItem",
+export const deleteGroupItemAction = withActionInstrumentation(
+  "deleteGroupItem",
   async (id: string) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
-    await rejectGroupItem({ id, userId: session.user.id });
+    await deleteGroupItem({ id, userId: session.user.id });
 
     revalidatePath("/automation");
   },

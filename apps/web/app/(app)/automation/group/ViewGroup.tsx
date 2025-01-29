@@ -9,7 +9,6 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import groupBy from "lodash/groupBy";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { capitalCase } from "capital-case";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -28,9 +27,9 @@ import {
 import { MessageText } from "@/components/Typography";
 import {
   addGroupItemAction,
-  rejectGroupItemAction,
+  deleteGroupItemAction,
 } from "@/utils/actions/group";
-import { type GroupItem, GroupItemStatus, GroupItemType } from "@prisma/client";
+import { type GroupItem, GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,9 +39,8 @@ import {
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
-import { TooltipExplanation } from "@/components/TooltipExplanation";
 
-export function ViewGroup({ groupId }: { groupId: string | null }) {
+export function ViewGroup({ groupId }: { groupId: string }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );
@@ -119,7 +117,7 @@ const AddGroupItemForm = ({
   mutate,
   setShowAddItem,
 }: {
-  groupId: string | null;
+  groupId: string;
   mutate: KeyedMutator<GroupItemsResponse>;
   setShowAddItem: Dispatch<SetStateAction<boolean>>;
 }) => {
@@ -129,7 +127,7 @@ const AddGroupItemForm = ({
     formState: { errors, isSubmitting },
   } = useForm<AddGroupItemBody>({
     resolver: zodResolver(addGroupItemBody),
-    defaultValues: { groupId: groupId! },
+    defaultValues: { groupId },
   });
 
   const onClose = useCallback(() => {
@@ -208,10 +206,10 @@ function GroupItems({
   items: GroupItem[];
   mutate: KeyedMutator<GroupItemsResponse>;
 }) {
-  const groupedByStatus = groupBy(
-    items,
-    (item) => item.status || GroupItemStatus.APPROVED,
-  );
+  // const groupedByStatus = groupBy(
+  //   items,
+  //   (item) => item.status || GroupItemStatus.APPROVED,
+  // );
 
   return (
     <div className="space-y-4">
@@ -222,10 +220,10 @@ function GroupItems({
             match:
           </div>
         }
-        items={groupedByStatus[GroupItemStatus.APPROVED] || []}
+        items={items}
         mutate={mutate}
       />
-      <GroupItemList
+      {/* <GroupItemList
         title={
           <div className="flex items-center gap-x-1.5">
             These patterns will never match:
@@ -243,7 +241,7 @@ function GroupItems({
         }
         items={groupedByStatus[GroupItemStatus.EVALUATE] || []}
         mutate={mutate}
-      />
+      /> */}
     </div>
   );
 }
@@ -294,7 +292,7 @@ function GroupItemList({
                   variant="outline"
                   size="icon"
                   onClick={async () => {
-                    const result = await rejectGroupItemAction(item.id);
+                    const result = await deleteGroupItemAction(item.id);
                     if (isActionError(result)) {
                       toastError({
                         description: `Failed to remove ${item.value} from group. ${result.error}`,

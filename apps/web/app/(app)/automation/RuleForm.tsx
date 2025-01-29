@@ -46,7 +46,6 @@ import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { ViewGroup } from "@/app/(app)/automation/group/ViewGroup";
 import { isActionError } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";

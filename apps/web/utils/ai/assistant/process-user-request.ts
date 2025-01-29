@@ -17,7 +17,7 @@ import {
   type CreateRuleSchemaWithCategories,
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
-import { addGroupItem, rejectGroupItem } from "@/utils/group/group-item";
+import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
 import {
   addRuleCategories,
   partialUpdateRule,
@@ -388,10 +388,7 @@ ${senderCategory || "No category"}
                 }
 
                 try {
-                  await rejectGroupItem({
-                    id: groupItem.id,
-                    userId: user.id,
-                  });
+                  await deleteGroupItem({ id: groupItem.id, userId: user.id });
                 } catch (error) {
                   const message =
                     error instanceof Error ? error.message : String(error);
