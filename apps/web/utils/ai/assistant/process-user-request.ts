@@ -67,7 +67,8 @@ You can fix rules using these specific operations:
 - Add or remove categories
 
 2. Create New Rules:
-- Create new rules when existing ones cannot be modified to fit the need
+- Create new rules when asked or when existing ones cannot be modified to fit the need
+- In general, you should NOT create new rules. Modify existing ones instead. If a user asked to exclude something from an existing rule, that's not a request to create a new rule, but to edit the existing rule.
 
 ${
   matchedRule?.group?.items?.length
@@ -95,7 +96,6 @@ Best practices:
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 
 Always end by using the reply tool to explain what changes were made.
-Include the updated rule in simple English in your reply so that the user understands what was changed.
 Use simple language and avoid jargon in your reply.`;
 
   const prompt = `${
