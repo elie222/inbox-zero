@@ -163,7 +163,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const conditions = watch("conditions");
   const unusedCondition = useMemo(() => {
     const usedConditions = new Set(conditions?.map(({ type }) => type));
-    return Object.values(RuleType).find((type) => !usedConditions.has(type));
+    return Object.values(RuleType).find(
+      (type) => !usedConditions.has(type) && type !== RuleType.GROUP,
+    ) as Exclude<RuleType, "GROUP"> | undefined;
   }, [conditions]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>

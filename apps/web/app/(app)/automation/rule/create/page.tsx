@@ -9,7 +9,7 @@ export default function CreateRulePage({
   searchParams: {
     example?: string;
     groupId?: string;
-    type?: RuleType;
+    type?: Exclude<RuleType, "GROUP">;
     categoryId?: string;
     label?: string;
   };
@@ -33,13 +33,7 @@ export default function CreateRulePage({
                 ]
               : [],
             conditions: searchParams.type
-              ? [
-                  getEmptyCondition(
-                    searchParams.type,
-                    searchParams.groupId,
-                    searchParams.categoryId,
-                  ),
-                ]
+              ? [getEmptyCondition(searchParams.type, searchParams.categoryId)]
               : [],
             automate: true,
           }

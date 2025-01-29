@@ -88,8 +88,7 @@ export function getConditionTypes(
 }
 
 export function getEmptyCondition(
-  type: RuleType,
-  groupId?: string,
+  type: Exclude<RuleType, "GROUP">,
   category?: string,
 ): ZodCondition {
   switch (type) {
@@ -97,11 +96,6 @@ export function getEmptyCondition(
       return {
         type: RuleType.AI,
         instructions: "",
-      };
-    case RuleType.GROUP:
-      return {
-        type: RuleType.GROUP,
-        groupId: groupId || "",
       };
     case RuleType.STATIC:
       return {
@@ -126,7 +120,6 @@ export function getEmptyCondition(
 
 type FlattenedConditions = {
   instructions?: string | null;
-  groupId?: string | null;
   from?: string | null;
   to?: string | null;
   subject?: string | null;
@@ -143,9 +136,6 @@ export const flattenConditions = (
       case RuleType.AI:
         acc.instructions = condition.instructions;
         break;
-      case RuleType.GROUP:
-        acc.groupId = condition.groupId;
-        break;
       case RuleType.STATIC:
         acc.to = condition.to;
         acc.from = condition.from;
@@ -155,6 +145,8 @@ export const flattenConditions = (
       case RuleType.CATEGORY:
         acc.categoryFilterType = condition.categoryFilterType;
         acc.categoryFilters = condition.categoryFilters;
+        break;
+      case RuleType.GROUP:
         break;
       default:
         console.log(`Unhandled condition type: ${condition.type}`);
