@@ -27,7 +27,6 @@ import {
 } from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
-import { createGroup } from "@/utils/group/group";
 import { deleteRule } from "@/utils/rule/rule";
 
 export const createRuleAction = withActionInstrumentation(
@@ -75,7 +74,6 @@ export const createRuleAction = withActionInstrumentation(
           to: conditions.to || null,
           subject: conditions.subject || null,
           // body: conditions.body || null,
-          groupId: conditions.groupId || null,
           categoryFilterType: conditions.categoryFilterType || null,
           categoryFilters:
             conditions.categoryFilterType && conditions.categoryFilters
@@ -86,18 +84,6 @@ export const createRuleAction = withActionInstrumentation(
         },
         include: { actions: true, categoryFilters: true, group: true },
       });
-
-      const shouldCreateGroup = body.conditions.some(
-        (c) => c.type === RuleType.GROUP && !c.groupId,
-      );
-
-      if (shouldCreateGroup) {
-        await createGroup({
-          name: body.name,
-          userId: session.user.id,
-          ruleId: rule.id,
-        });
-      }
 
       await updatePromptFileOnRuleCreated(session.user.id, rule);
 
@@ -160,7 +146,6 @@ export const updateRuleAction = withActionInstrumentation(
             to: conditions.to || null,
             subject: conditions.subject || null,
             // body: conditions.body || null,
-            groupId: conditions.groupId || null,
             categoryFilterType: conditions.categoryFilterType || null,
             categoryFilters:
               conditions.categoryFilterType && conditions.categoryFilters

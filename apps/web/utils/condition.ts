@@ -146,8 +146,6 @@ export const flattenConditions = (
         acc.categoryFilterType = condition.categoryFilterType;
         acc.categoryFilters = condition.categoryFilters;
         break;
-      case RuleType.GROUP:
-        break;
       default:
         console.log(`Unhandled condition type: ${condition.type}`);
         // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check

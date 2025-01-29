@@ -22,7 +22,6 @@ export function partialUpdateRule(ruleId: string, data: Partial<Rule>) {
 export async function safeCreateRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId?: string | null,
   categoryNames?: string[] | null,
 ) {
   const categoryIds = await getUserCategoriesForNames(
@@ -34,7 +33,6 @@ export async function safeCreateRule(
     const rule = await createRule({
       result,
       userId,
-      groupId,
       categoryIds,
     });
     return rule;
@@ -44,7 +42,6 @@ export async function safeCreateRule(
       const rule = await createRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
-        groupId,
         categoryIds,
       });
       return rule;
@@ -66,11 +63,10 @@ export async function safeUpdateRule(
   ruleId: string,
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId?: string | null,
   categoryIds?: string[] | null,
 ) {
   try {
-    const rule = await updateRule(ruleId, result, userId, groupId, categoryIds);
+    const rule = await updateRule(ruleId, result, userId, categoryIds);
     return { id: rule.id };
   } catch (error) {
     if (isDuplicateError(error, "name")) {
@@ -78,7 +74,6 @@ export async function safeUpdateRule(
       const rule = await createRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
-        groupId,
         categoryIds,
       });
       return { id: rule.id };
@@ -99,12 +94,10 @@ export async function safeUpdateRule(
 async function createRule({
   result,
   userId,
-  groupId,
   categoryIds,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   userId: string;
-  groupId?: string | null;
   categoryIds?: string[] | null;
 }) {
   return prisma.rule.create({
@@ -123,7 +116,6 @@ async function createRule({
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
-      groupId,
       categoryFilterType: result.condition.categories?.categoryFilterType,
       categoryFilters: categoryIds
         ? {
@@ -141,7 +133,6 @@ async function updateRule(
   ruleId: string,
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId?: string | null,
   categoryIds?: string[] | null,
 ) {
   return prisma.rule.update({
@@ -162,7 +153,6 @@ async function updateRule(
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
-      groupId,
       categoryFilterType: result.condition.categories?.categoryFilterType,
       categoryFilters: categoryIds
         ? {

@@ -1,14 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   type FieldError,
-  type FieldErrors,
   type SubmitHandler,
-  type UseFormRegisterReturn,
   useFieldArray,
   useForm,
 } from "react-hook-form";
@@ -17,14 +14,7 @@ import { toast } from "sonner";
 import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import {
-  ExternalLinkIcon,
-  PlusIcon,
-  FilterIcon,
-  ChevronDown,
-  Brain,
-  XIcon,
-} from "lucide-react";
+import { ExternalLinkIcon, PlusIcon, FilterIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -163,8 +153,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const conditions = watch("conditions");
   const unusedCondition = useMemo(() => {
     const usedConditions = new Set(conditions?.map(({ type }) => type));
-    return Object.values(RuleType).find(
-      (type) => !usedConditions.has(type) && type !== RuleType.GROUP,
+    return [RuleType.AI, RuleType.STATIC, RuleType.CATEGORY].find(
+      (type) => !usedConditions.has(type),
     ) as Exclude<RuleType, "GROUP"> | undefined;
   }, [conditions]);
 

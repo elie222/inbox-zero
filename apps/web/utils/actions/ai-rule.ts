@@ -1,6 +1,5 @@
 "use server";
 
-import type { gmail_v1 } from "@googleapis/gmail";
 import { setUser } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isNotFoundError } from "@/utils/prisma";
@@ -13,7 +12,6 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { GroupName } from "@/utils/config";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
@@ -41,7 +39,6 @@ import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
-import { createNewsletterGroup, createReceiptGroup } from "@/utils/group/group";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -192,8 +189,6 @@ export const createAutomationAction = withActionInstrumentation<
   if (!userId) return { error: "Not logged in" };
   if (!session.accessToken) return { error: "No access token" };
 
-  const gmail = getGmailClient(session);
-
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -216,98 +211,8 @@ export const createAutomationAction = withActionInstrumentation<
 
   if (!result) return { error: "AI error creating rule." };
 
-  const groupIdResult = await getGroupId(
-    result,
-    userId,
-    user.email,
-    gmail,
-    session.accessToken,
-  );
-  if (isActionError(groupIdResult)) return groupIdResult;
-  return await safeCreateRule(result, userId, groupIdResult.groupId, null);
+  return await safeCreateRule(result, userId, null);
 });
-
-async function getGroupId(
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  userEmail: string,
-  gmail: gmail_v1.Gmail,
-  accessToken: string,
-): Promise<{
-  groupId?: string | null;
-  existingRuleId?: string | null;
-  error?: string;
-}> {
-  let groupId: string | null = null;
-
-  if (result.condition.group && result.condition.group) {
-    const groups = await prisma.group.findMany({
-      where: { userId },
-      select: { id: true, name: true, rule: true },
-    });
-
-    if (result.condition.group === GroupName.NEWSLETTER) {
-      const newsletterGroup = groups.find((g) =>
-        g.name.toLowerCase().includes("newsletter"),
-      );
-      if (newsletterGroup) {
-        if (newsletterGroup.rule) {
-          return {
-            error: "Newsletter group already has a rule",
-            existingRuleId: newsletterGroup.rule.id,
-          };
-        }
-
-        groupId = newsletterGroup.id;
-      } else {
-        const result = await createNewsletterGroup({
-          gmail,
-          accessToken,
-          userId,
-          userEmail,
-        });
-        if ("error" in result) {
-          return { error: result.error };
-        }
-        if (!result) {
-          return { error: "Error creating newsletter group" };
-        }
-        groupId = result.id;
-      }
-    } else if (result.condition.group === GroupName.RECEIPT) {
-      const receiptsGroup = groups.find((g) =>
-        g.name.toLowerCase().includes("receipt"),
-      );
-
-      if (receiptsGroup) {
-        groupId = receiptsGroup.id;
-
-        if (receiptsGroup.rule) {
-          return {
-            error: "Receipt group already has a rule",
-            existingRuleId: receiptsGroup.rule.id,
-          };
-        }
-      } else {
-        const result = await createReceiptGroup({
-          gmail,
-          accessToken,
-          userId,
-          userEmail,
-        });
-        if ("error" in result) {
-          return { error: result.error };
-        }
-        if (!result) {
-          return { error: "Error creating receipt group" };
-        }
-        groupId = result.id;
-      }
-    }
-  }
-
-  return { groupId };
-}
 
 export const setRuleAutomatedAction = withActionInstrumentation(
   "setRuleAutomated",
@@ -596,23 +501,6 @@ export const saveRulesPromptAction = withActionInstrumentation(
             ruleId: rule.ruleId,
           });
 
-          const gmail = getGmailClient(session);
-          const groupIdResult = await getGroupId(
-            rule,
-            session.user.id,
-            user.email,
-            gmail,
-            session.accessToken,
-          );
-          if (groupIdResult && "error" in groupIdResult) {
-            logger.error("Error updating group for rule", {
-              email: user.email,
-              ruleId: rule.ruleId,
-              error: groupIdResult.error,
-            });
-            continue;
-          }
-
           const categoryIds = await getUserCategoriesForNames(
             session.user.id,
             rule.condition.categories?.categoryFilters || [],
@@ -620,13 +508,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
           editRulesCount++;
 
-          await safeUpdateRule(
-            rule.ruleId,
-            rule,
-            session.user.id,
-            groupIdResult?.groupId,
-            categoryIds,
-          );
+          await safeUpdateRule(rule.ruleId, rule, session.user.id, categoryIds);
         }
       }
     } else {
@@ -653,27 +535,9 @@ export const saveRulesPromptAction = withActionInstrumentation(
         ruleId: rule.ruleId,
       });
 
-      const gmail = getGmailClient(session);
-      const groupIdResult = await getGroupId(
-        rule,
-        session.user.id,
-        user.email,
-        gmail,
-        session.accessToken,
-      );
-      if (isActionError(groupIdResult)) {
-        logger.error("Error creating group for rule", {
-          email: user.email,
-          ruleId: rule.ruleId,
-          error: groupIdResult.error,
-        });
-        continue;
-      }
-
       await safeCreateRule(
         rule,
         session.user.id,
-        groupIdResult?.groupId,
         rule.condition.categories?.categoryFilters || [],
       );
     }

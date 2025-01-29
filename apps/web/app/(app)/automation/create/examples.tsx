@@ -9,9 +9,6 @@ import {
   PresentationIcon,
 } from "lucide-react";
 
-export const RECEIPT_GROUP_ID = "RECEIPT";
-export const NEWSLETTER_GROUP_ID = "NEWSLETTER";
-
 export const examples: {
   title: string;
   description: string;
@@ -28,8 +25,8 @@ export const examples: {
       name: "Forward receipts",
       conditions: [
         {
-          type: RuleType.GROUP,
-          groupId: RECEIPT_GROUP_ID,
+          type: RuleType.AI,
+          instructions: "Forward receipts to alice@accountant.com.",
         },
       ],
       actions: [
@@ -45,8 +42,8 @@ export const examples: {
       name: "Archive and label newsletters",
       conditions: [
         {
-          type: RuleType.GROUP,
-          groupId: NEWSLETTER_GROUP_ID,
+          type: RuleType.AI,
+          instructions: "Archive newsletters and label them as 'Newsletter'.",
         },
       ],
       actions: [
