@@ -2,7 +2,7 @@
 
 import useSWR, { type KeyedMutator } from "swr";
 import Link from "next/link";
-import { PlusIcon, ExternalLinkIcon, XCircleIcon } from "lucide-react";
+import { PlusIcon, ExternalLinkIcon, TrashIcon } from "lucide-react";
 import {
   useState,
   useCallback,
@@ -302,7 +302,7 @@ function GroupItemList({
                     }
                   }}
                 >
-                  <XCircleIcon className="size-4" />
+                  <TrashIcon className="size-4" />
                 </Button>
               </TableCell>
             </TableRow>
