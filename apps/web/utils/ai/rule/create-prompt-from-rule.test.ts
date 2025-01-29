@@ -181,7 +181,7 @@ Alice`,
     } as Rule & { actions: Action[]; group: Group };
 
     expect(createPromptFromRule(rule)).toBe(
-      'For emails in group "Receipts", label as "Receipt" and archive',
+      'For all emails, label as "Receipt" and archive',
     );
   });
 
@@ -193,7 +193,7 @@ Alice`,
     } as Rule & { actions: Action[]; group: Group };
 
     expect(createPromptFromRule(rule)).toBe(
-      'For emails with subject containing "order" and in group "Receipts", archive',
+      'For emails with subject containing "order", archive',
     );
   });
 
@@ -206,7 +206,7 @@ Alice`,
     } as Rule & { actions: Action[]; group: Group };
 
     expect(createPromptFromRule(rule)).toBe(
-      'For emails with subject containing "order" or in group "Receipts", archive',
+      'For emails with subject containing "order", archive',
     );
   });
 });
