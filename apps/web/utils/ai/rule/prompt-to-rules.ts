@@ -63,7 +63,7 @@ ${promptFile}
 </prompt>`;
 
   if (env.NODE_ENV === "development") {
-    logger.trace("prompt-to-rules", {
+    logger.trace("Input", {
       system,
       prompt,
       parameters: zodToJsonSchema(parameters),
@@ -88,7 +88,7 @@ ${promptFile}
     rules: CreateOrUpdateRuleSchemaWithCategories[];
   };
 
-  logger.trace("Result", { rules });
+  logger.trace("Output", { rules });
 
   return rules.map((rule) => ({
     ...rule,
@@ -127,7 +127,8 @@ If a rule can be handed without ai instructions, that's preferred, but often thi
         "rules": [{
           "name": "Label Newsletters",
           "condition": {
-            "group": "Newsletters"${
+            "aiInstructions": "Apply this rule to newsletters"
+            ${
               hasSmartCategories
                 ? `,
               "categories": {
@@ -186,7 +187,7 @@ If a rule can be handed without ai instructions, that's preferred, but often thi
 
   <example>
     <input>
-      Label all urgent emails from matt@company.com as "Urgent"
+      Label all urgent emails from company.com as "Urgent"
     </input>
     <output>
       {
@@ -196,7 +197,7 @@ If a rule can be handed without ai instructions, that's preferred, but often thi
             "conditionalOperator": "AND",
             "aiInstructions": "Apply this rule to urgent emails",
             "static": {
-              "from": "matt@company.com"
+              "from": "@company.com"
             }
           },
           "actions": [
