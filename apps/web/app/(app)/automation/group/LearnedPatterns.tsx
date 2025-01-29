@@ -18,10 +18,12 @@ export function LearnedPatterns({ groupId }: { groupId: string }) {
       onOpenChange={setIsOpen}
       className="overflow-hidden rounded-lg border"
     >
-      <CollapsibleTrigger className="flex w-full items-center justify-between bg-gray-50 p-4 hover:bg-gray-100">
+      <CollapsibleTrigger className="flex w-full items-center justify-between bg-white p-4 hover:bg-slate-50">
         <div className="flex items-center gap-2">
-          <BrainIcon size={16} className="text-gray-600" />
-          <span className="font-medium">Learned Patterns (Group)</span>
+          <BrainIcon size={16} className="text-slate-600" />
+          <span className="font-medium">
+            Learned Patterns (previously known as Groups)
+          </span>
         </div>
 
         <div className="flex items-center gap-4">
