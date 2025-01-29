@@ -22,7 +22,6 @@ export function partialUpdateRule(ruleId: string, data: Partial<Rule>) {
 export async function safeCreateRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId?: string | null,
   categoryNames?: string[] | null,
 ) {
   const categoryIds = await getUserCategoriesForNames(
@@ -31,17 +30,20 @@ export async function safeCreateRule(
   );
 
   try {
-    const rule = await createRule(result, userId, groupId, categoryNames);
+    const rule = await createRule({
+      result,
+      userId,
+      categoryIds,
+    });
     return rule;
   } catch (error) {
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule(
-        { ...result, name: `${result.name} - ${Date.now()}` },
+      const rule = await createRule({
+        result: { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
-        groupId,
         categoryIds,
-      );
+      });
       return rule;
     }
 
@@ -61,21 +63,19 @@ export async function safeUpdateRule(
   ruleId: string,
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId?: string | null,
   categoryIds?: string[] | null,
 ) {
   try {
-    const rule = await updateRule(ruleId, result, userId, groupId, categoryIds);
+    const rule = await updateRule(ruleId, result, userId, categoryIds);
     return { id: rule.id };
   } catch (error) {
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule(
-        { ...result, name: `${result.name} - ${Date.now()}` },
+      const rule = await createRule({
+        result: { ...result, name: `${result.name} - ${Date.now()}` },
         userId,
-        groupId,
         categoryIds,
-      );
+      });
       return { id: rule.id };
     }
 
@@ -91,12 +91,15 @@ export async function safeUpdateRule(
   }
 }
 
-async function createRule(
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  groupId?: string | null,
-  categoryIds?: string[] | null,
-) {
+async function createRule({
+  result,
+  userId,
+  categoryIds,
+}: {
+  result: CreateOrUpdateRuleSchemaWithCategories;
+  userId: string;
+  categoryIds?: string[] | null;
+}) {
   return prisma.rule.create({
     data: {
       name: result.name,
@@ -113,7 +116,6 @@ async function createRule(
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
-      groupId,
       categoryFilterType: result.condition.categories?.categoryFilterType,
       categoryFilters: categoryIds
         ? {
@@ -131,7 +133,6 @@ async function updateRule(
   ruleId: string,
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
-  groupId?: string | null,
   categoryIds?: string[] | null,
 ) {
   return prisma.rule.update({
@@ -152,7 +153,6 @@ async function updateRule(
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
-      groupId,
       categoryFilterType: result.condition.categories?.categoryFilterType,
       categoryFilters: categoryIds
         ? {
@@ -163,6 +163,22 @@ async function updateRule(
         : undefined,
     },
   });
+}
+
+export async function deleteRule({
+  userId,
+  ruleId,
+  groupId,
+}: {
+  ruleId: string;
+  userId: string;
+  groupId?: string | null;
+}) {
+  return Promise.all([
+    prisma.rule.delete({ where: { id: ruleId, userId } }),
+    // in the future, we can make this a cascade delete, but we need to change the schema for this to happen
+    groupId ? prisma.group.delete({ where: { id: groupId, userId } }) : null,
+  ]);
 }
 
 function shouldAutomate(actions: Pick<Action, "type">[]) {

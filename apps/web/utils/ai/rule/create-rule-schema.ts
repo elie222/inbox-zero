@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { GroupName } from "@/utils/config";
 import {
   ActionType,
   CategoryFilterType,
@@ -29,12 +28,6 @@ const conditionSchema = z
       .optional()
       .describe(
         "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
-      ),
-    group: z
-      .enum([GroupName.RECEIPT, GroupName.NEWSLETTER])
-      .optional()
-      .describe(
-        "The group to match. Only 'Receipt' and 'Newsletter' are supported.",
       ),
   })
   .describe("The conditions to match");

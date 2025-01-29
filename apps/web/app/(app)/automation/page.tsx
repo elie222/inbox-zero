@@ -61,6 +61,7 @@ export default async function AutomationPage() {
         <TabsContent value="pending" className="content-container mb-10">
           <Pending />
         </TabsContent>
+        {/* no longer in use */}
         <TabsContent value="groups" className="content-container mb-10">
           <Groups />
         </TabsContent>

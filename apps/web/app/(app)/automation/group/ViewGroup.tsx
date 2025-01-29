@@ -1,13 +1,8 @@
 "use client";
 
 import useSWR, { type KeyedMutator } from "swr";
-import {
-  PlusIcon,
-  SparklesIcon,
-  TrashIcon,
-  PenIcon,
-  MailIcon,
-} from "lucide-react";
+import Link from "next/link";
+import { PlusIcon, ExternalLinkIcon, TrashIcon } from "lucide-react";
 import {
   useState,
   useCallback,
@@ -19,215 +14,85 @@ import { capitalCase } from "capital-case";
 import { toastSuccess, toastError } from "@/components/Toast";
 import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Modal, useModal } from "@/components/Modal";
 import { Button } from "@/components/ui/button";
-import { ButtonLoader } from "@/components/Loading";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
-  TableHeader,
   TableRow,
-  TableHead,
   TableBody,
   TableCell,
+  TableHeader,
+  TableHead,
 } from "@/components/ui/table";
-import {
-  MessageText,
-  PageHeading,
-  SectionDescription,
-} from "@/components/Typography";
+import { MessageText } from "@/components/Typography";
 import {
   addGroupItemAction,
-  deleteGroupAction,
   deleteGroupItemAction,
-  regenerateGroupAction,
-  updateGroupPromptAction,
 } from "@/utils/actions/group";
-import { GroupName } from "@/utils/config";
-import { type GroupItem, GroupItemType, RuleType } from "@prisma/client";
+import { type GroupItem, GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type AddGroupItemBody,
   addGroupItemBody,
-  updateGroupPromptBody,
-  type UpdateGroupPromptBody,
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 
-export function ViewGroupButton({
-  groupId,
-  ButtonComponent,
-}: {
-  groupId: string;
-  ButtonComponent?: React.ComponentType<{ onClick: () => void }>;
-}) {
-  const { isModalOpen, openModal, closeModal } = useModal();
-
-  return (
-    <>
-      {ButtonComponent ? (
-        <ButtonComponent onClick={openModal} />
-      ) : (
-        <Button size="sm" variant="outline" onClick={openModal}>
-          Edit
-        </Button>
-      )}
-      <Modal isOpen={isModalOpen} hideModal={closeModal} size="4xl">
-        <ViewGroup groupId={groupId} onDelete={closeModal} />
-      </Modal>
-    </>
-  );
-}
-
-export function ViewGroup({
-  groupId,
-  onDelete,
-}: {
-  groupId: string;
-  onDelete: () => void;
-}) {
+export function ViewGroup({ groupId }: { groupId: string }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );
   const group = data?.group;
-  const groupName = group?.name;
 
   const [showAddItem, setShowAddItem] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   return (
-    <div>
-      <PageHeading>{groupName}</PageHeading>
-      {group?.prompt && (
-        <EditablePrompt
+    <div className="mt-2 px-4">
+      {showAddItem ? (
+        <AddGroupItemForm
           groupId={groupId}
-          initialPrompt={group.prompt}
-          onUpdate={mutate}
+          mutate={mutate}
+          setShowAddItem={setShowAddItem}
         />
+      ) : (
+        <div className="sm:flex sm:items-center sm:justify-between">
+          <div />
+          {/* <div className="flex items-center space-x-1.5">
+            <TooltipExplanation text="Automatically detect and add new matching patterns from incoming emails." />
+            <Toggle
+              name="auto-update"
+              label="Auto-add patterns"
+              enabled={true}
+              onChange={(enabled) => {}}
+            />
+          </div> */}
+
+          <div className="mt-2 grid grid-cols-1 gap-1 sm:mt-0 sm:flex sm:items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddItem(true)}
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Add pattern
+            </Button>
+
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                href={`/automation/group/${groupId}/examples`}
+                target="_blank"
+              >
+                <ExternalLinkIcon className="mr-2 size-4" />
+                Matches
+              </Link>
+            </Button>
+          </div>
+        </div>
       )}
 
-      <div className="sm:flex sm:items-center sm:justify-between">
-        {showAddItem ? (
-          <AddGroupItemForm
-            groupId={groupId}
-            mutate={mutate}
-            setShowAddItem={setShowAddItem}
-          />
-        ) : (
-          <>
-            {group?.rule ? (
-              <Link
-                href={`/automation/rule/${group.rule.id}`}
-                target="_blank"
-                className="mr-4"
-              >
-                <Badge>Rule: {group.rule.name || group.rule.id}</Badge>
-              </Link>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                className="mr-4 w-full sm:w-auto"
-              >
-                <Link
-                  href={`/automation/rule/create?groupId=${groupId}&type=${RuleType.GROUP}`}
-                >
-                  Attach Rule
-                </Link>
-              </Button>
-            )}
-
-            <div className="mt-2 grid grid-cols-1 gap-1 sm:mt-0 sm:flex sm:items-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddItem(true)}
-              >
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isDeleting}
-                onClick={async () => {
-                  const yes = confirm(
-                    "Are you sure you want to delete this group?",
-                  );
-
-                  if (!yes) return;
-
-                  setIsDeleting(true);
-
-                  const result = await deleteGroupAction(groupId);
-                  if (isActionError(result)) {
-                    toastError({
-                      description: `Failed to delete group. ${result.error}`,
-                    });
-                  } else {
-                    onDelete();
-                  }
-                  mutate();
-                  setIsDeleting(false);
-                }}
-              >
-                {isDeleting ? (
-                  <ButtonLoader />
-                ) : (
-                  <TrashIcon className="mr-2 h-4 w-4" />
-                )}
-                Delete
-              </Button>
-
-              {(groupName === GroupName.NEWSLETTER ||
-                groupName === GroupName.RECEIPT ||
-                group?.prompt) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isRegenerating}
-                  onClick={async () => {
-                    setIsRegenerating(true);
-                    const result = await regenerateGroupAction(groupId);
-
-                    if (isActionError(result)) {
-                      toastError({
-                        description: `Failed to regenerate group. ${result.error}`,
-                      });
-                    } else {
-                      toastSuccess({ description: "Group items regenerated!" });
-                    }
-                    setIsRegenerating(false);
-                  }}
-                >
-                  {isRegenerating ? (
-                    <ButtonLoader />
-                  ) : (
-                    <SparklesIcon className="mr-2 h-4 w-4" />
-                  )}
-                  Regenerate
-                </Button>
-              )}
-
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/automation/group/${groupId}/examples`}>
-                  <MailIcon className="mr-2 size-4" />
-                  Matches
-                </Link>
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="mt-4">
+      <div className="mt-2">
         <LoadingContent
           loading={!data && isLoading}
           error={error}
@@ -235,58 +100,7 @@ export function ViewGroup({
         >
           {data &&
             (group?.items.length ? (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sender</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {group?.items.map((item) => {
-                      // within last 2 minutes
-                      const isRecent =
-                        new Date(item.createdAt) >
-                        new Date(Date.now() - 1000 * 60 * 2);
-
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            {isRecent && (
-                              <Badge variant="green" className="mr-2">
-                                New!
-                              </Badge>
-                            )}
-
-                            <GroupItemDisplay item={item} />
-                          </TableCell>
-                          <TableCell className="py-2 text-right">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={async () => {
-                                const result = await deleteGroupItemAction(
-                                  item.id,
-                                );
-                                if (isActionError(result)) {
-                                  toastError({
-                                    description: `Failed to remove ${item.value} from group. ${result.error}`,
-                                  });
-                                } else {
-                                  mutate();
-                                }
-                              }}
-                            >
-                              <TrashIcon className="size-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </>
+              <GroupItems items={group.items} mutate={mutate} />
             ) : (
               <MessageText className="mt-4">
                 There are no senders in this group.
@@ -336,10 +150,21 @@ const AddGroupItemForm = ({
     [mutate, onClose],
   );
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        void handleSubmit(onSubmit)(e);
+      }
+    },
+    [handleSubmit, onSubmit],
+  );
+
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
+    <div
       className="grid grid-cols-1 gap-2 sm:flex sm:items-center"
+      onKeyDown={handleKeyDown}
     >
       <Select
         label=""
@@ -353,118 +178,146 @@ const AddGroupItemForm = ({
       <Input
         type="text"
         name="value"
-        placeholder="e.g. elie@getinboxzero.com"
+        placeholder="e.g. hello@company.com"
         registerProps={register("value", { required: true })}
         error={errors.value}
         className="min-w-[250px]"
       />
-      <Button type="submit" loading={isSubmitting}>
+      <Button
+        type="button"
+        loading={isSubmitting}
+        onClick={() => {
+          handleSubmit(onSubmit)();
+        }}
+      >
         Add
       </Button>
-      <Button variant="outline" onClick={onClose}>
+      <Button type="button" variant="outline" onClick={onClose}>
         Cancel
       </Button>
-    </form>
+    </div>
   );
 };
 
-function EditablePrompt({
-  groupId,
-  initialPrompt,
-  onUpdate,
+function GroupItems({
+  items,
+  mutate,
 }: {
-  groupId: string;
-  initialPrompt: string;
-  onUpdate: () => void;
+  items: GroupItem[];
+  mutate: KeyedMutator<GroupItemsResponse>;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-
-  if (isEditing) {
-    return (
-      <UpdatePromptForm
-        groupId={groupId}
-        initialPrompt={initialPrompt}
-        onUpdate={onUpdate}
-        onFinishEditing={() => setIsEditing(false)}
-      />
-    );
-  }
+  // const groupedByStatus = groupBy(
+  //   items,
+  //   (item) => item.status || GroupItemStatus.APPROVED,
+  // );
 
   return (
-    <div className="group relative mb-2 inline-flex items-center">
-      <SectionDescription>
-        Prompt: {initialPrompt}
-        <button
-          type="button"
-          onClick={() => setIsEditing(true)}
-          className="ml-2 opacity-0 transition-opacity group-hover:opacity-100"
-        >
-          <PenIcon className="h-4 w-4" />
-        </button>
-      </SectionDescription>
+    <div className="space-y-4">
+      <GroupItemList
+        title={
+          <div className="flex items-center gap-x-1.5">
+            When these patterns are encountered, the rule will automatically
+            match:
+          </div>
+        }
+        items={items}
+        mutate={mutate}
+      />
+      {/* <GroupItemList
+        title={
+          <div className="flex items-center gap-x-1.5">
+            These patterns will never match:
+          </div>
+        }
+        items={groupedByStatus[GroupItemStatus.REJECTED] || []}
+        mutate={mutate}
+      />
+      <GroupItemList
+        title={
+          <div className="flex items-center gap-x-1.5">
+            These patterns will need evaluation (and the AI will not move them
+            to the Match or Never Match lists):
+          </div>
+        }
+        items={groupedByStatus[GroupItemStatus.EVALUATE] || []}
+        mutate={mutate}
+      /> */}
     </div>
   );
 }
 
-function UpdatePromptForm({
-  groupId,
-  initialPrompt,
-  onUpdate,
-  onFinishEditing,
+function GroupItemList({
+  title,
+  items,
+  mutate,
 }: {
-  groupId: string;
-  initialPrompt: string;
-  onUpdate: () => void;
-  onFinishEditing: () => void;
+  title?: React.ReactNode;
+  items: GroupItem[];
+  mutate: KeyedMutator<GroupItemsResponse>;
 }) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<UpdateGroupPromptBody>({
-    resolver: zodResolver(updateGroupPromptBody),
-    defaultValues: { groupId, prompt: initialPrompt },
-  });
-
-  const onSubmit: SubmitHandler<UpdateGroupPromptBody> = useCallback(
-    async (data) => {
-      const result = await updateGroupPromptAction(data);
-      if (isActionError(result)) {
-        toastError({
-          description: `Failed to update prompt. ${result.error}`,
-        });
-      } else {
-        toastSuccess({
-          description: "Prompt updated! You should regenerate the group.",
-        });
-        onFinishEditing();
-        onUpdate();
-      }
-    },
-    [onUpdate, onFinishEditing],
-  );
-
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <Input
-        type="text"
-        autosizeTextarea
-        rows={3}
-        name="prompt"
-        label="Prompt"
-        placeholder=""
-        registerProps={register("prompt", { required: true })}
-        error={errors.prompt}
-      />
-      <div className="mt-2 flex items-center gap-2">
-        <Button type="submit" variant="outline" disabled={isSubmitting}>
-          Save
-        </Button>
-        <Button type="button" variant="outline" onClick={onFinishEditing}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+    <Table>
+      {title && (
+        <TableHeader>
+          <TableRow>
+            <TableHead>{title}</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+      )}
+      <TableBody>
+        {items.map((item) => {
+          const twoMinutesAgo = new Date(Date.now() - 1000 * 60 * 2);
+          const isCreatedRecently = new Date(item.createdAt) > twoMinutesAgo;
+          const isUpdatedRecently = new Date(item.updatedAt) > twoMinutesAgo;
+
+          return (
+            <TableRow key={item.id}>
+              <TableCell>
+                <div className="flex items-center">
+                  {isCreatedRecently ||
+                    (isUpdatedRecently && (
+                      <Badge variant="green" className="mr-1">
+                        {isCreatedRecently ? "New!" : "Updated"}
+                      </Badge>
+                    ))}
+
+                  <div className="text-wrap break-words">
+                    <GroupItemDisplay item={item} />
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell className="py-2 text-right">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={async () => {
+                    const result = await deleteGroupItemAction(item.id);
+                    if (isActionError(result)) {
+                      toastError({
+                        description: `Failed to remove ${item.value} from group. ${result.error}`,
+                      });
+                    } else {
+                      mutate();
+                    }
+                  }}
+                >
+                  <TrashIcon className="size-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+
+        {items.length === 0 && (
+          <TableRow>
+            <TableCell colSpan={2}>
+              <MessageText>No items</MessageText>
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 }
 

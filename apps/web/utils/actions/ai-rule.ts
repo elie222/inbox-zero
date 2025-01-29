@@ -12,11 +12,6 @@ import {
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import {
-  createNewsletterGroupAction,
-  createReceiptGroupAction,
-} from "@/utils/actions/group";
-import { GroupName } from "@/utils/config";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
@@ -42,7 +37,7 @@ import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
-import { safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 
 const logger = createScopedLogger("ai-rule");
@@ -192,6 +187,7 @@ export const createAutomationAction = withActionInstrumentation<
   const session = await auth();
   const userId = session?.user.id;
   if (!userId) return { error: "Not logged in" };
+  if (!session.accessToken) return { error: "No access token" };
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -215,75 +211,8 @@ export const createAutomationAction = withActionInstrumentation<
 
   if (!result) return { error: "AI error creating rule." };
 
-  const groupIdResult = await getGroupId(result, userId);
-  if (isActionError(groupIdResult)) return groupIdResult;
-  return await safeCreateRule(result, userId, groupIdResult, null);
+  return await safeCreateRule(result, userId, null);
 });
-
-async function getGroupId(
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-) {
-  let groupId: string | null = null;
-
-  if (result.condition.group && result.condition.group) {
-    const groups = await prisma.group.findMany({
-      where: { userId },
-      select: { id: true, name: true, rule: true },
-    });
-
-    if (result.condition.group === GroupName.NEWSLETTER) {
-      const newsletterGroup = groups.find((g) =>
-        g.name.toLowerCase().includes("newsletter"),
-      );
-      if (newsletterGroup) {
-        if (newsletterGroup.rule) {
-          return {
-            error: "Newsletter group already has a rule",
-            existingRuleId: newsletterGroup.rule.id,
-          };
-        }
-
-        groupId = newsletterGroup.id;
-      } else {
-        const result = await createNewsletterGroupAction();
-        if (isActionError(result)) {
-          return result;
-        }
-        if (!result) {
-          return { error: "Error creating newsletter group" };
-        }
-        groupId = result.id;
-      }
-    } else if (result.condition.group === GroupName.RECEIPT) {
-      const receiptsGroup = groups.find((g) =>
-        g.name.toLowerCase().includes("receipt"),
-      );
-
-      if (receiptsGroup) {
-        groupId = receiptsGroup.id;
-
-        if (receiptsGroup.rule) {
-          return {
-            error: "Receipt group already has a rule",
-            existingRuleId: receiptsGroup.rule.id,
-          };
-        }
-      } else {
-        const result = await createReceiptGroupAction();
-        if (isActionError(result)) {
-          return result;
-        }
-        if (!result) {
-          return { error: "Error creating receipt group" };
-        }
-        groupId = result.id;
-      }
-    }
-  }
-
-  return groupId;
-}
 
 export const setRuleAutomatedAction = withActionInstrumentation(
   "setRuleAutomated",
@@ -378,6 +307,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
   async (unsafeData: SaveRulesPromptBody) => {
     const session = await auth();
     if (!session?.user.email) return { error: "Not logged in" };
+    if (!session.accessToken) return { error: "No access token" };
     setUser({ email: session.user.email });
 
     logger.info("Starting saveRulesPromptAction", {
@@ -524,8 +454,10 @@ export const saveRulesPromptAction = withActionInstrumentation(
           });
         } else {
           try {
-            await prisma.rule.delete({
-              where: { id: rule.rule.id, userId: session.user.id },
+            await deleteRule({
+              ruleId: rule.rule.id,
+              userId: session.user.id,
+              groupId: rule.rule.groupId,
             });
           } catch (error) {
             if (!isNotFoundError(error)) {
@@ -569,16 +501,6 @@ export const saveRulesPromptAction = withActionInstrumentation(
             ruleId: rule.ruleId,
           });
 
-          const groupIdResult = await getGroupId(rule, session.user.id);
-          if (isActionError(groupIdResult)) {
-            logger.error("Error updating group for rule", {
-              email: user.email,
-              ruleId: rule.ruleId,
-              error: groupIdResult.error,
-            });
-            continue;
-          }
-
           const categoryIds = await getUserCategoriesForNames(
             session.user.id,
             rule.condition.categories?.categoryFilters || [],
@@ -586,13 +508,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
           editRulesCount++;
 
-          await safeUpdateRule(
-            rule.ruleId,
-            rule,
-            session.user.id,
-            groupIdResult,
-            categoryIds,
-          );
+          await safeUpdateRule(rule.ruleId, rule, session.user.id, categoryIds);
         }
       }
     } else {
@@ -619,20 +535,9 @@ export const saveRulesPromptAction = withActionInstrumentation(
         ruleId: rule.ruleId,
       });
 
-      const groupIdResult = await getGroupId(rule, session.user.id);
-      if (isActionError(groupIdResult)) {
-        logger.error("Error creating group for rule", {
-          email: user.email,
-          ruleId: rule.ruleId,
-          error: groupIdResult.error,
-        });
-        continue;
-      }
-
       await safeCreateRule(
         rule,
         session.user.id,
-        groupIdResult,
         rule.condition.categories?.categoryFilters || [],
       );
     }

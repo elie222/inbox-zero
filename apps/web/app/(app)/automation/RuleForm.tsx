@@ -3,13 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import useSWR from "swr";
 import {
   type FieldError,
-  type FieldErrors,
   type SubmitHandler,
-  type UseFormRegisterReturn,
-  type UseFormSetValue,
   useFieldArray,
   useForm,
 } from "react-hook-form";
@@ -23,11 +19,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import {
-  MessageText,
-  SectionDescription,
-  TypographyH3,
-} from "@/components/Typography";
+import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import {
   ActionType,
   CategoryFilterType,
@@ -42,16 +34,8 @@ import {
 import { actionInputs } from "@/utils/action-item";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
-import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { ViewGroupButton } from "@/app/(app)/automation/group/ViewGroup";
-import { CreateGroupModalButton } from "@/app/(app)/automation/group/CreateGroupModal";
-import { createPredefinedGroupAction } from "@/utils/actions/group";
-import {
-  NEWSLETTER_GROUP_ID,
-  RECEIPT_GROUP_ID,
-} from "@/app/(app)/automation/create/examples";
 import { isActionError } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
@@ -70,6 +54,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LearnedPatterns } from "@/app/(app)/automation/group/LearnedPatterns";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -78,7 +63,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     watch,
     setValue,
     control,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isSubmitted },
     trigger,
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
@@ -168,7 +153,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const conditions = watch("conditions");
   const unusedCondition = useMemo(() => {
     const usedConditions = new Set(conditions?.map(({ type }) => type));
-    return Object.values(RuleType).find((type) => !usedConditions.has(type));
+    return [RuleType.AI, RuleType.STATIC, RuleType.CATEGORY].find(
+      (type) => !usedConditions.has(type),
+    ) as Exclude<RuleType, "GROUP"> | undefined;
   }, [conditions]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -192,6 +179,21 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      {isSubmitted && Object.keys(errors).length > 0 && (
+        <div className="mt-4">
+          <AlertError
+            title="Error"
+            description={
+              <ul className="list-disc">
+                {Object.values(errors).map((error) => (
+                  <li key={error.message}>{error.message}</li>
+                ))}
+              </ul>
+            }
+          />
+        </div>
+      )}
+
       <div className="mt-4">
         <Input
           type="text"
@@ -254,7 +256,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   options={[
                     { label: "AI", value: RuleType.AI },
                     { label: "Static", value: RuleType.STATIC },
-                    { label: "Group", value: RuleType.GROUP },
                     { label: "Smart Category", value: RuleType.CATEGORY },
                   ]}
                   error={
@@ -317,7 +318,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         (errors.conditions?.[index] as { from?: FieldError })
                           ?.from
                       }
-                      placeholder="e.g. elie@getinboxzero.com"
+                      placeholder="e.g. hello@company.com"
                       tooltipText="Only apply this rule to emails from this address."
                     />
                     <Input
@@ -328,7 +329,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       error={
                         (errors.conditions?.[index] as { to?: FieldError })?.to
                       }
-                      placeholder="e.g. elie@getinboxzero.com"
+                      placeholder="e.g. hello@company.com"
                       tooltipText="Only apply this rule to emails sent to this address."
                     />
                     <Input
@@ -347,16 +348,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       tooltipText="Only apply this rule to emails with this subject."
                     />
                   </>
-                )}
-
-                {watch(`conditions.${index}.type`) === RuleType.GROUP && (
-                  <GroupsTab
-                    registerProps={register(`conditions.${index}.groupId`)}
-                    setValue={setValue}
-                    errors={errors}
-                    groupId={watch(`conditions.${index}.groupId`)}
-                    ruleId={rule.id}
-                  />
                 )}
 
                 {watch(`conditions.${index}.type`) === RuleType.CATEGORY && (
@@ -495,6 +486,12 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Condition
           </Button>
+        </div>
+      )}
+
+      {rule.groupId && (
+        <div className="mt-4">
+          <LearnedPatterns groupId={rule.groupId} />
         </div>
       )}
 
@@ -714,93 +711,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         )}
       </div>
     </form>
-  );
-}
-
-function GroupsTab(props: {
-  registerProps: UseFormRegisterReturn;
-  setValue: UseFormSetValue<CreateRuleBody>;
-  errors: FieldErrors<CreateRuleBody>;
-  groupId?: string | null;
-  ruleId?: string | null;
-}) {
-  const { setValue, ruleId } = props;
-  const { data, isLoading, error, mutate } =
-    useSWR<GroupsResponse>("/api/user/group");
-  const [loadingCreateGroup, setLoadingCreateGroup] = useState(false);
-
-  useEffect(() => {
-    async function createGroup(groupId: string) {
-      setLoadingCreateGroup(true);
-
-      const result = await createPredefinedGroupAction(groupId);
-
-      if (isActionError(result)) {
-        toastError({ description: result.error });
-      } else if (!result) {
-        toastError({ description: "Error creating group" });
-      } else {
-        mutate();
-        setValue("conditions", [{ groupId: result.id, type: RuleType.GROUP }]);
-      }
-
-      setLoadingCreateGroup(false);
-    }
-
-    if (
-      props.groupId === NEWSLETTER_GROUP_ID ||
-      props.groupId === RECEIPT_GROUP_ID
-    ) {
-      createGroup(props.groupId);
-    }
-  }, [mutate, props.groupId, setValue]);
-
-  return (
-    <div className="mt-4">
-      <SectionDescription>
-        A group is a static collection of senders or subjects.
-      </SectionDescription>
-
-      {loadingCreateGroup && (
-        <MessageText className="my-4 text-center">
-          Creating group with AI... This will take up to 30 seconds.
-        </MessageText>
-      )}
-
-      <LoadingContent loading={isLoading || loadingCreateGroup} error={error}>
-        <div className="mt-2 grid gap-2 sm:flex sm:items-center">
-          {data?.groups && data?.groups.length > 0 && (
-            <div className="min-w-[250px] flex-1">
-              <Select
-                label=""
-                options={data.groups.map((group) => ({
-                  label: `${group.name}${group.rule && group.rule.id !== ruleId ? " (already in use)" : ""}`,
-                  value: group.id,
-                }))}
-                {...props.registerProps}
-                // TODO: fix this
-                // error={props.errors.groupId}
-              />
-            </div>
-          )}
-
-          {props.groupId && (
-            <ViewGroupButton
-              groupId={props.groupId}
-              ButtonComponent={({ onClick }) => (
-                <Button variant="outline" onClick={onClick}>
-                  View
-                </Button>
-              )}
-            />
-          )}
-          <CreateGroupModalButton
-            existingGroups={data?.groups.map((group) => group.name) || []}
-            buttonVariant="outline"
-          />
-        </div>
-      </LoadingContent>
-    </div>
   );
 }
 

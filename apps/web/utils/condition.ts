@@ -54,13 +54,6 @@ export function getConditions(rule: RuleConditions) {
     });
   }
 
-  if (isGroupRule(rule)) {
-    conditions.push({
-      type: RuleType.GROUP,
-      groupId: rule.groupId,
-    });
-  }
-
   if (isStaticRule(rule)) {
     conditions.push({
       type: RuleType.STATIC,
@@ -95,8 +88,7 @@ export function getConditionTypes(
 }
 
 export function getEmptyCondition(
-  type: RuleType,
-  groupId?: string,
+  type: Exclude<RuleType, "GROUP">,
   category?: string,
 ): ZodCondition {
   switch (type) {
@@ -104,11 +96,6 @@ export function getEmptyCondition(
       return {
         type: RuleType.AI,
         instructions: "",
-      };
-    case RuleType.GROUP:
-      return {
-        type: RuleType.GROUP,
-        groupId: groupId || "",
       };
     case RuleType.STATIC:
       return {
@@ -133,7 +120,6 @@ export function getEmptyCondition(
 
 type FlattenedConditions = {
   instructions?: string | null;
-  groupId?: string | null;
   from?: string | null;
   to?: string | null;
   subject?: string | null;
@@ -149,9 +135,6 @@ export const flattenConditions = (
     switch (condition.type) {
       case RuleType.AI:
         acc.instructions = condition.instructions;
-        break;
-      case RuleType.GROUP:
-        acc.groupId = condition.groupId;
         break;
       case RuleType.STATIC:
         acc.to = condition.to;
@@ -201,43 +184,43 @@ export function ruleTypeToString(ruleType: RuleType): string {
 }
 
 export function conditionsToString(rule: RuleConditions) {
-  let result = "";
-
+  const conditions: string[] = [];
   const connector =
     rule.conditionalOperator === LogicalOperator.AND ? " AND " : " OR ";
 
-  if (rule.groupId) {
-    result += `Group: ${rule.group?.name || "MISSING"}`;
-  }
+  // Static conditions - grouped with commas
+  const staticConditions: string[] = [];
+  if (rule.from) staticConditions.push(`From: "${rule.from}"`);
+  if (rule.subject) staticConditions.push(`Subject: "${rule.subject}"`);
+  if (rule.to) staticConditions.push(`To: "${rule.to}"`);
+  if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
+  if (staticConditions.length) conditions.push(staticConditions.join(", "));
 
-  if (rule.from || rule.to || rule.subject || rule.body) {
-    const from = rule.from ? `From: "${rule.from}"` : "";
-    if (from && result) result += connector;
-    result += from;
+  // AI condition
+  if (rule.instructions) conditions.push(`AI: ${rule.instructions}`);
 
-    const subject = rule.subject ? `Subject: "${rule.subject}"` : "";
-    if (subject && result) result += connector;
-    result += subject;
-  }
-
-  if (rule.instructions) {
-    if (result) result += connector;
-    result += `AI: ${rule.instructions}`;
-  }
-
+  // Category condition
   const categoryFilters = rule.categoryFilters;
   if (rule.categoryFilterType && categoryFilters?.length) {
-    if (result) result += connector;
     const max = 3;
     const categories =
       categoryFilters
         .slice(0, max)
         .map((category) => category.name)
         .join(", ") + (categoryFilters.length > max ? ", ..." : "");
-    result += `${rule.categoryFilterType === CategoryFilterType.EXCLUDE ? "Exclude " : ""}${categoryFilters.length === 1 ? "Category" : "Categories"}: ${categories}`;
+    conditions.push(
+      `${rule.categoryFilterType === CategoryFilterType.EXCLUDE ? "Exclude " : ""}${
+        categoryFilters.length === 1 ? "Category" : "Categories"
+      }: ${categories}`,
+    );
   }
 
-  return result;
+  // Group condition
+  if (rule.groupId) {
+    conditions.push("Group");
+  }
+
+  return conditions.join(connector);
 }
 
 export function categoryFilterTypeToString(

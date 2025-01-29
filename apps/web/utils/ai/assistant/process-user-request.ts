@@ -17,7 +17,7 @@ import {
   type CreateRuleSchemaWithCategories,
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
-import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
+import { deleteGroupItem } from "@/utils/group/group-item";
 import {
   addRuleCategories,
   partialUpdateRule,
@@ -66,32 +66,36 @@ You can fix rules using these specific operations:
 - Update static conditions (from, to, subject, body)
 - Add or remove categories
 
-2. Manage Groups:
-- Add items to groups (email addresses or subject patterns)
-- Remove items from groups
-- Never mix static conditions with group conditions
-
-3. Create New Rules:
+2. Create New Rules:
 - Create new rules when existing ones cannot be modified to fit the need
+
+${
+  matchedRule?.group?.items?.length
+    ? `3. Manage Learned Patterns:
+- These are patterns that have been learned from the user's email history to always be matched (and they ignore the conditionalOperator setting)
+- Patterns are email addresses or subjects
+- You can remove patterns`
+    : ""
+}
 
 When fixing rules:
 - Make one precise change at a time
 - Prefer minimal changes that solve the problem
-- Only add AI instructions if simpler conditions won't suffice
 - Keep rules general and maintainable
 
 Rule matching logic:
-- All static conditions (from, to, subject, body) use AND logic - meaning all conditions must match
-- Top level conditions (static, group, category, AI instructions) can use either AND or OR logic, controlled by the conditionalOperator setting
+- All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
+- Top level conditions (AI instructions, static, category) can use either AND or OR logic, controlled by the conditionalOperator setting
 
 Best practices:
 - For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
-- For groups, collect similar items that are likely to appear together (e.g., newsletter senders, receipt subject patterns)
-- Only use subject patterns if they are likely to be recurring (e.g., "Your Monthly Statement", "Order Confirmation")
-- IMPORTANT: do not create new rules unless absolutely necessary and the user has asked for it.
+- IMPORTANT: do not create new rules unless absolutely necessary. Avoid duplicate rules, so make sure to check if the rule already exists.
+- You can use multiple conditions in a rule, but aim for simplicity.
+- When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
+- If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 
 Always end by using the reply tool to explain what changes were made.
-Include the updated rule in your reply so that the user understands what was changed.
+Include the updated rule in simple English in your reply so that the user understands what was changed.
 Use simple language and avoid jargon in your reply.`;
 
   const prompt = `${
@@ -180,29 +184,21 @@ ${senderCategory || "No category"}
     tools: {
       create_rule: tool({
         description: "Create a new rule",
-        parameters: (categories
+        parameters: categories
           ? getCreateRuleSchemaWithCategories(
               categories.map((c) => c.name) as [string, ...string[]],
             )
-          : createRuleSchema
-        )
-          // Simplify rule creation to not include groups
-          .extend({
-            condition: createRuleSchema.shape.condition.omit({ group: true }),
-          }),
+          : createRuleSchema,
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
 
           const conditions =
             condition as CreateRuleSchemaWithCategories["condition"];
 
-          const groupId = null;
-
           try {
             const rule = await safeCreateRule(
               { name, condition, actions },
               user.id,
-              groupId,
               conditions.categories?.categoryFilters || [],
             );
 
@@ -287,91 +283,92 @@ ${senderCategory || "No category"}
           });
         },
       }),
-      add_to_group: tool({
-        description: "Add a group item",
-        parameters: z.object({
-          groupName: z
-            .string()
-            .describe("The name of the group to add the group item to"),
-          type: z
-            .enum(["from", "subject"])
-            .describe("The type of the group item to add"),
-          value: z
-            .string()
-            .describe(
-              "The value of the group item to add. e.g. '@company.com', 'matt@company.com', 'Receipt from'",
-            ),
-        }),
-        execute: async ({ groupName, type, value }) => {
-          logger.info("Add To Group", { groupName, type, value });
+      // We may bring this back as "learned patterns"
+      // add_pattern: tool({
+      //   description: "Add a pattern",
+      //   parameters: z.object({
+      //     ruleName: z
+      //       .string()
+      //       .describe("The name of the rule to add the pattern to"),
+      //     type: z
+      //       .enum(["from", "subject"])
+      //       .describe("The type of the pattern to add"),
+      //     value: z
+      //       .string()
+      //       .describe(
+      //         "The value of the pattern to add. e.g. '@company.com', 'matt@company.com', 'Receipt from'",
+      //       ),
+      //   }),
+      //   execute: async ({ ruleName, type, value }) => {
+      //     logger.info("Add To Learned Patterns", { ruleName, type, value });
 
-          const group = rules.find((r) => r.group?.name === groupName)?.group;
-          const groupId = group?.id;
+      //     const group = rules.find((r) => r.group?.name === groupName)?.group;
+      //     const groupId = group?.id;
 
-          if (!groupId) {
-            logger.error("Group not found", {
-              ...loggerOptions,
-              groupName,
-            });
-            return { error: "Group not found" };
-          }
+      //     if (!groupId) {
+      //       logger.error("Group not found", {
+      //         ...loggerOptions,
+      //         groupName,
+      //       });
+      //       return { error: "Group not found" };
+      //     }
 
-          const groupItemType = getGroupItemType(type);
+      //     const groupItemType = getPatternType(type);
 
-          if (!groupItemType) {
-            logger.error("Invalid group item type", {
-              ...loggerOptions,
-              type,
-            });
-            return { error: "Invalid group item type" };
-          }
+      //     if (!groupItemType) {
+      //       logger.error("Invalid pattern type", {
+      //         ...loggerOptions,
+      //         type,
+      //       });
+      //       return { error: "Invalid pattern type" };
+      //     }
 
-          try {
-            await addGroupItem({ groupId, type: groupItemType, value });
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
+      //     try {
+      //       await addGroupItem({ groupId, type: groupItemType, value });
+      //     } catch (error) {
+      //       const message =
+      //         error instanceof Error ? error.message : String(error);
 
-            logger.error("Error while adding group item", {
-              ...loggerOptions,
-              groupId,
-              type: groupItemType,
-              value,
-              error: message,
-            });
-            return {
-              error: "Failed to add group item",
-              message,
-            };
-          }
+      //       logger.error("Error while adding pattern", {
+      //         ...loggerOptions,
+      //         groupId,
+      //         type: groupItemType,
+      //         value,
+      //         error: message,
+      //       });
+      //       return {
+      //         error: "Failed to add pattern",
+      //         message,
+      //       };
+      //     }
 
-          return { success: true };
-        },
-      }),
+      //     return { success: true };
+      //   },
+      // }),
       ...(matchedRule?.group
         ? {
-            remove_from_group: tool({
-              description: "Remove a group item ",
+            remove_pattern: tool({
+              description: "Remove a pattern",
               parameters: z.object({
                 type: z
                   .enum(["from", "subject"])
-                  .describe("The type of the group item to remove"),
+                  .describe("The type of the pattern to remove"),
                 value: z
                   .string()
-                  .describe("The value of the group item to remove"),
+                  .describe("The value of the pattern to remove"),
               }),
               execute: async ({ type, value }) => {
-                logger.info("Remove From Group", { type, value });
+                logger.info("Remove Pattern", { type, value });
 
-                const groupItemType = getGroupItemType(type);
+                const groupItemType = getPatternType(type);
 
                 if (!groupItemType) {
-                  logger.error("Invalid group item type", {
+                  logger.error("Invalid pattern type", {
                     ...loggerOptions,
                     type,
                     value,
                   });
-                  return { error: "Invalid group item type" };
+                  return { error: "Invalid pattern type" };
                 }
 
                 const groupItem = matchedRule?.group?.items?.find(
@@ -379,24 +376,21 @@ ${senderCategory || "No category"}
                 );
 
                 if (!groupItem) {
-                  logger.error("Group item not found", {
+                  logger.error("Pattern not found", {
                     ...loggerOptions,
                     type,
                     value,
                   });
-                  return { error: "Group item not found" };
+                  return { error: "Pattern not found" };
                 }
 
                 try {
-                  await deleteGroupItem({
-                    id: groupItem.id,
-                    userId: user.id,
-                  });
+                  await deleteGroupItem({ id: groupItem.id, userId: user.id });
                 } catch (error) {
                   const message =
                     error instanceof Error ? error.message : String(error);
 
-                  logger.error("Error while deleting group item", {
+                  logger.error("Error while deleting pattern", {
                     ...loggerOptions,
                     groupItemId: groupItem.id,
                     type: groupItemType,
@@ -405,7 +399,7 @@ ${senderCategory || "No category"}
                   });
 
                   return {
-                    error: "Failed to delete group item",
+                    error: "Failed to delete pattern",
                     message,
                   };
                 }
@@ -650,28 +644,6 @@ function ruleToXML(rule: RuleWithRelations) {
         : ""
     }
     ${
-      rule.group
-        ? `<group_condition>
-      <group>${rule.group.name}</group>
-      <group_items>
-        ${
-          rule.group.items
-            ? rule.group.items
-                .map(
-                  (item) =>
-                    `<item>
-  <type>${item.type}</type>
-  <value>${item.value}</value>
-</item>`,
-                )
-                .join("\n      ")
-            : "No group items"
-        }
-      </group_items>
-    </group_condition>`
-        : ""
-    }
-    ${
       hasCategoryConditions(rule)
         ? `<category_conditions>
       ${rule.categoryFilterType ? `<filter_type>${rule.categoryFilterType}</filter_type>` : ""}
@@ -680,6 +652,22 @@ function ruleToXML(rule: RuleWithRelations) {
         : ""
     }
   </conditions>
+
+  ${
+    rule.group?.items?.length
+      ? `<patterns>
+      ${rule.group.items
+        .map(
+          (item) =>
+            `<pattern>
+<type>${item.type}</type>
+<value>${item.value}</value>
+</pattern>`,
+        )
+        .join("\n      ")}
+  </patterns>`
+      : ""
+  }
 </rule>`;
 }
 
@@ -697,7 +685,7 @@ function hasCategoryConditions(rule: RuleWithRelations) {
   return Boolean(rule.categoryFilters && rule.categoryFilters.length > 0);
 }
 
-function getGroupItemType(type: string) {
+function getPatternType(type: string) {
   if (type === "from") return GroupItemType.FROM;
   if (type === "subject") return GroupItemType.SUBJECT;
 }

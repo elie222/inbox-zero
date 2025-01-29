@@ -19,7 +19,7 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { LogicalOperator } from "@prisma/client";
+import { LogicalOperator, RuleType } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
@@ -27,6 +27,7 @@ import {
 } from "@/utils/rule/prompt-file";
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
+import { deleteRule } from "@/utils/rule/rule";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -73,7 +74,6 @@ export const createRuleAction = withActionInstrumentation(
           to: conditions.to || null,
           subject: conditions.subject || null,
           // body: conditions.body || null,
-          groupId: conditions.groupId || null,
           categoryFilterType: conditions.categoryFilterType || null,
           categoryFilters:
             conditions.categoryFilterType && conditions.categoryFilters
@@ -146,7 +146,6 @@ export const updateRuleAction = withActionInstrumentation(
             to: conditions.to || null,
             subject: conditions.subject || null,
             // body: conditions.body || null,
-            groupId: conditions.groupId || null,
             categoryFilterType: conditions.categoryFilterType || null,
             categoryFilters:
               conditions.categoryFilterType && conditions.categoryFilters
@@ -272,8 +271,10 @@ export const deleteRuleAction = withActionInstrumentation(
       return { error: "You don't have permission to delete this rule" };
 
     try {
-      await prisma.rule.delete({
-        where: { id: ruleId, userId: session.user.id },
+      await deleteRule({
+        ruleId,
+        userId: session.user.id,
+        groupId: rule.groupId,
       });
 
       const user = await prisma.user.findUnique({

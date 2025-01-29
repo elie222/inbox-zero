@@ -74,10 +74,31 @@ async function findPotentialMatchingRules({
     if (isThread && !runOnThreads) continue;
 
     const conditionTypes = getConditionTypes(rule);
+    const matchReasons: MatchReason[] = [];
+
+    // group - ignores conditional operator
+    // if a match is found, return it
+    if (rule.groupId) {
+      const { matchingItem, group } = await matchesGroupRule(
+        rule,
+        await getGroups(rule.userId),
+        message,
+      );
+      if (matchingItem) {
+        matchReasons.push({
+          type: RuleType.GROUP,
+          groupItem: matchingItem,
+          group,
+        });
+
+        return { match: rule, matchReasons };
+      }
+    }
+
+    // Regular conditions:
     const unmatchedConditions = new Set<RuleType>(
       Object.keys(conditionTypes) as RuleType[],
     );
-    const matchReasons: MatchReason[] = [];
 
     // static
     if (conditionTypes.STATIC) {
@@ -87,29 +108,6 @@ async function findPotentialMatchingRules({
         matchReasons.push({ type: RuleType.STATIC });
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
           return { match: rule, matchReasons };
-      } else {
-        // no match, so can't be a match with AND
-        if (operator === LogicalOperator.AND) continue;
-      }
-    }
-
-    // group
-    if (conditionTypes.GROUP) {
-      const { matchingItem, group } = await matchesGroupRule(
-        rule,
-        await getGroups(rule.userId),
-        message,
-      );
-      if (matchingItem) {
-        unmatchedConditions.delete(RuleType.GROUP);
-        matchReasons.push({
-          type: RuleType.GROUP,
-          groupItem: matchingItem,
-          group,
-        });
-        if (operator === LogicalOperator.OR || !unmatchedConditions.size) {
-          return { match: rule, matchReasons };
-        }
       } else {
         // no match, so can't be a match with AND
         if (operator === LogicalOperator.AND) continue;
