@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Toggle } from "@/components/Toggle";
-import { TooltipExplanation } from "@/components/TooltipExplanation";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -13,7 +11,6 @@ import { ViewGroup } from "@/app/(app)/automation/group/ViewGroup";
 
 export function LearnedPatterns({ groupId }: { groupId: string }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [autoLearn, setAutoLearn] = useState(false);
 
   return (
     <Collapsible
@@ -28,7 +25,7 @@ export function LearnedPatterns({ groupId }: { groupId: string }) {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-1.5 border-r pr-4">
+          {/* <div className="flex items-center space-x-1.5 border-r pr-4">
             <TooltipExplanation text="Automatically detect and add new matching patterns from incoming emails." />
             <Toggle
               name="auto-learn"
@@ -36,7 +33,7 @@ export function LearnedPatterns({ groupId }: { groupId: string }) {
               enabled={autoLearn}
               onChange={(enabled) => setAutoLearn(enabled)}
             />
-          </div>
+          </div> */}
 
           <ChevronDownIcon
             size={16}
