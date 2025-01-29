@@ -182,62 +182,6 @@ ${senderCategory || "No category"}
     userAi: user,
     messages: allMessages,
     tools: {
-      create_rule: tool({
-        description: "Create a new rule",
-        parameters: categories
-          ? getCreateRuleSchemaWithCategories(
-              categories.map((c) => c.name) as [string, ...string[]],
-            )
-          : createRuleSchema,
-        execute: async ({ name, condition, actions }) => {
-          logger.info("Create Rule", { name, condition, actions });
-
-          const conditions =
-            condition as CreateRuleSchemaWithCategories["condition"];
-
-          try {
-            const rule = await safeCreateRule(
-              { name, condition, actions },
-              user.id,
-              conditions.categories?.categoryFilters || [],
-            );
-
-            if ("error" in rule) {
-              logger.error("Error while creating rule", {
-                ...loggerOptions,
-                error: rule.error,
-              });
-
-              return {
-                error: "Failed to create rule",
-                message: rule.error,
-              };
-            }
-
-            createdRules.set(rule.id, rule);
-
-            return { success: true };
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-
-            logger.error("Failed to create rule", {
-              ...loggerOptions,
-              error: message,
-            });
-
-            return {
-              error: "Failed to create rule",
-              message,
-            };
-          }
-        },
-      }),
-      list_rules: tool({
-        description: "List all existing rules for the user",
-        parameters: z.object({}),
-        execute: async () => userRules,
-      }),
       update_conditional_operator: tool({
         description: "Update the conditional operator of a rule",
         parameters: z.object({
@@ -532,6 +476,62 @@ ${senderCategory || "No category"}
             }),
           }
         : {}),
+      create_rule: tool({
+        description: "Create a new rule",
+        parameters: categories
+          ? getCreateRuleSchemaWithCategories(
+              categories.map((c) => c.name) as [string, ...string[]],
+            )
+          : createRuleSchema,
+        execute: async ({ name, condition, actions }) => {
+          logger.info("Create Rule", { name, condition, actions });
+
+          const conditions =
+            condition as CreateRuleSchemaWithCategories["condition"];
+
+          try {
+            const rule = await safeCreateRule(
+              { name, condition, actions },
+              user.id,
+              conditions.categories?.categoryFilters || [],
+            );
+
+            if ("error" in rule) {
+              logger.error("Error while creating rule", {
+                ...loggerOptions,
+                error: rule.error,
+              });
+
+              return {
+                error: "Failed to create rule",
+                message: rule.error,
+              };
+            }
+
+            createdRules.set(rule.id, rule);
+
+            return { success: true };
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+
+            logger.error("Failed to create rule", {
+              ...loggerOptions,
+              error: message,
+            });
+
+            return {
+              error: "Failed to create rule",
+              message,
+            };
+          }
+        },
+      }),
+      list_rules: tool({
+        description: "List all existing rules for the user",
+        parameters: z.object({}),
+        execute: async () => userRules,
+      }),
       reply: tool({
         description: "Send an email reply to the user",
         parameters: z.object({
