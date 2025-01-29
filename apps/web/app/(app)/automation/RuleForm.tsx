@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,7 +17,14 @@ import { toast } from "sonner";
 import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import { ExternalLinkIcon, PlusIcon, FilterIcon } from "lucide-react";
+import {
+  ExternalLinkIcon,
+  PlusIcon,
+  FilterIcon,
+  ChevronDown,
+  Brain,
+  XIcon,
+} from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -57,7 +65,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { LearnedPatterns } from "@/app/(app)/automation/group/LearnedPatterns";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -258,7 +266,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                     { label: "AI", value: RuleType.AI },
                     { label: "Static", value: RuleType.STATIC },
                     { label: "Smart Category", value: RuleType.CATEGORY },
-                    { label: "Group", value: RuleType.GROUP },
                   ]}
                   error={
                     errors.conditions?.[index]?.type as FieldError | undefined
@@ -350,14 +357,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       tooltipText="Only apply this rule to emails with this subject."
                     />
                   </>
-                )}
-
-                {watch(`conditions.${index}.type`) === RuleType.GROUP && (
-                  <GroupsTab
-                    registerProps={register(`conditions.${index}.groupId`)}
-                    errors={errors}
-                    groupId={watch(`conditions.${index}.groupId`)}
-                  />
                 )}
 
                 {watch(`conditions.${index}.type`) === RuleType.CATEGORY && (
@@ -496,6 +495,12 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Condition
           </Button>
+        </div>
+      )}
+
+      {rule.groupId && (
+        <div className="mt-4">
+          <LearnedPatterns groupId={rule.groupId} />
         </div>
       )}
 
@@ -715,34 +720,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         )}
       </div>
     </form>
-  );
-}
-
-function GroupsTab(props: {
-  registerProps: UseFormRegisterReturn;
-  errors: FieldErrors<CreateRuleBody>;
-  groupId?: string | null;
-}) {
-  return (
-    <div className="mt-4">
-      <SectionDescription>
-        Advanced: Groups are usually managed by our AI. A group is a static
-        collection of senders and subjects. Our AI collects these for you to
-        more efficiently match future emails.
-      </SectionDescription>
-
-      <div className="mt-2">
-        {props.groupId ? (
-          <ScrollArea className="h-[310px]">
-            <ViewGroup groupId={props.groupId} />
-          </ScrollArea>
-        ) : (
-          <div className="text-sm text-blue-700">
-            To add group items, create the rule first.
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

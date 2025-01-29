@@ -2,7 +2,7 @@
 
 import useSWR, { type KeyedMutator } from "swr";
 import Link from "next/link";
-import { PlusIcon, TrashIcon, ExternalLinkIcon } from "lucide-react";
+import { PlusIcon, ExternalLinkIcon, XCircleIcon } from "lucide-react";
 import {
   useState,
   useCallback,
@@ -40,7 +40,6 @@ import {
 } from "@/utils/actions/validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
-import { Toggle } from "@/components/Toggle";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export function ViewGroup({ groupId }: { groupId: string | null }) {
@@ -52,7 +51,7 @@ export function ViewGroup({ groupId }: { groupId: string | null }) {
   const [showAddItem, setShowAddItem] = useState(false);
 
   return (
-    <div className="mt-2">
+    <div className="mt-2 px-4">
       {showAddItem ? (
         <AddGroupItemForm
           groupId={groupId}
@@ -61,7 +60,8 @@ export function ViewGroup({ groupId }: { groupId: string | null }) {
         />
       ) : (
         <div className="sm:flex sm:items-center sm:justify-between">
-          <div className="flex items-center space-x-1.5">
+          <div />
+          {/* <div className="flex items-center space-x-1.5">
             <TooltipExplanation text="Automatically detect and add new matching patterns from incoming emails." />
             <Toggle
               name="auto-update"
@@ -69,7 +69,7 @@ export function ViewGroup({ groupId }: { groupId: string | null }) {
               enabled={true}
               onChange={(enabled) => {}}
             />
-          </div>
+          </div> */}
 
           <div className="mt-2 grid grid-cols-1 gap-1 sm:mt-0 sm:flex sm:items-center">
             <Button
@@ -78,7 +78,7 @@ export function ViewGroup({ groupId }: { groupId: string | null }) {
               onClick={() => setShowAddItem(true)}
             >
               <PlusIcon className="mr-2 h-4 w-4" />
-              Add Item
+              Add pattern
             </Button>
 
             <Button variant="outline" size="sm" asChild>
@@ -94,7 +94,7 @@ export function ViewGroup({ groupId }: { groupId: string | null }) {
         </div>
       )}
 
-      <div className="mt-4">
+      <div className="mt-2">
         <LoadingContent
           loading={!data && isLoading}
           error={error}
@@ -217,22 +217,31 @@ function GroupItems({
     <div className="space-y-4">
       <GroupItemList
         title={
-          <div className="flex items-center space-x-1.5">
-            Match
-            <TooltipExplanation text="Automatically match incoming emails." />
+          <div className="flex items-center gap-x-1.5">
+            When these patterns are encountered, the rule will automatically
+            match:
           </div>
         }
         items={groupedByStatus[GroupItemStatus.APPROVED] || []}
         mutate={mutate}
       />
       <GroupItemList
-        title="Never Match"
+        title={
+          <div className="flex items-center gap-x-1.5">
+            These patterns will never match:
+          </div>
+        }
         items={groupedByStatus[GroupItemStatus.REJECTED] || []}
         mutate={mutate}
       />
       <GroupItemList
-        title="Needs AI"
-        items={groupedByStatus[GroupItemStatus.NEEDS_AI] || []}
+        title={
+          <div className="flex items-center gap-x-1.5">
+            These patterns will need evaluation (and the AI will not move them
+            to the Match or Never Match lists):
+          </div>
+        }
+        items={groupedByStatus[GroupItemStatus.EVALUATE] || []}
         mutate={mutate}
       />
     </div>
@@ -295,7 +304,7 @@ function GroupItemList({
                     }
                   }}
                 >
-                  <TrashIcon className="size-4" />
+                  <XCircleIcon className="size-4" />
                 </Button>
               </TableCell>
             </TableRow>

@@ -54,13 +54,6 @@ export function getConditions(rule: RuleConditions) {
     });
   }
 
-  if (isGroupRule(rule)) {
-    conditions.push({
-      type: RuleType.GROUP,
-      groupId: rule.groupId,
-    });
-  }
-
   if (isStaticRule(rule)) {
     conditions.push({
       type: RuleType.STATIC,

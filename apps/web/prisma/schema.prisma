@@ -464,7 +464,7 @@ enum LogicalOperator {
 }
 
 enum GroupItemStatus {
-  APPROVED // Auto-approve matching emails, no AI needed
-  REJECTED // Auto-reject matching emails, no AI needed
-  NEEDS_AI // Run AI but don't auto-approve even if AI suggests this pattern
+  APPROVED  // Auto match emails
+  REJECTED  // Never match emails
+  EVALUATE  // Neither auto-approve nor auto-reject; evaluate using other conditions
 }

@@ -107,7 +107,6 @@ const zodCategoryCondition = z.object({
 const zodCondition = z.object({
   type: zodRuleType,
   ...zodAiCondition.shape,
-  ...zodGroupCondition.shape,
   ...zodStaticCondition.shape,
   ...zodCategoryCondition.shape,
 });
@@ -117,6 +116,7 @@ export const createRuleBody = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Please enter a name"),
   instructions: z.string().nullish(),
+  groupId: z.string().nullish(),
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
   actions: z.array(zodAction).min(1, "You must have at least one action"),
