@@ -78,7 +78,7 @@ async function findPotentialMatchingRules({
 
     // group - ignores conditional operator
     // if a match is found, return it
-    if (conditionTypes.GROUP) {
+    if (rule.groupId) {
       const { matchingItem, group } = await matchesGroupRule(
         rule,
         await getGroups(rule.userId),
