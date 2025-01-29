@@ -169,9 +169,7 @@ describe("findMatchingRule", () => {
     const result = await findMatchingRule(rules, message, user);
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe(
-      `Matched group item: "FROM: test@example.com", Matched category: "category"`,
-    );
+    expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
   });
 
   it("matches a rule with multiple conditions AND (category and AI)", async () => {
@@ -236,7 +234,7 @@ describe("findMatchingRule", () => {
     expect(aiChooseRule).toHaveBeenCalledOnce();
   });
 
-  it("doesn't match with only one of category or group", async () => {
+  it("should match with only one of category or group", async () => {
     prisma.newsletter.findUnique.mockResolvedValue(
       getNewsletter({ categoryId: "category1" }),
     );
@@ -253,8 +251,8 @@ describe("findMatchingRule", () => {
 
     const result = await findMatchingRule(rules, message, user);
 
-    expect(result.rule?.id).toBeUndefined();
-    expect(result.reason).toBeUndefined();
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBe('Matched category: "category"');
   });
 
   it("matches with OR and one of category or group", async () => {
