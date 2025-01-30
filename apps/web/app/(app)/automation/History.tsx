@@ -103,6 +103,7 @@ function HistoryTable({
               <TableCell>
                 <RuleCell
                   rule={p.rule}
+                  status={p.status}
                   reason={p.reason}
                   message={p.message}
                   isTest={false}
