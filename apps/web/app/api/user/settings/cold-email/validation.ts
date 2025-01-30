@@ -8,6 +8,7 @@ export const updateColdEmailSettingsBody = z.object({
       ColdEmailSetting.LIST,
       ColdEmailSetting.LABEL,
       ColdEmailSetting.ARCHIVE_AND_LABEL,
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
     ])
     .nullish(),
   coldEmailPrompt: z.string().nullish(),

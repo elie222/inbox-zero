@@ -86,15 +86,19 @@ export function ColdEmailForm({
   }[] = useMemo(
     () => [
       {
+        value: ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
+        label: "Archive, Mark Read & Label",
+        description: "Archive cold emails, mark them as read, and label them",
+      },
+      {
         value: ColdEmailSetting.ARCHIVE_AND_LABEL,
         label: "Archive & Label",
-        description: "Automatically archive and label cold emails",
+        description: "Archive cold emails and label them",
       },
       {
         value: ColdEmailSetting.LABEL,
         label: "Label Only",
-        description:
-          "Label cold emails as 'Cold Email', but keep them in my inbox",
+        description: "Label cold emails, but keep them in my inbox",
       },
       {
         value: ColdEmailSetting.DISABLED,

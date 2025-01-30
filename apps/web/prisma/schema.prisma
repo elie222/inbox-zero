@@ -412,6 +412,7 @@ enum ColdEmailSetting {
   LIST
   LABEL
   ARCHIVE_AND_LABEL
+  ARCHIVE_AND_READ_AND_LABEL
 }
 
 enum PremiumTier {
