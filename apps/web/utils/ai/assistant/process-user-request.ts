@@ -86,6 +86,7 @@ When fixing rules:
 - Make one precise change at a time
 - Prefer minimal changes that solve the problem
 - Keep rules general and maintainable
+- Once you've made all the changes you want to make, reprocess the email to see if the rules match correctly
 
 Rule matching logic:
 - All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
