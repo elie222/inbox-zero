@@ -60,6 +60,7 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
+        notProcessed: false,
         categories: null,
         senderCategory: null,
       });
@@ -113,6 +114,7 @@ describe(
         ],
         originalEmail,
         matchedRule: ruleUrgent,
+        notProcessed: false,
         categories: null,
         senderCategory: null,
       });
@@ -158,6 +160,7 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
+        notProcessed: false,
         categories: null,
         senderCategory: null,
       });
@@ -233,6 +236,7 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
+        notProcessed: false,
         categories: null,
         senderCategory: null,
       });
@@ -295,6 +299,7 @@ describe(
         ],
         originalEmail,
         matchedRule: null, // Important: rule didn't match initially
+        notProcessed: false,
         categories: null,
         senderCategory: null,
       });
@@ -340,6 +345,7 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
+        notProcessed: false,
         categories: [
           { id: "1", name: "Marketing" },
           { id: "2", name: "Sales" },
@@ -392,6 +398,7 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
+        notProcessed: false,
         categories: [
           { id: "1", name: "Marketing" },
           { id: "2", name: "Sales" },

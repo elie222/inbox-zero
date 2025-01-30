@@ -233,6 +233,7 @@ async function processAssistantEmailInternal({
     originalEmail: originalMessage,
     messages,
     matchedRule: executedRule?.rule || null,
+    notProcessed: !!(executedRule && originalMessage),
     categories: user.categories.length ? user.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,
     reprocess,

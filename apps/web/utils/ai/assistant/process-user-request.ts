@@ -42,6 +42,7 @@ export async function processUserRequest({
   originalEmail,
   messages,
   matchedRule,
+  notProcessed,
   categories,
   senderCategory,
   reprocess,
@@ -51,6 +52,7 @@ export async function processUserRequest({
   originalEmail: ParsedMessage | null;
   messages: { role: "assistant" | "user"; content: string }[];
   matchedRule: RuleWithRelations | null;
+  notProcessed: boolean;
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
   reprocess?: () => Promise<RunRulesResult>;
@@ -103,11 +105,13 @@ Always end by using the reply tool to explain what changes were made.
 Use simple language and avoid jargon in your reply.`;
 
   const prompt = `${
-    originalEmail
-      ? `<matched_rule>
+    notProcessed
+      ? "<note>The system did not process the email. Please reprocess the email to see if the rules match correctly.</note>"
+      : originalEmail
+        ? `<matched_rule>
 ${matchedRule ? ruleToXML(matchedRule) : "No rule matched"}
 </matched_rule>`
-      : ""
+        : ""
   }
 
 ${!matchedRule ? userRules : ""}
