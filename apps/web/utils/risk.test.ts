@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { getRiskLevel, getActionRiskLevel } from "./risk";
-import { RuleType } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
 // Run with:
@@ -18,6 +18,7 @@ describe("getActionRiskLevel", () => {
         to: "{{dynamic}}",
         cc: "",
         bcc: "",
+        type: ActionType.REPLY,
       },
       hasAutomation: true,
       instructions: "String",
@@ -32,6 +33,7 @@ describe("getActionRiskLevel", () => {
         to: "{{dynamic}}",
         cc: "",
         bcc: "",
+        type: ActionType.REPLY,
       },
       hasAutomation: true,
       instructions: "String",
@@ -46,6 +48,7 @@ describe("getActionRiskLevel", () => {
         to: "static@example.com",
         cc: "",
         bcc: "",
+        type: ActionType.REPLY,
       },
       hasAutomation: true,
       instructions: "String",
@@ -60,6 +63,7 @@ describe("getActionRiskLevel", () => {
         to: "static@example.com",
         cc: "",
         bcc: "",
+        type: ActionType.REPLY,
       },
       hasAutomation: false,
       instructions: "String",
@@ -74,6 +78,7 @@ describe("getActionRiskLevel", () => {
         to: "{{dynamic}}",
         cc: "",
         bcc: "",
+        type: ActionType.REPLY,
       },
       hasAutomation: false,
       instructions: "String",
@@ -88,6 +93,7 @@ describe("getActionRiskLevel", () => {
         to: "static@example.com",
         cc: "{{dynamic}}",
         bcc: "",
+        type: ActionType.REPLY,
       },
       hasAutomation: false,
       instructions: "String",
@@ -128,6 +134,7 @@ describe("getRiskLevel", () => {
             to: "static@example.com",
             cc: "",
             bcc: "",
+            type: ActionType.REPLY,
           },
           {
             subject: "Static Subject",
@@ -135,6 +142,7 @@ describe("getRiskLevel", () => {
             to: "{{dynamic}}",
             cc: "",
             bcc: "",
+            type: ActionType.REPLY,
           },
         ],
         automate: true,
@@ -153,6 +161,7 @@ describe("getRiskLevel", () => {
             to: "static@example.com",
             cc: "",
             bcc: "",
+            type: ActionType.REPLY,
           },
           {
             subject: "Static Subject",
@@ -160,6 +169,7 @@ describe("getRiskLevel", () => {
             to: "static@example.com",
             cc: "",
             bcc: "",
+            type: ActionType.REPLY,
           },
         ],
         automate: true,
@@ -178,6 +188,7 @@ describe("getRiskLevel", () => {
             to: "static@example.com",
             cc: "",
             bcc: "",
+            type: ActionType.REPLY,
           },
           {
             subject: "Another Static Subject",
@@ -185,6 +196,7 @@ describe("getRiskLevel", () => {
             to: "another@example.com",
             cc: "",
             bcc: "",
+            type: ActionType.REPLY,
           },
         ],
         automate: false,
