@@ -63,10 +63,18 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   const onLoadMore = () => setSize((size) => size + 1);
 
-  const messages = useMemo(
-    () => data?.flatMap((page) => page.messages) || [],
-    [data],
-  );
+  // filter out messages in same thread
+  // only keep the most recent message in each thread
+  const messages = useMemo(() => {
+    const threadIds = new Set();
+    const messages = data?.flatMap((page) => page.messages) || [];
+    return messages.filter((message) => {
+      // works because messages are sorted by date descending
+      if (threadIds.has(message.threadId)) return false;
+      threadIds.add(message.threadId);
+      return true;
+    });
+  }, [data]);
 
   const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
   const session = useSession();
@@ -86,6 +94,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [currentPageLimit, setCurrentPageLimit] = useState(testMode ? 1 : 10);
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, RunRulesResult>>({});
+  const handledThreadsRef = useRef(new Set<string>());
 
   const onRun = useCallback(
     async (message: Message, rerun?: boolean) => {
@@ -129,7 +138,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       for (const message of currentBatch) {
         if (!isRunningAllRef.current) break;
         if (results[message.id]) continue;
+        if (handledThreadsRef.current.has(message.threadId)) continue;
         await onRun(message);
+        handledThreadsRef.current.add(message.threadId);
       }
 
       // Check if we got new data in the last request
