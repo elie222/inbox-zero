@@ -120,6 +120,8 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
       return <ActionBadge type={ActionType.MARK_SPAM} />;
     case ActionType.CALL_WEBHOOK:
       return <ActionBadge type={ActionType.CALL_WEBHOOK} />;
+    case ActionType.MARK_READ:
+      return <ActionBadge type={ActionType.MARK_READ} />;
     default:
       return <ActionBadge type={action.type} />;
   }
@@ -151,6 +153,8 @@ function getActionLabel(type: ActionType) {
       return "Webhook";
     case ActionType.MARK_SPAM:
       return "Mark as spam";
+    case ActionType.MARK_READ:
+      return "Mark as read";
     default:
       return capitalCase(type);
   }
@@ -182,6 +186,7 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.DRAFT_EMAIL:
       return "green";
     case ActionType.ARCHIVE:
+    case ActionType.MARK_READ:
       return "yellow";
     case ActionType.LABEL:
       return "blue";

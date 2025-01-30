@@ -81,6 +81,9 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
       case ActionType.CALL_WEBHOOK:
         if (action.url) actions.push(`call webhook at ${action.url}`);
         break;
+      case ActionType.MARK_READ:
+        actions.push("mark as read");
+        break;
       default:
         console.warn(`Unknown action type: ${action.type}`);
         // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
