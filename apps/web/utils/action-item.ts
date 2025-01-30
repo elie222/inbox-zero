@@ -169,6 +169,7 @@ export function sanitizeActionFields(
   switch (action.type) {
     case ActionType.ARCHIVE:
     case ActionType.MARK_SPAM:
+    case ActionType.MARK_READ:
       return base;
     case ActionType.LABEL: {
       return {
