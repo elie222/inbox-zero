@@ -179,7 +179,10 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
               Custom
             </Button>
           )}
-          <SearchForm onSearch={setSearchQuery} />
+          <SearchForm
+            defaultQuery={searchQuery || undefined}
+            onSearch={setSearchQuery}
+          />
         </div>
       </div>
 
