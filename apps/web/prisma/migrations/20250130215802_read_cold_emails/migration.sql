@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ColdEmailSetting" ADD VALUE 'ARCHIVE_AND_READ_AND_LABEL';
