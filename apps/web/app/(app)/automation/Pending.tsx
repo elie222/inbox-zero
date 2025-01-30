@@ -187,6 +187,7 @@ function PendingTable({
               <TableCell>
                 <RuleCell
                   rule={p.rule}
+                  status={p.status}
                   reason={p.reason}
                   message={p.message}
                   isTest={true}

@@ -1,4 +1,9 @@
-import { type Action, ActionType, type ExecutedAction } from "@prisma/client";
+import {
+  type Action,
+  ActionType,
+  type ExecutedAction,
+  type Prisma,
+} from "@prisma/client";
 
 export const actionInputs: Record<
   ActionType,
@@ -140,4 +145,83 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.url) res.url = fields.url;
 
   return res;
+}
+
+type ActionFieldsSelection = Pick<
+  Prisma.ActionCreateInput,
+  "type" | "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
+>;
+
+export function sanitizeActionFields(
+  action: Partial<ActionFieldsSelection> & { type: ActionType },
+): ActionFieldsSelection {
+  const base = {
+    type: action.type,
+    label: null,
+    subject: null,
+    content: null,
+    to: null,
+    cc: null,
+    bcc: null,
+    url: null,
+  };
+
+  switch (action.type) {
+    case ActionType.ARCHIVE:
+    case ActionType.MARK_SPAM:
+      return base;
+    case ActionType.LABEL: {
+      return {
+        ...base,
+        label: action.label ?? null,
+      };
+    }
+    case ActionType.REPLY: {
+      return {
+        ...base,
+        content: action.content ?? null,
+        cc: action.cc ?? null,
+        bcc: action.bcc ?? null,
+      };
+    }
+    case ActionType.SEND_EMAIL: {
+      return {
+        ...base,
+        subject: action.subject ?? null,
+        content: action.content ?? null,
+        to: action.to ?? null,
+        cc: action.cc ?? null,
+        bcc: action.bcc ?? null,
+      };
+    }
+    case ActionType.FORWARD: {
+      return {
+        ...base,
+        content: action.content ?? null,
+        to: action.to ?? null,
+        cc: action.cc ?? null,
+        bcc: action.bcc ?? null,
+      };
+    }
+    case ActionType.DRAFT_EMAIL: {
+      return {
+        ...base,
+        subject: action.subject ?? null,
+        content: action.content ?? null,
+        to: action.to ?? null,
+        cc: action.cc ?? null,
+        bcc: action.bcc ?? null,
+      };
+    }
+    case ActionType.CALL_WEBHOOK: {
+      return {
+        ...base,
+        url: action.url ?? null,
+      };
+    }
+    default:
+      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
+      const exhaustiveCheck: never = action.type;
+      return exhaustiveCheck;
+  }
 }

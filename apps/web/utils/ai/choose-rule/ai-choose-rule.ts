@@ -3,7 +3,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionObject } from "@/utils/llms";
 import type { User } from "@prisma/client";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
-import type { EmailForLLM } from "@/utils/ai/choose-rule/stringify-email";
+import type { EmailForLLM } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-choose-rule");

@@ -103,6 +103,8 @@ ${
     : ""
 }
 
+IMPORTANT: Our system can only perform email management actions (labeling, archiving, forwarding, drafting responses). We cannot add events to calendars or create todo list items. Do not suggest rules that include these actions.
+
 Your response should only include the list of general rules. Aim for 3-10 broadly applicable rules that would be useful for this user's email management.`;
 
   logger.trace("generate-rules-prompt", { system, prompt });
@@ -132,7 +134,7 @@ function parseRulesResponse(args: unknown, hasSnippets: boolean): string[] {
   if (hasSnippets) {
     const parsedRules = args as z.infer<typeof parametersSnippets>;
     return parsedRules.rules.map(({ rule, snippet }) =>
-      snippet ? `${rule}\n<email>\n${snippet}\n</email>` : rule,
+      snippet ? `${rule}\n---\n${snippet}\n---\n` : rule,
     );
   }
 

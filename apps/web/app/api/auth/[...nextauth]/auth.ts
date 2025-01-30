@@ -9,14 +9,19 @@ export const {
   auth,
   signOut,
 } = NextAuth((req) => {
-  if (req?.url) {
-    const url = new URL(req?.url);
-    const consent = url.searchParams.get("consent");
-    if (consent) {
-      logger.info("Consent requested");
-      return getAuthOptions({ consent: true });
+  try {
+    if (req?.url) {
+      const url = new URL(req?.url);
+      const consent = url.searchParams.get("consent");
+      if (consent) {
+        logger.info("Consent requested");
+        return getAuthOptions({ consent: true });
+      }
     }
-  }
 
-  return authOptions;
+    return authOptions;
+  } catch (error) {
+    logger.error("Auth configuration error", { error });
+    throw error;
+  }
 });

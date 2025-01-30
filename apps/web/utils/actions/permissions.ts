@@ -4,8 +4,11 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { isAdmin } from "@/utils/admin";
 import { getGmailAccessToken } from "@/utils/gmail/client";
-import { checkGmailPermissions } from "@/utils/gmail/permissions";
+import { handleGmailPermissionsCheck } from "@/utils/gmail/permissions";
 import prisma from "@/utils/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("actions/permissions");
 
 export const checkPermissionsAction = withActionInstrumentation(
   "checkPermissions",
@@ -17,10 +20,10 @@ export const checkPermissionsAction = withActionInstrumentation(
       const token = await getGmailAccessToken(session);
       if (!token.token) return { error: "No Gmail access token" };
 
-      const { hasAllPermissions, error } = await checkGmailPermissions(
-        token.token,
-        session.user.email,
-      );
+      const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
+        accessToken: token.token,
+        email: session.user.email,
+      });
       if (error) return { error };
 
       if (!hasAllPermissions) return { hasAllPermissions: false };
@@ -39,6 +42,10 @@ export const checkPermissionsAction = withActionInstrumentation(
 
       return { hasRefreshToken: true, hasAllPermissions };
     } catch (error) {
+      logger.error("Failed to check permissions", {
+        email: session?.user.email,
+        error,
+      });
       return { error: "Failed to check permissions" };
     }
   },
@@ -65,13 +72,14 @@ export const adminCheckPermissionsAction = withActionInstrumentation(
       });
       if (!token.token) return { error: "No Gmail access token" };
 
-      const { hasAllPermissions, error } = await checkGmailPermissions(
-        token.token,
+      const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
+        accessToken: token.token,
         email,
-      );
+      });
       if (error) return { error };
       return { hasAllPermissions };
     } catch (error) {
+      logger.error("Admin failed to check permissions", { email, error });
       return { error: "Failed to check permissions" };
     }
   },

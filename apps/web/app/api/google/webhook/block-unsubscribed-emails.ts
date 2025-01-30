@@ -6,6 +6,9 @@ import {
 } from "@/utils/gmail/label";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("google/webhook/block-unsubscribed-emails");
 
 export async function blockUnsubscribedEmails({
   from,
@@ -32,7 +35,7 @@ export async function blockUnsubscribedEmails({
     gmail,
     key: "unsubscribed",
   });
-  if (!unsubscribeLabel?.id) console.error("No gmail label id");
+  if (!unsubscribeLabel?.id) logger.error("No gmail label id", { userId });
 
   await labelMessage({
     gmail,

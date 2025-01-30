@@ -6,6 +6,8 @@ import { queryBatchMessages } from "@/utils/gmail/message";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
+// no longer in use. delete?
+
 const logger = createScopedLogger("aiCreateGroup");
 
 const GENERATE_GROUP_ITEMS = "generateGroupItems";

@@ -14,9 +14,11 @@ import type { ActionItem } from "@/utils/ai/actions";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import { sanitizeActionFields } from "@/utils/action-item";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -24,6 +26,7 @@ export type RunRulesResult = {
   rule?: Rule | null;
   actionItems?: ActionItem[];
   reason?: string | null;
+  matchReasons?: MatchReason[];
   existing?: boolean;
 };
 
@@ -48,6 +51,7 @@ export async function runRulesOnMessage({
       user,
       gmail,
       result.reason,
+      result.matchReasons,
       isTest,
     );
   } else {
@@ -67,9 +71,10 @@ async function runRule(
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
   gmail: gmail_v1.Gmail,
   reason: string | undefined,
+  matchReasons: MatchReason[] | undefined,
   isTest: boolean,
 ) {
-  const email = getEmailFromMessage(message);
+  const email = getEmailForLLM(message);
 
   // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
@@ -84,8 +89,8 @@ async function runRule(
     : await saveExecutedRule(
         {
           userId: user.id,
-          threadId: email.threadId,
-          messageId: email.messageId,
+          threadId: message.threadId,
+          messageId: message.id,
         },
         {
           rule,
@@ -101,11 +106,17 @@ async function runRule(
       gmail,
       userEmail: user.email || "",
       executedRule,
-      email,
+      email: message,
     });
   }
 
-  return { rule, actionItems, executedRule, reason };
+  return {
+    rule,
+    actionItems,
+    executedRule,
+    reason,
+    matchReasons,
+  };
 }
 
 async function saveSkippedExecutedRule({
@@ -159,17 +170,7 @@ async function saveExecutedRule(
   const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: {
       createMany: {
-        data:
-          actionItems?.map((a) => ({
-            type: a.type,
-            label: a.label,
-            subject: a.subject,
-            content: a.content,
-            to: a.to,
-            cc: a.cc,
-            bcc: a.bcc,
-            url: a.url,
-          })) || [],
+        data: actionItems?.map(sanitizeActionFields) || [],
       },
     },
     messageId,

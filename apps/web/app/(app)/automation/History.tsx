@@ -24,7 +24,6 @@ import {
 import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
 import { RulesSelect } from "@/app/(app)/automation/RulesSelect";
-import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -104,6 +103,7 @@ function HistoryTable({
               <TableCell>
                 <RuleCell
                   rule={p.rule}
+                  status={p.status}
                   reason={p.reason}
                   message={p.message}
                   isTest={false}

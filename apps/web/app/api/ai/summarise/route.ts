@@ -20,9 +20,9 @@ export const POST = withError(async (request: Request) => {
   const body = summariseBody.parse(json);
 
   const prompt = emailToContent({
-    textHtml: body.textHtml || null,
-    textPlain: body.textPlain || null,
-    snippet: null,
+    textHtml: body.textHtml || undefined,
+    textPlain: body.textPlain || undefined,
+    snippet: "",
   });
 
   if (!prompt)

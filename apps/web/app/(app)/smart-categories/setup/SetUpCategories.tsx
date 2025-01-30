@@ -110,10 +110,10 @@ export function SetUpCategories({
     <>
       <Card className="m-4">
         <CardHeader>
-          <CardTitle>Set up categories</CardTitle>
+          <CardTitle>Set up sender categories</CardTitle>
           <CardDescription className="max-w-sm">
-            Automatically sort your emails by sender type to enable smart
-            archiving and AI automation.
+            Automatically categorize senders for bulk archiving and AI
+            automation.
           </CardDescription>
         </CardHeader>
 

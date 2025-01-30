@@ -43,6 +43,9 @@
         "ADMINS",
         "WEBHOOK_URL",
         "INTERNAL_API_KEY",
+        "USE_BACKUP_MODEL",
+        "WHITELIST_FROM",
+        "API_KEY_SALT",
 
         "NEXT_PUBLIC_LEMON_STORE_ID",
 

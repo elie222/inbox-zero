@@ -20,6 +20,7 @@ import { examples } from "@/app/(app)/automation/create/examples";
 
 type Inputs = { prompt?: string };
 
+// not in use anymore
 export default function AutomationSettingsPage() {
   const router = useRouter();
   const {

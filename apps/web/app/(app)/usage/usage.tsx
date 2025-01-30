@@ -32,13 +32,13 @@ export function Usage(props: {
             icon: <CoinsIcon className="h-4 w-4" />,
           },
           {
-            name: "OpenAI API Calls",
+            name: "LLM API Calls",
             value: formatStat(props.usage?.openaiCalls),
             subvalue: "calls",
             icon: <BotIcon className="h-4 w-4" />,
           },
           {
-            name: "OpenAI Tokens Used",
+            name: "LLM Tokens Used",
             value: formatStat(props.usage?.openaiTokensUsed),
             subvalue: "tokens",
             icon: <CpuIcon className="h-4 w-4" />,

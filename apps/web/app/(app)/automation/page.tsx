@@ -30,7 +30,7 @@ export default async function AutomationPage() {
               <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="groups">Groups</TabsTrigger>
+              {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
             </TabsList>
           </div>
 
@@ -61,6 +61,7 @@ export default async function AutomationPage() {
         <TabsContent value="pending" className="content-container mb-10">
           <Pending />
         </TabsContent>
+        {/* no longer in use */}
         <TabsContent value="groups" className="content-container mb-10">
           <Groups />
         </TabsContent>

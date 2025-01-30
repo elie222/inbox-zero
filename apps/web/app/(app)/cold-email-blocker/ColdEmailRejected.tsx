@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -16,11 +15,13 @@ import {
 import { DateCell } from "@/app/(app)/automation/ExecutedRulesTable";
 import { TablePagination } from "@/components/TablePagination";
 import { AlertBasic } from "@/components/Alert";
-import { NewsletterModal } from "@/app/(app)/stats/NewsletterModal";
 import { useSearchParams } from "next/navigation";
-import { SenderCell } from "@/app/(app)/cold-email-blocker/ColdEmailList";
 import { ColdEmailStatus } from "@prisma/client";
-import { Button } from "@/components/ui/button";
+import { ViewEmailButton } from "@/components/ViewEmailButton";
+import {
+  EmailMessageCell,
+  EmailMessageCellWithData,
+} from "@/components/EmailMessageCell";
 
 export function ColdEmailRejected() {
   const searchParams = useSearchParams();
@@ -32,10 +33,6 @@ export function ColdEmailRejected() {
   const session = useSession();
   const userEmail = session.data?.user?.email || "";
 
-  const [openedRow, setOpenedRow] = useState<
-    ColdEmailsResponse["coldEmails"][number] | undefined
-  >(undefined);
-
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data?.coldEmails.length ? (
@@ -43,7 +40,7 @@ export function ColdEmailRejected() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sender</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>AI Reason</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead />
@@ -51,24 +48,12 @@ export function ColdEmailRejected() {
             </TableHeader>
             <TableBody>
               {data.coldEmails.map((coldEmail) => (
-                <Row
-                  key={coldEmail.id}
-                  row={coldEmail}
-                  userEmail={userEmail}
-                  setOpenedRow={setOpenedRow}
-                />
+                <Row key={coldEmail.id} row={coldEmail} userEmail={userEmail} />
               ))}
             </TableBody>
           </Table>
 
           <TablePagination totalPages={data.totalPages} />
-
-          <NewsletterModal
-            newsletter={
-              openedRow ? { name: openedRow.fromEmail || "" } : undefined
-            }
-            onClose={() => setOpenedRow(undefined)}
-          />
         </div>
       ) : (
         <NoRejectedColdEmails />
@@ -80,18 +65,19 @@ export function ColdEmailRejected() {
 function Row({
   row,
   userEmail,
-  setOpenedRow,
 }: {
   row: ColdEmailsResponse["coldEmails"][number];
   userEmail: string;
-  setOpenedRow: (
-    row: ColdEmailsResponse["coldEmails"][number] | undefined,
-  ) => void;
 }) {
   return (
     <TableRow key={row.id}>
       <TableCell>
-        <SenderCell from={row.fromEmail} userEmail={userEmail} />
+        <EmailMessageCellWithData
+          from={row.fromEmail}
+          userEmail={userEmail}
+          threadId={row.threadId || ""}
+          messageId={row.messageId || ""}
+        />
       </TableCell>
       <TableCell>{row.reason || "-"}</TableCell>
       <TableCell>
@@ -99,9 +85,10 @@ function Row({
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end space-x-2">
-          <Button variant="outline" onClick={() => setOpenedRow(row)}>
-            View
-          </Button>
+          <ViewEmailButton
+            threadId={row.threadId || ""}
+            messageId={row.messageId || ""}
+          />
         </div>
       </TableCell>
     </TableRow>

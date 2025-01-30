@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { changePremiumStatusAction } from "@/utils/actions/premium";
 import { Select } from "@/components/Select";
@@ -129,8 +129,8 @@ export const AdminUpgradeUserForm = () => {
         </Button>
         <Button
           type="button"
+          variant="destructive"
           loading={isSubmitting}
-          color="red"
           onClick={() => {
             onSubmit({
               email: getValues("email"),

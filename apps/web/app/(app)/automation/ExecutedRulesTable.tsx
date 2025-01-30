@@ -14,8 +14,8 @@ import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import type { ParsedMessage } from "@/utils/types";
-import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
+import { ExecutedRuleStatus } from "@prisma/client";
 
 export function EmailCell({
   from,
@@ -34,8 +34,6 @@ export function EmailCell({
 }) {
   // use regex to find first letter
   const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
-
-  const { showEmail } = useDisplayedEmail();
 
   return (
     <div className="flex items-center gap-4">
@@ -59,17 +57,17 @@ export function EmailCell({
 
 export function RuleCell({
   rule,
+  status,
   reason,
   message,
   isTest,
 }: {
   rule: PendingExecutedRules["executedRules"][number]["rule"];
+  status: ExecutedRuleStatus;
   reason?: string | null;
   message: ParsedMessage;
   isTest: boolean;
 }) {
-  if (!rule) return null;
-
   return (
     <div className="flex gap-2">
       <HoverCard
@@ -77,14 +75,26 @@ export function RuleCell({
         content={
           <div>
             <div className="flex justify-between font-medium">
-              {rule.name}
-              <Badge color="blue">{conditionTypesToString(rule)}</Badge>
+              {rule ? (
+                <>
+                  {rule.name}
+                  <Badge color="blue">{conditionTypesToString(rule)}</Badge>
+                </>
+              ) : (
+                <div className="text-muted-foreground">
+                  {status === ExecutedRuleStatus.SKIPPED && (
+                    <Badge color="yellow">Skipped</Badge>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="mt-2">{conditionsToString(rule)}</div>
+            <div className="mt-2">{rule ? conditionsToString(rule) : null}</div>
             <div className="mt-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/automation/rule/${rule.id}`}>View</Link>
-              </Button>
+              {!!rule && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/automation/rule/${rule.id}`}>View</Link>
+                </Button>
+              )}
             </div>
             {!!reason && (
               <div className="mt-4 space-y-2">
@@ -97,8 +107,12 @@ export function RuleCell({
           </div>
         }
       >
-        <Badge color="green">
-          {rule.name}
+        <Badge color={rule ? "green" : "yellow"}>
+          {rule
+            ? rule.name
+            : status === ExecutedRuleStatus.SKIPPED
+              ? "Skipped"
+              : `Unknown rule. Status: ${status}`}
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>

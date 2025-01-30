@@ -10,7 +10,6 @@ import { CrownIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import { Button } from "@/components/Button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
-import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
@@ -98,6 +97,7 @@ export function MultiAccountSection() {
                     emailAccountsAccess={
                       dataPremium?.premium?.emailAccountsAccess || 0
                     }
+                    pendingInvites={dataPremium?.premium?.pendingInvites || []}
                   />
                 </div>
               </div>
@@ -123,10 +123,12 @@ function MultiAccountForm({
   emailAddresses,
   isLifetime,
   emailAccountsAccess,
+  pendingInvites,
 }: {
   emailAddresses: { email: string }[];
   isLifetime: boolean;
   emailAccountsAccess: number;
+  pendingInvites: string[];
 }) {
   const {
     register,
@@ -136,7 +138,9 @@ function MultiAccountForm({
   } = useForm<SaveMultiAccountPremiumBody>({
     resolver: zodResolver(saveMultiAccountPremiumBody),
     defaultValues: {
-      emailAddresses: emailAddresses?.length ? emailAddresses : [{ email: "" }],
+      emailAddresses: emailAddresses?.length
+        ? [...emailAddresses, ...pendingInvites.map((email) => ({ email }))]
+        : [{ email: "" }],
     },
   });
 
@@ -157,9 +161,7 @@ function MultiAccountForm({
       const emails = data.emailAddresses.map((e) => e.email);
       const result = await updateMultiAccountPremiumAction(emails);
 
-      if (result?.warning)
-        toastInfo({ title: "Warning", description: result.warning });
-      else handleActionResult(result, "Users updated!");
+      handleActionResult(result, "Users updated!");
     },
     [needsToPurchaseMoreSeats],
   );

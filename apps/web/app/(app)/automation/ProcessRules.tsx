@@ -18,7 +18,7 @@ import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
-import { TestRulesMessage } from "@/app/(app)/cold-email-blocker/TestRulesMessage";
+import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
@@ -38,6 +38,7 @@ import { BulkRunRules } from "@/app/(app)/automation/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/automation/TestCustomEmailForm";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
+import { Tooltip } from "@/components/Tooltip";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -82,6 +83,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   const isRunningAllRef = useRef(false);
   const [isRunningAll, setIsRunningAll] = useState(false);
+  const [currentPageLimit, setCurrentPageLimit] = useState(testMode ? 1 : 10);
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, RunRulesResult>>({});
 
@@ -111,9 +113,10 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const handleRunAll = async () => {
     handleStart();
 
-    const PAGE_LIMIT = testMode ? 1 : 10;
+    // Increment the page limit each time we run
+    setCurrentPageLimit((prev) => prev + (testMode ? 1 : 10));
 
-    for (let page = 0; page < PAGE_LIMIT; page++) {
+    for (let page = 0; page < currentPageLimit; page++) {
       // Get current data, only fetch if we don't have this page yet
       let currentData = data;
       if (!currentData?.[page]) {
@@ -176,7 +179,10 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
               Custom
             </Button>
           )}
-          <SearchForm onSearch={setSearchQuery} />
+          <SearchForm
+            defaultQuery={searchQuery || undefined}
+            onSearch={setSearchQuery}
+          />
         </div>
       </div>
 
@@ -253,10 +259,10 @@ function ProcessRulesRow({
     >
       <TableCell>
         <div className="flex items-center justify-between">
-          <TestRulesMessage
+          <EmailMessageCell
             from={message.headers.from}
             subject={message.headers.subject}
-            snippet={message.snippet?.trim() || ""}
+            snippet={message.snippet}
             userEmail={userEmail}
             threadId={message.threadId}
             messageId={message.id}
@@ -275,16 +281,18 @@ function ProcessRulesRow({
                   message={message}
                   isTest={testMode}
                 />
-                <Button
-                  variant="outline"
-                  disabled={isRunning}
-                  onClick={() => onRun(true)}
-                >
-                  <RefreshCcwIcon
-                    className={cn("size-4", isRunning && "animate-spin")}
-                  />
-                  <span className="sr-only">{testMode ? "Test" : "Run"}</span>
-                </Button>
+                <Tooltip content={testMode ? "Retest" : "Rerun"}>
+                  <Button
+                    variant="outline"
+                    disabled={isRunning}
+                    onClick={() => onRun(true)}
+                  >
+                    <RefreshCcwIcon
+                      className={cn("size-4", isRunning && "animate-spin")}
+                    />
+                    <span className="sr-only">{testMode ? "Test" : "Run"}</span>
+                  </Button>
+                </Tooltip>
               </>
             ) : (
               <Button

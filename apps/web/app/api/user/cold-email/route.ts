@@ -29,6 +29,8 @@ async function getColdEmails(
         status: true,
         createdAt: true,
         reason: true,
+        threadId: true,
+        messageId: true,
       },
     }),
     prisma.coldEmail.count({ where }),

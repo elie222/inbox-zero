@@ -25,7 +25,11 @@ import { useUser } from "@/hooks/useUser";
 export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
   const { data: dataModels, isLoading: isLoadingModels } =
-    useSWR<OpenAiModelsResponse>(data?.aiApiKey ? "/api/ai/models" : null);
+    useSWR<OpenAiModelsResponse>(
+      data?.aiApiKey && data.aiProvider === Provider.OPEN_AI
+        ? "/api/ai/models"
+        : null,
+    );
 
   return (
     <FormSection>

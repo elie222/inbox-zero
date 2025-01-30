@@ -8,26 +8,28 @@ import type {
   RuleWithActions,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
-import { CategoryFilterType, LogicalOperator, type User } from "@prisma/client";
+import {
+  CategoryFilterType,
+  LogicalOperator,
+  RuleType,
+  type User,
+} from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { getEmailFromMessage } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import type {
+  MatchReason,
+  MatchingRuleResult,
+} from "@/utils/ai/choose-rule/types";
 
 const logger = createScopedLogger("match-rules");
 
 // if we find a match, return it
 // if we don't find a match, return the potential matches
 // ai rules need further processing to determine if they match
-type MatchingRuleResult = {
-  match?: RuleWithActionsAndCategories;
-  reason?: string;
-  potentialMatches?: (RuleWithActionsAndCategories & {
-    instructions: string;
-  })[];
-};
 
 async function findPotentialMatchingRules({
   rules,
@@ -72,41 +74,40 @@ async function findPotentialMatchingRules({
     if (isThread && !runOnThreads) continue;
 
     const conditionTypes = getConditionTypes(rule);
-    const unmatchedConditions = new Set<string>(Object.keys(conditionTypes));
-    const matchReasons: string[] = [];
+    const matchReasons: MatchReason[] = [];
 
-    // static
-    if (conditionTypes.STATIC) {
-      const match = matchesStaticRule(rule, message);
-      if (match) {
-        unmatchedConditions.delete("STATIC");
-        matchReasons.push("Matched static conditions");
-        if (operator === LogicalOperator.OR || !unmatchedConditions.size)
-          return { match: rule, reason: matchReasons.join(", ") };
-      } else {
-        // no match, so can't be a match with AND
-        if (operator === LogicalOperator.AND) continue;
-      }
-    }
-
-    // group
-    if (conditionTypes.GROUP) {
-      const { matchingItem } = await matchesGroupRule(
+    // group - ignores conditional operator
+    // if a match is found, return it
+    if (rule.groupId) {
+      const { matchingItem, group } = await matchesGroupRule(
         rule,
         await getGroups(rule.userId),
         message,
       );
       if (matchingItem) {
-        unmatchedConditions.delete("GROUP");
-        matchReasons.push(
-          `Matched group item: "${matchingItem.type}: ${matchingItem.value}"`,
-        );
-        if (operator === LogicalOperator.OR || !unmatchedConditions.size) {
-          return {
-            match: rule,
-            reason: matchReasons.join(", "),
-          };
-        }
+        matchReasons.push({
+          type: RuleType.GROUP,
+          groupItem: matchingItem,
+          group,
+        });
+
+        return { match: rule, matchReasons };
+      }
+    }
+
+    // Regular conditions:
+    const unmatchedConditions = new Set<RuleType>(
+      Object.keys(conditionTypes) as RuleType[],
+    );
+
+    // static
+    if (conditionTypes.STATIC) {
+      const match = matchesStaticRule(rule, message);
+      if (match) {
+        unmatchedConditions.delete(RuleType.STATIC);
+        matchReasons.push({ type: RuleType.STATIC });
+        if (operator === LogicalOperator.OR || !unmatchedConditions.size)
+          return { match: rule, matchReasons };
       } else {
         // no match, so can't be a match with AND
         if (operator === LogicalOperator.AND) continue;
@@ -115,16 +116,20 @@ async function findPotentialMatchingRules({
 
     // category
     if (conditionTypes.CATEGORY) {
-      const match = await matchesCategoryRule(
+      const matchedCategory = await matchesCategoryRule(
         rule,
         await getSender(rule.userId),
       );
-      if (match) {
-        unmatchedConditions.delete("CATEGORY");
-        if (typeof match !== "boolean")
-          matchReasons.push(`Matched category: "${match.name}"`);
+      if (matchedCategory) {
+        unmatchedConditions.delete(RuleType.CATEGORY);
+        if (typeof matchedCategory !== "boolean") {
+          matchReasons.push({
+            type: RuleType.CATEGORY,
+            category: matchedCategory,
+          });
+        }
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
-          return { match: rule, reason: matchReasons.join(", ") };
+          return { match: rule, matchReasons };
       } else {
         // no match, so can't be a match with AND
         if (operator === LogicalOperator.AND) continue;
@@ -141,23 +146,57 @@ async function findPotentialMatchingRules({
   return { potentialMatches };
 }
 
+function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
+  if (!matchReasons || matchReasons.length === 0) return;
+
+  return matchReasons
+    .map((reason) => {
+      switch (reason.type) {
+        case RuleType.STATIC:
+          return "Matched static conditions";
+        case RuleType.GROUP:
+          return `Matched group item: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
+        case RuleType.CATEGORY:
+          return `Matched category: "${reason.category.name}"`;
+      }
+    })
+    .join(", ");
+}
+
 export async function findMatchingRule(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
-): Promise<{ rule?: RuleWithActionsAndCategories; reason?: string }> {
-  const isThread = isReplyInThread(message.id, message.threadId);
-  const { match, reason, potentialMatches } = await findPotentialMatchingRules({
-    rules,
-    message,
-    isThread,
-  });
+) {
+  const result = await findMatchingRuleWithReasons(rules, message, user);
+  return {
+    ...result,
+    reason: result.reason || getMatchReason(result.matchReasons || []),
+  };
+}
 
-  if (match) return { rule: match, reason };
+async function findMatchingRuleWithReasons(
+  rules: RuleWithActionsAndCategories[],
+  message: ParsedMessage,
+  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+): Promise<{
+  rule?: RuleWithActionsAndCategories;
+  matchReasons?: MatchReason[];
+  reason?: string;
+}> {
+  const isThread = isReplyInThread(message.id, message.threadId);
+  const { match, matchReasons, potentialMatches } =
+    await findPotentialMatchingRules({
+      rules,
+      message,
+      isThread,
+    });
+
+  if (match) return { rule: match, matchReasons };
 
   if (potentialMatches?.length) {
     const result = await aiChooseRule({
-      email: getEmailFromMessage(message),
+      email: getEmailForLLM(message),
       rules: potentialMatches,
       user,
     });

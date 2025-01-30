@@ -4,6 +4,7 @@ import {
 } from "@sentry/nextjs";
 import {
   checkCommonErrors,
+  isAICallError,
   isAWSThrottlingError,
   type ActionError,
   type ServerActionResponse,
@@ -83,6 +84,15 @@ export function withActionInstrumentation<
 
               return {
                 error: error.message,
+                success: false,
+              } as unknown as ActionError<Err>;
+            }
+
+            if (isAICallError(error)) {
+              return {
+                error:
+                  (error.data as any)?.error?.message ??
+                  "An error occurred while calling the AI",
                 success: false,
               } as unknown as ActionError<Err>;
             }

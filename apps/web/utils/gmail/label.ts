@@ -258,7 +258,7 @@ export async function getOrCreateInboxZeroLabel({
   gmail: gmail_v1.Gmail;
   key: InboxZeroLabel;
 }) {
-  const { name, color } = inboxZeroLabels[key];
+  const { name, color, messageListVisibility } = inboxZeroLabels[key];
   const labels = await getLabels(gmail);
 
   // Create parent label if it doesn't exist
@@ -279,7 +279,7 @@ export async function getOrCreateInboxZeroLabel({
   const createdLabel = await createLabel({
     gmail,
     name,
-    messageListVisibility: messageVisibility.hide,
+    messageListVisibility: messageListVisibility || messageVisibility.hide,
     labelListVisibility: labelVisibility.labelShow,
     color,
   });

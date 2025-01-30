@@ -100,10 +100,10 @@ export default async function CategoriesPage() {
             {senders.length === 0 && (
               <Card className="m-4">
                 <CardHeader>
-                  <CardTitle>Categorize with AI</CardTitle>
+                  <CardTitle>Categorize Senders</CardTitle>
                   <CardDescription>
                     Now that you have some categories, our AI can categorize
-                    senders for you automatically.
+                    senders.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

@@ -40,7 +40,7 @@ export function createScopedLogger(scope: string) {
       console.warn(formatMessage("warn", message, args)),
 
     trace: (message: string, ...args: unknown[]) => {
-      if (process.env.NODE_ENV === "development") {
+      if (process.env.NODE_ENV !== "production") {
         console.log(formatMessage("trace", message, args));
       }
     },
@@ -56,7 +56,7 @@ function createAxiomLogger(scope: string) {
     warn: (message: string, args?: Record<string, unknown>) =>
       log.warn(message, { scope, ...args }),
     trace: (message: string, args?: Record<string, unknown>) => {
-      if (process.env.NODE_ENV === "development") {
+      if (process.env.NODE_ENV !== "production") {
         log.debug(message, { scope, ...args });
       }
     },

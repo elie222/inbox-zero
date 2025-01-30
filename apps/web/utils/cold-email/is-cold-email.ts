@@ -6,7 +6,7 @@ import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
 import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
 import prisma from "@/utils/prisma";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/app/api/ai/cold-email/prompt";
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -75,10 +75,7 @@ async function aiIsColdEmail(
   email: { from: string; subject: string; content: string },
   user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields,
 ) {
-  const system =
-    "You are an assistant that decides if an email is a cold email or not.";
-
-  const prompt = `Determine if this email is a cold email or not.
+  const system = `You are an assistant that decides if an email is a cold email or not.
 
 <instructions>
 ${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
@@ -97,7 +94,9 @@ The "coldEmail" should be a boolean that is true if the email is a cold email an
 }
 </example_response>
 
-<email>
+Determine if the email is a cold email or not.`;
+
+  const prompt = `<email>
 ${stringifyEmail(email, 500)}
 </email>
 `;

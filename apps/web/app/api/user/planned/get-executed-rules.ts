@@ -1,4 +1,3 @@
-import type { ExecutedRuleStatus } from "@prisma/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
@@ -6,6 +5,7 @@ import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { ExecutedRuleStatus } from "@prisma/client";
 
 const LIMIT = 50;
 
@@ -19,12 +19,12 @@ export async function getExecutedRules(
 
   const where = {
     userId: session.user.id,
-    status,
-    rule: { isNot: null },
-    ruleId: ruleId === "all" ? undefined : ruleId,
+    status: ruleId === "skipped" ? ExecutedRuleStatus.SKIPPED : status,
+    rule: ruleId === "skipped" ? undefined : { isNot: null },
+    ruleId: ruleId === "all" || ruleId === "skipped" ? undefined : ruleId,
   };
 
-  const [pendingExecutedRules, total] = await Promise.all([
+  const [executedRules, total] = await Promise.all([
     prisma.executedRule.findMany({
       where,
       take: LIMIT,
@@ -52,8 +52,8 @@ export async function getExecutedRules(
 
   const gmail = getGmailClient(session);
 
-  const executedRules = await Promise.all(
-    pendingExecutedRules.map(async (p) => {
+  const executedRulesWithMessages = await Promise.all(
+    executedRules.map(async (p) => {
       try {
         const message = await getMessage(p.messageId, gmail);
         return {
@@ -67,7 +67,7 @@ export async function getExecutedRules(
   );
 
   return {
-    executedRules: executedRules.filter(isDefined),
+    executedRules: executedRulesWithMessages.filter(isDefined),
     totalPages: Math.ceil(total / LIMIT),
   };
 }

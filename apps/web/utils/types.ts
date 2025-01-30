@@ -92,9 +92,19 @@ export interface ParsedMessageHeaders {
   from: string;
   to: string;
   cc?: string;
+  bcc?: string;
   date: string;
   "message-id"?: string;
   "reply-to"?: string;
+  "in-reply-to"?: string;
   references?: string;
   "list-unsubscribe"?: string;
 }
+
+export type EmailForLLM = {
+  from: string;
+  replyTo?: string;
+  cc?: string;
+  subject: string;
+  content: string;
+};

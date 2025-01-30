@@ -4,6 +4,9 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { env } from "@/env";
 import { getGmailClient } from "@/utils/gmail/client";
 import { captureException } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("google/watch");
 
 export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.watch({
@@ -23,11 +26,11 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
     });
     return expirationDate;
   }
-  console.error("Error watching inbox", res.data);
+  logger.error("Error watching inbox", { userId });
 }
 
 async function unwatch(gmail: gmail_v1.Gmail) {
-  console.log("Unwatching emails");
+  logger.info("Unwatching emails");
   await gmail.users.stop({ userId: "me" });
 }
 
@@ -48,11 +51,11 @@ export async function unwatchEmails({
     await unwatch(gmail);
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      console.error("Error unwatching emails, invalid grant");
+      logger.error("Error unwatching emails, invalid grant", { userId });
       return;
     }
 
-    console.error("Error unwatching emails", error);
+    logger.error("Error unwatching emails", { userId, error });
     captureException(error);
   }
 

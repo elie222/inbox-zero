@@ -10,7 +10,7 @@ import {
   type UpdateRuleInstructionsBody,
 } from "@/utils/actions/validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
 import {
   rulesExamplesBody,
   type RulesExamplesBody,
@@ -19,7 +19,15 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { LogicalOperator } from "@prisma/client";
+import { LogicalOperator, RuleType } from "@prisma/client";
+import {
+  updatePromptFileOnRuleUpdated,
+  updateRuleInstructionsAndPromptFile,
+  updatePromptFileOnRuleCreated,
+} from "@/utils/rule/prompt-file";
+import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
+import { sanitizeActionFields } from "@/utils/action-item";
+import { deleteRule } from "@/utils/rule/rule";
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -43,7 +51,7 @@ export const createRuleAction = withActionInstrumentation(
                 createMany: {
                   data: body.actions.map(
                     ({ type, label, subject, content, to, cc, bcc, url }) => {
-                      return {
+                      return sanitizeActionFields({
                         type,
                         label: label?.value,
                         subject: subject?.value,
@@ -52,7 +60,7 @@ export const createRuleAction = withActionInstrumentation(
                         cc: cc?.value,
                         bcc: bcc?.value,
                         url: url?.value,
-                      };
+                      });
                     },
                   ),
                 },
@@ -66,7 +74,6 @@ export const createRuleAction = withActionInstrumentation(
           to: conditions.to || null,
           subject: conditions.subject || null,
           // body: conditions.body || null,
-          groupId: conditions.groupId || null,
           categoryFilterType: conditions.categoryFilterType || null,
           categoryFilters:
             conditions.categoryFilterType && conditions.categoryFilters
@@ -75,7 +82,12 @@ export const createRuleAction = withActionInstrumentation(
                 }
               : {},
         },
+        include: { actions: true, categoryFilters: true, group: true },
       });
+
+      await updatePromptFileOnRuleCreated(session.user.id, rule);
+
+      revalidatePath("/automation");
 
       return { rule };
     } catch (error) {
@@ -106,7 +118,7 @@ export const updateRuleAction = withActionInstrumentation(
     try {
       const currentRule = await prisma.rule.findUnique({
         where: { id: body.id, userId: session.user.id },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true, categoryFilters: true, group: true },
       });
       if (!currentRule) return { error: "Rule not found" };
 
@@ -118,7 +130,7 @@ export const updateRuleAction = withActionInstrumentation(
       const actionsToUpdate = body.actions.filter((a) => a.id);
       const actionsToCreate = body.actions.filter((a) => !a.id);
 
-      const [rule] = await prisma.$transaction([
+      const [updatedRule] = await prisma.$transaction([
         // update rule
         prisma.rule.update({
           where: { id: body.id, userId: session.user.id },
@@ -134,7 +146,6 @@ export const updateRuleAction = withActionInstrumentation(
             to: conditions.to || null,
             subject: conditions.subject || null,
             // body: conditions.body || null,
-            groupId: conditions.groupId || null,
             categoryFilterType: conditions.categoryFilterType || null,
             categoryFilters:
               conditions.categoryFilterType && conditions.categoryFilters
@@ -143,6 +154,7 @@ export const updateRuleAction = withActionInstrumentation(
                   }
                 : { set: [] },
           },
+          include: { actions: true, categoryFilters: true, group: true },
         }),
         // delete removed actions
         ...(actionsToDelete.length
@@ -156,7 +168,7 @@ export const updateRuleAction = withActionInstrumentation(
         ...actionsToUpdate.map((a) => {
           return prisma.action.update({
             where: { id: a.id },
-            data: {
+            data: sanitizeActionFields({
               type: a.type,
               label: a.label?.value,
               subject: a.subject?.value,
@@ -165,32 +177,44 @@ export const updateRuleAction = withActionInstrumentation(
               cc: a.cc?.value,
               bcc: a.bcc?.value,
               url: a.url?.value,
-            },
+            }),
           });
         }),
         // create new actions
         ...(actionsToCreate.length
           ? [
               prisma.action.createMany({
-                data: actionsToCreate.map((a) => ({
-                  ruleId: body.id,
-                  type: a.type,
-                  label: a.label?.value,
-                  subject: a.subject?.value,
-                  content: a.content?.value,
-                  to: a.to?.value,
-                  cc: a.cc?.value,
-                  bcc: a.bcc?.value,
-                  url: a.url?.value,
-                })),
+                data: actionsToCreate.map((a) => {
+                  return {
+                    ...sanitizeActionFields({
+                      type: a.type,
+                      label: a.label?.value,
+                      subject: a.subject?.value,
+                      content: a.content?.value,
+                      to: a.to?.value,
+                      cc: a.cc?.value,
+                      bcc: a.bcc?.value,
+                      url: a.url?.value,
+                    }),
+                    ruleId: body.id,
+                  };
+                }),
               }),
             ]
           : []),
       ]);
 
-      revalidatePath(`/automation/rule/${body.id}`);
+      // update prompt file
+      await updatePromptFileOnRuleUpdated(
+        session.user.id,
+        currentRule,
+        updatedRule,
+      );
 
-      return { rule };
+      revalidatePath(`/automation/rule/${body.id}`);
+      revalidatePath("/automation");
+
+      return { rule: updatedRule };
     } catch (error) {
       if (isDuplicateError(error, "name")) {
         return { error: "Rule name already exists" };
@@ -214,10 +238,76 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
     const { data: body, error } = updateRuleInstructionsBody.safeParse(options);
     if (error) return { error: error.message };
 
-    await prisma.rule.update({
+    const currentRule = await prisma.rule.findUnique({
       where: { id: body.id, userId: session.user.id },
-      data: { instructions: body.instructions },
+      include: { actions: true, categoryFilters: true, group: true },
     });
+    if (!currentRule) return { error: "Rule not found" };
+
+    await updateRuleInstructionsAndPromptFile({
+      userId: session.user.id,
+      ruleId: body.id,
+      instructions: body.instructions,
+      currentRule,
+    });
+
+    revalidatePath(`/automation/rule/${body.id}`);
+    revalidatePath("/automation");
+  },
+);
+
+export const deleteRuleAction = withActionInstrumentation(
+  "deleteRule",
+  async ({ ruleId }: { ruleId: string }) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const rule = await prisma.rule.findUnique({
+      where: { id: ruleId },
+      include: { actions: true, categoryFilters: true, group: true },
+    });
+    if (!rule) return; // already deleted
+    if (rule.userId !== session.user.id)
+      return { error: "You don't have permission to delete this rule" };
+
+    try {
+      await deleteRule({
+        ruleId,
+        userId: session.user.id,
+        groupId: rule.groupId,
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          email: true,
+          aiModel: true,
+          aiProvider: true,
+          aiApiKey: true,
+          rulesPrompt: true,
+        },
+      });
+      if (!user) return { error: "User not found" };
+
+      if (!user.rulesPrompt) return;
+
+      const updatedPrompt = await generatePromptOnDeleteRule({
+        user,
+        existingPrompt: user.rulesPrompt,
+        deletedRule: rule,
+      });
+
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { rulesPrompt: updatedPrompt },
+      });
+
+      revalidatePath(`/automation/rule/${ruleId}`);
+      revalidatePath("/automation");
+    } catch (error) {
+      if (isNotFoundError(error)) return;
+      throw error;
+    }
   },
 );
 

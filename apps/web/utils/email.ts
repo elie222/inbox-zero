@@ -14,8 +14,23 @@ export function extractNameFromEmail(email: string) {
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"
 export function extractEmailAddress(email: string): string {
-  const match = email.match(/<(.*)>/);
-  return match ? match[1] : email;
+  // Standard email pattern that matches common email formats
+  // Allows:
+  // - Letters, numbers, dots, and plus signs in local part
+  // - Standard domain formats
+  // - Case insensitive
+  // - Emails anywhere within text
+  const emailPattern = /[a-zA-Z0-9.+]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i;
+
+  // Try last bracketed content first
+  const match = email.match(/<([^<>]+)>$/);
+  if (match && emailPattern.test(match[1].trim())) {
+    return match[1].trim();
+  }
+
+  // Fall back to finding any email in the string
+  const rawMatch = email.match(emailPattern);
+  return rawMatch ? rawMatch[0] : "";
 }
 
 // Converts "Name <hey@domain.com>" to "domain.com"

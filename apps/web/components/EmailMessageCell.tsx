@@ -6,8 +6,9 @@ import { MessageText } from "@/components/Typography";
 import { getGmailUrl } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
+import { useThread } from "@/hooks/useThread";
 
-export function TestRulesMessage({
+export function EmailMessageCell({
   from,
   userEmail,
   subject,
@@ -45,5 +46,38 @@ export function TestRulesMessage({
         {decodeSnippet(snippet).trim()}
       </MessageText>
     </div>
+  );
+}
+
+export function EmailMessageCellWithData({
+  from,
+  userEmail,
+  threadId,
+  messageId,
+}: {
+  from: string;
+  userEmail: string;
+  threadId: string;
+  messageId: string;
+}) {
+  const { data, isLoading, error } = useThread({ id: threadId });
+
+  return (
+    <EmailMessageCell
+      from={from}
+      userEmail={userEmail}
+      subject={
+        error
+          ? "Error loading email"
+          : isLoading
+            ? "Loading email..."
+            : data?.thread.messages?.[0]?.headers.subject || ""
+      }
+      snippet={
+        error ? "" : isLoading ? "" : data?.thread.messages?.[0]?.snippet || ""
+      }
+      threadId={threadId}
+      messageId={messageId}
+    />
   );
 }
