@@ -32,7 +32,6 @@ import {
   updatePromptFileOnRuleCreated,
   updatePromptFileOnRuleUpdated,
 } from "@/utils/rule/prompt-file";
-import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -45,7 +44,7 @@ export async function processUserRequest({
   notProcessed,
   categories,
   senderCategory,
-  reprocess,
+  // reprocess,
 }: {
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   rules: RuleWithRelations[];
@@ -55,7 +54,7 @@ export async function processUserRequest({
   notProcessed: boolean;
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
-  reprocess?: () => Promise<RunRulesResult>;
+  // reprocess?: () => Promise<RunRulesResult>;
 }) {
   if (messages[messages.length - 1].role === "assistant")
     throw new Error("Assistant message cannot be last");
@@ -540,23 +539,23 @@ ${senderCategory || "No category"}
         parameters: z.object({}),
         execute: async () => userRules,
       }),
-      ...(reprocess
-        ? {
-            reprocess: tool({
-              description:
-                "Reprocess the email through the rule matching system to see if the updated rules match correctly",
-              parameters: z.object({}),
-              execute: async () => {
-                logger.info("Reprocessing email", loggerOptions);
-                const result = await reprocess();
-                return {
-                  matchedRule: result.rule?.name || "No rule matched",
-                  reason: result.reason,
-                };
-              },
-            }),
-          }
-        : {}),
+      // ...(reprocess
+      //   ? {
+      //       reprocess: tool({
+      //         description:
+      //           "Reprocess the email through the rule matching system to see if the updated rules match correctly",
+      //         parameters: z.object({}),
+      //         execute: async () => {
+      //           logger.info("Reprocessing email", loggerOptions);
+      //           const result = await reprocess();
+      //           return {
+      //             matchedRule: result.rule?.name || "No rule matched",
+      //             reason: result.reason,
+      //           };
+      //         },
+      //       }),
+      //     }
+      //   : {}),
       reply: tool({
         description: "Send an email reply to the user",
         parameters: z.object({
