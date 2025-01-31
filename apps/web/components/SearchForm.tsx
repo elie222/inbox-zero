@@ -10,8 +10,10 @@ import {
 } from "@/app/api/google/messages/validation";
 
 export function SearchForm({
+  defaultQuery,
   onSearch,
 }: {
+  defaultQuery?: string;
   onSearch: (query: string) => void;
 }) {
   const {
@@ -20,6 +22,9 @@ export function SearchForm({
     formState: { errors, isSubmitting },
   } = useForm<MessageQuery>({
     resolver: zodResolver(messageQuerySchema),
+    defaultValues: {
+      q: defaultQuery,
+    },
   });
 
   const onSubmit: SubmitHandler<MessageQuery> = useCallback(

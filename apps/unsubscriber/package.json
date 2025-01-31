@@ -11,22 +11,22 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
-    "@types/dotenv": "^8.2.3",
+    "@types/dotenv": "8.2.3",
     "@types/node": "22.10.2",
-    "playwright": "^1.49.1",
-    "tsx": "^4.19.2",
-    "typescript": "5.7.2"
+    "playwright": "1.50.0",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^1.0.6",
-    "@ai-sdk/anthropic": "^1.0.8",
-    "@ai-sdk/google": "^1.0.12",
-    "@ai-sdk/openai": "^1.0.11",
-    "@fastify/cors": "^10.0.1",
-    "@t3-oss/env-core": "^0.11.1",
-    "ai": "^4.0.31",
-    "dotenv": "^16.4.7",
-    "fastify": "^5.2.0",
-    "zod": "^3.24.1"
+    "@ai-sdk/amazon-bedrock": "1.1.5",
+    "@ai-sdk/anthropic": "1.1.5",
+    "@ai-sdk/google": "1.1.7",
+    "@ai-sdk/openai": "1.1.5",
+    "@fastify/cors": "10.0.2",
+    "@t3-oss/env-core": "0.12.0",
+    "ai": "4.1.14",
+    "dotenv": "16.4.7",
+    "fastify": "5.2.1",
+    "zod": "3.24.1"
   }
 }

@@ -14,8 +14,10 @@ export function PermissionsCheck() {
     permissionsChecked = true;
 
     checkPermissionsAction().then((result) => {
-      if (!result?.hasAllPermissions) router.replace("/permissions/error");
-      if (!result?.hasRefreshToken) router.replace("/permissions/consent");
+      if (result?.hasAllPermissions === false)
+        router.replace("/permissions/error");
+      if (result?.hasRefreshToken === false)
+        router.replace("/permissions/consent");
     });
   }, [router]);
 

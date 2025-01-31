@@ -45,7 +45,10 @@ export function TestRulesContent() {
         <TestRulesForm />
 
         <div className="mt-4 max-w-sm">
-          <SearchForm onSearch={setSearchQuery} />
+          <SearchForm
+            defaultQuery={searchQuery || undefined}
+            onSearch={setSearchQuery}
+          />
         </div>
       </CardContent>
 

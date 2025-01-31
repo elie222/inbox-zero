@@ -35,6 +35,9 @@ export function RulesSelect({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All rules</SelectItem>
+            <SelectItem value="skipped">
+              Processed rules with no match
+            </SelectItem>
             {rules?.map((rule) => (
               <SelectItem key={rule.id} value={rule.id}>
                 {rule.name}

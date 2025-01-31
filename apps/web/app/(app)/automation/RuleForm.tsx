@@ -177,6 +177,20 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   const conditionalOperator = watch("conditionalOperator");
 
+  const typeOptions = useMemo(() => {
+    return [
+      { label: "Archive", value: ActionType.ARCHIVE },
+      { label: "Label", value: ActionType.LABEL },
+      { label: "Draft email", value: ActionType.DRAFT_EMAIL },
+      { label: "Reply", value: ActionType.REPLY },
+      { label: "Send email", value: ActionType.SEND_EMAIL },
+      { label: "Forward", value: ActionType.FORWARD },
+      { label: "Mark read", value: ActionType.MARK_READ },
+      { label: "Mark spam", value: ActionType.MARK_SPAM },
+      { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
+    ];
+  }, []);
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       {isSubmitted && Object.keys(errors).length > 0 && (
@@ -520,10 +534,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 <div className="sm:col-span-1">
                   <Select
                     label="Type"
-                    options={Object.keys(ActionType).map((action) => ({
-                      label: capitalCase(action),
-                      value: action,
-                    }))}
+                    options={typeOptions}
                     {...register(`actions.${i}.type`)}
                     error={errors.actions?.[i]?.type as FieldError | undefined}
                   />
