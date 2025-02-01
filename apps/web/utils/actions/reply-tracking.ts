@@ -8,6 +8,7 @@ import prisma from "@/utils/prisma";
 
 const resolveThreadTrackerSchema = z.object({
   threadId: z.string(),
+  resolved: z.boolean(),
 });
 
 type ResolveThreadTrackerBody = z.infer<typeof resolveThreadTrackerSchema>;
@@ -28,9 +29,7 @@ export const resolveThreadTrackerAction = withActionInstrumentation(
         threadId: data.threadId,
         userId,
       },
-      data: {
-        resolved: true,
-      },
+      data: { resolved: data.resolved },
     });
 
     revalidatePath("/reply-tracker");
