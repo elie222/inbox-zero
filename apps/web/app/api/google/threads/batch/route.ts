@@ -38,7 +38,7 @@ export const GET = withError(async (request: NextRequest) => {
 
   const { searchParams } = new URL(request.url);
   const { threadIds } = requestSchema.parse({
-    threadIds: searchParams.getAll("threadIds"),
+    threadIds: searchParams.get("threadIds")?.split(",") || [],
   });
 
   if (threadIds.length === 0) {

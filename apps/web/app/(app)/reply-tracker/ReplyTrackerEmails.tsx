@@ -18,7 +18,7 @@ export function ReplyTrackerEmails({
 }: {
   trackers: ThreadTracker[];
   userEmail: string;
-  isResolved: boolean;
+  isResolved?: boolean;
 }) {
   const { data: threads } = useThreadsByIds({
     threadIds: trackers.map((t) => t.threadId),
@@ -47,7 +47,7 @@ function Row({
 }: {
   message: ParsedMessage;
   userEmail: string;
-  isResolved: boolean;
+  isResolved?: boolean;
 }) {
   return (
     <TableRow>
