@@ -7,6 +7,9 @@ import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { Button } from "@/components/ui/button";
 import { CheckCircleIcon, HandIcon } from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
+import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
+import { isActionError } from "@/utils/error";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -58,8 +61,22 @@ function Row({
             <Button
               variant="outline"
               Icon={CheckCircleIcon}
-              onClick={() => {
-                console.log("resolve");
+              onClick={async () => {
+                const result = await resolveThreadTrackerAction({
+                  threadId: message.threadId,
+                });
+
+                if (isActionError(result)) {
+                  toastError({
+                    title: "Error",
+                    description: result.error,
+                  });
+                } else {
+                  toastSuccess({
+                    title: "Success",
+                    description: "Thread resolved",
+                  });
+                }
               }}
             >
               Resolve

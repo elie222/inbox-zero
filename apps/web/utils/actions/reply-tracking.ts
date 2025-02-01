@@ -1,12 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import prisma from "@/utils/prisma";
-import { z } from "zod";
 
 const resolveThreadTrackerSchema = z.object({
-  trackerId: z.string(),
+  threadId: z.string(),
 });
 
 type ResolveThreadTrackerBody = z.infer<typeof resolveThreadTrackerSchema>;
@@ -22,15 +23,17 @@ export const resolveThreadTrackerAction = withActionInstrumentation(
       resolveThreadTrackerSchema.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    await prisma.threadTracker.update({
+    await prisma.threadTracker.updateMany({
       where: {
-        id: data.trackerId,
+        threadId: data.threadId,
         userId,
       },
       data: {
         resolved: true,
       },
     });
+
+    revalidatePath("/reply-tracker");
 
     return { success: true };
   },
