@@ -22,6 +22,7 @@ import {
   ListCheckIcon,
   type LucideIcon,
   MailsIcon,
+  MessageCircleReplyIcon,
   MessagesSquareIcon,
   PenIcon,
   PersonStandingIcon,
@@ -56,11 +57,6 @@ const navigationItems: NavItem[] = [
     href: "/automation",
     icon: SparklesIcon,
   },
-  {
-    name: "Smart Categories",
-    href: "/smart-categories",
-    icon: TagIcon,
-  },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
     : [
@@ -71,9 +67,19 @@ const navigationItems: NavItem[] = [
         },
       ]),
   {
+    name: "Reply Tracking",
+    href: "/reply-tracking",
+    icon: MessageCircleReplyIcon,
+  },
+  {
     name: "Cold Email Blocker",
     href: "/cold-email-blocker",
     icon: ShieldCheckIcon,
+  },
+  {
+    name: "Smart Categories",
+    href: "/smart-categories",
+    icon: TagIcon,
   },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
