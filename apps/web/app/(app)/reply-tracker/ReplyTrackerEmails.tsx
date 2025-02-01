@@ -23,7 +23,7 @@ export function ReplyTrackerEmails({
     <Table>
       <TableBody>
         {threads?.threads.map((thread) => (
-          <AwaitingReplyRow
+          <Row
             key={thread.id}
             message={thread.messages?.[thread.messages.length - 1]}
             userEmail={userEmail}
@@ -34,7 +34,7 @@ export function ReplyTrackerEmails({
   );
 }
 
-function AwaitingReplyRow({
+function Row({
   message,
   userEmail,
 }: {
@@ -54,10 +54,14 @@ function AwaitingReplyRow({
             messageId={message.id}
           />
           <div className="ml-4 flex items-center gap-1">
-            <Button variant="default" Icon={HandIcon}>
-              Nudge
-            </Button>
-            <Button variant="default" Icon={CheckCircleIcon}>
+            <Button Icon={HandIcon}>Nudge</Button>
+            <Button
+              variant="outline"
+              Icon={CheckCircleIcon}
+              onClick={() => {
+                console.log("resolve");
+              }}
+            >
               Resolve
             </Button>
           </div>
