@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ThreadTrackerType } from "@prisma/client";
+import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
 
 export async function AwaitingReply() {
   const session = await auth();
@@ -18,5 +19,10 @@ export async function AwaitingReply() {
     },
   });
 
-  return <div>AwaitingReply</div>;
+  return (
+    <ReplyTrackerEmails
+      trackers={trackers}
+      userEmail={session.user.email || ""}
+    />
+  );
 }

@@ -18,5 +18,14 @@ export async function NeedsReply() {
     },
   });
 
-  return <div>NeedsReply</div>;
+  return (
+    <div>
+      <div>{trackers.length}</div>
+      <div>
+        {trackers.map((tracker) => (
+          <div key={tracker.id}>{tracker.threadId}</div>
+        ))}
+      </div>
+    </div>
+  );
 }

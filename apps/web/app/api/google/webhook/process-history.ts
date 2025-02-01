@@ -89,7 +89,10 @@ export async function processHistoryForUser(
     : undefined;
 
   if (!premium) {
-    logger.info("Account not premium", { email });
+    logger.info("Account not premium", {
+      email,
+      lemonSqueezyRenewsAt: account.user.premium?.lemonSqueezyRenewsAt,
+    });
     await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }

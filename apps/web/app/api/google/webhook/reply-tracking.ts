@@ -13,6 +13,12 @@ export async function handleOutboundReply(
   const messageId = message.id;
   if (!threadId || !messageId) return;
 
+  logger.info("Handling outbound reply", {
+    userId,
+    threadId,
+    messageId,
+  });
+
   // When we send a reply, resolve any existing "NEEDS_REPLY" trackers
   const resolvedResult = await prisma.threadTracker.updateMany({
     where: {
@@ -63,6 +69,12 @@ export async function handleInboundReply(
   const threadId = message.threadId;
   const messageId = message.id;
   if (!threadId || !messageId) return;
+
+  logger.info("Handling inbound reply", {
+    userId,
+    threadId,
+    messageId,
+  });
 
   await prisma.threadTracker.updateMany({
     where: {

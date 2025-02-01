@@ -57,6 +57,11 @@ const navigationItems: NavItem[] = [
     href: "/automation",
     icon: SparklesIcon,
   },
+  {
+    name: "Reply Tracker",
+    href: "/reply-tracker",
+    icon: MessageCircleReplyIcon,
+  },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
     : [
@@ -66,11 +71,6 @@ const navigationItems: NavItem[] = [
           icon: MailsIcon,
         },
       ]),
-  {
-    name: "Reply Tracker",
-    href: "/reply-tracker",
-    icon: MessageCircleReplyIcon,
-  },
   {
     name: "Cold Email Blocker",
     href: "/cold-email-blocker",
