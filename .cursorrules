@@ -160,3 +160,11 @@ import prisma from "@/utils/prisma";
 import type { Action } from "@prisma/client";
 import { type Action, GroupItemType } from "@prisma/client";
 ```
+
+## Adding new pages
+
+- Create new pages at: `apps/web/app/(app)/PAGE_NAME/page.tsx`.
+- Components for the page are either put in `page.tsx`, or in the `apps/web/app/(app)/PAGE_NAME` folder.
+- Pages are Server components so you can load data into them direct. But if we're in a deeply nested component we will use `swr` to fetch via API.
+- If you need to use `onClick` in a component, that component is a client component and file must start with `use client`.
+- Server action files should start with `use server`.
