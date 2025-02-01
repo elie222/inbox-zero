@@ -67,8 +67,8 @@ const navigationItems: NavItem[] = [
         },
       ]),
   {
-    name: "Reply Tracking",
-    href: "/reply-tracking",
+    name: "Reply Tracker",
+    href: "/reply-tracker",
     icon: MessageCircleReplyIcon,
   },
   {

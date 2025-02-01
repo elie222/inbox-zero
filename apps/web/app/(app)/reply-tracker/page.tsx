@@ -6,11 +6,11 @@ import {
   MailIcon,
 } from "lucide-react";
 import { NeedsReply } from "./NeedsReply";
-import { Resolved } from "@/app/(app)/reply-tracking/Resolved";
-import { AwaitingReply } from "@/app/(app)/reply-tracking/AwaitingReply";
-import { NeedsAction } from "@/app/(app)/reply-tracking/NeedsAction";
+import { Resolved } from "@/app/(app)/reply-tracker/Resolved";
+import { AwaitingReply } from "@/app/(app)/reply-tracker/AwaitingReply";
+import { NeedsAction } from "@/app/(app)/reply-tracker/NeedsAction";
 
-export default async function ReplyTrackingPage() {
+export default async function ReplyTrackerPage() {
   return (
     <Tabs defaultValue="needsReply" className="w-full">
       <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
