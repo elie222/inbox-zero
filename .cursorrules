@@ -168,3 +168,44 @@ import { type Action, GroupItemType } from "@prisma/client";
 - Pages are Server components so you can load data into them direct. But if we're in a deeply nested component we will use `swr` to fetch via API.
 - If you need to use `onClick` in a component, that component is a client component and file must start with `use client`.
 - Server action files should start with `use server`.
+
+## API routes
+
+- Use this format for API routes:
+
+```ts
+import { z } from "zod";
+import { NextResponse } from "next/server";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import prisma from "@/utils/prisma";
+import { withError } from "@/utils/middleware";
+
+const ApiNameBody = z.object({ id: z.string(), message: z.string() });
+export type ApiNameBody = z.infer<typeof ApiNameBody>;
+export type updateApiNameResponse = Awaited<ReturnType<typeof updateApiName>>;
+
+async function updateApiName(body: ApiNameBody, options: { email: string }) {
+  const { email } = options;
+  const result = await prisma.table.update({
+    where: {
+      id: body.id,
+      email,
+    },
+    data: body
+  })
+
+  return { result };
+};
+
+export const POST = withError(async (request: Request) => {
+  const session = await auth();
+  if (!session?.user.email) return NextResponse.json({ error: "Not authenticated" });
+
+  const json = await request.json();
+  const body = ApiNameBody.parse(json);
+
+  const result = await updateApiName(body, { email: session.user.email });
+
+  return NextResponse.json(result);
+});
+```
