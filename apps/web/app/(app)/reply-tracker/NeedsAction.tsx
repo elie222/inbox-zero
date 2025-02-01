@@ -17,6 +17,7 @@ export async function NeedsAction() {
     orderBy: {
       createdAt: "desc",
     },
+    distinct: ["threadId"],
   });
 
   return (

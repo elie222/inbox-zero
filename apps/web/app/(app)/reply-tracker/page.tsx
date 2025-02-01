@@ -18,14 +18,14 @@ export default async function ReplyTrackerPage() {
           <TabsList>
             <TabsTrigger value="needsReply" className="flex items-center gap-2">
               <MailIcon className="h-4 w-4" />
-              Needs Reply
+              To Reply
             </TabsTrigger>
             <TabsTrigger
               value="awaitingReply"
               className="flex items-center gap-2"
             >
               <ClockIcon className="h-4 w-4" />
-              Awaiting Reply
+              Waiting
             </TabsTrigger>
             <TabsTrigger
               value="needsAction"

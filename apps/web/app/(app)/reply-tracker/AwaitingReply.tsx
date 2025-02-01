@@ -17,6 +17,7 @@ export async function AwaitingReply() {
     orderBy: {
       createdAt: "desc",
     },
+    distinct: ["threadId"],
   });
 
   return (

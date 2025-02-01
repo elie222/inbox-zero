@@ -15,6 +15,7 @@ export async function Resolved() {
     orderBy: {
       createdAt: "desc",
     },
+    distinct: ["threadId"],
   });
 
   return (
