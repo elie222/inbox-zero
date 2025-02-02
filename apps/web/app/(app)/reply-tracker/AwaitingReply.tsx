@@ -1,16 +1,17 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ThreadTrackerType } from "@prisma/client";
 import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
 
-export async function AwaitingReply() {
-  const session = await auth();
-  if (!session?.user.id) redirect("/login");
-
+export async function AwaitingReply({
+  userId,
+  userEmail,
+}: {
+  userId: string;
+  userEmail: string;
+}) {
   const trackers = await prisma.threadTracker.findMany({
     where: {
-      userId: session.user.id,
+      userId,
       resolved: false,
       type: ThreadTrackerType.AWAITING,
     },
@@ -20,10 +21,5 @@ export async function AwaitingReply() {
     distinct: ["threadId"],
   });
 
-  return (
-    <ReplyTrackerEmails
-      trackers={trackers}
-      userEmail={session.user.email || ""}
-    />
-  );
+  return <ReplyTrackerEmails trackers={trackers} userEmail={userEmail} />;
 }

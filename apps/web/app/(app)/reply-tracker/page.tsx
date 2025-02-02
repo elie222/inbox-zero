@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertCircleIcon,
@@ -9,8 +10,15 @@ import { NeedsReply } from "./NeedsReply";
 import { Resolved } from "@/app/(app)/reply-tracker/Resolved";
 import { AwaitingReply } from "@/app/(app)/reply-tracker/AwaitingReply";
 import { NeedsAction } from "@/app/(app)/reply-tracker/NeedsAction";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 export default async function ReplyTrackerPage() {
+  const session = await auth();
+  if (!session?.user.email) redirect("/login");
+
+  const userId = session.user.id;
+  const userEmail = session.user.email;
+
   return (
     <Tabs defaultValue="needsReply" className="w-full">
       <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
@@ -44,19 +52,19 @@ export default async function ReplyTrackerPage() {
       </div>
 
       <TabsContent value="needsReply">
-        <NeedsReply />
+        <NeedsReply userId={userId} userEmail={userEmail} />
       </TabsContent>
 
       <TabsContent value="awaitingReply">
-        <AwaitingReply />
+        <AwaitingReply userId={userId} userEmail={userEmail} />
       </TabsContent>
 
       <TabsContent value="needsAction">
-        <NeedsAction />
+        <NeedsAction userId={userId} userEmail={userEmail} />
       </TabsContent>
 
       <TabsContent value="resolved">
-        <Resolved />
+        <Resolved userId={userId} userEmail={userEmail} />
       </TabsContent>
     </Tabs>
   );
