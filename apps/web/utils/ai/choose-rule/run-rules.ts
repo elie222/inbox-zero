@@ -19,6 +19,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
+import { createReplyTrackerInbound } from "@/utils/reply-tracker";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -108,6 +109,21 @@ async function runRule(
       executedRule,
       email: message,
     });
+  }
+
+  // reply tracker
+  if (executedRule && rule.trackReplies) {
+    try {
+      await createReplyTrackerInbound(user.id, message.threadId, message.id);
+    } catch (error) {
+      logger.error("Failed to create reply tracker", {
+        error,
+        userId: user.id,
+        email: user.email,
+        threadId: message.threadId,
+        messageId: message.id,
+      });
+    }
   }
 
   return {

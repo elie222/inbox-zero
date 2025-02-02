@@ -24,10 +24,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import {
-  handleInboundReply,
-  handleOutboundReply,
-} from "@/app/api/google/webhook/reply-tracking";
+import { handleOutboundReply } from "@/app/api/google/webhook/reply-tracking";
 
 const logger = createScopedLogger("Process History");
 
@@ -402,9 +399,6 @@ async function processHistoryItem(
 
     if (isOutbound) {
       await handleOutboundReply(user.id, message);
-    } else {
-      // TODO: depends on ai rules
-      // await handleInboundReply(user.id, message);
     }
 
     // skip outbound emails
