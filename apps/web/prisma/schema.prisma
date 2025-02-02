@@ -227,13 +227,6 @@ model Action {
   cc      String?
   bcc     String?
   url     String?
-
-  labelPrompt   String? // deprecated
-  subjectPrompt String? // deprecated
-  contentPrompt String? // deprecated
-  toPrompt      String? // deprecated
-  ccPrompt      String? // deprecated
-  bccPrompt     String? // deprecated
 }
 
 // Rule/Action models represent the rules and actions that the AI can take.

@@ -163,12 +163,6 @@ function getAction(action: Partial<Action> = {}): Action {
     cc: null,
     bcc: null,
     url: null,
-    labelPrompt: null,
-    subjectPrompt: null,
-    contentPrompt: null,
-    toPrompt: null,
-    ccPrompt: null,
-    bccPrompt: null,
     ...action,
   };
 }
