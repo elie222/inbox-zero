@@ -182,6 +182,7 @@ model Rule {
   userId         String
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules  ExecutedRule[]
+  trackReplies   Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
   threadTrackers ThreadTracker[]
 
   // conditions: ai, group, static, category
