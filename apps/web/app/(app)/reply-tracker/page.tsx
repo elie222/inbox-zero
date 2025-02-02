@@ -12,7 +12,7 @@ import { AwaitingReply } from "@/app/(app)/reply-tracker/AwaitingReply";
 import { NeedsAction } from "@/app/(app)/reply-tracker/NeedsAction";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { EnableFeatureCard } from "@/components/EnableFeatureCard";
+import { EnableReplyTracker } from "@/app/(app)/reply-tracker/EnableReplyTracker";
 
 export default async function ReplyTrackerPage() {
   const session = await auth();
@@ -21,21 +21,13 @@ export default async function ReplyTrackerPage() {
   const userId = session.user.id;
   const userEmail = session.user.email;
 
-  const trackRepliesRule = await prisma.rule.findUnique({
-    where: { id: userId, trackReplies: true },
+  const trackRepliesRule = await prisma.rule.findFirst({
+    where: { userId, trackReplies: true },
     select: { trackReplies: true },
   });
 
   if (!trackRepliesRule?.trackReplies) {
-    return (
-      <EnableFeatureCard
-        title="Reply Tracker"
-        description="Enable reply tracking to automatically track both emails you need to respond to and responses you're waiting for from others. Never miss a follow-up again."
-        imageSrc="https://illustrations.popsy.co/amber/communication.svg"
-        imageAlt="Reply tracking"
-        buttonText="Enable Reply Tracker"
-      />
-    );
+    return <EnableReplyTracker />;
   }
 
   return (
