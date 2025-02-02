@@ -56,19 +56,19 @@ export default async function ReplyTrackerPage() {
         </div>
       </div>
 
-      <TabsContent value="needsReply">
+      <TabsContent value="needsReply" className="mt-0">
         <NeedsReply userId={userId} userEmail={userEmail} />
       </TabsContent>
 
-      <TabsContent value="awaitingReply">
+      <TabsContent value="awaitingReply" className="mt-0">
         <AwaitingReply userId={userId} userEmail={userEmail} />
       </TabsContent>
 
-      {/* <TabsContent value="needsAction">
+      {/* <TabsContent value="needsAction" className="mt-0">
         <NeedsAction userId={userId} userEmail={userEmail} />
       </TabsContent> */}
 
-      <TabsContent value="resolved">
+      <TabsContent value="resolved" className="mt-0">
         <Resolved userId={userId} userEmail={userEmail} />
       </TabsContent>
     </Tabs>

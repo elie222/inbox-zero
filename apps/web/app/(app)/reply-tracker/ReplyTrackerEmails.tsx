@@ -10,6 +10,7 @@ import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
 import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { ViewEmailButton } from "@/components/ViewEmailButton";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -72,6 +73,10 @@ function Row({
               <>
                 <NudgeButton threadId={message.threadId} />
                 <ResolveButton threadId={message.threadId} />
+                <ViewEmailButton
+                  threadId={message.threadId}
+                  messageId={message.id}
+                />
               </>
             )}
           </div>
@@ -82,7 +87,11 @@ function Row({
 }
 
 function NudgeButton({ threadId }: { threadId: string }) {
-  return <Button Icon={HandIcon}>Nudge</Button>;
+  return (
+    <Button Icon={HandIcon} onClick={() => {}}>
+      Nudge
+    </Button>
+  );
 }
 
 function ResolveButton({ threadId }: { threadId: string }) {
