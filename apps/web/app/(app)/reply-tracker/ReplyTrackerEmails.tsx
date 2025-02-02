@@ -24,6 +24,10 @@ export function ReplyTrackerEmails({
     threadIds: trackers.map((t) => t.threadId),
   });
 
+  if (!threads?.threads.length) {
+    return <EmptyState message="No emails yet!" />;
+  }
+
   return (
     <Table>
       <TableBody>
@@ -136,5 +140,15 @@ function UnresolveButton({ threadId }: { threadId: string }) {
     >
       Unresolve
     </Button>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="content-container">
+      <div className="flex min-h-[200px] flex-col items-center justify-center rounded-md border border-dashed p-8 text-center animate-in fade-in-50">
+        <p className="text-sm text-muted-foreground">{message}</p>
+      </div>
+    </div>
   );
 }
