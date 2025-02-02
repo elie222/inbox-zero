@@ -10,7 +10,7 @@ const requestSchema = z.object({ threadIds: z.array(z.string()) });
 
 export type ThreadsBatchResponse = Awaited<ReturnType<typeof getThreads>>;
 
-export async function getThreads(threadIds: string[], accessToken: string) {
+async function getThreads(threadIds: string[], accessToken: string) {
   const threads = await getThreadsBatch(threadIds, accessToken);
 
   const threadsWithMessages = await Promise.all(
