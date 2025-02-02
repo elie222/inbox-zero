@@ -1,12 +1,19 @@
 import prisma from "@/utils/prisma";
 import { ThreadTrackerType } from "@prisma/client";
+import type { gmail_v1 } from "@googleapis/gmail";
+import {
+  labelAwaitingReply,
+  removeAwaitingReplyLabel,
+} from "@/utils/reply-tracker/consts";
 
 export async function createReplyTrackerInbound(
   userId: string,
   threadId: string,
   messageId: string,
+  gmail: gmail_v1.Gmail,
 ) {
-  await prisma.threadTracker.updateMany({
+  // Resolve existing AWAITING trackers
+  const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
       userId,
       threadId,
@@ -17,7 +24,12 @@ export async function createReplyTrackerInbound(
     },
   });
 
-  await prisma.threadTracker.upsert({
+  const labelPromise = removeAwaitingReplyLabel(gmail, messageId);
+
+  await Promise.allSettled([updateDbPromise, labelPromise]);
+
+  // Create new NEEDS_REPLY tracker
+  const upsertPromise = prisma.threadTracker.upsert({
     where: {
       userId_threadId_messageId: {
         userId,
@@ -33,4 +45,8 @@ export async function createReplyTrackerInbound(
       type: ThreadTrackerType.NEEDS_REPLY,
     },
   });
+
+  const newLabelPromise = labelAwaitingReply(gmail, messageId);
+
+  await Promise.allSettled([upsertPromise, newLabelPromise]);
 }
