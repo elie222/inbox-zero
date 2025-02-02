@@ -254,6 +254,45 @@ export async function getOrCreateLabel({
   return createdLabel;
 }
 
+// More efficient way to get or create multiple labels, so we fetch labels only once
+export async function getOrCreateLabels({
+  gmail,
+  names,
+}: {
+  gmail: gmail_v1.Gmail;
+  names: string[];
+}): Promise<gmail_v1.Schema$Label[]> {
+  if (!names.length) return [];
+
+  // Validate names
+  const emptyNames = names.filter((name) => !name?.trim());
+  if (emptyNames.length) throw new Error("Label names cannot be empty");
+
+  // Fetch labels once
+  const existingLabels = (await getLabels(gmail)) || [];
+  const normalizedNames = names.map(normalizeLabel);
+
+  // Find existing labels
+  const labelMap = new Map<string, gmail_v1.Schema$Label>();
+  existingLabels.forEach((label) => {
+    if (label.name) {
+      labelMap.set(normalizeLabel(label.name), label);
+    }
+  });
+
+  // Create missing labels
+  const results = await Promise.all(
+    normalizedNames.map(async (normalizedName, index) => {
+      const existingLabel = labelMap.get(normalizedName);
+      if (existingLabel) return existingLabel;
+
+      return createLabel({ gmail, name: names[index] });
+    }),
+  );
+
+  return results;
+}
+
 export async function getOrCreateInboxZeroLabel({
   gmail,
   key,

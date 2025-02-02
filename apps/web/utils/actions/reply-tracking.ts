@@ -9,6 +9,7 @@ import { aiFindReplyTrackingRule } from "@/utils/ai/reply/check-reply-tracking";
 import { safeCreateRule } from "@/utils/rule/rule";
 import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/label";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -39,6 +40,13 @@ export const enableReplyTrackerAction = withActionInstrumentation(
           select: {
             id: true,
             instructions: true,
+            actions: {
+              select: {
+                id: true,
+                type: true,
+                label: true,
+              },
+            },
           },
         },
       },
@@ -53,9 +61,31 @@ export const enableReplyTrackerAction = withActionInstrumentation(
         })
       : null;
 
-    let ruleId: string | null = result;
+    const rule = user.rules.find((r) => r.id === ruleId);
 
-    // 2. If not found, create a reply required rule
+    let ruleId: string | null = rule?.id || null;
+
+    // If rule found, update/create the label action to NEEDS_REPLY_LABEL
+    if (rule) {
+      const labelAction = rule.actions.find((a) => a.type === ActionType.LABEL);
+
+      if (labelAction) {
+        await prisma.action.update({
+          where: { id: labelAction.id },
+          data: { label: NEEDS_REPLY_LABEL_NAME },
+        });
+      } else {
+        await prisma.action.create({
+          data: {
+            type: ActionType.LABEL,
+            label: NEEDS_REPLY_LABEL_NAME,
+            rule: { connect: { id: rule.id } },
+          },
+        });
+      }
+    }
+
+    // If not found, create a reply required rule
     if (!ruleId) {
       const newRule = await safeCreateRule(
         {
@@ -68,7 +98,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
             {
               type: ActionType.LABEL,
               fields: {
-                label: "Reply Required",
+                label: NEEDS_REPLY_LABEL_NAME,
                 to: null,
                 subject: null,
                 content: null,

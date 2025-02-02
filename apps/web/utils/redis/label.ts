@@ -14,7 +14,7 @@ function getUserLabelsKey(email: string) {
 }
 
 // user labels
-export async function getUserLabels(options: { email: string }) {
+async function getUserLabels(options: { email: string }) {
   const key = getUserLabelsKey(options.email);
   return redis.get<RedisLabel[]>(key);
 }

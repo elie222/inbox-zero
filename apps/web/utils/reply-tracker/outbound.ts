@@ -10,6 +10,7 @@ import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import {
   labelAwaitingReply,
   removeNeedsReplyLabel,
+  getReplyTrackingLabels,
 } from "@/utils/reply-tracker/label";
 
 const logger = createScopedLogger("outbound-reply");
@@ -21,8 +22,16 @@ export async function handleOutboundReply(
 ) {
   const userId = user.id;
 
+  const { awaitingReplyLabelId, needsReplyLabelId } =
+    await getReplyTrackingLabels(gmail);
+
   // When we send a reply, resolve any existing "NEEDS_REPLY" trackers
-  await resolveReplyTrackers(gmail, userId, message.threadId, message.id);
+  await resolveReplyTrackers(
+    gmail,
+    userId,
+    message.threadId,
+    needsReplyLabelId,
+  );
 
   const threadMessages = await getThreadMessages(message.threadId, gmail);
 
@@ -48,6 +57,7 @@ export async function handleOutboundReply(
       userId,
       message.threadId,
       message.id,
+      awaitingReplyLabelId,
     );
   } else {
     console.log("No need to reply");
@@ -59,6 +69,7 @@ async function createReplyTrackerOutbound(
   userId: string,
   threadId: string,
   messageId: string,
+  awaitingReplyLabelId: string,
 ) {
   if (!threadId || !messageId) return;
 
@@ -79,7 +90,11 @@ async function createReplyTrackerOutbound(
     },
   });
 
-  const labelPromise = labelAwaitingReply(gmail, messageId);
+  const labelPromise = labelAwaitingReply(
+    gmail,
+    messageId,
+    awaitingReplyLabelId,
+  );
 
   await Promise.allSettled([upsertPromise, labelPromise]);
 }
@@ -88,7 +103,7 @@ async function resolveReplyTrackers(
   gmail: gmail_v1.Gmail,
   userId: string,
   threadId: string,
-  messageId: string,
+  needsReplyLabelId: string,
 ) {
   const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
@@ -102,7 +117,11 @@ async function resolveReplyTrackers(
     },
   });
 
-  const labelPromise = removeNeedsReplyLabel(gmail, threadId);
+  const labelPromise = removeNeedsReplyLabel(
+    gmail,
+    threadId,
+    needsReplyLabelId,
+  );
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }
