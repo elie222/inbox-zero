@@ -160,6 +160,32 @@ The project extensively uses environment variables for configuration. These vari
 - Admin email addresses.
 - Webhook URLs and API keys for internal communication.
 
-## Conclusion
+## Features
 
-Inbox Zero exhibits a well-structured and modular architecture, leveraging a monorepo approach and modern technologies like Next.js, Prisma, and serverless functions. The architecture is designed for scalability, maintainability, and extensibility, with clear separation of concerns between the frontend, backend, and supporting services. The use of queues and background processing ensures efficient handling of asynchronous tasks like AI processing and email actions. The extensive use of environment variables promotes configuration flexibility and security. This architecture is well-suited for a complex SaaS application like Inbox Zero, providing a solid foundation for future development and feature enhancements.
+### AI Personal Assistant
+
+The user can set a prompt file which gets converted to individual rules in our database.
+What is ultimately passed to the LLM is the database rules and not the prompt file.
+We have a two way sync system between the db rules and the prompt file. This is messy, and maybe it would be better to just have one-way data flow via the prompt file.
+
+The benefit to having database rules:
+
+- In most cases, the AI is only deciding if conditions are matched.
+- We have specific entries for each rule, so we can track how often each is called. If it were fully prompt based this wouldn't be possible. This is a potentially minor benefit to the user however.
+- Because actions are static (unless using templates), the user can precisely define how the actions work without any LLM interference.
+
+The current structure of the AI personal assistant is due to the product evolving. Had it been designed from scratch it would likely have been structured a little differently to avoid the two-way sync issues. This architecture may be changed in the future.
+
+Another downside of not using the prompt file as the source of truth for the LLM is that some information included in the prompt file will not be passed to the LLM. Not something the user expects. For example, the user might write style guidelines at the top of the prompt file, but there's no natural way for this to be moved into the rules, as this information applies to all rules. We do have an `about` section that can be used for this on the `Settings` page, but this is separate.
+
+### Reply Tracking
+
+This feature is built off of the AI personal assistant.
+There's a special type of rule for reply tracking.
+I considered making it a separate feature similar to the cold email blocker. It makes things a little messy having this special type of rule, but the benefit is it integrates with the existing assistant and all the features built around that now.
+This means each user has their own reply tracking prompt (but this is also annoying, because it makes it hard for us to do a global update for all users for the prompt, which is something we can do for the cold email blocker prompt).
+
+### Cold email blocker
+
+The cold email blocker monitors for incoming emails, if the user has never sent us an email before we run it through an LLM to decide if it's a cold email or not.
+This feature is not connected to the AI personal assistant.
