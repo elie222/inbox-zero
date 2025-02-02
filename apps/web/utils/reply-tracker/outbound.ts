@@ -1,12 +1,16 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
-import { getThreadMessages } from "@/utils/gmail/thread";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import prisma from "@/utils/prisma";
 import type { ParsedMessage } from "@/utils/types";
+import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
+import prisma from "@/utils/prisma";
+import { getThreadMessages } from "@/utils/gmail/thread";
 import { ThreadTrackerType, type User } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
+import {
+  labelAwaitingReply,
+  removeAwaitingReplyLabel,
+} from "@/utils/reply-tracker/consts";
 
 const logger = createScopedLogger("outbound-reply");
 
@@ -18,7 +22,7 @@ export async function handleOutboundReply(
   const userId = user.id;
 
   // When we send a reply, resolve any existing "NEEDS_REPLY" trackers
-  await resolveReplyTrackers(userId, message.threadId);
+  await resolveReplyTrackers(gmail, userId, message.threadId, message.id);
 
   const threadMessages = await getThreadMessages(message.threadId, gmail);
 
@@ -39,20 +43,26 @@ export async function handleOutboundReply(
 
   // if yes, create a tracker
   if (result.needsReply) {
-    await createReplyTrackerOutbound(userId, message.threadId, message.id);
+    await createReplyTrackerOutbound(
+      gmail,
+      userId,
+      message.threadId,
+      message.id,
+    );
   } else {
     console.log("No need to reply");
   }
 }
 
 async function createReplyTrackerOutbound(
+  gmail: gmail_v1.Gmail,
   userId: string,
   threadId: string,
   messageId: string,
 ) {
   if (!threadId || !messageId) return;
 
-  await prisma.threadTracker.upsert({
+  const upsertPromise = prisma.threadTracker.upsert({
     where: {
       userId_threadId_messageId: {
         userId,
@@ -68,10 +78,19 @@ async function createReplyTrackerOutbound(
       type: ThreadTrackerType.AWAITING,
     },
   });
+
+  const labelPromise = labelAwaitingReply(gmail, messageId);
+
+  await Promise.allSettled([upsertPromise, labelPromise]);
 }
 
-async function resolveReplyTrackers(userId: string, threadId: string) {
-  await prisma.threadTracker.updateMany({
+async function resolveReplyTrackers(
+  gmail: gmail_v1.Gmail,
+  userId: string,
+  threadId: string,
+  messageId: string,
+) {
+  const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
       userId,
       threadId,
@@ -82,4 +101,8 @@ async function resolveReplyTrackers(userId: string, threadId: string) {
       resolved: true,
     },
   });
+
+  const labelPromise = removeAwaitingReplyLabel(gmail, messageId);
+
+  await Promise.allSettled([updateDbPromise, labelPromise]);
 }

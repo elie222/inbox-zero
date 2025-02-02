@@ -99,14 +99,17 @@ export async function archiveThread({
   return archiveResult.value;
 }
 
-export async function labelMessage(options: {
+export async function labelMessage({
+  gmail,
+  messageId,
+  addLabelIds,
+  removeLabelIds,
+}: {
   gmail: gmail_v1.Gmail;
   messageId: string;
   addLabelIds?: string[];
   removeLabelIds?: string[];
 }) {
-  const { gmail, messageId, addLabelIds, removeLabelIds } = options;
-
   return gmail.users.messages.modify({
     userId: "me",
     id: messageId,
