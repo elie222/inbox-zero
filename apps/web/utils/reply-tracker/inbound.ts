@@ -4,7 +4,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import {
   labelAwaitingReply,
   removeAwaitingReplyLabel,
-} from "@/utils/reply-tracker/consts";
+} from "@/utils/reply-tracker/label";
 
 export async function createReplyTrackerInbound(
   userId: string,

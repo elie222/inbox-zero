@@ -10,7 +10,7 @@ import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import {
   labelAwaitingReply,
   removeAwaitingReplyLabel,
-} from "@/utils/reply-tracker/consts";
+} from "@/utils/reply-tracker/label";
 
 const logger = createScopedLogger("outbound-reply");
 
