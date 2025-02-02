@@ -10,7 +10,7 @@ import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
 import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { ViewEmailButton } from "@/components/ViewEmailButton";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -75,12 +75,11 @@ function Row({
               <UnresolveButton threadId={message.threadId} />
             ) : (
               <>
-                <NudgeButton threadId={message.threadId} />
-                <ResolveButton threadId={message.threadId} />
-                <ViewEmailButton
+                <NudgeButton
                   threadId={message.threadId}
                   messageId={message.id}
                 />
+                <ResolveButton threadId={message.threadId} />
               </>
             )}
           </div>
@@ -90,9 +89,27 @@ function Row({
   );
 }
 
-function NudgeButton({ threadId }: { threadId: string }) {
+function NudgeButton({
+  threadId,
+  messageId,
+}: {
+  threadId: string;
+  messageId: string;
+}) {
+  const { showEmail } = useDisplayedEmail();
+
   return (
-    <Button Icon={HandIcon} onClick={() => {}}>
+    <Button
+      Icon={HandIcon}
+      onClick={() => {
+        showEmail({
+          threadId,
+          messageId,
+          showReplyButton: true,
+          autoOpenReplyForMessageId: messageId,
+        });
+      }}
+    >
       Nudge
     </Button>
   );

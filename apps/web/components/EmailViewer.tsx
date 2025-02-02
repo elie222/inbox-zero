@@ -9,7 +9,8 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export function EmailViewer() {
-  const { threadId, showEmail } = useDisplayedEmail();
+  const { threadId, showEmail, showReplyButton, autoOpenReplyForMessageId } =
+    useDisplayedEmail();
 
   const hideEmail = useCallback(() => showEmail(null), [showEmail]);
 
@@ -21,13 +22,27 @@ export function EmailViewer() {
         className="overflow-y-auto bg-slate-100 p-0"
         overlay="transparent"
       >
-        {threadId && <EmailContent threadId={threadId} />}
+        {threadId && (
+          <EmailContent
+            threadId={threadId}
+            showReplyButton={showReplyButton}
+            autoOpenReplyForMessageId={autoOpenReplyForMessageId ?? undefined}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function EmailContent({ threadId }: { threadId: string }) {
+function EmailContent({
+  threadId,
+  showReplyButton,
+  autoOpenReplyForMessageId,
+}: {
+  threadId: string;
+  showReplyButton: boolean;
+  autoOpenReplyForMessageId?: string;
+}) {
   const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
   return (
@@ -37,7 +52,8 @@ function EmailContent({ threadId }: { threadId: string }) {
           <EmailThread
             messages={data.thread.messages}
             refetch={mutate}
-            showReplyButton={false}
+            showReplyButton={showReplyButton}
+            autoOpenReplyForMessageId={autoOpenReplyForMessageId}
           />
         )}
       </LoadingContent>

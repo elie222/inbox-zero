@@ -111,10 +111,12 @@ export function EmailThread({
   messages,
   refetch,
   showReplyButton,
+  autoOpenReplyForMessageId,
 }: {
   messages: Thread["messages"];
   refetch: () => void;
   showReplyButton: boolean;
+  autoOpenReplyForMessageId?: string;
 }) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
@@ -125,6 +127,7 @@ export function EmailThread({
             message={message}
             showReplyButton={showReplyButton}
             refetch={refetch}
+            defaultShowReply={autoOpenReplyForMessageId === message.id}
           />
         ))}
       </ul>
@@ -136,12 +139,14 @@ function EmailMessage({
   message,
   refetch,
   showReplyButton,
+  defaultShowReply,
 }: {
   message: Thread["messages"][0];
   refetch: () => void;
   showReplyButton: boolean;
+  defaultShowReply?: boolean;
 }) {
-  const [showReply, setShowReply] = useState(false);
+  const [showReply, setShowReply] = useState(defaultShowReply || false);
   const onReply = useCallback(() => setShowReply(true), []);
   const [showForward, setShowForward] = useState(false);
   const onForward = useCallback(() => setShowForward(true), []);
