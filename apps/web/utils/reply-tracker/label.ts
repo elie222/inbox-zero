@@ -1,7 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { labelMessage } from "@/utils/gmail/label";
+import { labelMessage, labelThread } from "@/utils/gmail/label";
 
+// This comes from the action:
 const NEEDS_REPLY_LABEL = "To Reply";
+// Check Redis for the id:
 const AWAITING_REPLY_LABEL = "Awaiting Reply";
 
 export async function labelAwaitingReply(
@@ -17,11 +19,11 @@ export async function labelAwaitingReply(
 
 export async function removeAwaitingReplyLabel(
   gmail: gmail_v1.Gmail,
-  messageId: string,
+  threadId: string,
 ) {
-  await labelMessage({
+  await labelThread({
     gmail,
-    messageId,
+    threadId,
     removeLabelIds: [AWAITING_REPLY_LABEL],
   });
 }
@@ -39,11 +41,11 @@ export async function labelNeedsReply(
 
 export async function removeNeedsReplyLabel(
   gmail: gmail_v1.Gmail,
-  messageId: string,
+  threadId: string,
 ) {
-  await labelMessage({
+  await labelThread({
     gmail,
-    messageId,
+    threadId,
     removeLabelIds: [NEEDS_REPLY_LABEL],
   });
 }

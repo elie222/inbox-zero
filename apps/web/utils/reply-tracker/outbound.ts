@@ -9,7 +9,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
 import {
   labelAwaitingReply,
-  removeAwaitingReplyLabel,
+  removeNeedsReplyLabel,
 } from "@/utils/reply-tracker/label";
 
 const logger = createScopedLogger("outbound-reply");
@@ -102,7 +102,7 @@ async function resolveReplyTrackers(
     },
   });
 
-  const labelPromise = removeAwaitingReplyLabel(gmail, messageId);
+  const labelPromise = removeNeedsReplyLabel(gmail, threadId);
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }

@@ -2,7 +2,7 @@ import prisma from "@/utils/prisma";
 import { ThreadTrackerType } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
-  labelAwaitingReply,
+  labelNeedsReply,
   removeAwaitingReplyLabel,
 } from "@/utils/reply-tracker/label";
 
@@ -24,7 +24,7 @@ export async function createReplyTrackerInbound(
     },
   });
 
-  const labelPromise = removeAwaitingReplyLabel(gmail, messageId);
+  const labelPromise = removeAwaitingReplyLabel(gmail, threadId);
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
 
@@ -46,7 +46,7 @@ export async function createReplyTrackerInbound(
     },
   });
 
-  const newLabelPromise = labelAwaitingReply(gmail, messageId);
+  const newLabelPromise = labelNeedsReply(gmail, messageId);
 
   await Promise.allSettled([upsertPromise, newLabelPromise]);
 }
