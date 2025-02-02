@@ -19,7 +19,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
-import { createReplyTrackerInbound } from "@/utils/reply-tracker";
+import { createReplyTrackerInbound } from "@/utils/reply-tracker/inbound";
 
 const logger = createScopedLogger("ai-run-rules");
 

@@ -24,7 +24,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import { handleOutboundReply } from "@/app/api/google/webhook/reply-tracking";
+import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 
 const logger = createScopedLogger("Process History");
 
@@ -398,7 +398,7 @@ async function processHistoryItem(
     const isOutbound = message.labelIds?.includes(GmailLabel.SENT);
 
     if (isOutbound) {
-      await handleOutboundReply(user.id, message);
+      await handleOutboundReply(user, message, gmail);
     }
 
     // skip outbound emails

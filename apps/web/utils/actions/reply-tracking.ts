@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import prisma from "@/utils/prisma";
-import { aiFindReplyTrackingRule } from "@/utils/ai/rule/check-reply-tracking";
+import { aiFindReplyTrackingRule } from "@/utils/ai/reply/check-reply-tracking";
 import { safeCreateRule } from "@/utils/rule/rule";
 import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";

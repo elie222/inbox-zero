@@ -6,7 +6,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("check-reply-tracking");
 
-const replyTrackingSchema = z.object({
+const schema = z.object({
   replyTrackingRuleId: z.string().nullable(),
 });
 
@@ -38,7 +38,7 @@ ${rules
     userAi: user,
     system,
     prompt,
-    schema: replyTrackingSchema,
+    schema,
     userEmail: user.email || "",
     usageLabel: "Check reply tracking",
   });
