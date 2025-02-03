@@ -8,8 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-
-export type TimeRange = "all" | "3d" | "1w" | "2w" | "1m";
+import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
 
 const timeRangeOptions = [
   { value: "all", label: "Show all" },

@@ -60,6 +60,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
 
   // Get counts and recent threads for each type
   const [counts, needsReply, awaitingReply, needsAction] = await Promise.all([
+    // NOTE: should really be distinct by threadId. this will cause a mismatch in some cases
     prisma.threadTracker.groupBy({
       by: ["type"],
       where: {
@@ -78,6 +79,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
       },
       orderBy: { sentAt: "desc" },
       take: 5,
+      distinct: ["threadId"],
     }),
     prisma.threadTracker.findMany({
       where: {
@@ -88,6 +90,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
       },
       orderBy: { sentAt: "desc" },
       take: 5,
+      distinct: ["threadId"],
     }),
     prisma.threadTracker.findMany({
       where: {
@@ -98,6 +101,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
       },
       orderBy: { sentAt: "desc" },
       take: 5,
+      distinct: ["threadId"],
     }),
   ]);
 
@@ -127,23 +131,32 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     messages.map((message) => [message.id, message]),
   );
 
-  const recentNeedsReply = needsReply.map((t) => ({
-    from: messageMap[t.messageId]?.headers.from || "Unknown",
-    subject: decodeSnippet(messageMap[t.messageId]?.snippet) || "",
-    sentAt: t.sentAt,
-  }));
+  const recentNeedsReply = needsReply.map((t) => {
+    const message = messageMap[t.messageId];
+    return {
+      from: message?.headers.from || "Unknown",
+      subject: decodeSnippet(message?.snippet) || "",
+      sentAt: t.sentAt,
+    };
+  });
 
-  const recentAwaitingReply = awaitingReply.map((t) => ({
-    from: messageMap[t.messageId]?.headers.from || t.messageId,
-    subject: decodeSnippet(messageMap[t.messageId]?.snippet) || "",
-    sentAt: t.sentAt,
-  }));
+  const recentAwaitingReply = awaitingReply.map((t) => {
+    const message = messageMap[t.messageId];
+    return {
+      from: message?.headers.to || "Unknown",
+      subject: decodeSnippet(message?.snippet) || "",
+      sentAt: t.sentAt,
+    };
+  });
 
-  const recentNeedsAction = needsAction.map((t) => ({
-    from: messageMap[t.messageId]?.headers.from || t.messageId,
-    subject: decodeSnippet(messageMap[t.messageId]?.snippet) || "",
-    sentAt: t.sentAt,
-  }));
+  const recentNeedsAction = needsAction.map((t) => {
+    const message = messageMap[t.messageId];
+    return {
+      from: message?.headers.from || "Unknown",
+      subject: decodeSnippet(message?.snippet) || "",
+      sentAt: t.sentAt,
+    };
+  });
 
   const shouldSendEmail = !!(
     coldEmailers.length ||
@@ -195,7 +208,7 @@ export const GET = withError(async () => {
   const email = session?.user.email;
   if (!email) return NextResponse.json({ error: "Not authenticated" });
 
-  logger.info("Sending summary email to user", { email });
+  logger.info("Sending summary email to user GET", { email });
 
   const result = await sendEmail({ email, force: true });
 
@@ -203,13 +216,13 @@ export const GET = withError(async () => {
 });
 
 export const POST = withError(async (request: Request) => {
-  logger.info("Sending summary email to user");
-
   if (!hasCronSecret(request)) {
     logger.error("Unauthorized cron request");
     captureException(new Error("Unauthorized cron request: resend"));
     return new Response("Unauthorized", { status: 401 });
   }
+
+  logger.info("Sending summary email to user POST");
 
   const json = await request.json();
   const body = sendSummaryEmailBody.parse(json);

@@ -8,7 +8,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { EnableReplyTracker } from "@/app/(app)/reply-tracker/EnableReplyTracker";
 import { TimeRangeFilter } from "./TimeRangeFilter";
-import type { TimeRange } from "./TimeRangeFilter";
+import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
 
 export default async function ReplyTrackerPage({
   searchParams,

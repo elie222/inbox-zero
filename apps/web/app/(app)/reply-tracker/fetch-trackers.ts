@@ -1,29 +1,11 @@
 import prisma from "@/utils/prisma";
 import type { ThreadTrackerType } from "@prisma/client";
-import type { TimeRange } from "./TimeRangeFilter";
+import {
+  getDateFilter,
+  type TimeRange,
+} from "@/app/(app)/reply-tracker/date-filter";
 
 const PAGE_SIZE = 20;
-
-function getDateFilter(timeRange: TimeRange) {
-  if (timeRange === "all") return undefined;
-
-  const now = new Date();
-  switch (timeRange) {
-    case "3d":
-      now.setDate(now.getDate() - 3);
-      break;
-    case "1w":
-      now.setDate(now.getDate() - 7);
-      break;
-    case "2w":
-      now.setDate(now.getDate() - 14);
-      break;
-    case "1m":
-      now.setMonth(now.getMonth() - 1);
-      break;
-  }
-  return { lte: now };
-}
 
 export async function getPaginatedThreadTrackers({
   userId,

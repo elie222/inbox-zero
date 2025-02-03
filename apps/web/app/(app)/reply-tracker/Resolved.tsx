@@ -1,6 +1,10 @@
 import prisma from "@/utils/prisma";
 import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
-import type { TimeRange } from "@/app/(app)/reply-tracker/TimeRangeFilter";
+import {
+  getDateFilter,
+  type TimeRange,
+} from "@/app/(app)/reply-tracker/date-filter";
+import { Prisma } from "@prisma/client";
 
 const PAGE_SIZE = 20;
 
@@ -16,6 +20,7 @@ export async function Resolved({
   timeRange: TimeRange;
 }) {
   const skip = (page - 1) * PAGE_SIZE;
+  const dateFilter = getDateFilter(timeRange);
 
   // Group by threadId and check if all resolved values are true
   const [resolvedThreadTrackers, total] = await Promise.all([
@@ -23,6 +28,7 @@ export async function Resolved({
       SELECT MAX(id) as id
       FROM "ThreadTracker"
       WHERE "userId" = ${userId}
+      ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
       GROUP BY "threadId"
       HAVING bool_and(resolved) = true
       ORDER BY MAX(id) DESC
@@ -33,6 +39,7 @@ export async function Resolved({
       SELECT COUNT(DISTINCT "threadId") as count
       FROM "ThreadTracker"
       WHERE "userId" = ${userId}
+      ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
       GROUP BY "threadId"
       HAVING bool_and(resolved) = true
     `,
