@@ -1,7 +1,7 @@
 import { ThreadTrackerType } from "@prisma/client";
 import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
 import { getPaginatedThreadTrackers } from "@/app/(app)/reply-tracker/fetch-trackers";
-import type { TimeRange } from "@/app/(app)/reply-tracker/TimeRangeFilter";
+import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
 
 export async function AwaitingReply({
   userId,
