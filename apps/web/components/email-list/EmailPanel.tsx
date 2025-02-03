@@ -22,6 +22,7 @@ import {
   forwardEmailText,
 } from "@/utils/gmail/forward";
 import { useIsInAiQueue } from "@/store/ai-queue";
+import { Loading } from "@/components/Loading";
 
 export function EmailPanel({
   row,
@@ -214,7 +215,6 @@ function EmailMessage({
   const replyingToEmail = showReply
     ? prepareReplyingToEmail(message)
     : prepareForwardingEmail(message);
-  console.log("🚀 ~ replyingToEmail:", replyingToEmail);
 
   return (
     <li className="bg-white p-4 shadow sm:rounded-lg">
@@ -304,6 +304,7 @@ function EmailMessage({
 
 export function HtmlEmail({ html }: { html: string }) {
   const srcDoc = useMemo(() => getIframeHtml(html), [html]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const onLoad = useCallback(
     (event: SyntheticEvent<HTMLIFrameElement, Event>) => {
@@ -311,22 +312,28 @@ export function HtmlEmail({ html }: { html: string }) {
         // sometimes we see minimal scrollbar, so add a buffer
         const BUFFER = 5;
 
-        event.currentTarget.style.height = `${
+        const height = `${
           event.currentTarget.contentWindow.document.documentElement
             .scrollHeight + BUFFER
         }px`;
+
+        event.currentTarget.style.height = height;
+        setIsLoading(false);
       }
     },
     [],
   );
 
   return (
-    <iframe
-      srcDoc={srcDoc}
-      onLoad={onLoad}
-      className="h-full w-full"
-      title="Email content preview"
-    />
+    <div>
+      {isLoading && <Loading />}
+      <iframe
+        srcDoc={srcDoc}
+        onLoad={onLoad}
+        className="h-0 min-h-0 w-full"
+        title="Email content preview"
+      />
+    </div>
   );
 }
 
