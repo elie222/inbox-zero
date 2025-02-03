@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { useCallback } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
@@ -14,6 +15,8 @@ export function EmailViewer() {
 
   const hideEmail = useCallback(() => showEmail(null), [showEmail]);
 
+  const { data } = useSession();
+
   return (
     <Sheet open={!!threadId} onOpenChange={hideEmail}>
       <SheetContent
@@ -27,6 +30,7 @@ export function EmailViewer() {
             threadId={threadId}
             showReplyButton={showReplyButton}
             autoOpenReplyForMessageId={autoOpenReplyForMessageId ?? undefined}
+            userEmail={data?.user.email || ""}
           />
         )}
       </SheetContent>
@@ -38,10 +42,12 @@ function EmailContent({
   threadId,
   showReplyButton,
   autoOpenReplyForMessageId,
+  userEmail,
 }: {
   threadId: string;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
+  userEmail: string;
 }) {
   const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
@@ -54,6 +60,7 @@ function EmailContent({
             refetch={mutate}
             showReplyButton={showReplyButton}
             autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+            userEmail={userEmail}
           />
         )}
       </LoadingContent>

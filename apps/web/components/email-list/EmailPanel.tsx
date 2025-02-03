@@ -4,7 +4,11 @@ import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import type { Thread } from "@/components/email-list/types";
-import { extractNameFromEmail } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractNameFromEmail,
+  normalizeEmailAddress,
+} from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
@@ -21,6 +25,7 @@ import { useIsInAiQueue } from "@/store/ai-queue";
 
 export function EmailPanel({
   row,
+  userEmail,
   isCategorizing,
   onPlanAiAction,
   onAiCategorize,
@@ -33,6 +38,7 @@ export function EmailPanel({
   refetch,
 }: {
   row: Thread;
+  userEmail: string;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
   onAiCategorize: (thread: Thread) => void;
@@ -101,6 +107,7 @@ export function EmailPanel({
           messages={row.messages}
           refetch={refetch}
           showReplyButton
+          userEmail={userEmail}
         />
       </div>
     </div>
@@ -112,11 +119,13 @@ export function EmailThread({
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
+  userEmail,
 }: {
   messages: Thread["messages"];
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
+  userEmail: string;
 }) {
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
@@ -128,6 +137,7 @@ export function EmailThread({
             showReplyButton={showReplyButton}
             refetch={refetch}
             defaultShowReply={autoOpenReplyForMessageId === message.id}
+            userEmail={userEmail}
           />
         ))}
       </ul>
@@ -140,11 +150,13 @@ function EmailMessage({
   refetch,
   showReplyButton,
   defaultShowReply,
+  userEmail,
 }: {
   message: Thread["messages"][0];
   refetch: () => void;
   showReplyButton: boolean;
   defaultShowReply?: boolean;
+  userEmail: string;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const onReply = useCallback(() => setShowReply(true), []);
@@ -156,16 +168,37 @@ function EmailMessage({
     setShowForward(false);
   }, []);
 
-  const prepareReplyingToEmail = (message: ParsedMessage) => ({
-    to: message.headers.from,
-    subject: `Re: ${message.headers.subject}`,
-    headerMessageId: message.headers["message-id"]!,
-    threadId: message.threadId!,
-    cc: message.headers.cc,
-    references: message.headers.references,
-    messageText: "",
-    messageHtml: "",
-  });
+  const prepareReplyingToEmail = (message: ParsedMessage) => {
+    const normalizedFrom = normalizeEmailAddress(
+      extractEmailAddress(message.headers.from),
+    );
+    const normalizedUserEmail = normalizeEmailAddress(userEmail);
+    const sentFromUser = normalizedFrom === normalizedUserEmail;
+    console.log(
+      "🚀 ~ prepareReplyingToEmail ~ sentFromUser:",
+      sentFromUser,
+      normalizedFrom,
+      normalizedUserEmail,
+    );
+
+    return {
+      // If following an email from yourself, use original recipients, otherwise reply to sender
+      to: sentFromUser ? message.headers.to : message.headers.from,
+      // If following an email from yourself, don't add "Re:" prefix
+      subject: sentFromUser
+        ? message.headers.subject
+        : `Re: ${message.headers.subject}`,
+      headerMessageId: message.headers["message-id"]!,
+      threadId: message.threadId!,
+      // Keep original CC
+      cc: message.headers.cc,
+      // Keep original BCC if available
+      bcc: sentFromUser ? message.headers.bcc : "",
+      references: message.headers.references,
+      messageText: "",
+      messageHtml: "",
+    };
+  };
 
   const prepareForwardingEmail = (message: ParsedMessage) => ({
     to: "",
@@ -177,6 +210,11 @@ function EmailMessage({
     messageText: forwardEmailText({ content: "", message }),
     messageHtml: forwardEmailHtml({ content: "", message }),
   });
+
+  const replyingToEmail = showReply
+    ? prepareReplyingToEmail(message)
+    : prepareForwardingEmail(message);
+  console.log("🚀 ~ replyingToEmail:", replyingToEmail);
 
   return (
     <li className="bg-white p-4 shadow sm:rounded-lg">
@@ -252,11 +290,7 @@ function EmailMessage({
 
           <div className="">
             <ComposeEmailFormLazy
-              replyingToEmail={
-                showReply
-                  ? prepareReplyingToEmail(message)
-                  : prepareForwardingEmail(message)
-              }
+              replyingToEmail={replyingToEmail}
               refetch={refetch}
               onSuccess={onCloseCompose}
               onDiscard={onCloseCompose}

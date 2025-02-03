@@ -33,6 +33,11 @@ export function extractEmailAddress(email: string): string {
   return rawMatch ? rawMatch[0] : "";
 }
 
+// Converts "John.Doe.Smith@gmail.com" to "johndoesmith@gmail.com"
+export function normalizeEmailAddress(email: string) {
+  return email.toLowerCase().replace(/\s+/g, ".");
+}
+
 // Converts "Name <hey@domain.com>" to "domain.com"
 export function extractDomainFromEmail(email: string) {
   if (!email) return "";
