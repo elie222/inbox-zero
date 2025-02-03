@@ -21,5 +21,11 @@ export async function NeedsReply({
     distinct: ["threadId"],
   });
 
-  return <ReplyTrackerEmails trackers={trackers} userEmail={userEmail} />;
+  return (
+    <ReplyTrackerEmails
+      trackers={trackers}
+      userEmail={userEmail}
+      type={ThreadTrackerType.NEEDS_REPLY}
+    />
+  );
 }

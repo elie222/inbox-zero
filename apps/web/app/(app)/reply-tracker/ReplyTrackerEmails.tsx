@@ -1,31 +1,38 @@
 "use client";
 
 import type { ParsedMessage } from "@/utils/types";
-import type { ThreadTracker } from "@prisma/client";
+import { type ThreadTracker, ThreadTrackerType } from "@prisma/client";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { Button } from "@/components/ui/button";
-import { CheckCircleIcon, HandIcon } from "lucide-react";
+import { CheckCircleIcon, HandIcon, MailIcon } from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
 import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
+import { Loading } from "@/components/Loading";
 
 export function ReplyTrackerEmails({
   trackers,
   userEmail,
+  type,
   isResolved,
 }: {
   trackers: ThreadTracker[];
   userEmail: string;
+  type?: ThreadTrackerType;
   isResolved?: boolean;
 }) {
-  const { data: threads } = useThreadsByIds({
+  const { data, isLoading } = useThreadsByIds({
     threadIds: trackers.map((t) => t.threadId),
   });
 
-  if (!threads?.threads.length) {
+  if (isLoading && !data) {
+    return <Loading />;
+  }
+
+  if (!data?.threads.length) {
     return (
       <div className="mt-2">
         <EmptyState message="No emails yet!" />
@@ -36,12 +43,13 @@ export function ReplyTrackerEmails({
   return (
     <Table>
       <TableBody>
-        {threads?.threads.map((thread) => (
+        {data?.threads.map((thread) => (
           <Row
             key={thread.id}
             message={thread.messages?.[thread.messages.length - 1]}
             userEmail={userEmail}
             isResolved={isResolved}
+            type={type}
           />
         ))}
       </TableBody>
@@ -53,10 +61,12 @@ function Row({
   message,
   userEmail,
   isResolved,
+  type,
 }: {
   message: ParsedMessage;
   userEmail: string;
   isResolved?: boolean;
+  type?: ThreadTrackerType;
 }) {
   return (
     <TableRow>
@@ -75,10 +85,13 @@ function Row({
               <UnresolveButton threadId={message.threadId} />
             ) : (
               <>
-                <NudgeButton
-                  threadId={message.threadId}
-                  messageId={message.id}
-                />
+                {!!type && (
+                  <NudgeButton
+                    threadId={message.threadId}
+                    messageId={message.id}
+                    type={type}
+                  />
+                )}
                 <ResolveButton threadId={message.threadId} />
               </>
             )}
@@ -92,15 +105,19 @@ function Row({
 function NudgeButton({
   threadId,
   messageId,
+  type,
 }: {
   threadId: string;
   messageId: string;
+  type: ThreadTrackerType;
 }) {
   const { showEmail } = useDisplayedEmail();
 
+  const showNudge = type === ThreadTrackerType.AWAITING;
+
   return (
     <Button
-      Icon={HandIcon}
+      Icon={showNudge ? HandIcon : MailIcon}
       onClick={() => {
         showEmail({
           threadId,
@@ -110,7 +127,7 @@ function NudgeButton({
         });
       }}
     >
-      Nudge
+      {showNudge ? "Nudge" : "Reply"}
     </Button>
   );
 }

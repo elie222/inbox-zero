@@ -21,5 +21,11 @@ export async function AwaitingReply({
     distinct: ["threadId"],
   });
 
-  return <ReplyTrackerEmails trackers={trackers} userEmail={userEmail} />;
+  return (
+    <ReplyTrackerEmails
+      trackers={trackers}
+      userEmail={userEmail}
+      type={ThreadTrackerType.AWAITING}
+    />
+  );
 }
