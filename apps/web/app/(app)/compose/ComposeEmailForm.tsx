@@ -37,16 +37,19 @@ export type ReplyingToEmail = {
   messageHtml?: string | undefined;
 };
 
-export const ComposeEmailForm = (props: {
+export const ComposeEmailForm = ({
+  replyingToEmail,
+  submitButtonClassName,
+  refetch,
+  onSuccess,
+  onDiscard,
+}: {
   replyingToEmail?: ReplyingToEmail;
-  novelEditorClassName?: string;
   submitButtonClassName?: string;
   refetch?: () => void;
   onSuccess?: () => void;
   onDiscard?: () => void;
 }) => {
-  const { refetch, onSuccess } = props;
-
   const {
     register,
     handleSubmit,
@@ -55,10 +58,10 @@ export const ComposeEmailForm = (props: {
     setValue,
   } = useForm<SendEmailBody>({
     defaultValues: {
-      replyToEmail: props.replyingToEmail,
-      subject: props.replyingToEmail?.subject,
-      to: props.replyingToEmail?.to,
-      cc: props.replyingToEmail?.cc,
+      replyToEmail: replyingToEmail,
+      subject: replyingToEmail?.subject,
+      to: replyingToEmail?.to,
+      cc: replyingToEmail?.cc,
       messageHtml: "",
       messageText: "",
     },
@@ -68,9 +71,9 @@ export const ComposeEmailForm = (props: {
     async (data) => {
       const enrichedData = {
         ...data,
-        messageText: data.messageText + props.replyingToEmail?.messageText,
+        messageText: data.messageText + replyingToEmail?.messageText,
         messageHtml:
-          (data.messageHtml ?? "") + (props.replyingToEmail?.messageHtml ?? ""),
+          (data.messageHtml ?? "") + (replyingToEmail?.messageHtml ?? ""),
       };
 
       try {
@@ -92,8 +95,8 @@ export const ComposeEmailForm = (props: {
     [
       refetch,
       onSuccess,
-      props.replyingToEmail?.messageHtml,
-      props.replyingToEmail?.messageText,
+      replyingToEmail?.messageHtml,
+      replyingToEmail?.messageText,
     ],
   );
 
@@ -141,10 +144,10 @@ export const ComposeEmailForm = (props: {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-      {props.replyingToEmail?.to && !editReply ? (
+      {replyingToEmail?.to && !editReply ? (
         <button type="button" onClick={() => setEditReply(true)}>
           <span className="text-green-500">Draft</span> to{" "}
-          {extractNameFromEmail(props.replyingToEmail.to)}
+          {extractNameFromEmail(replyingToEmail.to)}
         </button>
       ) : (
         <>
@@ -280,7 +283,7 @@ export const ComposeEmailForm = (props: {
       )}
 
       <Tiptap
-        initialContent={props.replyingToEmail?.messageHtml}
+        initialContent={replyingToEmail?.messageHtml}
         onChange={handleEditorChange}
         className="min-h-[200px]"
       />
@@ -288,7 +291,7 @@ export const ComposeEmailForm = (props: {
       <div
         className={cn(
           "flex items-center justify-between",
-          props.submitButtonClassName,
+          submitButtonClassName,
         )}
       >
         <Button type="submit" disabled={isSubmitting}>
@@ -296,14 +299,14 @@ export const ComposeEmailForm = (props: {
           Send
         </Button>
 
-        {props.onDiscard && (
+        {onDiscard && (
           <Button
             type="button"
             variant="secondary"
             size="icon"
-            className={props.submitButtonClassName}
+            className={submitButtonClassName}
             disabled={isSubmitting}
-            onClick={props.onDiscard}
+            onClick={onDiscard}
           >
             <TrashIcon className="h-4 w-4" />
             <span className="sr-only">Discard</span>

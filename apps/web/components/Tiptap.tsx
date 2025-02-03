@@ -6,7 +6,7 @@ import { useCallback } from "react";
 import { cn } from "@/utils";
 import "@/styles/prosemirror.css";
 
-export const Tiptap = ({
+export function Tiptap({
   initialContent = "",
   onChange,
   className,
@@ -14,8 +14,7 @@ export const Tiptap = ({
   initialContent?: string;
   onChange?: (html: string) => void;
   className?: string;
-  placeholder?: string;
-}) => {
+}) {
   const editor = useEditor({
     extensions: [StarterKit],
     content: initialContent,
@@ -41,4 +40,4 @@ export const Tiptap = ({
       <EditorContent editor={editor} />
     </div>
   );
-};
+}

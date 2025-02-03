@@ -257,7 +257,6 @@ function EmailMessage({
                   ? prepareReplyingToEmail(message)
                   : prepareForwardingEmail(message)
               }
-              novelEditorClassName="h-40 overflow-auto"
               refetch={refetch}
               onSuccess={onCloseCompose}
               onDiscard={onCloseCompose}
