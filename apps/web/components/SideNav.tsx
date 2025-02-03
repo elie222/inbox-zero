@@ -38,7 +38,7 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { env } from "@/env";
-import { useSmartCategoriesEnabled } from "@/hooks/useFeatureFlags";
+import { useReplyTrackingEnabled } from "@/hooks/useFeatureFlags";
 
 type NavItem = {
   name: string;
@@ -93,11 +93,12 @@ const navigationItems: NavItem[] = [
 ];
 
 export const useNavigation = () => {
-  const showSmartCategories = useSmartCategoriesEnabled();
+  const showReplyTracker = useReplyTrackingEnabled();
 
-  return navigationItems.filter((item) =>
-    item.href === "/smart-categories" ? showSmartCategories : true,
-  );
+  return navigationItems.filter((item) => {
+    if (item.href === "/reply-tracker") return showReplyTracker;
+    return true;
+  });
 };
 
 const bottomLinks: NavItem[] = [

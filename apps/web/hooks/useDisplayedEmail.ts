@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { parseAsBoolean, useQueryState } from "nuqs";
+import { useQueryState } from "nuqs";
 
 export const useDisplayedEmail = () => {
   const [threadId, setThreadId] = useQueryState("side-panel-thread-id");
