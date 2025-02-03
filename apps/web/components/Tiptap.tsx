@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback } from "react";
 import { cn } from "@/utils";
@@ -16,10 +16,10 @@ export function Tiptap({
   className?: string;
 }) {
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit as any],
     content: initialContent,
     onUpdate: useCallback(
-      ({ editor }) => {
+      ({ editor }: { editor: Editor }) => {
         const html = editor.getHTML();
         onChange?.(html);
       },
