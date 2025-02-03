@@ -8,7 +8,11 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { EnableReplyTracker } from "@/app/(app)/reply-tracker/EnableReplyTracker";
 
-export default async function ReplyTrackerPage() {
+export default async function ReplyTrackerPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
   const session = await auth();
   if (!session?.user.email) redirect("/login");
 
@@ -23,6 +27,8 @@ export default async function ReplyTrackerPage() {
   if (!trackRepliesRule?.trackReplies) {
     return <EnableReplyTracker />;
   }
+
+  const page = Number(searchParams.page || "1");
 
   return (
     <Tabs defaultValue="needsReply" className="w-full">
@@ -57,19 +63,19 @@ export default async function ReplyTrackerPage() {
       </div>
 
       <TabsContent value="needsReply" className="mt-0">
-        <NeedsReply userId={userId} userEmail={userEmail} />
+        <NeedsReply userId={userId} userEmail={userEmail} page={page} />
       </TabsContent>
 
       <TabsContent value="awaitingReply" className="mt-0">
-        <AwaitingReply userId={userId} userEmail={userEmail} />
+        <AwaitingReply userId={userId} userEmail={userEmail} page={page} />
       </TabsContent>
 
       {/* <TabsContent value="needsAction" className="mt-0">
-        <NeedsAction userId={userId} userEmail={userEmail} />
+        <NeedsAction userId={userId} userEmail={userEmail} page={page} />
       </TabsContent> */}
 
       <TabsContent value="resolved" className="mt-0">
-        <Resolved userId={userId} userEmail={userEmail} />
+        <Resolved userId={userId} userEmail={userEmail} page={page} />
       </TabsContent>
     </Tabs>
   );

@@ -12,17 +12,20 @@ import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { Loading } from "@/components/Loading";
+import { TablePagination } from "@/components/TablePagination";
 
 export function ReplyTrackerEmails({
   trackers,
   userEmail,
   type,
   isResolved,
+  totalPages,
 }: {
   trackers: ThreadTracker[];
   userEmail: string;
   type?: ThreadTrackerType;
   isResolved?: boolean;
+  totalPages: number;
 }) {
   const { data, isLoading } = useThreadsByIds({
     threadIds: trackers.map((t) => t.threadId),
@@ -41,19 +44,23 @@ export function ReplyTrackerEmails({
   }
 
   return (
-    <Table>
-      <TableBody>
-        {data?.threads.map((thread) => (
-          <Row
-            key={thread.id}
-            message={thread.messages?.[thread.messages.length - 1]}
-            userEmail={userEmail}
-            isResolved={isResolved}
-            type={type}
-          />
-        ))}
-      </TableBody>
-    </Table>
+    <div>
+      <Table>
+        <TableBody>
+          {data?.threads.map((thread) => (
+            <Row
+              key={thread.id}
+              message={thread.messages?.[thread.messages.length - 1]}
+              userEmail={userEmail}
+              isResolved={isResolved}
+              type={type}
+            />
+          ))}
+        </TableBody>
+      </Table>
+
+      <TablePagination totalPages={totalPages} />
+    </div>
   );
 }
 

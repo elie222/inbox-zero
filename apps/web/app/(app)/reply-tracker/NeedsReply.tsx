@@ -1,24 +1,20 @@
-import prisma from "@/utils/prisma";
 import { ThreadTrackerType } from "@prisma/client";
 import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
+import { getPaginatedThreadTrackers } from "@/app/(app)/reply-tracker/fetch-trackers";
 
 export async function NeedsReply({
   userId,
   userEmail,
+  page,
 }: {
   userId: string;
   userEmail: string;
+  page: number;
 }) {
-  const trackers = await prisma.threadTracker.findMany({
-    where: {
-      userId,
-      resolved: false,
-      type: ThreadTrackerType.NEEDS_REPLY,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    distinct: ["threadId"],
+  const { trackers, totalPages } = await getPaginatedThreadTrackers({
+    userId,
+    type: ThreadTrackerType.NEEDS_REPLY,
+    page,
   });
 
   return (
@@ -26,6 +22,7 @@ export async function NeedsReply({
       trackers={trackers}
       userEmail={userEmail}
       type={ThreadTrackerType.NEEDS_REPLY}
+      totalPages={totalPages}
     />
   );
 }
