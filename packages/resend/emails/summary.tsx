@@ -252,7 +252,7 @@ function ReplyTracker({
               borderRadius: "5px",
             }}
           >
-            View Reply Tracker
+            View All
           </Button>
         </Section>
       )}
@@ -361,21 +361,17 @@ function Footer({ baseUrl }: { baseUrl: string }) {
 function EmailCard({ email }: { email: EmailItem }) {
   return (
     <Section className="my-3 rounded-lg bg-white/50 p-4 text-left shadow-sm border border-[#ffb366]/20">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <div>
+      <Row>
+        <Column>
           <Text className="m-0 font-semibold">{email.from}</Text>
           <Text className="m-0 text-gray-600">{email.subject}</Text>
-        </div>
-        <Text className="m-0 text-sm text-gray-500">
-          {email.sentAt ? new Date(email.sentAt).toLocaleDateString() : ""}
-        </Text>
-      </div>
+        </Column>
+        <Column align="right">
+          <Text className="m-0 text-sm text-gray-500">
+            {email.sentAt ? new Date(email.sentAt).toLocaleDateString() : ""}
+          </Text>
+        </Column>
+      </Row>
     </Section>
   );
 }

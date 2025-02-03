@@ -18,7 +18,7 @@ const logger = createScopedLogger("resend/summary");
 
 const sendSummaryEmailBody = z.object({ email: z.string() });
 
-async function sendEmail({ email }: { email: string }) {
+async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   // run every 7 days. but overlap by 1 hour
   const days = 7;
   const cutOffDate = subHours(new Date(), days * 24 + 1);
@@ -26,10 +26,14 @@ async function sendEmail({ email }: { email: string }) {
   const user = await prisma.user.findUnique({
     where: {
       email,
-      OR: [
-        { lastSummaryEmailAt: { lt: cutOffDate } },
-        { lastSummaryEmailAt: null },
-      ],
+      ...(force
+        ? {}
+        : {
+            OR: [
+              { lastSummaryEmailAt: { lt: cutOffDate } },
+              { lastSummaryEmailAt: null },
+            ],
+          }),
     },
     select: {
       id: true,
@@ -193,7 +197,7 @@ export const GET = withError(async () => {
 
   logger.info("Sending summary email to user", { email });
 
-  const result = await sendEmail({ email });
+  const result = await sendEmail({ email, force: true });
 
   return NextResponse.json(result);
 });
