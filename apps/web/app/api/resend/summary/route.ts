@@ -11,6 +11,8 @@ import { ExecutedRuleStatus } from "@prisma/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { getMessagesBatch } from "@/utils/gmail/message";
+import { decodeSnippet } from "@/utils/gmail/decode";
 
 const logger = createScopedLogger("resend/summary");
 
@@ -40,6 +42,11 @@ async function sendEmail({ email }: { email: string }) {
               createdAt: { gt: cutOffDate },
             },
           },
+        },
+      },
+      accounts: {
+        select: {
+          access_token: true,
         },
       },
     },
@@ -101,30 +108,55 @@ async function sendEmail({ email }: { email: string }) {
   }));
   const pendingCount = user._count.executedRules;
 
+  // get messages
+  const messageIds = [
+    ...needsReply.map((m) => m.messageId),
+    ...awaitingReply.map((m) => m.messageId),
+    ...needsAction.map((m) => m.messageId),
+  ];
+
+  const messages = user.accounts?.[0]?.access_token
+    ? await getMessagesBatch(messageIds, user.accounts[0].access_token)
+    : [];
+
+  const messageMap = Object.fromEntries(
+    messages.map((message) => [message.id, message]),
+  );
+
   const recentNeedsReply = needsReply.map((t) => ({
-    from: t.messageId,
-    subject: "",
+    from: messageMap[t.messageId]?.headers.from || "Unknown",
+    subject: decodeSnippet(messageMap[t.messageId]?.snippet) || "",
     sentAt: t.sentAt,
   }));
 
   const recentAwaitingReply = awaitingReply.map((t) => ({
-    from: t.messageId,
-    subject: "",
+    from: messageMap[t.messageId]?.headers.from || t.messageId,
+    subject: decodeSnippet(messageMap[t.messageId]?.snippet) || "",
     sentAt: t.sentAt,
   }));
 
   const recentNeedsAction = needsAction.map((t) => ({
-    from: t.messageId,
-    subject: "",
+    from: messageMap[t.messageId]?.headers.from || t.messageId,
+    subject: decodeSnippet(messageMap[t.messageId]?.snippet) || "",
     sentAt: t.sentAt,
   }));
 
-  const shouldSendEmail =
+  const shouldSendEmail = !!(
     coldEmailers.length ||
     pendingCount ||
     typeCounts[ThreadTrackerType.NEEDS_REPLY] ||
     typeCounts[ThreadTrackerType.AWAITING] ||
-    typeCounts[ThreadTrackerType.NEEDS_ACTION];
+    typeCounts[ThreadTrackerType.NEEDS_ACTION]
+  );
+
+  logger.info("Sending summary email to user", {
+    shouldSendEmail,
+    coldEmailers: coldEmailers.length,
+    pendingCount,
+    needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
+    awaitingReplyCount: typeCounts[ThreadTrackerType.AWAITING],
+    needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
+  });
 
   await Promise.all([
     shouldSendEmail
