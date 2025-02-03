@@ -59,6 +59,7 @@ export async function Resolved({
       trackers={trackers}
       userEmail={userEmail}
       totalPages={totalPages}
+      isResolved
     />
   );
 }
