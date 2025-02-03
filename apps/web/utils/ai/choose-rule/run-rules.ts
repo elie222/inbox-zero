@@ -44,6 +44,9 @@ export async function runRulesOnMessage({
   isTest: boolean;
 }): Promise<RunRulesResult> {
   const result = await findMatchingRule(rules, message, user);
+
+  logger.trace("Matching rule", { result });
+
   if (result.rule) {
     return await runRule(
       result.rule,

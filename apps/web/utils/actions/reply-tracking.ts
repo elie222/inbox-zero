@@ -61,7 +61,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
         })
       : null;
 
-    const rule = user.rules.find((r) => r.id === ruleId);
+    const rule = user.rules.find((r) => r.id === result?.replyTrackingRuleId);
 
     let ruleId: string | null = rule?.id || null;
 

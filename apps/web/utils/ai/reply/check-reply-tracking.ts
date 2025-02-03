@@ -45,5 +45,5 @@ ${rules
 
   logger.trace("Result", { response: aiResponse.object });
 
-  return aiResponse.object.replyTrackingRuleId;
+  return aiResponse.object;
 }

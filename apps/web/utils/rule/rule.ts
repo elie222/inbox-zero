@@ -110,7 +110,7 @@ async function createRule({
         },
       },
       automate: shouldAutomate(result.actions),
-      runOnThreads: shouldRunOnThreads(result.condition),
+      runOnThreads: true,
       conditionalOperator: result.condition.conditionalOperator,
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
@@ -146,8 +146,6 @@ async function updateRule(
         deleteMany: {},
         createMany: { data: mapActionFields(result.actions) },
       },
-      automate: shouldAutomate(result.actions),
-      runOnThreads: shouldRunOnThreads(result.condition),
       conditionalOperator: result.condition.conditionalOperator,
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
@@ -194,12 +192,6 @@ function shouldAutomate(actions: Pick<Action, "type">[]) {
   }
 
   return true;
-}
-
-// run on threads for static, group, and smart category rules
-// user can enable to run on threads for ai rules themselves
-function shouldRunOnThreads(condition?: { aiInstructions?: string }) {
-  return !condition?.aiInstructions;
 }
 
 export async function addRuleCategories(ruleId: string, categoryIds: string[]) {
