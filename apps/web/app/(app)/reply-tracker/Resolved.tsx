@@ -27,7 +27,7 @@ export async function Resolved({
       OFFSET ${skip}
     `,
     prisma.$queryRaw<[{ count: bigint }]>`
-      SELECT COUNT(DISTINCT threadId) as count
+      SELECT COUNT(DISTINCT "threadId") as count
       FROM "ThreadTracker"
       WHERE "userId" = ${userId}
       GROUP BY "threadId"
