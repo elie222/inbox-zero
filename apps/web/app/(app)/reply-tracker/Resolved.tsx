@@ -1,5 +1,6 @@
 import prisma from "@/utils/prisma";
 import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
+import type { TimeRange } from "@/app/(app)/reply-tracker/TimeRangeFilter";
 
 const PAGE_SIZE = 20;
 
@@ -7,10 +8,12 @@ export async function Resolved({
   userId,
   userEmail,
   page,
+  timeRange,
 }: {
   userId: string;
   userEmail: string;
   page: number;
+  timeRange: TimeRange;
 }) {
   const skip = (page - 1) * PAGE_SIZE;
 
