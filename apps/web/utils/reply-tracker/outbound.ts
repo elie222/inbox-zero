@@ -12,6 +12,7 @@ import {
   removeNeedsReplyLabel,
   getReplyTrackingLabels,
 } from "@/utils/reply-tracker/label";
+import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("outbound-reply");
 
@@ -52,25 +53,34 @@ export async function handleOutboundReply(
 
   // if yes, create a tracker
   if (result.needsReply) {
-    await createReplyTrackerOutbound(
+    await createReplyTrackerOutbound({
       gmail,
       userId,
-      message.threadId,
-      message.id,
+      threadId: message.threadId,
+      messageId: message.id,
       awaitingReplyLabelId,
-    );
+      sentAt: internalDateToDate(message.internalDate),
+    });
   } else {
     console.log("No need to reply");
   }
 }
 
-async function createReplyTrackerOutbound(
-  gmail: gmail_v1.Gmail,
-  userId: string,
-  threadId: string,
-  messageId: string,
-  awaitingReplyLabelId: string,
-) {
+async function createReplyTrackerOutbound({
+  gmail,
+  userId,
+  threadId,
+  messageId,
+  awaitingReplyLabelId,
+  sentAt,
+}: {
+  gmail: gmail_v1.Gmail;
+  userId: string;
+  threadId: string;
+  messageId: string;
+  awaitingReplyLabelId: string;
+  sentAt: Date;
+}) {
   if (!threadId || !messageId) return;
 
   const upsertPromise = prisma.threadTracker.upsert({
@@ -87,6 +97,7 @@ async function createReplyTrackerOutbound(
       threadId,
       messageId,
       type: ThreadTrackerType.AWAITING,
+      sentAt,
     },
   });
 

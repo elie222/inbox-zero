@@ -358,6 +358,7 @@ model ThreadTracker {
   id        String            @id @default(cuid())
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  sentAt    DateTime
   threadId  String
   messageId String
   resolved  Boolean           @default(false)

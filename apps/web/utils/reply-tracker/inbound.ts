@@ -11,6 +11,7 @@ export async function markNeedsReply(
   userId: string,
   threadId: string,
   messageId: string,
+  sentAt: Date,
   gmail: gmail_v1.Gmail,
 ) {
   const { awaitingReplyLabelId, needsReplyLabelId } =
@@ -43,6 +44,7 @@ export async function markNeedsReply(
       threadId,
       messageId,
       type: ThreadTrackerType.NEEDS_REPLY,
+      sentAt,
     },
   });
 

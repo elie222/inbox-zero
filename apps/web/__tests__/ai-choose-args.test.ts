@@ -190,6 +190,7 @@ function getRule(
     categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
     type: null,
+    trackReplies: null,
   };
 }
 

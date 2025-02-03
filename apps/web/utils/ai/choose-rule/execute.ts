@@ -6,6 +6,7 @@ import { getOrCreateInboxZeroLabel, labelThread } from "@/utils/gmail/label";
 import { ActionType, ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { markNeedsReply } from "@/utils/reply-tracker/inbound";
+import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("ai-execute-act");
 
@@ -82,6 +83,7 @@ export async function executeAct({
         executedRule.userId,
         executedRule.threadId,
         executedRule.messageId,
+        internalDateToDate(email.internalDate),
         gmail,
       );
     } catch (error) {

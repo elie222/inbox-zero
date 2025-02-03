@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { LargestEmailsResponse } from "@/app/api/user/stats/largest-emails/route";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import { bytesToMegabytes } from "@/utils/size";
-import { formatShortDate } from "@/utils/date";
+import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { getGmailUrl } from "@/utils/url";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -82,10 +82,13 @@ export function LargestEmails(props: { refreshInterval: number }) {
                         {truncate(item.headers.subject, { length: 80 })}
                       </TableCell>
                       <TableCell>
-                        {formatShortDate(new Date(+(item.internalDate || 0)), {
-                          includeYear: true,
-                          lowercase: true,
-                        })}
+                        {formatShortDate(
+                          internalDateToDate(item.internalDate),
+                          {
+                            includeYear: true,
+                            lowercase: true,
+                          },
+                        )}
                       </TableCell>
                       <TableCell>
                         {bytesToMegabytes(totalAttachmentSize).toFixed(1)} MB
