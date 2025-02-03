@@ -10,10 +10,12 @@ export function Tiptap({
   initialContent = "",
   onChange,
   className,
+  autofocus = true,
 }: {
   initialContent?: string;
   onChange?: (html: string) => void;
   className?: string;
+  autofocus?: boolean;
 }) {
   const editor = useEditor({
     extensions: [StarterKit as any],
@@ -25,6 +27,7 @@ export function Tiptap({
       },
       [onChange],
     ),
+    autofocus,
     editorProps: {
       attributes: {
         class: cn(

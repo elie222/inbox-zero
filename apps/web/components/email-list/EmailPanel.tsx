@@ -1,4 +1,11 @@
-import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
+import {
+  type SyntheticEvent,
+  useCallback,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
 import Link from "next/link";
 import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
@@ -160,6 +167,16 @@ function EmailMessage({
   userEmail: string;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
+  const replyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (defaultShowReply && replyRef.current) {
+      setTimeout(() => {
+        replyRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
+    }
+  }, [defaultShowReply]);
+
   const onReply = useCallback(() => setShowReply(true), []);
   const [showForward, setShowForward] = useState(false);
   const onForward = useCallback(() => setShowForward(true), []);
@@ -288,7 +305,7 @@ function EmailMessage({
         <>
           <Separator className="my-4" />
 
-          <div className="">
+          <div ref={replyRef}>
             <ComposeEmailFormLazy
               replyingToEmail={replyingToEmail}
               refetch={refetch}
