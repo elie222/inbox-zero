@@ -25,7 +25,7 @@ export function EmailUpdatesSection() {
     <FormSection id="email-updates">
       <FormSectionLeft
         title="Email Updates"
-        description="Get updates on your inbox stats direct to your email."
+        description="Get a weekly digest of items that need your attention."
       />
 
       <LoadingContent loading={isLoading} error={error}>
