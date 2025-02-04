@@ -38,7 +38,7 @@ export function AutomationOnboarding({
         </DialogHeader>
 
         <YouTubeVideo
-          videoId="SoeNDVr7ve4"
+          videoId="AQtB0j6Zmt0"
           iframeClassName="mx-auto"
           opts={{
             height: `${videoHeight}`,
