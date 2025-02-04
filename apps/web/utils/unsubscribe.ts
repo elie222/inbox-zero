@@ -10,7 +10,6 @@ export async function createUnsubscribeToken(userId: string) {
       token,
       userId,
       expiresAt: addDays(new Date(), 30),
-      action: "unsubscribe",
     },
   });
 

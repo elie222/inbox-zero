@@ -98,17 +98,6 @@ model User {
   unsubscribeTokens EmailToken[]
 }
 
-model EmailToken {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  token     String   @unique
-  action    String // "unsubscribe", "approve_action", "confirm_meeting", etc
-  // metadata  Json? // { actionId: "123", someParam: "value" }
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-}
-
 model Premium {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -398,6 +387,16 @@ model ApiKey {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
+}
+
+model EmailToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  // action    EmailTokenAction @default(UNSUBSCRIBE)
 }
 
 enum ActionType {
