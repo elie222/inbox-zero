@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
-import Link from "next/link";
 
 interface EnableFeatureCardProps {
   title: string;
@@ -13,7 +14,7 @@ interface EnableFeatureCardProps {
   imageAlt: string;
   buttonText: string;
   href?: string;
-  onEnable?: () => void;
+  onEnable?: () => Promise<void>;
 }
 
 export function EnableFeatureCard({
@@ -25,6 +26,14 @@ export function EnableFeatureCard({
   href,
   onEnable,
 }: EnableFeatureCardProps) {
+  const [loading, setLoading] = useState(false);
+
+  const handleEnable = async () => {
+    setLoading(true);
+    await onEnable?.();
+    setLoading(false);
+  };
+
   return (
     <Card className="mx-4 mt-10 max-w-2xl p-6 md:mx-auto">
       <div className="text-center">
@@ -44,7 +53,9 @@ export function EnableFeatureCard({
               <Link href={href}>{buttonText}</Link>
             </Button>
           ) : (
-            <Button onClick={onEnable}>{buttonText}</Button>
+            <Button loading={loading} onClick={handleEnable}>
+              {buttonText}
+            </Button>
           )}
         </div>
       </div>
