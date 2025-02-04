@@ -17,36 +17,37 @@ export async function markNeedsReply(
   const { awaitingReplyLabelId, needsReplyLabelId } =
     await getReplyTrackingLabels(gmail);
 
-  // Resolve existing AWAITING trackers
-  const updateDbPromise = prisma.threadTracker.updateMany({
-    where: {
-      userId,
-      threadId,
-      type: ThreadTrackerType.AWAITING,
-    },
-    data: {
-      resolved: true,
-    },
-  });
-
-  // Create new NEEDS_REPLY tracker
-  const upsertDbPromise = prisma.threadTracker.upsert({
-    where: {
-      userId_threadId_messageId: {
+  const dbPromise = prisma.$transaction([
+    // Resolve existing AWAITING trackers
+    prisma.threadTracker.updateMany({
+      where: {
+        userId,
+        threadId,
+        type: ThreadTrackerType.AWAITING,
+      },
+      data: {
+        resolved: true,
+      },
+    }),
+    // Create new NEEDS_REPLY tracker
+    prisma.threadTracker.upsert({
+      where: {
+        userId_threadId_messageId: {
+          userId,
+          threadId,
+          messageId,
+        },
+      },
+      update: {},
+      create: {
         userId,
         threadId,
         messageId,
+        type: ThreadTrackerType.NEEDS_REPLY,
+        sentAt,
       },
-    },
-    update: {},
-    create: {
-      userId,
-      threadId,
-      messageId,
-      type: ThreadTrackerType.NEEDS_REPLY,
-      sentAt,
-    },
-  });
+    }),
+  ]);
 
   const removeLabelPromise = removeAwaitingReplyLabel(
     gmail,
@@ -55,10 +56,5 @@ export async function markNeedsReply(
   );
   const newLabelPromise = labelNeedsReply(gmail, messageId, needsReplyLabelId);
 
-  await Promise.allSettled([
-    updateDbPromise,
-    upsertDbPromise,
-    removeLabelPromise,
-    newLabelPromise,
-  ]);
+  await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);
 }
