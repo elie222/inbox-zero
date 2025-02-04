@@ -5,6 +5,9 @@ import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("cron/resend/summary/all");
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -12,7 +15,17 @@ export const maxDuration = 300;
 async function sendSummaryAllUpdate() {
   const users = await prisma.user.findMany({
     select: { email: true },
-    where: { summaryEmailFrequency: { not: Frequency.NEVER } },
+    where: {
+      summaryEmailFrequency: {
+        not: Frequency.NEVER,
+      },
+      // Only send to premium users
+      premium: {
+        lemonSqueezyRenewsAt: {
+          gt: new Date(),
+        },
+      },
+    },
   });
 
   await Promise.all(
@@ -35,6 +48,8 @@ export const GET = withError(async (request) => {
     captureException(new Error("Unauthorized request: api/resend/all"));
     return new Response("Unauthorized", { status: 401 });
   }
+
+  logger.info("Sending summary all update");
 
   const result = await sendSummaryAllUpdate();
 
