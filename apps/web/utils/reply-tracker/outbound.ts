@@ -107,7 +107,30 @@ async function createReplyTrackerOutbound({
     awaitingReplyLabelId,
   );
 
-  await Promise.allSettled([upsertPromise, labelPromise]);
+  const [upsertResult, labelResult] = await Promise.allSettled([
+    upsertPromise,
+    labelPromise,
+  ]);
+
+  const errorOptions = {
+    userId,
+    threadId,
+    messageId,
+  };
+
+  if (upsertResult.status === "rejected") {
+    logger.error("Failed to upsert reply tracker", {
+      ...errorOptions,
+      error: upsertResult.reason,
+    });
+  }
+
+  if (labelResult.status === "rejected") {
+    logger.error("Failed to label reply tracker", {
+      ...errorOptions,
+      error: labelResult.reason,
+    });
+  }
 }
 
 async function resolveReplyTrackers(

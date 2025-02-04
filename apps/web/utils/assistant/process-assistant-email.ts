@@ -276,6 +276,20 @@ async function withProcessingLabels<T>(
     }),
   ]);
 
+  const [processingLabelResult, assistantLabelResult] = results;
+
+  if (processingLabelResult.status === "rejected") {
+    logger.error("Error getting processing label", {
+      error: processingLabelResult.reason,
+    });
+  }
+
+  if (assistantLabelResult.status === "rejected") {
+    logger.error("Error getting assistant label", {
+      error: assistantLabelResult.reason,
+    });
+  }
+
   const labels = results
     .map((result) =>
       result.status === "fulfilled" ? result.value?.id : undefined,

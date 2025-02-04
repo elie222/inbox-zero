@@ -6,6 +6,9 @@ import {
   removeAwaitingReplyLabel,
   getReplyTrackingLabels,
 } from "@/utils/reply-tracker/label";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("reply-tracker/inbound");
 
 export async function markNeedsReply(
   userId: string,
@@ -56,5 +59,33 @@ export async function markNeedsReply(
   );
   const newLabelPromise = labelNeedsReply(gmail, messageId, needsReplyLabelId);
 
-  await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);
+  const [dbResult, removeLabelResult, newLabelResult] =
+    await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);
+
+  const errorOptions = {
+    userId,
+    threadId,
+    messageId,
+  };
+
+  if (dbResult.status === "rejected") {
+    logger.error("Failed to mark needs reply", {
+      ...errorOptions,
+      error: dbResult.reason,
+    });
+  }
+
+  if (removeLabelResult.status === "rejected") {
+    logger.error("Failed to remove awaiting reply label", {
+      ...errorOptions,
+      error: removeLabelResult.reason,
+    });
+  }
+
+  if (newLabelResult.status === "rejected") {
+    logger.error("Failed to label needs reply", {
+      ...errorOptions,
+      error: newLabelResult.reason,
+    });
+  }
 }

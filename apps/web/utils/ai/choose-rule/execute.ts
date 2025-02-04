@@ -97,11 +97,28 @@ export async function executeAct({
     }
   }
 
-  await Promise.allSettled([
-    await prisma.executedRule.update({
+  const [updateResult, labelResult] = await Promise.allSettled([
+    prisma.executedRule.update({
       where: { id: executedRule.id },
       data: { status: ExecutedRuleStatus.APPLIED },
     }),
     labelActed(),
   ]);
+
+  if (updateResult.status === "rejected") {
+    logger.error("Failed to update executed rule", {
+      error: updateResult.reason,
+      userId: executedRule.userId,
+      email: userEmail,
+      ruleId: executedRule.ruleId,
+    });
+  }
+
+  if (labelResult.status === "rejected") {
+    logger.error("Failed to label acted", {
+      error: labelResult.reason,
+      userId: executedRule.userId,
+      email: userEmail,
+    });
+  }
 }
