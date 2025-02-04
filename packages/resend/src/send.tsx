@@ -58,6 +58,7 @@ const sendEmail = async ({
   return result;
 };
 
+// TODO: move this into summary email
 export const sendStatsEmail = async ({
   to,
   test,
@@ -67,18 +68,18 @@ export const sendStatsEmail = async ({
   test?: boolean;
   emailProps: StatsUpdateEmailProps;
 }) => {
-  sendEmail({
-    to,
-    subject: "Your weekly email stats",
-    react: <StatsUpdateEmail {...emailProps} />,
-    test,
-    tags: [
-      {
-        name: "category",
-        value: "stats",
-      },
-    ],
-  });
+  // sendEmail({
+  //   to,
+  //   subject: "Your weekly email stats",
+  //   react: <StatsUpdateEmail {...emailProps} />,
+  //   test,
+  //   tags: [
+  //     {
+  //       name: "category",
+  //       value: "stats",
+  //     },
+  //   ],
+  // });
 };
 
 export const sendSummaryEmail = async ({

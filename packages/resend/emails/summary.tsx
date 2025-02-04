@@ -50,7 +50,9 @@ export default function SummaryEmail(props: SummaryEmailProps) {
   return (
     <Html>
       <Head />
-      <Preview>Your weekly Inbox Zero update.</Preview>
+      <Preview>
+        See your follow-ups, cold emails and pending items for this week
+      </Preview>
       <Tailwind>
         <Body className="bg-white font-sans">
           <Container className="mx-auto w-full max-w-[600px] p-0">
@@ -79,27 +81,19 @@ export default function SummaryEmail(props: SummaryEmailProps) {
               </Text>
             </Section>
 
-            <Section className="rounded-2xl bg-[#ffb366]/10 bg-[radial-gradient(circle_at_bottom_right,#ffb366_0%,transparent_60%)] p-8 text-center">
-              <ReplyTracker
-                needsReplyCount={needsReplyCount ?? 0}
-                awaitingReplyCount={awaitingReplyCount ?? 0}
-                needsActionCount={needsActionCount ?? 0}
-                needsReply={needsReply ?? []}
-                awaitingReply={awaitingReply ?? []}
-                needsAction={needsAction ?? []}
-                baseUrl={baseUrl}
-              />
-            </Section>
+            <ReplyTracker
+              needsReplyCount={needsReplyCount ?? 0}
+              awaitingReplyCount={awaitingReplyCount ?? 0}
+              needsActionCount={needsActionCount ?? 0}
+              needsReply={needsReply ?? []}
+              awaitingReply={awaitingReply ?? []}
+              needsAction={needsAction ?? []}
+              baseUrl={baseUrl}
+            />
 
-            <Section className="my-6 rounded-2xl bg-[#3b82f6]/5 bg-[radial-gradient(circle_at_bottom_right,#3b82f6_0%,transparent_60%)] p-8 text-center">
-              <ColdEmails coldEmailers={coldEmailers} baseUrl={baseUrl} />
-            </Section>
+            <ColdEmails coldEmailers={coldEmailers} baseUrl={baseUrl} />
 
-            {pendingCount > 0 && (
-              <Section className="my-6 rounded-2xl bg-[#22c55e]/5 bg-[radial-gradient(circle_at_bottom_right,#22c55e_0%,transparent_60%)] p-8 text-center">
-                <PendingEmails pendingCount={pendingCount} baseUrl={baseUrl} />
-              </Section>
-            )}
+            <PendingEmails pendingCount={pendingCount} baseUrl={baseUrl} />
 
             <Footer baseUrl={baseUrl} />
           </Container>
@@ -195,7 +189,7 @@ function ReplyTracker({
   if (!hasReplyTrackerItems) return null;
 
   return (
-    <>
+    <Section className="rounded-2xl bg-[#ffb366]/10 bg-[radial-gradient(circle_at_bottom_right,#ffb366_0%,transparent_60%)] p-8 text-center">
       <Heading className="m-0 text-3xl font-medium text-[#a63b00]">
         Email Follow-ups
       </Heading>
@@ -256,7 +250,7 @@ function ReplyTracker({
           </Button>
         </Section>
       )}
-    </>
+    </Section>
   );
 }
 
@@ -267,8 +261,10 @@ function ColdEmails({
   coldEmailers: EmailItem[];
   baseUrl: string;
 }) {
+  if (!coldEmailers.length) return null;
+
   return (
-    <>
+    <Section className="my-6 rounded-2xl bg-[#3b82f6]/5 bg-[radial-gradient(circle_at_bottom_right,#3b82f6_0%,transparent_60%)] p-8 text-center">
       <Heading className="m-0 text-3xl font-medium text-[#1e40af]">
         Cold Emails
       </Heading>
@@ -296,7 +292,7 @@ function ColdEmails({
           </Button>
         </Section>
       )}
-    </>
+    </Section>
   );
 }
 
@@ -310,7 +306,7 @@ function PendingEmails({
   if (!pendingCount) return null;
 
   return (
-    <>
+    <Section className="my-6 rounded-2xl bg-[#22c55e]/5 bg-[radial-gradient(circle_at_bottom_right,#22c55e_0%,transparent_60%)] p-8 text-center">
       <Heading className="m-0 text-3xl font-medium text-[#166534]">
         Pending Emails
       </Heading>
@@ -332,7 +328,7 @@ function PendingEmails({
           View Pending
         </Button>
       </Section>
-    </>
+    </Section>
   );
 }
 
