@@ -48,7 +48,7 @@ export function NewsletterModal(props: {
 
   return (
     <Dialog open={!!newsletter} onOpenChange={onClose}>
-      <DialogContent className="max-h-screen overflow-x-scroll overflow-y-scroll lg:min-w-[880px] xl:min-w-[1280px]">
+      <DialogContent className="overflow-scroll lg:min-w-[880px] xl:min-w-[1280px]">
         {newsletter && (
           <>
             <DialogHeader>
