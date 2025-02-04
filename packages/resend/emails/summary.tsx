@@ -357,7 +357,7 @@ function Footer({
       </Text>
 
       <Link
-        href={`${baseUrl}/api/unsubscribe?token=${unsubscribeToken}`}
+        href={`${baseUrl}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`}
         className="text-[15px]"
       >
         Unsubscribe from emails like this

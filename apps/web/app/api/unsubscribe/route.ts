@@ -47,6 +47,14 @@ export const POST = withError(async (request: Request) => {
       email: emailToken.user.email,
       error: userUpdate.reason,
     });
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Error unsubscribing. Visit Settings page to unsubscribe from emails.",
+      },
+      { status: 500 },
+    );
   }
 
   if (tokenDelete.status === "rejected") {
