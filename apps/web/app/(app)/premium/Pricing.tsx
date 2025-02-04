@@ -169,7 +169,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save 50%!</Badge>
+            <Badge>Save up to 50%!</Badge>
           </div>
         </div>
 
