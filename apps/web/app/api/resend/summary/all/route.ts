@@ -6,6 +6,7 @@ import { hasCronSecret } from "@/utils/cron";
 import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
 
 const logger = createScopedLogger("cron/resend/summary/all");
 
@@ -13,6 +14,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 async function sendSummaryAllUpdate() {
+  logger.info("Sending summary all update");
+
   const users = await prisma.user.findMany({
     select: { email: true },
     where: {
@@ -28,18 +31,35 @@ async function sendSummaryAllUpdate() {
     },
   });
 
+  logger.info("Sending summary to users", { count: users.length });
+
+  const url = `${env.NEXT_PUBLIC_BASE_URL}/api/resend/summary`;
+
+  // Start all requests without waiting for responses
   await Promise.all(
-    users.map(async (user) => {
-      return fetch(`${env.NEXT_PUBLIC_BASE_URL}/api/resend/summary`, {
+    users.map((user) => {
+      fetch(url, {
         method: "POST",
         body: JSON.stringify({ email: user.email }),
         headers: {
           authorization: `Bearer ${env.CRON_SECRET}`,
+          "Content-Type": "application/json",
         },
+      }).catch((error) => {
+        // Log any request initiation errors
+        logger.error("Failed to initiate request", {
+          email: user.email,
+          error,
+        });
       });
+      return Promise.resolve(); // Return immediately
     }),
   );
 
+  // Give the requests a moment to actually start
+  await sleep(2_000);
+
+  logger.info("All requests initiated", { count: users.length });
   return { count: users.length };
 }
 
@@ -48,8 +68,6 @@ export const GET = withError(async (request) => {
     captureException(new Error("Unauthorized request: api/resend/all"));
     return new Response("Unauthorized", { status: 401 });
   }
-
-  logger.info("Sending summary all update");
 
   const result = await sendSummaryAllUpdate();
 
