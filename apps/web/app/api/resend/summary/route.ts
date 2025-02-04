@@ -14,6 +14,8 @@ import { createScopedLogger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
 
+export const maxDuration = 30;
+
 const logger = createScopedLogger("resend/summary");
 
 const sendSummaryEmailBody = z.object({ email: z.string() });
