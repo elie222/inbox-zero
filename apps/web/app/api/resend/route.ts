@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { subDays } from "date-fns";
-import { sendStatsEmail } from "@inboxzero/resend";
 import { withError } from "@/utils/middleware";
 import { getWeeklyStats } from "@inboxzero/tinybird";
-import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -76,23 +74,23 @@ async function sendWeeklyStats(options: { email: string }) {
 
   // const newSenderList = uniqBy(newSenders.data, (sender) => sender.from);
 
-  // send email
-  await sendStatsEmail({
-    to: email,
-    emailProps: {
-      baseUrl: env.NEXT_PUBLIC_BASE_URL,
-      // userEmail: email,
-      received: totalEmailsReceived,
-      receivedPercentageDifference: null, // TODO
-      archived: weeklyTotals.archivedEmails,
-      read: weeklyTotals.readEmails,
-      archiveRate: (weeklyTotals.archivedEmails * 100) / totalEmailsReceived,
-      readRate: (weeklyTotals.readEmails * 100) / totalEmailsReceived,
-      sent: weeklyTotals.sentEmails,
-      sentPercentageDifference: null, // TODO
-      // newSenders: newSenderList,
-    },
-  });
+  // // send email
+  // await sendStatsEmail({
+  //   to: email,
+  //   emailProps: {
+  //     baseUrl: env.NEXT_PUBLIC_BASE_URL,
+  //     // userEmail: email,
+  //     received: totalEmailsReceived,
+  //     receivedPercentageDifference: null, // TODO
+  //     archived: weeklyTotals.archivedEmails,
+  //     read: weeklyTotals.readEmails,
+  //     archiveRate: (weeklyTotals.archivedEmails * 100) / totalEmailsReceived,
+  //     readRate: (weeklyTotals.readEmails * 100) / totalEmailsReceived,
+  //     sent: weeklyTotals.sentEmails,
+  //     sentPercentageDifference: null, // TODO
+  //     // newSenders: newSenderList,
+  //   },
+  // });
 
   return { success: true };
 }

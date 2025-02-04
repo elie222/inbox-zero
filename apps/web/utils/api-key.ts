@@ -1,7 +1,7 @@
 import { env } from "@/env";
 import { randomBytes, scryptSync } from "node:crypto";
 
-export function generateSecureApiKey(): string {
+export function generateSecureToken(): string {
   return randomBytes(32).toString("base64");
 }
 

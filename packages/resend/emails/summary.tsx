@@ -32,6 +32,7 @@ export interface SummaryEmailProps {
   needsReply?: EmailItem[];
   awaitingReply?: EmailItem[];
   needsAction?: EmailItem[];
+  unsubscribeToken: string;
 }
 
 export default function SummaryEmail(props: SummaryEmailProps) {
@@ -45,6 +46,7 @@ export default function SummaryEmail(props: SummaryEmailProps) {
     needsReply,
     awaitingReply,
     needsAction,
+    unsubscribeToken,
   } = props;
 
   return (
@@ -95,7 +97,7 @@ export default function SummaryEmail(props: SummaryEmailProps) {
 
             <PendingEmails pendingCount={pendingCount} baseUrl={baseUrl} />
 
-            <Footer baseUrl={baseUrl} />
+            <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
           </Container>
         </Body>
       </Tailwind>
@@ -157,6 +159,7 @@ SummaryEmail.PreviewProps = {
   //     sentAt: new Date("2024-03-15"),
   //   },
   // ],
+  unsubscribeToken: "123",
 } satisfies SummaryEmailProps;
 
 function pluralize(count: number, word: string) {
@@ -332,7 +335,13 @@ function PendingEmails({
   );
 }
 
-function Footer({ baseUrl }: { baseUrl: string }) {
+function Footer({
+  baseUrl,
+  unsubscribeToken,
+}: {
+  baseUrl: string;
+  unsubscribeToken: string;
+}) {
   return (
     <Section>
       <Text>
@@ -347,7 +356,10 @@ function Footer({ baseUrl }: { baseUrl: string }) {
         .
       </Text>
 
-      <Link href={`${baseUrl}/settings#email-updates`} className="text-[15px]">
+      <Link
+        href={`${baseUrl}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`}
+        className="text-[15px]"
+      >
         Unsubscribe from emails like this
       </Link>
     </Section>

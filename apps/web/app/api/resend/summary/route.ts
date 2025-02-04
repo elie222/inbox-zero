@@ -13,6 +13,7 @@ import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
+import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
 export const maxDuration = 30;
 
@@ -177,23 +178,28 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
   });
 
+  async function sendEmail(userId: string) {
+    const token = await createUnsubscribeToken(userId);
+
+    return sendSummaryEmail({
+      to: email,
+      emailProps: {
+        baseUrl: env.NEXT_PUBLIC_BASE_URL,
+        coldEmailers,
+        pendingCount,
+        needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
+        awaitingReplyCount: typeCounts[ThreadTrackerType.AWAITING],
+        needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
+        needsReply: recentNeedsReply,
+        awaitingReply: recentAwaitingReply,
+        needsAction: recentNeedsAction,
+        unsubscribeToken: token,
+      },
+    });
+  }
+
   await Promise.all([
-    shouldSendEmail
-      ? sendSummaryEmail({
-          to: email,
-          emailProps: {
-            baseUrl: env.NEXT_PUBLIC_BASE_URL,
-            coldEmailers,
-            pendingCount,
-            needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
-            awaitingReplyCount: typeCounts[ThreadTrackerType.AWAITING],
-            needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
-            needsReply: recentNeedsReply,
-            awaitingReply: recentAwaitingReply,
-            needsAction: recentNeedsAction,
-          },
-        })
-      : async () => {},
+    shouldSendEmail ? sendEmail(user.id) : Promise.resolve(),
     prisma.user.update({
       where: { email },
       data: { lastSummaryEmailAt: new Date() },

@@ -85,16 +85,17 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  promptHistory  PromptHistory[]
-  labels         Label[]
-  rules          Rule[]
-  executedRules  ExecutedRule[]
-  newsletters    Newsletter[]
-  coldEmails     ColdEmail[]
-  groups         Group[]
-  apiKeys        ApiKey[]
-  categories     Category[]
-  threadTrackers ThreadTracker[]
+  promptHistory     PromptHistory[]
+  labels            Label[]
+  rules             Rule[]
+  executedRules     ExecutedRule[]
+  newsletters       Newsletter[]
+  coldEmails        ColdEmail[]
+  groups            Group[]
+  apiKeys           ApiKey[]
+  categories        Category[]
+  threadTrackers    ThreadTracker[]
+  unsubscribeTokens EmailToken[]
 }
 
 model Premium {
@@ -386,6 +387,16 @@ model ApiKey {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
+}
+
+model EmailToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  // action    EmailTokenAction @default(UNSUBSCRIBE)
 }
 
 enum ActionType {
