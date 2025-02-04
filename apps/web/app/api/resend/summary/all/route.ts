@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
@@ -27,6 +28,10 @@ async function sendSummaryAllUpdate() {
         lemonSqueezyRenewsAt: {
           gt: new Date(),
         },
+      },
+      // User at least 4 days old
+      createdAt: {
+        gt: subDays(new Date(), 4),
       },
     },
   });
