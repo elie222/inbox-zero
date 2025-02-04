@@ -33,9 +33,18 @@ export function extractEmailAddress(email: string): string {
   return rawMatch ? rawMatch[0] : "";
 }
 
-// Converts "John.Doe.Smith@gmail.com" to "johndoesmith@gmail.com"
+// Normalizes email addresses by:
+// - Converting to lowercase
+// - Removing all dots from local part
+// - Removing all whitespace from local part
+// - Preserving domain part unchanged
+// Example: "John.Doe.Smith@gmail.com" -> "johndoesmith@gmail.com"
 export function normalizeEmailAddress(email: string) {
-  return email.toLowerCase().replace(/\s+/g, ".");
+  const [localPart, domain] = email.toLowerCase().split("@");
+  if (!domain) return email.toLowerCase();
+  // Remove all dots and whitespace from local part
+  const normalizedLocal = localPart.trim().replace(/[\s.]+/g, "");
+  return `${normalizedLocal}@${domain}`;
 }
 
 // Converts "Name <hey@domain.com>" to "domain.com"

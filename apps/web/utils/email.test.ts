@@ -4,6 +4,7 @@ import {
   extractEmailAddress,
   extractDomainFromEmail,
   participant,
+  normalizeEmailAddress,
 } from "./email";
 
 describe("email utils", () => {
@@ -165,6 +166,52 @@ describe("email utils", () => {
 
     it("returns from address when no user email provided", () => {
       expect(participant(message, "")).toBe("sender@example.com");
+    });
+  });
+
+  describe("normalizeEmailAddress", () => {
+    it("converts email to lowercase", () => {
+      expect(normalizeEmailAddress("John.Doe@GMAIL.com")).toBe(
+        "johndoe@gmail.com",
+      );
+    });
+
+    it("replaces whitespace with dots in local part", () => {
+      expect(normalizeEmailAddress("john doe@example.com")).toBe(
+        "johndoe@example.com",
+      );
+    });
+
+    it("handles multiple consecutive spaces", () => {
+      expect(normalizeEmailAddress("john    doe@example.com")).toBe(
+        "johndoe@example.com",
+      );
+    });
+
+    it("preserves existing dots", () => {
+      expect(normalizeEmailAddress("john.doe@example.com")).toBe(
+        "johndoe@example.com",
+      );
+    });
+
+    it("trims whitespace from local part", () => {
+      expect(normalizeEmailAddress(" john doe @example.com")).toBe(
+        "johndoe@example.com",
+      );
+    });
+
+    it("preserves domain part exactly", () => {
+      expect(normalizeEmailAddress("john@sub.example.com")).toBe(
+        "john@sub.example.com",
+      );
+    });
+
+    it("handles invalid email format gracefully", () => {
+      expect(normalizeEmailAddress("not-an-email")).toBe("not-an-email");
+    });
+
+    it("handles empty string", () => {
+      expect(normalizeEmailAddress("")).toBe("");
     });
   });
 });

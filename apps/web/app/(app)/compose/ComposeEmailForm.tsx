@@ -71,9 +71,8 @@ export const ComposeEmailForm = ({
     async (data) => {
       const enrichedData = {
         ...data,
-        messageText: data.messageText + replyingToEmail?.messageText,
-        messageHtml:
-          (data.messageHtml ?? "") + (replyingToEmail?.messageHtml ?? ""),
+        messageText: `${data.messageText}\n\n${replyingToEmail?.messageText ?? ""}`,
+        messageHtml: `${data.messageHtml ?? ""}\n<br/><br/>${replyingToEmail?.messageHtml ?? ""}`,
       };
 
       try {
