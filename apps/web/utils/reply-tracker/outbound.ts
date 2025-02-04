@@ -62,7 +62,7 @@ export async function handleOutboundReply(
       sentAt: internalDateToDate(message.internalDate),
     });
   } else {
-    console.log("No need to reply");
+    logger.info("No need to reply");
   }
 }
 
