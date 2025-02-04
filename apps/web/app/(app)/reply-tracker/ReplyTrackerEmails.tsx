@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ParsedMessage } from "@/utils/types";
 import { type ThreadTracker, ThreadTrackerType } from "@prisma/client";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -140,11 +141,16 @@ function NudgeButton({
 }
 
 function ResolveButton({ threadId }: { threadId: string }) {
+  const [isLoading, setIsLoading] = useState(false);
+
   return (
     <Button
       variant="outline"
       Icon={CheckCircleIcon}
+      loading={isLoading}
       onClick={async () => {
+        if (isLoading) return;
+        setIsLoading(true);
         const result = await resolveThreadTrackerAction({
           threadId,
           resolved: true,
@@ -161,6 +167,7 @@ function ResolveButton({ threadId }: { threadId: string }) {
             description: "Resolved!",
           });
         }
+        setIsLoading(false);
       }}
     >
       Resolve
@@ -169,11 +176,16 @@ function ResolveButton({ threadId }: { threadId: string }) {
 }
 
 function UnresolveButton({ threadId }: { threadId: string }) {
+  const [isLoading, setIsLoading] = useState(false);
+
   return (
     <Button
       variant="outline"
       Icon={CheckCircleIcon}
+      loading={isLoading}
       onClick={async () => {
+        if (isLoading) return;
+        setIsLoading(true);
         const result = await resolveThreadTrackerAction({
           threadId,
           resolved: false,
@@ -190,6 +202,7 @@ function UnresolveButton({ threadId }: { threadId: string }) {
             description: "Unresolved!",
           });
         }
+        setIsLoading(false);
       }}
     >
       Unresolve

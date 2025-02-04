@@ -121,7 +121,8 @@ export async function getThreadMessages(
   gmail: gmail_v1.Gmail,
 ) {
   const thread = await getThread(threadId, gmail);
-  return thread?.messages
-    ?.map((m) => parseMessage(m as MessageWithPayload))
+  if (!thread?.messages) return [];
+  return thread.messages
+    .map((m) => parseMessage(m as MessageWithPayload))
     .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
 }
