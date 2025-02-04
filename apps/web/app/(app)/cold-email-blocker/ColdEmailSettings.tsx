@@ -24,13 +24,13 @@ export function ColdEmailSettings() {
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data && (
-        <>
+        <div className="space-y-10">
           <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
           <ColdEmailPromptForm
             coldEmailPrompt={data.coldEmailPrompt}
             onSuccess={mutate}
           />
-        </>
+        </div>
       )}
     </LoadingContent>
   );

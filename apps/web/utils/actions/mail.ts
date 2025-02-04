@@ -20,6 +20,11 @@ import {
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { isActionError } from "@/utils/error";
+import {
+  sendEmail,
+  type SendEmailBody,
+  sendEmailBody,
+} from "@/utils/gmail/mail";
 
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
@@ -218,5 +223,20 @@ export const updateLabelsAction = withActionInstrumentation(
         id: l.gmailLabelId,
       })),
     });
+  },
+);
+
+export const sendEmailAction = withActionInstrumentation(
+  "sendEmail",
+  async (unsafeData: SendEmailBody) => {
+    const sessionResult = await getSessionAndGmailClient();
+    if (isActionError(sessionResult)) return sessionResult;
+    const { gmail } = sessionResult;
+
+    const body = sendEmailBody.parse(unsafeData);
+
+    await sendEmail(gmail, body);
+
+    return { success: true };
   },
 );

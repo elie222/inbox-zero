@@ -11,7 +11,7 @@ import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { replyToEmail } from "@/utils/gmail/mail";
-import { getThread } from "@/utils/gmail/thread";
+import { getThreadMessages } from "@/utils/gmail/thread";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import {
   getOrCreateInboxZeroLabel,
@@ -71,10 +71,7 @@ async function processAssistantEmailInternal({
   // 2. get first message in thread to the personal assistant
   // 3. get the referenced message from that message
 
-  const thread = await getThread(message.threadId, gmail);
-  const threadMessages = thread?.messages
-    ?.map((m) => parseMessage(m as MessageWithPayload))
-    .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
+  const threadMessages = await getThreadMessages(message.threadId, gmail);
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found", loggerOptions);
@@ -278,6 +275,20 @@ async function withProcessingLabels<T>(
       key: "assistant",
     }),
   ]);
+
+  const [processingLabelResult, assistantLabelResult] = results;
+
+  if (processingLabelResult.status === "rejected") {
+    logger.error("Error getting processing label", {
+      error: processingLabelResult.reason,
+    });
+  }
+
+  if (assistantLabelResult.status === "rejected") {
+    logger.error("Error getting assistant label", {
+      error: assistantLabelResult.reason,
+    });
+  }
 
   const labels = results
     .map((result) =>

@@ -3,9 +3,8 @@ import {
   useFeatureFlagVariantKey,
 } from "posthog-js/react";
 
-export function useSmartCategoriesEnabled() {
-  // return useFeatureFlagEnabled("smart-categories");
-  return true;
+export function useReplyTrackingEnabled() {
+  return useFeatureFlagEnabled("reply-tracker");
 }
 
 const HERO_FLAG_NAME = "hero-copy-5";

@@ -3,8 +3,7 @@ import { summarise } from "@/app/api/ai/summarise/controller";
 import { withError } from "@/utils/middleware";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
-import { getSummary, saveSummary } from "@/utils/redis/summary";
-import { expire } from "@/utils/redis";
+import { getSummary } from "@/utils/redis/summary";
 import { emailToContent } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 

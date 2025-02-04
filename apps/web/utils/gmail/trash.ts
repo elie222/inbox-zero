@@ -1,5 +1,8 @@
-import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import type { gmail_v1 } from "@googleapis/gmail";
+import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("gmail/trash");
 
 // trash moves the thread/message to the trash folder
 // delete immediately deletes the thread/message
@@ -31,15 +34,20 @@ export async function trashThread(options: {
   ]);
 
   if (trashResult.status === "rejected") {
-    console.error(`Failed to trash thread: ${threadId}`, trashResult.reason);
+    logger.error("Failed to trash thread", {
+      email: ownerEmail,
+      threadId,
+      error: trashResult.reason,
+    });
     throw trashResult.reason;
   }
 
   if (publishResult.status === "rejected") {
-    console.error(
-      `Failed to publish delete action: ${threadId}`,
-      publishResult.reason,
-    );
+    logger.error("Failed to publish delete action", {
+      email: ownerEmail,
+      threadId,
+      error: publishResult.reason,
+    });
   }
 
   return trashResult.value;

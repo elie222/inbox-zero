@@ -20,6 +20,7 @@ import { useIsInAiQueue } from "@/store/ai-queue";
 import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { internalDateToDate } from "@/utils/date";
 
 export const EmailListItem = forwardRef(
   (
@@ -170,7 +171,7 @@ export const EmailListItem = forwardRef(
                     />
                   </div>
                   <EmailDate
-                    date={new Date(+(lastMessage?.internalDate || ""))}
+                    date={internalDateToDate(lastMessage?.internalDate)}
                   />
                 </div>
 

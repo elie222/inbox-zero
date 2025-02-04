@@ -85,15 +85,16 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  promptHistory PromptHistory[]
-  labels        Label[]
-  rules         Rule[]
-  executedRules ExecutedRule[]
-  newsletters   Newsletter[]
-  coldEmails    ColdEmail[]
-  groups        Group[]
-  apiKeys       ApiKey[]
-  categories    Category[]
+  promptHistory  PromptHistory[]
+  labels         Label[]
+  rules          Rule[]
+  executedRules  ExecutedRule[]
+  newsletters    Newsletter[]
+  coldEmails     ColdEmail[]
+  groups         Group[]
+  apiKeys        ApiKey[]
+  categories     Category[]
+  threadTrackers ThreadTracker[]
 }
 
 model Premium {
@@ -170,17 +171,19 @@ model Label {
 }
 
 model Rule {
-  id            String         @id @default(cuid())
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  name          String
-  actions       Action[]
-  enabled       Boolean        @default(true)
-  automate      Boolean        @default(false) // if disabled, user must approve to execute
-  runOnThreads  Boolean        @default(false) // if disabled, only runs on individual emails
-  userId        String
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  executedRules ExecutedRule[]
+  id             String          @id @default(cuid())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  name           String
+  actions        Action[]
+  enabled        Boolean         @default(true)
+  automate       Boolean         @default(false) // if disabled, user must approve to execute
+  runOnThreads   Boolean         @default(false) // if disabled, only runs on individual emails
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executedRules  ExecutedRule[]
+  trackReplies   Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
+  threadTrackers ThreadTracker[]
 
   // conditions: ai, group, static, category
   type                RuleType? // deprecated
@@ -224,13 +227,6 @@ model Action {
   cc      String?
   bcc     String?
   url     String?
-
-  labelPrompt   String? // deprecated
-  subjectPrompt String? // deprecated
-  contentPrompt String? // deprecated
-  toPrompt      String? // deprecated
-  ccPrompt      String? // deprecated
-  bccPrompt     String? // deprecated
 }
 
 // Rule/Action models represent the rules and actions that the AI can take.
@@ -358,6 +354,26 @@ model ColdEmail {
   @@index([userId, status])
 }
 
+model ThreadTracker {
+  id        String            @id @default(cuid())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  sentAt    DateTime
+  threadId  String
+  messageId String
+  resolved  Boolean           @default(false)
+  type      ThreadTrackerType
+
+  ruleId String?
+  rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, threadId, messageId])
+  @@index([userId, resolved])
+}
+
 model ApiKey {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -462,4 +478,10 @@ enum CategoryFilterType {
 enum LogicalOperator {
   AND
   OR
+}
+
+enum ThreadTrackerType {
+  AWAITING // We're waiting for their reply
+  NEEDS_REPLY // We need to reply to this
+  NEEDS_ACTION // We need to do something else
 }

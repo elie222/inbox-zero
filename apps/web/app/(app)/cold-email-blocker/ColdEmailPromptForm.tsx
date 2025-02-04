@@ -55,7 +55,7 @@ export function ColdEmailPromptForm(props: {
   );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mt-2">
+    <form onSubmit={handleSubmit(onSubmit)}>
       <Input
         type="text"
         autosizeTextarea

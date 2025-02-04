@@ -24,6 +24,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
+import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 
 const logger = createScopedLogger("Process History");
 
@@ -85,7 +86,10 @@ export async function processHistoryForUser(
     : undefined;
 
   if (!premium) {
-    logger.info("Account not premium", { email });
+    logger.info("Account not premium", {
+      email,
+      lemonSqueezyRenewsAt: account.user.premium?.lemonSqueezyRenewsAt,
+    });
     await unwatchEmails(account);
     return NextResponse.json({ ok: true });
   }
@@ -391,8 +395,14 @@ async function processHistoryItem(
       return;
     }
 
-    // skip SENT emails that are not assistant emails
-    if (message.labelIds?.includes(GmailLabel.SENT)) return;
+    const isOutbound = message.labelIds?.includes(GmailLabel.SENT);
+
+    if (isOutbound) {
+      await handleOutboundReply(user, message, gmail);
+    }
+
+    // skip outbound emails
+    if (isOutbound) return;
 
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
@@ -487,9 +497,12 @@ async function processHistoryItem(
         isTest: false,
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // gmail bug or snoozed email: https://stackoverflow.com/questions/65290987/gmail-api-getmessage-method-returns-404-for-message-gotten-from-listhistory-meth
-    if (error.message === "Requested entity was not found.") {
+    if (
+      error instanceof Error &&
+      error.message === "Requested entity was not found."
+    ) {
       logger.info("Message not found", {
         email: userEmail,
         messageId,

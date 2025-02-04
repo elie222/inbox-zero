@@ -7,26 +7,10 @@ import {
   ComboboxOptions,
 } from "@headlessui/react";
 import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
-import {
-  EditorBubble,
-  EditorCommand,
-  EditorCommandEmpty,
-  EditorCommandItem,
-  EditorContent,
-  EditorRoot,
-} from "novel";
-import { handleCommandNavigation } from "novel/extensions";
-import React, { useCallback, useState } from "react";
+import React, { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
-
-import { defaultExtensions } from "@/app/(app)/compose/extensions";
-import { ColorSelector } from "@/app/(app)/compose/selectors/color-selector";
-import { LinkSelector } from "@/app/(app)/compose/selectors/link-selector";
-import { NodeSelector } from "@/app/(app)/compose/selectors/node-selector";
-// import { AISelector } from "@/app/(app)/compose/selectors/ai-selector";
-import { TextButtons } from "@/app/(app)/compose/selectors/text-buttons";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import { Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -36,16 +20,11 @@ import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { env } from "@/env";
 import { cn } from "@/utils";
-import { postRequest } from "@/utils/api";
 import { extractNameFromEmail } from "@/utils/email";
-import { isError } from "@/utils/error";
-import type { SendEmailBody, SendEmailResponse } from "@/utils/gmail/mail";
-import {
-  slashCommand,
-  suggestionItems,
-} from "@/app/(app)/compose/SlashCommand";
-import { Separator } from "@/components/ui/separator";
-import "@/styles/prosemirror.css";
+import { isActionError } from "@/utils/error";
+import type { SendEmailBody } from "@/utils/gmail/mail";
+import { Tiptap } from "@/components/Tiptap";
+import { sendEmailAction } from "@/utils/actions/mail";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -58,21 +37,19 @@ export type ReplyingToEmail = {
   messageHtml?: string | undefined;
 };
 
-export const ComposeEmailForm = (props: {
+export const ComposeEmailForm = ({
+  replyingToEmail,
+  submitButtonClassName,
+  refetch,
+  onSuccess,
+  onDiscard,
+}: {
   replyingToEmail?: ReplyingToEmail;
-  novelEditorClassName?: string;
   submitButtonClassName?: string;
   refetch?: () => void;
   onSuccess?: () => void;
   onDiscard?: () => void;
 }) => {
-  const { refetch, onSuccess } = props;
-
-  const [openNode, setOpenNode] = useState(false);
-  const [openColor, setOpenColor] = useState(false);
-  const [openLink, setOpenLink] = useState(false);
-  // const [openAi, setOpenAi] = useState(false);
-
   const {
     register,
     handleSubmit,
@@ -81,10 +58,12 @@ export const ComposeEmailForm = (props: {
     setValue,
   } = useForm<SendEmailBody>({
     defaultValues: {
-      replyToEmail: props.replyingToEmail,
-      subject: props.replyingToEmail?.subject,
-      to: props.replyingToEmail?.to,
-      cc: props.replyingToEmail?.cc,
+      replyToEmail: replyingToEmail,
+      subject: replyingToEmail?.subject,
+      to: replyingToEmail?.to,
+      cc: replyingToEmail?.cc,
+      messageHtml: "",
+      messageText: "",
     },
   });
 
@@ -92,16 +71,14 @@ export const ComposeEmailForm = (props: {
     async (data) => {
       const enrichedData = {
         ...data,
-        messageText: data.messageText + props.replyingToEmail?.messageText,
+        messageText: data.messageText + replyingToEmail?.messageText,
         messageHtml:
-          (data.messageHtml ?? "") + (props.replyingToEmail?.messageHtml ?? ""),
+          (data.messageHtml ?? "") + (replyingToEmail?.messageHtml ?? ""),
       };
+
       try {
-        const res = await postRequest<SendEmailResponse, SendEmailBody>(
-          "/api/google/messages/send",
-          enrichedData,
-        );
-        if (isError(res))
+        const res = await sendEmailAction(enrichedData);
+        if (isActionError(res))
           toastError({
             description: "There was an error sending the email :(",
           });
@@ -118,8 +95,8 @@ export const ComposeEmailForm = (props: {
     [
       refetch,
       onSuccess,
-      props.replyingToEmail?.messageHtml,
-      props.replyingToEmail?.messageText,
+      replyingToEmail?.messageHtml,
+      replyingToEmail?.messageText,
     ],
   );
 
@@ -156,12 +133,21 @@ export const ComposeEmailForm = (props: {
 
   const [editReply, setEditReply] = React.useState(false);
 
+  const handleEditorChange = useCallback(
+    (html: string) => {
+      setValue("messageHtml", html);
+      // Also set plain text version by stripping HTML tags
+      setValue("messageText", html.replace(/<[^>]*>/g, ""));
+    },
+    [setValue],
+  );
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {props.replyingToEmail?.to && !editReply ? (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+      {replyingToEmail?.to && !editReply ? (
         <button type="button" onClick={() => setEditReply(true)}>
           <span className="text-green-500">Draft</span> to{" "}
-          {extractNameFromEmail(props.replyingToEmail.to)}
+          {extractNameFromEmail(replyingToEmail.to)}
         </button>
       ) : (
         <>
@@ -296,91 +282,31 @@ export const ComposeEmailForm = (props: {
         </>
       )}
 
-      <EditorRoot>
-        {/* TODO onUpdate runs on every change. In most cases, you will want to debounce the updates to prevent too many state changes. */}
-        <EditorContent
-          extensions={[...defaultExtensions, slashCommand]}
-          onUpdate={({ editor }) => {
-            setValue("messageText", editor.getText());
-            setValue("messageHtml", editor.getHTML());
-          }}
-          className={cn(
-            "relative min-h-32 w-full max-w-screen-lg rounded-xl border bg-background sm:rounded-lg",
-            props.novelEditorClassName,
-          )}
-          editorProps={{
-            handleDOMEvents: {
-              keydown: (_view, event) => handleCommandNavigation(event),
-            },
-            attributes: {
-              class:
-                "prose-lg prose-stone dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full",
-            },
-          }}
-        >
-          <EditorCommand className="z-50 h-auto max-h-[330px] w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
-            <EditorCommandEmpty className="px-2 text-muted-foreground">
-              No results
-            </EditorCommandEmpty>
-            {suggestionItems.map((item) => (
-              <EditorCommandItem
-                value={item.title}
-                onCommand={(val) => item.command?.(val)}
-                className={
-                  "flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent"
-                }
-                key={item.title}
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
-                  {item.icon}
-                </div>
-                <div>
-                  <p className="font-medium">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-              </EditorCommandItem>
-            ))}
-          </EditorCommand>
-
-          <EditorBubble
-            tippyOptions={{ placement: "top" }}
-            className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl"
-          >
-            <Separator orientation="vertical" />
-            <NodeSelector open={openNode} onOpenChange={setOpenNode} />
-            <Separator orientation="vertical" />
-            <LinkSelector open={openLink} onOpenChange={setOpenLink} />
-            <Separator orientation="vertical" />
-            <TextButtons />
-            <Separator orientation="vertical" />
-            <ColorSelector open={openColor} onOpenChange={setOpenColor} />
-            {/* <Separator orientation="vertical" />
-            <AISelector open={openAi} onOpenChange={setOpenAi} /> */}
-          </EditorBubble>
-        </EditorContent>
-      </EditorRoot>
+      <Tiptap
+        initialContent={replyingToEmail?.messageHtml}
+        onChange={handleEditorChange}
+        className="min-h-[200px]"
+      />
 
       <div
         className={cn(
           "flex items-center justify-between",
-          props.submitButtonClassName,
+          submitButtonClassName,
         )}
       >
-        <Button type="submit" variant="outline" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <ButtonLoader />}
           Send
         </Button>
 
-        {props.onDiscard && (
+        {onDiscard && (
           <Button
             type="button"
             variant="secondary"
             size="icon"
-            className={props.submitButtonClassName}
+            className={submitButtonClassName}
             disabled={isSubmitting}
-            onClick={props.onDiscard}
+            onClick={onDiscard}
           >
             <TrashIcon className="h-4 w-4" />
             <span className="sr-only">Discard</span>

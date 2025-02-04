@@ -41,7 +41,13 @@ const logger = createScopedLogger("ai-actions");
 
 export type EmailForAction = Pick<
   ParsedMessage,
-  "threadId" | "id" | "headers" | "textPlain" | "textHtml" | "attachments"
+  | "threadId"
+  | "id"
+  | "headers"
+  | "textPlain"
+  | "textHtml"
+  | "attachments"
+  | "internalDate"
 >;
 
 export type ActionItem = {

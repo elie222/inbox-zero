@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { useCallback } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
@@ -9,9 +10,12 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export function EmailViewer() {
-  const { threadId, showEmail } = useDisplayedEmail();
+  const { threadId, showEmail, showReplyButton, autoOpenReplyForMessageId } =
+    useDisplayedEmail();
 
   const hideEmail = useCallback(() => showEmail(null), [showEmail]);
+
+  const { data } = useSession();
 
   return (
     <Sheet open={!!threadId} onOpenChange={hideEmail}>
@@ -21,13 +25,30 @@ export function EmailViewer() {
         className="overflow-y-auto bg-slate-100 p-0"
         overlay="transparent"
       >
-        {threadId && <EmailContent threadId={threadId} />}
+        {threadId && (
+          <EmailContent
+            threadId={threadId}
+            showReplyButton={showReplyButton}
+            autoOpenReplyForMessageId={autoOpenReplyForMessageId ?? undefined}
+            userEmail={data?.user.email || ""}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function EmailContent({ threadId }: { threadId: string }) {
+function EmailContent({
+  threadId,
+  showReplyButton,
+  autoOpenReplyForMessageId,
+  userEmail,
+}: {
+  threadId: string;
+  showReplyButton: boolean;
+  autoOpenReplyForMessageId?: string;
+  userEmail: string;
+}) {
   const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
   return (
@@ -37,7 +58,9 @@ function EmailContent({ threadId }: { threadId: string }) {
           <EmailThread
             messages={data.thread.messages}
             refetch={mutate}
-            showReplyButton={false}
+            showReplyButton={showReplyButton}
+            autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+            userEmail={userEmail}
           />
         )}
       </LoadingContent>

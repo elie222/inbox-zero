@@ -1,4 +1,5 @@
 import type { JSXElementConstructor, ReactElement } from "react";
+import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
 import StatsUpdateEmail, { type StatsUpdateEmailProps } from "../emails/stats";
 import { resend } from "./client";
@@ -27,11 +28,14 @@ const sendEmail = async ({
     return Promise.resolve();
   }
 
+  const text = await render(react, { plainText: true });
+
   const result = await resend.emails.send({
-    from: "Inbox Zero <elie@getinboxzero.com>",
+    from: "Inbox Zero <updates@transactional.getinboxzero.com>",
     to: test ? "delivered@resend.dev" : to,
     subject,
     react,
+    text,
     headers: {
       ...(listUnsubscribe
         ? {
@@ -86,7 +90,6 @@ export const sendSummaryEmail = async ({
   test?: boolean;
   emailProps: SummaryEmailProps;
 }) => {
-  console.log("sending summary email to", to);
   sendEmail({
     to,
     subject: "Your weekly email summary",

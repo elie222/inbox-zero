@@ -547,6 +547,7 @@ export function EmailList({
             !!(openThreadId && openedRow) && (
               <EmailPanel
                 row={openedRow}
+                userEmail={session.data?.user.email || ""}
                 isCategorizing={isCategorizing[openThreadId]}
                 onPlanAiAction={onPlanAiAction}
                 onAiCategorize={onAiCategorize}

@@ -6,6 +6,9 @@ import { sendCompleteRegistrationEvent } from "@/utils/fb";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { ONE_HOUR_MS } from "@/utils/date";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("complete-registration");
 
 export type CompleteRegistrationBody = Record<string, never>;
 
@@ -37,7 +40,24 @@ export const POST = withError(async (_request: NextRequest) => {
     session.user.email,
   );
 
-  await Promise.allSettled([fbPromise, posthogPromise]);
+  const [fbResult, posthogResult] = await Promise.allSettled([
+    fbPromise,
+    posthogPromise,
+  ]);
+
+  if (fbResult.status === "rejected") {
+    logger.error("Facebook tracking failed", {
+      error: fbResult.reason,
+      email: session.user.email,
+    });
+  }
+
+  if (posthogResult.status === "rejected") {
+    logger.error("Posthog tracking failed", {
+      error: posthogResult.reason,
+      email: session.user.email,
+    });
+  }
 
   return NextResponse.json({ success: true });
 });
