@@ -12,7 +12,6 @@ import { getThreads } from "@/utils/gmail/thread";
 import { inboxZeroLabels } from "@/utils/label";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { emailToContent } from "@/utils/mail";
-import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
@@ -112,15 +111,6 @@ async function checkColdEmail(
     },
   });
 
-  const hasPreviousEmail =
-    body.date && body.threadId
-      ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
-          from: body.from,
-          date: body.date,
-          threadId: body.threadId,
-        })
-      : false;
-
   const content = emailToContent({
     textHtml: body.textHtml || undefined,
     textPlain: body.textPlain || undefined,
@@ -132,9 +122,11 @@ async function checkColdEmail(
       from: body.from,
       subject: body.subject,
       content,
+      date: body.date,
+      threadId: body.threadId || undefined,
     },
     user,
-    hasPreviousEmail,
+    gmail,
   });
 
   return response;
