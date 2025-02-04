@@ -24,9 +24,11 @@ export function TimeRangeFilter() {
   const searchParams = useSearchParams();
   const timeRange = (searchParams.get("timeRange") as TimeRange) || "all";
 
+  // nuqs would have been cleaner, but didn't seem to work for some reason
   const createQueryString = (value: TimeRange) => {
     const params = new URLSearchParams(searchParams);
     params.set("timeRange", value);
+    params.delete("page");
     return params.toString();
   };
 
