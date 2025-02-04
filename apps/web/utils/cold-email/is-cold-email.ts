@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
+import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -20,13 +21,19 @@ const aiResponseSchema = z.object({
 type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
 
 export async function isColdEmail({
-  hasPreviousEmail,
   email,
   user,
+  gmail,
 }: {
-  hasPreviousEmail: boolean;
-  email: { from: string; subject: string; content: string };
+  email: {
+    from: string;
+    subject: string;
+    content: string;
+    date?: string;
+    threadId?: string;
+  };
   user: Pick<User, "id" | "email" | "coldEmailPrompt"> & UserAIFields;
+  gmail: gmail_v1.Gmail;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -34,27 +41,28 @@ export async function isColdEmail({
 }> {
   logger.trace("Checking is cold email");
 
-  if (hasPreviousEmail)
-    return { isColdEmail: false, reason: "hasPreviousEmail" };
-
   // Check if we marked it as a cold email already
-  const coldEmail = await prisma.coldEmail.findUnique({
-    where: {
-      userId_fromEmail: {
-        userId: "user.id",
-        fromEmail: email.from,
-      },
-      status: ColdEmailStatus.AI_LABELED_COLD,
-    },
+  const isColdEmailer = await isKnownColdEmailSender({
+    from: email.from,
+    userId: user.id,
   });
 
-  if (coldEmail) {
-    logger.info("Already marked as cold email", {
-      from: email.from,
-      userId: user.id,
-    });
+  if (isColdEmailer) {
+    logger.info("Known cold email sender", { userId: user.id });
     return { isColdEmail: true, reason: "ai-already-labeled" };
   }
+
+  const hasPreviousEmail =
+    email.date && email.threadId
+      ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
+          from: email.from,
+          date: email.date,
+          threadId: email.threadId,
+        })
+      : false;
+
+  if (hasPreviousEmail)
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
 
   // otherwise run through ai to see if it's a cold email
   const res = await aiIsColdEmail(email, user);
@@ -69,6 +77,20 @@ export async function isColdEmail({
     reason: "ai",
     aiReason: res.reason,
   };
+}
+
+async function isKnownColdEmailSender({
+  from,
+  userId,
+}: {
+  from: string;
+  userId: string;
+}) {
+  const coldEmail = await prisma.coldEmail.findUnique({
+    where: { userId_fromEmail: { userId, fromEmail: from } },
+    select: { id: true },
+  });
+  return !!coldEmail;
 }
 
 async function aiIsColdEmail(
@@ -114,13 +136,13 @@ ${stringifyEmail(email, 500)}
 }
 
 export async function runColdEmailBlocker(options: {
-  hasPreviousEmail: boolean;
   email: {
     from: string;
     subject: string;
     content: string;
     messageId: string;
     threadId: string;
+    date: string;
   };
   gmail: gmail_v1.Gmail;
   user: Pick<User, "id" | "email" | "coldEmailPrompt" | "coldEmailBlocker"> &

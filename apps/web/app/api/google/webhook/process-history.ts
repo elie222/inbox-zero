@@ -6,10 +6,7 @@ import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
-import {
-  getMessage,
-  hasPreviousEmailsFromSenderOrDomain,
-} from "@/utils/gmail/message";
+import { getMessage } from "@/utils/gmail/message";
 import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
@@ -322,22 +319,20 @@ async function processHistoryItem(
 
   if (!messageId || !threadId) return;
 
-  const isFree = await markMessageAsProcessing({ userEmail, messageId });
-
-  if (!isFree) {
-    logger.info("Skipping. Message already being processed.", {
-      email: userEmail,
-      messageId,
-      threadId,
-    });
-    return;
-  }
-
-  logger.info("Getting message", {
+  const loggerOptions = {
     email: userEmail,
     messageId,
     threadId,
-  });
+  };
+
+  const isFree = await markMessageAsProcessing({ userEmail, messageId });
+
+  if (!isFree) {
+    logger.info("Skipping. Message already being processed.", loggerOptions);
+    return;
+  }
+
+  logger.info("Getting message", loggerOptions);
 
   try {
     const [gmailMessage, hasExistingRule] = await Promise.all([
@@ -352,11 +347,7 @@ async function processHistoryItem(
 
     // if the rule has already been executed, skip
     if (hasExistingRule) {
-      logger.info("Skipping. Rule already exists.", {
-        email: userEmail,
-        messageId,
-        threadId,
-      });
+      logger.info("Skipping. Rule already exists.", loggerOptions);
       return;
     }
 
@@ -368,11 +359,7 @@ async function processHistoryItem(
     });
 
     if (isForAssistant) {
-      logger.info("Passing through assistant email.", {
-        email: userEmail,
-        messageId,
-        threadId,
-      });
+      logger.info("Passing through assistant email.", loggerOptions);
       return processAssistantEmail({
         message,
         userEmail,
@@ -387,11 +374,7 @@ async function processHistoryItem(
     });
 
     if (isFromAssistant) {
-      logger.info("Skipping. Assistant email.", {
-        email: userEmail,
-        messageId,
-        threadId,
-      });
+      logger.info("Skipping. Assistant email.", loggerOptions);
       return;
     }
 
@@ -399,11 +382,11 @@ async function processHistoryItem(
 
     if (isOutbound) {
       await handleOutboundReply(user, message, gmail);
+      // skip outbound emails
+      return;
     }
 
-    // skip outbound emails
-    if (isOutbound) return;
-
+    // check if unsubscribed
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
       userId: user.id,
@@ -412,11 +395,7 @@ async function processHistoryItem(
     });
 
     if (blocked) {
-      logger.info("Skipping. Blocked unsubscribed email.", {
-        email: userEmail,
-        messageId,
-        threadId,
-      });
+      logger.info("Skipping. Blocked unsubscribed email.", loggerOptions);
       return;
     }
 
@@ -429,42 +408,25 @@ async function processHistoryItem(
     );
 
     if (shouldRunBlocker) {
-      logger.info("Running cold email blocker...", {
-        email: userEmail,
-        messageId,
-        threadId,
-      });
-
-      const hasPreviousEmail = await hasPreviousEmailsFromSenderOrDomain(
-        gmail,
-        {
-          from: message.headers.from,
-          date: message.headers.date,
-          threadId,
-        },
-      );
+      logger.info("Running cold email blocker...", loggerOptions);
 
       const content = emailToContent(message);
 
       const response = await runColdEmailBlocker({
-        hasPreviousEmail,
         email: {
           from: message.headers.from,
           subject: message.headers.subject,
           content,
           messageId,
           threadId,
+          date: message.headers.date,
         },
         gmail,
         user,
       });
 
       if (response.isColdEmail) {
-        logger.info("Skipping. Cold email detected.", {
-          email: userEmail,
-          messageId,
-          threadId,
-        });
+        logger.info("Skipping. Cold email detected.", loggerOptions);
         return;
       }
     }
@@ -483,11 +445,7 @@ async function processHistoryItem(
     }
 
     if (hasAutomationRules && hasAiAutomationAccess) {
-      logger.info("Running rules...", {
-        email: userEmail,
-        messageId,
-        threadId,
-      });
+      logger.info("Running rules...", loggerOptions);
 
       await runRulesOnMessage({
         gmail,
@@ -503,11 +461,7 @@ async function processHistoryItem(
       error instanceof Error &&
       error.message === "Requested entity was not found."
     ) {
-      logger.info("Message not found", {
-        email: userEmail,
-        messageId,
-        threadId,
-      });
+      logger.info("Message not found", loggerOptions);
       return;
     }
 
