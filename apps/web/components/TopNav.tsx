@@ -40,7 +40,7 @@ const userNavigation = [
   },
   {
     name: "Early Access",
-    href: "/request-access",
+    href: "/early-access",
     icon: RibbonIcon,
   },
   {

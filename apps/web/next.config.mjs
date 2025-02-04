@@ -150,6 +150,11 @@ const nextConfig = {
         destination: "/bulk-unsubscribe",
         permanent: false,
       },
+      {
+        source: "/request-access",
+        destination: "/early-access",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
