@@ -85,16 +85,28 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  promptHistory  PromptHistory[]
-  labels         Label[]
-  rules          Rule[]
-  executedRules  ExecutedRule[]
-  newsletters    Newsletter[]
-  coldEmails     ColdEmail[]
-  groups         Group[]
-  apiKeys        ApiKey[]
-  categories     Category[]
-  threadTrackers ThreadTracker[]
+  promptHistory     PromptHistory[]
+  labels            Label[]
+  rules             Rule[]
+  executedRules     ExecutedRule[]
+  newsletters       Newsletter[]
+  coldEmails        ColdEmail[]
+  groups            Group[]
+  apiKeys           ApiKey[]
+  categories        Category[]
+  threadTrackers    ThreadTracker[]
+  unsubscribeTokens EmailToken[]
+}
+
+model EmailToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  token     String   @unique
+  action    String // "unsubscribe", "approve_action", "confirm_meeting", etc
+  // metadata  Json? // { actionId: "123", someParam: "value" }
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
 }
 
 model Premium {

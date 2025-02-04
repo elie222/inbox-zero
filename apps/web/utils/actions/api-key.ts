@@ -11,7 +11,7 @@ import type {
   DeactivateApiKeyBody,
 } from "@/utils/actions/validation";
 import prisma from "@/utils/prisma";
-import { generateSecureApiKey, hashApiKey } from "@/utils/api-key";
+import { generateSecureToken, hashApiKey } from "@/utils/api-key";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -29,7 +29,7 @@ export const createApiKeyAction = withActionInstrumentation(
 
     logger.info("Creating API key", { userId });
 
-    const secretKey = generateSecureApiKey();
+    const secretKey = generateSecureToken();
     const hashedKey = hashApiKey(secretKey);
 
     await prisma.apiKey.create({
