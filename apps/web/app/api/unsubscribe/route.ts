@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
@@ -7,11 +6,23 @@ import { Frequency } from "@prisma/client";
 
 const logger = createScopedLogger("unsubscribe");
 
-const unsubscribeBody = z.object({ token: z.string() });
+export const GET = withError(async (request: Request) => {
+  return unsubscribe(request);
+});
 
 export const POST = withError(async (request: Request) => {
-  const json = await request.json();
-  const { token } = unsubscribeBody.parse(json);
+  return unsubscribe(request);
+});
+
+async function unsubscribe(request: Request) {
+  const url = new URL(request.url);
+  const encodedToken = url.searchParams.get("token");
+
+  if (!encodedToken) {
+    return NextResponse.json({ error: "Token is required" }, { status: 400 });
+  }
+
+  const token = decodeURIComponent(encodedToken);
 
   // Find and validate token
   const emailToken = await prisma.emailToken.findUnique({
@@ -20,11 +31,20 @@ export const POST = withError(async (request: Request) => {
   });
 
   if (!emailToken) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 400 });
+    return NextResponse.json(
+      {
+        error:
+          "Invalid unsubscribe token. You might have already unsubscribed.",
+      },
+      { status: 400 },
+    );
   }
 
   if (emailToken.expiresAt < new Date()) {
-    return NextResponse.json({ error: "Token expired" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Unsubscribe token expired" },
+      { status: 400 },
+    );
   }
 
   // Update user preferences
@@ -71,4 +91,4 @@ export const POST = withError(async (request: Request) => {
   });
 
   return NextResponse.json({ success: true });
-});
+}
