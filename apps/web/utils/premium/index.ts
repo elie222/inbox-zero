@@ -35,7 +35,8 @@ export const isPremiumExpired = (
   premium?: Pick<Premium, "lemonSqueezyRenewsAt"> | null,
 ) => {
   return (
-    !!premium?.lemonSqueezyRenewsAt && premium.lemonSqueezyRenewsAt < new Date()
+    !!premium?.lemonSqueezyRenewsAt &&
+    new Date(premium.lemonSqueezyRenewsAt) < new Date()
   );
 };
 

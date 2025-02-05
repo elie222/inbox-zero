@@ -199,6 +199,13 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
             const href = getHref();
 
+            function getCTAText() {
+              if (isExpired) return tier.cta;
+              if (isCurrentPlan) return "Current plan";
+              if (premiumTier) return "Switch to this plan";
+              return tier.cta;
+            }
+
             return (
               <Item
                 key={tier.name}
@@ -292,11 +299,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
                     "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
                   )}
                 >
-                  {isCurrentPlan
-                    ? "Current plan"
-                    : premiumTier
-                      ? "Switch to this plan"
-                      : tier.cta}
+                  {getCTAText()}
                 </a>
               </Item>
             );
