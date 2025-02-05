@@ -6,6 +6,9 @@ import { getMessage } from "@/utils/gmail/message";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { ExecutedRuleStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/user/planned/get-executed-rules");
 
 const LIMIT = 50;
 
@@ -61,7 +64,7 @@ export async function getExecutedRules(
           message: parseMessage(message),
         };
       } catch (error) {
-        console.error("getExecutedRules: error getting message", error);
+        logger.error("Error getting message", { error });
       }
     }),
   );

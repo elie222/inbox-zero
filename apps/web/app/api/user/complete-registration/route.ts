@@ -79,15 +79,16 @@ async function storePosthogSignupEvent(userId: string, email: string) {
     select: { createdAt: true },
   });
   if (!userCreatedAt) {
-    console.error(`storePosthogSignupEvent: User not found: ${userId}`);
+    logger.error("storePosthogSignupEvent: User not found", { userId });
     return;
   }
 
   const ONE_HOUR_AGO = new Date(Date.now() - ONE_HOUR_MS);
 
   if (userCreatedAt.createdAt < ONE_HOUR_AGO) {
-    console.error(
-      `storePosthogSignupEvent: User created more than an hour ago: ${userId}`,
+    logger.error(
+      "storePosthogSignupEvent: User created more than an hour ago",
+      { userId },
     );
     return;
   }

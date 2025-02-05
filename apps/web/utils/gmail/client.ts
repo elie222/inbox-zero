@@ -2,6 +2,9 @@ import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
 import { saveRefreshToken } from "@/utils/auth";
 import { env } from "@/env";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("gmail/client");
 
 type ClientOptions = {
   accessToken?: string;
@@ -73,7 +76,7 @@ export const getGmailClientWithRefresh = async (
     return g;
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      console.error("Error refreshing Gmail access token", error);
+      logger.error("Error refreshing Gmail access token", { error });
       return undefined;
     }
 

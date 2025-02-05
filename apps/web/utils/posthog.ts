@@ -2,6 +2,9 @@
 
 import { PostHog } from "posthog-node";
 import { env } from "@/env";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("posthog");
 
 async function getPosthogUserId(options: { email: string }) {
   const personsEndpoint = `https://app.posthog.com/api/projects/${env.POSTHOG_PROJECT_ID}/persons/`;
@@ -20,7 +23,9 @@ async function getPosthogUserId(options: { email: string }) {
     await responseGet.json();
 
   if (!resGet.results?.[0]) {
-    console.error(`No Posthog user found with distinct id ${options.email}`);
+    logger.error("No Posthog user found with distinct id", {
+      email: options.email,
+    });
     return;
   }
 
@@ -38,7 +43,7 @@ async function getPosthogUserId(options: { email: string }) {
 
 export async function deletePosthogUser(options: { email: string }) {
   if (!env.POSTHOG_API_SECRET || !env.POSTHOG_PROJECT_ID) {
-    console.warn("Posthog env variables not set");
+    logger.warn("Posthog env variables not set");
     return;
   }
 
@@ -46,7 +51,9 @@ export async function deletePosthogUser(options: { email: string }) {
   const userId = await getPosthogUserId({ email: options.email });
 
   if (!userId) {
-    console.warn(`No Posthog user found with distinct id ${options.email}`);
+    logger.warn("No Posthog user found with distinct id", {
+      email: options.email,
+    });
     return;
   }
 
@@ -61,7 +68,7 @@ export async function deletePosthogUser(options: { email: string }) {
       },
     });
   } catch (error) {
-    console.error("Error:", error);
+    logger.error("Error deleting Posthog user", { error });
   }
 }
 
@@ -72,7 +79,7 @@ export async function posthogCaptureEvent(
   sendFeatureFlags?: boolean,
 ) {
   if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
-    console.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
+    logger.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
     return;
   }
 

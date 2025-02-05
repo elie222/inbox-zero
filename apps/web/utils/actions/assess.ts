@@ -12,6 +12,9 @@ import { isDefined } from "@/utils/types";
 import { getLabelById, getLabels, GmailLabel } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("actions/assess");
 
 // to help with onboarding and provide the best flow to new users
 export const assessUserAction = withActionInstrumentation(
@@ -132,7 +135,7 @@ async function getForwardingAddressesCount(gmail: gmail_v1.Gmail) {
     return res.data.forwardingAddresses?.length || 0;
   } catch (error) {
     // Can happen due to "Forwarding features disabled by administrator"
-    console.error("Error getting forwarding addresses", error);
+    logger.error("Error getting forwarding addresses", { error });
     return 0;
   }
 }
@@ -158,6 +161,6 @@ async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
 
     return { clients: uniq(clients), primary: mostPopular[0][0] };
   } catch (error) {
-    console.error("Error getting email clients");
+    logger.error("Error getting email clients", { error });
   }
 }

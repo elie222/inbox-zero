@@ -4,6 +4,9 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { Provider } from "@/utils/llms/config";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/ai/models");
 
 export type OpenAiModelsResponse = Awaited<ReturnType<typeof getOpenAiModels>>;
 
@@ -32,7 +35,7 @@ export const GET = withError(async () => {
     const result = await getOpenAiModels({ apiKey: user.aiApiKey });
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Failed to get OpenAI models", { error });
+    logger.error("Failed to get OpenAI models", { error });
     return NextResponse.json([]);
   }
 });

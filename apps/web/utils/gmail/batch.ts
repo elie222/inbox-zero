@@ -1,4 +1,7 @@
 import { isDefined } from "@/utils/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("gmail/batch");
 
 const BATCH_LIMIT = 100;
 
@@ -49,7 +52,7 @@ function parseBatchResponse(batchResponse: string, contentType: string | null) {
   const boundary = boundaryMatch ? boundaryMatch[1] : null;
 
   if (!boundary) {
-    console.error("No boundary found in response:", batchResponse);
+    logger.error("No boundary found in response", { batchResponse });
     throw new Error("parseBatchResponse: No boundary found in response");
   }
 
@@ -72,8 +75,8 @@ function parseBatchResponse(batchResponse: string, contentType: string | null) {
       const data = JSON.parse(jsonResponse);
 
       return data;
-    } catch (e) {
-      console.error("Error parsing JSON:", e);
+    } catch (error) {
+      logger.error("Error parsing JSON", { error });
     }
   });
 
