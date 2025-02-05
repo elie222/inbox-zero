@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
+import { CircleXIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
 import {
@@ -89,7 +90,6 @@ export function ColdEmailList() {
               <div>
                 <Button
                   size="sm"
-                  variant="outline"
                   onClick={markNotColdEmailSelected}
                   // disabled={isApproving || isRejecting}
                   loading={isRejecting}
@@ -184,7 +184,7 @@ function Row({
             />
           )}
           <Button
-            variant="outline"
+            Icon={CircleXIcon}
             onClick={async () => {
               setIsMarkingColdEmail(true);
               await markNotColdEmailAction({ sender: row.fromEmail });
