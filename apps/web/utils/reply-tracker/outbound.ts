@@ -54,7 +54,14 @@ export async function handleOutboundReply(
   // ai: check if we need to reply
   const result = await aiCheckIfNeedsReply({
     user,
-    messages: threadMessages.map(getEmailForLLM),
+    messages: threadMessages.map((m, index) =>
+      getEmailForLLM(m, {
+        // give more context for the message we're processing
+        maxLength: index === threadMessages.length - 1 ? 2000 : 500,
+        extractReply: true,
+        removeForwarded: false,
+      }),
+    ),
   });
 
   // if yes, create a tracker

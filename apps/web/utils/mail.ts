@@ -82,17 +82,19 @@ function removeForwardedContent(text: string): string {
   return text;
 }
 
+export type EmailToContentOptions = {
+  maxLength?: number;
+  extractReply?: boolean;
+  removeForwarded?: boolean;
+};
+
 export function emailToContent(
   email: Pick<ParsedMessage, "textHtml" | "textPlain" | "snippet">,
   {
     maxLength = 2000,
     extractReply = false,
     removeForwarded = false,
-  }: {
-    maxLength?: number;
-    extractReply?: boolean;
-    removeForwarded?: boolean;
-  } = {},
+  }: EmailToContentOptions = {},
 ): string {
   let content = "";
 

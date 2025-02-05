@@ -23,3 +23,12 @@ export function stringifyEmailSimple(email: EmailForLLM) {
 
   return emailParts.filter(Boolean).join("\n");
 }
+
+export function stringifyEmailFromBody(email: EmailForLLM) {
+  const emailParts = [
+    `<from>${email.from}</from>`,
+    `<body>${email.content}</body>`,
+  ];
+
+  return emailParts.filter(Boolean).join("\n");
+}

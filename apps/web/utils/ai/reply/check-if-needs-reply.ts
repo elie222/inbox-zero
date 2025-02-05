@@ -4,7 +4,10 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
-import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import {
+  stringifyEmailFromBody,
+  stringifyEmailSimple,
+} from "@/utils/ai/choose-rule/stringify-email";
 
 const logger = createScopedLogger("check-if-needs-reply");
 
@@ -17,18 +20,30 @@ export async function aiCheckIfNeedsReply({
   user: Pick<User, "id" | "about"> & UserEmailWithAI;
   messages: EmailForLLM[];
 }) {
-  const system = `You are an AI assistant that checks if a reply is needed.
-`;
+  const lastMessage = messages.at(-1);
 
-  const prompt = `${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
+  if (!lastMessage) return { needsReply: false };
 
-<thread>
+  const system = "You are an AI assistant that checks if a reply is needed.";
+
+  const prompt =
+    `${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
+
+The message to analyze:
+
+<message>
+${stringifyEmailSimple(lastMessage)}
+</message>
+
+Previous messages in the thread for context:
+
+<previous_messages>
 ${messages
-  .slice(-5)
-  .map((message) => `<message>${stringifyEmail(message, 500)}</message>`)
+  .slice(-3, -1) // Take 2 messages before the last message
+  .map((message) => `<message>${stringifyEmailFromBody(message)}</message>`)
   .join("\n")}
-</thread>
-`;
+</previous_messages>
+`.trim();
 
   logger.trace("Input", { system, prompt });
 
