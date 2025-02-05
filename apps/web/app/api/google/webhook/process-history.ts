@@ -7,7 +7,6 @@ import { emailToContent, parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
-import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting, type User } from "@prisma/client";
@@ -399,12 +398,9 @@ async function processHistoryItem(
       return;
     }
 
-    const isThread = isReplyInThread(messageId, threadId);
-
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       user.coldEmailBlocker,
       hasColdEmailAccess,
-      isThread,
     );
 
     if (shouldRunBlocker) {
@@ -472,13 +468,11 @@ async function processHistoryItem(
 function shouldRunColdEmailBlocker(
   coldEmailBlocker: ColdEmailSetting | null,
   hasColdEmailAccess: boolean,
-  isThread: boolean,
 ) {
   return (
     (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
       coldEmailBlocker === ColdEmailSetting.LABEL) &&
-    hasColdEmailAccess &&
-    !isThread
+    hasColdEmailAccess
   );
 }
 
