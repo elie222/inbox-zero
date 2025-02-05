@@ -214,6 +214,7 @@ function NoColdEmails() {
           imageAlt="Cold email blocker"
           buttonText="Set Up"
           href="/cold-email-blocker?tab=settings"
+          hideBorder
         />
       </div>
     );

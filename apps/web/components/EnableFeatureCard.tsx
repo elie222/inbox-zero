@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
+import { cn } from "@/utils";
 
 interface EnableFeatureCardProps {
   title: string;
@@ -14,6 +15,7 @@ interface EnableFeatureCardProps {
   imageAlt: string;
   buttonText: string;
   href?: string;
+  hideBorder?: boolean;
   onEnable?: () => Promise<void>;
 }
 
@@ -24,6 +26,7 @@ export function EnableFeatureCard({
   imageAlt,
   buttonText,
   href,
+  hideBorder,
   onEnable,
 }: EnableFeatureCardProps) {
   const [loading, setLoading] = useState(false);
@@ -35,7 +38,12 @@ export function EnableFeatureCard({
   };
 
   return (
-    <Card className="mx-4 mt-10 max-w-2xl p-6 md:mx-auto">
+    <Card
+      className={cn(
+        "mx-4 mt-10 max-w-2xl p-6 md:mx-auto",
+        hideBorder && "border-none shadow-none",
+      )}
+    >
       <div className="text-center">
         <Image
           src={imageSrc}
