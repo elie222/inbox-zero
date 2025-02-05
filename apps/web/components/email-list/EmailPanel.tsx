@@ -250,7 +250,7 @@ function EmailMessage({
             </time>
           </p>
           {showReplyButton && (
-            <div className="flex items-center">
+            <div className="relative flex items-center">
               <Tooltip content="Reply">
                 <Button variant="ghost" size="icon" onClick={onReply}>
                   <ReplyIcon className="h-4 w-4" />
