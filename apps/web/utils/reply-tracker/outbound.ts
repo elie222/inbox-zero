@@ -13,16 +13,9 @@ import {
   getReplyTrackingLabels,
 } from "@/utils/reply-tracker/label";
 import { internalDateToDate } from "@/utils/date";
+import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
 const logger = createScopedLogger("outbound-reply");
-
-async function isReplyTrackingEnabled(userId: string) {
-  const replyTrackingRule = await prisma.rule.findFirst({
-    where: { userId, trackReplies: true },
-    select: { trackReplies: true },
-  });
-  return replyTrackingRule?.trackReplies;
-}
 
 export async function handleOutboundReply(
   user: Pick<User, "id" | "about"> & UserEmailWithAI,
@@ -31,7 +24,7 @@ export async function handleOutboundReply(
 ) {
   const userId = user.id;
 
-  const enabled = await isReplyTrackingEnabled(userId);
+  const enabled = (await getReplyTrackingRule(userId))?.trackReplies;
 
   // If reply tracking is disabled, skip
   if (!enabled) return;

@@ -7,6 +7,13 @@ import {
   getReplyTrackingLabels,
 } from "@/utils/reply-tracker/label";
 import { createScopedLogger } from "@/utils/logger";
+import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { User } from "@prisma/client";
+import type { ParsedMessage } from "@/utils/types";
+import { internalDateToDate } from "@/utils/date";
+import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
+import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
 const logger = createScopedLogger("reply-tracker/inbound");
 
@@ -87,5 +94,41 @@ export async function markNeedsReply(
       ...errorOptions,
       error: newLabelResult.reason,
     });
+  }
+}
+
+// Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
+export async function handleInboundReply(
+  user: Pick<User, "id" | "about"> & UserEmailWithAI,
+  message: ParsedMessage,
+  gmail: gmail_v1.Gmail,
+) {
+  // 1. Run rules check
+  // 2. If the reply tracking rule is selected then mark as needs reply
+  // We ignore the rest of the actions for this rule here as this could lead to double handling of emails for the user
+
+  const replyTrackingRule = await getReplyTrackingRule(user.id);
+
+  if (!replyTrackingRule?.instructions) return;
+
+  const result = await aiChooseRule({
+    email: getEmailForLLM(message),
+    rules: [
+      {
+        id: replyTrackingRule.id,
+        instructions: replyTrackingRule.instructions,
+      },
+    ],
+    user,
+  });
+
+  if (result.rule?.id === replyTrackingRule.id) {
+    await markNeedsReply(
+      user.id,
+      message.threadId,
+      message.id,
+      internalDateToDate(message.internalDate),
+      gmail,
+    );
   }
 }

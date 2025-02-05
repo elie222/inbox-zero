@@ -100,7 +100,7 @@ export async function aiChooseRule<
 
   const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
   if (typeof ruleNumber !== "number") {
-    console.warn("No rule selected");
+    logger.warn("No rule selected");
     return { reason: aiResponse?.reason };
   }
 

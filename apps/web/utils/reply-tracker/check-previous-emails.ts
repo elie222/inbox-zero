@@ -7,6 +7,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
+import { handleInboundReply } from "@/utils/reply-tracker/inbound";
 
 const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
@@ -47,9 +48,9 @@ export async function processPreviousSentEmails(
         logger.info("Processing outbound reply", loggerOptions);
         await handleOutboundReply(user, latestMessage, gmail);
       } else {
-        // TODO:
         // inbound
-        // logger.info("Processing inbound reply", loggerOptions);
+        logger.info("Processing inbound reply", loggerOptions);
+        await handleInboundReply(user, latestMessage, gmail);
       }
     } catch (error) {
       logger.error("Error processing message for reply tracking", {
