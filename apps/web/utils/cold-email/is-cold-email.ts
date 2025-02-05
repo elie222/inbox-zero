@@ -41,6 +41,12 @@ export async function isColdEmail({
 }> {
   logger.trace("Checking is cold email");
 
+  const loggerOptions = {
+    userId: user.id,
+    email: user.email,
+    from: email.from,
+  };
+
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
     from: email.from,
@@ -48,7 +54,7 @@ export async function isColdEmail({
   });
 
   if (isColdEmailer) {
-    logger.info("Known cold email sender", { userId: user.id });
+    logger.info("Known cold email sender", loggerOptions);
     return { isColdEmail: true, reason: "ai-already-labeled" };
   }
 
@@ -68,8 +74,8 @@ export async function isColdEmail({
   const res = await aiIsColdEmail(email, user);
 
   logger.info("AI is cold email?", {
+    ...loggerOptions,
     coldEmail: res.coldEmail,
-    userId: user.id,
   });
 
   return {
