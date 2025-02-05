@@ -6,6 +6,7 @@ import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { messageQuerySchema } from "@/app/api/google/messages/validation";
 import { createScopedLogger } from "@/utils/logger";
+import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 
 const logger = createScopedLogger("api/google/messages");
 
@@ -35,11 +36,25 @@ async function getMessages({
       },
     );
 
-    // filter out messages from the user
+    const email = session.user.email;
+
+    // filter out SENT messages from the user
     // NOTE: -from:me doesn't work because it filters out messages from threads where the user responded
-    const incomingMessages = messages.filter(
-      (message) => !message.headers.from.includes(session.user.email!),
-    );
+    const incomingMessages = messages.filter((message) => {
+      const isFromUser = message.headers.from.includes(email);
+
+      // Don't include messages from the assistant to the user
+      if (!isFromUser) {
+        return !isAssistantEmail({
+          userEmail: email,
+          emailToCheck: message.headers.from,
+        });
+      }
+
+      // If user sent to themselves, include it
+      const isToUser = message.headers.to.includes(email);
+      return isToUser;
+    });
 
     return { messages: incomingMessages, nextPageToken };
   } catch (error) {
