@@ -11,6 +11,7 @@ import { cn } from "@/utils";
 interface EnableFeatureCardProps {
   title: string;
   description: string;
+  extraDescription?: React.ReactNode;
   imageSrc: string;
   imageAlt: string;
   buttonText: string;
@@ -22,6 +23,7 @@ interface EnableFeatureCardProps {
 export function EnableFeatureCard({
   title,
   description,
+  extraDescription,
   imageSrc,
   imageAlt,
   buttonText,
@@ -54,7 +56,10 @@ export function EnableFeatureCard({
         />
 
         <TypographyH3 className="mt-2">{title}</TypographyH3>
-        <SectionDescription className="mt-2">{description}</SectionDescription>
+        <SectionDescription className="mt-2 max-w-prose">
+          {description}
+        </SectionDescription>
+        {extraDescription}
         <div className="mt-6">
           {href ? (
             <Button asChild>

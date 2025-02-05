@@ -9,7 +9,7 @@ import { aiFindReplyTrackingRule } from "@/utils/ai/reply/check-reply-tracking";
 import { safeCreateRule } from "@/utils/rule/rule";
 import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/label";
+import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { getGmailClient } from "@/utils/gmail/client";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
 import { captureException } from "@/utils/error";

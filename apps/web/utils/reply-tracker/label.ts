@@ -4,9 +4,10 @@ import {
   labelThread,
   getOrCreateLabels,
 } from "@/utils/gmail/label";
-
-export const NEEDS_REPLY_LABEL_NAME = "To Reply";
-const AWAITING_REPLY_LABEL_NAME = "Awaiting Reply";
+import {
+  NEEDS_REPLY_LABEL_NAME,
+  AWAITING_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 
 export async function labelAwaitingReply(
   gmail: gmail_v1.Gmail,
