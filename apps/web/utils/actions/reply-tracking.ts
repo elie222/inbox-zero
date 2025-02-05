@@ -10,6 +10,9 @@ import { safeCreateRule } from "@/utils/rule/rule";
 import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/label";
+import { getGmailClient } from "@/utils/gmail/client";
+import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
+import { captureException } from "@/utils/error";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -27,11 +30,13 @@ export const enableReplyTrackerAction = withActionInstrumentation(
 
     if (existingRule) return { success: true };
 
-    // 1. Find existing reply required rule, make it track replies
+    // Find existing reply required rule, make it track replies
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        id: true,
         email: true,
+        about: true,
         aiProvider: true,
         aiModel: true,
         aiApiKey: true,
@@ -146,8 +151,21 @@ export const enableReplyTrackerAction = withActionInstrumentation(
 
     await prisma.rule.update({
       where: { id: ruleId },
-      data: { trackReplies: true },
+      data: { trackReplies: true, runOnThreads: true },
     });
+
+    revalidatePath("/reply-tracker");
+
+    // Reply tracker has now been enabled
+    // Now run it over the previous 20 sent emails
+    try {
+      const gmail = getGmailClient({ accessToken: session.accessToken });
+      await processPreviousSentEmails(gmail, user);
+    } catch (error) {
+      logger.error("Error processing previous sent emails", { error });
+      // Don't return error as the reply tracker is already enabled
+      captureException(error, undefined, user.email || undefined);
+    }
 
     revalidatePath("/reply-tracker");
 

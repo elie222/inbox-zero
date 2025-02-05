@@ -10,6 +10,8 @@ import { EnableReplyTracker } from "@/app/(app)/reply-tracker/EnableReplyTracker
 import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
 
+export const maxDuration = 300;
+
 export default async function ReplyTrackerPage({
   searchParams,
 }: {
