@@ -11,9 +11,14 @@ import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
 import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { Loading } from "@/components/Loading";
 import { TablePagination } from "@/components/TablePagination";
+import {
+  ResizableHandle,
+  ResizablePanelGroup,
+  ResizablePanel,
+} from "@/components/ui/resizable";
+import { ThreadContent } from "@/components/EmailViewer";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -28,6 +33,11 @@ export function ReplyTrackerEmails({
   isResolved?: boolean;
   totalPages: number;
 }) {
+  const [selectedEmail, setSelectedEmail] = useState<{
+    threadId: string;
+    messageId: string;
+  } | null>(null);
+
   const { data, isLoading } = useThreadsByIds({
     threadIds: trackers.map((t) => t.threadId),
   });
@@ -44,8 +54,8 @@ export function ReplyTrackerEmails({
     );
   }
 
-  return (
-    <div>
+  const listView = (
+    <>
       <Table>
         <TableBody>
           {data?.threads.map((thread) => (
@@ -55,13 +65,34 @@ export function ReplyTrackerEmails({
               userEmail={userEmail}
               isResolved={isResolved}
               type={type}
+              setSelectedEmail={setSelectedEmail}
             />
           ))}
         </TableBody>
       </Table>
-
       <TablePagination totalPages={totalPages} />
-    </div>
+    </>
+  );
+
+  if (!selectedEmail) {
+    return listView;
+  }
+
+  return (
+    <ResizablePanelGroup direction="horizontal" className="h-full">
+      <ResizablePanel defaultSize={50} minSize={35}>
+        {listView}
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={50} minSize={35} className="bg-slate-100">
+        <ThreadContent
+          threadId={selectedEmail.threadId}
+          showReplyButton={true}
+          autoOpenReplyForMessageId={selectedEmail.messageId}
+          userEmail={userEmail}
+        />
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }
 
@@ -70,11 +101,13 @@ function Row({
   userEmail,
   isResolved,
   type,
+  setSelectedEmail,
 }: {
   message: ParsedMessage;
   userEmail: string;
   isResolved?: boolean;
   type?: ThreadTrackerType;
+  setSelectedEmail: (email: { threadId: string; messageId: string }) => void;
 }) {
   return (
     <TableRow>
@@ -87,6 +120,7 @@ function Row({
             userEmail={userEmail}
             threadId={message.threadId}
             messageId={message.id}
+            hideViewEmailButton
           />
           <div className="ml-4 flex items-center gap-1">
             {isResolved ? (
@@ -95,9 +129,13 @@ function Row({
               <>
                 {!!type && (
                   <NudgeButton
-                    threadId={message.threadId}
-                    messageId={message.id}
                     type={type}
+                    onClick={() => {
+                      setSelectedEmail({
+                        threadId: message.threadId,
+                        messageId: message.id,
+                      });
+                    }}
                   />
                 )}
                 <ResolveButton threadId={message.threadId} />
@@ -111,30 +149,16 @@ function Row({
 }
 
 function NudgeButton({
-  threadId,
-  messageId,
   type,
+  onClick,
 }: {
-  threadId: string;
-  messageId: string;
   type: ThreadTrackerType;
+  onClick: () => void;
 }) {
-  const { showEmail } = useDisplayedEmail();
-
   const showNudge = type === ThreadTrackerType.AWAITING;
 
   return (
-    <Button
-      Icon={showNudge ? HandIcon : MailIcon}
-      onClick={() => {
-        showEmail({
-          threadId,
-          messageId,
-          showReplyButton: true,
-          autoOpenReplyForMessageId: messageId,
-        });
-      }}
-    >
+    <Button Icon={showNudge ? HandIcon : MailIcon} onClick={onClick}>
       {showNudge ? "Nudge" : "Reply"}
     </Button>
   );

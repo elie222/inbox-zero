@@ -26,7 +26,7 @@ export function EmailViewer() {
         overlay="transparent"
       >
         {threadId && (
-          <EmailContent
+          <ThreadContent
             threadId={threadId}
             showReplyButton={showReplyButton}
             autoOpenReplyForMessageId={autoOpenReplyForMessageId ?? undefined}
@@ -38,7 +38,7 @@ export function EmailViewer() {
   );
 }
 
-function EmailContent({
+export function ThreadContent({
   threadId,
   showReplyButton,
   autoOpenReplyForMessageId,
@@ -52,7 +52,7 @@ function EmailContent({
   const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
   return (
-    <ErrorBoundary extra={{ component: "EmailContent", threadId }}>
+    <ErrorBoundary extra={{ component: "ThreadContent", threadId }}>
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <EmailThread

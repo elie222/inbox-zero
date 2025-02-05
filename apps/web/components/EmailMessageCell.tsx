@@ -15,6 +15,7 @@ export function EmailMessageCell({
   snippet,
   threadId,
   messageId,
+  hideViewEmailButton,
 }: {
   from: string;
   userEmail: string;
@@ -22,6 +23,7 @@ export function EmailMessageCell({
   snippet: string;
   threadId: string;
   messageId: string;
+  hideViewEmailButton?: boolean;
 }) {
   return (
     <div className="min-w-0 break-words">
@@ -34,12 +36,14 @@ export function EmailMessageCell({
         >
           <ExternalLinkIcon className="h-4 w-4" />
         </Link>
-        <ViewEmailButton
-          threadId={threadId}
-          messageId={messageId}
-          size="xs"
-          className="ml-1.5"
-        />
+        {!hideViewEmailButton && (
+          <ViewEmailButton
+            threadId={threadId}
+            messageId={messageId}
+            size="xs"
+            className="ml-1.5"
+          />
+        )}
       </MessageText>
       <MessageText className="mt-1 font-bold">{subject}</MessageText>
       <MessageText className="mt-1">

@@ -36,7 +36,7 @@ export default async function ReplyTrackerPage({
   const timeRange = searchParams.timeRange || "all";
 
   return (
-    <Tabs defaultValue="needsReply" className="w-full">
+    <Tabs defaultValue="needsReply" className="flex h-full flex-col">
       <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
         <div className="w-full overflow-x-auto">
           <div className="flex items-center justify-between">
@@ -73,7 +73,7 @@ export default async function ReplyTrackerPage({
         </div>
       </div>
 
-      <TabsContent value="needsReply" className="mt-0">
+      <TabsContent value="needsReply" className="mt-0 flex-1">
         <NeedsReply
           userId={userId}
           userEmail={userEmail}
@@ -82,7 +82,7 @@ export default async function ReplyTrackerPage({
         />
       </TabsContent>
 
-      <TabsContent value="awaitingReply" className="mt-0">
+      <TabsContent value="awaitingReply" className="mt-0 flex-1">
         <AwaitingReply
           userId={userId}
           userEmail={userEmail}
@@ -91,11 +91,11 @@ export default async function ReplyTrackerPage({
         />
       </TabsContent>
 
-      {/* <TabsContent value="needsAction" className="mt-0">
+      {/* <TabsContent value="needsAction" className="mt-0 flex-1">
         <NeedsAction userId={userId} userEmail={userEmail} page={page} />
       </TabsContent> */}
 
-      <TabsContent value="resolved" className="mt-0">
+      <TabsContent value="resolved" className="mt-0 flex-1">
         <Resolved
           userId={userId}
           userEmail={userEmail}
