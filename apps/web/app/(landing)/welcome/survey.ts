@@ -8,6 +8,7 @@ export const survey = {
         "AI Personal Assistant",
         "Bulk Unsubscriber",
         "Cold Email Blocker",
+        "Reply Tracker",
         "AI Categorizer",
         "Email Analytics",
         "Other",
