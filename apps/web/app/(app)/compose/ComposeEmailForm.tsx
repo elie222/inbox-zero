@@ -144,9 +144,15 @@ export const ComposeEmailForm = ({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
       {replyingToEmail?.to && !editReply ? (
-        <button type="button" onClick={() => setEditReply(true)}>
-          <span className="text-green-500">Draft</span> to{" "}
-          {extractNameFromEmail(replyingToEmail.to)}
+        <button
+          type="button"
+          className="flex gap-1 text-left"
+          onClick={() => setEditReply(true)}
+        >
+          <span className="text-green-500">Draft</span>{" "}
+          <span className="max-w-md break-words">
+            to {extractNameFromEmail(replyingToEmail.to)}
+          </span>
         </button>
       ) : (
         <>
