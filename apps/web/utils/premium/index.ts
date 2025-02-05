@@ -28,10 +28,11 @@ const getUserPlan = (
 export const getUserTier = (
   premium?: Pick<Premium, "tier" | "lemonSqueezyRenewsAt"> | null,
 ) => {
+  if (isPremiumExpired(premium)) return null;
   return premium?.tier || getUserPlan(premium?.lemonSqueezyRenewsAt);
 };
 
-export const isPremiumExpired = (
+const isPremiumExpired = (
   premium?: Pick<Premium, "lemonSqueezyRenewsAt"> | null,
 ) => {
   return (

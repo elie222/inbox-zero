@@ -14,7 +14,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/Button";
 import { Button as ShadcnButton } from "@/components/ui/button";
-import { getUserTier, isPremiumExpired } from "@/utils/premium";
+import { getUserTier } from "@/utils/premium";
 import {
   frequencies,
   pricingAdditonalEmail,
@@ -57,7 +57,6 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(data?.premium);
-  const isExpired = isPremiumExpired(data?.premium);
 
   const header = props.header || (
     <div className="mb-12">
@@ -175,8 +174,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
           {tiers.map((tier, tierIdx) => {
-            const isCurrentPlan =
-              !isExpired && tier.tiers[frequency.value] === premiumTier;
+            const isCurrentPlan = tier.tiers[frequency.value] === premiumTier;
 
             const user = session.data?.user;
 
@@ -200,7 +198,6 @@ export function Pricing(props: { header?: React.ReactNode }) {
             const href = getHref();
 
             function getCTAText() {
-              if (isExpired) return tier.cta;
               if (isCurrentPlan) return "Current plan";
               if (premiumTier) return "Switch to this plan";
               return tier.cta;
