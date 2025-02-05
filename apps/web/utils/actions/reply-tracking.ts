@@ -12,6 +12,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/label";
 import { getGmailClient } from "@/utils/gmail/client";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
+import { captureException } from "@/utils/error";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -157,8 +158,14 @@ export const enableReplyTrackerAction = withActionInstrumentation(
 
     // Reply tracker has now been enabled
     // Now run it over the previous 20 sent emails
-    const gmail = getGmailClient({ accessToken: session.accessToken });
-    await processPreviousSentEmails(gmail, user);
+    try {
+      const gmail = getGmailClient({ accessToken: session.accessToken });
+      await processPreviousSentEmails(gmail, user);
+    } catch (error) {
+      logger.error("Error processing previous sent emails", { error });
+      // Don't return error as the reply tracker is already enabled
+      captureException(error, undefined, user.email || undefined);
+    }
 
     revalidatePath("/reply-tracker");
 
