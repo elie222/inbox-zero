@@ -4,6 +4,7 @@ import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 const logger = createScopedLogger("middleware");
 
@@ -48,7 +49,12 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
-      logger.error("Unhandled error", { error, url: req.url, params });
+      logger.error("Unhandled error", {
+        error,
+        url: req.url,
+        params,
+        email: await getEmailFromRequest(req),
+      });
       captureException(error, { extra: { url: req.url, params } });
 
       return NextResponse.json(
@@ -68,4 +74,14 @@ function isErrorWithConfigAndHeaders(
     "config" in error &&
     "headers" in (error as { config: any }).config
   );
+}
+
+async function getEmailFromRequest(req: NextRequest) {
+  try {
+    const session = await auth();
+    return session?.user.email;
+  } catch (error) {
+    logger.error("Error getting email from request", { error });
+    return null;
+  }
 }
