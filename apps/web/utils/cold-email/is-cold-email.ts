@@ -159,7 +159,7 @@ export async function runColdEmailBlocker(options: {
   return response;
 }
 
-async function blockColdEmail(options: {
+export async function blockColdEmail(options: {
   gmail: gmail_v1.Gmail;
   email: { from: string; messageId: string; threadId: string };
   user: Pick<User, "id" | "email" | "coldEmailBlocker">;
