@@ -1,12 +1,21 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useQueryState, parseAsBoolean } from "nuqs";
+import sortBy from "lodash/sortBy";
 import { useState } from "react";
 import type { ParsedMessage } from "@/utils/types";
 import { type ThreadTracker, ThreadTrackerType } from "@prisma/client";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { Button } from "@/components/ui/button";
-import { CheckCircleIcon, HandIcon, MailIcon } from "lucide-react";
+import {
+  CheckCircleIcon,
+  CircleXIcon,
+  HandIcon,
+  MailIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
 import { isActionError } from "@/utils/error";
@@ -19,6 +28,7 @@ import {
   ResizablePanel,
 } from "@/components/ui/resizable";
 import { ThreadContent } from "@/components/EmailViewer";
+import { internalDateToDate } from "@/utils/date";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -38,9 +48,12 @@ export function ReplyTrackerEmails({
     messageId: string;
   } | null>(null);
 
-  const { data, isLoading } = useThreadsByIds({
-    threadIds: trackers.map((t) => t.threadId),
-  });
+  const { data, isLoading } = useThreadsByIds(
+    {
+      threadIds: trackers.map((t) => t.threadId),
+    },
+    { keepPreviousData: true },
+  );
 
   if (isLoading && !data) {
     return <Loading />;
@@ -49,7 +62,7 @@ export function ReplyTrackerEmails({
   if (!data?.threads.length) {
     return (
       <div className="mt-2">
-        <EmptyState message="No emails yet!" />
+        <EmptyState message="No emails yet!" isResolved={isResolved} />
       </div>
     );
   }
@@ -58,10 +71,13 @@ export function ReplyTrackerEmails({
     <>
       <Table>
         <TableBody>
-          {data?.threads.map((thread) => (
+          {sortBy(
+            data?.threads,
+            (t) => -internalDateToDate(t.messages.at(-1)?.internalDate),
+          ).map((thread) => (
             <Row
               key={thread.id}
-              message={thread.messages?.[thread.messages.length - 1]}
+              message={thread.messages.at(-1)!}
               userEmail={userEmail}
               isResolved={isResolved}
               type={type}
@@ -188,13 +204,13 @@ function ResolveButton({ threadId }: { threadId: string }) {
         } else {
           toastSuccess({
             title: "Success",
-            description: "Resolved!",
+            description: "Marked as done!",
           });
         }
         setIsLoading(false);
       }}
     >
-      Resolve
+      Mark Done
     </Button>
   );
 }
@@ -205,7 +221,7 @@ function UnresolveButton({ threadId }: { threadId: string }) {
   return (
     <Button
       variant="outline"
-      Icon={CheckCircleIcon}
+      Icon={CircleXIcon}
       loading={isLoading}
       onClick={async () => {
         if (isLoading) return;
@@ -223,22 +239,54 @@ function UnresolveButton({ threadId }: { threadId: string }) {
         } else {
           toastSuccess({
             title: "Success",
-            description: "Unresolved!",
+            description: "Marked as not done!",
           });
         }
         setIsLoading(false);
       }}
     >
-      Unresolve
+      Mark as not done
     </Button>
   );
 }
 
-function EmptyState({ message }: { message: string }) {
+function EmptyState({
+  message,
+  isResolved,
+}: {
+  message: string;
+  isResolved?: boolean;
+}) {
+  const router = useRouter();
+  const [enabled] = useQueryState("enabled", parseAsBoolean.withDefault(false));
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   return (
     <div className="content-container">
       <div className="flex min-h-[200px] flex-col items-center justify-center rounded-md border border-dashed bg-slate-50 p-8 text-center animate-in fade-in-50">
-        <p className="text-sm text-muted-foreground">{message}</p>
+        {enabled && !isResolved ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Analyzing your emails...
+            </p>
+            <Button
+              className="mt-4"
+              variant="outline"
+              Icon={RefreshCwIcon}
+              loading={isRefreshing}
+              onClick={async () => {
+                setIsRefreshing(true);
+                router.refresh();
+                // Reset loading after a short delay
+                setTimeout(() => setIsRefreshing(false), 1000);
+              }}
+            >
+              Refresh
+            </Button>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">{message}</p>
+        )}
       </div>
     </div>
   );

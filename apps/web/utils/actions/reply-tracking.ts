@@ -12,7 +12,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { getGmailClient } from "@/utils/gmail/client";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
-import { captureException } from "@/utils/error";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -34,9 +33,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
-        id: true,
         email: true,
-        about: true,
         aiProvider: true,
         aiModel: true,
         aiApiKey: true,
@@ -156,18 +153,32 @@ export const enableReplyTrackerAction = withActionInstrumentation(
 
     revalidatePath("/reply-tracker");
 
-    // Reply tracker has now been enabled
-    // Now run it over the previous 20 sent emails
-    try {
-      const gmail = getGmailClient({ accessToken: session.accessToken });
-      await processPreviousSentEmails(gmail, user);
-    } catch (error) {
-      logger.error("Error processing previous sent emails", { error });
-      // Don't return error as the reply tracker is already enabled
-      captureException(error, undefined, user.email || undefined);
-    }
+    return { success: true };
+  },
+);
 
-    revalidatePath("/reply-tracker");
+export const processPreviousSentEmailsAction = withActionInstrumentation(
+  "processPreviousSentEmails",
+  async () => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        about: true,
+        aiProvider: true,
+        aiModel: true,
+        aiApiKey: true,
+      },
+    });
+    if (!user) return { error: "User not found" };
+
+    const gmail = getGmailClient({ accessToken: session.accessToken });
+    await processPreviousSentEmails(gmail, user, 100);
 
     return { success: true };
   },

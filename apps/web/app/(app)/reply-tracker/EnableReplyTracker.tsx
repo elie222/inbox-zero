@@ -1,11 +1,16 @@
 "use client";
 
+import { toast } from "sonner";
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { Badge } from "@/components/Badge";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
 import { toastSuccess } from "@/components/Toast";
 import { toastError } from "@/components/Toast";
 import { SectionDescription } from "@/components/Typography";
-import { enableReplyTrackerAction } from "@/utils/actions/reply-tracking";
+import {
+  enableReplyTrackerAction,
+  processPreviousSentEmailsAction,
+} from "@/utils/actions/reply-tracking";
 import { isActionError } from "@/utils/error";
 import {
   NEEDS_REPLY_LABEL_NAME,
@@ -13,6 +18,11 @@ import {
 } from "@/utils/reply-tracker/consts";
 
 export function EnableReplyTracker() {
+  const [, setEnabled] = useQueryState(
+    "enabled",
+    parseAsBoolean.withDefault(false),
+  );
+
   return (
     <EnableFeatureCard
       title="Reply Tracker"
@@ -46,6 +56,23 @@ export function EnableReplyTracker() {
             description: "We've enabled reply tracking for you!",
           });
         }
+
+        toast.promise(
+          async () => {
+            const previousSentPromise = processPreviousSentEmailsAction();
+            // this will force the page to hide the enable feature card
+            setEnabled(true);
+            const previousSentResult = await previousSentPromise;
+            if (isActionError(previousSentResult))
+              throw new Error(previousSentResult.error);
+          },
+          {
+            loading:
+              "Processing previously sent emails... This will take a few minutes. Refresh the page to view updated progress.",
+            success: "Previously sent emails processed",
+            error: "Error processing previously sent emails",
+          },
+        );
       }}
     />
   );

@@ -10,12 +10,12 @@ import { EnableReplyTracker } from "@/app/(app)/reply-tracker/EnableReplyTracker
 import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
 
-export const maxDuration = 300;
+export const maxDuration = 600;
 
 export default async function ReplyTrackerPage({
   searchParams,
 }: {
-  searchParams: { page?: string; timeRange?: TimeRange };
+  searchParams: { page?: string; timeRange?: TimeRange; enabled?: boolean };
 }) {
   const session = await auth();
   if (!session?.user.email) redirect("/login");
@@ -28,7 +28,7 @@ export default async function ReplyTrackerPage({
     select: { trackReplies: true },
   });
 
-  if (!trackRepliesRule?.trackReplies) {
+  if (!trackRepliesRule?.trackReplies && !searchParams.enabled) {
     return <EnableReplyTracker />;
   }
 

@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import type { gmail_v1 } from "@googleapis/gmail";
 import groupBy from "lodash/groupBy";
 import { getMessages } from "@/utils/gmail/message";
@@ -14,7 +15,7 @@ const logger = createScopedLogger("reply-tracker/check-previous-emails");
 export async function processPreviousSentEmails(
   gmail: gmail_v1.Gmail,
   user: Pick<User, "id" | "about"> & UserEmailWithAI,
-  maxResults = 20,
+  maxResults: number,
 ) {
   // Get last sent messages
   const result = await getMessages(gmail, { query: "in:sent", maxResults });
@@ -52,6 +53,8 @@ export async function processPreviousSentEmails(
         logger.info("Processing inbound reply", loggerOptions);
         await handleInboundReply(user, latestMessage, gmail);
       }
+
+      revalidatePath("/reply-tracker");
     } catch (error) {
       logger.error("Error processing message for reply tracking", {
         ...loggerOptions,
