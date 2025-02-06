@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/resizable";
 import { ThreadContent } from "@/components/EmailViewer";
 import { internalDateToDate } from "@/utils/date";
+import { cn } from "@/utils";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -82,6 +83,7 @@ export function ReplyTrackerEmails({
               isResolved={isResolved}
               type={type}
               setSelectedEmail={setSelectedEmail}
+              isSplitViewOpen={!!selectedEmail}
             />
           ))}
         </TableBody>
@@ -118,12 +120,14 @@ function Row({
   isResolved,
   type,
   setSelectedEmail,
+  isSplitViewOpen,
 }: {
   message: ParsedMessage;
   userEmail: string;
   isResolved?: boolean;
   type?: ThreadTrackerType;
   setSelectedEmail: (email: { threadId: string; messageId: string }) => void;
+  isSplitViewOpen: boolean;
 }) {
   return (
     <TableRow>
@@ -138,7 +142,12 @@ function Row({
             messageId={message.id}
             hideViewEmailButton
           />
-          <div className="ml-4 flex items-center gap-1">
+          <div
+            className={cn(
+              "ml-4 flex items-center gap-1",
+              isSplitViewOpen && "flex-col",
+            )}
+          >
             {isResolved ? (
               <UnresolveButton threadId={message.threadId} />
             ) : (
@@ -174,7 +183,11 @@ function NudgeButton({
   const showNudge = type === ThreadTrackerType.AWAITING;
 
   return (
-    <Button Icon={showNudge ? HandIcon : MailIcon} onClick={onClick}>
+    <Button
+      className="w-full"
+      Icon={showNudge ? HandIcon : MailIcon}
+      onClick={onClick}
+    >
       {showNudge ? "Nudge" : "Reply"}
     </Button>
   );
@@ -185,6 +198,7 @@ function ResolveButton({ threadId }: { threadId: string }) {
 
   return (
     <Button
+      className="w-full"
       variant="outline"
       Icon={CheckCircleIcon}
       loading={isLoading}
@@ -220,6 +234,7 @@ function UnresolveButton({ threadId }: { threadId: string }) {
 
   return (
     <Button
+      className="w-full"
       variant="outline"
       Icon={CircleXIcon}
       loading={isLoading}
