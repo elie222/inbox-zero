@@ -425,7 +425,7 @@ function mimeTypeToString(mimeType: string): string {
 const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
-  const { html } = createReplyContent({ plainContent: "", message });
+  const { html } = createReplyContent({ message });
 
   const splitHtml = extractEmailReply(html);
 

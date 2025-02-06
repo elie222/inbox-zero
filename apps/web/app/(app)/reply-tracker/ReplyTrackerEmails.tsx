@@ -13,8 +13,8 @@ import {
   CheckCircleIcon,
   CircleXIcon,
   HandIcon,
-  MailIcon,
   RefreshCwIcon,
+  ReplyIcon,
 } from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
@@ -184,7 +184,7 @@ function NudgeButton({
   return (
     <Button
       className="w-full"
-      Icon={showNudge ? HandIcon : MailIcon}
+      Icon={showNudge ? HandIcon : ReplyIcon}
       onClick={onClick}
     >
       {showNudge ? "Nudge" : "Reply"}

@@ -25,6 +25,7 @@ import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { TiptapHandle } from "@/components/Tiptap";
+import { createReplyContent } from "@/utils/gmail/reply";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -36,6 +37,7 @@ export type ReplyingToEmail = {
   bcc?: string;
   draftHtml?: string | undefined; // The part being written/edited
   quotedContentHtml?: string | undefined; // The part being quoted/replied to
+  date?: string; // The date of the original email
 };
 
 export const ComposeEmailForm = ({
@@ -73,14 +75,20 @@ export const ComposeEmailForm = ({
         ...data,
         messageHtml: showFullContent
           ? data.messageHtml
-          : `<div dir="ltr">
-  ${data.messageHtml ?? ""}
-  <br/>
-  <br/>
-  <div class="gmail_quote">
-    ${replyingToEmail?.quotedContentHtml ?? ""}
-  </div>
-</div>`,
+          : createReplyContent({
+              htmlContent: data.messageHtml ?? "",
+              message: {
+                headers: {
+                  date: replyingToEmail?.date ?? new Date().toISOString(),
+                  from: replyingToEmail?.to ?? "",
+                  subject: replyingToEmail?.subject ?? "",
+                  to: replyingToEmail?.to ?? "",
+                  "message-id": replyingToEmail?.headerMessageId ?? "",
+                },
+                textPlain: replyingToEmail?.quotedContentHtml ?? "",
+                textHtml: replyingToEmail?.quotedContentHtml ?? "",
+              },
+            }).html,
       };
 
       try {
@@ -99,7 +107,7 @@ export const ComposeEmailForm = ({
 
       refetch?.();
     },
-    [refetch, onSuccess, showFullContent, replyingToEmail?.quotedContentHtml],
+    [refetch, onSuccess, showFullContent, replyingToEmail],
   );
 
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -309,7 +317,11 @@ export const ComposeEmailForm = ({
         initialContent={replyingToEmail?.draftHtml}
         onChange={handleEditorChange}
         className="min-h-[200px]"
-        onMoreClick={showFullContent ? undefined : showExpandedContent}
+        onMoreClick={
+          !replyingToEmail?.quotedContentHtml || showFullContent
+            ? undefined
+            : showExpandedContent
+        }
       />
 
       <div className="flex items-center justify-between">

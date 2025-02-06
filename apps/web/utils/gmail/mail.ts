@@ -141,7 +141,7 @@ export async function replyToEmail(
   from?: string,
 ) {
   const { text, html } = createReplyContent({
-    plainContent: reply,
+    textContent: reply,
     message,
   });
 
@@ -243,7 +243,7 @@ export async function draftEmail(
   },
 ) {
   const { text, html } = createReplyContent({
-    plainContent: args.content,
+    textContent: args.content,
     message: originalEmail,
   });
 
