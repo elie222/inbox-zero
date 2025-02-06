@@ -39,9 +39,9 @@ export async function isColdEmail({
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
-  logger.trace("Checking is cold email");
-
   const loggerOptions = { userId: user.id, email: user.email };
+
+  logger.info("Checking is cold email", loggerOptions);
 
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
@@ -66,8 +66,10 @@ export async function isColdEmail({
         })
       : false;
 
-  if (hasPreviousEmail)
+  if (hasPreviousEmail) {
+    logger.info("Has previous email", loggerOptions);
     return { isColdEmail: false, reason: "hasPreviousEmail" };
+  }
 
   // otherwise run through ai to see if it's a cold email
   const res = await aiIsColdEmail(email, user);
@@ -125,8 +127,9 @@ Determine if the email is a cold email or not.`;
 
   const prompt = `<email>
 ${stringifyEmail(email, 500)}
-</email>
-`;
+</email>`;
+
+  logger.trace("AI is cold email prompt", { system, prompt });
 
   const response = await chatCompletionObject({
     userAi: user,
@@ -136,6 +139,8 @@ ${stringifyEmail(email, 500)}
     userEmail: user.email || "",
     usageLabel: "Cold email check",
   });
+
+  logger.trace("AI is cold email response", { response: response.object });
 
   return response.object;
 }
