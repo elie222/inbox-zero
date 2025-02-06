@@ -16,7 +16,7 @@ export const createReplyContent = ({
   const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
 
   // Detect text direction from original message
-  const textDirection = detectTextDirection(message.textPlain || "");
+  const textDirection = detectTextDirection(textContent || "");
   const dirAttribute = `dir="${textDirection}"`;
 
   // Format plain text version with proper quoting
@@ -37,7 +37,7 @@ export const createReplyContent = ({
   const html = `<div ${dirAttribute}>${contentHtml}</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
-  <div dir="ltr" class="gmail_attr">${quotedHeader}<br></div>
+  <div ${dirAttribute} class="gmail_attr">${quotedHeader}<br></div>
   <blockquote class="gmail_quote" 
     style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
     ${messageContent}

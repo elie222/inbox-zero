@@ -83,4 +83,37 @@ describe("email formatting", () => {
 </div>`.trim(),
     );
   });
+
+  it("formats reply email correctly for RTL content", () => {
+    const textContent = "שלום, מה שלומך?"; // "Hello, how are you?" in Hebrew
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "David Cohen <david@example.com>",
+        subject: "Test Email",
+        to: "sarah@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "תוכן ההודעה המקורית", // "Original message content" in Hebrew
+      textHtml: "<div>תוכן ההודעה המקורית</div>",
+    };
+
+    const { html } = createReplyContent({
+      textContent,
+      htmlContent: "",
+      message,
+    });
+
+    expect(html).toBe(
+      `<div dir="rtl">שלום, מה שלומך?</div>
+<br>
+<div class="gmail_quote gmail_quote_container">
+  <div dir="rtl" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, David Cohen <david@example.com> wrote:<br></div>
+  <blockquote class="gmail_quote" 
+    style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
+    <div>תוכן ההודעה המקורית</div>
+  </blockquote>
+</div>`.trim(),
+    );
+  });
 });
