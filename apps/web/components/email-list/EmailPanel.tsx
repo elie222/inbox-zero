@@ -30,6 +30,7 @@ import {
 } from "@/utils/gmail/forward";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { Loading } from "@/components/Loading";
+import { extractEmailReply } from "@/utils/parse/extract-reply.client";
 
 type EmailMessage = Thread["messages"][number];
 
@@ -264,6 +265,8 @@ function EmailMessage({
   const replyingToEmail = useMemo(() => {
     if (showReply) {
       if (draftReply) {
+        const splitHtml = extractEmailReply(draftReply.textHtml || "");
+
         return {
           to: draftReply.headers.to,
           subject: draftReply.headers.subject,
@@ -273,7 +276,7 @@ function EmailMessage({
           bcc: draftReply.headers.bcc,
           references: draftReply.headers.references,
           messageText: draftReply.textPlain || "",
-          messageHtml: draftReply.textHtml || "",
+          messageHtml: splitHtml.latestReply,
           draftId: draftReply.id,
         };
       }
