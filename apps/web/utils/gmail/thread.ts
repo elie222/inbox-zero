@@ -1,12 +1,19 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { getBatch } from "@/utils/gmail/batch";
-import { isDefined, type MessageWithPayload } from "@/utils/types";
+import {
+  isDefined,
+  type ThreadWithPayloadMessages,
+  type MessageWithPayload,
+} from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
 
-export async function getThread(threadId: string, gmail: gmail_v1.Gmail) {
+export async function getThread(
+  threadId: string,
+  gmail: gmail_v1.Gmail,
+): Promise<ThreadWithPayloadMessages> {
   const thread = await gmail.users.threads.get({ userId: "me", id: threadId });
-  return thread.data;
+  return thread.data as ThreadWithPayloadMessages;
 }
 
 export async function getThreads(

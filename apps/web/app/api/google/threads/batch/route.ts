@@ -19,10 +19,7 @@ async function getThreads(threadIds: string[], accessToken: string) {
       if (!id) return;
       const messages = parseMessages(thread as ThreadWithPayloadMessages);
 
-      return {
-        id,
-        messages,
-      };
+      return { id, messages };
     }) || [],
   );
 
