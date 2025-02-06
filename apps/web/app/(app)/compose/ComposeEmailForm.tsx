@@ -25,7 +25,6 @@ import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { TiptapHandle } from "@/components/Tiptap";
-import { createReplyContent } from "@/utils/gmail/reply";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -75,20 +74,7 @@ export const ComposeEmailForm = ({
         ...data,
         messageHtml: showFullContent
           ? data.messageHtml
-          : createReplyContent({
-              htmlContent: data.messageHtml ?? "",
-              message: {
-                headers: {
-                  date: replyingToEmail?.date ?? new Date().toISOString(),
-                  from: replyingToEmail?.to ?? "",
-                  subject: replyingToEmail?.subject ?? "",
-                  to: replyingToEmail?.to ?? "",
-                  "message-id": replyingToEmail?.headerMessageId ?? "",
-                },
-                textPlain: replyingToEmail?.quotedContentHtml ?? "",
-                textHtml: replyingToEmail?.quotedContentHtml ?? "",
-              },
-            }).html,
+          : `${data.messageHtml}<br>${replyingToEmail?.quotedContentHtml}`,
       };
 
       try {
