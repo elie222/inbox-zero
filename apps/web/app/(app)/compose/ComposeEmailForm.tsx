@@ -165,14 +165,17 @@ export const ComposeEmailForm = ({
                 value={selectedEmailAddressses}
                 onChange={handleComboboxOnChange}
                 multiple
-                nullable={true}
               >
-                <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-2 rounded-md border border-gray-300 px-2 py-2 shadow-sm focus-within:border-black focus-within:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm">
+                <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500">
                   {selectedEmailAddressses.map((emailAddress) => (
                     <Badge
                       key={emailAddress}
-                      variant="outline"
-                      className="h-8 rounded-md border-black bg-black text-white"
+                      variant="secondary"
+                      className="cursor-pointer rounded-md"
+                      onClick={() => {
+                        onRemoveSelectedEmail(emailAddress);
+                        setSearchQuery(emailAddress);
+                      }}
                     >
                       {extractNameFromEmail(emailAddress)}
 
@@ -180,7 +183,7 @@ export const ComposeEmailForm = ({
                         type="button"
                         onClick={() => onRemoveSelectedEmail(emailAddress)}
                       >
-                        <XIcon className="ml-1.5 h-3 w-3" />
+                        <XIcon className="ml-1.5 size-3" />
                       </button>
                     </Badge>
                   ))}
@@ -188,7 +191,7 @@ export const ComposeEmailForm = ({
                   <div className="relative flex-1">
                     <ComboboxInput
                       value={searchQuery}
-                      className="w-full border-none py-0 focus:border-none focus:ring-0"
+                      className="w-full border-none p-0 text-sm focus:border-none focus:ring-0"
                       onChange={(event) => setSearchQuery(event.target.value)}
                       onKeyUp={(event) => {
                         if (event.key === "Enter") {
@@ -283,6 +286,7 @@ export const ComposeEmailForm = ({
             registerProps={register("subject", { required: true })}
             error={errors.subject}
             placeholder="Subject"
+            className="border border-input bg-background focus:border-slate-200 focus:ring-0 focus:ring-slate-200"
           />
         </>
       )}
