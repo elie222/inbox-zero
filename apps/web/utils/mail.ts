@@ -127,3 +127,36 @@ export function emailToContent(
 
   return maxLength ? truncate(content, maxLength) : content;
 }
+
+export function convertEmailHtmlToText({
+  htmlText,
+}: {
+  htmlText: string;
+}): string {
+  const plainText = convert(htmlText, {
+    wordwrap: 130,
+    selectors: [
+      { selector: "a", options: { hideLinkHrefIfSameAsText: true } },
+      { selector: "img", format: "skip" },
+      // Add these additional selectors for better plain text formatting
+      { selector: "h1", options: { uppercase: true } },
+      { selector: "h2,h3,h4", options: { uppercase: false } },
+      { selector: "table", options: { uppercaseHeaderCells: true } },
+      // Skip style and script tags
+      { selector: "style,script", format: "skip" },
+    ],
+    // Add these options for better formatting
+    preserveNewlines: true,
+    formatters: {
+      // Preserve list formatting
+      listItem: (elem, walk, builder, formatOptions) => {
+        builder.openBlock();
+        builder.addInline("• ");
+        walk(elem.children, builder);
+        builder.closeBlock();
+      },
+    },
+  });
+
+  return plainText;
+}

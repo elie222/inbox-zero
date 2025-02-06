@@ -4,7 +4,7 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
-import { parseMessage } from "@/utils/mail";
+import { convertEmailHtmlToText, parseMessage } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import {
   forwardEmailHtml,
@@ -13,6 +13,7 @@ import {
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent } from "@/utils/gmail/reply";
+import type { EmailForAction } from "@/utils/ai/types";
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -27,12 +28,10 @@ export const sendEmailBody = z.object({
   bcc: z.string().optional(),
   replyTo: z.string().optional(),
   subject: z.string(),
-  messageText: z.string(),
-  messageHtml: z.string().optional(),
+  messageHtml: z.string(),
   attachments: z.array(zodAttachment).optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
-export type SendEmailResponse = Awaited<ReturnType<typeof sendEmail>>;
 
 const encodeMessage = (message: Buffer) => {
   return Buffer.from(message)
@@ -49,34 +48,43 @@ const createMail = async (options: Mail.Options) => {
 };
 
 const createRawMailMessage = async (
-  body: Omit<SendEmailBody, "attachments"> & { attachments?: Attachment[] },
+  {
+    to,
+    cc,
+    bcc,
+    subject,
+    messageHtml,
+    messageText,
+    attachments,
+    replyToEmail,
+  }: Omit<SendEmailBody, "attachments"> & {
+    attachments?: Attachment[];
+    messageText: string;
+  },
   from?: string,
 ) => {
   return await createMail({
     from,
-    to: body.to,
-    cc: body.cc,
-    bcc: body.bcc,
-    subject: body.subject,
+    to,
+    cc,
+    bcc,
+    subject,
     alternatives: [
       {
         contentType: "text/plain; charset=UTF-8",
-        content: body.messageText,
+        content: messageText,
       },
       {
         contentType: "text/html; charset=UTF-8",
-        content:
-          body.messageHtml || convertTextToHtmlParagraphs(body.messageText),
+        content: messageHtml,
       },
     ],
-    attachments: body.attachments,
+    attachments,
     // https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
-    references: body.replyToEmail
-      ? `${body.replyToEmail.references || ""} ${
-          body.replyToEmail.headerMessageId
-        }`.trim()
+    references: replyToEmail
+      ? `${replyToEmail.references || ""} ${replyToEmail.headerMessageId}`.trim()
       : "",
-    inReplyTo: body.replyToEmail ? body.replyToEmail.headerMessageId : "",
+    inReplyTo: replyToEmail ? replyToEmail.headerMessageId : "",
     headers: {
       "X-Mailer": "Inbox Zero Web",
     },
@@ -85,12 +93,13 @@ const createRawMailMessage = async (
 
 // https://developers.google.com/gmail/api/guides/sending
 // https://www.labnol.org/google-api-service-account-220405
-export async function sendEmail(
+export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: SendEmailBody,
   from?: string,
 ) {
-  const raw = await createRawMailMessage(body, from);
+  const messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
+  const raw = await createRawMailMessage({ ...body, messageText }, from);
 
   const result = await gmail.users.messages.send({
     userId: "me",
@@ -103,6 +112,15 @@ export async function sendEmail(
   return result;
 }
 
+export async function sendEmailWithPlainText(
+  gmail: gmail_v1.Gmail,
+  body: Omit<SendEmailBody, "messageHtml"> & { messageText: string },
+  from?: string,
+) {
+  const messageHtml = convertTextToHtmlParagraphs(body.messageText);
+  return sendEmailWithHtml(gmail, { ...body, messageHtml }, from);
+}
+
 export async function replyToEmail(
   gmail: gmail_v1.Gmail,
   message: Pick<
@@ -113,12 +131,11 @@ export async function replyToEmail(
   from?: string,
 ) {
   const { text, html } = createReplyContent({
-    content: reply,
+    plainContent: reply,
     message,
   });
 
-  return sendEmail(
-    gmail,
+  const raw = await createRawMailMessage(
     {
       to: message.headers["reply-to"] || message.headers.from,
       subject: message.headers.subject,
@@ -132,25 +149,16 @@ export async function replyToEmail(
     },
     from,
   );
-}
 
-function detectTextDirection(text: string): "ltr" | "rtl" {
-  // Basic RTL detection - checks for RTL characters at the start of the text
-  const rtlRegex =
-    /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
-  return rtlRegex.test(text.trim().charAt(0)) ? "rtl" : "ltr";
-}
-
-function formatEmailDate(date: Date): string {
-  return date.toLocaleString("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    hour12: true,
+  const result = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      threadId: message.threadId,
+      raw,
+    },
   });
+
+  return result;
 }
 
 export async function forwardEmail(
@@ -213,14 +221,45 @@ export async function forwardEmail(
   return result;
 }
 
-export async function draftEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
-  const raw = await createRawMailMessage(body);
+// Handles both replies and regular drafts. May want to split that out into two functions
+export async function draftEmail(
+  gmail: gmail_v1.Gmail,
+  originalEmail: EmailForAction,
+  args: {
+    to: string;
+    subject: string;
+    content: string;
+    attachments?: Attachment[];
+  },
+) {
+  const { text, html } = createReplyContent({
+    plainContent: args.content,
+    message: originalEmail,
+  });
+
+  const raw = await createRawMailMessage({
+    to:
+      args.to ||
+      originalEmail.headers["reply-to"] ||
+      originalEmail.headers.from,
+    cc: originalEmail.headers.cc,
+    bcc: originalEmail.headers.bcc,
+    subject: args.subject || originalEmail.headers.subject,
+    messageHtml: html,
+    messageText: text,
+    attachments: args.attachments,
+    replyToEmail: {
+      threadId: originalEmail.threadId,
+      headerMessageId: originalEmail.headers["message-id"] || "",
+      references: originalEmail.headers.references,
+    },
+  });
 
   const result = await gmail.users.drafts.create({
     userId: "me",
     requestBody: {
       message: {
-        threadId: body.replyToEmail ? body.replyToEmail.threadId : "",
+        threadId: originalEmail.threadId,
         raw,
       },
     },
@@ -229,7 +268,7 @@ export async function draftEmail(gmail: gmail_v1.Gmail, body: SendEmailBody) {
   return result;
 }
 
-const convertTextToHtmlParagraphs = (text?: string | null): string => {
+function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 
   // Split the text into paragraphs based on newline characters
@@ -243,4 +282,4 @@ const convertTextToHtmlParagraphs = (text?: string | null): string => {
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
-};
+}

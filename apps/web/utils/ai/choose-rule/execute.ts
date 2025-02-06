@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { type EmailForAction, runActionFunction } from "@/utils/ai/actions";
+import { runActionFunction } from "@/utils/ai/actions";
+import type { EmailForAction } from "@/utils/ai/types";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
 import { getOrCreateInboxZeroLabel, labelThread } from "@/utils/gmail/label";

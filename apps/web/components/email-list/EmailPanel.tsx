@@ -19,11 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/Card";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  forwardEmailHtml,
-  forwardEmailSubject,
-  forwardEmailText,
-} from "@/utils/gmail/forward";
+import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { Loading } from "@/components/Loading";
 import { extractEmailReply } from "@/utils/parse/extract-reply.client";
@@ -177,12 +173,10 @@ export function EmailThread({
             }
             draftReply={draftReply}
             expanded={expandedMessageIds.has(message.id)}
-            onToggleExpand={() => {
+            onExpand={() => {
               setExpandedMessageIds((prev) => {
-                prev.has(message.id)
-                  ? prev.delete(message.id)
-                  : prev.add(message.id);
-                return new Set(prev);
+                if (prev.has(message.id)) return prev;
+                return new Set(prev).add(message.id);
               });
             }}
           />
@@ -199,7 +193,7 @@ function EmailMessage({
   defaultShowReply,
   draftReply,
   expanded,
-  onToggleExpand,
+  onExpand,
 }: {
   message: EmailMessage;
   draftReply?: EmailMessage;
@@ -207,7 +201,7 @@ function EmailMessage({
   showReplyButton: boolean;
   defaultShowReply?: boolean;
   expanded: boolean;
-  onToggleExpand: () => void;
+  onExpand: () => void;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const replyRef = useRef<HTMLDivElement>(null);
@@ -244,7 +238,7 @@ function EmailMessage({
         "bg-white p-4 shadow sm:rounded-lg",
         !expanded && "cursor-pointer",
       )}
-      onClick={onToggleExpand}
+      onClick={onExpand}
     >
       <div className="sm:flex sm:items-baseline sm:justify-between">
         <h3 className="text-base font-medium">
@@ -431,7 +425,7 @@ function mimeTypeToString(mimeType: string): string {
 const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
-  const { text, html } = createReplyContent({ content: "", message });
+  const { html } = createReplyContent({ plainContent: "", message });
 
   const splitHtml = extractEmailReply(html);
 
@@ -449,7 +443,6 @@ const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
     references: message.headers.references,
-    messageText: text,
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
   };
@@ -462,7 +455,6 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
   threadId: message.threadId!,
   cc: "",
   references: "",
-  messageText: forwardEmailText({ content: "", message }),
   draftHtml: forwardEmailHtml({ content: "", message }),
   quotedContentHtml: "",
 });
@@ -478,7 +470,6 @@ function prepareDraftReplyEmail(message: ParsedMessage): ReplyingToEmail {
     cc: message.headers.cc,
     bcc: message.headers.bcc,
     references: message.headers.references,
-    messageText: message.textPlain || "",
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
   };

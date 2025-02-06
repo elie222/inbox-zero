@@ -34,8 +34,6 @@ export type ReplyingToEmail = {
   to: string;
   cc?: string;
   bcc?: string;
-  messageText: string | undefined;
-
   draftHtml?: string | undefined; // The part being written/edited
   quotedContentHtml?: string | undefined; // The part being quoted/replied to
 };
@@ -66,7 +64,6 @@ export const ComposeEmailForm = ({
       to: replyingToEmail?.to,
       cc: replyingToEmail?.cc,
       messageHtml: replyingToEmail?.draftHtml,
-      messageText: replyingToEmail?.messageText,
     },
   });
 
@@ -74,14 +71,9 @@ export const ComposeEmailForm = ({
     async (data) => {
       const enrichedData = {
         ...data,
-        // messageText: `${data.messageText}\n\n${replyingToEmail?.messageText ?? ""}`,
-        // messageHtml: `${data.messageHtml ?? ""}\n<br/><br/>${replyingToEmail?.quotedContentHtml ?? ""}`,
-
         messageHtml: showFullContent
           ? data.messageHtml
           : `${data.messageHtml ?? ""}\n<br/><br/>${replyingToEmail?.quotedContentHtml ?? ""}`,
-        // TODO: handle text fully on server
-        messageText: "",
       };
 
       try {
@@ -139,8 +131,6 @@ export const ComposeEmailForm = ({
   const handleEditorChange = useCallback(
     (html: string) => {
       setValue("messageHtml", html);
-      // Also set plain text version by stripping HTML tags
-      setValue("messageText", html.replace(/<[^>]*>/g, ""));
     },
     [setValue],
   );

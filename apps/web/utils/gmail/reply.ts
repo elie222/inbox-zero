@@ -1,10 +1,10 @@
 import type { ParsedMessage } from "@/utils/types";
 
 export const createReplyContent = ({
-  content,
+  plainContent,
   message,
 }: {
-  content: string;
+  plainContent: string;
   message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml">;
 }) => {
   const quotedDate = formatEmailDate(new Date(message.headers.date));
@@ -19,11 +19,11 @@ export const createReplyContent = ({
     ?.split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
-  const plainText = `${content}\n\n${quotedHeader}\n\n${quotedContent}`;
+  const plainText = `${plainContent}\n\n${quotedHeader}\n\n${quotedContent}`;
 
   // Format HTML version with Gmail-style quote formatting
   const htmlContent = `
-    <div ${dirAttribute}>${content.replace(/\n/g, "<br>")}</div>
+    <div ${dirAttribute}>${plainContent.replace(/\n/g, "<br>")}</div>
     <br>
     <div class="gmail_quote">
       <div ${dirAttribute} class="gmail_attr">${quotedHeader}</div>
