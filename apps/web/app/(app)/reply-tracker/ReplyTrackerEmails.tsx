@@ -98,16 +98,15 @@ export function ReplyTrackerEmails({
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={40} minSize={35}>
+      <ResizablePanel defaultSize={35} minSize={30}>
         {listView}
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={60} minSize={35} className="bg-slate-100">
+      <ResizablePanel defaultSize={65} minSize={50} className="bg-slate-100">
         <ThreadContent
           threadId={selectedEmail.threadId}
           showReplyButton={true}
           autoOpenReplyForMessageId={selectedEmail.messageId}
-          userEmail={userEmail}
         />
       </ResizablePanel>
     </ResizablePanelGroup>

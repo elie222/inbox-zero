@@ -12,7 +12,7 @@ export const forwardEmailHtml = ({
   message: ParsedMessage;
 }) => {
   return `<div>${content}</div>
-
+<br />
 <div>
 ---------- Forwarded message ----------<br>
 From: ${message.headers.from}<br>

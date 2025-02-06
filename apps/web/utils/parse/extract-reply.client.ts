@@ -1,9 +1,9 @@
 export function extractEmailReply(html: string): {
-  latestReply: string;
-  originalThread: string;
+  draftHtml: string;
+  originalHtml: string;
 } {
   if (!html?.trim()) {
-    return { latestReply: "", originalThread: "" };
+    return { draftHtml: html, originalHtml: "" };
   }
 
   try {
@@ -12,7 +12,7 @@ export function extractEmailReply(html: string): {
 
     if (doc.body.innerHTML === "null") {
       console.warn("Failed to parse HTML - received null content");
-      return { latestReply: "", originalThread: "" };
+      return { draftHtml: html, originalHtml: "" };
     }
 
     // Find the first gmail_quote container
@@ -32,14 +32,14 @@ export function extractEmailReply(html: string): {
       const latestReplyHtml = firstDiv?.innerHTML || "";
 
       return {
-        latestReply: `<div dir="ltr">${latestReplyHtml}</div>`,
-        originalThread: quoteContainer.outerHTML,
+        draftHtml: `<div dir="ltr">${latestReplyHtml}</div>`,
+        originalHtml: quoteContainer.outerHTML,
       };
     }
 
-    return { latestReply: html, originalThread: "" };
+    return { draftHtml: html, originalHtml: "" };
   } catch (error) {
     console.error("Error parsing email HTML:", error);
-    return { latestReply: "", originalThread: "" };
+    return { draftHtml: html, originalHtml: "" };
   }
 }

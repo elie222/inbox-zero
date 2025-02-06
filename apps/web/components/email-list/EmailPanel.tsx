@@ -11,11 +11,7 @@ import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import type { Thread } from "@/components/email-list/types";
-import {
-  extractEmailAddress,
-  extractNameFromEmail,
-  normalizeEmailAddress,
-} from "@/utils/email";
+import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
@@ -31,6 +27,9 @@ import {
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { Loading } from "@/components/Loading";
 import { extractEmailReply } from "@/utils/parse/extract-reply.client";
+import type { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
+import { createReplyContent } from "@/utils/gmail/reply";
+import { cn } from "@/utils";
 
 type EmailMessage = Thread["messages"][number];
 
@@ -158,6 +157,12 @@ export function EmailThread({
     }));
   }, [messages]);
 
+  const lastMessageId = organizedMessages.at(-1)?.message.id;
+
+  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
+    new Set(lastMessageId ? [lastMessageId] : []),
+  );
+
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul className="space-y-2 sm:space-y-4">
@@ -171,6 +176,15 @@ export function EmailThread({
               autoOpenReplyForMessageId === message.id || Boolean(draftReply)
             }
             draftReply={draftReply}
+            expanded={expandedMessageIds.has(message.id)}
+            onToggleExpand={() => {
+              setExpandedMessageIds((prev) => {
+                prev.has(message.id)
+                  ? prev.delete(message.id)
+                  : prev.add(message.id);
+                return new Set(prev);
+              });
+            }}
           />
         ))}
       </ul>
@@ -184,12 +198,16 @@ function EmailMessage({
   showReplyButton,
   defaultShowReply,
   draftReply,
+  expanded,
+  onToggleExpand,
 }: {
   message: EmailMessage;
   draftReply?: EmailMessage;
   refetch: () => void;
   showReplyButton: boolean;
   defaultShowReply?: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const replyRef = useRef<HTMLDivElement>(null);
@@ -211,7 +229,7 @@ function EmailMessage({
     setShowForward(false);
   }, []);
 
-  const replyingToEmail = useMemo(() => {
+  const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {
       if (draftReply) return prepareDraftReplyEmail(draftReply);
       return prepareReplyingToEmail(message);
@@ -220,7 +238,14 @@ function EmailMessage({
   }, [showReply, message, draftReply]);
 
   return (
-    <li className="bg-white p-4 shadow sm:rounded-lg">
+    // biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
+    <li
+      className={cn(
+        "bg-white p-4 shadow sm:rounded-lg",
+        !expanded && "cursor-pointer",
+      )}
+      onClick={onToggleExpand}
+    >
       <div className="sm:flex sm:items-baseline sm:justify-between">
         <h3 className="text-base font-medium">
           <span className="text-gray-900">
@@ -253,52 +278,57 @@ function EmailMessage({
           )}
         </div>
       </div>
-      <div className="mt-4">
-        {message.textHtml ? (
-          <HtmlEmail html={message.textHtml} />
-        ) : (
-          <PlainEmail text={message.textPlain || ""} />
-        )}
-      </div>
-      {message.attachments && (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {message.attachments.map((attachment) => {
-            const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
 
-            return (
-              <Card key={attachment.filename}>
-                <div className="text-gray-600">{attachment.filename}</div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-gray-600">
-                    {mimeTypeToString(attachment.mimeType)}
-                  </div>
-                  <Button variant="outline" asChild>
-                    <Link href={url} target="_blank">
-                      <>
-                        <DownloadIcon className="mr-2 h-4 w-4" />
-                        Download
-                      </>
-                    </Link>
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {(showReply || showForward) && (
+      {expanded && (
         <>
-          <Separator className="my-4" />
-
-          <div ref={replyRef}>
-            <ComposeEmailFormLazy
-              replyingToEmail={replyingToEmail}
-              refetch={refetch}
-              onSuccess={onCloseCompose}
-              onDiscard={onCloseCompose}
-            />
+          <div className="mt-4">
+            {message.textHtml ? (
+              <HtmlEmail html={message.textHtml} />
+            ) : (
+              <PlainEmail text={message.textPlain || ""} />
+            )}
           </div>
+          {message.attachments && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {message.attachments.map((attachment) => {
+                const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
+
+                return (
+                  <Card key={attachment.filename}>
+                    <div className="text-gray-600">{attachment.filename}</div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="text-gray-600">
+                        {mimeTypeToString(attachment.mimeType)}
+                      </div>
+                      <Button variant="outline" asChild>
+                        <Link href={url} target="_blank">
+                          <>
+                            <DownloadIcon className="mr-2 h-4 w-4" />
+                            Download
+                          </>
+                        </Link>
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {(showReply || showForward) && (
+            <>
+              <Separator className="my-4" />
+
+              <div ref={replyRef}>
+                <ComposeEmailFormLazy
+                  replyingToEmail={replyingToEmail}
+                  refetch={refetch}
+                  onSuccess={onCloseCompose}
+                  onDiscard={onCloseCompose}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
     </li>
@@ -352,6 +382,7 @@ function getIframeHtml(html: string) {
       /* Base styles with low specificity */
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        margin: 0;
       }
     </style>
   `;
@@ -397,8 +428,12 @@ function mimeTypeToString(mimeType: string): string {
   }
 }
 
-const prepareReplyingToEmail = (message: ParsedMessage) => {
+const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
+
+  const { text, html } = createReplyContent({ content: "", message });
+
+  const splitHtml = extractEmailReply(html);
 
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
@@ -414,12 +449,13 @@ const prepareReplyingToEmail = (message: ParsedMessage) => {
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
     references: message.headers.references,
-    messageText: "",
-    messageHtml: "",
+    messageText: text,
+    draftHtml: splitHtml.draftHtml,
+    quotedContentHtml: splitHtml.originalHtml,
   };
 };
 
-const prepareForwardingEmail = (message: ParsedMessage) => ({
+const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
   to: "",
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: "",
@@ -427,10 +463,11 @@ const prepareForwardingEmail = (message: ParsedMessage) => ({
   cc: "",
   references: "",
   messageText: forwardEmailText({ content: "", message }),
-  messageHtml: forwardEmailHtml({ content: "", message }),
+  draftHtml: forwardEmailHtml({ content: "", message }),
+  quotedContentHtml: "",
 });
 
-function prepareDraftReplyEmail(message: ParsedMessage) {
+function prepareDraftReplyEmail(message: ParsedMessage): ReplyingToEmail {
   const splitHtml = extractEmailReply(message.textHtml || "");
 
   return {
@@ -442,7 +479,7 @@ function prepareDraftReplyEmail(message: ParsedMessage) {
     bcc: message.headers.bcc,
     references: message.headers.references,
     messageText: message.textPlain || "",
-    messageHtml: splitHtml.latestReply,
-    draftId: message.id,
+    draftHtml: splitHtml.draftHtml,
+    quotedContentHtml: splitHtml.originalHtml,
   };
 }

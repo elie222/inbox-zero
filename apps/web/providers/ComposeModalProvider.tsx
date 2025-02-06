@@ -27,7 +27,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     <ComposeModalContext.Provider value={{ onOpen: openModal }}>
       {props.children}
       <Dialog open={isModalOpen} onOpenChange={closeModal}>
-        <DialogContent className="">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>New Message</DialogTitle>
           </DialogHeader>

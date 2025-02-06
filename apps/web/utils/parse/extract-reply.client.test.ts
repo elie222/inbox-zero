@@ -20,8 +20,8 @@ describe("extractEmailReply", () => {
     `;
 
     const result = extractEmailReply(html);
-    expect(result.latestReply).toBe('<div dir="ltr">This is my reply</div>');
-    expect(result.originalThread).toBe(`<div class="gmail_quote_container">
+    expect(result.draftHtml).toBe('<div dir="ltr">This is my reply</div>');
+    expect(result.originalHtml).toBe(`<div class="gmail_quote_container">
         Original thread content
       </div>`);
   });
@@ -37,8 +37,8 @@ describe("extractEmailReply", () => {
     `;
 
     const result = extractEmailReply(html);
-    expect(result.latestReply).toBe('<div dir="ltr">This is my reply</div>');
-    expect(result.originalThread).toBe(`<div class="gmail_quote">
+    expect(result.draftHtml).toBe('<div dir="ltr">This is my reply</div>');
+    expect(result.originalHtml).toBe(`<div class="gmail_quote">
         Original thread content
       </div>`);
   });
@@ -52,10 +52,10 @@ describe("extractEmailReply", () => {
     `;
 
     const result = extractEmailReply(html);
-    expect(result.latestReply).toBe(
+    expect(result.draftHtml).toBe(
       '<div dir="ltr">This is a direct reply</div>',
     );
-    expect(result.originalThread).toBe(`<div class="gmail_quote">
+    expect(result.originalHtml).toBe(`<div class="gmail_quote">
         Original thread content
       </div>`);
   });
@@ -64,8 +64,8 @@ describe("extractEmailReply", () => {
     const html = '<div dir="ltr">Just a simple email</div>';
 
     const result = extractEmailReply(html);
-    expect(result.latestReply).toBe(html);
-    expect(result.originalThread).toBe("");
+    expect(result.draftHtml).toBe(html);
+    expect(result.originalHtml).toBe("");
   });
 
   it("ignores gmail_attr in reply selection", () => {
@@ -80,15 +80,15 @@ describe("extractEmailReply", () => {
     `;
 
     const result = extractEmailReply(html);
-    expect(result.latestReply).toBe('<div dir="ltr">Real reply content</div>');
-    expect(result.originalThread).toBe(`<div class="gmail_quote">
+    expect(result.draftHtml).toBe('<div dir="ltr">Real reply content</div>');
+    expect(result.originalHtml).toBe(`<div class="gmail_quote">
         Original thread content
       </div>`);
   });
 
   it("handles empty html", () => {
     const result = extractEmailReply("");
-    expect(result.latestReply).toBe("");
-    expect(result.originalThread).toBe("");
+    expect(result.draftHtml).toBe("");
+    expect(result.originalHtml).toBe("");
   });
 });

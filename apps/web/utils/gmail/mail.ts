@@ -12,6 +12,7 @@ import {
   forwardEmailText,
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
+import { createReplyContent } from "@/utils/gmail/reply";
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -111,40 +112,18 @@ export async function replyToEmail(
   reply: string,
   from?: string,
 ) {
-  const quotedDate = formatEmailDate(new Date(message.headers.date));
-  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
-
-  // Detect text direction from original message
-  const textDirection = detectTextDirection(message.textPlain || "");
-  const dirAttribute = `dir="${textDirection}"`;
-
-  // Format plain text version with proper quoting
-  const quotedContent = message.textPlain
-    ?.split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n");
-  const plainText = `${reply}\n\n${quotedHeader}\n\n${quotedContent}`;
-
-  // Format HTML version with Gmail-style quote formatting
-  const htmlContent = `
-    <div ${dirAttribute}>${reply.replace(/\n/g, "<br>")}</div>
-    <br>
-    <div class="gmail_quote">
-      <div ${dirAttribute} class="gmail_attr">${quotedHeader}</div>
-      <blockquote class="gmail_quote" 
-        style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
-        ${message.textHtml || message.textPlain?.replace(/\n/g, "<br>")}
-      </blockquote>
-    </div>
-  `.trim();
+  const { text, html } = createReplyContent({
+    content: reply,
+    message,
+  });
 
   return sendEmail(
     gmail,
     {
       to: message.headers["reply-to"] || message.headers.from,
       subject: message.headers.subject,
-      messageText: plainText,
-      messageHtml: htmlContent,
+      messageText: text,
+      messageHtml: html,
       replyToEmail: {
         threadId: message.threadId,
         headerMessageId: message.headers["message-id"] || "",
