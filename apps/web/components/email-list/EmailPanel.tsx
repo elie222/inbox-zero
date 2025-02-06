@@ -36,7 +36,6 @@ type EmailMessage = Thread["messages"][number];
 
 export function EmailPanel({
   row,
-  userEmail,
   isCategorizing,
   onPlanAiAction,
   onAiCategorize,
@@ -49,7 +48,6 @@ export function EmailPanel({
   refetch,
 }: {
   row: Thread;
-  userEmail: string;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
   onAiCategorize: (thread: Thread) => void;
@@ -118,7 +116,6 @@ export function EmailPanel({
           messages={row.messages}
           refetch={refetch}
           showReplyButton
-          userEmail={userEmail}
         />
       </div>
     </div>
@@ -130,13 +127,11 @@ export function EmailThread({
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
-  userEmail,
 }: {
   messages: EmailMessage[];
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
-  userEmail: string;
 }) {
   // Place draft messages as replies to their parent message
   const organizedMessages = useMemo(() => {
@@ -176,7 +171,6 @@ export function EmailThread({
               autoOpenReplyForMessageId === message.id || Boolean(draftReply)
             }
             draftReply={draftReply}
-            userEmail={userEmail}
           />
         ))}
       </ul>
@@ -190,14 +184,12 @@ function EmailMessage({
   showReplyButton,
   defaultShowReply,
   draftReply,
-  userEmail,
 }: {
   message: EmailMessage;
   draftReply?: EmailMessage;
   refetch: () => void;
   showReplyButton: boolean;
   defaultShowReply?: boolean;
-  userEmail: string;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const replyRef = useRef<HTMLDivElement>(null);
@@ -219,77 +211,13 @@ function EmailMessage({
     setShowForward(false);
   }, []);
 
-  const prepareReplyingToEmail = useCallback(
-    (message: ParsedMessage) => {
-      const normalizedFrom = normalizeEmailAddress(
-        extractEmailAddress(message.headers.from),
-      );
-      const normalizedUserEmail = normalizeEmailAddress(userEmail);
-      const sentFromUser = normalizedFrom === normalizedUserEmail;
-
-      return {
-        // If following an email from yourself, use original recipients, otherwise reply to sender
-        to: sentFromUser ? message.headers.to : message.headers.from,
-        // If following an email from yourself, don't add "Re:" prefix
-        subject: sentFromUser
-          ? message.headers.subject
-          : `Re: ${message.headers.subject}`,
-        headerMessageId: message.headers["message-id"]!,
-        threadId: message.threadId!,
-        // Keep original CC
-        cc: message.headers.cc,
-        // Keep original BCC if available
-        bcc: sentFromUser ? message.headers.bcc : "",
-        references: message.headers.references,
-        messageText: "",
-        messageHtml: "",
-      };
-    },
-    [userEmail],
-  );
-
-  const prepareForwardingEmail = useCallback(
-    (message: ParsedMessage) => ({
-      to: "",
-      subject: forwardEmailSubject(message.headers.subject),
-      headerMessageId: "",
-      threadId: message.threadId!,
-      cc: "",
-      references: "",
-      messageText: forwardEmailText({ content: "", message }),
-      messageHtml: forwardEmailHtml({ content: "", message }),
-    }),
-    [],
-  );
-
   const replyingToEmail = useMemo(() => {
     if (showReply) {
-      if (draftReply) {
-        const splitHtml = extractEmailReply(draftReply.textHtml || "");
-
-        return {
-          to: draftReply.headers.to,
-          subject: draftReply.headers.subject,
-          headerMessageId: draftReply.headers["message-id"]!,
-          threadId: message.threadId!,
-          cc: draftReply.headers.cc,
-          bcc: draftReply.headers.bcc,
-          references: draftReply.headers.references,
-          messageText: draftReply.textPlain || "",
-          messageHtml: splitHtml.latestReply,
-          draftId: draftReply.id,
-        };
-      }
+      if (draftReply) return prepareDraftReplyEmail(draftReply);
       return prepareReplyingToEmail(message);
     }
     return prepareForwardingEmail(message);
-  }, [
-    showReply,
-    message,
-    draftReply,
-    prepareForwardingEmail,
-    prepareReplyingToEmail,
-  ]);
+  }, [showReply, message, draftReply]);
 
   return (
     <li className="bg-white p-4 shadow sm:rounded-lg">
@@ -467,4 +395,54 @@ function mimeTypeToString(mimeType: string): string {
     default:
       return mimeType;
   }
+}
+
+const prepareReplyingToEmail = (message: ParsedMessage) => {
+  const sentFromUser = message.labelIds?.includes("SENT");
+
+  return {
+    // If following an email from yourself, use original recipients, otherwise reply to sender
+    to: sentFromUser ? message.headers.to : message.headers.from,
+    // If following an email from yourself, don't add "Re:" prefix
+    subject: sentFromUser
+      ? message.headers.subject
+      : `Re: ${message.headers.subject}`,
+    headerMessageId: message.headers["message-id"]!,
+    threadId: message.threadId!,
+    // Keep original CC
+    cc: message.headers.cc,
+    // Keep original BCC if available
+    bcc: sentFromUser ? message.headers.bcc : "",
+    references: message.headers.references,
+    messageText: "",
+    messageHtml: "",
+  };
+};
+
+const prepareForwardingEmail = (message: ParsedMessage) => ({
+  to: "",
+  subject: forwardEmailSubject(message.headers.subject),
+  headerMessageId: "",
+  threadId: message.threadId!,
+  cc: "",
+  references: "",
+  messageText: forwardEmailText({ content: "", message }),
+  messageHtml: forwardEmailHtml({ content: "", message }),
+});
+
+function prepareDraftReplyEmail(message: ParsedMessage) {
+  const splitHtml = extractEmailReply(message.textHtml || "");
+
+  return {
+    to: message.headers.to,
+    subject: message.headers.subject,
+    headerMessageId: message.headers["message-id"]!,
+    threadId: message.threadId!,
+    cc: message.headers.cc,
+    bcc: message.headers.bcc,
+    references: message.headers.references,
+    messageText: message.textPlain || "",
+    messageHtml: splitHtml.latestReply,
+    draftId: message.id,
+  };
 }
