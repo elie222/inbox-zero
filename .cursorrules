@@ -218,3 +218,8 @@ export const POST = withError(async (request: Request) => {
   import groupBy from "lodash/groupBy";
   ```
 - Create utility functions in `utils/` folder for reusable logic
+
+## Testing
+
+- `vitest` is used for testing.
+- Tests are colocated next to the tested file. e.g. `dir/format.ts` and `dir/format.test.ts`.
