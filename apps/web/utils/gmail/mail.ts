@@ -107,8 +107,8 @@ export async function sendEmailWithHtml(
     messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
   } catch (error) {
     logger.error("Error converting email html to text", { error });
-    messageText = body.messageHtml;
-    // throw error;
+    // Strip HTML tags as a fallback
+    messageText = body.messageHtml.replace(/<[^>]*>/g, "");
   }
 
   const raw = await createRawMailMessage({ ...body, messageText }, from);

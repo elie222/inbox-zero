@@ -140,10 +140,15 @@ export const ComposeEmailForm = ({
 
   const showExpandedContent = useCallback(() => {
     if (!showFullContent) {
-      // Append the quoted content at the end
-      editorRef.current?.appendContent(
-        replyingToEmail?.quotedContentHtml ?? "",
-      );
+      try {
+        editorRef.current?.appendContent(
+          replyingToEmail?.quotedContentHtml ?? "",
+        );
+      } catch (error) {
+        console.error("Failed to append content:", error);
+        toastError({ description: "Failed to show full content" });
+        return; // Don't set showFullContent to true if append failed
+      }
     }
     setShowFullContent(true);
   }, [showFullContent, replyingToEmail?.quotedContentHtml]);
