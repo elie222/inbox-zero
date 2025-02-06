@@ -14,6 +14,9 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("gmail/mail");
 
 export const sendEmailBody = z.object({
   replyToEmail: z
@@ -98,9 +101,17 @@ export async function sendEmailWithHtml(
   body: SendEmailBody,
   from?: string,
 ) {
-  const messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
-  const raw = await createRawMailMessage({ ...body, messageText }, from);
+  let messageText: string;
 
+  try {
+    messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
+  } catch (error) {
+    logger.error("Error converting email html to text", { error });
+    messageText = body.messageHtml;
+    // throw error;
+  }
+
+  const raw = await createRawMailMessage({ ...body, messageText }, from);
   const result = await gmail.users.messages.send({
     userId: "me",
     requestBody: {
@@ -108,7 +119,6 @@ export async function sendEmailWithHtml(
       raw,
     },
   });
-
   return result;
 }
 

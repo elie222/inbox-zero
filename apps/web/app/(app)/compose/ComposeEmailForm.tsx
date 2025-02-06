@@ -73,7 +73,14 @@ export const ComposeEmailForm = ({
         ...data,
         messageHtml: showFullContent
           ? data.messageHtml
-          : `${data.messageHtml ?? ""}\n<br/><br/>${replyingToEmail?.quotedContentHtml ?? ""}`,
+          : `<div dir="ltr">
+  ${data.messageHtml ?? ""}
+  <br/>
+  <br/>
+  <div class="gmail_quote">
+    ${replyingToEmail?.quotedContentHtml ?? ""}
+  </div>
+</div>`,
       };
 
       try {
