@@ -10,7 +10,7 @@ import {
   type Rule,
   type User,
 } from "@prisma/client";
-import type { ActionItem } from "@/utils/ai/actions";
+import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
