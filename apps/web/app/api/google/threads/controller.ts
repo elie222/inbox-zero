@@ -2,7 +2,7 @@ import { parseMessages } from "@/utils/mail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
-import { type ThreadWithPayloadMessages, isDefined } from "@/utils/types";
+import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
 import { getThreadsBatch } from "@/utils/gmail/thread";
@@ -75,7 +75,7 @@ export async function getThreads(query: ThreadsQuery) {
     threads.map(async (thread) => {
       const id = thread.id;
       if (!id) return;
-      const messages = parseMessages(thread as ThreadWithPayloadMessages);
+      const messages = parseMessages(thread);
 
       const plan = plans.find((p) => p.threadId === id);
 

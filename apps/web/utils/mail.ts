@@ -8,6 +8,7 @@ import type {
   ParsedMessage,
 } from "@/utils/types";
 import { removeExcessiveWhitespace, truncate } from "@/utils/string";
+import { GmailLabel } from "@/utils/gmail/label";
 
 export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
@@ -27,6 +28,14 @@ export function parseMessages(thread: ThreadWithPayloadMessages) {
     }) || [];
 
   return messages;
+}
+
+export function parseMessagesWithoutDrafts(thread: ThreadWithPayloadMessages) {
+  return (
+    parseMessages(thread)?.filter(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    ) || []
+  );
 }
 
 // important to do before processing html emails

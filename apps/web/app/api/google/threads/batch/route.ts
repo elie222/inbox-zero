@@ -3,25 +3,33 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getThreadsBatch } from "@/utils/gmail/thread";
-import { parseMessages } from "@/utils/mail";
-import { isDefined, type ThreadWithPayloadMessages } from "@/utils/types";
+import { parseMessages, parseMessagesWithoutDrafts } from "@/utils/mail";
+import { isDefined } from "@/utils/types";
 
-const requestSchema = z.object({ threadIds: z.array(z.string()) });
+const requestSchema = z.object({
+  threadIds: z.array(z.string()),
+  includeDrafts: z.boolean().default(false),
+});
 
 export type ThreadsBatchResponse = Awaited<ReturnType<typeof getThreads>>;
 
-async function getThreads(threadIds: string[], accessToken: string) {
+async function getThreads(
+  threadIds: string[],
+  accessToken: string,
+  includeDrafts: boolean,
+) {
   const threads = await getThreadsBatch(threadIds, accessToken);
 
-  const threadsWithMessages = await Promise.all(
-    threads.map(async (thread) => {
-      const id = thread.id;
-      if (!id) return;
-      const messages = parseMessages(thread as ThreadWithPayloadMessages);
+  const threadsWithMessages = threads.map((thread) => {
+    const id = thread.id;
+    if (!id) return;
 
-      return { id, messages };
-    }) || [],
-  );
+    const messages = includeDrafts
+      ? parseMessages(thread)
+      : parseMessagesWithoutDrafts(thread);
+
+    return { id, messages };
+  });
 
   return {
     threads: threadsWithMessages.filter(isDefined),
@@ -34,8 +42,9 @@ export const GET = withError(async (request: NextRequest) => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const { threadIds } = requestSchema.parse({
+  const { threadIds, includeDrafts } = requestSchema.parse({
     threadIds: searchParams.get("threadIds")?.split(",") || [],
+    includeDrafts: searchParams.get("includeDrafts") === "true",
   });
 
   if (threadIds.length === 0) {
@@ -49,7 +58,7 @@ export const GET = withError(async (request: NextRequest) => {
       { status: 401 },
     );
 
-  const response = await getThreads(threadIds, accessToken);
+  const response = await getThreads(threadIds, accessToken, includeDrafts);
 
   return NextResponse.json(response);
 });

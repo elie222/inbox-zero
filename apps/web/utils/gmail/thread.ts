@@ -61,7 +61,7 @@ export async function getThreadsWithNextPageToken({
 export async function getThreadsBatch(
   threadIds: string[],
   accessToken: string,
-): Promise<gmail_v1.Schema$Thread[]> {
+): Promise<ThreadWithPayloadMessages[]> {
   const batch = await getBatch(
     threadIds,
     "/gmail/v1/users/me/threads",
