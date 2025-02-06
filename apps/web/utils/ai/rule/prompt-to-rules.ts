@@ -90,19 +90,7 @@ ${promptFile}
 
   logger.trace("Output", { rules });
 
-  return rules.map((rule) => ({
-    ...rule,
-    actions: rule.actions.map((action) => ({
-      type: action.type,
-      label: action.fields?.label ?? undefined,
-      to: action.fields?.to ?? undefined,
-      cc: action.fields?.cc ?? undefined,
-      bcc: action.fields?.bcc ?? undefined,
-      subject: action.fields?.subject ?? undefined,
-      content: action.fields?.content ?? undefined,
-      webhookUrl: action.fields?.webhookUrl ?? undefined,
-    })),
-  }));
+  return rules;
 }
 
 function getSystemPrompt({
