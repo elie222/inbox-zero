@@ -49,7 +49,12 @@ export function ThreadContent({
   autoOpenReplyForMessageId?: string;
   userEmail: string;
 }) {
-  const { data, isLoading, error, mutate } = useThread({ id: threadId });
+  const { data, isLoading, error, mutate } = useThread(
+    { id: threadId },
+    {
+      includeDrafts: true,
+    },
+  );
 
   return (
     <ErrorBoundary extra={{ component: "ThreadContent", threadId }}>

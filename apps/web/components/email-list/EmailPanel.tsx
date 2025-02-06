@@ -31,6 +31,8 @@ import {
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { Loading } from "@/components/Loading";
 
+type EmailMessage = Thread["messages"][number];
+
 export function EmailPanel({
   row,
   userEmail,
@@ -129,22 +131,50 @@ export function EmailThread({
   autoOpenReplyForMessageId,
   userEmail,
 }: {
-  messages: Thread["messages"];
+  messages: EmailMessage[];
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
   userEmail: string;
 }) {
+  // Place draft messages as replies to their parent message
+  const organizedMessages = useMemo(() => {
+    const drafts = new Map<string, EmailMessage>();
+    const regularMessages: EmailMessage[] = [];
+
+    messages?.forEach((message) => {
+      if (message.labelIds?.includes("DRAFT")) {
+        // Get the parent message ID from the references or in-reply-to header
+        const parentId =
+          message.headers.references?.split(" ").pop() ||
+          message.headers["in-reply-to"];
+        if (parentId) {
+          drafts.set(parentId, message);
+        }
+      } else {
+        regularMessages.push(message);
+      }
+    });
+
+    return regularMessages.map((message) => ({
+      message,
+      draftReply: drafts.get(message.headers["message-id"] || ""),
+    }));
+  }, [messages]);
+
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul className="space-y-2 sm:space-y-4">
-        {messages?.map((message) => (
+        {organizedMessages.map(({ message, draftReply }) => (
           <EmailMessage
             key={message.id}
             message={message}
             showReplyButton={showReplyButton}
             refetch={refetch}
-            defaultShowReply={autoOpenReplyForMessageId === message.id}
+            defaultShowReply={
+              autoOpenReplyForMessageId === message.id || Boolean(draftReply)
+            }
+            draftReply={draftReply}
             userEmail={userEmail}
           />
         ))}
@@ -158,9 +188,11 @@ function EmailMessage({
   refetch,
   showReplyButton,
   defaultShowReply,
+  draftReply,
   userEmail,
 }: {
-  message: Thread["messages"][0];
+  message: EmailMessage;
+  draftReply?: EmailMessage;
   refetch: () => void;
   showReplyButton: boolean;
   defaultShowReply?: boolean;
@@ -186,52 +218,75 @@ function EmailMessage({
     setShowForward(false);
   }, []);
 
-  const prepareReplyingToEmail = (message: ParsedMessage) => {
-    const normalizedFrom = normalizeEmailAddress(
-      extractEmailAddress(message.headers.from),
-    );
-    const normalizedUserEmail = normalizeEmailAddress(userEmail);
-    const sentFromUser = normalizedFrom === normalizedUserEmail;
-    console.log(
-      "🚀 ~ prepareReplyingToEmail ~ sentFromUser:",
-      sentFromUser,
-      normalizedFrom,
-      normalizedUserEmail,
-    );
+  const prepareReplyingToEmail = useCallback(
+    (message: ParsedMessage) => {
+      const normalizedFrom = normalizeEmailAddress(
+        extractEmailAddress(message.headers.from),
+      );
+      const normalizedUserEmail = normalizeEmailAddress(userEmail);
+      const sentFromUser = normalizedFrom === normalizedUserEmail;
 
-    return {
-      // If following an email from yourself, use original recipients, otherwise reply to sender
-      to: sentFromUser ? message.headers.to : message.headers.from,
-      // If following an email from yourself, don't add "Re:" prefix
-      subject: sentFromUser
-        ? message.headers.subject
-        : `Re: ${message.headers.subject}`,
-      headerMessageId: message.headers["message-id"]!,
+      return {
+        // If following an email from yourself, use original recipients, otherwise reply to sender
+        to: sentFromUser ? message.headers.to : message.headers.from,
+        // If following an email from yourself, don't add "Re:" prefix
+        subject: sentFromUser
+          ? message.headers.subject
+          : `Re: ${message.headers.subject}`,
+        headerMessageId: message.headers["message-id"]!,
+        threadId: message.threadId!,
+        // Keep original CC
+        cc: message.headers.cc,
+        // Keep original BCC if available
+        bcc: sentFromUser ? message.headers.bcc : "",
+        references: message.headers.references,
+        messageText: "",
+        messageHtml: "",
+      };
+    },
+    [userEmail],
+  );
+
+  const prepareForwardingEmail = useCallback(
+    (message: ParsedMessage) => ({
+      to: "",
+      subject: forwardEmailSubject(message.headers.subject),
+      headerMessageId: "",
       threadId: message.threadId!,
-      // Keep original CC
-      cc: message.headers.cc,
-      // Keep original BCC if available
-      bcc: sentFromUser ? message.headers.bcc : "",
-      references: message.headers.references,
-      messageText: "",
-      messageHtml: "",
-    };
-  };
+      cc: "",
+      references: "",
+      messageText: forwardEmailText({ content: "", message }),
+      messageHtml: forwardEmailHtml({ content: "", message }),
+    }),
+    [],
+  );
 
-  const prepareForwardingEmail = (message: ParsedMessage) => ({
-    to: "",
-    subject: forwardEmailSubject(message.headers.subject),
-    headerMessageId: "",
-    threadId: message.threadId!,
-    cc: "",
-    references: "",
-    messageText: forwardEmailText({ content: "", message }),
-    messageHtml: forwardEmailHtml({ content: "", message }),
-  });
-
-  const replyingToEmail = showReply
-    ? prepareReplyingToEmail(message)
-    : prepareForwardingEmail(message);
+  const replyingToEmail = useMemo(() => {
+    if (showReply) {
+      if (draftReply) {
+        return {
+          to: draftReply.headers.to,
+          subject: draftReply.headers.subject,
+          headerMessageId: draftReply.headers["message-id"]!,
+          threadId: message.threadId!,
+          cc: draftReply.headers.cc,
+          bcc: draftReply.headers.bcc,
+          references: draftReply.headers.references,
+          messageText: draftReply.textPlain || "",
+          messageHtml: draftReply.textHtml || "",
+          draftId: draftReply.id,
+        };
+      }
+      return prepareReplyingToEmail(message);
+    }
+    return prepareForwardingEmail(message);
+  }, [
+    showReply,
+    message,
+    draftReply,
+    prepareForwardingEmail,
+    prepareReplyingToEmail,
+  ]);
 
   return (
     <li className="bg-white p-4 shadow sm:rounded-lg">
