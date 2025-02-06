@@ -181,7 +181,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     return [
       { label: "Archive", value: ActionType.ARCHIVE },
       { label: "Label", value: ActionType.LABEL },
-      { label: "Draft email", value: ActionType.DRAFT_EMAIL },
+      { label: "Draft reply", value: ActionType.DRAFT_EMAIL },
       { label: "Reply", value: ActionType.REPLY },
       { label: "Send email", value: ActionType.SEND_EMAIL },
       { label: "Forward", value: ActionType.FORWARD },

@@ -1,3 +1,4 @@
+import { formatEmailDate } from "@/utils/gmail/reply";
 import type { ParsedMessage } from "@/utils/types";
 
 export const forwardEmailSubject = (subject: string) => {
@@ -11,20 +12,18 @@ export const forwardEmailHtml = ({
   content: string;
   message: ParsedMessage;
 }) => {
-  return `<div>${content}</div>
+  const quotedDate = formatEmailDate(new Date(message.headers.date));
 
-<div>
----------- Forwarded message ----------<br>
-From: ${message.headers.from}<br>
-Date: ${message.headers.date}<br>
+  return `<div dir="ltr">${content}<br><br>
+<div class="gmail_quote gmail_quote_container">
+  <div dir="ltr" class="gmail_attr">---------- Forwarded message ----------<br>
+From: ${formatFromEmailWithName(message.headers.from)}<br>
+Date: ${quotedDate}<br>
 Subject: ${message.headers.subject}<br>
-To: ${message.headers.to}<br>
-</div>
-
-<br>
-<br>
-
-${message.textHtml}`;
+To: ${formatToEmailWithName(message.headers.to)}<br>
+</div><br><br>
+${message.textHtml}
+</div></div>`.trim();
 };
 
 export const forwardEmailText = ({
@@ -43,4 +42,24 @@ Subject: ${message.headers.subject}
 To: ${message.headers.to}
 
 ${message.textPlain}`;
+};
+
+const formatFromEmailWithName = (emailHeader: string) => {
+  const match = emailHeader.match(/(.*?)\s*<([^>]+)>/);
+  if (!match) return emailHeader;
+
+  const [, name, email] = match;
+  const trimmedName = name.trim();
+
+  return `<strong class="gmail_sendername" dir="auto">${trimmedName}</strong> <span dir="auto">&lt;<a href="mailto:${email}">${email}</a>&gt;</span>`;
+};
+
+const formatToEmailWithName = (emailHeader: string) => {
+  const match = emailHeader.match(/(.*?)\s*<([^>]+)>/);
+  if (!match) return emailHeader;
+
+  const [, name, email] = match;
+  const trimmedName = name.trim();
+
+  return `${trimmedName} &lt;<a href="mailto:${email}">${email}</a>&gt;`;
 };

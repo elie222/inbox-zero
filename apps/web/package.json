@@ -141,6 +141,7 @@
     "@types/email-reply-parser": "^1.4.2",
     "@types/he": "^1.2.3",
     "@types/html-to-text": "^9.0.4",
+    "@types/jsdom": "21.1.7",
     "@types/lodash": "^4.17.13",
     "@types/mdx": "^2.0.13",
     "@types/node": "22.10.2",

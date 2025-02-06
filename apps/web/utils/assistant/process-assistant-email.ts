@@ -1,9 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import {
-  isDefined,
-  type MessageWithPayload,
-  type ParsedMessage,
-} from "@/utils/types";
+import { isDefined, type ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
@@ -13,11 +9,7 @@ import { emailToContent, parseMessage } from "@/utils/mail";
 import { replyToEmail } from "@/utils/gmail/mail";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import {
-  getOrCreateInboxZeroLabel,
-  GmailLabel,
-  labelMessage,
-} from "@/utils/gmail/label";
+import { getOrCreateInboxZeroLabel, labelMessage } from "@/utils/gmail/label";
 
 const logger = createScopedLogger("process-assistant-email");
 

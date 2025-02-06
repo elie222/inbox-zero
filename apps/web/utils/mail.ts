@@ -127,3 +127,19 @@ export function emailToContent(
 
   return maxLength ? truncate(content, maxLength) : content;
 }
+
+export function convertEmailHtmlToText({
+  htmlText,
+}: {
+  htmlText: string;
+}): string {
+  const plainText = convert(htmlText, {
+    wordwrap: 130,
+    selectors: [
+      { selector: "a", options: { hideLinkHrefIfSameAsText: true } },
+      { selector: "img", format: "skip" },
+    ],
+  });
+
+  return plainText;
+}

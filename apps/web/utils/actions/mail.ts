@@ -21,7 +21,7 @@ import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { isActionError } from "@/utils/error";
 import {
-  sendEmail,
+  sendEmailWithHtml,
   type SendEmailBody,
   sendEmailBody,
 } from "@/utils/gmail/mail";
@@ -235,7 +235,7 @@ export const sendEmailAction = withActionInstrumentation(
 
     const body = sendEmailBody.parse(unsafeData);
 
-    await sendEmail(gmail, body);
+    await sendEmailWithHtml(gmail, body);
 
     return { success: true };
   },

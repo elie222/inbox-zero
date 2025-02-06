@@ -7,11 +7,10 @@ import {
   ComboboxOptions,
 } from "@headlessui/react";
 import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
-import React, { useCallback } from "react";
+import React, { useCallback, useRef } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
-import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import { Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,12 +18,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { env } from "@/env";
-import { cn } from "@/utils";
 import { extractNameFromEmail } from "@/utils/email";
 import { isActionError } from "@/utils/error";
-import type { SendEmailBody } from "@/utils/gmail/mail";
 import { Tiptap } from "@/components/Tiptap";
 import { sendEmailAction } from "@/utils/actions/mail";
+import type { ContactsResponse } from "@/app/api/google/contacts/route";
+import type { SendEmailBody } from "@/utils/gmail/mail";
+import type { TiptapHandle } from "@/components/Tiptap";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -33,23 +33,25 @@ export type ReplyingToEmail = {
   subject: string;
   to: string;
   cc?: string;
-  messageText: string | undefined;
-  messageHtml?: string | undefined;
+  bcc?: string;
+  draftHtml?: string | undefined; // The part being written/edited
+  quotedContentHtml?: string | undefined; // The part being quoted/replied to
+  date?: string; // The date of the original email
 };
 
 export const ComposeEmailForm = ({
   replyingToEmail,
-  submitButtonClassName,
   refetch,
   onSuccess,
   onDiscard,
 }: {
   replyingToEmail?: ReplyingToEmail;
-  submitButtonClassName?: string;
   refetch?: () => void;
   onSuccess?: () => void;
   onDiscard?: () => void;
 }) => {
+  const [showFullContent, setShowFullContent] = React.useState(false);
+
   const {
     register,
     handleSubmit,
@@ -62,8 +64,7 @@ export const ComposeEmailForm = ({
       subject: replyingToEmail?.subject,
       to: replyingToEmail?.to,
       cc: replyingToEmail?.cc,
-      messageHtml: "",
-      messageText: "",
+      messageHtml: replyingToEmail?.draftHtml,
     },
   });
 
@@ -71,8 +72,9 @@ export const ComposeEmailForm = ({
     async (data) => {
       const enrichedData = {
         ...data,
-        messageText: `${data.messageText}\n\n${replyingToEmail?.messageText ?? ""}`,
-        messageHtml: `${data.messageHtml ?? ""}\n<br/><br/>${replyingToEmail?.messageHtml ?? ""}`,
+        messageHtml: showFullContent
+          ? data.messageHtml
+          : `${data.messageHtml}<br>${replyingToEmail?.quotedContentHtml}`,
       };
 
       try {
@@ -91,12 +93,7 @@ export const ComposeEmailForm = ({
 
       refetch?.();
     },
-    [
-      refetch,
-      onSuccess,
-      replyingToEmail?.messageHtml,
-      replyingToEmail?.messageText,
-    ],
+    [refetch, onSuccess, showFullContent, replyingToEmail],
   );
 
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -135,11 +132,26 @@ export const ComposeEmailForm = ({
   const handleEditorChange = useCallback(
     (html: string) => {
       setValue("messageHtml", html);
-      // Also set plain text version by stripping HTML tags
-      setValue("messageText", html.replace(/<[^>]*>/g, ""));
     },
     [setValue],
   );
+
+  const editorRef = useRef<TiptapHandle>(null);
+
+  const showExpandedContent = useCallback(() => {
+    if (!showFullContent) {
+      try {
+        editorRef.current?.appendContent(
+          replyingToEmail?.quotedContentHtml ?? "",
+        );
+      } catch (error) {
+        console.error("Failed to append content:", error);
+        toastError({ description: "Failed to show full content" });
+        return; // Don't set showFullContent to true if append failed
+      }
+    }
+    setShowFullContent(true);
+  }, [showFullContent, replyingToEmail?.quotedContentHtml]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
@@ -292,17 +304,18 @@ export const ComposeEmailForm = ({
       )}
 
       <Tiptap
-        initialContent={replyingToEmail?.messageHtml}
+        ref={editorRef}
+        initialContent={replyingToEmail?.draftHtml}
         onChange={handleEditorChange}
         className="min-h-[200px]"
+        onMoreClick={
+          !replyingToEmail?.quotedContentHtml || showFullContent
+            ? undefined
+            : showExpandedContent
+        }
       />
 
-      <div
-        className={cn(
-          "flex items-center justify-between",
-          submitButtonClassName,
-        )}
-      >
+      <div className="flex items-center justify-between">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <ButtonLoader />}
           Send
@@ -313,7 +326,6 @@ export const ComposeEmailForm = ({
             type="button"
             variant="secondary"
             size="icon"
-            className={submitButtonClassName}
             disabled={isSubmitting}
             onClick={onDiscard}
           >

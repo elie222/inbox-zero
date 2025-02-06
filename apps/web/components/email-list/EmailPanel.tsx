@@ -11,11 +11,7 @@ import { DownloadIcon, ForwardIcon, ReplyIcon, XIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import type { Thread } from "@/components/email-list/types";
-import {
-  extractEmailAddress,
-  extractNameFromEmail,
-  normalizeEmailAddress,
-} from "@/utils/email";
+import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
@@ -23,17 +19,18 @@ import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/Card";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  forwardEmailHtml,
-  forwardEmailSubject,
-  forwardEmailText,
-} from "@/utils/gmail/forward";
+import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { Loading } from "@/components/Loading";
+import { extractEmailReply } from "@/utils/parse/extract-reply.client";
+import type { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
+import { createReplyContent } from "@/utils/gmail/reply";
+import { cn } from "@/utils";
+
+type EmailMessage = Thread["messages"][number];
 
 export function EmailPanel({
   row,
-  userEmail,
   isCategorizing,
   onPlanAiAction,
   onAiCategorize,
@@ -46,7 +43,6 @@ export function EmailPanel({
   refetch,
 }: {
   row: Thread;
-  userEmail: string;
   isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
   onAiCategorize: (thread: Thread) => void;
@@ -115,7 +111,6 @@ export function EmailPanel({
           messages={row.messages}
           refetch={refetch}
           showReplyButton
-          userEmail={userEmail}
         />
       </div>
     </div>
@@ -127,25 +122,63 @@ export function EmailThread({
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
-  userEmail,
 }: {
-  messages: Thread["messages"];
+  messages: EmailMessage[];
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
-  userEmail: string;
 }) {
+  // Place draft messages as replies to their parent message
+  const organizedMessages = useMemo(() => {
+    const drafts = new Map<string, EmailMessage>();
+    const regularMessages: EmailMessage[] = [];
+
+    messages?.forEach((message) => {
+      if (message.labelIds?.includes("DRAFT")) {
+        // Get the parent message ID from the references or in-reply-to header
+        const parentId =
+          message.headers.references?.split(" ").pop() ||
+          message.headers["in-reply-to"];
+        if (parentId) {
+          drafts.set(parentId, message);
+        }
+      } else {
+        regularMessages.push(message);
+      }
+    });
+
+    return regularMessages.map((message) => ({
+      message,
+      draftReply: drafts.get(message.headers["message-id"] || ""),
+    }));
+  }, [messages]);
+
+  const lastMessageId = organizedMessages.at(-1)?.message.id;
+
+  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
+    new Set(lastMessageId ? [lastMessageId] : []),
+  );
+
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
       <ul className="space-y-2 sm:space-y-4">
-        {messages?.map((message) => (
+        {organizedMessages.map(({ message, draftReply }) => (
           <EmailMessage
             key={message.id}
             message={message}
             showReplyButton={showReplyButton}
             refetch={refetch}
-            defaultShowReply={autoOpenReplyForMessageId === message.id}
-            userEmail={userEmail}
+            defaultShowReply={
+              autoOpenReplyForMessageId === message.id || Boolean(draftReply)
+            }
+            draftReply={draftReply}
+            expanded={expandedMessageIds.has(message.id)}
+            onExpand={() => {
+              setExpandedMessageIds((prev) => {
+                if (prev.has(message.id)) return prev;
+                return new Set(prev).add(message.id);
+              });
+            }}
           />
         ))}
       </ul>
@@ -158,13 +191,17 @@ function EmailMessage({
   refetch,
   showReplyButton,
   defaultShowReply,
-  userEmail,
+  draftReply,
+  expanded,
+  onExpand,
 }: {
-  message: Thread["messages"][0];
+  message: EmailMessage;
+  draftReply?: EmailMessage;
   refetch: () => void;
   showReplyButton: boolean;
   defaultShowReply?: boolean;
-  userEmail: string;
+  expanded: boolean;
+  onExpand: () => void;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const replyRef = useRef<HTMLDivElement>(null);
@@ -186,55 +223,23 @@ function EmailMessage({
     setShowForward(false);
   }, []);
 
-  const prepareReplyingToEmail = (message: ParsedMessage) => {
-    const normalizedFrom = normalizeEmailAddress(
-      extractEmailAddress(message.headers.from),
-    );
-    const normalizedUserEmail = normalizeEmailAddress(userEmail);
-    const sentFromUser = normalizedFrom === normalizedUserEmail;
-    console.log(
-      "🚀 ~ prepareReplyingToEmail ~ sentFromUser:",
-      sentFromUser,
-      normalizedFrom,
-      normalizedUserEmail,
-    );
-
-    return {
-      // If following an email from yourself, use original recipients, otherwise reply to sender
-      to: sentFromUser ? message.headers.to : message.headers.from,
-      // If following an email from yourself, don't add "Re:" prefix
-      subject: sentFromUser
-        ? message.headers.subject
-        : `Re: ${message.headers.subject}`,
-      headerMessageId: message.headers["message-id"]!,
-      threadId: message.threadId!,
-      // Keep original CC
-      cc: message.headers.cc,
-      // Keep original BCC if available
-      bcc: sentFromUser ? message.headers.bcc : "",
-      references: message.headers.references,
-      messageText: "",
-      messageHtml: "",
-    };
-  };
-
-  const prepareForwardingEmail = (message: ParsedMessage) => ({
-    to: "",
-    subject: forwardEmailSubject(message.headers.subject),
-    headerMessageId: "",
-    threadId: message.threadId!,
-    cc: "",
-    references: "",
-    messageText: forwardEmailText({ content: "", message }),
-    messageHtml: forwardEmailHtml({ content: "", message }),
-  });
-
-  const replyingToEmail = showReply
-    ? prepareReplyingToEmail(message)
-    : prepareForwardingEmail(message);
+  const replyingToEmail: ReplyingToEmail = useMemo(() => {
+    if (showReply) {
+      if (draftReply) return prepareDraftReplyEmail(draftReply);
+      return prepareReplyingToEmail(message);
+    }
+    return prepareForwardingEmail(message);
+  }, [showReply, message, draftReply]);
 
   return (
-    <li className="bg-white p-4 shadow sm:rounded-lg">
+    // biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
+    <li
+      className={cn(
+        "bg-white p-4 shadow sm:rounded-lg",
+        !expanded && "cursor-pointer",
+      )}
+      onClick={onExpand}
+    >
       <div className="sm:flex sm:items-baseline sm:justify-between">
         <h3 className="text-base font-medium">
           <span className="text-gray-900">
@@ -267,52 +272,57 @@ function EmailMessage({
           )}
         </div>
       </div>
-      <div className="mt-4">
-        {message.textHtml ? (
-          <HtmlEmail html={message.textHtml} />
-        ) : (
-          <PlainEmail text={message.textPlain || ""} />
-        )}
-      </div>
-      {message.attachments && (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {message.attachments.map((attachment) => {
-            const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
 
-            return (
-              <Card key={attachment.filename}>
-                <div className="text-gray-600">{attachment.filename}</div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-gray-600">
-                    {mimeTypeToString(attachment.mimeType)}
-                  </div>
-                  <Button variant="outline" asChild>
-                    <Link href={url} target="_blank">
-                      <>
-                        <DownloadIcon className="mr-2 h-4 w-4" />
-                        Download
-                      </>
-                    </Link>
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {(showReply || showForward) && (
+      {expanded && (
         <>
-          <Separator className="my-4" />
-
-          <div ref={replyRef}>
-            <ComposeEmailFormLazy
-              replyingToEmail={replyingToEmail}
-              refetch={refetch}
-              onSuccess={onCloseCompose}
-              onDiscard={onCloseCompose}
-            />
+          <div className="mt-4">
+            {message.textHtml ? (
+              <HtmlEmail html={message.textHtml} />
+            ) : (
+              <PlainEmail text={message.textPlain || ""} />
+            )}
           </div>
+          {message.attachments && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {message.attachments.map((attachment) => {
+                const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
+
+                return (
+                  <Card key={attachment.filename}>
+                    <div className="text-gray-600">{attachment.filename}</div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="text-gray-600">
+                        {mimeTypeToString(attachment.mimeType)}
+                      </div>
+                      <Button variant="outline" asChild>
+                        <Link href={url} target="_blank">
+                          <>
+                            <DownloadIcon className="mr-2 h-4 w-4" />
+                            Download
+                          </>
+                        </Link>
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {(showReply || showForward) && (
+            <>
+              <Separator className="my-4" />
+
+              <div ref={replyRef}>
+                <ComposeEmailFormLazy
+                  replyingToEmail={replyingToEmail}
+                  refetch={refetch}
+                  onSuccess={onCloseCompose}
+                  onDiscard={onCloseCompose}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
     </li>
@@ -366,6 +376,7 @@ function getIframeHtml(html: string) {
       /* Base styles with low specificity */
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        margin: 0;
       }
     </style>
   `;
@@ -409,4 +420,57 @@ function mimeTypeToString(mimeType: string): string {
     default:
       return mimeType;
   }
+}
+
+const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
+  const sentFromUser = message.labelIds?.includes("SENT");
+
+  const { html } = createReplyContent({ message });
+
+  const splitHtml = extractEmailReply(html);
+
+  return {
+    // If following an email from yourself, use original recipients, otherwise reply to sender
+    to: sentFromUser ? message.headers.to : message.headers.from,
+    // If following an email from yourself, don't add "Re:" prefix
+    subject: sentFromUser
+      ? message.headers.subject
+      : `Re: ${message.headers.subject}`,
+    headerMessageId: message.headers["message-id"]!,
+    threadId: message.threadId!,
+    // Keep original CC
+    cc: message.headers.cc,
+    // Keep original BCC if available
+    bcc: sentFromUser ? message.headers.bcc : "",
+    references: message.headers.references,
+    draftHtml: splitHtml.draftHtml,
+    quotedContentHtml: splitHtml.originalHtml,
+  };
+};
+
+const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
+  to: "",
+  subject: forwardEmailSubject(message.headers.subject),
+  headerMessageId: "",
+  threadId: message.threadId!,
+  cc: "",
+  references: "",
+  draftHtml: forwardEmailHtml({ content: "", message }),
+  quotedContentHtml: "",
+});
+
+function prepareDraftReplyEmail(message: ParsedMessage): ReplyingToEmail {
+  const splitHtml = extractEmailReply(message.textHtml || "");
+
+  return {
+    to: message.headers.to,
+    subject: message.headers.subject,
+    headerMessageId: message.headers["message-id"]!,
+    threadId: message.threadId!,
+    cc: message.headers.cc,
+    bcc: message.headers.bcc,
+    references: message.headers.references,
+    draftHtml: splitHtml.draftHtml,
+    quotedContentHtml: splitHtml.originalHtml,
+  };
 }
