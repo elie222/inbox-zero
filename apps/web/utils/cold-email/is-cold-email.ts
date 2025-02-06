@@ -39,9 +39,9 @@ export async function isColdEmail({
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
-  logger.trace("Checking is cold email");
-
   const loggerOptions = { userId: user.id, email: user.email };
+
+  logger.info("Checking is cold email", loggerOptions);
 
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
