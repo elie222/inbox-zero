@@ -57,7 +57,7 @@ function detectTextDirection(text: string): "ltr" | "rtl" {
   return rtlRegex.test(text.trim().charAt(0)) ? "rtl" : "ltr";
 }
 
-function formatEmailDate(date: Date): string {
+export function formatEmailDate(date: Date): string {
   const weekday = date.toLocaleString("en-US", { weekday: "short" });
   const month = date.toLocaleString("en-US", { month: "short" });
   const day = date.getDate();
