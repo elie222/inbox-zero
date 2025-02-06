@@ -1,8 +1,14 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { Modal, useModal } from "@/components/Modal";
+import { useModal } from "@/components/Modal";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Context = {
   onOpen: () => void;
@@ -20,17 +26,14 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   return (
     <ComposeModalContext.Provider value={{ onOpen: openModal }}>
       {props.children}
-      <Modal
-        isOpen={isModalOpen}
-        hideModal={closeModal}
-        title="New Message"
-        size="4xl"
-        padding="sm"
-      >
-        <div className="mt-4">
+      <Dialog open={isModalOpen} onOpenChange={closeModal}>
+        <DialogContent className="">
+          <DialogHeader>
+            <DialogTitle>New Message</DialogTitle>
+          </DialogHeader>
           <ComposeEmailFormLazy onSuccess={closeModal} />
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </ComposeModalContext.Provider>
   );
 }
