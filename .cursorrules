@@ -224,3 +224,7 @@ export const POST = withError(async (request: Request) => {
 - `vitest` is used for testing.
 - Tests are colocated next to the tested file. e.g. `dir/format.ts` and `dir/format.test.ts`.
 - AI tests are placed in the `__tests__` directory and are not run by default as they use a real LLM to run which costs money each time.
+- You need to mock server-only for tests:
+```ts
+vi.mock("server-only", () => ({}));
+```
