@@ -43,7 +43,10 @@ async function getMessages({
     // NOTE: -from:me doesn't work because it filters out messages from threads where the user responded
     const incomingMessages = messages.filter((message) => {
       const isSent = message.labelIds?.includes(GmailLabel.SENT);
+      const isDraft = message.labelIds?.includes(GmailLabel.DRAFT);
       const isInbox = message.labelIds?.includes(GmailLabel.INBOX);
+
+      if (isDraft) return false;
 
       if (isSent) {
         // Don't include messages from/to the assistant
