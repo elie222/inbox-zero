@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("google-webhook");
-
+import { logger } from "@/app/api/google/webhook/logger";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 

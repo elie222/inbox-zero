@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { shouldRunColdEmailBlocker } from "./process-history";
+import { shouldRunColdEmailBlocker } from "./process-history-item";
 import { ColdEmailSetting } from "@prisma/client";
 
 vi.mock("server-only", () => ({}));
