@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
-import { EmailThread } from "@/components/email-list/EmailPanel";
+import { EmailThread } from "@/components/email-list/EmailThread";
 import { useThread } from "@/hooks/useThread";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
