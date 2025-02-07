@@ -9,7 +9,7 @@ import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { useThread } from "@/hooks/useThread";
 
 export function EmailMessageCell({
-  from,
+  sender,
   userEmail,
   subject,
   snippet,
@@ -17,7 +17,7 @@ export function EmailMessageCell({
   messageId,
   hideViewEmailButton,
 }: {
-  from: string;
+  sender: string;
   userEmail: string;
   subject: string;
   snippet: string;
@@ -28,7 +28,7 @@ export function EmailMessageCell({
   return (
     <div className="min-w-0 break-words">
       <MessageText className="flex items-center">
-        {from}{" "}
+        {sender}{" "}
         <Link
           className="ml-2 hover:text-gray-900"
           href={getGmailUrl(messageId, userEmail)}
@@ -54,12 +54,12 @@ export function EmailMessageCell({
 }
 
 export function EmailMessageCellWithData({
-  from,
+  sender,
   userEmail,
   threadId,
   messageId,
 }: {
-  from: string;
+  sender: string;
   userEmail: string;
   threadId: string;
   messageId: string;
@@ -68,7 +68,7 @@ export function EmailMessageCellWithData({
 
   return (
     <EmailMessageCell
-      from={from}
+      sender={sender}
       userEmail={userEmail}
       subject={
         error

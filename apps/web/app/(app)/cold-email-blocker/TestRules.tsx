@@ -147,7 +147,7 @@ function TestRulesContentRow(props: {
       <TableCell>
         <div className="flex items-center justify-between">
           <EmailMessageCell
-            from={message.headers.from}
+            sender={message.headers.from}
             subject={message.headers.subject}
             snippet={message.snippet}
             userEmail={props.userEmail}

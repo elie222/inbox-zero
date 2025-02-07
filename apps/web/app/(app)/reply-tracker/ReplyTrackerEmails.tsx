@@ -133,7 +133,11 @@ function Row({
       <TableCell>
         <div className="flex items-center justify-between">
           <EmailMessageCell
-            from={message.headers.from}
+            sender={
+              type === ThreadTrackerType.AWAITING
+                ? message.headers.to
+                : message.headers.from
+            }
             subject={message.headers.subject}
             snippet={message.snippet}
             userEmail={userEmail}

@@ -18,10 +18,7 @@ import { AlertBasic } from "@/components/Alert";
 import { useSearchParams } from "next/navigation";
 import { ColdEmailStatus } from "@prisma/client";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
-import {
-  EmailMessageCell,
-  EmailMessageCellWithData,
-} from "@/components/EmailMessageCell";
+import { EmailMessageCellWithData } from "@/components/EmailMessageCell";
 
 export function ColdEmailRejected() {
   const searchParams = useSearchParams();
@@ -73,7 +70,7 @@ function Row({
     <TableRow key={row.id}>
       <TableCell>
         <EmailMessageCellWithData
-          from={row.fromEmail}
+          sender={row.fromEmail}
           userEmail={userEmail}
           threadId={row.threadId || ""}
           messageId={row.messageId || ""}
