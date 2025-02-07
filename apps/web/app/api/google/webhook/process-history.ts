@@ -470,7 +470,8 @@ function shouldRunColdEmailBlocker(
   hasColdEmailAccess: boolean,
 ) {
   return (
-    (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+    (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL ||
+      coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
       coldEmailBlocker === ColdEmailSetting.LABEL) &&
     hasColdEmailAccess
   );
