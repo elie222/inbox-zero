@@ -47,7 +47,7 @@ export const ComposeEmailForm = ({
 }: {
   replyingToEmail?: ReplyingToEmail;
   refetch?: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (messageId: string) => void;
   onDiscard?: () => void;
 }) => {
   const [showFullContent, setShowFullContent] = React.useState(false);
@@ -79,13 +79,14 @@ export const ComposeEmailForm = ({
 
       try {
         const res = await sendEmailAction(enrichedData);
-        if (isActionError(res))
+        if (isActionError(res)) {
           toastError({
             description: "There was an error sending the email :(",
           });
-        else toastSuccess({ description: "Email sent!" });
-
-        onSuccess?.();
+        } else {
+          toastSuccess({ description: "Email sent!" });
+          onSuccess?.(res.messageId ?? "");
+        }
       } catch (error) {
         console.error(error);
         toastError({ description: "There was an error sending the email :(" });

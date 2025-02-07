@@ -179,6 +179,12 @@ export function EmailThread({
                 return new Set(prev).add(message.id);
               });
             }}
+            onSendSuccess={(messageId) => {
+              setExpandedMessageIds((prev) => {
+                if (prev.has(messageId)) return prev;
+                return new Set(prev).add(messageId);
+              });
+            }}
           />
         ))}
       </ul>
@@ -194,6 +200,7 @@ function EmailMessage({
   draftReply,
   expanded,
   onExpand,
+  onSendSuccess,
 }: {
   message: EmailMessage;
   draftReply?: EmailMessage;
@@ -202,6 +209,7 @@ function EmailMessage({
   defaultShowReply?: boolean;
   expanded: boolean;
   onExpand: () => void;
+  onSendSuccess: (messageId: string) => void;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const replyRef = useRef<HTMLDivElement>(null);
@@ -317,7 +325,10 @@ function EmailMessage({
                 <ComposeEmailFormLazy
                   replyingToEmail={replyingToEmail}
                   refetch={refetch}
-                  onSuccess={onCloseCompose}
+                  onSuccess={(messageId) => {
+                    onSendSuccess(messageId);
+                    onCloseCompose();
+                  }}
                   onDiscard={onCloseCompose}
                 />
               </div>

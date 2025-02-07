@@ -235,8 +235,8 @@ export const sendEmailAction = withActionInstrumentation(
 
     const body = sendEmailBody.parse(unsafeData);
 
-    await sendEmailWithHtml(gmail, body);
+    const result = await sendEmailWithHtml(gmail, body);
 
-    return { success: true };
+    return { success: true, messageId: result.data.id };
   },
 );
