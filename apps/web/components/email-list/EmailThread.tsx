@@ -76,6 +76,9 @@ export function EmailThread({
 
   return (
     <div className="grid flex-1 gap-4 overflow-auto bg-gray-100 p-4">
+      <div className="text-2xl font-semibold text-gray-900">
+        {messages[0]?.headers.subject}
+      </div>
       <ul className="space-y-2 sm:space-y-4">
         {organizedMessages.map(({ message, draftReply }) => (
           <EmailMessage
