@@ -7,7 +7,13 @@ import {
   useEffect,
 } from "react";
 import Link from "next/link";
-import { DownloadIcon, ForwardIcon, ReplyIcon } from "lucide-react";
+import {
+  DownloadIcon,
+  ForwardIcon,
+  ReplyIcon,
+  ChevronsUpDownIcon,
+  ChevronsDownUpIcon,
+} from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import type { Thread } from "@/components/email-list/types";
 import { extractNameFromEmail } from "@/utils/email";
@@ -122,6 +128,7 @@ function EmailMessage({
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const replyRef = useRef<HTMLDivElement>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     if (defaultShowReply && replyRef.current) {
@@ -148,6 +155,11 @@ function EmailMessage({
     return prepareForwardingEmail(message);
   }, [showReply, message, draftReply]);
 
+  const toggleDetails = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDetails((prev) => !prev);
+  }, []);
+
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
     <li
@@ -157,14 +169,31 @@ function EmailMessage({
       )}
       onClick={onExpand}
     >
-      <div className="sm:flex sm:items-baseline sm:justify-between">
-        <h3 className="text-base font-medium">
-          <span className="text-gray-900">
-            {extractNameFromEmail(message.headers.from)}
-          </span>{" "}
-          <span className="text-gray-600">wrote</span>
-        </h3>
-
+      <div className="sm:flex sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center">
+            <h3 className="text-base font-medium">
+              <span className="text-gray-900">
+                {extractNameFromEmail(message.headers.from)}
+              </span>{" "}
+              <span className="text-gray-600">wrote</span>
+            </h3>
+          </div>
+          {expanded && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="size-6 p-0"
+              onClick={toggleDetails}
+            >
+              {showDetails ? (
+                <ChevronsDownUpIcon className="size-4" />
+              ) : (
+                <ChevronsUpDownIcon className="size-4" />
+              )}
+            </Button>
+          )}
+        </div>
         <div className="flex items-center space-x-2">
           <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
             <time dateTime={message.headers.date}>
@@ -192,13 +221,14 @@ function EmailMessage({
 
       {expanded && (
         <>
-          <div className="mt-4">
-            {message.textHtml ? (
-              <HtmlEmail html={message.textHtml} />
-            ) : (
-              <PlainEmail text={message.textPlain || ""} />
-            )}
-          </div>
+          {showDetails && <EmailDetails message={message} />}
+
+          {message.textHtml ? (
+            <HtmlEmail html={message.textHtml} />
+          ) : (
+            <PlainEmail text={message.textPlain || ""} />
+          )}
+
           {message.attachments && (
             <div className="mt-4 grid grid-cols-2 gap-2">
               {message.attachments.map((attachment) => {
@@ -393,4 +423,34 @@ function prepareDraftReplyEmail(message: ParsedMessage): ReplyingToEmail {
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
   };
+}
+
+function EmailDetails({ message }: { message: EmailMessage }) {
+  const details = [
+    { label: "From", value: message.headers.from },
+    { label: "To", value: message.headers.to },
+    { label: "CC", value: message.headers.cc },
+    { label: "BCC", value: message.headers.bcc },
+    {
+      label: "Date",
+      value: new Date(message.headers.date).toLocaleString(),
+    },
+    // { label: "Subject", value: message.headers.subject },
+  ];
+
+  return (
+    <div className="mb-4 rounded-md bg-gray-50 p-3 text-sm">
+      <div className="grid gap-1">
+        {details.map(
+          ({ label, value }) =>
+            value && (
+              <div key={label} className="grid grid-cols-[auto,1fr] gap-2">
+                <span className="font-medium">{label}:</span>
+                <span>{value}</span>
+              </div>
+            ),
+        )}
+      </div>
+    </div>
+  );
 }
