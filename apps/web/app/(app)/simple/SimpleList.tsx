@@ -43,8 +43,8 @@ import {
   isMarketingEmail,
   removeReplyFromTextPlain,
 } from "@/utils/parse/parseHtml.client";
-import { HtmlEmail } from "@/components/email-list/EmailPanel";
 import { ViewMoreButton } from "@/app/(app)/simple/ViewMoreButton";
+import { HtmlEmail } from "@/components/email-list/EmailThread";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
