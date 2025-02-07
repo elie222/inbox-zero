@@ -228,3 +228,21 @@ export const POST = withError(async (request: Request) => {
 ```ts
 vi.mock("server-only", () => ({}));
 ```
+
+- To mock Prisma:
+```ts
+import { beforeEach } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
+
+vi.mock("@/utils/prisma");
+
+describe("example", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("test", async () => {
+    prisma.group.findMany.mockResolvedValue([]);
+  });
+});
+```
