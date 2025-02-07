@@ -165,7 +165,7 @@ function Row({
       </TableCell>
       <TableCell>
         <EmailMessageCellWithData
-          from={row.fromEmail}
+          sender={row.fromEmail}
           userEmail={userEmail}
           threadId={row.threadId || ""}
           messageId={row.messageId || ""}
