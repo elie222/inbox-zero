@@ -1,28 +1,28 @@
-"use client";
-
-import { useState } from "react";
-import { SideNav } from "@/components/SideNav";
 import { TopNav } from "@/components/TopNav";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/SideNav";
 
-export function SideNavWithTopNav(props: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
+export function SideNavWithTopNav({ children }: { children: React.ReactNode }) {
   return (
-    <SideNav
-      topBar={<TopNav setSidebarOpen={setSidebarOpen} />}
-      sidebarOpen={sidebarOpen}
-      setSidebarOpen={setSidebarOpen}
-    >
-      <Toaster closeButton richColors theme="light" visibleToasts={9} />
-      {props.children}
-      <div
-        className="md:hidden md:pt-0"
-        style={{ paddingTop: "calc(env(safe-area-inset-bottom) + 1rem)" }}
-      >
-        <NavBottom />
-      </div>
-    </SideNav>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset className="overflow-hidden">
+        <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
+        <Toaster closeButton richColors theme="light" visibleToasts={9} />
+        {children}
+        <div
+          className="md:hidden md:pt-0"
+          style={{ paddingTop: "calc(env(safe-area-inset-bottom) + 1rem)" }}
+        >
+          <NavBottom />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

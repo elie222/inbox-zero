@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 import clsx from "clsx";
 import { useSession, signIn } from "next-auth/react";
 import {
@@ -13,14 +16,12 @@ import {
   ChevronDownIcon,
   InboxIcon,
   LogOutIcon,
-  MenuIcon,
   RibbonIcon,
   Users2Icon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
 import { env } from "@/env";
-import Image from "next/image";
 
 const userNavigation = [
   ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD
@@ -51,18 +52,10 @@ const userNavigation = [
   },
 ];
 
-export function TopNav(props: { setSidebarOpen: (open: boolean) => void }) {
+export function TopNav({ trigger }: { trigger: React.ReactNode }) {
   return (
     <div className="content-container flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white shadow-sm sm:gap-x-6">
-      <button
-        type="button"
-        className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
-        onClick={() => props.setSidebarOpen(true)}
-      >
-        <span className="sr-only">Open sidebar</span>
-        <MenuIcon className="h-6 w-6" aria-hidden="true" />
-      </button>
-
+      {trigger}
       {/* Separator */}
       <div className="h-6 w-px bg-gray-900/10 lg:hidden" aria-hidden="true" />
 
