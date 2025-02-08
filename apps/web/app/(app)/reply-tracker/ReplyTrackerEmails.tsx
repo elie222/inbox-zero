@@ -212,7 +212,7 @@ function Row({
         "transition-colors duration-100 hover:bg-slate-100",
         isSelected && "bg-blue-50 hover:bg-blue-100",
       )}
-      onClick={onSelect}
+      onMouseEnter={onSelect}
     >
       <TableCell>
         <div className="flex items-center justify-between">
