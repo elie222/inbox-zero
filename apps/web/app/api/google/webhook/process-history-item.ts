@@ -14,6 +14,7 @@ import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
 import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
+import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 
 export async function processHistoryItem(
   {
@@ -68,6 +69,11 @@ export async function processHistoryItem(
     }
 
     const message = parseMessage(gmailMessage);
+
+    if (isIgnoredSender(message.headers.from)) {
+      logger.info("Skipping. Ignored sender.", loggerOptions);
+      return;
+    }
 
     const isForAssistant = isAssistantEmail({
       userEmail,

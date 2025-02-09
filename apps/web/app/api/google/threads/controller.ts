@@ -75,7 +75,7 @@ export async function getThreads(query: ThreadsQuery) {
     threads.map(async (thread) => {
       const id = thread.id;
       if (!id) return;
-      const messages = parseMessages(thread);
+      const messages = parseMessages(thread, { withoutIgnoredSenders: true });
 
       const plan = plans.find((p) => p.threadId === id);
 

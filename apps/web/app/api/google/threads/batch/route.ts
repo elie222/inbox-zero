@@ -3,7 +3,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getThreadsBatch } from "@/utils/gmail/thread";
-import { parseMessages, parseMessagesWithoutDrafts } from "@/utils/mail";
+import { parseMessages } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 
 const requestSchema = z.object({
@@ -24,9 +24,10 @@ async function getThreads(
     const id = thread.id;
     if (!id) return;
 
-    const messages = includeDrafts
-      ? parseMessages(thread)
-      : parseMessagesWithoutDrafts(thread);
+    const messages = parseMessages(thread, {
+      withoutIgnoredSenders: true,
+      withoutDrafts: !includeDrafts,
+    });
 
     return { id, messages };
   });

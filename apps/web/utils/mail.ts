@@ -9,6 +9,7 @@ import type {
 } from "@/utils/types";
 import { removeExcessiveWhitespace, truncate } from "@/utils/string";
 import { GmailLabel } from "@/utils/gmail/label";
+import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 
 export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
@@ -21,21 +22,33 @@ function parseReply(plainText: string) {
   return result;
 }
 
-export function parseMessages(thread: ThreadWithPayloadMessages) {
+export function parseMessages(
+  thread: ThreadWithPayloadMessages,
+  {
+    withoutIgnoredSenders,
+    withoutDrafts,
+  }: {
+    withoutIgnoredSenders?: boolean;
+    withoutDrafts?: boolean;
+  } = {},
+) {
   const messages =
     thread.messages?.map((message: MessageWithPayload) => {
       return parseMessage(message);
     }) || [];
 
-  return messages;
-}
+  if (withoutIgnoredSenders || withoutDrafts) {
+    const filteredMessages = messages.filter((message) => {
+      if (withoutIgnoredSenders && isIgnoredSender(message.headers.from))
+        return false;
+      if (withoutDrafts && message.labelIds?.includes(GmailLabel.DRAFT))
+        return false;
+      return true;
+    });
+    return filteredMessages;
+  }
 
-export function parseMessagesWithoutDrafts(thread: ThreadWithPayloadMessages) {
-  return (
-    parseMessages(thread)?.filter(
-      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
-    ) || []
-  );
+  return messages;
 }
 
 // important to do before processing html emails
