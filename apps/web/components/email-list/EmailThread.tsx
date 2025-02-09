@@ -233,18 +233,18 @@ function EmailMessage({
           )}
 
           {message.attachments && (
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-3">
               {message.attachments.map((attachment) => {
                 const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
 
                 return (
-                  <Card key={attachment.filename}>
+                  <Card key={attachment.filename} className="p-4">
                     <div className="text-gray-600">{attachment.filename}</div>
                     <div className="mt-4 flex items-center justify-between">
                       <div className="text-gray-600">
                         {mimeTypeToString(attachment.mimeType)}
                       </div>
-                      <Button variant="outline" asChild>
+                      <Button variant="outline" size="sm" asChild>
                         <Link href={url} target="_blank">
                           <>
                             <DownloadIcon className="mr-2 h-4 w-4" />
