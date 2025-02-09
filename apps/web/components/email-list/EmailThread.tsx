@@ -143,8 +143,10 @@ function EmailMessage({
   useEffect(() => {
     if (defaultShowReply && replyRef.current) {
       setTimeout(() => {
-        replyRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 300);
+        replyRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        // NOTE: a little hacky
+        // If this is set lower it doesn't work (or if we turn off autofocus, it does, but we want autofocus).
+      }, 500);
     }
   }, [defaultShowReply]);
 
