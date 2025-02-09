@@ -39,7 +39,11 @@ export async function isColdEmail({
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
-  const loggerOptions = { userId: user.id, email: user.email };
+  const loggerOptions = {
+    userId: user.id,
+    email: user.email,
+    threadId: email.threadId,
+  };
 
   logger.info("Checking is cold email", loggerOptions);
 
