@@ -38,10 +38,12 @@ export function ThreadContent({
   threadId,
   showReplyButton,
   autoOpenReplyForMessageId,
+  topRightComponent,
 }: {
   threadId: string;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
+  topRightComponent?: React.ReactNode;
 }) {
   const { data, isLoading, error, mutate } = useThread(
     { id: threadId },
@@ -59,6 +61,7 @@ export function ThreadContent({
             refetch={mutate}
             showReplyButton={showReplyButton}
             autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+            topRightComponent={topRightComponent}
           />
         )}
       </LoadingContent>

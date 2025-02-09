@@ -2,9 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsBoolean } from "nuqs";
-import { useHotkeys } from "react-hotkeys-hook";
 import sortBy from "lodash/sortBy";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import type { ParsedMessage } from "@/utils/types";
 import { type ThreadTracker, ThreadTrackerType } from "@prisma/client";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -16,6 +15,7 @@ import {
   HandIcon,
   RefreshCwIcon,
   ReplyIcon,
+  XIcon,
 } from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
@@ -178,6 +178,15 @@ export function ReplyTrackerEmails({
           threadId={selectedEmail.threadId}
           showReplyButton={true}
           autoOpenReplyForMessageId={selectedEmail.messageId}
+          topRightComponent={
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSelectedEmail(null)}
+            >
+              <XIcon className="size-4" />
+            </Button>
+          }
         />
       </ResizablePanel>
     </ResizablePanelGroup>

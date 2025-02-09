@@ -37,11 +37,13 @@ export function EmailThread({
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
+  topRightComponent,
 }: {
   messages: EmailMessage[];
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
+  topRightComponent?: React.ReactNode;
 }) {
   // Place draft messages as replies to their parent message
   const organizedMessages = useMemo(() => {
@@ -76,8 +78,13 @@ export function EmailThread({
 
   return (
     <div className="flex-1 overflow-auto bg-gray-100 p-4">
-      <div className="text-2xl font-semibold text-gray-900">
-        {messages[0]?.headers.subject}
+      <div className="flex items-center justify-between">
+        <div className="text-2xl font-semibold text-gray-900">
+          {messages[0]?.headers.subject}
+        </div>
+        {topRightComponent && (
+          <div className="flex items-center gap-2">{topRightComponent}</div>
+        )}
       </div>
       <ul className="mt-4 space-y-2 sm:space-y-4">
         {organizedMessages.map(({ message, draftReply }) => (
