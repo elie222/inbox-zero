@@ -32,6 +32,7 @@ import { ThreadContent } from "@/components/EmailViewer";
 import { internalDateToDate } from "@/utils/date";
 import { cn } from "@/utils";
 import { CommandShortcut } from "@/components/ui/command";
+import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -120,7 +121,7 @@ export function ReplyTrackerEmails({
     [sortedThreads, handleResolve],
   );
 
-  const { selectedIndex, setSelectedIndex } = useTableKeyboardNavigation(
+  const { selectedIndex, setSelectedIndex } = useReplyTrackerKeyboardNav(
     sortedThreads,
     handleAction,
   );
@@ -378,43 +379,21 @@ function EmptyState({
   );
 }
 
-function useTableKeyboardNavigation(
+function useReplyTrackerKeyboardNav(
   items: { id: string }[],
   onAction: (index: number, action: "reply" | "resolve" | "unresolve") => void,
 ) {
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!items.length) return;
-
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev <= 0 ? items.length - 1 : prev - 1));
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev >= items.length - 1 ? 0 : prev + 1));
-      }
+  const handleKeyAction = useCallback(
+    (index: number, key: string) => {
+      if (key === "r") onAction(index, "reply");
+      else if (key === "d") onAction(index, "resolve");
+      else if (key === "n") onAction(index, "unresolve");
     },
-    [items.length],
+    [onAction],
   );
 
-  useHotkeys("r", () => {
-    if (selectedIndex >= 0) onAction(selectedIndex, "reply");
+  return useTableKeyboardNavigation({
+    items,
+    onKeyAction: handleKeyAction,
   });
-
-  useHotkeys("d", () => {
-    if (selectedIndex >= 0) onAction(selectedIndex, "resolve");
-  });
-
-  useHotkeys("n", () => {
-    if (selectedIndex >= 0) onAction(selectedIndex, "unresolve");
-  });
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
-
-  return { selectedIndex, setSelectedIndex };
 }
