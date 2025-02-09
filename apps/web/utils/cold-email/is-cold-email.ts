@@ -31,6 +31,7 @@ export async function isColdEmail({
     content: string;
     date?: string;
     threadId?: string;
+    messageId: string | null;
   };
   user: Pick<User, "id" | "email" | "coldEmailPrompt"> & UserAIFields;
   gmail: gmail_v1.Gmail;
@@ -43,6 +44,7 @@ export async function isColdEmail({
     userId: user.id,
     email: user.email,
     threadId: email.threadId,
+    messageId: email.messageId,
   };
 
   logger.info("Checking is cold email", loggerOptions);
@@ -62,11 +64,11 @@ export async function isColdEmail({
   }
 
   const hasPreviousEmail =
-    email.date && email.threadId
+    email.date && email.messageId
       ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
           from: email.from,
           date: email.date,
-          threadId: email.threadId,
+          messageId: email.messageId,
         })
       : false;
 

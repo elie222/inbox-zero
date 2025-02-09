@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const categorizeBody = z.object({
   threadId: z.string(),
+  messageId: z.string(),
   from: z.string(),
   subject: z.string(),
 });

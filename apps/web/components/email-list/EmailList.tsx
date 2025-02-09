@@ -237,8 +237,9 @@ export function EmailList({
             textPlain: message.textPlain || null,
             textHtml: message.textHtml || null,
             snippet: thread.snippet,
-            threadId: message.threadId || "",
-            date: message.headers.date || "",
+            threadId: message.threadId,
+            messageId: message.id,
+            date: message.headers.date,
           });
 
           if (isActionError(result)) {

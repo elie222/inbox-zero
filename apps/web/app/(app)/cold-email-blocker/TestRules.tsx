@@ -98,6 +98,7 @@ const TestRulesForm = () => {
         textPlain: data.message,
         snippet: null,
         threadId: null,
+        messageId: null,
       });
     },
     [testEmail],
@@ -166,6 +167,7 @@ function TestRulesContentRow(props: {
                   textPlain: message.textPlain || null,
                   snippet: message.snippet || null,
                   threadId: message.threadId,
+                  messageId: message.id,
                 });
               }}
             >
