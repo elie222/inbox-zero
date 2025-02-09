@@ -12,6 +12,10 @@ import { createScopedLogger } from "@/utils/logger";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { getGmailClient } from "@/utils/gmail/client";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
+import {
+  startAnalyzingReplyTracker,
+  stopAnalyzingReplyTracker,
+} from "@/utils/redis/reply-tracker-analyzing";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -202,12 +206,20 @@ export const resolveThreadTrackerAction = withActionInstrumentation(
       resolveThreadTrackerSchema.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
+    await startAnalyzingReplyTracker(userId).catch((error) => {
+      logger.error("Error starting reply tracker analysis", { error });
+    });
+
     await prisma.threadTracker.updateMany({
       where: {
         threadId: data.threadId,
         userId,
       },
       data: { resolved: data.resolved },
+    });
+
+    await stopAnalyzingReplyTracker(userId).catch((error) => {
+      logger.error("Error stopping reply tracker analysis", { error });
     });
 
     revalidatePath("/reply-tracker");

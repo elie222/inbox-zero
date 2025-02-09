@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useQueryState, parseAsBoolean } from "nuqs";
 import sortBy from "lodash/sortBy";
 import { useState, useCallback } from "react";
 import type { ParsedMessage } from "@/utils/types";
@@ -40,12 +39,14 @@ export function ReplyTrackerEmails({
   type,
   isResolved,
   totalPages,
+  isAnalyzing,
 }: {
   trackers: ThreadTracker[];
   userEmail: string;
   type?: ThreadTrackerType;
   isResolved?: boolean;
   totalPages: number;
+  isAnalyzing: boolean;
 }) {
   const [selectedEmail, setSelectedEmail] = useState<{
     threadId: string;
@@ -133,7 +134,7 @@ export function ReplyTrackerEmails({
   if (!data?.threads.length) {
     return (
       <div className="mt-2">
-        <EmptyState message="No emails yet!" isResolved={isResolved} />
+        <EmptyState message="No emails yet!" isAnalyzing={isAnalyzing} />
       </div>
     );
   }
@@ -372,19 +373,18 @@ function UnresolveButton({
 
 function EmptyState({
   message,
-  isResolved,
+  isAnalyzing,
 }: {
   message: string;
-  isResolved?: boolean;
+  isAnalyzing: boolean;
 }) {
   const router = useRouter();
-  const [enabled] = useQueryState("enabled", parseAsBoolean.withDefault(false));
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   return (
     <div className="content-container">
       <div className="flex min-h-[200px] flex-col items-center justify-center rounded-md border border-dashed bg-slate-50 p-8 text-center animate-in fade-in-50">
-        {enabled && !isResolved ? (
+        {isAnalyzing ? (
           <>
             <p className="text-sm text-muted-foreground">
               Analyzing your emails...

@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import { EnableReplyTracker } from "@/app/(app)/reply-tracker/EnableReplyTracker";
 import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
+import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
 
 export const maxDuration = 600;
 
@@ -27,6 +28,8 @@ export default async function ReplyTrackerPage({
     where: { userId, trackReplies: true },
     select: { trackReplies: true },
   });
+
+  const isAnalyzing = await isAnalyzingReplyTracker(userId);
 
   if (!trackRepliesRule?.trackReplies && !searchParams.enabled) {
     return <EnableReplyTracker />;
@@ -79,6 +82,7 @@ export default async function ReplyTrackerPage({
           userEmail={userEmail}
           page={page}
           timeRange={timeRange}
+          isAnalyzing={isAnalyzing}
         />
       </TabsContent>
 
@@ -88,6 +92,7 @@ export default async function ReplyTrackerPage({
           userEmail={userEmail}
           page={page}
           timeRange={timeRange}
+          isAnalyzing={isAnalyzing}
         />
       </TabsContent>
 

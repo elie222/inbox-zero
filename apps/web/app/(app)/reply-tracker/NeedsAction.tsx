@@ -8,11 +8,13 @@ export async function NeedsAction({
   userEmail,
   page,
   timeRange,
+  isAnalyzing,
 }: {
   userId: string;
   userEmail: string;
   page: number;
   timeRange: TimeRange;
+  isAnalyzing: boolean;
 }) {
   const { trackers, totalPages } = await getPaginatedThreadTrackers({
     userId,
@@ -27,6 +29,7 @@ export async function NeedsAction({
       userEmail={userEmail}
       type={ThreadTrackerType.NEEDS_ACTION}
       totalPages={totalPages}
+      isAnalyzing={isAnalyzing}
     />
   );
 }

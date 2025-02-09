@@ -60,6 +60,7 @@ export async function Resolved({
       userEmail={userEmail}
       totalPages={totalPages}
       isResolved
+      isAnalyzing={false}
     />
   );
 }

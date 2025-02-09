@@ -8,11 +8,13 @@ export async function AwaitingReply({
   userEmail,
   page,
   timeRange,
+  isAnalyzing,
 }: {
   userId: string;
   userEmail: string;
   page: number;
   timeRange: TimeRange;
+  isAnalyzing: boolean;
 }) {
   const { trackers, totalPages } = await getPaginatedThreadTrackers({
     userId,
@@ -27,6 +29,7 @@ export async function AwaitingReply({
       userEmail={userEmail}
       type={ThreadTrackerType.AWAITING}
       totalPages={totalPages}
+      isAnalyzing={isAnalyzing}
     />
   );
 }
