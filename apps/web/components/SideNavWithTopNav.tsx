@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { TopNav } from "@/components/TopNav";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
@@ -9,8 +10,11 @@ import {
 import { AppSidebar } from "@/components/SideNav";
 
 export function SideNavWithTopNav({ children }: { children: React.ReactNode }) {
+  const cookieStore = cookies();
+  const isOpen = cookieStore.get("sidebar_state")?.value === "true";
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={isOpen}>
       <AppSidebar />
       <SidebarInset className="overflow-hidden">
         <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
