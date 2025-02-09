@@ -389,8 +389,6 @@ const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
 
   const { html } = createReplyContent({ message });
 
-  const splitHtml = extractEmailReply(html);
-
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
     to: sentFromUser ? message.headers.to : message.headers.from,
@@ -405,8 +403,8 @@ const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
     references: message.headers.references,
-    draftHtml: splitHtml.draftHtml,
-    quotedContentHtml: splitHtml.originalHtml,
+    draftHtml: "",
+    quotedContentHtml: html,
   };
 };
 
