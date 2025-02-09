@@ -179,13 +179,31 @@ export function ReplyTrackerEmails({
           showReplyButton={true}
           autoOpenReplyForMessageId={selectedEmail.messageId}
           topRightComponent={
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSelectedEmail(null)}
-            >
-              <XIcon className="size-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {trackers.find((t) => t.threadId === selectedEmail.threadId)
+                ?.resolved ? (
+                <UnresolveButton
+                  threadId={selectedEmail.threadId}
+                  onResolve={handleResolve}
+                  isLoading={resolvingThreads.has(selectedEmail.threadId)}
+                  showShortcut={false}
+                />
+              ) : (
+                <ResolveButton
+                  threadId={selectedEmail.threadId}
+                  onResolve={handleResolve}
+                  isLoading={resolvingThreads.has(selectedEmail.threadId)}
+                  showShortcut={false}
+                />
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedEmail(null)}
+              >
+                <XIcon className="size-4" />
+              </Button>
+            </div>
           }
         />
       </ResizablePanel>
@@ -259,6 +277,7 @@ function Row({
                 threadId={message.threadId}
                 onResolve={onResolve}
                 isLoading={isResolving}
+                showShortcut
               />
             ) : (
               <>
@@ -267,6 +286,7 @@ function Row({
                   threadId={message.threadId}
                   onResolve={onResolve}
                   isLoading={isResolving}
+                  showShortcut
                 />
               </>
             )}
@@ -304,10 +324,12 @@ function ResolveButton({
   threadId,
   onResolve,
   isLoading,
+  showShortcut,
 }: {
   threadId: string;
   onResolve: (threadId: string, resolved: boolean) => Promise<void>;
   isLoading: boolean;
+  showShortcut: boolean;
 }) {
   return (
     <Button
@@ -318,7 +340,7 @@ function ResolveButton({
       onClick={() => onResolve(threadId, true)}
     >
       Mark Done
-      <CommandShortcut className="ml-2">D</CommandShortcut>
+      {showShortcut && <CommandShortcut className="ml-2">D</CommandShortcut>}
     </Button>
   );
 }
@@ -327,10 +349,12 @@ function UnresolveButton({
   threadId,
   onResolve,
   isLoading,
+  showShortcut,
 }: {
   threadId: string;
   onResolve: (threadId: string, resolved: boolean) => Promise<void>;
   isLoading: boolean;
+  showShortcut: boolean;
 }) {
   return (
     <Button
@@ -340,8 +364,8 @@ function UnresolveButton({
       loading={isLoading}
       onClick={() => onResolve(threadId, false)}
     >
-      Mark as not done
-      <CommandShortcut className="ml-2">N</CommandShortcut>
+      Not Done
+      {showShortcut && <CommandShortcut className="ml-2">N</CommandShortcut>}
     </Button>
   );
 }
