@@ -206,6 +206,13 @@ function Row({
   isResolving: boolean;
   onSelect: () => void;
 }) {
+  const openSplitView = useCallback(() => {
+    setSelectedEmail({
+      threadId: message.threadId,
+      messageId: message.id,
+    });
+  }, [message.id, message.threadId, setSelectedEmail]);
+
   return (
     <TableRow
       className={cn(
@@ -214,7 +221,7 @@ function Row({
       )}
       onMouseEnter={onSelect}
     >
-      <TableCell>
+      <TableCell onClick={openSplitView}>
         <div className="flex items-center justify-between">
           <EmailMessageCell
             sender={
@@ -229,11 +236,13 @@ function Row({
             messageId={message.id}
             hideViewEmailButton
           />
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: buttons inside handle keyboard events */}
           <div
             className={cn(
               "ml-4 flex items-center gap-1",
               isSplitViewOpen && "flex-col",
             )}
+            onClick={(e) => e.stopPropagation()}
           >
             {isResolved ? (
               <UnresolveButton
@@ -243,17 +252,7 @@ function Row({
               />
             ) : (
               <>
-                {!!type && (
-                  <NudgeButton
-                    type={type}
-                    onClick={() => {
-                      setSelectedEmail({
-                        threadId: message.threadId,
-                        messageId: message.id,
-                      });
-                    }}
-                  />
-                )}
+                {!!type && <NudgeButton type={type} onClick={openSplitView} />}
                 <ResolveButton
                   threadId={message.threadId}
                   onResolve={onResolve}
