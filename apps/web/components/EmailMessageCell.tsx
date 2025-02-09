@@ -7,6 +7,7 @@ import { getGmailUrl } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { useThread } from "@/hooks/useThread";
+import { snippetRemoveReply } from "@/utils/gmail/snippet";
 
 export function EmailMessageCell({
   sender,
@@ -47,7 +48,7 @@ export function EmailMessageCell({
       </MessageText>
       <MessageText className="mt-1 font-bold">{subject}</MessageText>
       <MessageText className="mt-1">
-        {decodeSnippet(snippet).trim()}
+        {snippetRemoveReply(decodeSnippet(snippet)).trim()}
       </MessageText>
     </div>
   );
