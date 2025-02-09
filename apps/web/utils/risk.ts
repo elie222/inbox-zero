@@ -11,11 +11,17 @@ const RISK_LEVELS = {
 
 export type RiskLevel = (typeof RISK_LEVELS)[keyof typeof RISK_LEVELS];
 
+export type RiskAction = {
+  type: ActionType;
+  subject: string | null;
+  content: string | null;
+  to: string | null;
+  cc: string | null;
+  bcc: string | null;
+};
+
 export function getActionRiskLevel(
-  action: Pick<
-    RulesResponse[number]["actions"][number],
-    "type" | "subject" | "content" | "to" | "cc" | "bcc"
-  >,
+  action: RiskAction,
   isAutomated: boolean,
   rule: RuleConditions,
 ): {
@@ -140,12 +146,7 @@ export function getRiskLevel(
   );
 }
 
-function getFieldsDynamicStatus(
-  action: Pick<
-    RulesResponse[number]["actions"][number],
-    "subject" | "content" | "to" | "cc" | "bcc"
-  >,
-) {
+function getFieldsDynamicStatus(action: RiskAction) {
   const checkFieldStatus = (field: string | null) => {
     if (!field) return null;
     if (isFullyDynamicField(field)) return "fully-dynamic";

@@ -1,13 +1,9 @@
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  type Action,
-  ActionType,
-  type Prisma,
-  type Rule,
-} from "@prisma/client";
+import type { Prisma, Rule } from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
+import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 
 const logger = createScopedLogger("rule");
 
@@ -100,16 +96,23 @@ async function createRule({
   userId: string;
   categoryIds?: string[] | null;
 }) {
+  const mappedActions = mapActionFields(result.actions);
+
   return prisma.rule.create({
     data: {
       name: result.name,
       userId,
-      actions: {
-        createMany: {
-          data: mapActionFields(result.actions),
-        },
-      },
-      automate: shouldAutomate(result.actions),
+      actions: { createMany: { data: mappedActions } },
+      automate: shouldAutomate(
+        mappedActions.map((a) => ({
+          type: a.type,
+          subject: a.subject ?? null,
+          content: a.content ?? null,
+          to: a.to ?? null,
+          cc: a.cc ?? null,
+          bcc: a.bcc ?? null,
+        })),
+      ),
       runOnThreads: true,
       conditionalOperator: result.condition.conditionalOperator,
       instructions: result.condition.aiInstructions,
@@ -179,19 +182,13 @@ export async function deleteRule({
   ]);
 }
 
-function shouldAutomate(actions: Pick<Action, "type">[]) {
-  const types = new Set(actions.map((action) => action.type));
-
-  // don't automate replies, forwards, and send emails
-  if (
-    types.has(ActionType.REPLY) ||
-    types.has(ActionType.FORWARD) ||
-    types.has(ActionType.SEND_EMAIL)
-  ) {
-    return false;
-  }
-
-  return true;
+function shouldAutomate(actions: RiskAction[]) {
+  const riskLevels = actions.map(
+    (action) => getActionRiskLevel(action, false, {}).level,
+  );
+  // Only automate if all actions are low risk
+  // User can manually enable in other cases
+  return riskLevels.every((level) => level === "low");
 }
 
 export async function addRuleCategories(ruleId: string, categoryIds: string[]) {
