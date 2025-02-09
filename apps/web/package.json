@@ -117,6 +117,7 @@
     "react-dom": "18.3.1",
     "react-dom-confetti": "^0.2.0",
     "react-hook-form": "^7.54.2",
+    "react-hotkeys-hook": "4.6.1",
     "react-resizable-panels": "^2.1.7",
     "react-textarea-autosize": "^8.5.6",
     "react-youtube": "^10.1.0",
