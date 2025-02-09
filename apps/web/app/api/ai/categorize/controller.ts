@@ -29,7 +29,7 @@ const aiResponseSchema = z.object({
     .optional(),
 });
 
-async function aicategorize(
+async function aiCategorize(
   body: CategorizeBody & { content: string } & UserAIFields,
   expanded: boolean,
   userEmail: string,
@@ -101,10 +101,10 @@ export async function categorize(
   });
   if (existingCategory) return existingCategory;
   // 2. ai categorize
-  let category = await aicategorize(body, false, options.email);
+  let category = await aiCategorize(body, false, options.email);
   if (category.object.requiresMoreInformation) {
     console.log("Not enough information, expanding email and trying again");
-    category = await aicategorize(body, true, options.email);
+    category = await aiCategorize(body, true, options.email);
   }
 
   if (!category.object.category) return;

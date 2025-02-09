@@ -207,5 +207,6 @@ export const coldEmailBlockerBody = z.object({
   snippet: z.string().nullable(),
   date: z.string().optional(),
   threadId: z.string().nullable(),
+  messageId: z.string().nullable(),
 });
 export type ColdEmailBlockerBody = z.infer<typeof coldEmailBlockerBody>;

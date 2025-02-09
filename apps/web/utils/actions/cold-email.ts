@@ -124,6 +124,7 @@ async function checkColdEmail(
       content,
       date: body.date,
       threadId: body.threadId || undefined,
+      messageId: body.messageId,
     },
     user,
     gmail,
