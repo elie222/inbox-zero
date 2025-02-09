@@ -18,3 +18,13 @@ export function isAssistantEmail({
   );
   return pattern.test(extractedEmailToCheck);
 }
+
+// ignores the +1, +2, etc. suffixes, but good enough for our purposes
+export function getAssistantEmail({
+  userEmail,
+}: {
+  userEmail: string;
+}): string {
+  const [localPart, domain] = userEmail.split("@");
+  return `${localPart}+${ASSISTANT_SUFFIX}@${domain}`;
+}
