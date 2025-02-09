@@ -78,17 +78,21 @@ export async function posthogCaptureEvent(
   properties?: Record<string, any>,
   sendFeatureFlags?: boolean,
 ) {
-  if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
-    logger.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
-    return;
-  }
+  try {
+    if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
+      logger.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
+      return;
+    }
 
-  const client = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY);
-  client.capture({
-    distinctId: email,
-    event,
-    properties,
-    sendFeatureFlags,
-  });
-  await client.shutdown();
+    const client = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY);
+    client.capture({
+      distinctId: email,
+      event,
+      properties,
+      sendFeatureFlags,
+    });
+    await client.shutdown();
+  } catch (error) {
+    logger.error("Error capturing PostHog event", { error });
+  }
 }

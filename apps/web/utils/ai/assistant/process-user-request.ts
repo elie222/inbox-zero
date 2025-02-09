@@ -9,7 +9,7 @@ import {
   type Rule,
   type User,
 } from "@prisma/client";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import {
@@ -33,6 +33,7 @@ import {
   updatePromptFileOnRuleUpdated,
 } from "@/utils/rule/prompt-file";
 import { env } from "@/env";
+import { posthogCaptureEvent } from "@/utils/posthog";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -45,7 +46,7 @@ export async function processUserRequest({
   categories,
   senderCategory,
 }: {
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields;
+  user: Pick<User, "id" | "about"> & UserEmailWithAI;
   rules: RuleWithRelations[];
   originalEmail: ParsedMessage | null;
   messages: { role: "assistant" | "user"; content: string }[];
@@ -53,6 +54,11 @@ export async function processUserRequest({
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
+  posthogCaptureEvent(user.email, "AI Assistant Process Started", {
+    hasOriginalEmail: !!originalEmail,
+    hasMatchedRule: !!matchedRule,
+  });
+
   if (messages[messages.length - 1].role === "assistant")
     throw new Error("Assistant message cannot be last");
 
@@ -207,6 +213,7 @@ ${senderCategory || "No category"}
             ruleName,
             conditionalOperator,
           });
+          trackToolCall("update_conditional_operator", user.email);
 
           return updateRule(ruleName, { conditionalOperator });
         },
@@ -219,6 +226,7 @@ ${senderCategory || "No category"}
         }),
         execute: async ({ ruleName, aiInstructions }) => {
           logger.info("Edit AI Instructions", { ruleName, aiInstructions });
+          trackToolCall("update_ai_instructions", user.email);
 
           return updateRule(ruleName, { instructions: aiInstructions });
         },
@@ -231,6 +239,7 @@ ${senderCategory || "No category"}
         }),
         execute: async ({ ruleName, staticConditions }) => {
           logger.info("Edit Static Conditions", { ruleName, staticConditions });
+          trackToolCall("update_static_conditions", user.email);
 
           return updateRule(ruleName, {
             from: staticConditions?.from,
@@ -315,6 +324,7 @@ ${senderCategory || "No category"}
               }),
               execute: async ({ type, value }) => {
                 logger.info("Remove Pattern", { type, value });
+                trackToolCall("remove_pattern", user.email);
 
                 const groupItemType = getPatternType(type);
 
@@ -371,6 +381,7 @@ ${senderCategory || "No category"}
               user.id,
               categories,
               loggerOptions,
+              user.email,
             ),
             add_categories: tool({
               description: "Add categories to a rule",
@@ -385,6 +396,7 @@ ${senderCategory || "No category"}
               execute: async (options) => {
                 try {
                   logger.info("Add Rule Categories", options);
+                  trackToolCall("add_categories", user.email);
 
                   const { ruleName } = options;
 
@@ -442,6 +454,7 @@ ${senderCategory || "No category"}
               execute: async (options) => {
                 try {
                   logger.info("Remove Rule Categories", options);
+                  trackToolCall("remove_categories", user.email);
 
                   const { ruleName } = options;
 
@@ -497,6 +510,7 @@ ${senderCategory || "No category"}
           : createRuleSchema,
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
+          trackToolCall("create_rule", user.email);
 
           const conditions =
             condition as CreateRuleSchemaWithCategories["condition"];
@@ -542,7 +556,10 @@ ${senderCategory || "No category"}
       list_rules: tool({
         description: "List all existing rules for the user",
         parameters: z.object({}),
-        execute: async () => userRules,
+        execute: async () => {
+          trackToolCall("list_rules", user.email);
+          return userRules;
+        },
       }),
       reply: tool({
         description: "Send an email reply to the user",
@@ -573,6 +590,12 @@ ${senderCategory || "No category"}
     await updatePromptFileOnRuleUpdated(user.id, rule, rule);
   }
 
+  posthogCaptureEvent(user.email, "AI Assistant Process Completed", {
+    toolCallCount: result.steps.length,
+    rulesCreated: createdRules.size,
+    rulesUpdated: updatedRules.size,
+  });
+
   return result;
 }
 
@@ -585,6 +608,7 @@ const getUpdateCategoryTool = (
     messageId?: string | null;
     threadId?: string | null;
   },
+  userEmail: string,
 ) =>
   tool({
     description: "Update the category of a sender",
@@ -599,6 +623,7 @@ const getUpdateCategoryTool = (
     }),
     execute: async ({ sender, category }) => {
       logger.info("Update Category", { sender, category });
+      trackToolCall("update_sender_category", userEmail);
 
       const existingSender = await findSenderByEmail({
         userId,
@@ -700,4 +725,8 @@ function hasCategoryConditions(rule: RuleWithRelations) {
 function getPatternType(type: string) {
   if (type === "from") return GroupItemType.FROM;
   if (type === "subject") return GroupItemType.SUBJECT;
+}
+
+async function trackToolCall(tool: string, userEmail: string) {
+  return posthogCaptureEvent(userEmail, "AI Assistant Tool Call", { tool });
 }
