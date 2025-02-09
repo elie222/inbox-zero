@@ -32,6 +32,7 @@ import {
   updatePromptFileOnRuleCreated,
   updatePromptFileOnRuleUpdated,
 } from "@/utils/rule/prompt-file";
+import { env } from "@/env";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -97,6 +98,7 @@ Best practices:
 
 Always end by using the reply tool to explain what changes were made.
 Use simple language and avoid jargon in your reply.
+When you've made updates, include a link to the rules page at the end of your reply: ${env.NEXT_PUBLIC_BASE_URL}/automation?tab=rules
 If you are unable to fix the rule, say so.`;
 
   const prompt = `${
