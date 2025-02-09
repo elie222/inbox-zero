@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
 
 export type ProcessHistoryOptions = {
@@ -15,11 +15,10 @@ export type ProcessHistoryOptions = {
   user: Pick<
     User,
     | "id"
-    | "email"
     | "about"
     | "coldEmailPrompt"
     | "coldEmailBlocker"
     | "autoCategorizeSenders"
   > &
-    UserAIFields;
+    UserEmailWithAI;
 };

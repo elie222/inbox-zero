@@ -4,7 +4,7 @@ import { extractEmailAddress } from "@/utils/email";
 // In prod: hello+assistant@example.com
 // In dev: hello+assistant-test@example.com
 const ASSISTANT_SUFFIX = `assistant${
-  env.NODE_ENV === "production" ? "" : "-test"
+  env.NODE_ENV === "development" ? "-test" : ""
 }`;
 
 export function isAssistantEmail({

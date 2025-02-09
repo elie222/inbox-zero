@@ -9,14 +9,14 @@ import { getThreadsFromSenderWithSubject } from "@/utils/gmail/thread";
 import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
 import type { User } from "@prisma/client";
-import type { UserAIFields, UserEmailWithAI } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("categorize/senders");
 
 export async function categorizeSender(
   senderAddress: string,
-  user: Pick<User, "id" | "email"> & UserAIFields,
+  user: Pick<User, "id"> & UserEmailWithAI,
   gmail: gmail_v1.Gmail,
   accessToken: string,
   userCategories?: Pick<Category, "id" | "name" | "description">[],
