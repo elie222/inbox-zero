@@ -96,7 +96,8 @@ Best practices:
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 
 Always end by using the reply tool to explain what changes were made.
-Use simple language and avoid jargon in your reply.`;
+Use simple language and avoid jargon in your reply.
+If you are unable to fix the rule, say so.`;
 
   const prompt = `${
     originalEmail
@@ -158,7 +159,16 @@ ${senderCategory || "No category"}
 
   async function updateRule(ruleName: string, rule: Partial<Rule>) {
     try {
-      const updatedRule = await partialUpdateRule(ruleName, rule);
+      const ruleId = rules.find((r) => r.name === ruleName)?.id;
+
+      if (!ruleId) {
+        return {
+          error: "Rule not found",
+          message: `Rule ${ruleName} not found`,
+        };
+      }
+
+      const updatedRule = await partialUpdateRule({ ruleId, data: rule });
       updatedRules.set(updatedRule.id, updatedRule);
       return { success: true };
     } catch (error) {

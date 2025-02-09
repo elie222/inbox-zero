@@ -7,7 +7,13 @@ import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 
 const logger = createScopedLogger("rule");
 
-export function partialUpdateRule(ruleId: string, data: Partial<Rule>) {
+export function partialUpdateRule({
+  ruleId,
+  data,
+}: {
+  ruleId: string;
+  data: Partial<Rule>;
+}) {
   return prisma.rule.update({
     where: { id: ruleId },
     data,
