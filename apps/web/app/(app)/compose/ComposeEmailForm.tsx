@@ -1,5 +1,6 @@
 "use client";
 
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   Combobox,
   ComboboxInput,
@@ -25,6 +26,8 @@ import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { TiptapHandle } from "@/components/Tiptap";
+import { CommandShortcut } from "@/components/ui/command";
+import { useModifierKey } from "@/hooks/useModifierKey";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -51,6 +54,7 @@ export const ComposeEmailForm = ({
   onDiscard?: () => void;
 }) => {
   const [showFullContent, setShowFullContent] = React.useState(false);
+  const { symbol } = useModifierKey();
 
   const {
     register,
@@ -95,6 +99,21 @@ export const ComposeEmailForm = ({
       refetch?.();
     },
     [refetch, onSuccess, showFullContent, replyingToEmail],
+  );
+
+  const formRef = useHotkeys(
+    "mod+enter",
+    (e) => {
+      e.preventDefault();
+      if (!isSubmitting) {
+        (e.target as HTMLElement).closest("form")?.requestSubmit();
+      }
+    },
+    {
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+      preventDefault: true,
+    },
   );
 
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -155,7 +174,7 @@ export const ComposeEmailForm = ({
   }, [showFullContent, replyingToEmail?.quotedContentHtml]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+    <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="space-y-2">
       {replyingToEmail?.to && !editReply ? (
         <button
           type="button"
@@ -320,6 +339,9 @@ export const ComposeEmailForm = ({
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <ButtonLoader />}
           Send
+          <div className="dark ml-2">
+            <CommandShortcut>{symbol}+Enter</CommandShortcut>
+          </div>
         </Button>
 
         {onDiscard && (
