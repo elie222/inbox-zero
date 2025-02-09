@@ -1,5 +1,4 @@
 import { chatCompletionStream } from "@/utils/llms";
-import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { expire } from "@/utils/redis";
 import { saveSummary } from "@/utils/redis/summary";
