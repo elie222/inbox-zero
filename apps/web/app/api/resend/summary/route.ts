@@ -15,7 +15,7 @@ import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const logger = createScopedLogger("resend/summary");
 
@@ -23,6 +23,8 @@ const sendSummaryEmailBody = z.object({ email: z.string() });
 
 async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   const loggerOptions = { email, force };
+
+  logger.info("Sending summary email", loggerOptions);
 
   // run every 7 days. but overlap by 1 hour
   const days = 7;
@@ -60,6 +62,8 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
       },
     },
   });
+
+  logger.info("User found", loggerOptions);
 
   if (!user) {
     logger.error("User not found or cutoff date is in the future", {
