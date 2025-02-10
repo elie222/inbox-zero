@@ -92,24 +92,24 @@ export const getAuthOptions: (options?: {
         return token;
       }
 
-      logger.info("JWT callback - current token state", {
-        email: token.email,
-        currentExpiresAt: token.expires_at
-          ? new Date((token.expires_at as number) * 1000).toISOString()
-          : "not set",
-      });
+      // logger.info("JWT callback - current token state", {
+      //   email: token.email,
+      //   currentExpiresAt: token.expires_at
+      //     ? new Date((token.expires_at as number) * 1000).toISOString()
+      //     : "not set",
+      // });
 
       if (
         token.expires_at &&
         Date.now() < (token.expires_at as number) * 1000
       ) {
-        // If the access token has not expired yet, return it
-        logger.info("Token still valid", {
-          email: token.email,
-          expiresIn:
-            ((token.expires_at as number) * 1000 - Date.now()) / 1000 / 60,
-          minutes: true,
-        });
+        // // If the access token has not expired yet, return it
+        // logger.info("Token still valid", {
+        //   email: token.email,
+        //   expiresIn:
+        //     ((token.expires_at as number) * 1000 - Date.now()) / 1000 / 60,
+        //   minutes: true,
+        // });
         return token;
       }
 

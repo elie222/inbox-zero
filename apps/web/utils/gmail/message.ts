@@ -101,7 +101,7 @@ async function findPreviousEmailsBySender(
 
 export async function hasPreviousEmailsFromSender(
   gmail: gmail_v1.Gmail,
-  options: { from: string; date: string; messageId: string },
+  options: { from: string; date: Date; messageId: string },
 ) {
   const previousEmails = await findPreviousEmailsBySender(gmail, {
     sender: options.from,
@@ -133,7 +133,7 @@ const PUBLIC_DOMAINS = new Set([
 
 export async function hasPreviousEmailsFromSenderOrDomain(
   gmail: gmail_v1.Gmail,
-  options: { from: string; date: string; messageId: string },
+  options: { from: string; date: Date; messageId: string },
 ) {
   const domain = extractDomainFromEmail(options.from);
   if (!domain) return hasPreviousEmailsFromSender(gmail, options);

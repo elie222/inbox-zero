@@ -10,6 +10,7 @@ import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { env } from "@/env";
 import { GmailLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
+import { internalDateToDate } from "@/utils/date";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 const PAUSE_AFTER_RATE_LIMIT = 10_000;
@@ -169,7 +170,7 @@ async function saveBatch(
           ? extractDomainFromEmail(m.headers.to)
           : "Missing",
         subject: m.headers.subject,
-        timestamp: +new Date(m.headers.date),
+        timestamp: +internalDateToDate(m.internalDate),
         unsubscribeLink,
         read: !m.labelIds?.includes(GmailLabel.UNREAD),
         sent: !!m.labelIds?.includes(GmailLabel.SENT),
@@ -182,7 +183,7 @@ async function saveBatch(
         logger.error("No timestamp for email", {
           ownerEmail: tinybirdEmail.ownerEmail,
           gmailMessageId: tinybirdEmail.gmailMessageId,
-          date: m.headers.date,
+          date: m.internalDate,
         });
         return;
       }

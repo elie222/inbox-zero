@@ -93,7 +93,7 @@ export interface ParsedMessageHeaders {
   to: string;
   cc?: string;
   bcc?: string;
-  date: string;
+  date: string; // the date supplied by the email. internally we rely on message.internalDate provided by the gmail api
   "message-id"?: string;
   "reply-to"?: string;
   "in-reply-to"?: string;
@@ -107,4 +107,5 @@ export type EmailForLLM = {
   cc?: string;
   subject: string;
   content: string;
+  date?: Date;
 };

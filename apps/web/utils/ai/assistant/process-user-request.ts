@@ -26,8 +26,8 @@ import {
 } from "@/utils/rule/rule";
 import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
-import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
-import { stringifyEmailSimple } from "@/utils/ai/choose-rule/stringify-email";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { stringifyEmailSimple } from "@/utils/stringify-email";
 import {
   updatePromptFileOnRuleCreated,
   updatePromptFileOnRuleUpdated,

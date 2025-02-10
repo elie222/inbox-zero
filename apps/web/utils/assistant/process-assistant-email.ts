@@ -10,6 +10,7 @@ import { replyToEmail } from "@/utils/gmail/mail";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { getOrCreateInboxZeroLabel, labelMessage } from "@/utils/gmail/label";
+import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("process-assistant-email");
 
@@ -169,12 +170,14 @@ async function processAssistantEmailInternal({
     return;
   }
 
-  const firstMessageToAssistantDate = new Date(
-    firstMessageToAssistant.headers.date,
+  const firstMessageToAssistantDate = internalDateToDate(
+    firstMessageToAssistant.internalDate,
   );
 
   const messages = threadMessages
-    .filter((m) => new Date(m.headers.date) >= firstMessageToAssistantDate)
+    .filter(
+      (m) => internalDateToDate(m.internalDate) >= firstMessageToAssistantDate,
+    )
     .map((m) => {
       const isAssistant = isAssistantEmail({
         userEmail,

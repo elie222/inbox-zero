@@ -168,6 +168,7 @@ function TestRulesContentRow(props: {
                   snippet: message.snippet || null,
                   threadId: message.threadId,
                   messageId: message.id,
+                  date: message.internalDate || undefined,
                 });
               }}
             >

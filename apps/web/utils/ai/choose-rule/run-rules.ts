@@ -14,7 +14,7 @@ import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";

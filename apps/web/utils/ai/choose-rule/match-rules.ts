@@ -16,7 +16,7 @@ import {
 } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";

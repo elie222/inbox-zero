@@ -11,3 +11,5 @@ export type Thread = {
 };
 
 export type Executing = Record<string, boolean>;
+
+export type ThreadMessage = Thread["messages"][number];

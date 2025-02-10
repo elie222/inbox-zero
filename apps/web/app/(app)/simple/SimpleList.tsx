@@ -281,10 +281,6 @@ function SimpleListRow({
               </Link>
             </Button>
           )}
-
-          {/* <div className="mt-2 text-sm text-gray-500">
-          {new Date(message.headers.date).toLocaleString()}
-        </div> */}
         </div>
 
         {!expanded && <div className="mt-2 sm:mt-0">{actionButtons}</div>}

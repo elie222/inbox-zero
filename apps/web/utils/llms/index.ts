@@ -108,6 +108,46 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   throw new Error("AI provider not supported");
 }
 
+export async function chatCompletion({
+  userAi,
+  prompt,
+  system,
+  userEmail,
+  usageLabel,
+}: {
+  userAi: UserAIFields;
+  prompt: string;
+  system?: string;
+  userEmail: string;
+  usageLabel: string;
+}) {
+  try {
+    const { provider, model, llmModel } = getModel(userAi);
+
+    const result = await generateText({
+      model: llmModel,
+      prompt,
+      system,
+      experimental_telemetry: { isEnabled: true },
+    });
+
+    if (result.usage) {
+      await saveAiUsage({
+        email: userEmail,
+        usage: result.usage,
+        provider,
+        model,
+        label: usageLabel,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    await handleError(error, userEmail);
+    throw error;
+  }
+}
+
 type ChatCompletionObjectArgs<T> = {
   userAi: UserAIFields;
   prompt: string;

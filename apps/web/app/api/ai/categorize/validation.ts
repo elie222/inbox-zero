@@ -17,6 +17,6 @@ export const categorizeBodyWithHtml = categorizeBody.extend({
   textPlain: z.string().nullable(),
   textHtml: z.string().nullable(),
   snippet: z.string().nullable(),
-  date: z.string(),
+  internalDate: z.string(),
 });
 export type CategorizeBodyWithHtml = z.infer<typeof categorizeBodyWithHtml>;

@@ -68,7 +68,7 @@ export default async function ReplyTrackerPage({
 
               <TabsTrigger value="resolved" className="flex items-center gap-2">
                 <CheckCircleIcon className="h-4 w-4" />
-                Resolved
+                Done
               </TabsTrigger>
             </TabsList>
             <TimeRangeFilter />

@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { ThreadTrackerType, type User } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 import {
   labelAwaitingReply,
   removeNeedsReplyLabel,
