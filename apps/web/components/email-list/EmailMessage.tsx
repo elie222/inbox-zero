@@ -249,7 +249,20 @@ function ReplyPanel({
       if (draftMessage) return prepareDraftReplyEmail(draftMessage);
 
       // use nudge if available
-      return prepareReplyingToEmail(message, nudge || "");
+      if (nudge) {
+        // Convert nudge text into HTML paragraphs
+        const nudgeHtml = nudge
+          ? nudge
+              .split("\n")
+              .filter((line) => line.trim())
+              .map((line) => `<p>${line}</p>`)
+              .join("")
+          : "";
+
+        return prepareReplyingToEmail(message, nudgeHtml);
+      }
+
+      return prepareReplyingToEmail(message);
     }
     return prepareForwardingEmail(message);
   }, [showReply, message, draftMessage, nudge]);
