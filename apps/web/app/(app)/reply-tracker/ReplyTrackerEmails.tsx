@@ -255,7 +255,7 @@ function Row({
       )}
       onMouseEnter={onSelect}
     >
-      <TableCell onClick={openSplitView}>
+      <TableCell onClick={openSplitView} className="py-8 pl-8 pr-6">
         <div className="flex items-center justify-between">
           <EmailMessageCell
             sender={
@@ -273,7 +273,7 @@ function Row({
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: buttons inside handle keyboard events */}
           <div
             className={cn(
-              "ml-4 flex items-center gap-1",
+              "ml-4 flex items-center gap-1.5",
               isSplitViewOpen && "flex-col",
             )}
             onClick={(e) => e.stopPropagation()}
