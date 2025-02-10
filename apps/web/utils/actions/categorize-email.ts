@@ -13,6 +13,7 @@ import { truncate } from "@/utils/string";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { isActionError } from "@/utils/error";
+import { internalDateToDate } from "@/utils/date";
 
 export const categorizeEmailAction = withActionInstrumentation(
   "categorizeEmail",
@@ -39,7 +40,11 @@ export const categorizeEmailAction = withActionInstrumentation(
     });
 
     const unsubscribeLink = findUnsubscribeLink(data.textHtml);
-    const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, data);
+    const hasPreviousEmail = await hasPreviousEmailsFromSender(gmail, {
+      from: data.from,
+      messageId: data.messageId,
+      date: internalDateToDate(data.internalDate),
+    });
 
     const res = await categorize(
       {

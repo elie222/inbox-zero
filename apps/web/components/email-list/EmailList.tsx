@@ -239,7 +239,7 @@ export function EmailList({
             snippet: thread.snippet,
             threadId: message.threadId,
             messageId: message.id,
-            date: message.headers.date,
+            internalDate: message.internalDate || "",
           });
 
           if (isActionError(result)) {

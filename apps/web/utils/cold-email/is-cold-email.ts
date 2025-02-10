@@ -29,7 +29,7 @@ export async function isColdEmail({
     from: string;
     subject: string;
     content: string;
-    date?: string;
+    date?: Date;
     threadId?: string;
     messageId: string | null;
   };
@@ -161,7 +161,7 @@ export async function runColdEmailBlocker(options: {
     content: string;
     messageId: string;
     threadId: string;
-    date: string;
+    date: Date;
   };
   gmail: gmail_v1.Gmail;
   user: Pick<User, "id" | "email" | "coldEmailPrompt" | "coldEmailBlocker"> &

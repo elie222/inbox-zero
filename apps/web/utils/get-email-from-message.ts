@@ -1,5 +1,6 @@
 import type { ParsedMessage, EmailForLLM } from "@/utils/types";
 import { emailToContent, type EmailToContentOptions } from "@/utils/mail";
+import { internalDateToDate } from "@/utils/date";
 
 export function getEmailForLLM(
   message: ParsedMessage,
@@ -11,5 +12,6 @@ export function getEmailForLLM(
     cc: message.headers.cc,
     subject: message.headers.subject,
     content: emailToContent(message, contentOptions),
+    date: internalDateToDate(message.internalDate),
   };
 }

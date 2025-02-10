@@ -15,6 +15,7 @@ import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
 import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
+import { internalDateToDate } from "@/utils/date";
 
 export async function processHistoryItem(
   {
@@ -138,7 +139,7 @@ export async function processHistoryItem(
           content,
           messageId,
           threadId,
-          date: message.headers.date,
+          date: internalDateToDate(message.internalDate),
         },
         gmail,
         user,
