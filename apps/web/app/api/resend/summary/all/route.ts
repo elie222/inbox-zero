@@ -3,7 +3,7 @@ import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { hasCronSecret } from "@/utils/cron";
+import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
@@ -71,6 +71,19 @@ async function sendSummaryAllUpdate() {
 export const GET = withError(async (request) => {
   if (!hasCronSecret(request)) {
     captureException(new Error("Unauthorized request: api/resend/all"));
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const result = await sendSummaryAllUpdate();
+
+  return NextResponse.json(result);
+});
+
+export const POST = withError(async (request: Request) => {
+  if (!(await hasPostCronSecret(request))) {
+    captureException(
+      new Error("Unauthorized cron request: api/resend/summary/all"),
+    );
     return new Response("Unauthorized", { status: 401 });
   }
 
