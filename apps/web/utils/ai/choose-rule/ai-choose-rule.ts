@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionObject } from "@/utils/llms";
 import type { User } from "@prisma/client";
-import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 

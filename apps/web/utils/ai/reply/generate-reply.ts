@@ -1,6 +1,6 @@
 import { chatCompletionStream } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 
 // const logger = createScopedLogger("generate-reply");

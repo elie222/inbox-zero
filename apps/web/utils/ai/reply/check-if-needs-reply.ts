@@ -7,7 +7,7 @@ import type { EmailForLLM } from "@/utils/types";
 import {
   stringifyEmailFromBody,
   stringifyEmailSimple,
-} from "@/utils/ai/choose-rule/stringify-email";
+} from "@/utils/stringify-email";
 
 const logger = createScopedLogger("check-if-needs-reply");
 

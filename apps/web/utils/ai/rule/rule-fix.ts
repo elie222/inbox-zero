@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { stringifyEmail } from "@/utils/ai/choose-rule/stringify-email";
+import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
