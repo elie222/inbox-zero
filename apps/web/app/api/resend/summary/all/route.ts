@@ -7,7 +7,7 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
-import { sleep } from "@/utils/sleep";
+import { publishToQstashQueue } from "@/utils/upstash";
 
 const logger = createScopedLogger("cron/resend/summary/all");
 
@@ -31,7 +31,7 @@ async function sendSummaryAllUpdate() {
       },
       // User at least 4 days old
       createdAt: {
-        gt: subDays(new Date(), 4),
+        lt: subDays(new Date(), 4),
       },
     },
   });
@@ -40,29 +40,21 @@ async function sendSummaryAllUpdate() {
 
   const url = `${env.NEXT_PUBLIC_BASE_URL}/api/resend/summary`;
 
-  // Start all requests without waiting for responses
-  await Promise.all(
-    users.map((user) => {
-      fetch(url, {
-        method: "POST",
-        body: JSON.stringify({ email: user.email }),
-        headers: {
-          authorization: `Bearer ${env.CRON_SECRET}`,
-          "Content-Type": "application/json",
-        },
-      }).catch((error) => {
-        // Log any request initiation errors
-        logger.error("Failed to initiate request", {
-          email: user.email,
-          error,
-        });
+  for (const user of users) {
+    try {
+      await publishToQstashQueue({
+        queueName: "email-summary-all",
+        parallelism: 3, // Allow up to 3 concurrent jobs from this queue
+        url,
+        body: { email: user.email },
       });
-      return Promise.resolve(); // Return immediately
-    }),
-  );
-
-  // Give the requests a moment to actually start
-  await sleep(2_000);
+    } catch (error) {
+      logger.error("Failed to publish to Qstash", {
+        email: user.email,
+        error,
+      });
+    }
+  }
 
   logger.info("All requests initiated", { count: users.length });
   return { count: users.length };
