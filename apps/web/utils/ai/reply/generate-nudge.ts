@@ -24,7 +24,8 @@ Write a polite and professional email that follows up on the previous conversati
 Keep it concise and friendly. Don't be pushy.
 Use context from the previous emails to make it relevant.
 Don't mention that you're an AI.
-Don't reply with a Subject. Only reply with the body of the email.`;
+Don't reply with a Subject. Only reply with the body of the email.
+Keep it short.`;
 
   const prompt = `Here is the context of the email thread (from oldest to newest):
 ${messages

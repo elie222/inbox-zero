@@ -275,9 +275,17 @@ function ReplyPanel({
         {isGeneratingNudge ? (
           <div className="flex items-center justify-center">
             <Loading />
-            <MessageText className="text-center">
-              Generating reply...
-            </MessageText>
+            <MessageText>Generating reply...</MessageText>
+            <Button
+              className="ml-4"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsGeneratingNudge(false);
+              }}
+            >
+              Skip
+            </Button>
           </div>
         ) : (
           <ComposeEmailFormLazy
