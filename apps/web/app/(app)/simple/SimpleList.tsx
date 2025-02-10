@@ -44,7 +44,7 @@ import {
   removeReplyFromTextPlain,
 } from "@/utils/parse/parseHtml.client";
 import { ViewMoreButton } from "@/app/(app)/simple/ViewMoreButton";
-import { HtmlEmail } from "@/components/email-list/EmailThread";
+import { HtmlEmail } from "@/components/email-list/EmailContents";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];

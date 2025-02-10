@@ -36,7 +36,7 @@ export function EmailThread({
 
     return regularMessages.map((message) => ({
       message,
-      draftReply: drafts.get(message.headers["message-id"] || ""),
+      draftMessage: drafts.get(message.headers["message-id"] || ""),
     }));
   }, [messages]);
 
@@ -57,9 +57,9 @@ export function EmailThread({
         )}
       </div>
       <ul className="mt-4 space-y-2 sm:space-y-4">
-        {organizedMessages.map(({ message, draftReply }) => {
+        {organizedMessages.map(({ message, draftMessage }) => {
           const defaultShowReply =
-            autoOpenReplyForMessageId === message.id || Boolean(draftReply);
+            autoOpenReplyForMessageId === message.id || Boolean(draftMessage);
           return (
             <EmailMessage
               key={message.id}
@@ -67,7 +67,7 @@ export function EmailThread({
               showReplyButton={showReplyButton}
               refetch={refetch}
               defaultShowReply={defaultShowReply}
-              draftReply={draftReply}
+              draftMessage={draftMessage}
               expanded={expandedMessageIds.has(message.id)}
               onExpand={() => {
                 setExpandedMessageIds((prev) => {
@@ -81,7 +81,7 @@ export function EmailThread({
                   return new Set(prev).add(messageId);
                 });
               }}
-              generateNudge={defaultShowReply && !draftReply?.textHtml}
+              generateNudge={defaultShowReply && !draftMessage?.textHtml}
             />
           );
         })}
