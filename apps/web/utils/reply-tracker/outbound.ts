@@ -40,7 +40,7 @@ export async function handleOutboundReply(
 
   const threadMessages = await getThreadMessages(message.threadId, gmail);
 
-  const logger = createScopedLogger("outbound-reply").with({
+  const logger = createScopedLogger("reply-tracker/outbound").with({
     email: user.email,
     userId: user.id,
     messageId: message.id,

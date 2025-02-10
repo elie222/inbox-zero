@@ -15,8 +15,6 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
-const logger = createScopedLogger("reply-tracker/inbound");
-
 export async function markNeedsReply(
   userId: string,
   threadId: string,
@@ -69,29 +67,26 @@ export async function markNeedsReply(
   const [dbResult, removeLabelResult, newLabelResult] =
     await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);
 
-  const errorOptions = {
+  const logger = createScopedLogger("reply-tracker/inbound").with({
     userId,
     threadId,
     messageId,
-  };
+  });
 
   if (dbResult.status === "rejected") {
     logger.error("Failed to mark needs reply", {
-      ...errorOptions,
       error: dbResult.reason,
     });
   }
 
   if (removeLabelResult.status === "rejected") {
     logger.error("Failed to remove awaiting reply label", {
-      ...errorOptions,
       error: removeLabelResult.reason,
     });
   }
 
   if (newLabelResult.status === "rejected") {
     logger.error("Failed to label needs reply", {
-      ...errorOptions,
       error: newLabelResult.reason,
     });
   }
