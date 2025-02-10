@@ -22,3 +22,7 @@ export async function hasPostCronSecret(request: Request) {
 
   return valid;
 }
+
+export function getCronSecretHeader() {
+  return new Headers({ authorization: `Bearer ${env.CRON_SECRET}` });
+}

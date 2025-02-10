@@ -3,7 +3,11 @@ import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
+import {
+  getCronSecretHeader,
+  hasCronSecret,
+  hasPostCronSecret,
+} from "@/utils/cron";
 import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
@@ -47,6 +51,7 @@ async function sendSummaryAllUpdate() {
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
         body: { email: user.email },
+        headers: getCronSecretHeader(),
       });
     } catch (error) {
       logger.error("Failed to publish to Qstash", {

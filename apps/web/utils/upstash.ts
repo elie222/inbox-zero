@@ -1,4 +1,4 @@
-import { Client } from "@upstash/qstash";
+import { Client, type HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import { SafeError } from "@/utils/error";
@@ -44,18 +44,20 @@ export async function publishToQstashQueue({
   parallelism,
   url,
   body,
+  headers,
 }: {
   queueName: string;
   parallelism: number;
   url: string;
   body: any;
+  headers?: HeadersInit;
 }) {
   const client = getQstashClient();
 
   if (client) {
     const queue = client.queue({ queueName });
     queue.upsert({ parallelism });
-    return await queue.enqueueJSON({ url, body });
+    return await queue.enqueueJSON({ url, body, headers });
   }
 
   // Fallback to fetch if Qstash client is not found
