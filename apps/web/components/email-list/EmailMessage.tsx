@@ -259,7 +259,7 @@ function ReplyPanel({
       <Separator className="my-4" />
 
       <div ref={replyRef}>
-        {!isGeneratingNudge ? (
+        {isGeneratingNudge ? (
           <div className="flex items-center justify-center">
             <Loading />
             <MessageText className="text-center">
