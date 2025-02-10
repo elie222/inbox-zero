@@ -22,6 +22,8 @@ const logger = createScopedLogger("resend/summary");
 const sendSummaryEmailBody = z.object({ email: z.string() });
 
 async function sendEmail({ email, force }: { email: string; force?: boolean }) {
+  const loggerOptions = { email, force };
+
   // run every 7 days. but overlap by 1 hour
   const days = 7;
   const cutOffDate = subHours(new Date(), days * 24 + 1);
@@ -59,7 +61,13 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     },
   });
 
-  if (!user) return { success: false };
+  if (!user) {
+    logger.error("User not found or cutoff date is in the future", {
+      ...loggerOptions,
+      cutOffDate,
+    });
+    return { success: false };
+  }
 
   // Get counts and recent threads for each type
   const [counts, needsReply, awaitingReply, needsAction] = await Promise.all([
@@ -126,6 +134,11 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     ...needsAction.map((m) => m.messageId),
   ];
 
+  logger.info("Getting messages", {
+    ...loggerOptions,
+    messagesCount: messageIds.length,
+  });
+
   const messages = user.accounts?.[0]?.access_token
     ? await getMessagesBatch(messageIds, user.accounts[0].access_token)
     : [];
@@ -170,6 +183,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   );
 
   logger.info("Sending summary email to user", {
+    ...loggerOptions,
     shouldSendEmail,
     coldEmailers: coldEmailers.length,
     pendingCount,
