@@ -217,7 +217,12 @@ export function matchesStaticRule(
 
   const safeRegexTest = (pattern: string, text: string) => {
     try {
-      return new RegExp(pattern).test(text);
+      const regexPattern = pattern.startsWith("*")
+        ? // Convert *@gmail.com to .*@gmail.com
+          `.*${pattern.slice(1)}`
+        : pattern;
+
+      return new RegExp(regexPattern).test(text);
     } catch (error) {
       logger.error("Invalid regex pattern", { pattern, error });
       return false;

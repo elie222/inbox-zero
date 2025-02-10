@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { findMatchingRule } from "./match-rules";
+import { findMatchingRule, matchesStaticRule } from "./match-rules";
 import {
   type Category,
   CategoryFilterType,
@@ -25,6 +25,72 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/ai/choose-rule/ai-choose-rule", () => ({
   aiChooseRule: vi.fn(),
 }));
+
+describe("matchesStaticRule", () => {
+  it("should match wildcard pattern at start of email", () => {
+    const rule = getStaticRule({ from: "*@gmail.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@gmail.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should not match when wildcard pattern doesn't match domain", () => {
+    const rule = getStaticRule({ from: "*@gmail.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@yahoo.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(false);
+  });
+
+  it("should handle multiple wildcards in pattern", () => {
+    const rule = getStaticRule({ subject: "*important*" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "This is important message" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should handle invalid regex patterns gracefully", () => {
+    const rule = getStaticRule({ from: "[invalid(regex" });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(false);
+  });
+
+  it("should return false when no conditions are provided", () => {
+    const rule = getStaticRule({});
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(false);
+  });
+
+  it("should match body content with wildcard", () => {
+    const rule = getStaticRule({ body: "*unsubscribe*" });
+    const message = getMessage({
+      headers: getHeaders(),
+      textPlain: "Click here to unsubscribe from our newsletter",
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match @domain.com", () => {
+    const rule = getStaticRule({ from: "@domain.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@domain.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+});
 
 describe("findMatchingRule", () => {
   beforeEach(() => {
@@ -499,4 +565,18 @@ function getNewsletter(overrides: Partial<Newsletter> = {}): Newsletter {
     categoryId: "category1",
     ...overrides,
   } as Newsletter;
+}
+
+function getStaticRule(
+  rule: Partial<
+    Pick<RuleWithActionsAndCategories, "from" | "to" | "subject" | "body">
+  >,
+) {
+  return {
+    from: null,
+    to: null,
+    subject: null,
+    body: null,
+    ...rule,
+  };
 }
