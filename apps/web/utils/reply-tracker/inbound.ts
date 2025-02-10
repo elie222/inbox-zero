@@ -22,6 +22,14 @@ export async function markNeedsReply(
   sentAt: Date,
   gmail: gmail_v1.Gmail,
 ) {
+  const logger = createScopedLogger("reply-tracker/inbound").with({
+    userId,
+    threadId,
+    messageId,
+  });
+
+  logger.info("Marking thread as needs reply");
+
   const { awaitingReplyLabelId, needsReplyLabelId } =
     await getReplyTrackingLabels(gmail);
 
@@ -66,12 +74,6 @@ export async function markNeedsReply(
 
   const [dbResult, removeLabelResult, newLabelResult] =
     await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);
-
-  const logger = createScopedLogger("reply-tracker/inbound").with({
-    userId,
-    threadId,
-    messageId,
-  });
 
   if (dbResult.status === "rejected") {
     logger.error("Failed to mark needs reply", {
