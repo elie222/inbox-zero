@@ -11,7 +11,7 @@ import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
-import { getEmailForLLM } from "@/utils/ai/choose-rule/get-email-from-message";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
