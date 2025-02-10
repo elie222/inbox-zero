@@ -250,8 +250,8 @@ function Row({
   return (
     <TableRow
       className={cn(
-        "transition-colors duration-100 hover:bg-slate-100",
-        isSelected && "bg-blue-50 hover:bg-blue-100",
+        "transition-colors duration-100 hover:bg-white",
+        isSelected && "bg-blue-50 hover:bg-blue-50",
       )}
       onMouseEnter={onSelect}
     >
