@@ -178,3 +178,23 @@ ngrok http --domain=XYZ.ngrok-free.app 3000
 And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
 
 To start watching emails visit: `/api/google/watch/all`
+
+### Watching for email updates
+
+Set a cron job to run these:
+The Google watch is necessary. The Resend one is optional.
+
+```json
+  "crons": [
+    {
+      "path": "/api/google/watch/all",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/resend/summary/all",
+      "schedule": "0 16 * * 1"
+    }
+  ]
+```
+
+[Here](https://vercel.com/guides/how-to-setup-cron-jobs-on-vercel#alternative-cron-providers) are some easy ways to run cron jobs. Upstash is a free, easy option. I could never get the Vercel `vercel.json`. Open to PRs if you find a fix for that.

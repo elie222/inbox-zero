@@ -13,7 +13,9 @@ export function hasCronSecret(request: Request) {
 }
 
 export async function hasPostCronSecret(request: Request) {
-  const body = await request.json();
+  // Clone the request before consuming the body
+  const clonedRequest = request.clone();
+  const body = await clonedRequest.json();
   const valid = body.CRON_SECRET === env.CRON_SECRET;
 
   if (!valid) logger.error("Unauthorized cron request:", { body });

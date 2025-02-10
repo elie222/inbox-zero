@@ -71,9 +71,6 @@ async function sendSummaryAllUpdate() {
 export const GET = withError(async (request) => {
   if (!hasCronSecret(request)) {
     captureException(new Error("Unauthorized request: api/resend/summary/all"));
-    logger.error("Unauthorized request: api/resend/summary/all", {
-      type: "GET",
-    });
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -87,9 +84,6 @@ export const POST = withError(async (request: Request) => {
     captureException(
       new Error("Unauthorized cron request: api/resend/summary/all"),
     );
-    logger.error("Unauthorized request: api/resend/summary/all", {
-      type: "POST",
-    });
     return new Response("Unauthorized", { status: 401 });
   }
 
