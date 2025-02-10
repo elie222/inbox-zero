@@ -29,6 +29,13 @@ export const generateNudgeAction = withActionInstrumentation(
 
     if (!lastMessage) return { error: "No message provided" };
 
+    const reply = await getReply({
+      userId: user.id,
+      messageId: lastMessage.id,
+    });
+
+    if (reply) return { text: reply };
+
     const messages = data.messages.map((msg) => ({
       ...msg,
       date: new Date(msg.date),
@@ -40,6 +47,12 @@ export const generateNudgeAction = withActionInstrumentation(
     }));
 
     const text = await aiGenerateNudge({ messages, user });
+
+    await saveReply({
+      userId: user.id,
+      messageId: lastMessage.id,
+      reply: text,
+    });
 
     return { text };
   },
