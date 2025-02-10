@@ -1,15 +1,5 @@
 {
   "buildCommand": "cd ../.. && turbo run build --filter={apps/web}...",
   "installCommand": "pnpm install",
-  "ignoreCommand": "",
-  "crons": [
-    {
-      "path": "/api/google/watch/all",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/resend/summary/all",
-      "schedule": "0 16 * * 1"
-    }
-  ]
+  "ignoreCommand": ""
 }
