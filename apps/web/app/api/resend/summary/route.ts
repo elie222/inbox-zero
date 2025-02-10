@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { subHours } from "date-fns";
+import { subHours } from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/resend";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
@@ -257,7 +257,15 @@ export const POST = withError(async (request: Request) => {
 
   logger.info("Sending summary email to user POST", { email: data.email });
 
-  const result = await sendEmail(data);
-
-  return NextResponse.json(result);
+  try {
+    await sendEmail(data);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logger.error("Error sending summary email", { error });
+    captureException(error);
+    return NextResponse.json(
+      { success: false, error: "Error sending summary email" },
+      { status: 500 },
+    );
+  }
 });
