@@ -22,20 +22,23 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
+import { isActionError } from "@/utils/error";
+import { Loading } from "@/components/Loading";
+import { MessageText } from "@/components/Typography";
 
 export function EmailMessage({
   message,
   refetch,
   showReplyButton,
   defaultShowReply,
-  draftReply,
+  draftMessage,
   expanded,
   onExpand,
   onSendSuccess,
   generateNudge,
 }: {
   message: ThreadMessage;
-  draftReply?: ThreadMessage;
+  draftMessage?: ThreadMessage;
   refetch: () => void;
   showReplyButton: boolean;
   defaultShowReply?: boolean;
@@ -45,18 +48,7 @@ export function EmailMessage({
   generateNudge?: boolean;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
-  const replyRef = useRef<HTMLDivElement>(null);
   const [showDetails, setShowDetails] = useState(false);
-
-  useEffect(() => {
-    if (defaultShowReply && replyRef.current) {
-      setTimeout(() => {
-        replyRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-        // NOTE: a little hacky
-        // If this is set lower it doesn't work (or if we turn off autofocus, it does, but we want autofocus).
-      }, 500);
-    }
-  }, [defaultShowReply]);
 
   const onReply = useCallback(() => setShowReply(true), []);
   const [showForward, setShowForward] = useState(false);
@@ -66,36 +58,6 @@ export function EmailMessage({
     setShowReply(false);
     setShowForward(false);
   }, []);
-
-  useEffect(() => {
-    async function loadNudge() {
-      const result = await generateNudgeAction({
-        messages: [
-          {
-            id: message.id,
-            textHtml: message.textHtml,
-            textPlain: message.textPlain,
-            date: message.headers.date,
-            from: message.headers.from,
-            to: message.headers.to,
-            subject: message.headers.subject,
-          },
-        ],
-      });
-
-      console.log("🚀 ~ result:", result);
-    }
-
-    if (generateNudge) loadNudge();
-  }, [generateNudge, message]);
-
-  const replyingToEmail: ReplyingToEmail = useMemo(() => {
-    if (showReply) {
-      if (draftReply) return prepareDraftReplyEmail(draftReply);
-      return prepareReplyingToEmail(message);
-    }
-    return prepareForwardingEmail(message);
-  }, [showReply, message, draftReply]);
 
   const toggleDetails = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -111,55 +73,15 @@ export function EmailMessage({
       )}
       onClick={onExpand}
     >
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center">
-            <h3 className="text-base font-medium">
-              <span className="text-gray-900">
-                {extractNameFromEmail(message.headers.from)}
-              </span>{" "}
-              <span className="text-gray-600">wrote</span>
-            </h3>
-          </div>
-          {expanded && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="size-6 p-0"
-              onClick={toggleDetails}
-            >
-              {showDetails ? (
-                <ChevronsDownUpIcon className="size-4" />
-              ) : (
-                <ChevronsUpDownIcon className="size-4" />
-              )}
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center space-x-2">
-          <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
-            <time dateTime={message.headers.date}>
-              {formatShortDate(new Date(message.headers.date))}
-            </time>
-          </p>
-          {showReplyButton && (
-            <div className="relative flex items-center">
-              <Tooltip content="Reply">
-                <Button variant="ghost" size="icon" onClick={onReply}>
-                  <ReplyIcon className="h-4 w-4" />
-                  <span className="sr-only">Reply</span>
-                </Button>
-              </Tooltip>
-              <Tooltip content="Forward">
-                <Button variant="ghost" size="icon">
-                  <ForwardIcon className="h-4 w-4" onClick={onForward} />
-                  <span className="sr-only">Forward</span>
-                </Button>
-              </Tooltip>
-            </div>
-          )}
-        </div>
-      </div>
+      <TopBar
+        message={message}
+        expanded={expanded}
+        showDetails={showDetails}
+        toggleDetails={toggleDetails}
+        showReplyButton={showReplyButton}
+        onReply={onReply}
+        onForward={onForward}
+      />
 
       {expanded && (
         <>
@@ -174,21 +96,16 @@ export function EmailMessage({
           {message.attachments && <EmailAttachments message={message} />}
 
           {(showReply || showForward) && (
-            <>
-              <Separator className="my-4" />
-
-              <div ref={replyRef}>
-                <ComposeEmailFormLazy
-                  replyingToEmail={replyingToEmail}
-                  refetch={refetch}
-                  onSuccess={(messageId) => {
-                    onSendSuccess(messageId);
-                    onCloseCompose();
-                  }}
-                  onDiscard={onCloseCompose}
-                />
-              </div>
-            </>
+            <ReplyPanel
+              message={message}
+              refetch={refetch}
+              onSendSuccess={onSendSuccess}
+              onCloseCompose={onCloseCompose}
+              defaultShowReply={defaultShowReply}
+              showReply={showReply}
+              draftMessage={draftMessage}
+              generateNudge={generateNudge}
+            />
           )}
         </>
       )}
@@ -196,7 +113,179 @@ export function EmailMessage({
   );
 }
 
-const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
+function TopBar({
+  message,
+  expanded,
+  showDetails,
+  toggleDetails,
+  showReplyButton,
+  onReply,
+  onForward,
+}: {
+  message: ParsedMessage;
+  expanded: boolean;
+  showDetails: boolean;
+  toggleDetails: (e: React.MouseEvent) => void;
+  showReplyButton: boolean;
+  onReply: () => void;
+  onForward: () => void;
+}) {
+  return (
+    <div className="sm:flex sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center">
+          <h3 className="text-base font-medium">
+            <span className="text-gray-900">
+              {extractNameFromEmail(message.headers.from)}
+            </span>{" "}
+            <span className="text-gray-600">wrote</span>
+          </h3>
+        </div>
+        {expanded && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-6 p-0"
+            onClick={toggleDetails}
+          >
+            {showDetails ? (
+              <ChevronsDownUpIcon className="size-4" />
+            ) : (
+              <ChevronsUpDownIcon className="size-4" />
+            )}
+          </Button>
+        )}
+      </div>
+      <div className="flex items-center space-x-2">
+        <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
+          <time dateTime={message.headers.date}>
+            {formatShortDate(new Date(message.headers.date))}
+          </time>
+        </p>
+        {showReplyButton && (
+          <div className="relative flex items-center">
+            <Tooltip content="Reply">
+              <Button variant="ghost" size="icon" onClick={onReply}>
+                <ReplyIcon className="h-4 w-4" />
+                <span className="sr-only">Reply</span>
+              </Button>
+            </Tooltip>
+            <Tooltip content="Forward">
+              <Button variant="ghost" size="icon">
+                <ForwardIcon className="h-4 w-4" onClick={onForward} />
+                <span className="sr-only">Forward</span>
+              </Button>
+            </Tooltip>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReplyPanel({
+  message,
+  refetch,
+  onSendSuccess,
+  onCloseCompose,
+  defaultShowReply,
+  showReply,
+  draftMessage,
+  generateNudge,
+}: {
+  message: ParsedMessage;
+  refetch: () => void;
+  onSendSuccess: (messageId: string) => void;
+  onCloseCompose: () => void;
+  defaultShowReply?: boolean;
+  showReply: boolean;
+  draftMessage?: ThreadMessage;
+  generateNudge?: boolean;
+}) {
+  const replyRef = useRef<HTMLDivElement>(null);
+
+  const [isGeneratingNudge, setIsGeneratingNudge] = useState(false);
+  const [nudge, setNudge] = useState<string | null>(null);
+  // scroll to the reply panel when it first opens
+  useEffect(() => {
+    if (defaultShowReply && replyRef.current) {
+      // hacky using setTimeout
+      setTimeout(() => {
+        replyRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      }, 500);
+    }
+  }, [defaultShowReply]);
+
+  useEffect(() => {
+    async function loadNudge() {
+      setIsGeneratingNudge(true);
+      const result = await generateNudgeAction({
+        messages: [
+          {
+            id: message.id,
+            textHtml: message.textHtml,
+            textPlain: message.textPlain,
+            date: message.headers.date,
+            from: message.headers.from,
+            to: message.headers.to,
+            subject: message.headers.subject,
+          },
+        ],
+      });
+      if (isActionError(result)) {
+        console.error(result);
+        setNudge("");
+      } else {
+        setNudge(result.text);
+      }
+      setIsGeneratingNudge(false);
+    }
+
+    if (generateNudge) loadNudge();
+  }, [generateNudge, message]);
+
+  const replyingToEmail: ReplyingToEmail = useMemo(() => {
+    if (showReply) {
+      if (draftMessage) return prepareDraftReplyEmail(draftMessage);
+
+      // use nudge if available
+      return prepareReplyingToEmail(message, nudge || "");
+    }
+    return prepareForwardingEmail(message);
+  }, [showReply, message, draftMessage, nudge]);
+
+  return (
+    <>
+      <Separator className="my-4" />
+
+      <div ref={replyRef}>
+        {!isGeneratingNudge ? (
+          <div className="flex items-center justify-center">
+            <Loading />
+            <MessageText className="text-center">
+              Generating reply...
+            </MessageText>
+          </div>
+        ) : (
+          <ComposeEmailFormLazy
+            replyingToEmail={replyingToEmail}
+            refetch={refetch}
+            onSuccess={(messageId) => {
+              onSendSuccess(messageId);
+              onCloseCompose();
+            }}
+            onDiscard={onCloseCompose}
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
+const prepareReplyingToEmail = (
+  message: ParsedMessage,
+  content = "",
+): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
   const { html } = createReplyContent({ message });
@@ -215,7 +304,7 @@ const prepareReplyingToEmail = (message: ParsedMessage): ReplyingToEmail => {
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
     references: message.headers.references,
-    draftHtml: "",
+    draftHtml: content || "",
     quotedContentHtml: html,
   };
 };
@@ -231,17 +320,17 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
   quotedContentHtml: "",
 });
 
-function prepareDraftReplyEmail(message: ParsedMessage): ReplyingToEmail {
-  const splitHtml = extractEmailReply(message.textHtml || "");
+function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
+  const splitHtml = extractEmailReply(draft.textHtml || "");
 
   return {
-    to: message.headers.to,
-    subject: message.headers.subject,
-    headerMessageId: message.headers["message-id"]!,
-    threadId: message.threadId!,
-    cc: message.headers.cc,
-    bcc: message.headers.bcc,
-    references: message.headers.references,
+    to: draft.headers.to,
+    subject: draft.headers.subject,
+    headerMessageId: draft.headers["message-id"]!,
+    threadId: draft.threadId!,
+    cc: draft.headers.cc,
+    bcc: draft.headers.bcc,
+    references: draft.headers.references,
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
   };
