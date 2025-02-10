@@ -44,5 +44,5 @@ Please write a reply to the email.`;
     usageLabel: "Reply",
   });
 
-  return response.toTextStreamResponse();
+  return response.toDataStreamResponse();
 }

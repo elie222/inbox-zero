@@ -4,9 +4,12 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { getAiUserByEmail } from "@/utils/user/get";
+import { emailToContent } from "@/utils/mail";
+// import { getReply, saveReply } from "@/utils/redis/reply";
 
 const messageSchema = z
   .object({
+    id: z.string(),
     from: z.string(),
     to: z.string(),
     subject: z.string(),
@@ -22,6 +25,8 @@ const generateReplyBody = z.object({
   messages: z.array(messageSchema),
 });
 
+export type GenerateReplyBody = z.infer<typeof generateReplyBody>;
+
 export const POST = withError(async (request: Request) => {
   const session = await auth();
   if (!session?.user.email)
@@ -34,15 +39,34 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = generateReplyBody.parse(json);
 
-  const stream = await aiGenerateNudge({
-    messages: body.messages.map((msg) => ({
-      ...msg,
-      date: new Date(msg.date),
-      // TODO: parse content from html
-      content: msg.textPlain || msg.textHtml || "",
-    })),
-    user,
-  });
+  const lastMessage = body.messages.at(-1);
 
-  return stream;
+  if (!lastMessage) return NextResponse.json({ error: "No message provided" });
+
+  // const reply = await getReply({
+  //   userId: user.id,
+  //   messageId: lastMessage.id,
+  // });
+
+  const messages = body.messages.map((msg) => ({
+    ...msg,
+    date: new Date(msg.date),
+    content: emailToContent({
+      textPlain: msg.textPlain,
+      textHtml: msg.textHtml,
+      snippet: "",
+    }),
+  }));
+
+  return aiGenerateNudge({
+    messages,
+    user,
+    // onFinish: async (completion) => {
+    //   await saveReply({
+    //     userId: user.id,
+    //     messageId: lastMessage.id,
+    //     reply: completion,
+    //   });
+    // },
+  });
 });

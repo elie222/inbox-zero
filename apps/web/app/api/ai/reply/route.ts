@@ -4,6 +4,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { aiGenerateReply } from "@/utils/ai/reply/generate-reply";
 import { getAiUserByEmail } from "@/utils/user/get";
+import { emailToContent } from "@/utils/mail";
 
 const messageSchema = z
   .object({
@@ -34,15 +35,17 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = generateReplyBody.parse(json);
 
-  const stream = await aiGenerateReply({
-    messages: body.messages.map((msg) => ({
-      ...msg,
-      date: new Date(msg.date),
-      // TODO: parse content from html
-      content: msg.textPlain || msg.textHtml || "",
-    })),
-    user,
-  });
+  const messages = body.messages.map((msg) => ({
+    ...msg,
+    date: new Date(msg.date),
+    content: emailToContent({
+      textPlain: msg.textPlain,
+      textHtml: msg.textHtml,
+      snippet: "",
+    }),
+  }));
+
+  const stream = await aiGenerateReply({ messages, user });
 
   return stream;
 });
