@@ -29,8 +29,7 @@ import { extractEmailReply } from "@/utils/parse/extract-reply.client";
 import type { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
-import { useCompletion } from "ai/react";
-import type { GenerateReplyBody } from "@/app/api/ai/reply/nudge/route";
+import { generateNudgeAction } from "@/utils/actions/generate-reply";
 
 type EmailMessage = Thread["messages"][number];
 
@@ -166,36 +165,27 @@ function EmailMessage({
     setShowForward(false);
   }, []);
 
-  const body: GenerateReplyBody = {
-    messages: [
-      {
-        id: message.id,
-        textHtml: message.textHtml,
-        textPlain: message.textPlain,
-        date: message.headers.date,
-        from: message.headers.from,
-        to: message.headers.to,
-        subject: message.headers.subject,
-      },
-    ],
-  };
-
-  const { completion, complete, error, isLoading } = useCompletion({
-    api: "/api/ai/reply/nudge",
-    body,
-  });
-  console.log("🚀 ~ completion:", completion);
-
-  if (error) {
-    console.error("There was an error generating the nudge", error);
-  }
-
   useEffect(() => {
-    if (generateNudge) {
-      // we send the data via the body instead
-      complete("");
+    async function loadNudge() {
+      const result = await generateNudgeAction({
+        messages: [
+          {
+            id: message.id,
+            textHtml: message.textHtml,
+            textPlain: message.textPlain,
+            date: message.headers.date,
+            from: message.headers.from,
+            to: message.headers.to,
+            subject: message.headers.subject,
+          },
+        ],
+      });
+
+      console.log("🚀 ~ result:", result);
     }
-  }, [complete, generateNudge]);
+
+    if (generateNudge) loadNudge();
+  }, [generateNudge, message]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {
@@ -312,10 +302,7 @@ function EmailMessage({
 
               <div ref={replyRef}>
                 <ComposeEmailFormLazy
-                  replyingToEmail={{
-                    ...replyingToEmail,
-                    draftHtml: completion || replyingToEmail.draftHtml,
-                  }}
+                  replyingToEmail={replyingToEmail}
                   refetch={refetch}
                   onSuccess={(messageId) => {
                     onSendSuccess(messageId);

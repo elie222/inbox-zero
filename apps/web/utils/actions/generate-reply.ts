@@ -9,6 +9,7 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { aiGenerateReply } from "@/utils/ai/reply/generate-reply";
 import { emailToContent } from "@/utils/mail";
+import { getReply, saveReply } from "@/utils/redis/reply";
 import { getAiUserByEmail } from "@/utils/user/get";
 
 export const generateNudgeAction = withActionInstrumentation(
@@ -61,6 +62,13 @@ export const generateReplyAction = withActionInstrumentation(
 
     if (!lastMessage) return { error: "No message provided" };
 
+    const reply = await getReply({
+      userId: user.id,
+      messageId: lastMessage.id,
+    });
+
+    if (reply) return { text: reply };
+
     const messages = data.messages.map((msg) => ({
       ...msg,
       date: new Date(msg.date),
@@ -72,6 +80,12 @@ export const generateReplyAction = withActionInstrumentation(
     }));
 
     const text = await aiGenerateReply({ messages, user });
+
+    await saveReply({
+      userId: user.id,
+      messageId: lastMessage.id,
+      reply: text,
+    });
 
     return { text };
   },
