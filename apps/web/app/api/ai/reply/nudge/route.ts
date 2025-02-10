@@ -5,7 +5,6 @@ import { withError } from "@/utils/middleware";
 import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { getAiUserByEmail } from "@/utils/user/get";
 import { emailToContent } from "@/utils/mail";
-// import { getReply, saveReply } from "@/utils/redis/reply";
 
 const messageSchema = z
   .object({
@@ -43,11 +42,6 @@ export const POST = withError(async (request: Request) => {
 
   if (!lastMessage) return NextResponse.json({ error: "No message provided" });
 
-  // const reply = await getReply({
-  //   userId: user.id,
-  //   messageId: lastMessage.id,
-  // });
-
   const messages = body.messages.map((msg) => ({
     ...msg,
     date: new Date(msg.date),
@@ -58,15 +52,7 @@ export const POST = withError(async (request: Request) => {
     }),
   }));
 
-  return aiGenerateNudge({
-    messages,
-    user,
-    // onFinish: async (completion) => {
-    //   await saveReply({
-    //     userId: user.id,
-    //     messageId: lastMessage.id,
-    //     reply: completion,
-    //   });
-    // },
-  });
+  const text = await aiGenerateNudge({ messages, user });
+
+  return NextResponse.json({ text });
 });

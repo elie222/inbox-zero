@@ -1,4 +1,4 @@
-import { chatCompletionStream } from "@/utils/llms";
+import { chatCompletion } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
@@ -8,7 +8,6 @@ const logger = createScopedLogger("generate-nudge");
 export async function aiGenerateNudge({
   messages,
   user,
-  onFinish,
 }: {
   messages: {
     from: string;
@@ -41,17 +40,15 @@ Please write a follow-up email to nudge for a response.`;
 
   logger.trace("Input", { system, prompt });
 
-  const response = await chatCompletionStream({
+  const response = await chatCompletion({
     userAi: user,
     system,
     prompt,
     userEmail: user.email,
     usageLabel: "Reply",
-    onFinish: async (completion) => {
-      logger.trace("Output", { completion });
-      if (onFinish) await onFinish(completion);
-    },
   });
 
-  return response.toDataStreamResponse();
+  logger.trace("Output", { response: response.text });
+
+  return response.text;
 }

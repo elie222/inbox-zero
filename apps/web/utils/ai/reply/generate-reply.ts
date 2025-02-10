@@ -1,9 +1,9 @@
-import { chatCompletionStream } from "@/utils/llms";
+import { chatCompletion } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 
-// const logger = createScopedLogger("generate-reply");
+const logger = createScopedLogger("generate-reply");
 
 export async function aiGenerateReply({
   messages,
@@ -36,7 +36,9 @@ ${stringifyEmail(msg, 3000)}
      
 Please write a reply to the email.`;
 
-  const response = await chatCompletionStream({
+  logger.trace("Input", { system, prompt });
+
+  const response = await chatCompletion({
     userAi: user,
     system,
     prompt,
@@ -44,5 +46,7 @@ Please write a reply to the email.`;
     usageLabel: "Reply",
   });
 
-  return response.toDataStreamResponse();
+  logger.trace("Output", { response: response.text });
+
+  return response.text;
 }

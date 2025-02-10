@@ -29,6 +29,8 @@ import { extractEmailReply } from "@/utils/parse/extract-reply.client";
 import type { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
+import { useCompletion } from "ai/react";
+import type { GenerateReplyBody } from "@/app/api/ai/reply/nudge/route";
 
 type EmailMessage = Thread["messages"][number];
 
@@ -87,31 +89,34 @@ export function EmailThread({
         )}
       </div>
       <ul className="mt-4 space-y-2 sm:space-y-4">
-        {organizedMessages.map(({ message, draftReply }) => (
-          <EmailMessage
-            key={message.id}
-            message={message}
-            showReplyButton={showReplyButton}
-            refetch={refetch}
-            defaultShowReply={
-              autoOpenReplyForMessageId === message.id || Boolean(draftReply)
-            }
-            draftReply={draftReply}
-            expanded={expandedMessageIds.has(message.id)}
-            onExpand={() => {
-              setExpandedMessageIds((prev) => {
-                if (prev.has(message.id)) return prev;
-                return new Set(prev).add(message.id);
-              });
-            }}
-            onSendSuccess={(messageId) => {
-              setExpandedMessageIds((prev) => {
-                if (prev.has(messageId)) return prev;
-                return new Set(prev).add(messageId);
-              });
-            }}
-          />
-        ))}
+        {organizedMessages.map(({ message, draftReply }) => {
+          const defaultShowReply =
+            autoOpenReplyForMessageId === message.id || Boolean(draftReply);
+          return (
+            <EmailMessage
+              key={message.id}
+              message={message}
+              showReplyButton={showReplyButton}
+              refetch={refetch}
+              defaultShowReply={defaultShowReply}
+              draftReply={draftReply}
+              expanded={expandedMessageIds.has(message.id)}
+              onExpand={() => {
+                setExpandedMessageIds((prev) => {
+                  if (prev.has(message.id)) return prev;
+                  return new Set(prev).add(message.id);
+                });
+              }}
+              onSendSuccess={(messageId) => {
+                setExpandedMessageIds((prev) => {
+                  if (prev.has(messageId)) return prev;
+                  return new Set(prev).add(messageId);
+                });
+              }}
+              generateNudge={defaultShowReply && !draftReply?.textHtml}
+            />
+          );
+        })}
       </ul>
     </div>
   );
@@ -126,6 +131,7 @@ function EmailMessage({
   expanded,
   onExpand,
   onSendSuccess,
+  generateNudge,
 }: {
   message: EmailMessage;
   draftReply?: EmailMessage;
@@ -135,6 +141,7 @@ function EmailMessage({
   expanded: boolean;
   onExpand: () => void;
   onSendSuccess: (messageId: string) => void;
+  generateNudge?: boolean;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const replyRef = useRef<HTMLDivElement>(null);
@@ -158,6 +165,37 @@ function EmailMessage({
     setShowReply(false);
     setShowForward(false);
   }, []);
+
+  const body: GenerateReplyBody = {
+    messages: [
+      {
+        id: message.id,
+        textHtml: message.textHtml,
+        textPlain: message.textPlain,
+        date: message.headers.date,
+        from: message.headers.from,
+        to: message.headers.to,
+        subject: message.headers.subject,
+      },
+    ],
+  };
+
+  const { completion, complete, error, isLoading } = useCompletion({
+    api: "/api/ai/reply/nudge",
+    body,
+  });
+  console.log("🚀 ~ completion:", completion);
+
+  if (error) {
+    console.error("There was an error generating the nudge", error);
+  }
+
+  useEffect(() => {
+    if (generateNudge) {
+      // we send the data via the body instead
+      complete("");
+    }
+  }, [complete, generateNudge]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {
@@ -274,7 +312,10 @@ function EmailMessage({
 
               <div ref={replyRef}>
                 <ComposeEmailFormLazy
-                  replyingToEmail={replyingToEmail}
+                  replyingToEmail={{
+                    ...replyingToEmail,
+                    draftHtml: completion || replyingToEmail.draftHtml,
+                  }}
                   refetch={refetch}
                   onSuccess={(messageId) => {
                     onSendSuccess(messageId);
