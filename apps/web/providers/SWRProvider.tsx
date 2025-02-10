@@ -6,9 +6,9 @@ import { captureException } from "@/utils/error";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (url: string, init?: RequestInit | undefined) => {
-  // Super hacky:
+  // Super hacky, if we use streaming endpoints we should do this:
   // https://github.com/vercel/ai/issues/3214
-  if (url.startsWith("/api/ai/")) return [];
+  // if (url.startsWith("/api/ai/")) return [];
 
   const res = await fetch(url, init);
 
