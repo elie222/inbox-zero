@@ -244,12 +244,20 @@ export const POST = withError(async (request: Request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  logger.info("Sending summary email to user POST");
-
   const json = await request.json();
-  const body = sendSummaryEmailBody.parse(json);
+  const { success, data, error } = sendSummaryEmailBody.safeParse(json);
 
-  const result = await sendEmail(body);
+  if (!success) {
+    logger.error("Invalid request body", { error });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+
+  logger.info("Sending summary email to user POST", { email: data.email });
+
+  const result = await sendEmail(data);
 
   return NextResponse.json(result);
 });
