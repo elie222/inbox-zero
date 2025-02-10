@@ -169,46 +169,51 @@ export function ReplyTrackerEmails({
   }
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={35} minSize={0}>
-        {listView}
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={65} minSize={0} className="bg-slate-100">
-        <ThreadContent
-          threadId={selectedEmail.threadId}
-          showReplyButton={true}
-          autoOpenReplyForMessageId={selectedEmail.messageId}
-          topRightComponent={
-            <div className="flex items-center gap-1">
-              {trackers.find((t) => t.threadId === selectedEmail.threadId)
-                ?.resolved ? (
-                <UnresolveButton
-                  threadId={selectedEmail.threadId}
-                  onResolve={handleResolve}
-                  isLoading={resolvingThreads.has(selectedEmail.threadId)}
-                  showShortcut={false}
-                />
-              ) : (
-                <ResolveButton
-                  threadId={selectedEmail.threadId}
-                  onResolve={handleResolve}
-                  isLoading={resolvingThreads.has(selectedEmail.threadId)}
-                  showShortcut={false}
-                />
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSelectedEmail(null)}
-              >
-                <XIcon className="size-4" />
-              </Button>
-            </div>
-          }
-        />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+    // hacky. this will break if other parts of the layout change
+    <div className="h-[calc(100vh-7.5rem)]">
+      <ResizablePanelGroup direction="horizontal" className="h-full">
+        <ResizablePanel defaultSize={35} minSize={0}>
+          <div className="h-full overflow-y-auto">{listView}</div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={65} minSize={0} className="bg-slate-100">
+          <div className="h-full overflow-y-auto">
+            <ThreadContent
+              threadId={selectedEmail.threadId}
+              showReplyButton={true}
+              autoOpenReplyForMessageId={selectedEmail.messageId}
+              topRightComponent={
+                <div className="flex items-center gap-1">
+                  {trackers.find((t) => t.threadId === selectedEmail.threadId)
+                    ?.resolved ? (
+                    <UnresolveButton
+                      threadId={selectedEmail.threadId}
+                      onResolve={handleResolve}
+                      isLoading={resolvingThreads.has(selectedEmail.threadId)}
+                      showShortcut={false}
+                    />
+                  ) : (
+                    <ResolveButton
+                      threadId={selectedEmail.threadId}
+                      onResolve={handleResolve}
+                      isLoading={resolvingThreads.has(selectedEmail.threadId)}
+                      showShortcut={false}
+                    />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedEmail(null)}
+                  >
+                    <XIcon className="size-4" />
+                  </Button>
+                </div>
+              }
+            />
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 }
 
