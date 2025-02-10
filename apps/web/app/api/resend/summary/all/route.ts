@@ -70,7 +70,7 @@ async function sendSummaryAllUpdate() {
 
 export const GET = withError(async (request) => {
   if (!hasCronSecret(request)) {
-    captureException(new Error("Unauthorized request: api/resend/all"));
+    captureException(new Error("Unauthorized request: api/resend/summary/all"));
     return new Response("Unauthorized", { status: 401 });
   }
 
