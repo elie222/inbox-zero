@@ -5,8 +5,7 @@ export function useThreadsByIds(
   { threadIds }: { threadIds: string[] },
   options?: { keepPreviousData?: boolean },
 ) {
-  const searchParams = new URLSearchParams();
-  searchParams.set("threadIds", threadIds.join(","));
+  const searchParams = new URLSearchParams({ threadIds: threadIds.join(",") });
   const url = `/api/google/threads/batch?${searchParams.toString()}`;
   const { data, isLoading, error, mutate } = useSWR<ThreadsBatchResponse>(
     threadIds.length ? url : null,

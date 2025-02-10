@@ -8,7 +8,14 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   return (
     <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-3">
       {message.attachments?.map((attachment) => {
-        const url = `/api/google/messages/attachment?messageId=${message.id}&attachmentId=${attachment.attachmentId}&mimeType=${attachment.mimeType}&filename=${attachment.filename}`;
+        const searchParams = new URLSearchParams({
+          messageId: message.id,
+          attachmentId: attachment.attachmentId,
+          mimeType: attachment.mimeType,
+          filename: attachment.filename,
+        });
+
+        const url = `/api/google/messages/attachment?${searchParams.toString()}`;
 
         return (
           <Card key={attachment.filename} className="p-4">
@@ -54,7 +61,7 @@ function mimeTypeToString(mimeType: string): string {
       return "XLS";
     case "application/vnd.ms-powerpoint":
       return "PPT";
-    case "application/vnd.ms-word":
+    case "application/msword":
       return "DOC";
     default:
       return mimeType;
