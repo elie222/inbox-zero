@@ -63,14 +63,14 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     },
   });
 
-  logger.info("User found", loggerOptions);
-
-  if (!user) {
+  if (user) {
+    logger.info("User found", loggerOptions);
+  } else {
     logger.error("User not found or cutoff date is in the future", {
       ...loggerOptions,
       cutOffDate,
     });
-    return { success: false };
+    return { success: true };
   }
 
   // Get counts and recent threads for each type
