@@ -19,7 +19,7 @@ export async function aiGenerateNudge({
   user: UserEmailWithAI;
   onFinish?: (completion: string) => Promise<void>;
 }) {
-  const system = `You are an AI assistant helping to write a follow-up email to nudge someone who hasn't responded.
+  const system = `You are an expert at writing follow-up emails that get responses.
 Write a polite and professional email that follows up on the previous conversation.
 Keep it concise and friendly. Don't be pushy.
 Use context from the previous emails to make it relevant.
@@ -37,7 +37,10 @@ ${stringifyEmail(msg, 3000)}
   )
   .join("\n")}
      
-Please write a follow-up email to nudge for a response.`;
+Write a brief follow-up email to politely nudge for a response.
+
+Today's date is: ${new Date().toISOString().split("T")[0]}.
+IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`;
 
   logger.trace("Input", { system, prompt });
 

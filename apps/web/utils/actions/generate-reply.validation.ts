@@ -15,6 +15,7 @@ const messageSchema = z
   });
 
 export const generateReplySchema = z.object({
+  type: z.enum(["reply", "nudge"]),
   messages: z.array(messageSchema),
 });
 
