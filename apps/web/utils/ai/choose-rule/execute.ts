@@ -9,8 +9,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { markNeedsReply } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
 
-const logger = createScopedLogger("ai-execute-act");
-
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
 }>;
@@ -27,11 +25,13 @@ export async function executeAct({
   userEmail: string;
   isReplyTrackingRule: boolean;
 }) {
-  logger.info("Executing rule", {
-    userEmail,
+  const logger = createScopedLogger("ai-execute-act").with({
+    email: userEmail,
     executedRuleId: executedRule.id,
     ruleId: executedRule.ruleId,
     isReplyTrackingRule,
+    threadId: executedRule.threadId,
+    messageId: executedRule.messageId,
   });
 
   async function labelActed() {
@@ -55,10 +55,7 @@ export async function executeAct({
   });
 
   if (pendingRules.count === 0) {
-    logger.info("Executed rule is not pending or does not exist", {
-      userEmail,
-      executedRuleId: executedRule.id,
-    });
+    logger.info("Executed rule is not pending or does not exist");
     return;
   }
 
@@ -88,13 +85,7 @@ export async function executeAct({
         gmail,
       );
     } catch (error) {
-      logger.error("Failed to create reply tracker", {
-        error,
-        userId: executedRule.userId,
-        email: userEmail,
-        threadId: executedRule.threadId,
-        messageId: executedRule.messageId,
-      });
+      logger.error("Failed to create reply tracker", { error });
     }
   }
 
@@ -109,17 +100,12 @@ export async function executeAct({
   if (updateResult.status === "rejected") {
     logger.error("Failed to update executed rule", {
       error: updateResult.reason,
-      userId: executedRule.userId,
-      email: userEmail,
-      ruleId: executedRule.ruleId,
     });
   }
 
   if (labelResult.status === "rejected") {
     logger.error("Failed to label acted", {
       error: labelResult.reason,
-      userId: executedRule.userId,
-      email: userEmail,
     });
   }
 }

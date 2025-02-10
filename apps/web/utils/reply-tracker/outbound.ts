@@ -5,7 +5,7 @@ import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
 import prisma from "@/utils/prisma";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { ThreadTrackerType, type User } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import {
   labelAwaitingReply,
@@ -14,8 +14,6 @@ import {
 } from "@/utils/reply-tracker/label";
 import { internalDateToDate } from "@/utils/date";
 import { getReplyTrackingRule } from "@/utils/reply-tracker";
-
-const logger = createScopedLogger("outbound-reply");
 
 export async function handleOutboundReply(
   user: Pick<User, "id" | "about"> & UserEmailWithAI,
@@ -42,12 +40,15 @@ export async function handleOutboundReply(
 
   const threadMessages = await getThreadMessages(message.threadId, gmail);
 
+  const logger = createScopedLogger("reply-tracker/outbound").with({
+    email: user.email,
+    userId: user.id,
+    messageId: message.id,
+    threadId: message.threadId,
+  });
+
   if (!threadMessages?.length) {
-    logger.error("No thread messages found", {
-      email: user.email,
-      messageId: message.id,
-      threadId: message.threadId,
-    });
+    logger.error("No thread messages found");
     return;
   }
 
@@ -66,6 +67,7 @@ export async function handleOutboundReply(
 
   // if yes, create a tracker
   if (result.needsReply) {
+    logger.info("Needs reply. Creating reply tracker outbound");
     await createReplyTrackerOutbound({
       gmail,
       userId,
@@ -73,6 +75,7 @@ export async function handleOutboundReply(
       messageId: message.id,
       awaitingReplyLabelId,
       sentAt: internalDateToDate(message.internalDate),
+      logger,
     });
   } else {
     logger.info("No need to reply");
@@ -86,6 +89,7 @@ async function createReplyTrackerOutbound({
   messageId,
   awaitingReplyLabelId,
   sentAt,
+  logger,
 }: {
   gmail: gmail_v1.Gmail;
   userId: string;
@@ -93,6 +97,7 @@ async function createReplyTrackerOutbound({
   messageId: string;
   awaitingReplyLabelId: string;
   sentAt: Date;
+  logger: Logger;
 }) {
   if (!threadId || !messageId) return;
 
@@ -125,22 +130,14 @@ async function createReplyTrackerOutbound({
     labelPromise,
   ]);
 
-  const errorOptions = {
-    userId,
-    threadId,
-    messageId,
-  };
-
   if (upsertResult.status === "rejected") {
     logger.error("Failed to upsert reply tracker", {
-      ...errorOptions,
       error: upsertResult.reason,
     });
   }
 
   if (labelResult.status === "rejected") {
     logger.error("Failed to label reply tracker", {
-      ...errorOptions,
       error: labelResult.reason,
     });
   }
