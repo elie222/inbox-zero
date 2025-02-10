@@ -32,7 +32,13 @@ vi.mock("@/utils/gmail/message", () => ({
         { name: "Subject", value: "Test Email" },
         { name: "Date", value: "2024-01-01T00:00:00Z" },
       ],
-      parts: [],
+      parts: [
+        {
+          body: {
+            data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
+          },
+        },
+      ],
     },
   }),
 }));
@@ -187,7 +193,7 @@ describe("processHistoryItem", () => {
         content: expect.any(String),
         messageId: "123",
         threadId: "thread-123",
-        date: expect.any(String),
+        date: expect.any(Date),
       }),
       gmail: options.gmail,
       user: options.user,
