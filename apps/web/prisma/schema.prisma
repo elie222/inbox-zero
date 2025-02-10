@@ -96,6 +96,8 @@ model User {
   categories        Category[]
   threadTrackers    ThreadTracker[]
   unsubscribeTokens EmailToken[]
+
+  @@index([lastSummaryEmailAt])
 }
 
 model Premium {
@@ -253,6 +255,7 @@ model ExecutedRule {
   actionItems ExecutedAction[]
 
   @@unique([userId, threadId, messageId], name: "unique_user_thread_message")
+  @@index([userId, status, createdAt])
 }
 
 model ExecutedAction {
@@ -353,6 +356,7 @@ model ColdEmail {
 
   @@unique([userId, fromEmail])
   @@index([userId, status])
+  @@index([userId, createdAt])
 }
 
 model ThreadTracker {
