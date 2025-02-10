@@ -377,6 +377,8 @@ model ThreadTracker {
 
   @@unique([userId, threadId, messageId])
   @@index([userId, resolved])
+  @@index([userId, resolved, sentAt, type])
+  @@index([userId, type, resolved, sentAt])
 }
 
 model ApiKey {
