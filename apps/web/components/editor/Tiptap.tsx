@@ -5,7 +5,6 @@ import StarterKit from "@tiptap/starter-kit";
 import { useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/utils";
 import { EnterHandler } from "@/components/editor/extensions";
-import "@/styles/prosemirror.css";
 
 export type TiptapHandle = {
   appendContent: (content: string) => void;
@@ -25,7 +24,20 @@ export const Tiptap = forwardRef<
   ref,
 ) {
   const editor = useEditor({
-    extensions: [StarterKit, EnterHandler],
+    extensions: [
+      StarterKit.configure({
+        // Configure lists to preserve formatting
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+      }),
+      EnterHandler,
+    ],
     content: initialContent,
     onUpdate: useCallback(
       ({ editor }: { editor: Editor }) => {
@@ -58,10 +70,10 @@ export const Tiptap = forwardRef<
   }));
 
   return (
-    <div className="relative w-full rounded-md border border-input bg-background pb-4">
+    <div className="relative w-full rounded-md border border-input bg-background pb-6">
       <EditorContent editor={editor} />
       {!!onMoreClick && (
-        <div className="absolute bottom-1 left-0 flex">
+        <div className="absolute bottom-2 left-0 flex">
           <button
             className="rounded-tr-md px-4 py-1 text-muted-foreground transition-transform hover:translate-x-1"
             type="button"
