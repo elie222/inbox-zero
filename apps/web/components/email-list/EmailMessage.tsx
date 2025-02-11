@@ -138,7 +138,7 @@ function TopBar({
             <span className="text-gray-900">
               {extractNameFromEmail(message.headers.from)}
             </span>{" "}
-            <span className="text-gray-600">wrote</span>
+            {expanded && <span className="text-gray-600">wrote</span>}
           </h3>
         </div>
         {expanded && (
