@@ -100,8 +100,12 @@ export function ReplyTrackerEmails({
         next.delete(threadId);
         return next;
       });
+
+      if (selectedEmail?.threadId === threadId) {
+        setSelectedEmail(null);
+      }
     },
-    [resolvingThreads],
+    [resolvingThreads, selectedEmail],
   );
 
   const handleAction = useCallback(
