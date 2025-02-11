@@ -4,6 +4,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/utils";
+import { EnterHandler } from "@/components/editor/extensions";
 import "@/styles/prosemirror.css";
 
 export type TiptapHandle = {
@@ -24,7 +25,7 @@ export const Tiptap = forwardRef<
   ref,
 ) {
   const editor = useEditor({
-    extensions: [StarterKit as any],
+    extensions: [StarterKit, EnterHandler],
     content: initialContent,
     onUpdate: useCallback(
       ({ editor }: { editor: Editor }) => {

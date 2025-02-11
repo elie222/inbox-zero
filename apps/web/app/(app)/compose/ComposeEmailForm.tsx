@@ -21,11 +21,10 @@ import { ButtonLoader } from "@/components/Loading";
 import { env } from "@/env";
 import { extractNameFromEmail } from "@/utils/email";
 import { isActionError } from "@/utils/error";
-import { Tiptap } from "@/components/Tiptap";
+import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import type { SendEmailBody } from "@/utils/gmail/mail";
-import type { TiptapHandle } from "@/components/Tiptap";
 import { CommandShortcut } from "@/components/ui/command";
 import { useModifierKey } from "@/hooks/useModifierKey";
 
