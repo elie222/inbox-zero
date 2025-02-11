@@ -58,16 +58,16 @@ export const Tiptap = forwardRef<
   }));
 
   return (
-    <div className="relative w-full rounded-md border border-input bg-background">
+    <div className="relative w-full rounded-md border border-input bg-background pb-4">
       <EditorContent editor={editor} />
       {!!onMoreClick && (
-        <div className="absolute bottom-2 left-0 flex">
+        <div className="absolute bottom-1 left-0 flex">
           <button
             className="rounded-tr-md px-4 py-1 text-muted-foreground transition-transform hover:translate-x-1"
             type="button"
             onClick={onMoreClick}
           >
-            •••
+            ...
           </button>
         </div>
       )}
