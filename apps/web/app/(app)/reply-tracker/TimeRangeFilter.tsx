@@ -11,7 +11,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
 
 const timeRangeOptions = [
-  { value: "all", label: "Show all" },
+  { value: "all", label: "All" },
   { value: "3d", label: "3+ days old" },
   { value: "1w", label: "1+ week old" },
   { value: "2w", label: "2+ weeks old" },

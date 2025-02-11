@@ -42,7 +42,7 @@ export default async function ReplyTrackerPage({
     <Tabs defaultValue="needsReply" className="flex h-full flex-col">
       <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
         <div className="w-full overflow-x-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <TabsList>
               <TabsTrigger
                 value="needsReply"
