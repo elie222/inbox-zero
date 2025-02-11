@@ -39,11 +39,13 @@ export function ThreadContent({
   showReplyButton,
   autoOpenReplyForMessageId,
   topRightComponent,
+  onSendSuccess,
 }: {
   threadId: string;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
   topRightComponent?: React.ReactNode;
+  onSendSuccess?: (messageId: string, threadId: string) => void;
 }) {
   const { data, isLoading, error, mutate } = useThread(
     { id: threadId },
@@ -62,6 +64,7 @@ export function ThreadContent({
             showReplyButton={showReplyButton}
             autoOpenReplyForMessageId={autoOpenReplyForMessageId}
             topRightComponent={topRightComponent}
+            onSendSuccess={onSendSuccess}
           />
         )}
       </LoadingContent>

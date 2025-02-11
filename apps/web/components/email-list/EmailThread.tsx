@@ -8,12 +8,14 @@ export function EmailThread({
   showReplyButton,
   autoOpenReplyForMessageId,
   topRightComponent,
+  onSendSuccess,
 }: {
   messages: ThreadMessage[];
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
   topRightComponent?: React.ReactNode;
+  onSendSuccess?: (messageId: string, threadId: string) => void;
 }) {
   // Place draft messages as replies to their parent message
   const organizedMessages = useMemo(() => {
@@ -80,6 +82,8 @@ export function EmailThread({
                   if (prev.has(messageId)) return prev;
                   return new Set(prev).add(messageId);
                 });
+
+                onSendSuccess?.(messageId, message.threadId);
               }}
               generateNudge={defaultShowReply && !draftMessage?.textHtml}
             />

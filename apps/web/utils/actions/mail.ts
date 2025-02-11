@@ -237,6 +237,10 @@ export const sendEmailAction = withActionInstrumentation(
 
     const result = await sendEmailWithHtml(gmail, body);
 
-    return { success: true, messageId: result.data.id };
+    return {
+      success: true,
+      messageId: result.data.id,
+      threadId: result.data.threadId,
+    };
   },
 );

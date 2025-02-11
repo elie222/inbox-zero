@@ -49,7 +49,7 @@ export const ComposeEmailForm = ({
 }: {
   replyingToEmail?: ReplyingToEmail;
   refetch?: () => void;
-  onSuccess?: (messageId: string) => void;
+  onSuccess?: (messageId: string, threadId: string) => void;
   onDiscard?: () => void;
 }) => {
   const [showFullContent, setShowFullContent] = React.useState(false);
@@ -88,7 +88,7 @@ export const ComposeEmailForm = ({
           });
         } else {
           toastSuccess({ description: "Email sent!" });
-          onSuccess?.(res.messageId ?? "");
+          onSuccess?.(res.messageId ?? "", res.threadId ?? "");
         }
       } catch (error) {
         console.error(error);

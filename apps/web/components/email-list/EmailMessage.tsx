@@ -44,7 +44,7 @@ export function EmailMessage({
   defaultShowReply?: boolean;
   expanded: boolean;
   onExpand: () => void;
-  onSendSuccess: (messageId: string) => void;
+  onSendSuccess: (messageId: string, threadId: string) => void;
   generateNudge?: boolean;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
@@ -195,7 +195,7 @@ function ReplyPanel({
 }: {
   message: ParsedMessage;
   refetch: () => void;
-  onSendSuccess: (messageId: string) => void;
+  onSendSuccess: (messageId: string, threadId: string) => void;
   onCloseCompose: () => void;
   defaultShowReply?: boolean;
   showReply: boolean;
@@ -295,8 +295,8 @@ function ReplyPanel({
           <ComposeEmailFormLazy
             replyingToEmail={replyingToEmail}
             refetch={refetch}
-            onSuccess={(messageId) => {
-              onSendSuccess(messageId);
+            onSuccess={(messageId, threadId) => {
+              onSendSuccess(messageId, threadId);
               onCloseCompose();
             }}
             onDiscard={onCloseCompose}

@@ -55,6 +55,11 @@ export function ReplyTrackerEmails({
   const [resolvingThreads, setResolvingThreads] = useState<Set<string>>(
     new Set(),
   );
+  // When we send an email, it takes some time to process so we want to hide those from the "To Reply" UI
+  // This will reshow on page refresh, but it's good enough for now.
+  const [recentlySentThreads, setRecentlySentThreads] = useState<Set<string>>(
+    new Set(),
+  );
 
   const { data, isLoading } = useThreadsByIds(
     {
@@ -64,7 +69,7 @@ export function ReplyTrackerEmails({
   );
 
   const sortedThreads = sortBy(
-    data?.threads,
+    data?.threads.filter((t) => !recentlySentThreads.has(t.id)),
     (t) => -internalDateToDate(t.messages.at(-1)?.internalDate),
   );
 
@@ -131,6 +136,31 @@ export function ReplyTrackerEmails({
     handleAction,
   );
 
+  const onSendSuccess = useCallback(
+    async (_messageId: string, threadId: string) => {
+      // If this is a "To Reply" thread
+      // add it to recently sent threads to hide it immediately
+      if (type === ThreadTrackerType.NEEDS_REPLY) {
+        setRecentlySentThreads((prev) => {
+          const next = new Set(prev);
+          next.add(threadId);
+          return next;
+        });
+
+        // Remove from recently sent after 3 minutes
+        const timeout = 3 * 60 * 1000;
+        setTimeout(() => {
+          setRecentlySentThreads((prev) => {
+            const next = new Set(prev);
+            next.delete(threadId);
+            return next;
+          });
+        }, timeout);
+      }
+    },
+    [type],
+  );
+
   if (isLoading && !data) {
     return <Loading />;
   }
@@ -186,6 +216,11 @@ export function ReplyTrackerEmails({
               threadId={selectedEmail.threadId}
               showReplyButton={true}
               autoOpenReplyForMessageId={selectedEmail.messageId}
+              onSendSuccess={
+                type === ThreadTrackerType.NEEDS_REPLY
+                  ? onSendSuccess
+                  : undefined
+              }
               topRightComponent={
                 <div className="flex items-center gap-1">
                   {trackers.find((t) => t.threadId === selectedEmail.threadId)
