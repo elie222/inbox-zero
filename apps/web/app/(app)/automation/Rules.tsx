@@ -7,6 +7,7 @@ import {
   PenIcon,
   PlusIcon,
   AlertTriangleIcon,
+  InfoIcon,
 } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -101,7 +102,16 @@ export function Rules() {
                               Disabled
                             </Badge>
                           )}
-                          {rule.name}
+                          {rule.trackReplies ? (
+                            <Tooltip content="This is the rule used by Reply Zero">
+                              <Badge color="blue" className="mr-2">
+                                {rule.name}
+                                <InfoIcon className="ml-1 size-3" />
+                              </Badge>
+                            </Tooltip>
+                          ) : (
+                            rule.name
+                          )}
                         </Link>
 
                         {!rule.enabled && (
