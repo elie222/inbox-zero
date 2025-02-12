@@ -1,6 +1,6 @@
 import { FormWrapper } from "@/components/Form";
 import { AboutSection } from "@/app/(app)/settings/AboutSection";
-import { SignatureSectionForm } from "@/app/(app)/settings/SignatureSectionForm";
+// import { SignatureSectionForm } from "@/app/(app)/settings/SignatureSectionForm";
 // import { LabelsSection } from "@/app/(app)/settings/LabelsSection";
 import { DeleteSection } from "@/app/(app)/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/settings/ModelSection";
@@ -32,7 +32,8 @@ export default async function SettingsPage() {
   return (
     <FormWrapper>
       <AboutSection about={user.about} />
-      <SignatureSectionForm signature={user.signature} />
+      {/* this is only used in Gmail when sending a new message. disabling for now. */}
+      {/* <SignatureSectionForm signature={user.signature} /> */}
       {/* <LabelsSection /> */}
       <ModelSection />
       <EmailUpdatesSection statsEmailFrequency={user.statsEmailFrequency} />
