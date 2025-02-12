@@ -52,6 +52,7 @@ model User {
 
   // additional fields
   about                     String?
+  signature                 String?
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
   completedOnboarding       Boolean   @default(false) // deprecated
