@@ -99,7 +99,6 @@ const createRawMailMessage = async (
 export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: SendEmailBody,
-  from?: string,
 ) {
   let messageText: string;
 
@@ -111,7 +110,7 @@ export async function sendEmailWithHtml(
     messageText = body.messageHtml.replace(/<[^>]*>/g, "");
   }
 
-  const raw = await createRawMailMessage({ ...body, messageText }, from);
+  const raw = await createRawMailMessage({ ...body, messageText });
   const result = await gmail.users.messages.send({
     userId: "me",
     requestBody: {
@@ -125,10 +124,9 @@ export async function sendEmailWithHtml(
 export async function sendEmailWithPlainText(
   gmail: gmail_v1.Gmail,
   body: Omit<SendEmailBody, "messageHtml"> & { messageText: string },
-  from?: string,
 ) {
   const messageHtml = convertTextToHtmlParagraphs(body.messageText);
-  return sendEmailWithHtml(gmail, { ...body, messageHtml }, from);
+  return sendEmailWithHtml(gmail, { ...body, messageHtml });
 }
 
 export async function replyToEmail(

@@ -76,8 +76,8 @@ export const ComposeEmailForm = ({
       const enrichedData = {
         ...data,
         messageHtml: showFullContent
-          ? data.messageHtml
-          : `${data.messageHtml}<br>${replyingToEmail?.quotedContentHtml}`,
+          ? data.messageHtml || ""
+          : `${data.messageHtml || ""}<br>${replyingToEmail?.quotedContentHtml || ""}`,
       };
 
       try {
