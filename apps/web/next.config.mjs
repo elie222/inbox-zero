@@ -155,6 +155,11 @@ const nextConfig = {
         destination: "/early-access",
         permanent: true,
       },
+      {
+        source: "/reply-tracker",
+        destination: "/reply-zero",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

@@ -119,17 +119,17 @@ export const enableReplyTrackerAction = withActionInstrumentation(
       );
 
       if ("error" in newRule) {
-        logger.error("Error enabling reply tracker", {
+        logger.error("Error enabling Reply Zero", {
           error: newRule.error,
         });
-        return { error: "Error enabling reply tracker" };
+        return { error: "Error enabling Reply Zero" };
       }
 
       ruleId = newRule.id;
 
       if (!ruleId) {
-        logger.error("Error enabling reply tracker, no rule found");
-        return { error: "Error enabling reply tracker" };
+        logger.error("Error enabling Reply Zero, no rule found");
+        return { error: "Error enabling Reply Zero" };
       }
 
       // Add rule to prompt file
@@ -144,10 +144,10 @@ export const enableReplyTrackerAction = withActionInstrumentation(
 
     // Update the rule to track replies
     if (!ruleId) {
-      logger.error("Error enabling reply tracker", {
+      logger.error("Error enabling Reply Zero", {
         error: "No rule found",
       });
-      return { error: "Error enabling reply tracker" };
+      return { error: "Error enabling Reply Zero" };
     }
 
     await prisma.rule.update({
@@ -155,7 +155,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
       data: { trackReplies: true, runOnThreads: true },
     });
 
-    revalidatePath("/reply-tracker");
+    revalidatePath("/reply-zero");
 
     return { success: true };
   },
@@ -207,7 +207,7 @@ export const resolveThreadTrackerAction = withActionInstrumentation(
     if (!success) return { error: error.message };
 
     await startAnalyzingReplyTracker(userId).catch((error) => {
-      logger.error("Error starting reply tracker analysis", { error });
+      logger.error("Error starting Reply Zero analysis", { error });
     });
 
     await prisma.threadTracker.updateMany({
@@ -219,10 +219,10 @@ export const resolveThreadTrackerAction = withActionInstrumentation(
     });
 
     await stopAnalyzingReplyTracker(userId).catch((error) => {
-      logger.error("Error stopping reply tracker analysis", { error });
+      logger.error("Error stopping Reply Zero analysis", { error });
     });
 
-    revalidatePath("/reply-tracker");
+    revalidatePath("/reply-zero");
 
     return { success: true };
   },

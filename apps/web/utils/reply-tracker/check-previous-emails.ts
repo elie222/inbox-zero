@@ -62,7 +62,7 @@ export async function processPreviousSentEmails(
         await handleInboundReply(user, latestMessage, gmail);
       }
 
-      revalidatePath("/reply-tracker");
+      revalidatePath("/reply-zero");
     } catch (error) {
       logger.error("Error processing message for reply tracking", {
         ...loggerOptions,

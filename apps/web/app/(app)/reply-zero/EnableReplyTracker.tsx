@@ -25,7 +25,7 @@ export function EnableReplyTracker() {
 
   return (
     <EnableFeatureCard
-      title="Reply Tracker"
+      title="Reply Zero"
       description="Enable reply tracking to automatically track emails you need to respond to and responses you're waiting for from others. Never miss a follow-up again."
       extraDescription={
         <div className="mt-4">
@@ -41,19 +41,19 @@ export function EnableReplyTracker() {
       }
       imageSrc="https://illustrations.popsy.co/amber/communication.svg"
       imageAlt="Reply tracking"
-      buttonText="Enable Reply Tracker"
+      buttonText="Enable Reply Zero"
       onEnable={async () => {
         const result = await enableReplyTrackerAction();
 
         if (isActionError(result)) {
           toastError({
-            title: "Error enabling reply tracker",
+            title: "Error enabling Reply Zero",
             description: result.error,
           });
         } else {
           toastSuccess({
-            title: "Reply tracker enabled",
-            description: "We've enabled reply tracking for you!",
+            title: "Reply Zero enabled",
+            description: "We've enabled Reply Zero for you!",
           });
         }
 

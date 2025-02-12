@@ -1,9 +1,9 @@
 import { ThreadTrackerType } from "@prisma/client";
-import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
-import { getPaginatedThreadTrackers } from "@/app/(app)/reply-tracker/fetch-trackers";
-import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
+import { ReplyTrackerEmails } from "./ReplyTrackerEmails";
+import { getPaginatedThreadTrackers } from "./fetch-trackers";
+import type { TimeRange } from "./date-filter";
 
-export async function NeedsReply({
+export async function NeedsAction({
   userId,
   userEmail,
   page,
@@ -18,7 +18,7 @@ export async function NeedsReply({
 }) {
   const { trackers, totalPages } = await getPaginatedThreadTrackers({
     userId,
-    type: ThreadTrackerType.NEEDS_REPLY,
+    type: ThreadTrackerType.NEEDS_ACTION,
     page,
     timeRange,
   });
@@ -27,7 +27,7 @@ export async function NeedsReply({
     <ReplyTrackerEmails
       trackers={trackers}
       userEmail={userEmail}
-      type={ThreadTrackerType.NEEDS_REPLY}
+      type={ThreadTrackerType.NEEDS_ACTION}
       totalPages={totalPages}
       isAnalyzing={isAnalyzing}
     />
