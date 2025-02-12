@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircleIcon, ClockIcon, MailIcon } from "lucide-react";
+import {
+  CheckCircleIcon,
+  ClockIcon,
+  MailIcon,
+  SettingsIcon,
+} from "lucide-react";
 import { NeedsReply } from "./NeedsReply";
 import { Resolved } from "./Resolved";
 import { AwaitingReply } from "./AwaitingReply";
@@ -10,6 +16,7 @@ import { EnableReplyTracker } from "./EnableReplyTracker";
 import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
+import { Button } from "@/components/ui/button";
 
 export const maxDuration = 600;
 
@@ -26,7 +33,7 @@ export default async function ReplyTrackerPage({
 
   const trackRepliesRule = await prisma.rule.findFirst({
     where: { userId, trackReplies: true },
-    select: { trackReplies: true },
+    select: { trackReplies: true, id: true },
   });
 
   const isAnalyzing = await isAnalyzingReplyTracker(userId);
@@ -67,11 +74,22 @@ export default async function ReplyTrackerPage({
               </TabsTrigger> */}
 
               <TabsTrigger value="resolved" className="flex items-center gap-2">
-                <CheckCircleIcon className="h-4 w-4" />
+                <CheckCircleIcon className="size-4" />
                 Done
               </TabsTrigger>
             </TabsList>
-            <TimeRangeFilter />
+
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" asChild>
+                <Link
+                  href={`/automation/rule/${trackRepliesRule?.id}`}
+                  target="_blank"
+                >
+                  <SettingsIcon className="size-4" />
+                </Link>
+              </Button>
+              <TimeRangeFilter />
+            </div>
           </div>
         </div>
       </div>
