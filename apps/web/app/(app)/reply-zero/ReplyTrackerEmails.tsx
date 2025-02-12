@@ -28,7 +28,7 @@ import {
   ResizablePanel,
 } from "@/components/ui/resizable";
 import { ThreadContent } from "@/components/EmailViewer";
-import { internalDateToDate } from "@/utils/date";
+import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { cn } from "@/utils";
 import { CommandShortcut } from "@/components/ui/command";
 import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
@@ -309,6 +309,7 @@ function Row({
             messageId={message.id}
             hideViewEmailButton
           />
+
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: buttons inside handle keyboard events */}
           <div
             className={cn(
@@ -317,6 +318,10 @@ function Row({
             )}
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="mr-4 text-nowrap text-sm text-muted-foreground">
+              {formatShortDate(internalDateToDate(message.internalDate))}
+            </div>
+
             {isResolved ? (
               <UnresolveButton
                 threadId={message.threadId}
