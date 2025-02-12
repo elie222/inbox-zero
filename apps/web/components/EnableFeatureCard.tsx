@@ -10,7 +10,7 @@ import { cn } from "@/utils";
 
 interface EnableFeatureCardProps {
   title: string;
-  description: string;
+  description: React.ReactNode;
   extraDescription?: React.ReactNode;
   imageSrc: string;
   imageAlt: string;
