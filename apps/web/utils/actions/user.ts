@@ -8,9 +8,8 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
 import { getGmailClient } from "@/utils/gmail/client";
-import { getMessages } from "@/utils/gmail/message";
+import { getMessage, getMessages } from "@/utils/gmail/message";
 import { parseMessage } from "@/utils/mail";
-import type { MessageWithPayload } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
 
 const saveAboutBody = z.object({ about: z.string().max(2_000) });
@@ -66,7 +65,9 @@ export const loadSignatureFromGmailAction = withActionInstrumentation(
 
     // 2. loop through emails till we find a signature
     for (const message of messages.messages || []) {
-      const parsedEmail = parseMessage(message as MessageWithPayload);
+      if (!message.id) continue;
+      const messageWithPayload = await getMessage(message.id, gmail);
+      const parsedEmail = parseMessage(messageWithPayload);
       if (!parsedEmail.labelIds?.includes(GmailLabel.SENT)) continue;
       if (!parsedEmail.textHtml) continue;
 
