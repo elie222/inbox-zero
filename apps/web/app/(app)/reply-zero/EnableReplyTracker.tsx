@@ -28,26 +28,32 @@ export function EnableReplyTracker() {
       title="Reply Zero"
       description={
         <>
-          Most emails don't need a reply — Reply Zero surfaces the ones that do.
+          Your inbox is filled with emails that don't need your attention.
           <br />
-          We'll track what needs your attention and who hasn't responded yet.
+          Reply Zero only shows you the ones that do.
         </>
       }
       extraDescription={
         <div className="mt-4">
+          <p>
+            <SectionDescription className="text-left">
+              We label your emails with:
+            </SectionDescription>
+          </p>
+
           <SectionDescription className="text-left">
-            <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label
-            highlights emails you need to reply to.
+            <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> - emails you
+            need to reply to.
           </SectionDescription>
           <SectionDescription className="text-left">
-            <Badge color="blue">{AWAITING_REPLY_LABEL_NAME}</Badge> label marks
-            conversations where you’re waiting for others.
+            <Badge color="blue">{AWAITING_REPLY_LABEL_NAME}</Badge> - emails
+            where you're waiting for a response.
           </SectionDescription>
         </div>
       }
       imageSrc="https://illustrations.popsy.co/amber/communication.svg"
       imageAlt="Reply tracking"
-      buttonText="Get Started"
+      buttonText="Enable"
       onEnable={async () => {
         const result = await enableReplyTrackerAction();
 

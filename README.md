@@ -22,6 +22,7 @@ Inbox Zero is the open-source AI personal assistant for people who want to spend
 ## Features
 
 - **AI Personal Assistant:** Manages your email for you based on a plain text prompt file. It can take any action a human assistant can take on your behalf (Draft reply, Label, Archive, Reply, Forward, Mark Spam, and even call a webhook).
+- **Reply Zero:** Track emails that need your reply and those awaiting responses.
 - **Smart Categories:** Categorize everyone that's ever emailed you.
 - **Bulk Unsubscriber:** Quickly unsubscribe from emails you never read in one-click.
 - **Cold Email Blocker:** Automatically block cold emails.
