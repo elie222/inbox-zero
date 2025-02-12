@@ -136,7 +136,9 @@ function TopBar({
         <div className="flex items-center">
           <h3 className="text-base font-medium">
             <span className="text-gray-900">
-              {extractNameFromEmail(message.headers.from)}
+              {message.labelIds?.includes("SENT")
+                ? "Me"
+                : extractNameFromEmail(message.headers.from)}
             </span>{" "}
             {expanded && <span className="text-gray-600">wrote</span>}
           </h3>
