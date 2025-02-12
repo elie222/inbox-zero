@@ -298,7 +298,7 @@ function Row({
         <div className="flex items-center justify-between">
           <EmailMessageCell
             sender={
-              type === ThreadTrackerType.AWAITING
+              message.labelIds?.includes("SENT")
                 ? message.headers.to
                 : message.headers.from
             }

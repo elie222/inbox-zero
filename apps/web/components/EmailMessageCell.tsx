@@ -8,6 +8,7 @@ import { decodeSnippet } from "@/utils/gmail/decode";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { useThread } from "@/hooks/useThread";
 import { snippetRemoveReply } from "@/utils/gmail/snippet";
+import { extractNameFromEmail } from "@/utils/email";
 
 export function EmailMessageCell({
   sender,
@@ -29,7 +30,7 @@ export function EmailMessageCell({
   return (
     <div className="min-w-0 break-words">
       <MessageText className="flex items-center">
-        {sender}{" "}
+        {extractNameFromEmail(sender)}{" "}
         <Link
           className="ml-2 hover:text-gray-900"
           href={getGmailUrl(messageId, userEmail)}
