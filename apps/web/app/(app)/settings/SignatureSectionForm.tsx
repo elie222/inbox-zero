@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import {
@@ -14,7 +15,9 @@ import {
   SubmitButtonWrapper,
 } from "@/components/Form";
 import { handleActionResult } from "@/utils/server-action";
-import { Tiptap } from "@/components/editor/Tiptap";
+import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
+import { isActionError } from "@/utils/error";
+import { toastError, toastInfo } from "@/components/Toast";
 
 export const SignatureSectionForm = (props: { signature?: string }) => {
   const {
@@ -23,6 +26,8 @@ export const SignatureSectionForm = (props: { signature?: string }) => {
   } = useForm<SaveSignatureBody>({
     defaultValues: { signature: props.signature },
   });
+
+  const editorRef = useRef<TiptapHandle>(null);
 
   return (
     <form
@@ -41,12 +46,11 @@ export const SignatureSectionForm = (props: { signature?: string }) => {
           <FormSectionRight>
             <div className="sm:col-span-full">
               <Tiptap
+                ref={editorRef}
                 initialContent={props.signature}
-                onChange={(html) => {
-                  register("signature").onChange({
-                    target: { value: html },
-                  });
-                }}
+                onChange={(html) =>
+                  register("signature").onChange({ target: { value: html } })
+                }
                 className="min-h-[100px]"
               />
             </div>
@@ -62,8 +66,21 @@ export const SignatureSectionForm = (props: { signature?: string }) => {
                 color="white"
                 onClick={async () => {
                   const result = await loadSignatureFromGmailAction();
-                  console.log("🚀 ~ onClick={ ~ result:", result);
-                  handleActionResult(result, "Loaded signature from Gmail!");
+
+                  if (isActionError(result)) {
+                    toastError({
+                      title: "Error loading signature from Gmail",
+                      description: result.error,
+                    });
+                    return;
+                  } else if (result.signature) {
+                    editorRef.current?.appendContent(result.signature);
+                  } else {
+                    toastInfo({
+                      title: "Load completed",
+                      description: "No signature found in Gmail",
+                    });
+                  }
                 }}
               >
                 Load from Gmail

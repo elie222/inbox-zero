@@ -76,6 +76,8 @@ export const loadSignatureFromGmailAction = withActionInstrumentation(
         return { signature };
       }
     }
+
+    return { signature: "" };
   },
 );
 
