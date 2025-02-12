@@ -97,8 +97,15 @@ export const enableReplyTrackerAction = withActionInstrumentation(
         {
           name: "Label Emails Requiring Reply",
           condition: {
-            aiInstructions:
-              "Identify emails that require a response or action, excluding automated notifications.",
+            aiInstructions: `Apply this to emails needing my direct response. Exclude:
+- All automated notifications (GitHub, social media, marketing)
+- System emails (order confirmations, calendar invites)
+
+Only flag when someone:
+- Asks me a direct question
+- Requests information or action
+- Needs my specific input
+- Follows up on a conversation`,
           },
           actions: [
             {
