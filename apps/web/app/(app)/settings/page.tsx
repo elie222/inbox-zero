@@ -8,17 +8,36 @@ import { EmailUpdatesSection } from "@/app/(app)/settings/EmailUpdatesSection";
 import { MultiAccountSection } from "@/app/(app)/settings/MultiAccountSection";
 import { ApiKeysSection } from "@/app/(app)/settings/ApiKeysSection";
 import { WebhookSection } from "@/app/(app)/settings/WebhookSection";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import prisma from "@/utils/prisma";
+import { NotLoggedIn } from "@/components/ErrorDisplay";
 
-export default function Settings() {
+export default async function SettingsPage() {
+  const session = await auth();
+
+  if (!session?.user.email) return <NotLoggedIn />;
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: {
+      about: true,
+      signature: true,
+      statsEmailFrequency: true,
+      webhookSecret: true,
+    },
+  });
+
+  if (!user) return <NotLoggedIn />;
+
   return (
     <FormWrapper>
-      <AboutSection />
-      <SignatureSectionForm />
+      <AboutSection about={user.about} />
+      <SignatureSectionForm signature={user.signature} />
       {/* <LabelsSection /> */}
       <ModelSection />
-      <EmailUpdatesSection />
+      <EmailUpdatesSection statsEmailFrequency={user.statsEmailFrequency} />
       <MultiAccountSection />
-      <WebhookSection />
+      <WebhookSection webhookSecret={user.webhookSecret} />
       <ApiKeysSection />
       <DeleteSection />
     </FormWrapper>

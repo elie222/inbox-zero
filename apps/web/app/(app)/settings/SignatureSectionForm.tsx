@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useCallback, useRef } from "react";
+import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import {
   saveSignatureAction,
@@ -14,29 +14,46 @@ import {
   FormSectionRight,
   SubmitButtonWrapper,
 } from "@/components/Form";
-import { handleActionResult } from "@/utils/server-action";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { isActionError } from "@/utils/error";
-import { toastError, toastInfo } from "@/components/Toast";
+import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
+import { ClientOnly } from "@/components/ClientOnly";
 
-export const SignatureSectionForm = (props: { signature?: string }) => {
+export const SignatureSectionForm = ({
+  signature,
+}: {
+  signature: string | null;
+}) => {
+  const defaultSignature = signature ?? "";
+
   const {
-    register,
-    formState: { errors, isSubmitting },
+    handleSubmit,
+    setValue,
+    formState: { isSubmitting },
   } = useForm<SaveSignatureBody>({
-    defaultValues: { signature: props.signature },
+    defaultValues: { signature: defaultSignature },
   });
 
   const editorRef = useRef<TiptapHandle>(null);
 
+  const onSubmit: SubmitHandler<SaveSignatureBody> = useCallback(
+    async (data) => {
+      const res = await saveSignatureAction(data);
+      if (isActionError(res)) toastError({ description: res.error });
+      else toastSuccess({ description: "Signature saved" });
+    },
+    [],
+  );
+
+  const handleEditorChange = useCallback(
+    (html: string) => {
+      setValue("signature", html);
+    },
+    [setValue],
+  );
+
   return (
-    <form
-      action={async (formData: FormData) => {
-        const signature = formData.get("signature") as string;
-        const result = await saveSignatureAction({ signature });
-        handleActionResult(result, "Updated signature!");
-      }}
-    >
+    <form onSubmit={handleSubmit(onSubmit)}>
       <FormSection>
         <FormSectionLeft
           title="Signature"
@@ -45,14 +62,14 @@ export const SignatureSectionForm = (props: { signature?: string }) => {
         <div className="md:col-span-2">
           <FormSectionRight>
             <div className="sm:col-span-full">
-              <Tiptap
-                ref={editorRef}
-                initialContent={props.signature}
-                onChange={(html) =>
-                  register("signature").onChange({ target: { value: html } })
-                }
-                className="min-h-[100px]"
-              />
+              <ClientOnly>
+                <Tiptap
+                  ref={editorRef}
+                  initialContent={defaultSignature}
+                  onChange={handleEditorChange}
+                  className="min-h-[100px]"
+                />
+              </ClientOnly>
             </div>
           </FormSectionRight>
           <SubmitButtonWrapper>
