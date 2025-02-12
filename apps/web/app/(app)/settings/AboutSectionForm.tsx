@@ -12,12 +12,12 @@ import {
 } from "@/components/Form";
 import { handleActionResult } from "@/utils/server-action";
 
-export const AboutSectionForm = (props: { about?: string }) => {
+export const AboutSectionForm = ({ about }: { about: string | null }) => {
   const {
     register,
     formState: { errors, isSubmitting },
   } = useForm<SaveAboutBody>({
-    defaultValues: { about: props.about },
+    defaultValues: { about: about ?? "" },
   });
 
   return (
