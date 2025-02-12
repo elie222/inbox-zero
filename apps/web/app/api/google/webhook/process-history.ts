@@ -147,7 +147,6 @@ export async function processHistoryForUser(
       // NOTE this can cause problems if we're way behind
       // NOTE this doesn't include startHistoryId in the results
       startHistoryId,
-      labelId: GmailLabel.INBOX,
       historyTypes: ["messageAdded", "labelAdded"],
       maxResults: 500,
     });
@@ -226,11 +225,7 @@ async function processHistory(options: ProcessHistoryOptions) {
 
     if (!historyMessages.length) continue;
 
-    const inboxMessages = historyMessages.filter(
-      (m) =>
-        m.message?.labelIds?.includes(GmailLabel.INBOX) &&
-        !m.message?.labelIds?.includes(GmailLabel.DRAFT),
-    );
+    const inboxMessages = historyMessages.filter(isInboxOrSentMessage);
     const uniqueMessages = uniqBy(inboxMessages, (m) => m.message?.id);
 
     for (const m of uniqueMessages) {
@@ -274,3 +269,18 @@ async function updateLastSyncedHistoryId(
     data: { lastSyncedHistoryId },
   });
 }
+
+const isInboxOrSentMessage = (message: {
+  message?: { labelIds?: string[] | null };
+}) => {
+  const labels = message.message?.labelIds;
+
+  if (!labels) return false;
+
+  if (labels.includes(GmailLabel.INBOX) && !labels.includes(GmailLabel.DRAFT))
+    return true;
+
+  if (labels.includes(GmailLabel.SENT)) return true;
+
+  return false;
+};

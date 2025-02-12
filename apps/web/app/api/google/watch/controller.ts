@@ -12,7 +12,7 @@ export async function watchEmails(userId: string, gmail: gmail_v1.Gmail) {
   const res = await gmail.users.watch({
     userId: "me",
     requestBody: {
-      labelIds: [GmailLabel.INBOX],
+      labelIds: [GmailLabel.INBOX, GmailLabel.SENT],
       labelFilterBehavior: "include",
       topicName: env.GOOGLE_PUBSUB_TOPIC_NAME,
     },

@@ -27,6 +27,15 @@ export async function handleOutboundReply(
   // If reply tracking is disabled, skip
   if (!enabled) return;
 
+  const logger = createScopedLogger("reply-tracker/outbound").with({
+    email: user.email,
+    userId: user.id,
+    messageId: message.id,
+    threadId: message.threadId,
+  });
+
+  logger.info("Checking outbound reply");
+
   const { awaitingReplyLabelId, needsReplyLabelId } =
     await getReplyTrackingLabels(gmail);
 
@@ -39,13 +48,6 @@ export async function handleOutboundReply(
   );
 
   const threadMessages = await getThreadMessages(message.threadId, gmail);
-
-  const logger = createScopedLogger("reply-tracker/outbound").with({
-    email: user.email,
-    userId: user.id,
-    messageId: message.id,
-    threadId: message.threadId,
-  });
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found");
