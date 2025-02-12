@@ -1,9 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { ThreadTrackerType } from "@prisma/client";
-import {
-  getDateFilter,
-  type TimeRange,
-} from "@/app/(app)/reply-tracker/date-filter";
+import { getDateFilter, type TimeRange } from "./date-filter";
 
 const PAGE_SIZE = 20;
 

@@ -1,9 +1,6 @@
 import prisma from "@/utils/prisma";
-import { ReplyTrackerEmails } from "@/app/(app)/reply-tracker/ReplyTrackerEmails";
-import {
-  getDateFilter,
-  type TimeRange,
-} from "@/app/(app)/reply-tracker/date-filter";
+import { ReplyTrackerEmails } from "./ReplyTrackerEmails";
+import { getDateFilter, type TimeRange } from "./date-filter";
 import { Prisma } from "@prisma/client";
 
 const PAGE_SIZE = 20;

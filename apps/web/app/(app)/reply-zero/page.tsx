@@ -2,13 +2,13 @@ import { redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircleIcon, ClockIcon, MailIcon } from "lucide-react";
 import { NeedsReply } from "./NeedsReply";
-import { Resolved } from "@/app/(app)/reply-tracker/Resolved";
-import { AwaitingReply } from "@/app/(app)/reply-tracker/AwaitingReply";
+import { Resolved } from "./Resolved";
+import { AwaitingReply } from "./AwaitingReply";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { EnableReplyTracker } from "@/app/(app)/reply-tracker/EnableReplyTracker";
+import { EnableReplyTracker } from "./EnableReplyTracker";
 import { TimeRangeFilter } from "./TimeRangeFilter";
-import type { TimeRange } from "@/app/(app)/reply-tracker/date-filter";
+import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
 
 export const maxDuration = 600;

@@ -65,8 +65,8 @@ const navigationItems: NavItem[] = [
     icon: SparklesIcon,
   },
   {
-    name: "Reply Tracker",
-    href: "/reply-tracker",
+    name: "Reply Zero",
+    href: "/reply-zero",
     icon: MessageCircleReplyIcon,
   },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
@@ -105,7 +105,7 @@ export const useNavigation = () => {
   const navItems = useMemo(
     () =>
       navigationItems.filter((item) => {
-        if (item.href === "/reply-tracker") return showReplyTracker;
+        if (item.href === "/reply-zero") return showReplyTracker;
         return true;
       }),
     [showReplyTracker],

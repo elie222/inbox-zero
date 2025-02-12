@@ -25,35 +25,41 @@ export function EnableReplyTracker() {
 
   return (
     <EnableFeatureCard
-      title="Reply Tracker"
-      description="Enable reply tracking to automatically track emails you need to respond to and responses you're waiting for from others. Never miss a follow-up again."
+      title="Reply Zero"
+      description={
+        <>
+          Most emails don't need a reply — Reply Zero surfaces the ones that do.
+          <br />
+          We'll track what needs your attention and who hasn't responded yet.
+        </>
+      }
       extraDescription={
         <div className="mt-4">
           <SectionDescription className="text-left">
-            <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label will be
-            added to emails you need to respond to.
+            <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label
+            highlights emails you need to reply to.
           </SectionDescription>
           <SectionDescription className="text-left">
-            <Badge color="blue">{AWAITING_REPLY_LABEL_NAME}</Badge> label will
-            be added to emails you're waiting for a reply from others.
+            <Badge color="blue">{AWAITING_REPLY_LABEL_NAME}</Badge> label marks
+            conversations where you’re waiting for others.
           </SectionDescription>
         </div>
       }
       imageSrc="https://illustrations.popsy.co/amber/communication.svg"
       imageAlt="Reply tracking"
-      buttonText="Enable Reply Tracker"
+      buttonText="Get Started"
       onEnable={async () => {
         const result = await enableReplyTrackerAction();
 
         if (isActionError(result)) {
           toastError({
-            title: "Error enabling reply tracker",
+            title: "Error enabling Reply Zero",
             description: result.error,
           });
         } else {
           toastSuccess({
-            title: "Reply tracker enabled",
-            description: "We've enabled reply tracking for you!",
+            title: "Reply Zero enabled",
+            description: "We've enabled Reply Zero for you!",
           });
         }
 
