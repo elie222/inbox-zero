@@ -1,5 +1,8 @@
 import { JSDOM } from "jsdom";
 
+// TODO: we can get the signature via the API instead:
+// https://developers.google.com/gmail/api/reference/rest/v1/users.settings.sendAs
+
 /**
  * Extracts Gmail signature from email content
  * @param htmlContent The HTML content of the email
