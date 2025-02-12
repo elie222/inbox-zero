@@ -158,7 +158,7 @@ const nextConfig = {
       {
         source: "/reply-tracker",
         destination: "/reply-zero",
-        permanent: true,
+        permanent: false,
       },
     ];
   },
