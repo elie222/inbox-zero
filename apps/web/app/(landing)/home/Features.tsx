@@ -18,6 +18,8 @@ import {
   TagIcon,
   BlocksIcon,
   ListStartIcon,
+  BellIcon,
+  ReplyIcon,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -199,7 +201,7 @@ const featuresColdEmailBlocker = [
 ];
 
 export function FeaturesColdEmailBlocker() {
-  const subtitle = "Keep salespeople at the gate";
+  const subtitle = "Never read a cold email again";
   const description =
     "Say goodbye to unsolicited outreach. Automatically filter sales pitches and cold emails so you only see messages that matter.";
 
@@ -240,8 +242,8 @@ export function FeaturesStats() {
   return (
     <FeaturesWithImage
       imageSide="right"
-      title="Inbox Analytics"
-      subtitle="Understand your inbox"
+      title="Email Analytics"
+      subtitle="What gets measured, gets managed"
       description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
       image="/images/analytics.png"
       features={featuresStats}
@@ -259,7 +261,7 @@ const featuresUnsubscribe = [
   {
     name: "See who emails you most",
     description:
-      "See who's sending you the most marketing emails to prioritise who to unsubscribe from.",
+      "See who's sending you the most emails to prioritise which ones to unsubscribe from.",
     icon: EyeIcon,
   },
   {
@@ -274,11 +276,51 @@ export function FeaturesUnsubscribe() {
   return (
     <FeaturesWithImage
       imageSide="right"
-      title="Bulk Email Unsubscriber"
-      subtitle="No more newsletters you never read"
-      description="Bulk unsubscribe from emails in one click. View all your subscriptions and how often you read each one."
+      title="Bulk Unsubscriber"
+      subtitle="Bulk unsubscribe from emails you never read"
+      description="Unsubscribe from newsletters and marketing emails in one click. We show you which emails you never read to make it easy."
       image="/images/newsletters.png"
       features={featuresUnsubscribe}
+    />
+  );
+}
+
+const featuresReplyZero = [
+  {
+    name: "Focus on what needs a reply",
+    description:
+      "We label every email that needs a reply, so it's easy to focus on the ones that matter.",
+    icon: ReplyIcon,
+  },
+  {
+    name: "Follow up on people who haven't replied",
+    description:
+      "Never lose track of conversations - we label every conversation that is missing a reply. Filter by overdue conversations to follow up on threads that need attention.",
+    icon: BellIcon,
+  },
+  {
+    name: "Send gentle follow-ups in one click",
+    description:
+      "No more crafting awkward follow-up emails. Our smart nudge feature drafts perfect follow-up messages for you, making it easy to keep conversations moving.",
+    icon: SparklesIcon,
+  },
+  {
+    name: "Choose your workflow",
+    description:
+      "Use Reply Zero as a minimal view within Inbox Zero for ultimate focus, or leverage our Gmail labels to manage replies your way. Either way, you'll only see what truly needs your attention.",
+    icon: ListStartIcon,
+  },
+];
+
+export function FeaturesReplyZero() {
+  return (
+    <FeaturesWithImage
+      imageSide="right"
+      title="Reply Zero"
+      subtitle="Answer every email that matters"
+      description="Most emails don't need a reply. Reply Zero only shows you the ones that do."
+      image="/images/reply-zero.png"
+      features={featuresReplyZero}
     />
   );
 }
@@ -287,6 +329,7 @@ export function FeaturesHome() {
   return (
     <>
       <FeaturesAiAssistant />
+      {/* <FeaturesReplyZero /> */}
       <FeaturesUnsubscribe />
       <FeaturesColdEmailBlocker />
       <FeaturesStats />
