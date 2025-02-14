@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
-import { useState, useCallback } from "react";
+import { useState, useCallback, type RefCallback } from "react";
 import type { ParsedMessage } from "@/utils/types";
 import { type ThreadTracker, ThreadTrackerType } from "@prisma/client";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -131,10 +131,8 @@ export function ReplyTrackerEmails({
     [sortedThreads, handleResolve],
   );
 
-  const { selectedIndex, setSelectedIndex } = useReplyTrackerKeyboardNav(
-    sortedThreads,
-    handleAction,
-  );
+  const { selectedIndex, setSelectedIndex, getRefCallback } =
+    useReplyTrackerKeyboardNav(sortedThreads, handleAction);
 
   const onSendSuccess = useCallback(
     async (_messageId: string, threadId: string) => {
@@ -190,6 +188,7 @@ export function ReplyTrackerEmails({
               onResolve={handleResolve}
               isResolving={resolvingThreads.has(thread.id)}
               onSelect={() => setSelectedIndex(index)}
+              rowRef={getRefCallback(index)}
             />
           ))}
         </TableBody>
@@ -267,6 +266,7 @@ function Row({
   onResolve,
   isResolving,
   onSelect,
+  rowRef,
 }: {
   message: ParsedMessage;
   userEmail: string;
@@ -278,6 +278,7 @@ function Row({
   onResolve: (threadId: string, resolved: boolean) => Promise<void>;
   isResolving: boolean;
   onSelect: () => void;
+  rowRef: RefCallback<HTMLTableRowElement>;
 }) {
   const openSplitView = useCallback(() => {
     setSelectedEmail({
@@ -288,6 +289,7 @@ function Row({
 
   return (
     <TableRow
+      ref={rowRef}
       className={cn(
         "transition-colors duration-100 hover:bg-white",
         isSelected && "bg-blue-50 hover:bg-blue-50",
@@ -474,8 +476,11 @@ function useReplyTrackerKeyboardNav(
     [onAction],
   );
 
-  return useTableKeyboardNavigation({
-    items,
-    onKeyAction: handleKeyAction,
-  });
+  const { selectedIndex, setSelectedIndex, getRefCallback } =
+    useTableKeyboardNavigation({
+      items,
+      onKeyAction: handleKeyAction,
+    });
+
+  return { selectedIndex, setSelectedIndex, getRefCallback };
 }

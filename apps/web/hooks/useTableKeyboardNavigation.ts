@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, type RefCallback } from "react";
 
 interface UseTableKeyboardNavigationOptions<T> {
   items: T[];
@@ -10,6 +10,20 @@ export function useTableKeyboardNavigation<T>({
   onKeyAction,
 }: UseTableKeyboardNavigationOptions<T>) {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [rowRefs] = useState<Map<number, HTMLElement>>(new Map());
+
+  const getRefCallback = useCallback(
+    (index: number): RefCallback<HTMLElement> => {
+      return (element) => {
+        if (element) {
+          rowRefs.set(index, element);
+        } else {
+          rowRefs.delete(index);
+        }
+      };
+    },
+    [rowRefs],
+  );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -38,10 +52,23 @@ export function useTableKeyboardNavigation<T>({
     [items.length, onKeyAction, selectedIndex],
   );
 
+  // Make sure the selected row is visible
+  useEffect(() => {
+    if (selectedIndex >= 0) {
+      const element = rowRefs.get(selectedIndex);
+      if (element) {
+        element.scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [selectedIndex, rowRefs]);
+
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  return { selectedIndex, setSelectedIndex };
+  return { selectedIndex, setSelectedIndex, getRefCallback };
 }
