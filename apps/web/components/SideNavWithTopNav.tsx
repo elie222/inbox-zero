@@ -11,10 +11,10 @@ import { AppSidebar } from "@/components/SideNav";
 
 export function SideNavWithTopNav({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
-  const isOpen = cookieStore.get("sidebar_state")?.value === "true";
+  const isClosed = cookieStore.get("sidebar_state")?.value === "false";
 
   return (
-    <SidebarProvider defaultOpen={isOpen}>
+    <SidebarProvider defaultOpen={!isClosed}>
       <AppSidebar />
       <SidebarInset className="overflow-hidden">
         <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
