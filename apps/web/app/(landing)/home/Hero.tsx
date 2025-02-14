@@ -62,7 +62,7 @@ export function Hero(props: {
               className="block"
               animationStyle="top-in-bottom-out"
               videoSrc="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
-              thumbnailSrc={props.image || "/images/newsletters.png"}
+              thumbnailSrc={props.image || "/images/home/bulk-unsubscriber.png"}
               thumbnailAlt="Bulk Unsubscriber Screenshot"
             />
           </div>

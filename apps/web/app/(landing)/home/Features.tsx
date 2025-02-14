@@ -23,8 +23,29 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
-export function FeaturesWithImage(props: {
-  imageSide: "left" | "right";
+type Side = "left" | "right";
+
+export function FeaturesHome() {
+  return (
+    <>
+      <FeaturesAiAssistant />
+      {/* <FeaturesReplyZero imageSide="right" /> */}
+      <FeaturesUnsubscribe imageSide="right" />
+      <FeaturesColdEmailBlocker />
+      <FeaturesStats imageSide="right" />
+    </>
+  );
+}
+
+export function FeaturesWithImage({
+  imageSide = "left",
+  title,
+  subtitle,
+  description,
+  image,
+  features,
+}: {
+  imageSide?: "left" | "right";
   title: string;
   subtitle: string;
   description: React.ReactNode;
@@ -42,24 +63,24 @@ export function FeaturesWithImage(props: {
           <div
             className={clsx(
               "lg:pt-4",
-              props.imageSide === "left"
+              imageSide === "left"
                 ? "lg:ml-auto lg:pl-4"
                 : "lg:mr-auto lg:pr-4",
             )}
           >
             <div className="lg:max-w-lg">
               <h2 className="font-cal text-base leading-7 text-blue-600">
-                {props.title}
+                {title}
               </h2>
               <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
-                {props.subtitle}
+                {subtitle}
               </p>
               <p className="mt-6 text-lg leading-8 text-gray-600">
-                {props.description}
+                {description}
               </p>
-              {!!props.features.length && (
+              {!!features.length && (
                 <dl className="mt-10 max-w-xl space-y-8 text-base leading-7 text-gray-600 lg:max-w-none">
-                  {props.features.map((feature) => (
+                  {features.map((feature) => (
                     <div key={feature.name} className="relative pl-9">
                       <dt className="inline font-semibold text-gray-900">
                         <feature.icon
@@ -78,14 +99,14 @@ export function FeaturesWithImage(props: {
           <div
             className={clsx(
               "flex items-start",
-              props.imageSide === "left"
+              imageSide === "left"
                 ? "justify-end lg:order-first"
                 : "justify-start lg:order-last",
             )}
           >
             <div className="rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:rounded-2xl lg:p-4">
               <Image
-                src={props.image}
+                src={image}
                 alt="Product screenshot"
                 className="w-[48rem] max-w-none rounded-xl shadow-2xl ring-1 ring-gray-400/10 sm:w-[57rem]"
                 width={2400}
@@ -99,7 +120,7 @@ export function FeaturesWithImage(props: {
   );
 }
 
-export function FeaturesAiAssistant() {
+export function FeaturesAiAssistant({ imageSide }: { imageSide?: Side }) {
   const variant = useLandingPageAIAssistantVariant();
 
   const variants: Record<
@@ -169,7 +190,7 @@ export function FeaturesAiAssistant() {
 
   return (
     <FeaturesWithImage
-      imageSide="left"
+      imageSide={imageSide}
       title={selectedVariant.title}
       subtitle={selectedVariant.subtitle}
       description={selectedVariant.description}
@@ -200,18 +221,18 @@ const featuresColdEmailBlocker = [
   },
 ];
 
-export function FeaturesColdEmailBlocker() {
+export function FeaturesColdEmailBlocker({ imageSide }: { imageSide?: Side }) {
   const subtitle = "Never read a cold email again";
   const description =
     "Say goodbye to unsolicited outreach. Automatically filter sales pitches and cold emails so you only see messages that matter.";
 
   return (
     <FeaturesWithImage
-      imageSide="left"
+      imageSide={imageSide}
       title="Cold Email Blocker"
       subtitle={subtitle}
       description={description}
-      image="/images/cold-email-blocker.png"
+      image="/images/home/cold-email-blocker.png"
       features={featuresColdEmailBlocker}
     />
   );
@@ -238,10 +259,10 @@ const featuresStats = [
   },
 ];
 
-export function FeaturesStats() {
+export function FeaturesStats({ imageSide }: { imageSide?: Side }) {
   return (
     <FeaturesWithImage
-      imageSide="right"
+      imageSide={imageSide}
       title="Email Analytics"
       subtitle="What gets measured, gets managed"
       description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
@@ -272,14 +293,14 @@ const featuresUnsubscribe = [
   },
 ];
 
-export function FeaturesUnsubscribe() {
+export function FeaturesUnsubscribe({ imageSide }: { imageSide?: Side }) {
   return (
     <FeaturesWithImage
-      imageSide="right"
+      imageSide={imageSide}
       title="Bulk Unsubscriber"
       subtitle="Bulk unsubscribe from emails you never read"
       description="Unsubscribe from newsletters and marketing emails in one click. We show you which emails you never read to make it easy."
-      image="/images/newsletters.png"
+      image="/images/home/bulk-unsubscriber.png"
       features={featuresUnsubscribe}
     />
   );
@@ -312,28 +333,16 @@ const featuresReplyZero = [
   },
 ];
 
-export function FeaturesReplyZero() {
+export function FeaturesReplyZero({ imageSide }: { imageSide?: Side }) {
   return (
     <FeaturesWithImage
-      imageSide="right"
+      imageSide={imageSide}
       title="Reply Zero"
       subtitle="Answer every email that matters"
       description="Most emails don't need a reply. Reply Zero only shows you the ones that do."
-      image="/images/reply-zero.png"
+      image="/images/home/reply-zero.png"
       features={featuresReplyZero}
     />
-  );
-}
-
-export function FeaturesHome() {
-  return (
-    <>
-      <FeaturesAiAssistant />
-      {/* <FeaturesReplyZero /> */}
-      <FeaturesUnsubscribe />
-      <FeaturesColdEmailBlocker />
-      <FeaturesStats />
-    </>
   );
 }
 
@@ -364,14 +373,14 @@ const featuresNewSenders = [
   },
 ];
 
-export function FeaturesNewSenders() {
+export function FeaturesNewSenders({ imageSide }: { imageSide?: Side }) {
   return (
     <FeaturesWithImage
-      imageSide="left"
+      imageSide={imageSide}
       title="New Sender List"
       subtitle="Manage new senders in your inbox"
       description="View a comprehensive list of recent new senders, making it easier to spot important contacts and opportunities, while also offering the ability to block unwanted communication effortlessly."
-      image="/images/newsletters.png"
+      image="/images/home/bulk-unsubscriber.png"
       features={featuresNewSenders}
     />
   );

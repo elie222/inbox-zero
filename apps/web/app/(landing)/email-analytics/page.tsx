@@ -21,7 +21,7 @@ export default function EmailAnalytics() {
       <Hero
         title="Understand your inbox through email analytics"
         subtitle="Gain insights and enhance productivity: analyze your email patterns for better email inbox management."
-        image="/images/analytics.png"
+        image="/images/home/email-analytics.png"
       />
       <Testimonials />
       <FeaturesStats />

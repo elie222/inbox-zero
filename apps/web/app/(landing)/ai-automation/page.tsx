@@ -21,7 +21,7 @@ export default function AiAutomation() {
       <Hero
         title="Automate your email with AI"
         subtitle="Inbox Zero's AI email assistant simplifies your email management. It smartly handles repetitive queries, automates responses, and efficiently organizes your inbox, streamlining your email workflow for maximum efficiency."
-        image="/images/ai-automation.png"
+        image="/images/home/ai-email-assistant.png"
       />
       <Testimonials />
       <FeaturesAiAssistant />
