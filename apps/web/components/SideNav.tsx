@@ -30,7 +30,6 @@ import {
 import { Logo } from "@/components/Logo";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { env } from "@/env";
-import { useReplyTrackingEnabled } from "@/hooks/useFeatureFlags";
 import {
   Sidebar,
   SidebarContent,
@@ -100,18 +99,19 @@ const navigationItems: NavItem[] = [
 ];
 
 export const useNavigation = () => {
-  const showReplyTracker = useReplyTrackingEnabled();
+  // When we have features in early access, we can filter the navigation items
+  // const showReplyTracker = useReplyTrackingEnabled();
 
-  const navItems = useMemo(
-    () =>
-      navigationItems.filter((item) => {
-        if (item.href === "/reply-zero") return showReplyTracker;
-        return true;
-      }),
-    [showReplyTracker],
-  );
+  // const navItems = useMemo(
+  //   () =>
+  //     navigationItems.filter((item) => {
+  //       if (item.href === "/reply-zero") return showReplyTracker;
+  //       return true;
+  //     }),
+  //   [showReplyTracker],
+  // );
 
-  return navItems;
+  return navigationItems;
 };
 
 const bottomLinks: NavItem[] = [

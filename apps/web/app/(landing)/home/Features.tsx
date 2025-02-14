@@ -29,10 +29,10 @@ export function FeaturesHome() {
   return (
     <>
       <FeaturesAiAssistant />
-      {/* <FeaturesReplyZero imageSide="right" /> */}
-      <FeaturesUnsubscribe imageSide="right" />
-      <FeaturesColdEmailBlocker />
-      <FeaturesStats imageSide="right" />
+      <FeaturesReplyZero imageSide="right" />
+      <FeaturesUnsubscribe />
+      <FeaturesColdEmailBlocker imageSide="right" />
+      <FeaturesStats />
     </>
   );
 }

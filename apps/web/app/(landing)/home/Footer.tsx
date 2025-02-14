@@ -3,7 +3,7 @@ import Link from "next/link";
 const navigation = {
   main: [
     { name: "Email AI Assistant", href: "/ai-automation" },
-    // { name: "Reply Zero", href: "/reply-zero-ai" },
+    { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
