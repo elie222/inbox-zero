@@ -3,7 +3,6 @@ import { runActionFunction } from "@/utils/ai/actions";
 import type { EmailForAction } from "@/utils/ai/types";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
-import { getOrCreateInboxZeroLabel, labelThread } from "@/utils/gmail/label";
 import { ActionType, ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { markNeedsReply } from "@/utils/reply-tracker/inbound";
@@ -34,21 +33,6 @@ export async function executeAct({
     messageId: executedRule.messageId,
   });
 
-  async function labelActed() {
-    const label = await getOrCreateInboxZeroLabel({
-      gmail,
-      key: "acted",
-    });
-
-    if (!label.id) return;
-
-    return labelThread({
-      gmail,
-      threadId: executedRule.threadId,
-      addLabelIds: [label.id],
-    });
-  }
-
   const pendingRules = await prisma.executedRule.updateMany({
     where: { id: executedRule.id, status: ExecutedRuleStatus.PENDING },
     data: { status: ExecutedRuleStatus.APPLYING },
@@ -76,36 +60,23 @@ export async function executeAct({
 
   // reply tracker
   if (isReplyTrackingRule) {
-    try {
-      await markNeedsReply(
-        executedRule.userId,
-        executedRule.threadId,
-        executedRule.messageId,
-        internalDateToDate(email.internalDate),
-        gmail,
-      );
-    } catch (error) {
+    await markNeedsReply(
+      executedRule.userId,
+      executedRule.threadId,
+      executedRule.messageId,
+      internalDateToDate(email.internalDate),
+      gmail,
+    ).catch((error) => {
       logger.error("Failed to create reply tracker", { error });
-    }
+    });
   }
 
-  const [updateResult, labelResult] = await Promise.allSettled([
-    prisma.executedRule.update({
+  await prisma.executedRule
+    .update({
       where: { id: executedRule.id },
       data: { status: ExecutedRuleStatus.APPLIED },
-    }),
-    labelActed(),
-  ]);
-
-  if (updateResult.status === "rejected") {
-    logger.error("Failed to update executed rule", {
-      error: updateResult.reason,
+    })
+    .catch((error) => {
+      logger.error("Failed to update executed rule", { error });
     });
-  }
-
-  if (labelResult.status === "rejected") {
-    logger.error("Failed to label acted", {
-      error: labelResult.reason,
-    });
-  }
 }
