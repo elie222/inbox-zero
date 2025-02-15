@@ -50,7 +50,7 @@ export const Tiptap = forwardRef<
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[120px] px-3 py-2",
+          "prose prose-sm sm:prose-base dark:prose-invert max-w-none focus:outline-none min-h-[120px] px-3 py-2",
           className,
         ),
       },

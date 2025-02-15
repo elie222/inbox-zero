@@ -78,10 +78,12 @@ export const EmailListItem = forwardRef(
         <li
           ref={ref}
           className={clsx("group relative cursor-pointer border-l-4 py-3", {
-            "hover:bg-gray-50": !props.selected && !props.opened,
-            "bg-blue-50": props.selected,
-            "bg-blue-100": props.opened,
-            "bg-gray-100": !isUnread && !props.selected && !props.opened,
+            "hover:bg-slate-50 dark:hover:bg-slate-950":
+              !props.selected && !props.opened,
+            "bg-blue-50 dark:bg-blue-950": props.selected,
+            "bg-blue-100 dark:bg-blue-900": props.opened,
+            "bg-slate-100 dark:bg-background":
+              !isUnread && !props.selected && !props.opened,
           })}
           onClick={props.onClick}
           onKeyDown={(e) => {
@@ -113,7 +115,7 @@ export const EmailListItem = forwardRef(
                   />
                 </div>
 
-                <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-gray-900">
+                <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-foreground">
                   {extractNameFromEmail(
                     participant(lastMessage, props.userEmailAddress),
                   )}{" "}
@@ -137,10 +139,10 @@ export const EmailListItem = forwardRef(
                         </Link>
                       </Button>
                     )}
-                    <div className="ml-2 min-w-0 overflow-hidden text-gray-700">
+                    <div className="ml-2 min-w-0 overflow-hidden text-foreground">
                       {lastMessage.headers.subject}
                     </div>
-                    <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-gray-500">
+                    <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-muted-foreground">
                       {decodedSnippet}
                     </div>
                   </>
@@ -196,10 +198,10 @@ export const EmailListItem = forwardRef(
 
             {splitView && (
               <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
-                <div className="min-w-0 overflow-hidden font-medium text-gray-700">
+                <div className="min-w-0 overflow-hidden font-medium text-foreground">
                   {lastMessage.headers.subject}
                 </div>
-                <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-gray-500">
+                <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-muted-foreground">
                   {decodedSnippet}
                 </div>
                 {cta && (

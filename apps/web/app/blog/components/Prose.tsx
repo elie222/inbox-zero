@@ -17,7 +17,7 @@ export function Prose<T extends React.ElementType = "div">({
         // headings
         "prose-headings:scroll-mt-28 prose-headings:font-cal prose-headings:font-semibold lg:prose-headings:scroll-mt-[8.5rem]",
         // lead
-        "prose-lead:text-slate-500 dark:prose-lead:text-slate-400",
+        "prose-lead:text-muted-foreground dark:prose-lead:text-slate-400",
         // links
         // "prose-a:font-semibold dark:prose-a:text-blue-400",
         // link underline

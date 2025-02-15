@@ -57,12 +57,7 @@ export function ActionButtons(props: {
       {
         tooltip: "Open in Gmail",
         onClick: openInGmail,
-        icon: (
-          <ExternalLinkIcon
-            className="h-4 w-4 text-gray-700"
-            aria-hidden="true"
-          />
-        ),
+        icon: <ExternalLinkIcon className="size-4" aria-hidden="true" />,
       },
       {
         tooltip: "Run AI Rules",
@@ -70,7 +65,7 @@ export function ActionButtons(props: {
         icon: isPlanning ? (
           <LoadingMiniSpinner />
         ) : (
-          <SparklesIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <SparklesIcon className="size-4" aria-hidden="true" />
         ),
       },
       {
@@ -79,15 +74,13 @@ export function ActionButtons(props: {
         icon: isCategorizing ? (
           <LoadingMiniSpinner />
         ) : (
-          <OrbitIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <OrbitIcon className="size-4" aria-hidden="true" />
         ),
       },
       {
         tooltip: "Archive",
         onClick: onArchive,
-        icon: (
-          <ArchiveIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
-        ),
+        icon: <ArchiveIcon className="size-4" aria-hidden="true" />,
       },
       // may remove later
       {
@@ -96,7 +89,7 @@ export function ActionButtons(props: {
         icon: isTrashing ? (
           <LoadingMiniSpinner />
         ) : (
-          <Trash2Icon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <Trash2Icon className="size-4" aria-hidden="true" />
         ),
       },
     ],

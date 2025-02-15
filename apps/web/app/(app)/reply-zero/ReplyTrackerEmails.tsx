@@ -209,7 +209,7 @@ export function ReplyTrackerEmails({
           <div className="h-full overflow-y-auto">{listView}</div>
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={65} minSize={0} className="bg-slate-100">
+        <ResizablePanel defaultSize={65} minSize={0} className="bg-secondary">
           <div className="h-full overflow-y-auto">
             <ThreadContent
               threadId={selectedEmail.threadId}
@@ -291,8 +291,9 @@ function Row({
     <TableRow
       ref={rowRef}
       className={cn(
-        "transition-colors duration-100 hover:bg-white",
-        isSelected && "bg-blue-50 hover:bg-blue-50",
+        "transition-colors duration-100 hover:bg-background",
+        isSelected &&
+          "bg-blue-50 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-slate-800",
       )}
       onMouseEnter={onSelect}
     >
@@ -434,7 +435,7 @@ function EmptyState({
 
   return (
     <div className="content-container">
-      <div className="flex min-h-[200px] flex-col items-center justify-center rounded-md border border-dashed bg-slate-50 p-8 text-center animate-in fade-in-50">
+      <div className="flex min-h-[200px] flex-col items-center justify-center rounded-md border border-dashed bg-muted p-8 text-center animate-in fade-in-50">
         {isAnalyzing ? (
           <>
             <p className="text-sm text-muted-foreground">

@@ -72,18 +72,20 @@ export const Input = (props: InputProps) => {
               <InputWithLeftFixedText
                 inputProps={inputProps}
                 leftText={props.leftText}
+                className={props.className}
               />
             </div>
           ) : props.rightText ? (
             <InputWithRightFixedText
               inputProps={inputProps}
               rightText={props.rightText}
+              className={props.className}
             />
           ) : (
             <Component
               {...inputProps}
               className={cn(
-                "block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm",
+                "block w-full flex-1 rounded-md border-slate-300 bg-background shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:text-sm",
                 props.className,
               )}
             />
@@ -110,7 +112,7 @@ export const Label = (props: LabelProps) => {
   return (
     <label
       htmlFor={props.name}
-      className="block text-sm font-medium text-gray-700"
+      className="block text-sm font-medium text-slate-700 dark:text-slate-200"
     >
       {props.tooltipText ? (
         <span className="flex items-center space-x-1">
@@ -126,7 +128,7 @@ export const Label = (props: LabelProps) => {
 
 export const ExplainText = (props: { children: React.ReactNode }) => {
   return (
-    <div className="mt-1 text-sm leading-snug text-gray-500">
+    <div className="mt-1 text-sm leading-snug text-muted-foreground dark:text-slate-400">
       {props.children}
     </div>
   );
@@ -143,15 +145,19 @@ export const ErrorMessage = (props: { message: string }) => {
 const InputWithLeftFixedText = (props: {
   leftText: string;
   inputProps: any;
+  className?: string;
 }) => {
   return (
     <div className="flex rounded-md shadow-sm">
-      <span className="inline-flex max-w-[150px] flex-shrink items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:max-w-full sm:text-sm">
+      <span className="inline-flex max-w-[150px] flex-shrink items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:max-w-full sm:text-sm">
         {props.leftText}
       </span>
       <input
         {...props.inputProps}
-        className="block w-[120px] flex-1 rounded-none rounded-r-md border-gray-300 focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:w-full sm:min-w-[150px] sm:max-w-full sm:text-sm"
+        className={cn(
+          "block w-[120px] flex-1 rounded-none rounded-r-md border-slate-300 bg-background focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:w-full sm:min-w-[150px] sm:max-w-full sm:text-sm",
+          props.className,
+        )}
       />
     </div>
   );
@@ -160,14 +166,18 @@ const InputWithLeftFixedText = (props: {
 const InputWithRightFixedText = (props: {
   rightText: string;
   inputProps: any;
+  className?: string;
 }) => {
   return (
     <div className="flex rounded-md shadow-sm">
       <input
         {...props.inputProps}
-        className="block w-full min-w-0 flex-1 rounded-none rounded-l-md border-gray-300 focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
+        className={cn(
+          "block w-full min-w-0 flex-1 rounded-none rounded-l-md border-slate-300 bg-background focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:text-sm",
+          props.className,
+        )}
       />
-      <span className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:text-sm">
+      <span className="inline-flex items-center rounded-r-md border border-l-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:text-sm">
         {props.rightText}
       </span>
     </div>
@@ -185,7 +195,7 @@ export const AddRemoveButtons = (props: {
       {props.onClickAdd && (
         <button
           type="button"
-          className="text-gray-700 transition-transform hover:scale-110 hover:text-gray-900"
+          className="text-slate-700 transition-transform hover:scale-110 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
           onClick={props.onClickAdd}
         >
           <PlusCircleIcon className="h-6 w-6" />
@@ -194,7 +204,7 @@ export const AddRemoveButtons = (props: {
       {props.onClickRemove && (
         <button
           type="button"
-          className="text-gray-700 transition-transform hover:scale-110 hover:text-gray-900"
+          className="text-slate-700 transition-transform hover:scale-110 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
           onClick={props.onClickRemove}
         >
           <MinusCircleIcon className="h-6 w-6" />

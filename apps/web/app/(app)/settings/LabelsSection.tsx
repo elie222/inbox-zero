@@ -237,7 +237,7 @@ function LabelsSectionFormInner(props: {
                         <div className="relative flex w-full items-center justify-center">
                           {label}
                           <span className="absolute right-0 hidden group-hover:block">
-                            <PlusIcon className="h-4 w-4 text-gray-500" />
+                            <PlusIcon className="h-4 w-4 text-muted-foreground" />
                           </span>
                         </div>
                       </Tag>

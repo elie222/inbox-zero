@@ -49,9 +49,9 @@ export function EmailThread({
   );
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-100 p-4">
+    <div className="flex-1 overflow-auto bg-muted p-4">
       <div className="flex items-center justify-between">
-        <div className="text-2xl font-semibold text-gray-900">
+        <div className="text-2xl font-semibold text-foreground">
           {messages[0]?.headers.subject}
         </div>
         {topRightComponent && (

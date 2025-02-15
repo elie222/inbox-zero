@@ -12,8 +12,7 @@ import clsx from "clsx";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
-import { Button } from "@/components/Button";
-import { Button as ShadcnButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
 import {
   frequencies,
@@ -105,24 +104,27 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
         {isPremium && (
           <div className="mb-8 mt-8 text-center">
-            <Button
-              link={{
-                href: `https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`,
-                target: "_blank",
-              }}
-            >
-              <CreditCardIcon className="mr-2 h-4 w-4" />
-              Manage subscription
+            <Button asChild>
+              <Link
+                href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
+                target="_blank"
+              >
+                <CreditCardIcon className="mr-2 h-4 w-4" />
+                Manage subscription
+              </Link>
             </Button>
 
-            <Button link={{ href: "/automation" }} color="blue">
-              <SparklesIcon className="mr-2 h-4 w-4" />
-              Use Inbox Zero
+            <Button variant="primaryBlue" className="ml-2" asChild>
+              <Link href="/automation">
+                <SparklesIcon className="mr-2 h-4 w-4" />
+                Use Inbox Zero
+              </Link>
             </Button>
 
             {premiumTier && (
               <div className="mx-auto mt-4 max-w-md">
                 <AlertWithButton
+                  className="bg-background"
                   variant="blue"
                   title="Add extra users to your account!"
                   description={`You can upgrade extra accounts to ${capitalCase(
@@ -133,9 +135,9 @@ export function Pricing(props: { header?: React.ReactNode }) {
                   icon={null}
                   button={
                     <div className="ml-4 whitespace-nowrap">
-                      <ShadcnButton asChild variant="blue">
+                      <Button variant="primaryBlue" asChild>
                         <Link href="/settings#manage-users">Add users</Link>
-                      </ShadcnButton>
+                      </Button>
                     </div>
                   }
                 />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import Link from "next/link";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,7 +9,7 @@ import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
 import { CrownIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -196,15 +197,13 @@ function MultiAccountForm({
       </div>
 
       {needsToPurchaseMoreSeats ? (
-        <Button
-          type="button"
-          loading={isSubmitting}
-          link={{
-            href: `${env.NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_PAYMENT_LINK}?quantity=${extraSeats}`,
-            target: "_blank",
-          }}
-        >
-          Purchase {extraSeats} Extra Seat{extraSeats > 1 ? "s" : ""}
+        <Button type="button" loading={isSubmitting} asChild>
+          <Link
+            href={`${env.NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_PAYMENT_LINK}?quantity=${extraSeats}`}
+            target="_blank"
+          >
+            Purchase {extraSeats} Extra Seat{extraSeats > 1 ? "s" : ""}
+          </Link>
         </Button>
       ) : (
         <Button type="submit" loading={isSubmitting}>

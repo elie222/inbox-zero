@@ -932,7 +932,7 @@ function Instructions({
   return (
     <div>
       <p className="text-sm">{label}</p>
-      <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm">
+      <div className="mt-2 rounded border border-border bg-muted p-2 text-sm">
         {instructions}
       </div>
     </div>

@@ -1,9 +1,11 @@
 import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 import { Loading } from "@/components/Loading";
 
 export function HtmlEmail({ html }: { html: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [showReplies, setShowReplies] = useState(false);
+  const { theme } = useTheme();
 
   const { mainContent, hasReplies } = useMemo(
     () => getEmailContent(html),
@@ -28,9 +30,16 @@ export function HtmlEmail({ html }: { html: string }) {
 
         event.currentTarget.style.height = height;
         setIsLoading(false);
+
+        // Add dark mode class based on theme
+        if (theme === "dark") {
+          event.currentTarget.contentWindow.document.documentElement.classList.add(
+            "dark",
+          );
+        }
       }
     },
-    [],
+    [theme],
   );
 
   return (
@@ -56,7 +65,7 @@ export function HtmlEmail({ html }: { html: string }) {
 }
 
 export function PlainEmail({ text }: { text: string }) {
-  return <pre className="whitespace-pre-wrap">{text}</pre>;
+  return <pre className="whitespace-pre-wrap text-foreground">{text}</pre>;
 }
 
 function getEmailContent(html: string) {
@@ -83,10 +92,45 @@ function getIframeHtml(html: string) {
   // This ensures styled elements keep their fonts while unstyled ones get our defaults
   const defaultFontStyles = `
     <style>
+      :root {
+        color-scheme: light;
+        --foreground: 222.2 47.4% 11.2%;
+        --muted-foreground: 215.4 16.3% 46.9%;
+        --background: 0 0% 100%;
+      }
+
+      .dark {
+        color-scheme: dark;
+        --foreground: 0 0% 98%;
+        --muted-foreground: 240 5% 64.9%;
+        --background: 240 10% 3.9%;
+      }
+
       /* Base styles with low specificity */
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         margin: 0;
+        color: hsl(var(--foreground));
+        background-color: hsl(var(--background));
+      }
+
+      /* Style blockquotes and quoted text */
+      blockquote, .gmail_quote {
+        color: hsl(var(--muted-foreground));
+        border-left: 3px solid hsl(var(--muted-foreground) / 0.2);
+        margin: 0;
+        padding-left: 1rem;
+      }
+
+      /* Style links */
+      a {
+        color: hsl(var(--foreground));
+        text-decoration: underline;
+      }
+
+      /* Style quoted text */
+      .gmail_quote, .gmail_quote * {
+        color: hsl(var(--muted-foreground));
       }
     </style>
   `;

@@ -64,11 +64,11 @@ export function Steps({
                 "absolute left-0 top-0 flex w-6 justify-center",
               )}
             >
-              <div className="w-px bg-gray-200" />
+              <div className="w-px bg-slate-200 dark:bg-slate-800" />
             </div>
 
-            <div className="relative flex h-6 w-6 flex-none items-center justify-center bg-white">
-              <div className="h-1.5 w-1.5 rounded-full bg-gray-100 ring-1 ring-gray-300" />
+            <div className="relative flex h-6 w-6 flex-none items-center justify-center bg-background">
+              <div className="h-1.5 w-1.5 rounded-full bg-slate-100 ring-1 ring-slate-300 dark:bg-slate-800 dark:ring-slate-700" />
             </div>
 
             <div

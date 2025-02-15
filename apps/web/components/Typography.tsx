@@ -9,7 +9,7 @@ const PageHeading = React.forwardRef<
   <h1
     ref={ref}
     className={cn(
-      "font-cal text-2xl leading-7 text-gray-900 sm:truncate sm:text-3xl",
+      "font-cal text-2xl leading-7 text-slate-900 dark:text-foreground sm:truncate sm:text-3xl",
       className,
     )}
     {...props}
@@ -23,7 +23,10 @@ const SectionHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h4
     ref={ref}
-    className={cn("font-cal text-base leading-7", className)}
+    className={cn(
+      "font-cal text-base leading-7 dark:text-foreground",
+      className,
+    )}
     {...props}
   />
 ));
@@ -35,7 +38,10 @@ const SectionDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("mt-1 text-sm leading-6 text-gray-700", className)}
+    className={cn(
+      "mt-1 text-sm leading-6 text-slate-700 dark:text-foreground",
+      className,
+    )}
     {...props}
   />
 ));
@@ -45,7 +51,11 @@ const MessageText = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn("text-sm text-gray-700", className)} {...props} />
+  <p
+    ref={ref}
+    className={cn("text-sm text-slate-700 dark:text-foreground", className)}
+    {...props}
+  />
 ));
 MessageText.displayName = "MessageText";
 
@@ -68,11 +78,16 @@ const TypographyH4 = React.forwardRef<
   <h4 ref={ref} className={cn("font-cal text-lg", className)} {...props} />
 ));
 TypographyH4.displayName = "TypographyH4";
+
 const TypographyP = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn("leading-7", className)} {...props} />
+  <p
+    ref={ref}
+    className={cn("leading-7 text-muted-foreground", className)}
+    {...props}
+  />
 ));
 TypographyP.displayName = "TypographyP";
 
@@ -82,7 +97,10 @@ const TextLink = React.forwardRef<HTMLAnchorElement, LinkProps>(
     return (
       <Link
         ref={ref}
-        className={cn("font-semibold text-blue-600 hover:underline", className)}
+        className={cn(
+          "font-semibold text-blue-600 hover:underline dark:text-primary",
+          className,
+        )}
         {...props}
       />
     );

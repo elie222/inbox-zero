@@ -14,7 +14,7 @@ export default function NoReplyPage() {
 
   return (
     <div>
-      <div className="border-b border-gray-200 px-8 py-6">
+      <div className="border-b border-border px-8 py-6">
         <PageHeading>Emails Sent With No Reply</PageHeading>
       </div>
       <LoadingContent loading={isLoading} error={error}>

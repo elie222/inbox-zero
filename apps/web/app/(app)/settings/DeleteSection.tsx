@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import {
   deleteAccountAction,
@@ -23,7 +23,7 @@ export function DeleteSection() {
 
       <div className="flex items-start gap-2 md:col-span-2">
         <Button
-          color="white"
+          variant="outline"
           onClick={async () => {
             toast.promise(() => resetAnalyticsAction(), {
               loading: "Resetting analytics...",
@@ -40,7 +40,7 @@ export function DeleteSection() {
         </Button>
 
         <Button
-          color="red"
+          variant="outline"
           onClick={async () => {
             onCancelLoadBatch();
             const yes = window.confirm(

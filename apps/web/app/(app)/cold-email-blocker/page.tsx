@@ -7,6 +7,7 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { ColdEmailRejected } from "@/app/(app)/cold-email-blocker/ColdEmailRejected";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { ColdEmailTest } from "@/app/(app)/cold-email-blocker/ColdEmailTest";
+import { TabsToolbar } from "@/components/TabsToolbar";
 
 export default function ColdEmailBlockerPage() {
   return (
@@ -16,15 +17,15 @@ export default function ColdEmailBlockerPage() {
         <PremiumAlertWithData className="mt-2" />
       </div>
 
-      <Tabs defaultValue="cold-emails" className="mt-2">
-        <div className="content-container flex shrink-0 flex-col items-center justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white pb-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
+      <Tabs defaultValue="cold-emails">
+        <TabsToolbar>
           <TabsList>
             <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
             <TabsTrigger value="rejected">Marked Not Cold</TabsTrigger>
             <TabsTrigger value="test">Test</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
-        </div>
+        </TabsToolbar>
 
         <TabsContent value="cold-emails" className="content-container mb-10">
           <Card>

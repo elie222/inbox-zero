@@ -23,7 +23,7 @@ export const Toggle = (props: ToggleProps) => {
     tooltipText,
     enabled,
     onChange,
-    bgClass = "bg-black",
+    bgClass = "bg-black dark:bg-primary",
   } = props;
 
   return (
@@ -39,8 +39,8 @@ export const Toggle = (props: ToggleProps) => {
           checked={enabled}
           onChange={onChange}
           className={clsx(
-            enabled ? bgClass : "bg-gray-200",
-            "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2",
+            enabled ? bgClass : "bg-gray-200 dark:bg-input",
+            "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 dark:focus:ring-white dark:focus:ring-offset-gray-900",
           )}
         >
           <span className="sr-only">{label}</span>
@@ -48,7 +48,7 @@ export const Toggle = (props: ToggleProps) => {
             aria-hidden="true"
             className={clsx(
               enabled ? "translate-x-5" : "translate-x-0",
-              "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+              "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out",
             )}
           />
         </Switch>

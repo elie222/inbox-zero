@@ -10,6 +10,7 @@ import { Groups } from "@/app/(app)/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
+import { TabsToolbar } from "@/components/TabsToolbar";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -22,7 +23,7 @@ export default async function AutomationPage() {
       <PermissionsCheck />
 
       <Tabs defaultValue="prompt">
-        <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
+        <TabsToolbar>
           <div className="w-full overflow-x-auto">
             <TabsList>
               <TabsTrigger value="prompt">Prompt</TabsTrigger>
@@ -44,7 +45,7 @@ export default async function AutomationPage() {
             }
             videoId="SoeNDVr7ve4"
           />
-        </div>
+        </TabsToolbar>
 
         <TabsContent value="prompt" className="content-container mb-10">
           <RulesPrompt />

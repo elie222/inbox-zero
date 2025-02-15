@@ -16,6 +16,7 @@ import { EmailActionsAnalytics } from "@/app/(app)/stats/EmailActionsAnalytics";
 import { BulkUnsubscribeSummary } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { Card } from "@/components/Card";
 import { Title } from "@tremor/react";
+import { TopBar } from "@/components/TopBar";
 // import { Insights } from "@/app/(app)/stats/Insights";
 
 const selectOptions = [
@@ -66,7 +67,7 @@ export function Stats() {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-0 z-10 justify-between border-b bg-white px-2 py-2 shadow sm:flex sm:px-4">
+      <TopBar sticky>
         {isLoading ? <LoadProgress /> : <div />}
         <div className="flex flex-wrap gap-1">
           <ActionBar
@@ -81,7 +82,7 @@ export function Stats() {
           />
           <LoadStatsButton />
         </div>
-      </div>
+      </TopBar>
 
       <div className="px-4 py-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />

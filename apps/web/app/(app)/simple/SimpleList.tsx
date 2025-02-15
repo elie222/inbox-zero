@@ -239,7 +239,7 @@ function SimpleListRow({
   );
 
   return (
-    <div className="bg-white p-4 shadow sm:rounded-lg">
+    <div className="bg-background p-4 shadow sm:rounded-lg">
       <div className="sm:flex sm:items-center sm:gap-4">
         <div className="w-full">
           <div className="flex">
@@ -250,7 +250,7 @@ function SimpleListRow({
             {expanded && <span className="ml-auto">{actionButtons}</span>}
           </div>
 
-          <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
+          <div className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
             {expanded && !!message.textHtml ? (
               <HtmlEmail html={message.textHtml} />
             ) : (

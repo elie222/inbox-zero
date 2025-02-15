@@ -13,7 +13,7 @@ export function ButtonGroup(props: {
 }) {
   return (
     <span
-      className={cn("isolate inline-flex rounded-md bg-white", {
+      className={cn("isolate inline-flex rounded-md bg-background", {
         shadow: props.shadow,
       })}
     >

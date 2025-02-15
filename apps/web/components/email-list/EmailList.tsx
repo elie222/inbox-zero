@@ -422,7 +422,7 @@ export function EmailList({
   return (
     <>
       {!(isEmpty && hideActionBarWhenEmpty) && (
-        <div className="flex items-center divide-gray-100 border-b border-l-4 bg-white px-4 py-1">
+        <div className="flex items-center border-b border-l-4 border-border bg-background px-4 py-1">
           <div className="pl-1">
             <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
           </div>
@@ -478,7 +478,7 @@ export function EmailList({
         <ResizeGroup
           left={
             <ul
-              className="divide-y divide-gray-100 overflow-y-auto scroll-smooth"
+              className="divide-y divide-border overflow-y-auto scroll-smooth"
               ref={listRef}
             >
               {threads.map((thread) => {

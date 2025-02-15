@@ -177,7 +177,7 @@ function EmailAssistantTestResults({
           loadingComponent={
             <div className="flex flex-col items-center justify-center pb-8">
               <Loading />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Loading example matches... This may take a minute.
               </p>
             </div>
@@ -200,7 +200,7 @@ function EmailAssistantTestResults({
                         <p className="text-base font-semibold">
                           {match.subject}
                         </p>
-                        <p className="line-clamp-2 text-sm text-gray-600">
+                        <p className="line-clamp-2 text-sm text-slate-600">
                           {decodeSnippet(match.snippet)}
                         </p>
                       </div>
@@ -215,7 +215,7 @@ function EmailAssistantTestResults({
               </TableBody>
             </Table>
           ) : (
-            <p className="p-4 text-center text-sm text-slate-500">
+            <p className="p-4 text-center text-sm text-muted-foreground">
               No matches found 😔
             </p>
           )}

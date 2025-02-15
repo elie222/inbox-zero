@@ -22,7 +22,7 @@ function NavBarBottom({
 }) {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden"
       // safe area for iOS PWA
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
@@ -33,8 +33,8 @@ function NavBarBottom({
               key={link.path}
               href={link.path}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 hover:text-black",
-                link.isSelected ? "text-black" : "text-muted-foreground",
+                "flex flex-col items-center justify-center gap-1 hover:text-foreground",
+                link.isSelected ? "text-foreground" : "text-muted-foreground",
               )}
             >
               <link.icon className="h-5 w-5" />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { saveAboutAction, type SaveAboutBody } from "@/utils/actions/user";
 import {
@@ -51,7 +51,7 @@ export const AboutSectionForm = ({ about }: { about: string | null }) => {
             </div>
           </FormSectionRight>
           <SubmitButtonWrapper>
-            <Button type="submit" size="lg" loading={isSubmitting}>
+            <Button type="submit" loading={isSubmitting}>
               Save
             </Button>
           </SubmitButtonWrapper>
