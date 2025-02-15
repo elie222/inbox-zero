@@ -12,7 +12,7 @@ export function GroupHeading(props: {
         <Checkbox checked onChange={() => {}} />
       </div> */}
 
-      <h1 className="text-base font-semibold leading-7 text-gray-900">
+      <h1 className="text-base font-semibold leading-7 text-primary">
         {props.leftContent}
       </h1>
 

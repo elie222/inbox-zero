@@ -195,7 +195,7 @@ export const AddRemoveButtons = (props: {
       {props.onClickAdd && (
         <button
           type="button"
-          className="text-slate-700 transition-transform hover:scale-110 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+          className="text-slate-700 transition-transform hover:scale-110 hover:text-primary dark:text-slate-300 dark:hover:text-slate-100"
           onClick={props.onClickAdd}
         >
           <PlusCircleIcon className="h-6 w-6" />
@@ -204,7 +204,7 @@ export const AddRemoveButtons = (props: {
       {props.onClickRemove && (
         <button
           type="button"
-          className="text-slate-700 transition-transform hover:scale-110 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+          className="text-slate-700 transition-transform hover:scale-110 hover:text-primary dark:text-slate-300 dark:hover:text-slate-100"
           onClick={props.onClickRemove}
         >
           <MinusCircleIcon className="h-6 w-6" />

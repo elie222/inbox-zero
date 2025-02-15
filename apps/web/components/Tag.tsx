@@ -9,7 +9,7 @@ const tagVariants = cva(
       variant: {
         green: "bg-green-200 text-green-900",
         red: "bg-red-200 text-red-900",
-        white: "bg-white text-gray-900",
+        white: "bg-background text-primary",
       },
     },
   },

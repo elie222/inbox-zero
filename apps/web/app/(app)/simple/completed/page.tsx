@@ -20,7 +20,7 @@ export default async function SimpleCompletedPage() {
   return (
     <div>
       <div className="mb-2 mt-8 px-8">
-        <div className="text-center font-cal text-2xl leading-10 text-gray-900">
+        <div className="text-center font-cal text-2xl leading-10 text-primary">
           <p>
             🥳 Great job!
             {!!threads.length && " Here are the emails you set aside!"}

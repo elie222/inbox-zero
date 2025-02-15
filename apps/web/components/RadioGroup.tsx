@@ -62,10 +62,10 @@ export function RadioGroup<T extends string>({
               <span className="h-1.5 w-1.5 rounded-full bg-background" />
             </span>
             <span className="ml-3 flex flex-col">
-              <span className="block text-sm font-medium text-gray-900 group-data-[checked]:text-slate-900 dark:text-slate-100 dark:group-data-[checked]:text-white">
+              <span className="block text-sm font-medium text-primary group-data-[checked]:text-primary dark:text-slate-100 dark:group-data-[checked]:text-white">
                 {option.label}
               </span>
-              <span className="block text-sm text-gray-500 group-data-[checked]:text-slate-700 dark:text-slate-400 dark:group-data-[checked]:text-slate-300">
+              <span className="block text-sm text-muted-foreground group-data-[checked]:text-slate-700 dark:text-slate-400 dark:group-data-[checked]:text-slate-300">
                 {option.description}
               </span>
             </span>

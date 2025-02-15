@@ -9,7 +9,7 @@ const PageHeading = React.forwardRef<
   <h1
     ref={ref}
     className={cn(
-      "font-cal text-2xl leading-7 text-slate-900 dark:text-foreground sm:truncate sm:text-3xl",
+      "font-cal text-2xl leading-7 text-primary dark:text-foreground sm:truncate sm:text-3xl",
       className,
     )}
     {...props}

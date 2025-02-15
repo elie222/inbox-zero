@@ -19,7 +19,7 @@ export const Panel = (props: PanelProps) => {
       )}
     >
       {props.title && (
-        <h3 className="mb-4 text-lg font-medium leading-6 text-gray-900">
+        <h3 className="mb-4 text-lg font-medium leading-6 text-primary">
           {props.title}
         </h3>
       )}
@@ -38,7 +38,7 @@ export const GradientPanel = (props: PanelProps) => {
           })}
         >
           {props.title && (
-            <h3 className="mb-4 text-lg font-medium leading-6 text-gray-900">
+            <h3 className="mb-4 text-lg font-medium leading-6 text-primary">
               {props.title}
             </h3>
           )}

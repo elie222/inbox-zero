@@ -93,7 +93,7 @@ export function Rules() {
                   .map((rule) => (
                     <TableRow
                       key={rule.id}
-                      className={!rule.enabled ? "bg-gray-100 opacity-60" : ""}
+                      className={!rule.enabled ? "bg-muted opacity-60" : ""}
                     >
                       <TableCell className="font-medium">
                         <Link href={`/automation/rule/${rule.id}`}>

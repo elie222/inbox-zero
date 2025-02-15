@@ -29,9 +29,9 @@ const buttonVariants = cva(
       },
       color: {
         primary: "bg-gray-900 text-white hover:bg-gray-700 focus:ring-gray-900",
-        red: "bg-red-100 text-gray-900 hover:bg-red-200 focus:ring-red-500",
+        red: "bg-red-100 text-primary hover:bg-red-200 focus:ring-red-500",
         white:
-          "border border-gray-100 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-200",
+          "border border-muted bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-200",
         blue: "bg-blue-600 text-white hover:bg-blue-500 focus:ring-blue-600",
         transparent: "",
       },

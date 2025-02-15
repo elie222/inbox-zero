@@ -127,7 +127,7 @@ export default function AutomationSettingsPage() {
                         title={example.title}
                         description={example.description}
                         icon={example.icon}
-                        className="cursor-pointer hover:bg-gray-100"
+                        className="cursor-pointer hover:bg-muted"
                       />
                     </Link>
                   );

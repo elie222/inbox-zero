@@ -18,7 +18,7 @@ export function PlanExplanation(props: {
   if (!plan?.rule) return null;
 
   return (
-    <div className="max-h-48 overflow-auto border-b border-b-gray-100 bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-gray-900">
+    <div className="max-h-48 overflow-auto border-b border-b-muted bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-primary">
       <div className="flex">
         <div className="flex-shrink-0">
           <PlanBadge plan={plan} />
