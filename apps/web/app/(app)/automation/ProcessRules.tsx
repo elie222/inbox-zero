@@ -163,7 +163,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-6 pb-4">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-6 pb-4">
         <div className="flex items-center gap-2">
           {isRunningAll ? (
             <Button onClick={handleStop} variant="outline">
@@ -208,7 +208,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       <LoadingContent loading={isLoading} error={error}>
         {messages.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-500">
+          <div className="p-4 text-center text-sm text-muted-foreground">
             No emails found
           </div>
         ) : (

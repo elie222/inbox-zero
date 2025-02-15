@@ -47,7 +47,7 @@ export function ActionButtonsBulk(props: {
         icon: isPlanning ? (
           <LoadingMiniSpinner />
         ) : (
-          <SparklesIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <SparklesIcon className="size-4 text-foreground" aria-hidden="true" />
         ),
       },
       {
@@ -57,7 +57,7 @@ export function ActionButtonsBulk(props: {
           <LoadingMiniSpinner />
         ) : (
           <CheckCircleIcon
-            className="h-4 w-4 text-gray-700"
+            className="size-4 text-foreground"
             aria-hidden="true"
           />
         ),
@@ -68,7 +68,7 @@ export function ActionButtonsBulk(props: {
         icon: isRejecting ? (
           <LoadingMiniSpinner />
         ) : (
-          <XCircleIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <XCircleIcon className="size-4 text-foreground" aria-hidden="true" />
         ),
       },
       {
@@ -77,7 +77,7 @@ export function ActionButtonsBulk(props: {
         icon: isCategorizing ? (
           <LoadingMiniSpinner />
         ) : (
-          <OrbitIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <OrbitIcon className="size-4 text-foreground" aria-hidden="true" />
         ),
       },
       {
@@ -86,7 +86,7 @@ export function ActionButtonsBulk(props: {
         icon: isArchiving ? (
           <LoadingMiniSpinner />
         ) : (
-          <ArchiveIcon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <ArchiveIcon className="size-4 text-foreground" aria-hidden="true" />
         ),
       },
       {
@@ -95,7 +95,7 @@ export function ActionButtonsBulk(props: {
         icon: isDeleting ? (
           <LoadingMiniSpinner />
         ) : (
-          <Trash2Icon className="h-4 w-4 text-gray-700" aria-hidden="true" />
+          <Trash2Icon className="size-4 text-foreground" aria-hidden="true" />
         ),
       },
     ],

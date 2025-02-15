@@ -181,7 +181,7 @@ export const ComposeEmailForm = ({
           onClick={() => setEditReply(true)}
         >
           <span className="text-green-500">Draft</span>{" "}
-          <span className="max-w-md break-words">
+          <span className="max-w-md break-words text-foreground">
             to {extractNameFromEmail(replyingToEmail.to)}
           </span>
         </button>
@@ -197,7 +197,7 @@ export const ComposeEmailForm = ({
                 onChange={handleComboboxOnChange}
                 multiple
               >
-                <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500">
+                <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
                   {selectedEmailAddressses.map((emailAddress) => (
                     <Badge
                       key={emailAddress}
@@ -222,7 +222,7 @@ export const ComposeEmailForm = ({
                   <div className="relative flex-1">
                     <ComboboxInput
                       value={searchQuery}
-                      className="w-full border-none p-0 text-sm focus:border-none focus:ring-0"
+                      className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
                       onChange={(event) => setSearchQuery(event.target.value)}
                       onKeyUp={(event) => {
                         if (event.key === "Enter") {
@@ -239,7 +239,7 @@ export const ComposeEmailForm = ({
                     {!!data?.result?.length && (
                       <ComboboxOptions
                         className={
-                          "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+                          "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm"
                         }
                       >
                         <ComboboxOption
@@ -257,8 +257,8 @@ export const ComposeEmailForm = ({
                           return (
                             <ComboboxOption
                               className={({ focus }) =>
-                                `cursor-default select-none px-4 py-1 text-gray-900 ${
-                                  focus && "bg-gray-50"
+                                `cursor-default select-none px-4 py-1 text-foreground ${
+                                  focus && "bg-accent"
                                 }`
                               }
                               key={person.emailAddress}
@@ -285,8 +285,10 @@ export const ComposeEmailForm = ({
                                     </Avatar>
                                   )}
                                   <div className="ml-4 flex flex-col justify-center">
-                                    <div>{person.name}</div>
-                                    <div className="text-sm font-semibold">
+                                    <div className="text-foreground">
+                                      {person.name}
+                                    </div>
+                                    <div className="text-sm font-semibold text-muted-foreground">
                                       {person.emailAddress}
                                     </div>
                                   </div>

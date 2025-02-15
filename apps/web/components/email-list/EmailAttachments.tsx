@@ -19,9 +19,9 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
 
         return (
           <Card key={attachment.filename} className="p-4">
-            <div className="text-gray-600">{attachment.filename}</div>
+            <div className="text-muted-foreground">{attachment.filename}</div>
             <div className="mt-4 flex items-center justify-between">
-              <div className="text-gray-600">
+              <div className="text-muted-foreground">
                 {mimeTypeToString(attachment.mimeType)}
               </div>
               <Button variant="outline" size="sm" asChild>

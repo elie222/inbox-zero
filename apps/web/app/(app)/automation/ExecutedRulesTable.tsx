@@ -160,7 +160,7 @@ function OpenInGmailButton({
     <Link
       href={getGmailUrl(messageId, userEmail)}
       target="_blank"
-      className="ml-2 text-gray-700 hover:text-gray-900"
+      className="ml-2 text-muted-foreground hover:text-foreground"
     >
       <ExternalLinkIcon className="h-4 w-4" />
     </Link>

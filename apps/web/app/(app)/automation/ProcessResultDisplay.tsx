@@ -23,7 +23,7 @@ export function ProcessResultDisplay({
       <HoverCard
         className="w-auto max-w-3xl"
         content={
-          <Alert variant="destructive" className="bg-white">
+          <Alert variant="destructive" className="bg-background">
             <AlertTitle>No rule matched</AlertTitle>
             <AlertDescription className="space-y-2">
               <div>
@@ -49,9 +49,9 @@ export function ProcessResultDisplay({
   const aiGeneratedContent = result.actionItems?.map((action, i) => (
     <div
       key={i}
-      className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3"
+      className="space-y-2 rounded-md border border-border bg-muted p-3"
     >
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-900">
+      <div className="text-xs font-semibold uppercase tracking-wide text-foreground">
         {capitalCase(action.type)}
       </div>
       {Object.entries(action)
@@ -63,8 +63,8 @@ export function ProcessResultDisplay({
             ),
         )
         .map(([key, value]) => (
-          <div key={key} className="flex text-sm text-gray-800">
-            <span className="min-w-16 font-medium text-gray-600">
+          <div key={key} className="flex text-sm text-foreground">
+            <span className="min-w-16 font-medium text-muted-foreground">
               {capitalCase(key)}:
             </span>
             <span className="ml-2 max-h-40 flex-1 overflow-y-auto">
@@ -79,7 +79,7 @@ export function ProcessResultDisplay({
     <HoverCard
       className="w-auto max-w-5xl"
       content={
-        <Alert variant="blue" className="max-w-prose bg-white">
+        <Alert variant="blue" className="max-w-prose bg-background">
           <CheckCircle2Icon className="h-4 w-4" />
           <AlertTitle className="flex items-center justify-between">
             Matched rule "{result.rule.name}"

@@ -1,18 +1,16 @@
 import { cn } from "@/utils";
 
-export function TopBar({
-  children,
-  sticky = false,
-  className,
-}: {
+interface TopBarProps {
   children: React.ReactNode;
-  sticky?: boolean;
   className?: string;
-}) {
+  sticky?: boolean;
+}
+
+export function TopBar({ children, className, sticky = false }: TopBarProps) {
   return (
     <div
       className={cn(
-        "flex flex-col justify-between gap-1 border-b bg-white px-2 py-2 shadow sm:flex-row sm:px-4",
+        "justify-between border-b bg-background px-2 py-2 shadow sm:flex sm:px-4",
         sticky && "top-0 z-10 sm:sticky",
         className,
       )}

@@ -17,7 +17,7 @@ export const EmailCell = memo(function EmailCell({
   return (
     <div className={className}>
       <div>{name}</div>
-      <div className="text-slate-500">{email}</div>
+      <div className="text-muted-foreground">{email}</div>
     </div>
   );
 });

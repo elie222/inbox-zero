@@ -1,6 +1,6 @@
 import React from "react";
 import type { FieldError } from "react-hook-form";
-import clsx from "clsx";
+import { cn } from "@/utils";
 import { ErrorMessage, ExplainText, Label } from "@/components/Input";
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
@@ -25,8 +25,8 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         ) : null}
         <select
           id={props.name}
-          className={clsx(
-            "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6",
+          className={cn(
+            "block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
             label && "mt-1",
           )}
           disabled={props.disabled}

@@ -2,8 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import { Button } from "@/components/Button";
-import { Button as UiButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { isActionError } from "@/utils/error";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -102,7 +101,7 @@ function ApiKeysForm() {
 
 export function ApiKeysDeactivateButton({ id }: { id: string }) {
   return (
-    <UiButton
+    <Button
       variant="outline"
       size="sm"
       onClick={async () => {
@@ -111,6 +110,6 @@ export function ApiKeysDeactivateButton({ id }: { id: string }) {
       }}
     >
       Revoke
-    </UiButton>
+    </Button>
   );
 }

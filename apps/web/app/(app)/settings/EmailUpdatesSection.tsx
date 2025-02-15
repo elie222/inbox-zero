@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isError } from "@/utils/error";

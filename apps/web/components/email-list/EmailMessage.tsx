@@ -68,7 +68,7 @@ export function EmailMessage({
     // biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
     <li
       className={cn(
-        "bg-white p-4 shadow sm:rounded-lg",
+        "bg-background p-4 shadow sm:rounded-lg",
         !expanded && "cursor-pointer",
       )}
       onClick={onExpand}
@@ -135,12 +135,12 @@ function TopBar({
       <div className="flex items-center gap-2">
         <div className="flex items-center">
           <h3 className="text-base font-medium">
-            <span className="text-gray-900">
+            <span className="text-foreground">
               {message.labelIds?.includes("SENT")
                 ? "Me"
                 : extractNameFromEmail(message.headers.from)}
             </span>{" "}
-            {expanded && <span className="text-gray-600">wrote</span>}
+            {expanded && <span className="text-muted-foreground">wrote</span>}
           </h3>
         </div>
         {expanded && (
@@ -159,7 +159,7 @@ function TopBar({
         )}
       </div>
       <div className="flex items-center space-x-2">
-        <p className="mt-1 whitespace-nowrap text-sm text-gray-600 sm:ml-3 sm:mt-0">
+        <p className="mt-1 whitespace-nowrap text-sm text-muted-foreground sm:ml-3 sm:mt-0">
           <time dateTime={message.headers.date}>
             {formatShortDate(new Date(message.headers.date))}
           </time>

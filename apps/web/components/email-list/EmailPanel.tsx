@@ -40,16 +40,16 @@ export function EmailPanel({
   const plan = row.plan;
 
   return (
-    <div className="flex h-full flex-col overflow-y-hidden border-l border-l-gray-100">
-      <div className="sticky border-b border-b-gray-100 p-4 md:flex md:items-center md:justify-between">
+    <div className="flex h-full flex-col overflow-y-hidden border-l border-border">
+      <div className="sticky border-b border-border p-4 md:flex md:items-center md:justify-between">
         <div className="md:w-0 md:flex-1">
           <h1
             id="message-heading"
-            className="text-lg font-medium text-gray-900"
+            className="text-lg font-medium text-foreground"
           >
             {lastMessage.headers.subject}
           </h1>
-          <p className="mt-1 truncate text-sm text-gray-500">
+          <p className="mt-1 truncate text-sm text-muted-foreground">
             {lastMessage.headers.from}
           </p>
         </div>

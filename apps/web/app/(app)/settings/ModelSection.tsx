@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Input } from "@/components/Input";

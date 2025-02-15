@@ -17,6 +17,7 @@ import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
 import { Button } from "@/components/ui/button";
+import { TabsToolbar } from "@/components/TabsToolbar";
 
 export const maxDuration = 600;
 
@@ -47,7 +48,7 @@ export default async function ReplyTrackerPage({
 
   return (
     <Tabs defaultValue="needsReply" className="flex h-full flex-col">
-      <div className="content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-gray-200 bg-white py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0">
+      <TabsToolbar>
         <div className="w-full overflow-x-auto">
           <div className="flex items-center justify-between gap-2">
             <TabsList>
@@ -92,7 +93,7 @@ export default async function ReplyTrackerPage({
             </div>
           </div>
         </div>
-      </div>
+      </TabsToolbar>
 
       <TabsContent value="needsReply" className="mt-0 flex-1">
         <NeedsReply

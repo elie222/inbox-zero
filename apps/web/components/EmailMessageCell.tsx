@@ -32,7 +32,7 @@ export function EmailMessageCell({
       <MessageText className="flex items-center">
         {extractNameFromEmail(sender)}{" "}
         <Link
-          className="ml-2 hover:text-gray-900"
+          className="ml-2 hover:text-foreground"
           href={getGmailUrl(messageId, userEmail)}
           target="_blank"
         >
