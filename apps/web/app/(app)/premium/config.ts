@@ -125,9 +125,10 @@ const businessTier = {
   features: [
     "Everything in Unsubscriber tier",
     "AI personal assistant",
-    "Smart categories",
+    "Reply Zero",
     "Cold email blocker",
-    "Unlimited AI credits",
+    "Smart categories",
+    "Unlimited AI usage",
     "Priority support",
   ],
   cta: "Try free for 7 days",

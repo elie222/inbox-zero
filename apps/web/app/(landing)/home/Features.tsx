@@ -195,7 +195,7 @@ export function FeaturesAiAssistant({ imageSide }: { imageSide?: Side }) {
       subtitle={selectedVariant.subtitle}
       description={selectedVariant.description}
       features={selectedVariant.featuresAutomations}
-      image="/images/ai-automation.png"
+      image="/images/home/ai-email-assistant.png"
     />
   );
 }
@@ -266,7 +266,7 @@ export function FeaturesStats({ imageSide }: { imageSide?: Side }) {
       title="Email Analytics"
       subtitle="What gets measured, gets managed"
       description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
-      image="/images/analytics.png"
+      image="/images/home/email-analytics.png"
       features={featuresStats}
     />
   );
