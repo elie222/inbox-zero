@@ -74,50 +74,57 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   }
 
   // Get counts and recent threads for each type
-  const [counts, needsReply, awaitingReply, needsAction] = await Promise.all([
+  const [
+    counts,
+    needsReply,
+    awaitingReply,
+    // needsAction
+  ] = await Promise.all([
+    // total count
     // NOTE: should really be distinct by threadId. this will cause a mismatch in some cases
     prisma.threadTracker.groupBy({
       by: ["type"],
       where: {
         userId: user.id,
         resolved: false,
-        sentAt: { gt: cutOffDate },
       },
       _count: true,
     }),
+    // needs reply
     prisma.threadTracker.findMany({
       where: {
         userId: user.id,
         type: ThreadTrackerType.NEEDS_REPLY,
         resolved: false,
-        sentAt: { gt: cutOffDate },
       },
       orderBy: { sentAt: "desc" },
       take: 5,
       distinct: ["threadId"],
     }),
+    // awaiting reply
     prisma.threadTracker.findMany({
       where: {
         userId: user.id,
         type: ThreadTrackerType.AWAITING,
         resolved: false,
-        sentAt: { gt: cutOffDate },
+        // only show emails that are more than 3 days overdue
+        sentAt: { lt: subHours(new Date(), 24 * 3) },
       },
       orderBy: { sentAt: "desc" },
       take: 5,
       distinct: ["threadId"],
     }),
-    prisma.threadTracker.findMany({
-      where: {
-        userId: user.id,
-        type: ThreadTrackerType.NEEDS_ACTION,
-        resolved: false,
-        sentAt: { gt: cutOffDate },
-      },
-      orderBy: { sentAt: "desc" },
-      take: 5,
-      distinct: ["threadId"],
-    }),
+    // needs action - currently not used
+    // prisma.threadTracker.findMany({
+    //   where: {
+    //     userId: user.id,
+    //     type: ThreadTrackerType.NEEDS_ACTION,
+    //     resolved: false,
+    //   },
+    //   orderBy: { sentAt: "desc" },
+    //   take: 5,
+    //   distinct: ["threadId"],
+    // }),
   ]);
 
   const typeCounts = Object.fromEntries(
@@ -135,7 +142,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   const messageIds = [
     ...needsReply.map((m) => m.messageId),
     ...awaitingReply.map((m) => m.messageId),
-    ...needsAction.map((m) => m.messageId),
+    // ...needsAction.map((m) => m.messageId),
   ];
 
   logger.info("Getting messages", {
@@ -169,14 +176,14 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     };
   });
 
-  const recentNeedsAction = needsAction.map((t) => {
-    const message = messageMap[t.messageId];
-    return {
-      from: message?.headers.from || "Unknown",
-      subject: decodeSnippet(message?.snippet) || "",
-      sentAt: t.sentAt,
-    };
-  });
+  // const recentNeedsAction = needsAction.map((t) => {
+  //   const message = messageMap[t.messageId];
+  //   return {
+  //     from: message?.headers.from || "Unknown",
+  //     subject: decodeSnippet(message?.snippet) || "",
+  //     sentAt: t.sentAt,
+  //   };
+  // });
 
   const shouldSendEmail = !!(
     coldEmailers.length ||
@@ -210,7 +217,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
         needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
         needsReply: recentNeedsReply,
         awaitingReply: recentAwaitingReply,
-        needsAction: recentNeedsAction,
+        // needsAction: recentNeedsAction,
         unsubscribeToken: token,
       },
     });
