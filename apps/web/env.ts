@@ -50,6 +50,9 @@ export const env = createEnv({
     INTERNAL_API_KEY: z.string().optional(),
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
+    // See Vercel limits here: https://vercel.com/docs/functions/configuring-functions/duration#duration-limits
+    // Vercel Fluid Compute allows up to 800s, but other plans are capped at 300s or less
+    MAX_DURATION: z.coerce.number().optional().default(800),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
