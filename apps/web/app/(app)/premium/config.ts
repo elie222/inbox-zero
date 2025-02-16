@@ -92,7 +92,7 @@ const coldEmailBlockerFeature = {
 const smartCategoriesFeature = {
   text: "Smart categories",
   tooltip:
-    "Categorizes your emails into meaningful groups to take bulk actions on or apply rules to.",
+    "Categorizes your emails into meaningful groups to take bulk actions on or apply rules to. e.g., archive thousands of newsletters in one click.",
 };
 
 const bulkUnsubscribeFeature = {
