@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero - Your AI Personal Assistant for Email</h1>
+    <h1 align="center">Inbox Zero - Your AI Email Assistant</h1>
   </a>
   <p align="center">
     Open source email app to reach inbox zero fast.
@@ -19,7 +19,7 @@
 
 There are two parts to Inbox Zero:
 
-1. An AI personal assistant that helps you spend less time on email.
+1. An AI email assistant that helps you spend less time on email.
 2. Open source AI email client.
 
 If you're looking to contribue to the project, the email client is the best place to do this.
@@ -34,6 +34,14 @@ If you're looking to contribue to the project, the email client is the best plac
 - **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
 
 Learn more in our [docs](https://docs.getinboxzero.com).
+
+## Feature Screenshots
+
+| ![AI Assistant](.github/screenshots/email-assistant.png) |        ![Reply Zero](.github/screenshots/reply-zero.png)        |
+| :------------------------------------------------------: | :-------------------------------------------------------------: |
+|                      _AI Assistant_                      |                          _Reply Zero_                           |
+|  ![Gmail Client](.github/screenshots/email-client.png)   | ![Bulk Unsubscriber](.github/screenshots/bulk-unsubscriber.png) |
+|                      _Gmail client_                      |                       _Bulk Unsubscriber_                       |
 
 ## Demo Video
 
