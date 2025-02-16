@@ -382,10 +382,10 @@ function GroupRow({
   onRemoveAllFromCategory: () => void;
 }) {
   return (
-    <TableRow className="h-8 cursor-pointer bg-gray-50">
+    <TableRow className="h-8 cursor-pointer bg-muted/50">
       <TableCell
         colSpan={3}
-        className="py-1 text-sm font-medium text-gray-700"
+        className="py-1 text-sm font-medium text-foreground"
         onClick={onToggle}
       >
         <div className="flex items-center">
@@ -396,7 +396,7 @@ function GroupRow({
             )}
           />
           {category.name}
-          <span className="ml-2 text-xs text-gray-500">({count})</span>
+          <span className="ml-2 text-xs text-muted-foreground">({count})</span>
         </div>
       </TableCell>
       <TableCell className="flex justify-end gap-1.5 py-1">
@@ -576,7 +576,7 @@ function ArchiveStatusCell({ sender }: { sender: string }) {
           </span>
         );
       }
-      return <span className="text-gray-500">Archived</span>;
+      return <span className="text-muted-foreground">Archived</span>;
     case "processing":
       return (
         <span className="text-blue-500">
