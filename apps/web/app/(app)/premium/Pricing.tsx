@@ -25,6 +25,7 @@ import { usePricingVariant } from "@/hooks/useFeatureFlags";
 import { PremiumTier } from "@prisma/client";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { isActionError } from "@/utils/error";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 function attachUserInfo(
   url: string,
@@ -253,12 +254,17 @@ export function Pricing(props: { header?: React.ReactNode }) {
                   )}
                   <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
                     {tier.features.map((feature) => (
-                      <li key={feature} className="flex gap-x-3">
+                      <li key={feature.text} className="flex gap-x-3">
                         <CheckIcon
                           className="h-6 w-5 flex-none text-blue-600"
                           aria-hidden="true"
                         />
-                        {feature}
+                        <span className="flex items-center gap-2">
+                          {feature.text}
+                          {feature.tooltip && (
+                            <TooltipExplanation text={feature.tooltip} />
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>

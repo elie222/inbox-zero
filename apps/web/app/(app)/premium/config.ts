@@ -1,6 +1,11 @@
 import { env } from "@/env";
 import { PremiumTier } from "@prisma/client";
 
+type Feature = {
+  text: string;
+  tooltip?: string;
+};
+
 type Tier = {
   name: string;
   tiers: { monthly: PremiumTier; annually: PremiumTier };
@@ -9,7 +14,7 @@ type Tier = {
   priceAdditional: { monthly: number; annually: number };
   discount: { monthly: number; annually: number };
   description: string;
-  features: string[];
+  features: Feature[];
   cta: string;
   ctaLink?: string;
   mostPopular?: boolean;
@@ -68,6 +73,39 @@ function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
 
+const aiAssistantFeature = {
+  text: "AI personal assistant",
+  tooltip: "AI assistant that drafts replies and organizes your inbox.",
+};
+
+const replyZeroFeature = {
+  text: "Reply Zero",
+  tooltip:
+    "Never miss a reply or follow up again. Every conversation missing a reply is labeled.",
+};
+
+const coldEmailBlockerFeature = {
+  text: "Cold email blocker",
+  tooltip: "Automatically block cold emails.",
+};
+
+const smartCategoriesFeature = {
+  text: "Smart categories",
+  tooltip:
+    "Categorizes your emails into meaningful groups to take bulk actions on or apply rules to.",
+};
+
+const bulkUnsubscribeFeature = {
+  text: "Bulk unsubscribe",
+  tooltip:
+    "Bulk unsubscribe from emails in one-click based on who emails you most, and which ones you don't read.",
+};
+
+const analyticsFeature = {
+  text: "Email analytics",
+  tooltip: "Understand your email habits and patterns.",
+};
+
 const basicTier = {
   name: "Unsubscriber",
   tiers: {
@@ -89,10 +127,10 @@ const basicTier = {
   },
   description: "Unlimited unsubscribe credits.",
   features: [
-    "Bulk email unsubscriber",
-    "Unlimited unsubscribes",
-    "Unlimited archives",
-    "Email analytics",
+    bulkUnsubscribeFeature,
+    analyticsFeature,
+    { text: "Unlimited unsubscribes" },
+    { text: "Unlimited archives" },
   ],
   cta: "Try free for 7 days",
 };
@@ -123,13 +161,15 @@ const businessTier = {
   },
   description: "Unlock full AI-powered email management",
   features: [
-    "Everything in Unsubscriber tier",
-    "AI personal assistant",
-    "Reply Zero",
-    "Cold email blocker",
-    "Smart categories",
-    "Unlimited AI usage",
-    "Priority support",
+    {
+      text: "Everything in Unsubscriber tier",
+    },
+    aiAssistantFeature,
+    replyZeroFeature,
+    coldEmailBlockerFeature,
+    smartCategoriesFeature,
+    { text: "Unlimited AI usage" },
+    { text: "Priority support" },
   ],
   cta: "Try free for 7 days",
   mostPopular: true,
@@ -159,13 +199,14 @@ export const businessSingleTier: Tier = {
   },
   description: "Unlock full AI-powered email management",
   features: [
-    "AI personal assistant",
-    "Cold email blocker",
-    "Smart categories",
-    "Unlimited AI credits",
-    "Bulk email unsubscriber",
-    "Email analytics",
-    "Priority support",
+    aiAssistantFeature,
+    replyZeroFeature,
+    coldEmailBlockerFeature,
+    smartCategoriesFeature,
+    { text: "Unlimited AI usage" },
+    bulkUnsubscribeFeature,
+    analyticsFeature,
+    { text: "Priority support" },
   ],
   cta: "Try free for 7 days",
 };
@@ -191,10 +232,10 @@ const copilotTier = {
   discount: { monthly: 0, annually: 0 },
   description: "Expert human assistant to manage your email",
   features: [
-    "Everything in AI Assistant tier",
-    "Human assistant to manage your email daily",
-    "30-minute 1:1 monthly call",
-    "Full refund if not satisfied after first 3 days",
+    { text: "Everything in AI Assistant tier" },
+    { text: "Human assistant to manage your email daily" },
+    { text: "30-minute 1:1 monthly call" },
+    { text: "Full refund if not satisfied after first 3 days" },
   ],
   cta: "Book a call",
   ctaLink: env.NEXT_PUBLIC_CALL_LINK,
