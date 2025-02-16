@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { usePostHog } from "posthog-js/react";
-import { Card, Title } from "@tremor/react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import groupBy from "lodash/groupBy";
 import { FilterIcon, Users2Icon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -38,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/utils";
 
 export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
   const session = useSession();
@@ -116,22 +117,22 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
               name: "New senders this week",
               value: formatStat(newSenders.length),
               subvalue: "senders",
-              icon: <Users2Icon className="h-4 w-4" />,
+              icon: <Users2Icon className="size-4" />,
             },
           ]}
         />
       </LoadingContent>
-      <Card className="mt-2 p-0 sm:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-6 sm:pt-4 md:flex">
-          <Title>New Senders</Title>
-          <div className="ml-4 mt-3 flex justify-end space-x-2 md:mt-0">
+      <Card className="mt-2 sm:mt-4">
+        <CardHeader className="flex-col space-y-0 px-2 pt-2 sm:px-6 sm:pt-4 md:flex md:flex-row md:items-center md:justify-between md:space-y-0">
+          <CardTitle className="text-left">New Senders</CardTitle>
+          <div className="ml-0 mt-3 flex justify-end space-x-2 md:ml-4 md:mt-0">
             <div className="hidden md:block">
               <ShortcutTooltip />
             </div>
 
             <DetailedStatsFilter
               label="Filter"
-              icon={<FilterIcon className="mr-2 h-4 w-4" />}
+              icon={<FilterIcon className="mr-2 size-4" />}
               keepOpenOnSelect
               columns={[
                 {
@@ -172,44 +173,46 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
 
             {/* <EmailsToIncludeFilter types={types} setTypes={setTypes} /> */}
           </div>
-        </div>
+        </CardHeader>
 
-        <LoadingContent
-          loading={!data && isLoading}
-          error={error}
-          loadingComponent={<Skeleton className="m-4 h-screen rounded" />}
-        >
-          {newSenders && (
-            <NewSendersTable
-              sortColumn={sortColumn}
-              setSortColumn={setSortColumn}
-              tableRows={rows
-                .slice(0, expanded ? undefined : 50)
-                .map((item) => {
-                  return (
-                    <NewSenderRow
-                      key={item.name}
-                      item={item}
-                      userEmail={userEmail}
-                      firstEmail={item.firstEmail}
-                      numberOfEmails={item.numberOfEmails}
-                      onOpenNewsletter={onOpenNewsletter}
-                      labels={userLabels}
-                      mutate={mutate}
-                      selected={selectedRow?.name === item.name}
-                      onSelectRow={() => {
-                        setSelectedRow(item);
-                      }}
-                      hasUnsubscribeAccess={hasUnsubscribeAccess}
-                      refetchPremium={refetchPremium}
-                      openPremiumModal={openModal}
-                    />
-                  );
-                })}
-            />
-          )}
-          <div className="mt-2 px-6 pb-6">{extra}</div>
-        </LoadingContent>
+        <CardContent className="p-0">
+          <LoadingContent
+            loading={!data && isLoading}
+            error={error}
+            loadingComponent={<Skeleton className="m-4 h-screen rounded" />}
+          >
+            {newSenders && (
+              <NewSendersTable
+                sortColumn={sortColumn}
+                setSortColumn={setSortColumn}
+                tableRows={rows
+                  .slice(0, expanded ? undefined : 50)
+                  .map((item) => {
+                    return (
+                      <NewSenderRow
+                        key={item.name}
+                        item={item}
+                        userEmail={userEmail}
+                        firstEmail={item.firstEmail}
+                        numberOfEmails={item.numberOfEmails}
+                        onOpenNewsletter={onOpenNewsletter}
+                        labels={userLabels}
+                        mutate={mutate}
+                        selected={selectedRow?.name === item.name}
+                        onSelectRow={() => {
+                          setSelectedRow(item);
+                        }}
+                        hasUnsubscribeAccess={hasUnsubscribeAccess}
+                        refetchPremium={refetchPremium}
+                        openPremiumModal={openModal}
+                      />
+                    );
+                  })}
+              />
+            )}
+            <div className="mt-2 px-6 pb-6">{extra}</div>
+          </LoadingContent>
+        </CardContent>
       </Card>
       <NewsletterModal
         newsletter={openedNewsletter}
@@ -299,7 +302,7 @@ function NewSenderRow({
   return (
     <TableRow
       key={item.name}
-      className={selected ? "bg-blue-50" : undefined}
+      className={cn(selected && "bg-blue-50 dark:bg-muted/50")}
       aria-selected={selected || undefined}
       data-selected={selected || undefined}
       onMouseEnter={onSelectRow}

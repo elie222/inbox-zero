@@ -88,9 +88,40 @@ function getEmailContent(html: string) {
 }
 
 function getIframeHtml(html: string) {
-  // Always inject our default font styles with lower specificity
-  // This ensures styled elements keep their fonts while unstyled ones get our defaults
-  const defaultFontStyles = `
+  // Count style attributes safely
+  const styleAttributeCount = (html.match(/style=/g) || []).length;
+
+  // Check for heavy styling that would indicate a rich HTML email
+  const hasHeavyStyling =
+    html.includes("bgcolor") ||
+    html.includes("background") ||
+    html.includes("<style") ||
+    // Look for multiple style attributes or font styling
+    styleAttributeCount > 1 ||
+    html.includes("font-family") ||
+    html.includes("font-size");
+
+  // Check for basic text styling that shouldn't prevent dark mode
+  const hasMinimalStyling =
+    !hasHeavyStyling &&
+    (html.includes("color:") ||
+      html.includes("text-decoration") ||
+      // Single style attribute is ok (probably just a link)
+      styleAttributeCount === 1);
+
+  const defaultFontStyles = hasHeavyStyling
+    ? `
+    <style>
+      :root {
+        color-scheme: light;
+        background-color: white;
+      }
+      body {
+        background-color: white;
+      }
+    </style>
+  `
+    : `
     <style>
       :root {
         color-scheme: light;
@@ -106,31 +137,42 @@ function getIframeHtml(html: string) {
         --background: 240 10% 3.9%;
       }
 
-      /* Base styles with low specificity */
-      body {
+      /* Base styles with low specificity - only apply to completely unstyled content */
+      body:not([style]):not([bgcolor]) {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         margin: 0;
         color: hsl(var(--foreground));
         background-color: hsl(var(--background));
       }
 
-      /* Style blockquotes and quoted text */
-      blockquote, .gmail_quote {
+      /* Only style unstyled blockquotes and quoted text */
+      blockquote:not([style]), .gmail_quote:not([style]) {
         color: hsl(var(--muted-foreground));
         border-left: 3px solid hsl(var(--muted-foreground) / 0.2);
         margin: 0;
         padding-left: 1rem;
       }
 
-      /* Style links */
+      /* Style links - allow minimal styling to persist */
       a {
-        color: hsl(var(--foreground));
+        color: ${hasMinimalStyling ? "inherit" : "hsl(var(--foreground))"};
         text-decoration: underline;
       }
 
-      /* Style quoted text */
-      .gmail_quote, .gmail_quote * {
+      /* Only style unstyled quoted text */
+      .gmail_quote:not([style]), .gmail_quote:not([style]) * {
         color: hsl(var(--muted-foreground));
+      }
+
+      /* Preserve colors for minimally styled elements */
+      ${
+        hasMinimalStyling
+          ? `
+      [style*="color"] {
+        color: inherit !important;
+      }
+      `
+          : ""
       }
     </style>
   `;
@@ -139,10 +181,8 @@ function getIframeHtml(html: string) {
   if (html.indexOf("</head>") === -1) {
     htmlWithHead = `<head>${defaultFontStyles}<base target="_blank"></head>${html}`;
   } else {
-    htmlWithHead = html.replace(
-      "</head>",
-      `${defaultFontStyles}<base target="_blank" rel="noopener noreferrer"></head>`,
-    );
+    // Insert our styles after the existing head tag
+    htmlWithHead = html.replace("</head>", `${defaultFontStyles}</head>`);
   }
 
   return htmlWithHead;

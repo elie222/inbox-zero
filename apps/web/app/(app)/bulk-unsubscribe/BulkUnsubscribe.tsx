@@ -53,7 +53,7 @@ export function BulkUnsubscribe() {
 
   return (
     <div>
-      <TopBar sticky>
+      <TopBar sticky className="border-border bg-background">
         <OnboardingModal
           title="Getting started with Bulk Unsubscribe"
           description={
