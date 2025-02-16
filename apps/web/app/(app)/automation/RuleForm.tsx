@@ -597,7 +597,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         ) : field.textArea ? (
                           <div className="mt-2">
                             <TextareaAutosize
-                              className="block w-full flex-1 whitespace-pre-wrap rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
                               minRows={3}
                               rows={3}
                               placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
@@ -608,7 +608,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         ) : (
                           <div className="mt-2">
                             <input
-                              className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
                               type="text"
                               placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
                               {...register(`actions.${i}.${field.name}.value`)}
@@ -617,14 +617,14 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         )}
 
                         {hasVariables(value) && (
-                          <div className="mt-2 whitespace-pre-wrap rounded-md bg-gray-50 p-2 font-mono text-sm text-primary">
+                          <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
                             {(value || "")
                               .split(/(\{\{.*?\}\})/g)
                               .map((part, i) =>
                                 part.startsWith("{{") ? (
                                   <span
                                     key={i}
-                                    className="rounded bg-blue-100 px-1 text-blue-500"
+                                    className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
                                   >
                                     <sub className="font-sans">AI</sub>
                                     {part}
