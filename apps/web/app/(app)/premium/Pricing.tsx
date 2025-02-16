@@ -116,7 +116,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
             </Button>
 
             <Button variant="primaryBlue" className="ml-2" asChild>
-              <Link href="/automation">
+              <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
                 <SparklesIcon className="mr-2 h-4 w-4" />
                 Use Inbox Zero
               </Link>

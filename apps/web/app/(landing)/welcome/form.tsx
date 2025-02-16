@@ -13,7 +13,6 @@ import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
 } from "@/utils/actions/user";
-import { appHomePath } from "@/utils/config";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
@@ -207,7 +206,7 @@ function SkipOnboardingButton({
         submitPosthog(responses);
         posthog.capture("survey dismissed", { $survey_id: surveyId });
         await completedOnboardingAction();
-        router.push(appHomePath);
+        router.push(env.NEXT_PUBLIC_APP_HOME_PATH);
       }}
     >
       Skip Onboarding

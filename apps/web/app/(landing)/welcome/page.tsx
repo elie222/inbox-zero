@@ -9,7 +9,6 @@ import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
-import { appHomePath } from "@/utils/config";
 import { UTMs } from "@/app/(landing)/welcome/utms";
 import { SignUpEvent } from "@/app/(landing)/welcome/sign-up-event";
 
@@ -27,7 +26,8 @@ export default async function WelcomePage({
   const session = await auth();
 
   if (!session?.user.email) redirect("/login");
-  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) redirect(appHomePath);
+  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)
+    redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -36,7 +36,8 @@ export default async function WelcomePage({
 
   if (!user) redirect("/login");
 
-  if (!searchParams.force && user.completedOnboardingAt) redirect(appHomePath);
+  if (!searchParams.force && user.completedOnboardingAt)
+    redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 
   const questionIndex = searchParams.question
     ? Number.parseInt(searchParams.question)

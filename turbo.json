@@ -97,7 +97,8 @@
         "NEXT_PUBLIC_AXIOM_TOKEN",
         "NEXT_PUBLIC_BEDROCK_SONNET_MODEL",
         "NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL",
-        "NEXT_PUBLIC_OLLAMA_MODEL"
+        "NEXT_PUBLIC_OLLAMA_MODEL",
+        "NEXT_PUBLIC_APP_HOME_PATH"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

@@ -17,7 +17,12 @@
 
 ## About
 
-Inbox Zero is the open-source AI personal assistant for people who want to spend less time on email.
+There are two parts to Inbox Zero:
+
+1. An AI personal assistant that helps you spend less time on email.
+2. Open source AI email client.
+
+If you're looking to contribue to the project, the email client is the best place to do this.
 
 ## Features
 
