@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   Tooltip as ShadcnTooltip,
   TooltipContent,
@@ -11,15 +14,22 @@ interface TooltipProps {
   contentComponent?: React.ReactNode;
 }
 
-export const Tooltip = (props: TooltipProps) => {
+export const Tooltip = ({
+  children,
+  content,
+  contentComponent,
+}: TooltipProps) => {
+  // Make tooltip work on mobile with a click
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <TooltipProvider delayDuration={200}>
-      <ShadcnTooltip>
-        <TooltipTrigger asChild>{props.children}</TooltipTrigger>
+      <ShadcnTooltip open={isOpen} onOpenChange={setIsOpen}>
+        <TooltipTrigger asChild onClick={() => setIsOpen(!isOpen)}>
+          {children}
+        </TooltipTrigger>
         <TooltipContent>
-          {props.contentComponent || (
-            <p className="max-w-xs">{props.content}</p>
-          )}
+          {contentComponent || <p className="max-w-xs">{content}</p>}
         </TooltipContent>
       </ShadcnTooltip>
     </TooltipProvider>
