@@ -201,7 +201,7 @@ function CreateCategoryForm({
         error={errors.description}
       />
 
-      <div className="rounded border border-gray-200 bg-gray-50 p-3">
+      <div className="rounded border border-border bg-muted/50 p-3">
         <div className="text-xs font-medium">Examples</div>
         <div className="mt-1 flex flex-wrap gap-2">
           {EXAMPLE_CATEGORIES.map((category) => (

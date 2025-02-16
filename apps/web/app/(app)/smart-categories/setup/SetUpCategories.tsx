@@ -214,7 +214,7 @@ function CategoryCard({
     <Card
       className={cn(
         "flex items-center justify-between gap-2 p-4",
-        !isEnabled && "bg-gray-200",
+        !isEnabled && "bg-muted/50",
       )}
     >
       <div>
