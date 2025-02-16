@@ -46,6 +46,7 @@
         "USE_BACKUP_MODEL",
         "WHITELIST_FROM",
         "API_KEY_SALT",
+        "MAX_DURATION",
 
         "NEXT_PUBLIC_LEMON_STORE_ID",
 

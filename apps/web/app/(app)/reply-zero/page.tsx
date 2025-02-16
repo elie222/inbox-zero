@@ -18,8 +18,9 @@ import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
 import { Button } from "@/components/ui/button";
 import { TabsToolbar } from "@/components/TabsToolbar";
+import { env } from "@/env";
 
-export const maxDuration = 600;
+export const maxDuration = Math.min(env.MAX_DURATION, 600);
 
 export default async function ReplyTrackerPage({
   searchParams,

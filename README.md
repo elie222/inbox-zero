@@ -105,6 +105,8 @@ The required environment variables:
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
 - `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region). You can also decide to disabled Tinybird and then the analytics and bulk unsubscribe features will be disabled. Set `NEXT_PUBLIC_DISABLE_TINYBIRD=true` if you decide to disable Tinybird.
 
+When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
+
 To run the migrations:
 
 ```bash
