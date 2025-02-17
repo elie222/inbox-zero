@@ -120,7 +120,7 @@ export const env = createEnv({
       .string()
       .default("us.anthropic.claude-3-5-haiku-20241022-v1:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
-    NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/mail"),
+    NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/automation"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
