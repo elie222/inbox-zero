@@ -62,6 +62,7 @@ export async function executeAct({
   if (isReplyTrackingRule) {
     await markNeedsReply(
       executedRule.userId,
+      userEmail,
       executedRule.threadId,
       executedRule.messageId,
       internalDateToDate(email.internalDate),

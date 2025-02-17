@@ -17,6 +17,7 @@ import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
 export async function markNeedsReply(
   userId: string,
+  email: string,
   threadId: string,
   messageId: string,
   sentAt: Date,
@@ -24,6 +25,7 @@ export async function markNeedsReply(
 ) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
     userId,
+    email,
     threadId,
     messageId,
   });
@@ -122,6 +124,7 @@ export async function handleInboundReply(
   if (result.rule?.id === replyTrackingRule.id) {
     await markNeedsReply(
       user.id,
+      user.email,
       message.threadId,
       message.id,
       internalDateToDate(message.internalDate),
