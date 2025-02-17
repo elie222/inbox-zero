@@ -4,7 +4,6 @@ import {
   ArchiveIcon,
   Trash2Icon,
   ExternalLinkIcon,
-  OrbitIcon,
   SparklesIcon,
 } from "lucide-react";
 import { ButtonGroup } from "@/components/ButtonGroup";
@@ -12,28 +11,23 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { onTrashThread } from "@/utils/actions/client";
 
-export function ActionButtons(props: {
+export function ActionButtons({
+  threadId,
+  onArchive,
+  onPlanAiAction,
+  isPlanning,
+  refetch,
+  shadow,
+}: {
   threadId: string;
   isPlanning: boolean;
-  isCategorizing: boolean;
   shadow?: boolean;
   onPlanAiAction: () => void;
-  onAiCategorize: () => void;
   onArchive: () => void;
   refetch: (threadId?: string) => void;
 }) {
   const session = useSession();
   const email = session.data?.user.email;
-
-  const {
-    threadId,
-    onArchive,
-    onPlanAiAction,
-    onAiCategorize,
-    isCategorizing,
-    isPlanning,
-    refetch,
-  } = props;
 
   const openInGmail = useCallback(() => {
     // open in gmail
@@ -69,15 +63,6 @@ export function ActionButtons(props: {
         ),
       },
       {
-        tooltip: "AI Categorize",
-        onClick: onAiCategorize,
-        icon: isCategorizing ? (
-          <LoadingMiniSpinner />
-        ) : (
-          <OrbitIcon className="size-4" aria-hidden="true" />
-        ),
-      },
-      {
         tooltip: "Archive",
         onClick: onArchive,
         icon: <ArchiveIcon className="size-4" aria-hidden="true" />,
@@ -93,17 +78,8 @@ export function ActionButtons(props: {
         ),
       },
     ],
-    [
-      onTrash,
-      isTrashing,
-      onArchive,
-      onPlanAiAction,
-      isPlanning,
-      onAiCategorize,
-      isCategorizing,
-      openInGmail,
-    ],
+    [onTrash, isTrashing, onArchive, onPlanAiAction, isPlanning, openInGmail],
   );
 
-  return <ButtonGroup buttons={buttons} shadow={props.shadow} />;
+  return <ButtonGroup buttons={buttons} shadow={shadow} />;
 }

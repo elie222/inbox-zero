@@ -9,9 +9,7 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 
 export function EmailPanel({
   row,
-  isCategorizing,
   onPlanAiAction,
-  onAiCategorize,
   onArchive,
   close,
   executingPlan,
@@ -21,9 +19,7 @@ export function EmailPanel({
   refetch,
 }: {
   row: Thread;
-  isCategorizing: boolean;
   onPlanAiAction: (thread: Thread) => void;
-  onAiCategorize: (thread: Thread) => void;
   onArchive: (thread: Thread) => void;
   close: () => void;
 
@@ -58,9 +54,7 @@ export function EmailPanel({
           <ActionButtons
             threadId={row.id!}
             isPlanning={isPlanning}
-            isCategorizing={isCategorizing}
             onPlanAiAction={() => onPlanAiAction(row)}
-            onAiCategorize={() => onAiCategorize(row)}
             onArchive={() => {
               onArchive(row);
               close();

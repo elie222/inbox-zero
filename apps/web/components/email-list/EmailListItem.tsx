@@ -33,9 +33,7 @@ export const EmailListItem = forwardRef(
       onClick: MouseEventHandler<HTMLLIElement>;
       closePanel: () => void;
       onSelected: (id: string) => void;
-      isCategorizing: boolean;
       onPlanAiAction: (thread: Thread) => void;
-      onAiCategorize: (thread: Thread) => void;
       onArchive: (thread: Thread) => void;
 
       executingPlan: boolean;
@@ -162,9 +160,7 @@ export const EmailListItem = forwardRef(
                       threadId={thread.id!}
                       shadow
                       isPlanning={isPlanning}
-                      isCategorizing={props.isCategorizing}
                       onPlanAiAction={() => props.onPlanAiAction(thread)}
-                      onAiCategorize={() => props.onAiCategorize(thread)}
                       onArchive={() => {
                         props.onArchive(thread);
                         props.closePanel();

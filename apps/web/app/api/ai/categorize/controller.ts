@@ -2,10 +2,9 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { getCategory, saveCategory } from "@/utils/redis/category";
-import type { CategorizeBody } from "@/app/api/ai/categorize/validation";
 import { truncate } from "@/utils/string";
 
-export type CategorizeResponse = Awaited<ReturnType<typeof categorize>>;
+// No longer in use
 
 const aiResponseSchema = z.object({
   requiresMoreInformation: z.boolean(),
@@ -30,7 +29,15 @@ const aiResponseSchema = z.object({
 });
 
 async function aiCategorize(
-  body: CategorizeBody & { content: string } & UserAIFields,
+  body: {
+    threadId: string;
+    from: string;
+    subject: string;
+    content: string;
+    snippet: string;
+    unsubscribeLink?: string;
+    hasPreviousEmail: boolean;
+  } & UserAIFields,
   expanded: boolean,
   userEmail: string,
 ) {
@@ -91,7 +98,15 @@ ${expanded ? truncate(body.content, 2000) : body.snippet}
 }
 
 export async function categorize(
-  body: CategorizeBody & { content: string } & UserAIFields,
+  body: {
+    threadId: string;
+    from: string;
+    subject: string;
+    content: string;
+    snippet: string;
+    unsubscribeLink?: string;
+    hasPreviousEmail: boolean;
+  } & UserAIFields,
   options: { email: string },
 ): Promise<{ category: string } | undefined> {
   // 1. check redis cache

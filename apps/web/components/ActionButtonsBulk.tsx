@@ -4,7 +4,6 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import {
   ArchiveIcon,
   CheckCircleIcon,
-  OrbitIcon,
   SparklesIcon,
   Trash2Icon,
   XCircleIcon,
@@ -12,13 +11,11 @@ import {
 
 export function ActionButtonsBulk(props: {
   isPlanning: boolean;
-  isCategorizing: boolean;
   isArchiving: boolean;
   isDeleting: boolean;
   isApproving: boolean;
   isRejecting: boolean;
   onPlanAiAction: () => void;
-  onAiCategorize: () => void;
   onArchive: () => void;
   onDelete: () => void;
   onApprove: () => void;
@@ -26,13 +23,11 @@ export function ActionButtonsBulk(props: {
 }) {
   const {
     isPlanning,
-    isCategorizing,
     isArchiving,
     isDeleting,
     isApproving,
     isRejecting,
     onPlanAiAction,
-    onAiCategorize,
     onArchive,
     onDelete,
     onApprove,
@@ -72,15 +67,6 @@ export function ActionButtonsBulk(props: {
         ),
       },
       {
-        tooltip: "AI Categorize",
-        onClick: onAiCategorize,
-        icon: isCategorizing ? (
-          <LoadingMiniSpinner />
-        ) : (
-          <OrbitIcon className="size-4 text-foreground" aria-hidden="true" />
-        ),
-      },
-      {
         tooltip: "Archive",
         onClick: onArchive,
         icon: isArchiving ? (
@@ -101,12 +87,10 @@ export function ActionButtonsBulk(props: {
     ],
     [
       isArchiving,
-      isCategorizing,
       isPlanning,
       isDeleting,
       isApproving,
       isRejecting,
-      onAiCategorize,
       onArchive,
       onPlanAiAction,
       onDelete,

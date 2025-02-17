@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { ChevronsDownIcon } from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
-import { isActionError } from "@/utils/error";
 import { useSession } from "next-auth/react";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import type { Thread } from "@/components/email-list/types";
@@ -26,7 +25,6 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { runAiRules } from "@/utils/queue/email-actions";
-import { categorizeEmailAction } from "@/utils/actions/categorize-email";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import {
@@ -209,62 +207,12 @@ export function EmailList({
     setSelectedRows(newState);
   }, [threads, isAllSelected, selectedRows]);
 
-  const [isCategorizing, setIsCategorizing] = useState<Record<string, boolean>>(
-    {},
-  );
-
   const onPlanAiAction = useCallback((thread: Thread) => {
     toast.promise(() => runAiRules([thread], true), {
       success: "Running...",
       error: "There was an error running the AI rules :(",
     });
   }, []);
-
-  const onAiCategorize = useCallback(
-    (thread: Thread) => {
-      toast.promise(
-        async () => {
-          setIsCategorizing((s) => ({ ...s, [thread.id]: true }));
-
-          // categorizing by first message for threads
-          const message = thread.messages?.[0];
-
-          if (!message) return;
-
-          const result = await categorizeEmailAction({
-            from: message.headers.from,
-            subject: message.headers.subject,
-            textPlain: message.textPlain || null,
-            textHtml: message.textHtml || null,
-            snippet: thread.snippet,
-            threadId: message.threadId,
-            messageId: message.id,
-            internalDate: message.internalDate || "",
-          });
-
-          if (isActionError(result)) {
-            setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
-            throw new Error("There was an error categorizing the email.");
-          }
-          if (!result) {
-            throw new Error("The request did not complete");
-          }
-          // setCategory(res);
-          refetch();
-          setIsCategorizing((s) => ({ ...s, [thread.id]: false }));
-
-          return result?.category;
-        },
-        {
-          loading: "Categorizing...",
-          success: (category) =>
-            `Categorized as ${capitalCase(category || "Unknown")}!`,
-          error: "There was an error categorizing the email :(",
-        },
-      );
-    },
-    [refetch],
-  );
 
   const onArchive = useCallback(
     (thread: Thread) => {
@@ -337,9 +285,6 @@ export function EmailList({
     [threads, selectedRows, refetch],
   );
 
-  const onCategorizeAiBulk = useCallback(async () => {
-    onApplyAction(onAiCategorize);
-  }, [onApplyAction, onAiCategorize]);
   const onAiApproveBulk = useCallback(async () => {
     onApplyAction(executePlan);
   }, [onApplyAction, executePlan]);
@@ -429,12 +374,10 @@ export function EmailList({
           <div className="ml-2">
             <ActionButtonsBulk
               isPlanning={false}
-              isCategorizing={false}
               isArchiving={false}
               isDeleting={false}
               isApproving={false}
               isRejecting={false}
-              onAiCategorize={onCategorizeAiBulk}
               onPlanAiAction={onPlanAiBulk}
               onArchive={onArchiveBulk}
               onDelete={onTrashBulk}
@@ -510,9 +453,7 @@ export function EmailList({
                     onSelected={onSetSelectedRow}
                     splitView={!!openThreadId}
                     onClick={onOpen}
-                    isCategorizing={isCategorizing[thread.id]}
                     onPlanAiAction={onPlanAiAction}
-                    onAiCategorize={onAiCategorize}
                     onArchive={onArchive}
                     executePlan={executePlan}
                     rejectPlan={rejectPlan}
@@ -548,9 +489,7 @@ export function EmailList({
             !!(openThreadId && openedRow) && (
               <EmailPanel
                 row={openedRow}
-                isCategorizing={isCategorizing[openThreadId]}
                 onPlanAiAction={onPlanAiAction}
-                onAiCategorize={onAiCategorize}
                 onArchive={onArchive}
                 close={closePanel}
                 executePlan={executePlan}
