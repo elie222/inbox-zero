@@ -54,7 +54,7 @@ export function ActionButtons({
         icon: <ExternalLinkIcon className="size-4" aria-hidden="true" />,
       },
       {
-        tooltip: "Run AI Rules",
+        tooltip: "Process with assistant",
         onClick: onPlanAiAction,
         icon: isPlanning ? (
           <LoadingMiniSpinner />
