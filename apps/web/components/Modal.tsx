@@ -9,7 +9,6 @@ import {
   TransitionChild,
 } from "@headlessui/react";
 import clsx from "clsx";
-import { cn } from "@/utils";
 
 export interface ModalProps {
   children: React.ReactNode;
