@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useModal, Modal } from "@/components/Modal";
 import { SectionDescription } from "@/components/Typography";
 import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import type { ThreadsQuery } from "@/app/api/google/threads/validation";
@@ -17,9 +16,16 @@ import { dateToSeconds } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
 import { useThreads } from "@/hooks/useThreads";
 import { useAiQueueState } from "@/store/ai-queue";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function BulkRunRules() {
-  const { isModalOpen, openModal, closeModal } = useModal();
+  const [isOpen, setIsOpen] = useState(false);
   const [totalThreads, setTotalThreads] = useState(0);
 
   const { data, isLoading, error } = useThreads({ type: "inbox" });
@@ -37,97 +43,102 @@ export function BulkRunRules() {
 
   return (
     <div>
-      <Tooltip content="Bulk process emails">
-        <Button type="button" size="icon" variant="outline" onClick={openModal}>
-          <HistoryIcon className="size-4" />
-          <span className="sr-only">Select emails to process</span>
-        </Button>
-      </Tooltip>
-      <Modal
-        isOpen={isModalOpen}
-        hideModal={closeModal}
-        title="Process Existing Inbox Emails"
-      >
-        <LoadingContent loading={isLoading} error={error}>
-          {data && (
-            <>
-              <SectionDescription className="mt-2">
-                This runs your rules on emails currently in your inbox (that
-                have not been previously processed).
-              </SectionDescription>
-
-              {!!queue.size && (
-                <SectionDescription className="mt-2 rounded-md border border-green-200 bg-green-50 px-2 py-1.5">
-                  Progress: {totalThreads - queue.size}/{totalThreads} emails
-                  completed
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Tooltip content="Bulk process emails">
+          <DialogTrigger asChild>
+            <Button type="button" size="icon" variant="outline">
+              <HistoryIcon className="size-4" />
+              <span className="sr-only">Select emails to process</span>
+            </Button>
+          </DialogTrigger>
+        </Tooltip>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Process Existing Inbox Emails</DialogTitle>
+          </DialogHeader>
+          <LoadingContent loading={isLoading} error={error}>
+            {data && (
+              <>
+                <SectionDescription>
+                  This runs your rules on emails currently in your inbox (that
+                  have not been previously processed).
                 </SectionDescription>
-              )}
-              <div className="mt-4">
-                <LoadingContent loading={isLoadingPremium}>
-                  {hasAiAccess ? (
-                    <div className="flex flex-col space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <SetDateDropdown
-                          onChange={setStartDate}
-                          value={startDate}
-                          placeholder="Set start date"
-                          disabled={running}
-                        />
-                        <SetDateDropdown
-                          onChange={setEndDate}
-                          value={endDate}
-                          placeholder="Set end date (optional)"
-                          disabled={running}
-                        />
-                      </div>
 
-                      <Button
-                        type="button"
-                        disabled={running || !startDate}
-                        loading={running}
-                        onClick={async () => {
-                          if (!startDate) return;
-                          setRunning(true);
-                          abortRef.current = await onRun(
-                            { startDate, endDate },
-                            (count) =>
-                              setTotalThreads((total) => total + count),
-                            () => setRunning(false),
-                          );
-                        }}
-                      >
-                        Process Emails
-                      </Button>
-                      {running && (
+                {!!queue.size && (
+                  <div className="rounded-md border border-green-200 bg-green-50 px-2 py-1.5 dark:border-green-800 dark:bg-green-950">
+                    <SectionDescription className="mt-0">
+                      Progress: {totalThreads - queue.size}/{totalThreads}{" "}
+                      emails completed
+                    </SectionDescription>
+                  </div>
+                )}
+                <div className="space-y-4">
+                  <LoadingContent loading={isLoadingPremium}>
+                    {hasAiAccess ? (
+                      <div className="flex flex-col space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <SetDateDropdown
+                            onChange={setStartDate}
+                            value={startDate}
+                            placeholder="Set start date"
+                            disabled={running}
+                          />
+                          <SetDateDropdown
+                            onChange={setEndDate}
+                            value={endDate}
+                            placeholder="Set end date (optional)"
+                            disabled={running}
+                          />
+                        </div>
+
                         <Button
-                          variant="outline"
-                          onClick={() => abortRef.current?.()}
+                          type="button"
+                          disabled={running || !startDate}
+                          loading={running}
+                          onClick={async () => {
+                            if (!startDate) return;
+                            setRunning(true);
+                            abortRef.current = await onRun(
+                              { startDate, endDate },
+                              (count) =>
+                                setTotalThreads((total) => total + count),
+                              () => setRunning(false),
+                            );
+                          }}
                         >
-                          Cancel
+                          Process Emails
                         </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <PremiumAlertWithData />
-                  )}
-                </LoadingContent>
-              </div>
+                        {running && (
+                          <Button
+                            variant="outline"
+                            onClick={() => abortRef.current?.()}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <PremiumAlertWithData />
+                    )}
+                  </LoadingContent>
 
-              <SectionDescription className="mt-4">
-                You can also process specific emails by visiting the{" "}
-                <Link
-                  href="/mail"
-                  target="_blank"
-                  className="font-semibold hover:underline"
-                >
-                  Mail
-                </Link>{" "}
-                page.
-              </SectionDescription>
-            </>
-          )}
-        </LoadingContent>
-      </Modal>
+                  <SectionDescription>
+                    You can also process specific emails by visiting the{" "}
+                    <Link
+                      href="/mail"
+                      target="_blank"
+                      className="font-semibold hover:underline"
+                    >
+                      Mail
+                    </Link>{" "}
+                    page.
+                  </SectionDescription>
+                </div>
+              </>
+            )}
+          </LoadingContent>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

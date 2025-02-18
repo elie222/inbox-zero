@@ -28,7 +28,7 @@ export function SetDateDropdown({
         <Button
           variant="outline"
           className={cn(
-            "w-[240px] pl-3 text-left font-normal",
+            "w-full pl-3 text-left font-normal",
             !value && "text-muted-foreground",
           )}
           disabled={disabled}
