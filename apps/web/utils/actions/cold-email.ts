@@ -17,6 +17,7 @@ import {
   coldEmailBlockerBody,
   type ColdEmailBlockerBody,
 } from "@/utils/actions/validation";
+import { formatZodError } from "@/utils/error";
 
 const markNotColdEmailBody = z.object({ sender: z.string() });
 
@@ -86,7 +87,7 @@ export const testColdEmailAction = withActionInstrumentation(
     const gmail = getGmailClient(session);
 
     const { data, error } = coldEmailBlockerBody.safeParse(unsafeBody);
-    if (error) return { error: error.message };
+    if (error) return { error: formatZodError(error) };
 
     const result = await checkColdEmail(data, gmail, session.user.email);
 

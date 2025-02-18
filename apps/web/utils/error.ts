@@ -3,6 +3,7 @@ import {
   setUser,
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
+import type { z } from "zod";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -20,6 +21,13 @@ export function isError(value: any): value is ErrorMessage | ZodError {
 
 export function isErrorMessage(value: any): value is ErrorMessage {
   return typeof value?.error === "string";
+}
+
+export function formatZodError(error: z.ZodError): string {
+  const formattedError = error.errors
+    .map((err) => `${err.path.join(".")}: ${err.message}`)
+    .join(", ");
+  return `Invalid data: ${formattedError}`;
 }
 
 export function captureException(
