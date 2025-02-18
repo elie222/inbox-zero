@@ -231,7 +231,7 @@ function AutoArchiveButton<T extends Row>({
     <div
       className={clsx(
         "flex h-min items-center gap-1 rounded-md text-secondary-foreground",
-        item.autoArchived ? "bg-blue-100" : "bg-secondary",
+        item.autoArchived ? "bg-blue-100 dark:bg-blue-800" : "bg-secondary",
       )}
     >
       <Button
