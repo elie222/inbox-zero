@@ -210,7 +210,7 @@ function NoColdEmails() {
         <EnableFeatureCard
           title="Cold Email Blocker"
           description="Block unwanted cold emails automatically. Our AI identifies and filters out unsolicited sales emails before they reach your inbox."
-          imageSrc="https://illustrations.popsy.co/amber/calling-help.svg"
+          imageSrc="/images/illustrations/calling-help.svg"
           imageAlt="Cold email blocker"
           buttonText="Set Up"
           href="/cold-email-blocker?tab=settings"

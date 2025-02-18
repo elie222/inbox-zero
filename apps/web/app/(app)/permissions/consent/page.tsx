@@ -26,11 +26,12 @@ export default function PermissionsConsentPage() {
 
       <div className="mt-8">
         <Image
-          src="/images/falling.svg"
+          src="/images/illustrations/falling.svg"
           alt=""
           width={400}
           height={400}
           unoptimized
+          className="dark:brightness-90 dark:invert"
         />
       </div>
     </div>

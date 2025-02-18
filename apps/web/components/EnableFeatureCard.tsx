@@ -52,7 +52,8 @@ export function EnableFeatureCard({
           alt={imageAlt}
           width={200}
           height={200}
-          className="mx-auto"
+          className="mx-auto dark:brightness-90 dark:invert"
+          unoptimized
         />
 
         <TypographyH3 className="mt-2">{title}</TypographyH3>

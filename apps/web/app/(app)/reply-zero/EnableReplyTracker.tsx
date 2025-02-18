@@ -51,7 +51,7 @@ export function EnableReplyTracker() {
           </SectionDescription>
         </div>
       }
-      imageSrc="https://illustrations.popsy.co/amber/communication.svg"
+      imageSrc="/images/illustrations/communication.svg"
       imageAlt="Reply tracking"
       buttonText="Enable"
       onEnable={async () => {
