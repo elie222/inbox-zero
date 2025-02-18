@@ -4,6 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { Prisma, Rule } from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
+import { hasExampleParams } from "@/app/(app)/automation/examples";
 
 const logger = createScopedLogger("rule");
 
@@ -110,6 +111,7 @@ async function createRule({
       userId,
       actions: { createMany: { data: mappedActions } },
       automate: shouldAutomate(
+        result,
         mappedActions.map((a) => ({
           type: a.type,
           subject: a.subject ?? null,
@@ -188,7 +190,13 @@ export async function deleteRule({
   ]);
 }
 
-function shouldAutomate(actions: RiskAction[]) {
+function shouldAutomate(
+  rule: CreateOrUpdateRuleSchemaWithCategories,
+  actions: RiskAction[],
+) {
+  // Don't automate if it's an example rule that should have been edited by the user
+  if (hasExampleParams(rule)) return false;
+
   const riskLevels = actions.map(
     (action) => getActionRiskLevel(action, false, {}).level,
   );

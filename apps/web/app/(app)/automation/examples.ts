@@ -1,3 +1,22 @@
+// NOTE: some users save the example rules when trying out the platform, and start auto sending emails
+// to people without realising it. This is a simple check to avoid that.
+// This needs changing when the examples change. But it works for now.
+export function hasExampleParams(rule: {
+  condition: {
+    static?: {
+      to?: string | null;
+      from?: string | null;
+    } | null;
+  };
+  actions: { fields?: { content?: string | null } }[];
+}) {
+  return (
+    rule.condition.static?.to?.includes("@company.com") ||
+    rule.condition.static?.from?.includes("@mycompany.com") ||
+    rule.actions.some((a) => a.fields?.content?.includes("cal.com/example"))
+  );
+}
+
 const commonPrompts = [
   "Label emails that require a reply as 'Reply Required'",
   "Label urgent emails as 'Urgent'",
