@@ -205,7 +205,8 @@ export const coldEmailBlockerBody = z.object({
   textHtml: z.string().nullable(),
   textPlain: z.string().nullable(),
   snippet: z.string().nullable(),
-  date: z.string().optional(),
+  // Hacky fix. Not sure why this happens. Is internalDate sometimes a string and sometimes a number?
+  date: z.string().or(z.number()).optional(),
   threadId: z.string().nullable(),
   messageId: z.string().nullable(),
 });

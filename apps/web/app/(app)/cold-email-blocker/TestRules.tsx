@@ -62,7 +62,7 @@ export function TestRulesContent() {
                 <TestRulesContentRow
                   key={message.id}
                   message={message}
-                  userEmail={email!}
+                  userEmail={email || ""}
                 />
               );
             })}
@@ -99,6 +99,7 @@ const TestRulesForm = () => {
         snippet: null,
         threadId: null,
         messageId: null,
+        date: undefined,
       });
     },
     [testEmail],
@@ -131,12 +132,13 @@ const TestRulesForm = () => {
   );
 };
 
-function TestRulesContentRow(props: {
+function TestRulesContentRow({
+  message,
+  userEmail,
+}: {
   message: MessagesResponse["messages"][number];
   userEmail: string;
 }) {
-  const { message } = props;
-
   const { testing, response, testEmail } = useColdEmailTest();
 
   return (
@@ -151,7 +153,7 @@ function TestRulesContentRow(props: {
             sender={message.headers.from}
             subject={message.headers.subject}
             snippet={message.snippet}
-            userEmail={props.userEmail}
+            userEmail={userEmail}
             threadId={message.threadId}
             messageId={message.id}
           />
@@ -160,6 +162,10 @@ function TestRulesContentRow(props: {
               color="white"
               loading={testing}
               onClick={async () => {
+                console.log(
+                  "🚀 ~ onClick={ ~ message.internalDate:",
+                  message.internalDate,
+                );
                 await testEmail({
                   from: message.headers.from,
                   subject: message.headers.subject,
