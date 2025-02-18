@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { useModal } from "@/components/Modal";
+import { useModal } from "@/hooks/useModal";
 import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
 import {
   Dialog,

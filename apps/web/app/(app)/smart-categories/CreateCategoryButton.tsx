@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
-import { useModal } from "@/components/Modal";
+import { useModal } from "@/hooks/useModal";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";

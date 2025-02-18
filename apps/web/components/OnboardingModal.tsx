@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { PlayIcon } from "lucide-react";
-import { useModal } from "@/components/Modal";
+import { useModal } from "@/hooks/useModal";
 import { YouTubeVideo } from "@/components/YouTubeVideo";
 import { Button } from "@/components/ui/button";
 import {

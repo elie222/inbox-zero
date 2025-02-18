@@ -36,7 +36,7 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { AutomationOnboarding } from "@/app/(app)/automation/AutomationOnboarding";
 import { examplePrompts, personas } from "@/app/(app)/automation/examples";
 import { PersonaDialog } from "@/app/(app)/automation/PersonaDialog";
-import { useModal } from "@/components/Modal";
+import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
 import { AlertBasic } from "@/components/Alert";
 

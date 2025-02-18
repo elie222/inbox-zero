@@ -57,7 +57,7 @@ import { GroupItemDisplay } from "@/app/(app)/automation/group/ViewGroup";
 import { cn } from "@/utils";
 import { useCategories } from "@/hooks/useCategories";
 import { CategorySelect } from "@/components/CategorySelect";
-import { useModal } from "@/components/Modal";
+import { useModal } from "@/hooks/useModal";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
