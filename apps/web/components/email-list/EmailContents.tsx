@@ -1,11 +1,10 @@
-import { type SyntheticEvent, useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "next-themes";
-import { Loading } from "@/components/Loading";
 
 export function HtmlEmail({ html }: { html: string }) {
-  const [isLoading, setIsLoading] = useState(true);
   const [showReplies, setShowReplies] = useState(false);
-  const { theme } = useTheme();
+  // const { theme } = useTheme();
+  // const isDarkMode = theme === "dark";
 
   const { mainContent, hasReplies } = useMemo(
     () => getEmailContent(html),
@@ -17,40 +16,13 @@ export function HtmlEmail({ html }: { html: string }) {
     [html, mainContent, showReplies],
   );
 
-  const onLoad = useCallback(
-    (event: SyntheticEvent<HTMLIFrameElement, Event>) => {
-      if (event.currentTarget.contentWindow) {
-        // sometimes we see minimal scrollbar, so add a buffer
-        const BUFFER = 5;
-
-        const height = `${
-          event.currentTarget.contentWindow.document.documentElement
-            .scrollHeight + BUFFER
-        }px`;
-
-        event.currentTarget.style.height = height;
-        setIsLoading(false);
-
-        // Add dark mode class based on theme
-        if (theme === "dark") {
-          event.currentTarget.contentWindow.document.documentElement.classList.add(
-            "dark",
-          );
-        }
-      }
-    },
-    [theme],
-  );
-
   return (
     <div className="relative">
-      {isLoading && <Loading />}
       <iframe
         srcDoc={srcDoc}
-        onLoad={onLoad}
-        className="h-0 min-h-0 w-full"
+        className="h-0 min-h-[200px] w-full"
         title="Email content preview"
-        sandbox="allow-same-origin"
+        sandbox=""
         referrerPolicy="no-referrer"
       />
       {hasReplies && (
