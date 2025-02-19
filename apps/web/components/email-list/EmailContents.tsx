@@ -1,14 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
 import DOMPurify from "dompurify";
 
 export function HtmlEmail({ html }: { html: string }) {
   const [showReplies, setShowReplies] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
   const isDarkMode = theme === "dark";
 
   const sanitizedHtml = useMemo(() => sanitize(html), [html]);
-
   const { mainContent, hasReplies } = useMemo(
     () => getEmailContent(sanitizedHtml),
     [sanitizedHtml],
@@ -19,13 +19,17 @@ export function HtmlEmail({ html }: { html: string }) {
     [sanitizedHtml, mainContent, showReplies, isDarkMode],
   );
 
+  const iframeHeight = useIframeHeight(iframeRef);
+
   return (
     <div className="relative">
       <iframe
+        ref={iframeRef}
         srcDoc={srcDoc}
-        className="h-0 min-h-[200px] w-full"
+        className="min-h-0 w-full"
+        style={{ height: `${iframeHeight + 3}px` }}
         title="Email content preview"
-        sandbox=""
+        sandbox="allow-same-origin"
         referrerPolicy="no-referrer"
       />
       {hasReplies && (
@@ -220,4 +224,39 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
     // If all else fails, return a safe fallback
     return `<body class="${isDarkMode ? "dark" : ""}"></body>`;
   }
+}
+
+function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement>) {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    let attempts = 0;
+    const maxAttempts = 5;
+    const initialDelay = 100;
+
+    const updateHeight = () => {
+      if (iframeRef.current?.contentWindow) {
+        const newHeight =
+          iframeRef.current.contentWindow.document.documentElement.scrollHeight;
+        setHeight(newHeight);
+        return true;
+      }
+      return false;
+    };
+
+    const attemptUpdate = () => {
+      if (attempts >= maxAttempts) return;
+
+      const success = updateHeight();
+      if (!success) {
+        attempts++;
+        setTimeout(attemptUpdate, initialDelay * 2 ** attempts);
+      }
+    };
+
+    const initialTimeoutId = setTimeout(attemptUpdate, initialDelay);
+    return () => clearTimeout(initialTimeoutId);
+  }, [iframeRef?.current?.contentWindow]);
+
+  return height;
 }
