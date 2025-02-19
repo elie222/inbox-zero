@@ -1,19 +1,22 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "next-themes";
+import DOMPurify from "dompurify";
 
 export function HtmlEmail({ html }: { html: string }) {
   const [showReplies, setShowReplies] = useState(false);
   // const { theme } = useTheme();
   // const isDarkMode = theme === "dark";
 
+  const sanitizedHtml = useMemo(() => sanitize(html), [html]);
+
   const { mainContent, hasReplies } = useMemo(
-    () => getEmailContent(html),
-    [html],
+    () => getEmailContent(sanitizedHtml),
+    [sanitizedHtml],
   );
 
   const srcDoc = useMemo(
-    () => getIframeHtml(showReplies ? html : mainContent),
-    [html, mainContent, showReplies],
+    () => getIframeHtml(showReplies ? sanitizedHtml : mainContent),
+    [sanitizedHtml, mainContent, showReplies],
   );
 
   return (
@@ -179,3 +182,6 @@ function getIframeHtml(html: string) {
 
   return htmlWithHead;
 }
+
+const sanitize = (html: string) =>
+  DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });

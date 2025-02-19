@@ -83,6 +83,7 @@
     "crisp-sdk-web": "^1.0.25",
     "date-fns": "^3.6.0",
     "diff": "^7.0.0",
+    "dompurify": "3.2.4",
     "email-reply-parser": "^1.9.2",
     "encoding": "^0.1.13",
     "eslint": "^8.57.1",
