@@ -19,8 +19,8 @@ export default function ReplyZero() {
   return (
     <BasicLayout>
       <Hero
-        title="Achieve Reply Zero"
-        subtitle="Most emails don't need a reply — Reply Zero surfaces the ones that do. We'll track what needs your attention and who hasn't responded yet."
+        title="Reply Zero: Never miss a reply"
+        subtitle="Most emails don't need a reply — Reply Zero surfaces the ones that do. We'll track what you need to reply to, and who to follow up with."
       />
       <FeaturesReplyZero />
       <Testimonials />
