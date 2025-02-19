@@ -235,11 +235,18 @@ function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement>) {
     const initialDelay = 100;
 
     const updateHeight = () => {
-      if (iframeRef.current?.contentWindow) {
-        const newHeight =
-          iframeRef.current.contentWindow.document.documentElement.scrollHeight;
-        setHeight(newHeight);
-        return true;
+      try {
+        if (iframeRef.current?.contentWindow) {
+          const newHeight =
+            iframeRef.current.contentWindow.document.documentElement
+              ?.scrollHeight;
+          if (newHeight) {
+            setHeight(newHeight);
+            return true;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to get iframe height:", error);
       }
       return false;
     };
