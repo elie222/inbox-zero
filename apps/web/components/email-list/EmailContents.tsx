@@ -50,6 +50,8 @@ export function HtmlEmail({ html }: { html: string }) {
         onLoad={onLoad}
         className="h-0 min-h-0 w-full"
         title="Email content preview"
+        sandbox="allow-same-origin"
+        referrerPolicy="no-referrer"
       />
       {hasReplies && (
         <button
@@ -177,12 +179,30 @@ function getIframeHtml(html: string) {
     </style>
   `;
 
+  const securityHeaders = `
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'none';
+      style-src 'unsafe-inline';
+      img-src data: https:;
+      font-src 'none';
+      script-src 'none';
+      frame-src 'none';
+      object-src 'none';
+      base-uri 'none';
+      form-action 'none';
+    ">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  `;
+
   let htmlWithHead = "";
   if (html.indexOf("</head>") === -1) {
-    htmlWithHead = `<head>${defaultFontStyles}<base target="_blank"></head>${html}`;
+    htmlWithHead = `<head>${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer"></head>${html}`;
   } else {
-    // Insert our styles after the existing head tag
-    htmlWithHead = html.replace("</head>", `${defaultFontStyles}</head>`);
+    // Insert our styles and security headers after the existing head tag
+    htmlWithHead = html.replace(
+      "</head>",
+      `${securityHeaders}${defaultFontStyles}</head>`,
+    );
   }
 
   return htmlWithHead;
