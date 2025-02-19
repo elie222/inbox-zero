@@ -4,8 +4,8 @@ import DOMPurify from "dompurify";
 
 export function HtmlEmail({ html }: { html: string }) {
   const [showReplies, setShowReplies] = useState(false);
-  // const { theme } = useTheme();
-  // const isDarkMode = theme === "dark";
+  const { theme } = useTheme();
+  const isDarkMode = theme === "dark";
 
   const sanitizedHtml = useMemo(() => sanitize(html), [html]);
 
@@ -15,8 +15,8 @@ export function HtmlEmail({ html }: { html: string }) {
   );
 
   const srcDoc = useMemo(
-    () => getIframeHtml(showReplies ? sanitizedHtml : mainContent),
-    [sanitizedHtml, mainContent, showReplies],
+    () => getIframeHtml(showReplies ? sanitizedHtml : mainContent, isDarkMode),
+    [sanitizedHtml, mainContent, showReplies, isDarkMode],
   );
 
   return (
@@ -64,7 +64,7 @@ function getEmailContent(html: string) {
   };
 }
 
-function getIframeHtml(html: string) {
+function getIframeHtml(html: string, isDarkMode: boolean) {
   // Count style attributes safely
   const styleAttributeCount = (html.match(/style=/g) || []).length;
 
@@ -180,8 +180,44 @@ function getIframeHtml(html: string) {
     );
   }
 
-  return htmlWithHead;
+  return addDarkModeClass(htmlWithHead, isDarkMode);
 }
 
 const sanitize = (html: string) =>
   DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+
+function addDarkModeClass(html: string, isDarkMode: boolean) {
+  try {
+    const darkClass = isDarkMode ? "dark" : "";
+
+    // Handle empty or invalid HTML
+    if (!html || typeof html !== "string") {
+      return `<body class="${darkClass}"></body>`;
+    }
+
+    if (html.indexOf("<body") === -1) {
+      return `<body class="${darkClass}">${html}</body>`;
+    }
+
+    return html.replace(/<body([^>]*)>/i, (match, attributes = "") => {
+      try {
+        const existingClass = attributes.match(/class=["']([^"']*)["']/);
+        if (existingClass) {
+          const combinedClass =
+            `${existingClass[1].trim()} ${darkClass}`.trim();
+          return match.replace(
+            /class=["']([^"']*)["']/i,
+            `class="${combinedClass}"`,
+          );
+        }
+        return `<body${attributes} class="${darkClass}">`;
+      } catch (e) {
+        // If regex matching fails, just add the class
+        return `<body${attributes} class="${darkClass}">`;
+      }
+    });
+  } catch (e) {
+    // If all else fails, return a safe fallback
+    return `<body class="${isDarkMode ? "dark" : ""}"></body>`;
+  }
+}
