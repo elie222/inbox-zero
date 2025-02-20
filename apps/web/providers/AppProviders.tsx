@@ -9,7 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 
 export function AppProviders(props: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <ThemeProvider attribute="class" enableSystem>
       <Provider store={jotaiStore}>
         <NuqsAdapter>
           <ComposeModalProvider>{props.children}</ComposeModalProvider>
