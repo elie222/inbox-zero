@@ -18,7 +18,6 @@ export function hasExampleParams(rule: {
 }
 
 const commonPrompts = [
-  "Label emails that require a reply as 'Reply Required'",
   "Label urgent emails as 'Urgent'",
   "Label newsletters as 'Newsletter' and archive them",
   "Label marketing emails as 'Marketing' and archive them",
@@ -214,8 +213,7 @@ I've attached my workout program link: https://example.com/program
   },
   student: {
     label: "👩‍🎓 Student",
-    prompt: `* Label emails that require a reply as 'Reply Required'
-* Label emails from professors and teaching assistants as "School".
+    prompt: `* Label emails from professors and teaching assistants as "School".
 * Label emails about assignments and homework as "Assignment".
 * If someone sends class notes or study materials, label as "Study Materials".
 * Label emails about internships as "Internship" and forward to my personal email me@example.com.
