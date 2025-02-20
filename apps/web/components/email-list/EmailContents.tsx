@@ -29,7 +29,7 @@ export function HtmlEmail({ html }: { html: string }) {
         className="min-h-0 w-full"
         style={{ height: `${iframeHeight + 3}px` }}
         title="Email content preview"
-        sandbox="allow-same-origin"
+        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"
       />
       {hasReplies && (
