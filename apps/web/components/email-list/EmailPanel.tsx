@@ -80,6 +80,7 @@ export function EmailPanel({
           />
         )}
         <EmailThread
+          key={row.id}
           messages={row.messages}
           refetch={refetch}
           showReplyButton

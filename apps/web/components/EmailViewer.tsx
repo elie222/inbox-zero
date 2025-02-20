@@ -59,6 +59,7 @@ export function ThreadContent({
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <EmailThread
+            key={data.thread.id}
             messages={data.thread.messages}
             refetch={mutate}
             showReplyButton={showReplyButton}
