@@ -173,17 +173,28 @@ function getIframeHtml(html: string, isDarkMode: boolean) {
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
   `;
 
-  let htmlWithHead = "";
-  if (html.indexOf("</head>") === -1) {
-    htmlWithHead = `<head>${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer"></head>${html}`;
-  } else {
-    // Insert our styles and security headers after the existing head tag
-    htmlWithHead = html.replace(
-      "</head>",
-      `${securityHeaders}${defaultFontStyles}</head>`,
-    );
+  const headContent = `${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
+
+  function wrapWithProperStructure(content: string) {
+    if (content.indexOf("<html") === -1) {
+      return `
+        <html>
+          <head>${headContent}</head>
+          <body>${content}</body>
+        </html>`;
+    }
+
+    if (content.indexOf("<head") === -1) {
+      return content.replace(
+        /<html([^>]*)>/i,
+        `<html$1><head>${headContent}</head>`,
+      );
+    }
+
+    return content.replace(/<head([^>]*)>/i, `<head$1>${headContent}`);
   }
 
+  const htmlWithHead = wrapWithProperStructure(html);
   return addDarkModeClass(htmlWithHead, isDarkMode);
 }
 
