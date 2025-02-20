@@ -84,13 +84,24 @@ Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and ch
 
 The external services that are required are:
 
-- [OpenAI](https://platform.openai.com/api-keys)
 - [Google OAuth](https://console.cloud.google.com/apis/credentials)
 - [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list) - see set up instructions below
-- [Upstash Redis](https://upstash.com/) - you can also use regular Redis with the Docker Compose.
-- [Tinybird](https://www.tinybird.co/) - you can run the app without this but some features then will be disabled.
+
+You also need to set an LLM, but you can use a local one too:
+
+- [Anthropic](https://console.anthropic.com/settings/keys)
+- [OpenAI](https://platform.openai.com/api-keys)
+- AWS Bedrock Anthropic
+- Google Gemini
+- Groq Llama 3.3 70B
+- Ollama (local)
+
+To enable Bulk Unsubscriber, Analytics and Smart Categories you will also need to set:
+
+- [Tinybird](https://www.tinybird.co/)
 
 We use Postgres for the database.
+For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
 
 You can run Postgres & Redis locally using `docker-compose`
 
@@ -113,10 +124,9 @@ The required environment variables:
 - `NEXTAUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
 - `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
-- `OPENAI_API_KEY` -- OpenAI API key.
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
-- `TINYBIRD_TOKEN` -- Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region). You can also decide to disabled Tinybird and then the analytics and bulk unsubscribe features will be disabled. Set `NEXT_PUBLIC_DISABLE_TINYBIRD=true` if you decide to disable Tinybird.
+- `TINYBIRD_TOKEN` -- (optional) Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region). You can also decide to disabled Tinybird and then the analytics and bulk unsubscribe features will be disabled. Set `NEXT_PUBLIC_DISABLE_TINYBIRD=true` if you decide to disable Tinybird.
 
 When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
 

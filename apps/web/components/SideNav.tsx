@@ -82,14 +82,14 @@ const navigationItems: NavItem[] = [
     href: "/cold-email-blocker",
     icon: ShieldCheckIcon,
   },
-  {
-    name: "Smart Categories",
-    href: "/smart-categories",
-    icon: TagIcon,
-  },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
     : [
+        {
+          name: "Smart Categories",
+          href: "/smart-categories",
+          icon: TagIcon,
+        },
         {
           name: "Analytics",
           href: "/stats",
