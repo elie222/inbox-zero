@@ -101,10 +101,7 @@ export const deleteAccountAction = withActionInstrumentation(
       await signOut();
     } catch (error) {}
 
-    await deleteUser({
-      userId: session.user.id,
-      email: session.user.email,
-    });
+    await deleteUser({ userId: session.user.id, email: session.user.email });
   },
 );
 

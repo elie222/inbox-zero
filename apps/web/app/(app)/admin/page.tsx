@@ -5,6 +5,8 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
 
+export const maxDuration = 120;
+
 export default async function AdminPage() {
   const session = await auth();
 
