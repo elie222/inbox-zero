@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
 import { getLastEmail } from "@inboxzero/tinybird";
 import { sleep } from "@/utils/sleep";
-import { getMessagesBatch } from "@/utils/gmail/message";
+import { getMessages, getMessagesBatch } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail } from "@/utils/email";
 import { type TinybirdEmail, publishEmail } from "@inboxzero/tinybird";
@@ -131,24 +131,23 @@ async function saveBatch(
     options;
 
   // 1. find all emails since the last time we ran this function
-  let q: string | undefined;
+  let query: string | undefined;
 
   if (before) {
-    q = `before:${before / 1000 + 1}`;
+    query = `before:${before / 1000 + 1}`;
   } else if (after) {
-    q = `after:${after / 1000 - 1}`;
+    query = `after:${after / 1000 - 1}`;
   }
 
-  const res = await gmail.users.messages.list({
-    userId: "me",
+  const res = await getMessages(gmail, {
+    query,
     maxResults: PAGE_SIZE,
     pageToken: nextPageToken,
-    q,
   });
 
   // 2. fetch each email and publish it to tinybird
   const messages = await getMessagesBatch(
-    res.data.messages?.map((m) => m.id!) || [],
+    res.messages?.map((m) => m.id).filter(isDefined) || [],
     accessToken,
   );
 
@@ -196,5 +195,10 @@ async function saveBatch(
 
   await publishEmail(emailsToPublish);
 
-  return res;
+  return {
+    data: {
+      messages: res.messages,
+      nextPageToken: res.nextPageToken,
+    },
+  };
 }

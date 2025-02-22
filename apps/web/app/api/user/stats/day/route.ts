@@ -5,6 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
+import { getMessages } from "@/utils/gmail/message";
 
 const statsByDayQuery = z.object({
   type: z.enum(["inbox", "sent", "archived"]),
@@ -46,13 +47,12 @@ async function getPastSevenDayStats(
       if (typeof count !== "number") {
         const query = getQuery(options.type, date);
 
-        const messages = await options.gmail.users.messages.list({
-          userId: "me",
-          q: query,
+        const messages = await getMessages(options.gmail, {
+          query,
           maxResults: 500,
         });
 
-        count = messages.data.messages?.length || 0;
+        count = messages.messages?.length || 0;
       }
 
       return {

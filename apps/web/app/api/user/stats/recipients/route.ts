@@ -6,7 +6,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 // import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
-import { getMessage } from "@/utils/gmail/message";
+import { getMessage, getMessages } from "@/utils/gmail/message";
 import {
   getDomainsMostSentTo,
   getMostSentTo,
@@ -23,18 +23,15 @@ const recipientStatsQuery = z.object({
 export type RecipientStatsQuery = z.infer<typeof recipientStatsQuery>;
 export type RecipientsResponse = Awaited<ReturnType<typeof getRecipients>>;
 
-async function getRecipients(options: { gmail: gmail_v1.Gmail }) {
-  const { gmail } = options;
-
-  const res = await gmail.users.messages.list({
-    userId: "me",
-    q: "in:sent",
+async function getRecipients({ gmail }: { gmail: gmail_v1.Gmail }) {
+  const res = await getMessages(gmail, {
+    query: "in:sent",
     maxResults: 50,
   });
 
   // be careful of rate limiting here
   const messages = await Promise.all(
-    res.data.messages?.map(async (m) => {
+    res.messages?.map(async (m) => {
       const message = await getMessage(m.id!, gmail);
       return parseMessage(message);
     }) || [],

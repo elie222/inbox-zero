@@ -10,6 +10,7 @@ import { unwatchEmails } from "@/app/api/google/watch/controller";
 import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
 import { logger } from "@/app/api/google/webhook/logger";
+import { getHistory } from "@/utils/gmail/history";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -142,8 +143,7 @@ export async function processHistoryForUser(
       email,
     });
 
-    const history = await gmail.users.history.list({
-      userId: "me",
+    const history = await getHistory(gmail, {
       // NOTE this can cause problems if we're way behind
       // NOTE this doesn't include startHistoryId in the results
       startHistoryId,
@@ -151,15 +151,15 @@ export async function processHistoryForUser(
       maxResults: 500,
     });
 
-    if (history.data.history) {
+    if (history.history) {
       logger.info("Processing history", {
         email,
         startHistoryId,
-        historyId: history.data.historyId,
+        historyId: history.historyId,
       });
 
       await processHistory({
-        history: history.data.history,
+        history: history.history,
         email,
         gmail,
         accessToken: account.access_token,

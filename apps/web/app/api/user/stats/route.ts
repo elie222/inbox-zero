@@ -4,6 +4,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
+import { getMessages } from "@/utils/gmail/message";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
 
@@ -33,48 +34,42 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
     emailsSent7days,
     emailsInbox7days,
   ] = await Promise.all([
-    gmail.users.messages.list({
-      userId: "me",
-      q: `-in:sent after:${twentyFourHoursAgoInSeconds}`,
+    getMessages(gmail, {
+      query: `-in:sent after:${twentyFourHoursAgoInSeconds}`,
       maxResults: 500,
     }),
-    gmail.users.messages.list({
-      userId: "me",
-      q: `in:sent after:${twentyFourHoursAgoInSeconds}`,
+    getMessages(gmail, {
+      query: `in:sent after:${twentyFourHoursAgoInSeconds}`,
       maxResults: 500,
     }),
-    gmail.users.messages.list({
-      userId: "me",
-      q: `in:inbox after:${twentyFourHoursAgoInSeconds}`,
+    getMessages(gmail, {
+      query: `in:inbox after:${twentyFourHoursAgoInSeconds}`,
       maxResults: 500,
     }),
 
     // 7 days
-    gmail.users.messages.list({
-      userId: "me",
-      q: `-in:sent after:${sevenDaysAgoInSeconds}`,
+    getMessages(gmail, {
+      query: `-in:sent after:${sevenDaysAgoInSeconds}`,
       maxResults: 500,
     }),
-    gmail.users.messages.list({
-      userId: "me",
-      q: `in:sent after:${sevenDaysAgoInSeconds}`,
+    getMessages(gmail, {
+      query: `in:sent after:${sevenDaysAgoInSeconds}`,
       maxResults: 500,
     }),
-    gmail.users.messages.list({
-      userId: "me",
-      q: `in:inbox after:${sevenDaysAgoInSeconds}`,
+    getMessages(gmail, {
+      query: `in:inbox after:${sevenDaysAgoInSeconds}`,
       maxResults: 500,
     }),
   ]);
 
   return {
-    emailsSent24hrs: emailsSent24hrs.data.messages?.length,
-    emailsReceived24hrs: emailsReceived24hrs.data.messages?.length,
-    emailsInbox24hrs: emailsInbox24hrs.data.messages?.length,
+    emailsSent24hrs: emailsSent24hrs.messages?.length,
+    emailsReceived24hrs: emailsReceived24hrs.messages?.length,
+    emailsInbox24hrs: emailsInbox24hrs.messages?.length,
 
-    emailsSent7days: emailsSent7days.data.messages?.length,
-    emailsReceived7days: emailsReceived7days.data.messages?.length,
-    emailsInbox7days: emailsInbox7days.data.messages?.length,
+    emailsSent7days: emailsSent7days.messages?.length,
+    emailsReceived7days: emailsReceived7days.messages?.length,
+    emailsInbox7days: emailsInbox7days.messages?.length,
   };
 }
 
