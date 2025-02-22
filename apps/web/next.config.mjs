@@ -192,6 +192,28 @@ const nextConfig = {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              // Next.js needs these
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+              // Needed for Tailwind/Shadcn
+              "style-src 'self' 'unsafe-inline' https:",
+              // For images including avatars
+              "img-src 'self' data: https: blob:",
+              // If you use web workers or service workers
+              "worker-src 'self'",
+              // For API calls, SWR, external services
+              "connect-src 'self' https:",
+              // Prevent embedding in iframes
+              "frame-ancestors 'none'",
+            ].join("; "),
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000",
+          },
         ],
       },
       {
