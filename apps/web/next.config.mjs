@@ -168,6 +168,10 @@ const nextConfig = {
         source: "/ingest/:path*",
         destination: "https://app.posthog.com/:path*",
       },
+      {
+        source: "/vendor/lemon/affiliate.js",
+        destination: "https://lmsqueezy.com/affiliate.js",
+      },
     ];
   },
   // Security headers: https://nextjs.org/docs/app/building-your-application/configuring/progressive-web-apps#8-securing-your-application
@@ -200,6 +204,8 @@ const nextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
               // Needed for Tailwind/Shadcn
               "style-src 'self' 'unsafe-inline' https:",
+              // Add this line to allow data: fonts
+              "font-src 'self' data: https:",
               // For images including avatars
               "img-src 'self' data: https: blob:",
               // If you use web workers or service workers

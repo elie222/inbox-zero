@@ -9,8 +9,11 @@ export function LemonScript() {
   return (
     <>
       <Script
-        src="https://lmsqueezy.com/affiliate.js"
+        src="/vendor/lemon/affiliate.js"
         defer
+        onError={(e) => {
+          console.error("Failed to load Lemon Squeezy affiliate script:", e);
+        }}
         onLoad={() => {
           if (!window) return;
 
