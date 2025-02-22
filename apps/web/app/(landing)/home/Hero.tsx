@@ -1,3 +1,5 @@
+import Link from "next/link";
+import Image from "next/image";
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { cn } from "@/utils";
@@ -95,33 +97,19 @@ export function Hero(props: {
 function ProductHuntBadge() {
   return (
     <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
-      <a
+      <Link
         href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-top-post-badge&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
         target="_blank"
         rel="noreferrer"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=431438&theme=neutral&period=daily"
-          alt="Inbox&#0032;Zero - Clean&#0032;up&#0032;your&#0032;inbox&#0032;in&#0032;minutes&#0044;&#0032;open&#0032;source | Product Hunt"
+        <Image
+          src="/images/home/product-hunt-badge.svg"
+          alt="Inbox&#0032;Zero | Product Hunt"
           className="h-[54px] w-[250px]"
           width="250"
           height="54"
         />
-      </a>
-
-      {/* <a
-        href="https://www.producthunt.com/posts/inbox-zero-5?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
-        target="_blank"
-      >
-        <img
-          src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=431438&theme=light"
-          alt="Inbox&#0032;Zero - Clean&#0032;up&#0032;your&#0032;inbox&#0032;in&#0032;minutes&#0044;&#0032;open&#0032;source | Product Hunt"
-          className="h-[54px] w-[250px]"
-          width="250"
-          height="54"
-        />
-      </a> */}
+      </Link>
     </div>
   );
 }
