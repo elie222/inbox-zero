@@ -47,6 +47,8 @@
         "WHITELIST_FROM",
         "API_KEY_SALT",
         "MAX_DURATION",
+        "FB_CONVERSION_API_ACCESS_TOKEN",
+        "FB_PIXEL_ID",
 
         "NEXT_PUBLIC_LEMON_STORE_ID",
 
