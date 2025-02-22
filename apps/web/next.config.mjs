@@ -8,7 +8,7 @@ import withSerwistInit from "@serwist/next";
 const jiti = createJiti(fileURLToPath(import.meta.url));
 
 // Import env here to validate during build. Using jiti we can import .ts files :)
-await jiti.import("./env");
+const { env } = await jiti.import("./env");
 
 const withMDX = nextMdx();
 
