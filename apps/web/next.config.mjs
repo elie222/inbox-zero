@@ -214,6 +214,14 @@ const nextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=31536000",
           },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: env.NEXT_PUBLIC_BASE_URL,
+          },
+          {
+            key: "Access-Control-Allow-Methods",
+            value: "GET, POST, PUT, DELETE, OPTIONS",
+          },
         ],
       },
       {
