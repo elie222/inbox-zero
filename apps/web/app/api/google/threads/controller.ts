@@ -5,7 +5,10 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
-import { getThreadsBatch } from "@/utils/gmail/thread";
+import {
+  getThreadsBatch,
+  getThreadsWithNextPageToken,
+} from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { ExecutedRuleStatus } from "@prisma/client";
@@ -37,16 +40,16 @@ export async function getThreads(query: ThreadsQuery) {
     return undefined;
   }
 
-  const gmailThreads = await gmail.users.threads.list({
-    userId: "me",
-    labelIds: getLabelIds(query.type),
-    maxResults: query.limit || 50,
-    q: getQuery(),
-    pageToken: query.nextPageToken || undefined,
-  });
+  const { threads: gmailThreads, nextPageToken } =
+    await getThreadsWithNextPageToken({
+      gmail,
+      q: getQuery(),
+      labelIds: getLabelIds(query.type),
+      maxResults: query.limit || 50,
+      pageToken: query.nextPageToken || undefined,
+    });
 
-  const threadIds =
-    gmailThreads.data.threads?.map((t) => t.id).filter(isDefined) || [];
+  const threadIds = gmailThreads?.map((t) => t.id).filter(isDefined) || [];
 
   const [threads, plans] = await Promise.all([
     getThreadsBatch(threadIds, accessToken), // may have been faster not using batch method, but doing 50 getMessages in parallel
@@ -91,7 +94,7 @@ export async function getThreads(query: ThreadsQuery) {
 
   return {
     threads: threadsWithMessages.filter(isDefined),
-    nextPageToken: gmailThreads.data.nextPageToken,
+    nextPageToken,
   };
 }
 

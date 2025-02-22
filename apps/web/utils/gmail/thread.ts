@@ -39,7 +39,7 @@ export async function getThreadsWithNextPageToken({
   pageToken,
 }: {
   gmail: gmail_v1.Gmail;
-  q: string;
+  q?: string;
   labelIds?: string[];
   maxResults?: number;
   pageToken?: string;
