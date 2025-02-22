@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { parseMessage } from "@/utils/mail";
-import { getMessage } from "@/utils/gmail/message";
+import { getMessage, getMessages } from "@/utils/gmail/message";
 import type {
   MessageWithGroupItem,
   RuleWithGroup,
@@ -55,25 +55,24 @@ async function fetchStaticExampleMessages(
   rule: RuleWithGroup,
   gmail: gmail_v1.Gmail,
 ): Promise<MessageWithGroupItem[]> {
-  let q = "";
+  let query = "";
   if (rule.from) {
-    q += `from:${rule.from} `;
+    query += `from:${rule.from} `;
   }
   if (rule.to) {
-    q += `to:${rule.to} `;
+    query += `to:${rule.to} `;
   }
   if (rule.subject) {
-    q += `subject:${rule.subject} `;
+    query += `subject:${rule.subject} `;
   }
 
-  const response = await gmail.users.messages.list({
-    userId: "me",
+  const response = await getMessages(gmail, {
+    query,
     maxResults: 50,
-    q,
   });
 
   const messages = await Promise.all(
-    (response.data.messages || []).map(async (message) => {
+    (response.messages || []).map(async (message) => {
       const m = await getMessage(message.id!, gmail);
       const parsedMessage = parseMessage(m);
       return parsedMessage;
