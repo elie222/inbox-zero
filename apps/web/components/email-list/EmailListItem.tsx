@@ -283,8 +283,8 @@ const LabelsGroup = ({
           className=""
           key={label.id}
           style={{
-            color: label?.color.textColor,
-            backgroundColor: label?.color.backgroundColor,
+            color: label?.color?.textColor,
+            backgroundColor: label?.color?.backgroundColor,
           }}
         >
           {label.name}

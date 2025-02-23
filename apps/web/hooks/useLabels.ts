@@ -7,7 +7,7 @@ export type UserLabel = {
   id: string;
   name: string;
   type: "user";
-  color: {
+  color?: {
     textColor: string;
     backgroundColor: string;
   };
