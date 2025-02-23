@@ -102,10 +102,12 @@ export const getCreateRuleSchemaWithCategories = (
               "Whether senders in `categoryFilters` should be included or excluded",
             ),
           categoryFilters: z
-            .array(z.enum(availableCategories))
+            .array(z.string())
             .optional()
             .describe(
-              "The categories to match. If multiple categories are specified, the rule will match if ANY of the categories match (OR operation)",
+              `The categories to match. If multiple categories are specified, the rule will match if ANY of the categories match (OR operation). Available categories: ${availableCategories
+                .map((c) => `"${c}"`)
+                .join(", ")}`,
             ),
         })
         .optional()

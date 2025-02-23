@@ -34,6 +34,8 @@ async function getAiResponse(options: GetAiResponseOptions) {
   const system = `You are an AI assistant that helps people manage their emails.
 IMPORTANT: You must strictly follow the exclusions mentioned in each rule.
 - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
+- When multiple rules match, choose the more specific one that best matches the email's content.
+- Rules about requiring replies should be prioritized when the email clearly needs a response.
 - If you're unsure, select the last rule (not enough information).
 - It's better to select "not enough information" than to make an incorrect choice.
   
