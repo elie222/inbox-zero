@@ -109,7 +109,7 @@ async function runRule(
       gmail,
       userEmail: user.email || "",
       executedRule,
-      email: message,
+      message,
       isReplyTrackingRule: rule.trackReplies || false,
     });
   }

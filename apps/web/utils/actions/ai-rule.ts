@@ -268,7 +268,7 @@ export const approvePlanAction = withActionInstrumentation(
 
     await executeAct({
       gmail,
-      email: message,
+      message,
       executedRule,
       userEmail: session.user.email,
       isReplyTrackingRule: executedRule.rule?.trackReplies || false,

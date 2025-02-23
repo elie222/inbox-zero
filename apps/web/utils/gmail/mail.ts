@@ -234,8 +234,8 @@ export async function draftEmail(
   gmail: gmail_v1.Gmail,
   originalEmail: EmailForAction,
   args: {
-    to: string;
-    subject: string;
+    to?: string;
+    subject?: string;
     content: string;
     attachments?: Attachment[];
   },
