@@ -21,11 +21,9 @@ import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
-import { useLabels, type UserLabel } from "@/hooks/useLabels";
-import { Badge } from "@/components/ui/badge";
-import { MoreVertical } from "lucide-react";
-import { HoverCard } from "@/components/HoverCard";
+import { useLabels } from "@/hooks/useLabels";
 import { isDefined } from "@/utils/types";
+import { EmailLabels } from "@/components/email-list/EmailLabels";
 
 const MAX_THREAD_LABELS = 3;
 
@@ -160,30 +158,10 @@ export const EmailListItem = forwardRef(
                       </Button>
                     )}
                     {hasLabels && (
-                      <LabelsGroup
+                      <EmailLabels
                         labels={threadLabels}
                         maxShown={MAX_THREAD_LABELS}
                       />
-                    )}
-                    {hasMoreLabels && (
-                      <HoverCard
-                        content={<LabelsGroup labels={threadLabels} wraps />}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-fit px-2 hover:bg-transparent"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                          }}
-                        >
-                          <MoreVertical
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                        </Button>
-                      </HoverCard>
                     )}
                     <div className="ml-2 min-w-0 overflow-hidden text-foreground">
                       {lastMessage.headers.subject}
@@ -265,29 +243,3 @@ export const EmailListItem = forwardRef(
 );
 
 EmailListItem.displayName = "EmailListItem";
-
-const LabelsGroup = ({
-  labels,
-  maxShown,
-  wraps = false,
-}: {
-  labels: UserLabel[];
-  maxShown?: number;
-  wraps?: boolean;
-}) => {
-  return (
-    <div className={clsx("ml-2 flex gap-2", { "flex-wrap": wraps })}>
-      {labels.slice(0, maxShown).map((label) => (
-        <Badge
-          key={label.id}
-          style={{
-            color: label?.color?.textColor,
-            backgroundColor: label?.color?.backgroundColor,
-          }}
-        >
-          {label.name}
-        </Badge>
-      ))}
-    </div>
-  );
-};
