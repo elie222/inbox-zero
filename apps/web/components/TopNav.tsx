@@ -36,7 +36,7 @@ const userNavigation = [
       ]),
   { name: "Usage", href: "/usage", icon: BarChartIcon },
   {
-    name: "Mail (Alpha)",
+    name: "Mail (Beta)",
     href: "/mail",
     icon: InboxIcon,
   },

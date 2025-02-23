@@ -66,6 +66,7 @@ export function ThreadContent({
             autoOpenReplyForMessageId={autoOpenReplyForMessageId}
             topRightComponent={topRightComponent}
             onSendSuccess={onSendSuccess}
+            withHeader
           />
         )}
       </LoadingContent>
