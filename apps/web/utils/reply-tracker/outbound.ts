@@ -16,7 +16,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
 export async function handleOutboundReply(
-  user: Pick<User, "id" | "about"> & UserEmailWithAI,
+  user: Pick<User, "about"> & UserEmailWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {

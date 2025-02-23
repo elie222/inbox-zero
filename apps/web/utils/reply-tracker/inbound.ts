@@ -14,7 +14,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getReplyTrackingRule } from "@/utils/reply-tracker";
-import { draftEmail } from "@/utils/gmail/mail";
+import { generateDraft } from "@/utils/reply-tracker/generate-reply";
 
 export async function markNeedsReply(
   userId: string,
@@ -75,7 +75,7 @@ export async function markNeedsReply(
     awaitingReplyLabelId,
   );
   const newLabelPromise = labelNeedsReply(gmail, messageId, needsReplyLabelId);
-  const draftPromise = generateDraft(gmail, message);
+  const draftPromise = generateDraft(email, gmail, message);
 
   const [dbResult, removeLabelResult, newLabelResult, draftResult] =
     await Promise.allSettled([
@@ -110,7 +110,7 @@ export async function markNeedsReply(
 
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
 export async function handleInboundReply(
-  user: Pick<User, "id" | "about"> & UserEmailWithAI,
+  user: Pick<User, "about"> & UserEmailWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {
@@ -144,12 +144,4 @@ export async function handleInboundReply(
       message,
     );
   }
-}
-
-async function generateDraft(gmail: gmail_v1.Gmail, message: ParsedMessage) {
-  // 1. Draft with AI
-  const content = "";
-
-  // 2. Create Gmail draft
-  return await draftEmail(gmail, message, { content });
 }
