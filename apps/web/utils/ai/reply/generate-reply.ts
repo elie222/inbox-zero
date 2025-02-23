@@ -24,7 +24,11 @@ Keep it concise and friendly. Don't be pushy.
 Use context from the previous emails to make it relevant.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
-Keep it short.`;
+Keep it short.
+
+IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
+Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
+Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.`;
 
   const prompt = `Here is the context of the email thread (from oldest to newest):
 ${messages

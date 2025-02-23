@@ -77,13 +77,15 @@ export async function markNeedsReply(
   const newLabelPromise = labelNeedsReply(gmail, messageId, needsReplyLabelId);
   const draftPromise = generateDraft(email, gmail, message);
 
-  const [dbResult, removeLabelResult, newLabelResult, draftResult] =
-    await Promise.allSettled([
-      dbPromise,
-      removeLabelPromise,
-      newLabelPromise,
-      draftPromise,
-    ]);
+  const [dbResult, removeLabelResult, newLabelResult] =
+    await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);
+
+  // Avoid hitting Gmail rate limit by doing too much at once
+  try {
+    await draftPromise;
+  } catch (error) {
+    logger.error("Failed to create draft", { error });
+  }
 
   if (dbResult.status === "rejected") {
     logger.error("Failed to mark needs reply", {
@@ -101,10 +103,6 @@ export async function markNeedsReply(
     logger.error("Failed to label needs reply", {
       error: newLabelResult.reason,
     });
-  }
-
-  if (draftResult.status === "rejected") {
-    logger.error("Failed to create draft", { error: draftResult.reason });
   }
 }
 

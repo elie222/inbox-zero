@@ -5,16 +5,24 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { draftEmail } from "@/utils/gmail/mail";
 import { aiGenerateReply } from "@/utils/ai/reply/generate-reply";
 import { saveReply } from "@/utils/redis/reply";
-import { getReply } from "@/utils/redis/reply";
 import { getAiUserByEmail } from "@/utils/user/get";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import type { UserEmailWithAI } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
 
 export async function generateDraft(
   userEmail: string,
   gmail: gmail_v1.Gmail,
   message: ParsedMessage,
 ) {
+  const logger = createScopedLogger("generate-reply").with({
+    email: userEmail,
+    messageId: message.id,
+    threadId: message.threadId,
+  });
+
+  logger.info("Generating draft");
+
   const user = await getAiUserByEmail({ email: userEmail });
   if (!user) throw new Error("User not found");
 
@@ -23,12 +31,12 @@ export async function generateDraft(
   // 1. Draft with AI
   const result = await generateContent(user, messages);
 
-  if (typeof result === "string") {
-    // 2. Create Gmail draft
-    return await draftEmail(gmail, message, { content: result });
-  }
+  logger.info("Draft generated", { result });
 
-  return { error: result };
+  // 2. Create Gmail draft
+  await draftEmail(gmail, message, { content: result });
+
+  logger.info("Draft created");
 }
 
 export async function generateContent(
@@ -37,11 +45,11 @@ export async function generateContent(
 ) {
   const lastMessage = threadMessages.at(-1);
 
-  if (!lastMessage) return { error: "No message provided" };
+  if (!lastMessage) throw new Error("No message provided");
 
-  const reply = await getReply({ userId: user.id, messageId: lastMessage.id });
+  // const reply = await getReply({ userId: user.id, messageId: lastMessage.id });
 
-  if (reply) return reply;
+  // if (reply) return reply;
 
   const messages = threadMessages.map((msg, index) => ({
     to: msg.headers.to,
