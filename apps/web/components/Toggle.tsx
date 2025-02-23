@@ -28,7 +28,7 @@ export const Toggle = (props: ToggleProps) => {
 
   return (
     <div>
-      <Field as="div" className="flex items-center justify-center">
+      <Field as="div" className="flex items-center">
         {label && (
           <span className="mr-3 flex items-center gap-1 text-nowrap">
             <Label name={props.name} label={label} />
