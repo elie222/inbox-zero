@@ -9,7 +9,10 @@ import { aiFindReplyTrackingRule } from "@/utils/ai/reply/check-reply-tracking";
 import { safeCreateRule } from "@/utils/rule/rule";
 import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
+import {
+  defaultReplyTrackerInstructions,
+  NEEDS_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 import { getGmailClient } from "@/utils/gmail/client";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
 import {
@@ -98,15 +101,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
         {
           name: "Label Emails Requiring Reply",
           condition: {
-            aiInstructions: `Apply this to emails needing my direct response. Exclude:
-- All automated notifications (GitHub, social media, marketing)
-- System emails (order confirmations, calendar invites)
-
-Only flag when someone:
-- Asks me a direct question
-- Requests information or action
-- Needs my specific input
-- Follows up on a conversation`,
+            aiInstructions: defaultReplyTrackerInstructions,
           },
           actions: [
             {
