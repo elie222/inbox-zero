@@ -367,7 +367,7 @@ export function EmailList({
   return (
     <>
       {!(isEmpty && hideActionBarWhenEmpty) && (
-        <div className="flex items-center border-b border-l-4 border-border bg-background px-4 py-1">
+        <div className="flex h-12 items-center border-b border-l-4 border-border bg-background px-4 py-1">
           <div className="pl-1">
             <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
           </div>
@@ -419,6 +419,7 @@ export function EmailList({
         </div>
       ) : (
         <ResizeGroup
+          onlyRight={!!openThreadId}
           left={
             <ul
               className="divide-y divide-border overflow-y-auto scroll-smooth"
@@ -509,21 +510,35 @@ export function EmailList({
 function ResizeGroup({
   left,
   right,
+  onlyRight = false,
 }: {
   left: React.ReactNode;
   right?: React.ReactNode;
+  onlyRight?: boolean;
 }) {
   if (!right) return left;
+  const leftSize = onlyRight ? 0 : 50;
+  const rightSize = onlyRight ? 100 : 50;
 
   return (
-    <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel style={{ overflow: "auto" }} defaultSize={50} minSize={0}>
-        {left}
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={50} minSize={0}>
-        {right}
-      </ResizablePanel>
-    </ResizablePanelGroup>
+    <div className="flex max-h-[calc(100svh-theme(spacing.12)-theme(spacing.16))] overflow-hidden">
+      <ResizablePanelGroup direction="horizontal" className="w-full">
+        <ResizablePanel
+          defaultSize={leftSize}
+          minSize={0}
+          className="overflow-hidden"
+        >
+          <div className="h-full overflow-auto">{left}</div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel
+          defaultSize={rightSize}
+          minSize={0}
+          className="overflow-hidden"
+        >
+          <div className="h-full overflow-auto">{right}</div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 }
