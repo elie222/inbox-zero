@@ -145,6 +145,23 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
       catchAll,
     ];
 
+    test("Should match simple response required", async () => {
+      const result = await aiChooseRule({
+        rules,
+        email: getEmail({
+          from: "alicesmith@gmail.com",
+          subject: "Can we meet for lunch tomorrow?",
+          content: "LMK\n\n--\nAlice Smith,\nCEO, The Boring Fund",
+        }),
+        user: getUser(),
+      });
+
+      expect(result).toEqual({
+        rule: requiresResponse,
+        reason: expect.any(String),
+      });
+    });
+
     test("Should match technical issues", async () => {
       const result = await aiChooseRule({
         rules,
