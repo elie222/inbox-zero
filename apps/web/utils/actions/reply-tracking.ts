@@ -37,6 +37,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        id: true,
         email: true,
         aiProvider: true,
         aiModel: true,
