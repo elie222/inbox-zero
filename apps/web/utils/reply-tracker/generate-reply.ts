@@ -4,7 +4,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { draftEmail } from "@/utils/gmail/mail";
 import { aiGenerateReply } from "@/utils/ai/reply/generate-reply";
-import { saveReply } from "@/utils/redis/reply";
+import { getReply, saveReply } from "@/utils/redis/reply";
 import { getAiUserByEmail } from "@/utils/user/get";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import type { UserEmailWithAI } from "@/utils/llms/types";
@@ -47,9 +47,9 @@ export async function generateContent(
 
   if (!lastMessage) throw new Error("No message provided");
 
-  // const reply = await getReply({ userId: user.id, messageId: lastMessage.id });
+  const reply = await getReply({ userId: user.id, messageId: lastMessage.id });
 
-  // if (reply) return reply;
+  if (reply) return reply;
 
   const messages = threadMessages.map((msg, index) => ({
     to: msg.headers.to,
