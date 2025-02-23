@@ -3,7 +3,15 @@ import useSWR from "swr";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import type { gmail_v1 } from "@googleapis/gmail";
 
-export type UserLabel = { id: string; name: string; type: "user" };
+export type UserLabel = {
+  id: string;
+  name: string;
+  type: "user";
+  color: {
+    textColor: string;
+    backgroundColor: string;
+  };
+};
 
 export function useLabels() {
   const { data, isLoading, error, mutate } =
