@@ -16,7 +16,7 @@ import { createGroq } from "@ai-sdk/groq";
 import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
-import { Model, Provider } from "@/utils/llms/config";
+import { Model, Provider, supportsOllama } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
@@ -30,8 +30,20 @@ import {
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
 
+function getDefaultProvider(): string {
+  if (env.BEDROCK_ACCESS_KEY) return Provider.ANTHROPIC;
+  if (env.ANTHROPIC_API_KEY) return Provider.ANTHROPIC;
+  if (env.OPENAI_API_KEY) return Provider.OPEN_AI;
+  if (env.GOOGLE_API_KEY) return Provider.GOOGLE;
+  if (env.GROQ_API_KEY) return Provider.GROQ;
+  if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
+  throw new Error(
+    "No AI provider found. Please set at least one API key in env variables.",
+  );
+}
+
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
-  const provider = aiProvider || Provider.ANTHROPIC;
+  const provider = aiProvider || getDefaultProvider();
 
   if (provider === Provider.OPEN_AI) {
     const model = aiModel || Model.GPT_4O;
