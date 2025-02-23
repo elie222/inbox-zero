@@ -55,6 +55,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LearnedPatterns } from "@/app/(app)/automation/group/LearnedPatterns";
+import {
+  AWAITING_REPLY_LABEL_NAME,
+  NEEDS_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const {
@@ -511,6 +515,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 
+      <div className="mt-4">
+        <ReplyTrackerActionSection />
+      </div>
+
       {actionErrors.length > 0 && (
         <div className="mt-4">
           <AlertError
@@ -781,5 +789,36 @@ function LabelCombobox({
       }
       loading={isLoading}
     />
+  );
+}
+
+function ReplyTrackerActionSection() {
+  return (
+    <Card>
+      <div className="space-y-4">
+        <div>
+          <TypographyH3>Reply Zero Tracker</TypographyH3>
+          <SectionDescription>
+            This rule will automatically track emails waiting for replies and
+            help manage your follow-ups:
+          </SectionDescription>
+        </div>
+
+        <ul className="list-inside list-disc space-y-2 text-sm text-muted-foreground">
+          <li>
+            Emails will be labeled as "{NEEDS_REPLY_LABEL_NAME}" and "
+            {AWAITING_REPLY_LABEL_NAME}" when appropriate
+          </li>
+          <li>AI will draft replies when confident it can help</li>
+        </ul>
+
+        <div className="rounded-md bg-muted/50 p-4">
+          <p className="text-sm text-muted-foreground">
+            These actions are automatically configured for reply tracking and
+            cannot be modified.
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }
