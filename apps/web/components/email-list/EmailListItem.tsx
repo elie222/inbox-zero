@@ -21,6 +21,11 @@ import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
+import { useLabels } from "@/hooks/useLabels";
+import { isDefined } from "@/utils/types";
+import { EmailLabels } from "@/components/email-list/EmailLabels";
+
+const MAX_THREAD_LABELS = 3;
 
 export const EmailListItem = forwardRef(
   (
@@ -70,6 +75,21 @@ export const EmailListItem = forwardRef(
     const decodedSnippet = decodeSnippet(thread.snippet || lastMessage.snippet);
 
     const cta = findCtaLink(lastMessage.textHtml);
+
+    const { userLabels } = useLabels();
+
+    const threadLabels = useMemo(() => {
+      return thread.messages
+        .flatMap((message) =>
+          message.labelIds
+            ?.map((id) => userLabels?.find((label) => label.id === id))
+            .filter(Boolean),
+        )
+        .filter(isDefined);
+    }, [thread.messages, userLabels]);
+
+    const hasLabels = threadLabels.length > 0;
+    const hasMoreLabels = threadLabels.length > MAX_THREAD_LABELS;
 
     return (
       <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
@@ -136,6 +156,12 @@ export const EmailListItem = forwardRef(
                           {cta.ctaText}
                         </Link>
                       </Button>
+                    )}
+                    {hasLabels && (
+                      <EmailLabels
+                        labels={threadLabels}
+                        maxShown={MAX_THREAD_LABELS}
+                      />
                     )}
                     <div className="ml-2 min-w-0 overflow-hidden text-foreground">
                       {lastMessage.headers.subject}
