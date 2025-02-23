@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
-import { useLabels, UserLabel } from "@/hooks/useLabels";
+import { useLabels, type UserLabel } from "@/hooks/useLabels";
 import { Badge } from "@/components/ui/badge";
 import { MoreVertical } from "lucide-react";
 import { HoverCard } from "@/components/HoverCard";
@@ -82,12 +82,11 @@ export const EmailListItem = forwardRef(
 
     const threadLabels = useMemo(() => {
       return thread.messages
-        .map((message) =>
+        .flatMap((message) =>
           message.labelIds
             ?.map((id) => userLabels?.find((label) => label.id === id))
             .filter(Boolean),
         )
-        .flat()
         .filter(isDefined);
     }, [thread.messages, userLabels]);
 
@@ -280,7 +279,6 @@ const LabelsGroup = ({
     <div className={clsx("ml-2 flex gap-2", { "flex-wrap": wraps })}>
       {labels.slice(0, maxShown).map((label) => (
         <Badge
-          className=""
           key={label.id}
           style={{
             color: label?.color?.textColor,
