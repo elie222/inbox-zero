@@ -265,7 +265,7 @@ function MailNav({ path }: { path: string }) {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
   const { userLabels, hiddenUserLabels, isLoading } = useLabels({
-    includeHidden: showHiddenLabels,
+    includeHidden: true,
   });
 
   // Transform user labels into NavItems

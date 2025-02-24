@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
 import type { gmail_v1 } from "@googleapis/gmail";
+import { labelVisibility } from "@/utils/gmail/constants";
 
 export type UserLabel = {
   id: string;
@@ -11,7 +12,7 @@ export type UserLabel = {
   messageListVisibility?: string;
 };
 
-export function useLabels(options = { includeHidden: false }) {
+export function useLabels(options = { includeHidden: true }) {
   const { data, isLoading, error, mutate } =
     useSWR<LabelsResponse>("/api/google/labels");
 
@@ -24,15 +25,11 @@ export function useLabels(options = { includeHidden: false }) {
   // Split into visible and hidden labels
   const { userLabels, hiddenUserLabels } = useMemo(() => {
     // Always get visible labels
-    const visible = allUserLabels
-      .filter((label) => label.labelListVisibility !== "labelHide")
-      .sort(sortLabels);
+    const visible = allUserLabels.filter(isHiddenLabel).sort(sortLabels);
 
     // Only process hidden labels if needed
     const hidden = options.includeHidden
-      ? allUserLabels
-          .filter((label) => label.labelListVisibility === "labelHide")
-          .sort(sortLabels)
+      ? allUserLabels.filter(isHiddenLabel).sort(sortLabels)
       : [];
 
     return { userLabels: visible, hiddenUserLabels: hidden };
@@ -61,4 +58,8 @@ function sortLabels(a: UserLabel, b: UserLabel) {
 
 function isUserLabel(label: gmail_v1.Schema$Label): label is UserLabel {
   return label.type === "user";
+}
+
+function isHiddenLabel(label: UserLabel) {
+  return label.labelListVisibility === labelVisibility.labelHide;
 }
