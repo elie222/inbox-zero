@@ -66,7 +66,7 @@ export const ComposeEmailForm = ({
       replyToEmail: replyingToEmail,
       subject: replyingToEmail?.subject,
       to: replyingToEmail?.to,
-      cc: replyingToEmail?.cc,
+      cc: replyingToEmail?.cc, // Initialize cc field
       messageHtml: replyingToEmail?.draftHtml,
     },
   });
@@ -116,6 +116,7 @@ export const ComposeEmailForm = ({
   );
 
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchQueryCc, setSearchQueryCc] = React.useState(""); // New state for CC search
   const { data } = useSWR<ContactsResponse, { error: string }>(
     env.NEXT_PUBLIC_CONTACTS_ENABLED
       ? `/api/google/contacts?query=${searchQuery}`
@@ -125,24 +126,27 @@ export const ComposeEmailForm = ({
     },
   );
 
-  // TODO not in love with how this was implemented
-  const selectedEmailAddressses = watch("to", "").split(",").filter(Boolean);
+  const selectedEmailAddresses = watch("to", "").split(",").filter(Boolean);
+  const selectedCcAddresses = (watch("cc") || "").split(",").filter(Boolean); // Watch CC field
 
-  const onRemoveSelectedEmail = (emailAddress: string) => {
-    const filteredEmailAddresses = selectedEmailAddressses.filter(
-      (email) => email !== emailAddress,
-    );
-    setValue("to", filteredEmailAddresses.join(","));
+  const onRemoveSelectedEmail = (emailAddress: string, field: "to" | "cc") => {
+    const filteredEmailAddresses = (
+      field === "to" ? selectedEmailAddresses : selectedCcAddresses
+    ).filter((email) => email !== emailAddress);
+    setValue(field, filteredEmailAddresses.join(","));
   };
 
-  const handleComboboxOnChange = (values: string[]) => {
-    // this assumes last value given by combobox is user typed value
+  const handleComboboxOnChange = (values: string[], field: "to" | "cc") => {
     const lastValue = values[values.length - 1];
 
     const { success } = z.string().email().safeParse(lastValue);
     if (success) {
-      setValue("to", values.join(","));
-      setSearchQuery("");
+      setValue(field, values.join(","));
+      if (field === "to") {
+        setSearchQuery("");
+      } else {
+        setSearchQueryCc("");
+      }
     }
   };
 
@@ -166,7 +170,7 @@ export const ComposeEmailForm = ({
       } catch (error) {
         console.error("Failed to append content:", error);
         toastError({ description: "Failed to show full content" });
-        return; // Don't set showFullContent to true if append failed
+        return;
       }
     }
     setShowFullContent(true);
@@ -188,129 +192,267 @@ export const ComposeEmailForm = ({
       ) : (
         <>
           {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-            <div className="flex space-x-2">
-              <div className="mt-2">
-                <Label name="to" label="To" />
-              </div>
-              <Combobox
-                value={selectedEmailAddressses}
-                onChange={handleComboboxOnChange}
-                multiple
-              >
-                <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
-                  {selectedEmailAddressses.map((emailAddress) => (
-                    <Badge
-                      key={emailAddress}
-                      variant="secondary"
-                      className="cursor-pointer rounded-md"
-                      onClick={() => {
-                        onRemoveSelectedEmail(emailAddress);
-                        setSearchQuery(emailAddress);
-                      }}
-                    >
-                      {extractNameFromEmail(emailAddress)}
-
-                      <button
-                        type="button"
-                        onClick={() => onRemoveSelectedEmail(emailAddress)}
+            <>
+              <div className="flex space-x-2">
+                <div className="mt-2">
+                  <Label name="to" label="To" />
+                </div>
+                <Combobox
+                  value={selectedEmailAddresses}
+                  onChange={(values) => handleComboboxOnChange(values, "to")}
+                  multiple
+                >
+                  <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
+                    {selectedEmailAddresses.map((emailAddress) => (
+                      <Badge
+                        key={emailAddress}
+                        variant="secondary"
+                        className="cursor-pointer rounded-md"
+                        onClick={() => {
+                          onRemoveSelectedEmail(emailAddress, "to");
+                          setSearchQuery(emailAddress);
+                        }}
                       >
-                        <XIcon className="ml-1.5 size-3" />
-                      </button>
-                    </Badge>
-                  ))}
+                        {extractNameFromEmail(emailAddress)}
 
-                  <div className="relative flex-1">
-                    <ComboboxInput
-                      value={searchQuery}
-                      className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      onKeyUp={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          setValue(
-                            "to",
-                            [...selectedEmailAddressses, searchQuery].join(","),
-                          );
-                          setSearchQuery("");
-                        }
-                      }}
-                    />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onRemoveSelectedEmail(emailAddress, "to")
+                          }
+                        >
+                          <XIcon className="ml-1.5 size-3" />
+                        </button>
+                      </Badge>
+                    ))}
 
-                    {!!data?.result?.length && (
-                      <ComboboxOptions
-                        className={
-                          "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm"
-                        }
-                      >
-                        <ComboboxOption
-                          className="h-0 w-0 overflow-hidden"
-                          value={searchQuery}
-                        />
-                        {data?.result.map((contact) => {
-                          const person = {
-                            emailAddress:
-                              contact.person?.emailAddresses?.[0].value,
-                            name: contact.person?.names?.[0].displayName,
-                            profilePictureUrl: contact.person?.photos?.[0].url,
-                          };
+                    <div className="relative flex-1">
+                      <ComboboxInput
+                        value={searchQuery}
+                        className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        onKeyUp={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            setValue(
+                              "to",
+                              [...selectedEmailAddresses, searchQuery].join(
+                                ",",
+                              ),
+                            );
+                            setSearchQuery("");
+                          }
+                        }}
+                      />
 
-                          return (
-                            <ComboboxOption
-                              className={({ focus }) =>
-                                `cursor-default select-none px-4 py-1 text-foreground ${
-                                  focus && "bg-accent"
-                                }`
-                              }
-                              key={person.emailAddress}
-                              value={person.emailAddress}
-                            >
-                              {({ selected }) => (
-                                <div className="my-2 flex items-center">
-                                  {selected ? (
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                                      <CheckCircleIcon className="h-6 w-6" />
-                                    </div>
-                                  ) : (
-                                    <Avatar>
-                                      <AvatarImage
-                                        src={person.profilePictureUrl!}
-                                        alt={
-                                          person.emailAddress ||
-                                          "Profile picture"
-                                        }
-                                      />
-                                      <AvatarFallback>
-                                        {person.emailAddress?.[0] || "A"}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  )}
-                                  <div className="ml-4 flex flex-col justify-center">
-                                    <div className="text-foreground">
-                                      {person.name}
-                                    </div>
-                                    <div className="text-sm font-semibold text-muted-foreground">
-                                      {person.emailAddress}
+                      {!!data?.result?.length && (
+                        <ComboboxOptions
+                          className={
+                            "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm"
+                          }
+                        >
+                          <ComboboxOption
+                            className="h-0 w-0 overflow-hidden"
+                            value={searchQuery}
+                          />
+                          {data?.result.map((contact) => {
+                            const person = {
+                              emailAddress:
+                                contact.person?.emailAddresses?.[0].value,
+                              name: contact.person?.names?.[0].displayName,
+                              profilePictureUrl:
+                                contact.person?.photos?.[0].url,
+                            };
+
+                            return (
+                              <ComboboxOption
+                                className={({ focus }) =>
+                                  `cursor-default select-none px-4 py-1 text-foreground ${
+                                    focus && "bg-accent"
+                                  }`
+                                }
+                                key={person.emailAddress}
+                                value={person.emailAddress}
+                              >
+                                {({ selected }) => (
+                                  <div className="my-2 flex items-center">
+                                    {selected ? (
+                                      <div className="flex h-12 w-12 items-center justify-center rounded-full">
+                                        <CheckCircleIcon className="h-6 w-6" />
+                                      </div>
+                                    ) : (
+                                      <Avatar>
+                                        <AvatarImage
+                                          src={person.profilePictureUrl!}
+                                          alt={
+                                            person.emailAddress ||
+                                            "Profile picture"
+                                          }
+                                        />
+                                        <AvatarFallback>
+                                          {person.emailAddress?.[0] || "A"}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                    )}
+                                    <div className="ml-4 flex flex-col justify-center">
+                                      <div className="text-foreground">
+                                        {person.name}
+                                      </div>
+                                      <div className="text-sm font-semibold text-muted-foreground">
+                                        {person.emailAddress}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-                            </ComboboxOption>
-                          );
-                        })}
-                      </ComboboxOptions>
-                    )}
+                                )}
+                              </ComboboxOption>
+                            );
+                          })}
+                        </ComboboxOptions>
+                      )}
+                    </div>
                   </div>
+                </Combobox>
+              </div>
+
+              {/* Add CC Combobox */}
+              <div className="flex space-x-2">
+                <div className="mt-2">
+                  <Label name="cc" label="CC" />
                 </div>
-              </Combobox>
-            </div>
+                <Combobox
+                  value={selectedCcAddresses}
+                  onChange={(values) => handleComboboxOnChange(values, "cc")}
+                  multiple
+                >
+                  <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
+                    {selectedCcAddresses.map((emailAddress) => (
+                      <Badge
+                        key={emailAddress}
+                        variant="secondary"
+                        className="cursor-pointer rounded-md"
+                        onClick={() => {
+                          onRemoveSelectedEmail(emailAddress, "cc");
+                          setSearchQueryCc(emailAddress);
+                        }}
+                      >
+                        {extractNameFromEmail(emailAddress)}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onRemoveSelectedEmail(emailAddress, "cc")
+                          }
+                        >
+                          <XIcon className="ml-1.5 size-3" />
+                        </button>
+                      </Badge>
+                    ))}
+
+                    <div className="relative flex-1">
+                      <ComboboxInput
+                        value={searchQueryCc}
+                        className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
+                        onChange={(event) =>
+                          setSearchQueryCc(event.target.value)
+                        }
+                        onKeyUp={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            setValue(
+                              "cc",
+                              [...selectedCcAddresses, searchQueryCc].join(","),
+                            );
+                            setSearchQueryCc("");
+                          }
+                        }}
+                      />
+
+                      {!!data?.result?.length && (
+                        <ComboboxOptions
+                          className={
+                            "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm"
+                          }
+                        >
+                          <ComboboxOption
+                            className="h-0 w-0 overflow-hidden"
+                            value={searchQueryCc}
+                          />
+                          {data?.result.map((contact) => {
+                            const person = {
+                              emailAddress:
+                                contact.person?.emailAddresses?.[0].value,
+                              name: contact.person?.names?.[0].displayName,
+                              profilePictureUrl:
+                                contact.person?.photos?.[0].url,
+                            };
+
+                            return (
+                              <ComboboxOption
+                                className={({ focus }) =>
+                                  `cursor-default select-none px-4 py-1 text-foreground ${
+                                    focus && "bg-accent"
+                                  }`
+                                }
+                                key={person.emailAddress}
+                                value={person.emailAddress}
+                              >
+                                {({ selected }) => (
+                                  <div className="my-2 flex items-center">
+                                    {selected ? (
+                                      <div className="flex h-12 w-12 items-center justify-center rounded-full">
+                                        <CheckCircleIcon className="h-6 w-6" />
+                                      </div>
+                                    ) : (
+                                      <Avatar>
+                                        <AvatarImage
+                                          src={person.profilePictureUrl!}
+                                          alt={
+                                            person.emailAddress ||
+                                            "Profile picture"
+                                          }
+                                        />
+                                        <AvatarFallback>
+                                          {person.emailAddress?.[0] || "A"}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                    )}
+                                    <div className="ml-4 flex flex-col justify-center">
+                                      <div className="text-foreground">
+                                        {person.name}
+                                      </div>
+                                      <div className="text-sm font-semibold text-muted-foreground">
+                                        {person.emailAddress}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </ComboboxOption>
+                            );
+                          })}
+                        </ComboboxOptions>
+                      )}
+                    </div>
+                  </div>
+                </Combobox>
+              </div>
+            </>
           ) : (
-            <Input
-              type="text"
-              name="to"
-              label="To"
-              registerProps={register("to", { required: true })}
-              error={errors.to}
-            />
+            <>
+              <Input
+                type="text"
+                name="to"
+                label="To"
+                registerProps={register("to", { required: true })}
+                error={errors.to}
+              />
+              <Input
+                type="text"
+                name="cc"
+                label="CC"
+                registerProps={register("cc")}
+                error={errors.cc}
+              />
+            </>
           )}
 
           <Input

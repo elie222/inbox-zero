@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import {
   ForwardIcon,
   ReplyIcon,
+  ReplyAllIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
 } from "lucide-react";
@@ -48,14 +49,17 @@ export function EmailMessage({
   generateNudge?: boolean;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
+  const [showReplyAll, setShowReplyAll] = useState(false); // New state for "Reply to All"
   const [showDetails, setShowDetails] = useState(false);
 
   const onReply = useCallback(() => setShowReply(true), []);
+  const onReplyAll = useCallback(() => setShowReplyAll(true), []); // New callback for "Reply to All"
   const [showForward, setShowForward] = useState(false);
   const onForward = useCallback(() => setShowForward(true), []);
 
   const onCloseCompose = useCallback(() => {
     setShowReply(false);
+    setShowReplyAll(false); // Reset "Reply to All" state
     setShowForward(false);
   }, []);
 
@@ -80,6 +84,7 @@ export function EmailMessage({
         toggleDetails={toggleDetails}
         showReplyButton={showReplyButton}
         onReply={onReply}
+        onReplyAll={onReplyAll} // Pass the "Reply to All" callback
         onForward={onForward}
       />
 
@@ -95,16 +100,17 @@ export function EmailMessage({
 
           {message.attachments && <EmailAttachments message={message} />}
 
-          {(showReply || showForward) && (
+          {(showReply || showReplyAll || showForward) && (
             <ReplyPanel
               message={message}
               refetch={refetch}
               onSendSuccess={onSendSuccess}
               onCloseCompose={onCloseCompose}
               defaultShowReply={defaultShowReply}
-              showReply={showReply}
+              showReply={showReply || showReplyAll} // Pass the combined state
               draftMessage={draftMessage}
               generateNudge={generateNudge}
+              replyToAll={showReplyAll} // Pass the "Reply to All" state
             />
           )}
         </>
@@ -121,6 +127,7 @@ function TopBar({
   showReplyButton,
   onReply,
   onForward,
+  onReplyAll, // New prop for handling "Reply to All"
 }: {
   message: ParsedMessage;
   expanded: boolean;
@@ -129,6 +136,7 @@ function TopBar({
   showReplyButton: boolean;
   onReply: () => void;
   onForward: () => void;
+  onReplyAll: () => void; // New prop for handling "Reply to All"
 }) {
   return (
     <div className="sm:flex sm:items-center sm:justify-between">
@@ -172,6 +180,12 @@ function TopBar({
                 <span className="sr-only">Reply</span>
               </Button>
             </Tooltip>
+            <Tooltip content="Reply to All">
+              <Button variant="ghost" size="icon" onClick={onReplyAll}>
+                <ReplyAllIcon className="h-4 w-4" />
+                <span className="sr-only">Reply to All</span>
+              </Button>
+            </Tooltip>
             <Tooltip content="Forward">
               <Button variant="ghost" size="icon">
                 <ForwardIcon className="h-4 w-4" onClick={onForward} />
@@ -194,6 +208,7 @@ function ReplyPanel({
   showReply,
   draftMessage,
   generateNudge,
+  replyToAll, // New prop for "Reply to All"
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -203,21 +218,23 @@ function ReplyPanel({
   showReply: boolean;
   draftMessage?: ThreadMessage;
   generateNudge?: boolean;
+  replyToAll?: boolean; // New prop for "Reply to All"
 }) {
   const replyRef = useRef<HTMLDivElement>(null);
 
   const [isGeneratingNudge, setIsGeneratingNudge] = useState(false);
   const [nudge, setNudge] = useState<string | null>(null);
-  // scroll to the reply panel when it first opens
+
+  // Scroll to the reply panel when it first opens
   useEffect(() => {
     if (defaultShowReply && replyRef.current) {
-      // hacky using setTimeout
       setTimeout(() => {
         replyRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
       }, 500);
     }
   }, [defaultShowReply]);
 
+  // Generate nudge if enabled
   useEffect(() => {
     async function loadNudge() {
       setIsGeneratingNudge(true);
@@ -250,13 +267,13 @@ function ReplyPanel({
     if (generateNudge) loadNudge();
   }, [generateNudge, message]);
 
+  // Prepare the email for replying or forwarding
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {
       if (draftMessage) return prepareDraftReplyEmail(draftMessage);
 
-      // use nudge if available
+      // Use nudge if available
       if (nudge) {
-        // Convert nudge text into HTML paragraphs
         const nudgeHtml = nudge
           ? nudge
               .split("\n")
@@ -265,13 +282,17 @@ function ReplyPanel({
               .join("")
           : "";
 
-        return prepareReplyingToEmail(message, nudgeHtml);
+        return replyToAll
+          ? prepareReplyToAllEmail(message, nudgeHtml) // Use "Reply to All" logic
+          : prepareReplyingToEmail(message, nudgeHtml);
       }
 
-      return prepareReplyingToEmail(message);
+      return replyToAll
+        ? prepareReplyToAllEmail(message) // Use "Reply to All" logic
+        : prepareReplyingToEmail(message);
     }
     return prepareForwardingEmail(message);
-  }, [showReply, message, draftMessage, nudge]);
+  }, [showReply, message, draftMessage, nudge, replyToAll]);
 
   return (
     <>
@@ -312,6 +333,7 @@ function ReplyPanel({
 const prepareReplyingToEmail = (
   message: ParsedMessage,
   content = "",
+  replyToAll = false, // New parameter to handle "Reply to All"
 ): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
@@ -320,14 +342,41 @@ const prepareReplyingToEmail = (
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
     to: sentFromUser ? message.headers.to : message.headers.from,
+    // If replying to all, include CC recipients
+    cc: replyToAll ? message.headers.cc : "",
     // If following an email from yourself, don't add "Re:" prefix
     subject: sentFromUser
       ? message.headers.subject
       : `Re: ${message.headers.subject}`,
     headerMessageId: message.headers["message-id"]!,
     threadId: message.threadId!,
-    // Keep original CC
+    // Keep original BCC if available
+    bcc: sentFromUser ? message.headers.bcc : "",
+    references: message.headers.references,
+    draftHtml: content || "",
+    quotedContentHtml: html,
+  };
+};
+
+const prepareReplyToAllEmail = (
+  message: ParsedMessage,
+  content = "",
+): ReplyingToEmail => {
+  const sentFromUser = message.labelIds?.includes("SENT");
+
+  const { html } = createReplyContent({ message });
+
+  return {
+    // If following an email from yourself, use original recipients, otherwise reply to sender
+    to: sentFromUser ? message.headers.to : message.headers.from,
+    // Include all CC recipients
     cc: message.headers.cc,
+    // If following an email from yourself, don't add "Re:" prefix
+    subject: sentFromUser
+      ? message.headers.subject
+      : `Re: ${message.headers.subject}`,
+    headerMessageId: message.headers["message-id"]!,
+    threadId: message.threadId!,
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
     references: message.headers.references,
