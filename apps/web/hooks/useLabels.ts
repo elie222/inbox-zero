@@ -10,6 +10,10 @@ export type UserLabel = {
   type: "user";
   labelListVisibility?: string;
   messageListVisibility?: string;
+  color?: {
+    textColor?: string | null;
+    backgroundColor?: string | null;
+  };
 };
 
 export function useAllLabels() {
