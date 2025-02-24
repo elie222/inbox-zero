@@ -6,12 +6,14 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// biome-ignore lint/suspicious/noRedeclare: <explanation>
-const prisma = global.prisma || new PrismaClient().$extends(encryptedTokens);
+// Create the Prisma client with extensions, but cast it back to PrismaClient for type compatibility
+const _prisma =
+  global.prisma ||
+  (new PrismaClient().$extends(encryptedTokens) as unknown as PrismaClient);
 
-if (env.NODE_ENV === "development") global.prisma = prisma as any;
+if (env.NODE_ENV === "development") global.prisma = _prisma;
 
-export default prisma;
+export default _prisma;
 
 export function isDuplicateError(error: unknown, key?: string) {
   const duplicateError =
