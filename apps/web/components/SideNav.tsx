@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
-import { useLabels } from "@/hooks/useLabels";
+import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 
 type NavItem = {
@@ -264,37 +264,35 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 function MailNav({ path }: { path: string }) {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
-  const { userLabels, hiddenUserLabels, isLoading } = useLabels({
-    includeHidden: true,
-  });
+  const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
 
   // Transform user labels into NavItems
   const labelNavItems = useMemo(() => {
     const searchParams = new URLSearchParams(path.split("?")[1] || "");
     const currentLabelId = searchParams.get("labelId");
 
-    return userLabels.map((label) => ({
+    return visibleLabels.map((label) => ({
       name: label.name,
       icon: TagIcon,
       href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
       // Add active state for the current label
       active: currentLabelId === label.id,
     }));
-  }, [userLabels, path]);
+  }, [visibleLabels, path]);
 
   // Transform hidden labels into NavItems
   const hiddenLabelNavItems = useMemo(() => {
     const searchParams = new URLSearchParams(path.split("?")[1] || "");
     const currentLabelId = searchParams.get("labelId");
 
-    return hiddenUserLabels.map((label) => ({
+    return hiddenLabels.map((label) => ({
       name: label.name,
       icon: TagIcon,
       href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
       // Add active state for the current label
       active: currentLabelId === label.id,
     }));
-  }, [hiddenUserLabels, path]);
+  }, [hiddenLabels, path]);
 
   return (
     <>
@@ -324,7 +322,7 @@ function MailNav({ path }: { path: string }) {
       <SidebarGroup>
         <SidebarGroupLabel>Labels</SidebarGroupLabel>
         <LoadingContent loading={isLoading}>
-          {userLabels.length > 0 ? (
+          {visibleLabels.length > 0 ? (
             <SideNavMenu items={labelNavItems} activeHref={path} />
           ) : (
             <div className="px-3 py-2 text-xs text-muted-foreground">
@@ -333,7 +331,7 @@ function MailNav({ path }: { path: string }) {
           )}
 
           {/* Hidden labels toggle */}
-          {hiddenUserLabels.length > 0 && (
+          {hiddenLabels.length > 0 && (
             <>
               <button
                 type="button"

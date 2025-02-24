@@ -12,33 +12,55 @@ export type UserLabel = {
   messageListVisibility?: string;
 };
 
-export function useLabels(options = { includeHidden: true }) {
+export function useAllLabels() {
   const { data, isLoading, error, mutate } =
     useSWR<LabelsResponse>("/api/google/labels");
 
-  // Get all user labels
-  const allUserLabels = useMemo(
-    () => data?.labels?.filter(isUserLabel) || [],
+  const userLabels = useMemo(
+    () => data?.labels?.filter(isUserLabel).sort(sortLabels) || [],
     [data?.labels],
   );
 
-  // Split into visible and hidden labels
-  const { userLabels, hiddenUserLabels } = useMemo(() => {
-    // Always get visible labels
-    const visible = allUserLabels.filter(isHiddenLabel).sort(sortLabels);
+  return {
+    userLabels,
+    data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
 
-    // Only process hidden labels if needed
-    const hidden = options.includeHidden
-      ? allUserLabels.filter(isHiddenLabel).sort(sortLabels)
-      : [];
+export function useLabels() {
+  const { data, isLoading, error, mutate } =
+    useSWR<LabelsResponse>("/api/google/labels");
 
-    return { userLabels: visible, hiddenUserLabels: hidden };
-  }, [allUserLabels, options.includeHidden]);
+  const userLabels = useMemo(
+    () => data?.labels?.filter(isUserLabel).sort(sortLabels) || [],
+    [data?.labels],
+  );
 
   return {
     userLabels,
-    hiddenUserLabels,
-    data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+export function useSplitLabels() {
+  const { userLabels, isLoading, error, mutate } = useLabels();
+
+  const { visibleLabels, hiddenLabels } = useMemo(
+    () => ({
+      visibleLabels: userLabels.filter((label) => !isHiddenLabel(label)),
+      hiddenLabels: userLabels.filter(isHiddenLabel),
+    }),
+    [userLabels],
+  );
+
+  return {
+    visibleLabels,
+    hiddenLabels,
     isLoading,
     error,
     mutate,
