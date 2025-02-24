@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,6 +9,8 @@ import {
   ArrowLeftIcon,
   BarChartBigIcon,
   BookIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   CogIcon,
   CrownIcon,
   FileIcon,
@@ -45,6 +47,8 @@ import {
 } from "@/components/ui/sidebar";
 import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
+import { useSplitLabels } from "@/hooks/useLabels";
+import { LoadingContent } from "@/components/LoadingContent";
 
 type NavItem = {
   name: string;
@@ -259,6 +263,36 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
 function MailNav({ path }: { path: string }) {
   const { onOpen } = useComposeModal();
+  const [showHiddenLabels, setShowHiddenLabels] = useState(false);
+  const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
+
+  // Transform user labels into NavItems
+  const labelNavItems = useMemo(() => {
+    const searchParams = new URLSearchParams(path.split("?")[1] || "");
+    const currentLabelId = searchParams.get("labelId");
+
+    return visibleLabels.map((label) => ({
+      name: label.name,
+      icon: TagIcon,
+      href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
+      // Add active state for the current label
+      active: currentLabelId === label.id,
+    }));
+  }, [visibleLabels, path]);
+
+  // Transform hidden labels into NavItems
+  const hiddenLabelNavItems = useMemo(() => {
+    const searchParams = new URLSearchParams(path.split("?")[1] || "");
+    const currentLabelId = searchParams.get("labelId");
+
+    return hiddenLabels.map((label) => ({
+      name: label.name,
+      icon: TagIcon,
+      href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
+      // Add active state for the current label
+      active: currentLabelId === label.id,
+    }));
+  }, [hiddenLabels, path]);
 
   return (
     <>
@@ -283,6 +317,41 @@ function MailNav({ path }: { path: string }) {
       <SidebarGroup>
         <SidebarGroupLabel>Categories</SidebarGroupLabel>
         <SideNavMenu items={bottomMailLinks} activeHref={path} />
+      </SidebarGroup>
+
+      <SidebarGroup>
+        <SidebarGroupLabel>Labels</SidebarGroupLabel>
+        <LoadingContent loading={isLoading}>
+          {visibleLabels.length > 0 ? (
+            <SideNavMenu items={labelNavItems} activeHref={path} />
+          ) : (
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              No labels
+            </div>
+          )}
+
+          {/* Hidden labels toggle */}
+          {hiddenLabels.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowHiddenLabels(!showHiddenLabels)}
+                className="flex w-full items-center px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              >
+                {showHiddenLabels ? (
+                  <ChevronDownIcon className="mr-1 size-4" />
+                ) : (
+                  <ChevronRightIcon className="mr-1 size-4" />
+                )}
+                <span>More</span>
+              </button>
+
+              {showHiddenLabels && (
+                <SideNavMenu items={hiddenLabelNavItems} activeHref={path} />
+              )}
+            </>
+          )}
+        </LoadingContent>
       </SidebarGroup>
     </>
   );

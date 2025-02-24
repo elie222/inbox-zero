@@ -14,12 +14,14 @@ export const GET = withError(async (request: Request) => {
   const type = searchParams.get("type");
   const nextPageToken = searchParams.get("nextPageToken");
   const q = searchParams.get("q");
+  const labelId = searchParams.get("labelId");
   const query = threadsQuery.parse({
     limit,
     fromEmail,
     type,
     nextPageToken,
     q,
+    labelId,
   });
 
   const threads = await getThreads(query);
