@@ -7,8 +7,8 @@ import { createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
 
 const ALGORITHM = "aes-256-cbc";
 
-const password = process.env.ENCRYPT_SECRET;
-const salt = process.env.ENCRYPT_SALT;
+const password = process.env.TINYBIRD_ENCRYPT_SECRET;
+const salt = process.env.TINYBIRD_ENCRYPT_SALT;
 
 if (password && !salt) throw new Error("Missing TINYBIRD_ENCRYPT_SALT");
 

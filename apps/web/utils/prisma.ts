@@ -1,12 +1,15 @@
 import { env } from "@/env";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { encryptedTokens } from "@/utils/prisma-extensions";
+
+type ExtendedPrismaClient = ReturnType<typeof encryptedTokens>;
 
 declare global {
-  var prisma: PrismaClient | undefined;
+  var prisma: ExtendedPrismaClient | undefined;
 }
 
 // biome-ignore lint/suspicious/noRedeclare: <explanation>
-const prisma = global.prisma || new PrismaClient();
+const prisma = global.prisma || new PrismaClient().$extends(encryptedTokens);
 
 if (env.NODE_ENV === "development") global.prisma = prisma;
 
