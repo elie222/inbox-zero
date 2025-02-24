@@ -62,6 +62,7 @@ const ReplyTrackerSettingsForm = ({ rule }: { rule: RuleResponse["rule"] }) => {
         type="text"
         as="textarea"
         rows={5}
+        autosizeTextarea
         name="instructions"
         label="When to reply"
         registerProps={register("instructions", { required: true })}
@@ -79,11 +80,11 @@ const ReplyTrackerSettingsForm = ({ rule }: { rule: RuleResponse["rule"] }) => {
           type="text"
           as="textarea"
           rows={5}
+          autosizeTextarea
           name="draftRepliesInstructions"
-          label="How to draft the reply"
-          registerProps={register("draftRepliesInstructions", {
-            required: true,
-          })}
+          label="Instructions for drafting replies"
+          placeholder="Optional"
+          registerProps={register("draftRepliesInstructions")}
           error={errors.draftRepliesInstructions}
         />
       )}
