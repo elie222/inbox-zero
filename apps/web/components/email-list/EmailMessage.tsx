@@ -49,17 +49,17 @@ export function EmailMessage({
   generateNudge?: boolean;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
-  const [showReplyAll, setShowReplyAll] = useState(false); // New state for "Reply to All"
+  const [showReplyAll, setShowReplyAll] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
   const onReply = useCallback(() => setShowReply(true), []);
-  const onReplyAll = useCallback(() => setShowReplyAll(true), []); // New callback for "Reply to All"
+  const onReplyAll = useCallback(() => setShowReplyAll(true), []);
   const [showForward, setShowForward] = useState(false);
   const onForward = useCallback(() => setShowForward(true), []);
 
   const onCloseCompose = useCallback(() => {
     setShowReply(false);
-    setShowReplyAll(false); // Reset "Reply to All" state
+    setShowReplyAll(false);
     setShowForward(false);
   }, []);
 
@@ -84,7 +84,7 @@ export function EmailMessage({
         toggleDetails={toggleDetails}
         showReplyButton={showReplyButton}
         onReply={onReply}
-        onReplyAll={onReplyAll} // Pass the "Reply to All" callback
+        onReplyAll={onReplyAll}
         onForward={onForward}
       />
 
@@ -107,10 +107,10 @@ export function EmailMessage({
               onSendSuccess={onSendSuccess}
               onCloseCompose={onCloseCompose}
               defaultShowReply={defaultShowReply}
-              showReply={showReply || showReplyAll} // Pass the combined state
+              showReply={showReply || showReplyAll}
               draftMessage={draftMessage}
               generateNudge={generateNudge}
-              replyToAll={showReplyAll} // Pass the "Reply to All" state
+              replyToAll={showReplyAll}
             />
           )}
         </>
@@ -127,7 +127,7 @@ function TopBar({
   showReplyButton,
   onReply,
   onForward,
-  onReplyAll, // New prop for handling "Reply to All"
+  onReplyAll,
 }: {
   message: ParsedMessage;
   expanded: boolean;
@@ -136,7 +136,7 @@ function TopBar({
   showReplyButton: boolean;
   onReply: () => void;
   onForward: () => void;
-  onReplyAll: () => void; // New prop for handling "Reply to All"
+  onReplyAll: () => void;
 }) {
   return (
     <div className="sm:flex sm:items-center sm:justify-between">
@@ -208,7 +208,7 @@ function ReplyPanel({
   showReply,
   draftMessage,
   generateNudge,
-  replyToAll, // New prop for "Reply to All"
+  replyToAll,
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -218,23 +218,23 @@ function ReplyPanel({
   showReply: boolean;
   draftMessage?: ThreadMessage;
   generateNudge?: boolean;
-  replyToAll?: boolean; // New prop for "Reply to All"
+  replyToAll?: boolean;
 }) {
   const replyRef = useRef<HTMLDivElement>(null);
 
   const [isGeneratingNudge, setIsGeneratingNudge] = useState(false);
   const [nudge, setNudge] = useState<string | null>(null);
 
-  // Scroll to the reply panel when it first opens
+  // scroll to the reply panel when it first opens
   useEffect(() => {
     if (defaultShowReply && replyRef.current) {
+      // hacky using setTimeout
       setTimeout(() => {
         replyRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
       }, 500);
     }
   }, [defaultShowReply]);
 
-  // Generate nudge if enabled
   useEffect(() => {
     async function loadNudge() {
       setIsGeneratingNudge(true);
@@ -267,12 +267,11 @@ function ReplyPanel({
     if (generateNudge) loadNudge();
   }, [generateNudge, message]);
 
-  // Prepare the email for replying or forwarding
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {
       if (draftMessage) return prepareDraftReplyEmail(draftMessage);
 
-      // Use nudge if available
+      // use nudge if available
       if (nudge) {
         const nudgeHtml = nudge
           ? nudge
@@ -283,12 +282,12 @@ function ReplyPanel({
           : "";
 
         return replyToAll
-          ? prepareReplyToAllEmail(message, nudgeHtml) // Use "Reply to All" logic
+          ? prepareReplyToAllEmail(message, nudgeHtml)
           : prepareReplyingToEmail(message, nudgeHtml);
       }
 
       return replyToAll
-        ? prepareReplyToAllEmail(message) // Use "Reply to All" logic
+        ? prepareReplyToAllEmail(message)
         : prepareReplyingToEmail(message);
     }
     return prepareForwardingEmail(message);
@@ -333,7 +332,7 @@ function ReplyPanel({
 const prepareReplyingToEmail = (
   message: ParsedMessage,
   content = "",
-  replyToAll = false, // New parameter to handle "Reply to All"
+  replyToAll = false,
 ): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 

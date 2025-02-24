@@ -66,7 +66,7 @@ export const ComposeEmailForm = ({
       replyToEmail: replyingToEmail,
       subject: replyingToEmail?.subject,
       to: replyingToEmail?.to,
-      cc: replyingToEmail?.cc, // Initialize cc field
+      cc: replyingToEmail?.cc,
       messageHtml: replyingToEmail?.draftHtml,
     },
   });
@@ -116,7 +116,7 @@ export const ComposeEmailForm = ({
   );
 
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [searchQueryCc, setSearchQueryCc] = React.useState(""); // New state for CC search
+  const [searchQueryCc, setSearchQueryCc] = React.useState("");
   const { data } = useSWR<ContactsResponse, { error: string }>(
     env.NEXT_PUBLIC_CONTACTS_ENABLED
       ? `/api/google/contacts?query=${searchQuery}`
@@ -126,8 +126,9 @@ export const ComposeEmailForm = ({
     },
   );
 
+  // TODO not in love with how this was implemented
   const selectedEmailAddresses = watch("to", "").split(",").filter(Boolean);
-  const selectedCcAddresses = (watch("cc") || "").split(",").filter(Boolean); // Watch CC field
+  const selectedCcAddresses = (watch("cc") || "").split(",").filter(Boolean);
 
   const onRemoveSelectedEmail = (emailAddress: string, field: "to" | "cc") => {
     const filteredEmailAddresses = (
@@ -136,6 +137,7 @@ export const ComposeEmailForm = ({
     setValue(field, filteredEmailAddresses.join(","));
   };
 
+  // this assumes last value given by combobox is user typed value
   const handleComboboxOnChange = (values: string[], field: "to" | "cc") => {
     const lastValue = values[values.length - 1];
 
@@ -170,7 +172,7 @@ export const ComposeEmailForm = ({
       } catch (error) {
         console.error("Failed to append content:", error);
         toastError({ description: "Failed to show full content" });
-        return;
+        return; // Don't set showFullContent to true if append failed
       }
     }
     setShowFullContent(true);
@@ -314,7 +316,6 @@ export const ComposeEmailForm = ({
                 </Combobox>
               </div>
 
-              {/* Add CC Combobox */}
               <div className="flex space-x-2">
                 <div className="mt-2">
                   <Label name="cc" label="CC" />
