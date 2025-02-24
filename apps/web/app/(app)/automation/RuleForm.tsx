@@ -30,7 +30,7 @@ import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
   createRuleBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/rule.validation";
 import { actionInputs } from "@/utils/action-item";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";

@@ -4,12 +4,10 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
   createApiKeyBody,
+  type CreateApiKeyBody,
   deactivateApiKeyBody,
-} from "@/utils/actions/validation";
-import type {
-  CreateApiKeyBody,
-  DeactivateApiKeyBody,
-} from "@/utils/actions/validation";
+  type DeactivateApiKeyBody,
+} from "@/utils/actions/api-key.validation";
 import prisma from "@/utils/prisma";
 import { generateSecureToken, hashApiKey } from "@/utils/api-key";
 import { withActionInstrumentation } from "@/utils/actions/middleware";

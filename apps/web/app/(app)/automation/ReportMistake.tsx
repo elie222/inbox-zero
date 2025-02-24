@@ -29,11 +29,13 @@ import {
 import { reportAiMistakeAction, runRulesAction } from "@/utils/actions/ai-rule";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  reportAiMistakeBody,
   updateRuleInstructionsBody,
   type UpdateRuleInstructionsBody,
+} from "@/utils/actions/rule.validation";
+import {
+  reportAiMistakeBody,
   type ReportAiMistakeBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/ai-rule.validation";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Input } from "@/components/Input";

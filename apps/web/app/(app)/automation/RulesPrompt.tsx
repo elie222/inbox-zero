@@ -26,7 +26,7 @@ import { Input } from "@/components/Input";
 import {
   saveRulesPromptBody,
   type SaveRulesPromptBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/rule.validation";
 import { SectionHeader } from "@/components/Typography";
 import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";

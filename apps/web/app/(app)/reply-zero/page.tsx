@@ -101,7 +101,7 @@ export default async function ReplyTrackerPage({
                     <DialogTitle>Settings</DialogTitle>
                   </DialogHeader>
 
-                  <ReplyTrackerSettings />
+                  <ReplyTrackerSettings ruleId={trackRepliesRule?.id} />
                 </DialogContent>
               </Dialog>
               <TimeRangeFilter />

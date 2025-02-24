@@ -17,7 +17,7 @@ import {
 import {
   createApiKeyBody,
   type CreateApiKeyBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/api-key.validation";
 import {
   createApiKeyAction,
   deactivateApiKeyAction,

@@ -24,7 +24,7 @@ import {
   type ColdEmailBlockerResponse,
   testColdEmailAction,
 } from "@/utils/actions/cold-email";
-import type { ColdEmailBlockerBody } from "@/utils/actions/validation";
+import type { ColdEmailBlockerBody } from "@/utils/actions/cold-email.validation";
 
 export function TestRulesContent() {
   const [searchQuery, setSearchQuery] = useState("");

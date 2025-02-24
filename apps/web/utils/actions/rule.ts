@@ -2,24 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  type CreateRuleBody,
   createRuleBody,
-  type UpdateRuleBody,
+  type CreateRuleBody,
   updateRuleBody,
+  type UpdateRuleBody,
   updateRuleInstructionsBody,
   type UpdateRuleInstructionsBody,
-} from "@/utils/actions/validation";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
-import {
   rulesExamplesBody,
   type RulesExamplesBody,
-} from "@/utils/actions/validation";
+  updateRuleSettingsBody,
+  type UpdateRuleSettingsBody,
+} from "@/utils/actions/rule.validation";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { LogicalOperator, RuleType } from "@prisma/client";
+import { LogicalOperator } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
@@ -253,6 +253,46 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
 
     revalidatePath(`/automation/rule/${body.id}`);
     revalidatePath("/automation");
+  },
+);
+
+export const updateRuleSettingsAction = withActionInstrumentation(
+  "updateRuleSettings",
+  async (options: UpdateRuleSettingsBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data: body, error } = updateRuleSettingsBody.safeParse(options);
+    if (error) return { error: error.message };
+
+    const currentRule = await prisma.rule.findUnique({
+      where: { id: body.id, userId: session.user.id },
+      include: { actions: true, categoryFilters: true, group: true },
+    });
+    if (!currentRule) return { error: "Rule not found" };
+
+    const updatedRule = await prisma.rule.update({
+      where: { id: body.id, userId: session.user.id },
+      data: {
+        instructions: body.instructions,
+        // autoDraftReply: body.autoDraftReply,
+        // draftReplyInstructions: body.draftReplyInstructions,
+      },
+      include: { actions: true, categoryFilters: true, group: true },
+    });
+
+    // Update prompt file since instructions changed
+    await updatePromptFileOnRuleUpdated(
+      session.user.id,
+      currentRule,
+      updatedRule,
+    );
+
+    revalidatePath(`/automation/rule/${body.id}`);
+    revalidatePath("/automation");
+    revalidatePath("/reply-zero");
+
+    return { rule: updatedRule };
   },
 );
 

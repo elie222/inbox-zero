@@ -16,7 +16,7 @@ import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
   type ColdEmailBlockerBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/cold-email.validation";
 import { formatZodError } from "@/utils/error";
 
 const markNotColdEmailBody = z.object({ sender: z.string() });

@@ -11,7 +11,7 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import {
   createCategoryBody,
   type CreateCategoryBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/categorize.validation";
 import { isActionError } from "@/utils/error";
 import { createCategoryAction } from "@/utils/actions/categorize";
 import {

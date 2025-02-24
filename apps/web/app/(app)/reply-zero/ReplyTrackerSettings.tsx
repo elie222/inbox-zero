@@ -7,29 +7,54 @@ import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
 import { Toggle } from "@/components/Toggle";
+import { useRule } from "@/hooks/useRule";
+import type { RuleResponse } from "@/app/api/user/rules/[id]/route";
+import { LoadingContent } from "@/components/LoadingContent";
+import {
+  updateRuleSettingsBody,
+  type UpdateRuleSettingsBody,
+} from "@/utils/actions/rule.validation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { updateRuleSettingsAction } from "@/utils/actions/rule";
 
-type Inputs = {
-  instructions: string;
-  autoDraftReply: boolean;
-  draftReplyInstructions: string;
+export const ReplyTrackerSettings = ({ ruleId }: { ruleId?: string }) => {
+  const { data, isLoading, error } = useRule(ruleId);
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data?.rule && <ReplyTrackerSettingsForm rule={data.rule} />}
+    </LoadingContent>
+  );
 };
 
-export const ReplyTrackerSettings = () => {
+const ReplyTrackerSettingsForm = ({ rule }: { rule: RuleResponse["rule"] }) => {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     watch,
     setValue,
-  } = useForm<Inputs>();
+  } = useForm<UpdateRuleSettingsBody>({
+    resolver: zodResolver(updateRuleSettingsBody),
+    defaultValues: {
+      id: rule?.id,
+      instructions: rule?.instructions ?? "",
+      draftReplies: rule?.draftReplies ?? false,
+      draftRepliesInstructions: rule?.draftRepliesInstructions ?? "",
+    },
+  });
 
-  const onSubmit: SubmitHandler<Inputs> = useCallback(async (data) => {
-    // const res = await updateProfile(data);
-    // if (isErrorMessage(res)) toastError({ description: `` });
-    // else toastSuccess({ description: `` });
-  }, []);
+  const onSubmit: SubmitHandler<UpdateRuleSettingsBody> = useCallback(
+    async (data) => {
+      const res = await updateRuleSettingsAction(data);
+      if (isErrorMessage(res))
+        toastError({ description: "There was an error updating the settings" });
+      else toastSuccess({ description: "Settings updated" });
+    },
+    [],
+  );
 
-  const autoDraftReply = watch("autoDraftReply");
+  const draftReplies = watch("draftReplies");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -45,19 +70,21 @@ export const ReplyTrackerSettings = () => {
       <Toggle
         name="auto-draft"
         label="Draft replies"
-        enabled={autoDraftReply}
-        onChange={(checked) => setValue("autoDraftReply", checked)}
+        enabled={draftReplies}
+        onChange={(checked) => setValue("draftReplies", checked)}
       />
 
-      {autoDraftReply && (
+      {draftReplies && (
         <Input
           type="text"
           as="textarea"
           rows={5}
-          name="draftReplyInstructions"
+          name="draftRepliesInstructions"
           label="How to draft the reply"
-          registerProps={register("draftReplyInstructions", { required: true })}
-          error={errors.draftReplyInstructions}
+          registerProps={register("draftRepliesInstructions", {
+            required: true,
+          })}
+          error={errors.draftRepliesInstructions}
         />
       )}
 
