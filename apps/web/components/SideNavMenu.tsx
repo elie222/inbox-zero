@@ -15,6 +15,7 @@ type NavItem = {
   target?: "_blank";
   count?: number;
   hideInMail?: boolean;
+  active?: boolean;
 };
 
 export function SideNavMenu({
@@ -30,7 +31,7 @@ export function SideNavMenu({
         <SidebarMenuItem key={item.name} className="font-semibold">
           <SidebarMenuButton
             asChild
-            isActive={activeHref === item.href}
+            isActive={item.active || activeHref === item.href}
             className="h-9"
             tooltip={item.name}
           >

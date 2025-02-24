@@ -6,5 +6,6 @@ export const threadsQuery = z.object({
   type: z.string().nullish(),
   q: z.string().nullish(),
   nextPageToken: z.string().nullish(),
+  labelId: z.string().nullish(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
