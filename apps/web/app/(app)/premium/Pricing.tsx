@@ -155,7 +155,10 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
           {tiers.map((tier, tierIdx) => {
-            const isCurrentPlan = tier.tiers[frequency.value] === premiumTier;
+            const isCurrentPlan =
+              tier.tiers[frequency.value] === premiumTier &&
+              // TODO: handle for higher tiers too
+              tier.seatsIncluded === 1;
 
             const user = session.data?.user;
 

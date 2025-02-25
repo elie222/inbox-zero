@@ -18,6 +18,7 @@ type Tier = {
   cta: string;
   ctaLink?: string;
   mostPopular?: boolean;
+  seatsIncluded: number;
 };
 
 export const frequencies = [
@@ -170,6 +171,7 @@ const businessTier: Tier = {
   ],
   cta: "Try free for 7 days",
   mostPopular: true,
+  seatsIncluded: 1,
 };
 
 // const businessSingleTier: Tier = {
@@ -241,13 +243,14 @@ const businessTeamTier: Tier = {
     smartCategoriesFeature,
   ],
   cta: "Try free for 7 days",
+  seatsIncluded: 5,
 };
 
 const businessEnterpriseTier: Tier = {
   name: "Enterprise",
   tiers: {
-    monthly: PremiumTier.BUSINESS_MONTHLY,
-    annually: PremiumTier.BUSINESS_ANNUALLY,
+    monthly: PremiumTier.COPILOT_MONTHLY,
+    annually: PremiumTier.COPILOT_MONTHLY,
   },
   href: {
     monthly: env.NEXT_PUBLIC_COPILOT_MONTHLY_PAYMENT_LINK,
@@ -280,6 +283,7 @@ const businessEnterpriseTier: Tier = {
     },
   ],
   cta: "Try free for 7 days",
+  seatsIncluded: 25,
 };
 
 // const copilotTier = {
