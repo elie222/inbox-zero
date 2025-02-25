@@ -98,7 +98,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
         resolved: false,
       },
       orderBy: { sentAt: "desc" },
-      take: 5,
+      take: 20,
       distinct: ["threadId"],
     }),
     // awaiting reply
@@ -111,7 +111,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
         sentAt: { lt: subHours(new Date(), 24 * 3) },
       },
       orderBy: { sentAt: "desc" },
-      take: 5,
+      take: 20,
       distinct: ["threadId"],
     }),
     // needs action - currently not used
@@ -122,7 +122,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     //     resolved: false,
     //   },
     //   orderBy: { sentAt: "desc" },
-    //   take: 5,
+    //   take: 20,
     //   distinct: ["threadId"],
     // }),
   ]);
