@@ -154,40 +154,44 @@ export function Rules() {
                         <Actions actions={rule.actions} />
                       </TableCell>
                       <TableCell>
-                        <Toggle
-                          enabled={rule.automate}
-                          name="automate"
-                          onChange={async () => {
-                            const result = await setRuleAutomatedAction({
-                              ruleId: rule.id,
-                              automate: !rule.automate,
-                            });
-                            if (isActionError(result)) {
-                              toastError({
-                                description: `There was an error updating your rule. ${result.error}`,
+                        <div className="flex justify-center">
+                          <Toggle
+                            enabled={rule.automate}
+                            name="automate"
+                            onChange={async () => {
+                              const result = await setRuleAutomatedAction({
+                                ruleId: rule.id,
+                                automate: !rule.automate,
                               });
-                            }
-                            mutate();
-                          }}
-                        />
+                              if (isActionError(result)) {
+                                toastError({
+                                  description: `There was an error updating your rule. ${result.error}`,
+                                });
+                              }
+                              mutate();
+                            }}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <Toggle
-                          enabled={rule.runOnThreads}
-                          name="runOnThreads"
-                          onChange={async () => {
-                            const result = await setRuleRunOnThreadsAction({
-                              ruleId: rule.id,
-                              runOnThreads: !rule.runOnThreads,
-                            });
-                            if (isActionError(result)) {
-                              toastError({
-                                description: `There was an error updating your rule. ${result.error}`,
+                        <div className="flex justify-center">
+                          <Toggle
+                            enabled={rule.runOnThreads}
+                            name="runOnThreads"
+                            onChange={async () => {
+                              const result = await setRuleRunOnThreadsAction({
+                                ruleId: rule.id,
+                                runOnThreads: !rule.runOnThreads,
                               });
-                            }
-                            mutate();
-                          }}
-                        />
+                              if (isActionError(result)) {
+                                toastError({
+                                  description: `There was an error updating your rule. ${result.error}`,
+                                });
+                              }
+                              mutate();
+                            }}
+                          />
+                        </div>
                       </TableCell>
                       {/* <TableCell className="text-right">33</TableCell>
                 <TableCell className="text-right">43</TableCell> */}
