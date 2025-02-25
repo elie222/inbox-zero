@@ -155,7 +155,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
 
     await prisma.rule.update({
       where: { id: ruleId },
-      data: { trackReplies: true, runOnThreads: true },
+      data: { trackReplies: true, draftReplies: true, runOnThreads: true },
     });
 
     revalidatePath("/reply-zero");
