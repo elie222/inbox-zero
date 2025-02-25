@@ -33,10 +33,10 @@ export function useLandingPageAIAssistantVariant() {
   );
 }
 
-export type PricingVariant = "control" | "business-only" | "basic-business";
+// export type PricingVariant = "control" | "business-only" | "basic-business";
 
-export function usePricingVariant() {
-  return (
-    (useFeatureFlagVariantKey("pricing-options") as PricingVariant) || "control"
-  );
-}
+// export function usePricingVariant() {
+//   return (
+//     (useFeatureFlagVariantKey("pricing-options") as PricingVariant) || "control"
+//   );
+// }

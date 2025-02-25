@@ -32,7 +32,7 @@ const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 10,
   [PremiumTier.BUSINESS_MONTHLY]: 24,
   [PremiumTier.BUSINESS_ANNUALLY]: 16,
-  [PremiumTier.COPILOT_MONTHLY]: 499,
+  [PremiumTier.COPILOT_MONTHLY]: 500,
   [PremiumTier.LIFETIME]: 299,
 };
 
@@ -41,9 +41,9 @@ export const pricingAdditonalEmail: Record<PremiumTier, number> = {
   [PremiumTier.BASIC_ANNUALLY]: 6,
   [PremiumTier.PRO_MONTHLY]: 8,
   [PremiumTier.PRO_ANNUALLY]: 8,
-  [PremiumTier.BUSINESS_MONTHLY]: 12,
-  [PremiumTier.BUSINESS_ANNUALLY]: 12,
-  [PremiumTier.COPILOT_MONTHLY]: 0,
+  [PremiumTier.BUSINESS_MONTHLY]: 10,
+  [PremiumTier.BUSINESS_ANNUALLY]: 10,
+  [PremiumTier.COPILOT_MONTHLY]: 10,
   [PremiumTier.LIFETIME]: 99,
 };
 
@@ -106,39 +106,39 @@ const analyticsFeature = {
   tooltip: "Understand your email habits and patterns.",
 };
 
-const basicTier = {
-  name: "Unsubscriber",
-  tiers: {
-    monthly: PremiumTier.BASIC_MONTHLY,
-    annually: PremiumTier.BASIC_ANNUALLY,
-  },
-  href: {
-    monthly: env.NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK,
-    annually: env.NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK,
-  },
-  price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BASIC_MONTHLY,
-    annually: pricingAdditonalEmail.BASIC_ANNUALLY,
-  },
-  discount: {
-    monthly: 0,
-    annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
-  },
-  description: "Unlimited unsubscribe credits.",
-  features: [
-    bulkUnsubscribeFeature,
-    analyticsFeature,
-    { text: "Unlimited unsubscribes" },
-    { text: "Unlimited archives" },
-  ],
-  cta: "Try free for 7 days",
-};
+// const basicTier = {
+//   name: "Unsubscriber",
+//   tiers: {
+//     monthly: PremiumTier.BASIC_MONTHLY,
+//     annually: PremiumTier.BASIC_ANNUALLY,
+//   },
+//   href: {
+//     monthly: env.NEXT_PUBLIC_BASIC_MONTHLY_PAYMENT_LINK,
+//     annually: env.NEXT_PUBLIC_BASIC_ANNUALLY_PAYMENT_LINK,
+//   },
+//   price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
+//   priceAdditional: {
+//     monthly: pricingAdditonalEmail.BASIC_MONTHLY,
+//     annually: pricingAdditonalEmail.BASIC_ANNUALLY,
+//   },
+//   discount: {
+//     monthly: 0,
+//     annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
+//   },
+//   description: "Unlimited unsubscribe credits.",
+//   features: [
+//     bulkUnsubscribeFeature,
+//     analyticsFeature,
+//     { text: "Unlimited unsubscribes" },
+//     { text: "Unlimited archives" },
+//   ],
+//   cta: "Try free for 7 days",
+// };
 
 export const businessTierName = "AI Assistant";
 
-const businessTier = {
-  name: businessTierName,
+const businessTier: Tier = {
+  name: "Standard",
   tiers: {
     monthly: PremiumTier.BUSINESS_MONTHLY,
     annually: PremiumTier.BUSINESS_ANNUALLY,
@@ -161,33 +161,66 @@ const businessTier = {
   },
   description: "Unlock full AI-powered email management",
   features: [
-    {
-      text: "Everything in Unsubscriber tier",
-    },
     aiAssistantFeature,
     replyZeroFeature,
     coldEmailBlockerFeature,
+    bulkUnsubscribeFeature,
+    analyticsFeature,
     smartCategoriesFeature,
-    { text: "Unlimited AI usage" },
-    { text: "Priority support" },
   ],
   cta: "Try free for 7 days",
   mostPopular: true,
 };
 
-export const businessSingleTier: Tier = {
-  name: businessTierName,
+// const businessSingleTier: Tier = {
+//   name: businessTierName,
+//   tiers: {
+//     monthly: PremiumTier.BUSINESS_MONTHLY,
+//     annually: PremiumTier.BUSINESS_ANNUALLY,
+//   },
+//   href: {
+//     monthly: env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
+//     annually: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
+//   },
+//   price: {
+//     monthly: pricing.BUSINESS_MONTHLY,
+//     annually: pricing.BUSINESS_ANNUALLY,
+//   },
+//   priceAdditional: {
+//     monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
+//     annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
+//   },
+//   discount: {
+//     monthly: 0,
+//     annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
+//   },
+//   description: "Unlock full AI-powered email management",
+//   features: [
+//     aiAssistantFeature,
+//     replyZeroFeature,
+//     coldEmailBlockerFeature,
+//     smartCategoriesFeature,
+//     { text: "Unlimited AI usage" },
+//     bulkUnsubscribeFeature,
+//     analyticsFeature,
+//     { text: "Priority support" },
+//   ],
+//   cta: "Try free for 7 days",
+// };
+
+const businessTeamTier: Tier = {
+  name: "Team",
   tiers: {
     monthly: PremiumTier.BUSINESS_MONTHLY,
     annually: PremiumTier.BUSINESS_ANNUALLY,
   },
   href: {
-    monthly: env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
-    annually: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
+    monthly: `${env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK}?quantity=5`,
+    annually: `${env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK}?quantity=5`,
   },
   price: {
-    monthly: pricing.BUSINESS_MONTHLY,
-    annually: pricing.BUSINESS_ANNUALLY,
+    monthly: 64,
+    annually: 56,
   },
   priceAdditional: {
     monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
@@ -195,27 +228,26 @@ export const businessSingleTier: Tier = {
   },
   discount: {
     monthly: 0,
-    annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
+    annually: discount(64, 56),
   },
-  description: "Unlock full AI-powered email management",
+  description: "AI-powered email management for small teams",
   features: [
+    { text: "5 email accounts included" },
     aiAssistantFeature,
     replyZeroFeature,
     coldEmailBlockerFeature,
-    smartCategoriesFeature,
-    { text: "Unlimited AI usage" },
     bulkUnsubscribeFeature,
     analyticsFeature,
-    { text: "Priority support" },
+    smartCategoriesFeature,
   ],
   cta: "Try free for 7 days",
 };
 
-const copilotTier = {
-  name: "Co-Pilot",
+const businessEnterpriseTier: Tier = {
+  name: "Enterprise",
   tiers: {
-    monthly: PremiumTier.COPILOT_MONTHLY,
-    annually: PremiumTier.COPILOT_MONTHLY,
+    monthly: PremiumTier.BUSINESS_MONTHLY,
+    annually: PremiumTier.BUSINESS_ANNUALLY,
   },
   href: {
     monthly: env.NEXT_PUBLIC_COPILOT_MONTHLY_PAYMENT_LINK,
@@ -223,26 +255,69 @@ const copilotTier = {
   },
   price: {
     monthly: pricing.COPILOT_MONTHLY,
-    annually: pricing.COPILOT_MONTHLY,
+    annually: 400,
   },
   priceAdditional: {
     monthly: pricingAdditonalEmail.COPILOT_MONTHLY,
     annually: pricingAdditonalEmail.COPILOT_MONTHLY,
   },
-  discount: { monthly: 0, annually: 0 },
-  description: "Expert human assistant to manage your email",
+  discount: {
+    monthly: 0,
+    annually: discount(pricing.COPILOT_MONTHLY, 400),
+  },
+  description: "Self-hosted, customized email management",
   features: [
-    { text: "Everything in AI Assistant tier" },
-    { text: "Human assistant to manage your email daily" },
-    { text: "30-minute 1:1 monthly call" },
-    { text: "Full refund if not satisfied after first 3 days" },
+    {
+      text: "25 email accounts included",
+    },
+    {
+      text: "Self-hosted deployment",
+    },
+    { text: "Setup assistance" },
+    { text: "Dedicated account manager" },
+    {
+      text: "Everything in Team plan",
+    },
   ],
-  cta: "Book a call",
-  ctaLink: env.NEXT_PUBLIC_CALL_LINK,
-  mostPopular: false,
+  cta: "Try free for 7 days",
 };
 
-export const allTiers: Tier[] = [basicTier, businessTier, copilotTier];
+// const copilotTier = {
+//   name: "Co-Pilot",
+//   tiers: {
+//     monthly: PremiumTier.COPILOT_MONTHLY,
+//     annually: PremiumTier.COPILOT_MONTHLY,
+//   },
+//   href: {
+//     monthly: env.NEXT_PUBLIC_COPILOT_MONTHLY_PAYMENT_LINK,
+//     annually: env.NEXT_PUBLIC_COPILOT_MONTHLY_PAYMENT_LINK,
+//   },
+//   price: {
+//     monthly: pricing.COPILOT_MONTHLY,
+//     annually: pricing.COPILOT_MONTHLY,
+//   },
+//   priceAdditional: {
+//     monthly: pricingAdditonalEmail.COPILOT_MONTHLY,
+//     annually: pricingAdditonalEmail.COPILOT_MONTHLY,
+//   },
+//   discount: { monthly: 0, annually: 0 },
+//   description: "Expert human assistant to manage your email",
+//   features: [
+//     { text: "Everything in AI Assistant tier" },
+//     { text: "Human assistant to manage your email daily" },
+//     { text: "30-minute 1:1 monthly call" },
+//     { text: "Full refund if not satisfied after first 3 days" },
+//   ],
+//   cta: "Book a call",
+//   ctaLink: env.NEXT_PUBLIC_CALL_LINK,
+//   mostPopular: false,
+// };
+
+export const allTiers: Tier[] = [
+  businessTier,
+  businessTeamTier,
+  businessEnterpriseTier,
+];
 
 export function getSubscriptionTier({
   variantId,

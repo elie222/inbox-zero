@@ -18,11 +18,8 @@ import {
   frequencies,
   pricingAdditonalEmail,
   allTiers,
-  businessSingleTier,
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
-import { usePricingVariant } from "@/hooks/useFeatureFlags";
-import { PremiumTier } from "@prisma/client";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { isActionError } from "@/utils/error";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
@@ -51,7 +48,6 @@ function buildLemonUrl(url: string, affiliateCode: string | null) {
 export function Pricing(props: { header?: React.ReactNode }) {
   const { isPremium, data, isLoading, error } = usePremium();
   const session = useSession();
-  const pricingVariant = usePricingVariant();
 
   const [frequency, setFrequency] = useState(frequencies[1]);
 
@@ -72,28 +68,10 @@ export function Pricing(props: { header?: React.ReactNode }) {
     </div>
   );
 
-  function getLayoutComponents() {
-    const isBasicTier =
-      premiumTier === PremiumTier.BASIC_MONTHLY ||
-      premiumTier === PremiumTier.BASIC_ANNUALLY;
-
-    if (pricingVariant === "business-only" && !isBasicTier)
-      return {
-        Layout: OneColLayout,
-        Item: OneColItem,
-        tiers: [businessSingleTier],
-      };
-    if (pricingVariant === "basic-business" || isBasicTier)
-      return {
-        Layout: TwoColLayout,
-        Item: TwoColItem,
-        tiers: [allTiers[0], allTiers[1]],
-      };
-    // control
-    return { Layout: ThreeColLayout, Item: ThreeColItem, tiers: allTiers };
-  }
-
-  const { Layout, Item, tiers } = getLayoutComponents();
+  // const { Layout, Item, tiers } = getLayoutComponents("", premiumTier);
+  const Layout = ThreeColLayout;
+  const Item = ThreeColItem;
+  const tiers = allTiers;
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -171,7 +149,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 50%!</Badge>
+            <Badge>Save up to 33%!</Badge>
           </div>
         </div>
 
@@ -209,10 +187,10 @@ export function Pricing(props: { header?: React.ReactNode }) {
             return (
               <Item
                 key={tier.name}
-                className="rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10"
+                className="flex flex-col rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10"
                 index={tierIdx}
               >
-                <div>
+                <div className="flex-1">
                   <div className="flex items-center justify-between gap-x-4">
                     <h3
                       id={tier.name}
@@ -314,6 +292,30 @@ export function Pricing(props: { header?: React.ReactNode }) {
     </LoadingContent>
   );
 }
+
+// function getLayoutComponents(
+//   pricingVariant: string,
+//   premiumTier: PremiumTier | null,
+// ) {
+//   const isBasicTier =
+//     premiumTier === PremiumTier.BASIC_MONTHLY ||
+//     premiumTier === PremiumTier.BASIC_ANNUALLY;
+
+//   if (pricingVariant === "business-only" && !isBasicTier)
+//     return {
+//       Layout: OneColLayout,
+//       Item: OneColItem,
+//       tiers: [businessSingleTier],
+//     };
+//   if (pricingVariant === "basic-business" || isBasicTier)
+//     return {
+//       Layout: TwoColLayout,
+//       Item: TwoColItem,
+//       tiers: [allTiers[0], allTiers[1]],
+//     };
+//   // control
+//   return { Layout: ThreeColLayout, Item: ThreeColItem, tiers: allTiers };
+// }
 
 function ThreeColLayout({
   children,
