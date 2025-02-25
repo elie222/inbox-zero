@@ -13,7 +13,7 @@ model Account {
   id                String   @id @default(cuid())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  userId            String   @unique // `@unique` was added here. It's not part of the original schema. May remove this in the future
+  userId            String
   type              String
   provider          String
   providerAccountId String
@@ -25,9 +25,42 @@ model Account {
   id_token          String?  @db.Text
   session_state     String?
 
+  email String?
+  image String?
+
+  watchEmailsExpirationDate DateTime?
+  lastSyncedHistoryId       String?
+
+  about           String?
+  signature       String?
+  behaviorProfile Json?
+  errorMessages   Json? // eg. user set incorrect AI API key
+
+  statsEmailFrequency   Frequency         @default(WEEKLY)
+  summaryEmailFrequency Frequency         @default(WEEKLY)
+  lastSummaryEmailAt    DateTime?
+  coldEmailBlocker      ColdEmailSetting?
+  coldEmailPrompt       String?
+  rulesPrompt           String?
+  webhookSecret         String?
+
+  // categorization
+  autoCategorizeSenders Boolean @default(false)
+
+  labels            Label[]
+  rules             Rule[]
+  executedRules     ExecutedRule[]
+  newsletters       Newsletter[]
+  coldEmails        ColdEmail[]
+  groups            Group[]
+  categories        Category[]
+  threadTrackers    ThreadTracker[]
+  unsubscribeTokens EmailToken[]
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([lastSummaryEmailAt])
 }
 
 // not in use. we only use jwt for sessions
@@ -51,33 +84,17 @@ model User {
   sessions      Session[]
 
   // additional fields
-  about                     String?
-  signature                 String?
-  watchEmailsExpirationDate DateTime?
-  lastSyncedHistoryId       String?
-  completedOnboarding       Boolean   @default(false) // deprecated
-  completedOnboardingAt     DateTime? // questions about the user. e.g. their role
-  completedAppOnboardingAt  DateTime? // how to use the app
-  onboardingAnswers         Json?
-  behaviorProfile           Json?
-  lastLogin                 DateTime?
-  utms                      Json?
-  errorMessages             Json? // eg. user set incorrect AI API key
+  completedOnboarding      Boolean   @default(false) // deprecated
+  completedOnboardingAt    DateTime? // questions about the user. e.g. their role
+  completedAppOnboardingAt DateTime? // how to use the app
+  onboardingAnswers        Json?
+  lastLogin                DateTime?
+  utms                     Json?
 
   // settings
-  aiProvider            String?
-  aiModel               String?
-  aiApiKey              String?
-  statsEmailFrequency   Frequency         @default(WEEKLY)
-  summaryEmailFrequency Frequency         @default(WEEKLY)
-  lastSummaryEmailAt    DateTime?
-  coldEmailBlocker      ColdEmailSetting?
-  coldEmailPrompt       String?
-  rulesPrompt           String?
-  webhookSecret         String?
-
-  // categorization
-  autoCategorizeSenders Boolean @default(false)
+  aiProvider String?
+  aiModel    String?
+  aiApiKey   String?
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -86,19 +103,16 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  promptHistory     PromptHistory[]
+  apiKeys           ApiKey[]
   labels            Label[]
   rules             Rule[]
   executedRules     ExecutedRule[]
   newsletters       Newsletter[]
   coldEmails        ColdEmail[]
   groups            Group[]
-  apiKeys           ApiKey[]
   categories        Category[]
   threadTrackers    ThreadTracker[]
   unsubscribeTokens EmailToken[]
-
-  @@index([lastSummaryEmailAt])
 }
 
 model Premium {
@@ -150,15 +164,6 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model PromptHistory {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  prompt    String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
 model Label {
   id           String   @id @default(cuid())
   createdAt    DateTime @default(now())
@@ -169,6 +174,8 @@ model Label {
   enabled      Boolean  @default(true)
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id])
 
   @@unique([gmailLabelId, userId])
   @@unique([name, userId])
@@ -185,6 +192,8 @@ model Rule {
   runOnThreads   Boolean         @default(false) // if disabled, only runs on individual emails
   userId         String
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account         @relation(fields: [accountId], references: [id])
   executedRules  ExecutedRule[]
   trackReplies   Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
   threadTrackers ThreadTracker[]
@@ -250,8 +259,10 @@ model ExecutedRule {
   rule   Rule?   @relation(fields: [ruleId], references: [id])
 
   // storing user here in case rule was deleted
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
 
   actionItems ExecutedAction[]
 
@@ -292,6 +303,8 @@ model Group {
   items     GroupItem[]
   userId    String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account     @relation(fields: [accountId], references: [id])
   rule      Rule?
 
   @@unique([name, userId])
@@ -317,6 +330,8 @@ model Category {
   description  String?
   userId       String
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      Account      @relation(fields: [accountId], references: [id])
   emailSenders Newsletter[]
   rules        Rule[]
 
@@ -335,6 +350,8 @@ model Newsletter {
 
   userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId  String
+  account    Account   @relation(fields: [accountId], references: [id])
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
 
@@ -352,8 +369,10 @@ model ColdEmail {
   status    ColdEmailStatus?
   reason    String?
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
 
   @@unique([userId, fromEmail])
   @@index([userId, status])
@@ -373,8 +392,10 @@ model ThreadTracker {
   ruleId String?
   rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
 
   @@unique([userId, threadId, messageId])
   @@index([userId, resolved])
@@ -402,6 +423,8 @@ model EmailToken {
   token     String   @unique
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id])
   expiresAt DateTime
   // action    EmailTokenAction @default(UNSUBSCRIBE)
 }
