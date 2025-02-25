@@ -34,26 +34,29 @@ export function EnableReplyTracker() {
         </>
       }
       extraDescription={
-        <div className="mt-4">
+        <div className="mt-4 text-left">
           <p>
-            <SectionDescription className="text-left">
-              We label your emails with:
-            </SectionDescription>
+            <SectionDescription>We label your emails with:</SectionDescription>
           </p>
 
-          <SectionDescription className="text-left">
+          <SectionDescription>
             <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> - emails you
             need to reply to.
           </SectionDescription>
-          <SectionDescription className="text-left">
+          <SectionDescription>
             <Badge color="blue">{AWAITING_REPLY_LABEL_NAME}</Badge> - emails
             where you're waiting for a response.
+          </SectionDescription>
+
+          <SectionDescription className="mt-4">
+            You can also enable auto-drafting of replies that appear in your
+            inbox.
           </SectionDescription>
         </div>
       }
       imageSrc="/images/illustrations/communication.svg"
       imageAlt="Reply tracking"
-      buttonText="Enable"
+      buttonText="Enable Reply Zero"
       onEnable={async () => {
         const result = await enableReplyTrackerAction();
 
