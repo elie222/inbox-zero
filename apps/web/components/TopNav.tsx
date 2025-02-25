@@ -23,6 +23,7 @@ import { logOut } from "@/utils/user";
 import { env } from "@/env";
 import { cn } from "@/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AccountSwitcher } from "@/components/AccountSwitcher";
 
 const userNavigation = [
   ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD
@@ -117,6 +118,11 @@ function ProfileDropdown() {
               </div>
             </MenuItem>
             <MenuItem>{({ focus }) => <ThemeToggle focus={focus} />}</MenuItem>
+            <MenuItem>
+              <div className="py-1">
+                <AccountSwitcher className="w-full" />
+              </div>
+            </MenuItem>
             {userNavigation.map((item) => (
               <MenuItem key={item.name}>
                 {({ focus }) => (
