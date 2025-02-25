@@ -15,7 +15,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
 import { ExternalLinkIcon, PlusIcon, FilterIcon } from "lucide-react";
-import { Card } from "@/components/Card";
+import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -266,7 +266,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <div className="mt-4 space-y-4">
         {conditionFields.map((condition, index) => (
-          <Card key={condition.id} className="mt-4">
+          <CardBasic key={condition.id} className="mt-4">
             <div className="grid gap-4 sm:grid-cols-4">
               <div className="sm:col-span-1">
                 <Select
@@ -489,7 +489,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             >
               Remove
             </Button>
-          </Card>
+          </CardBasic>
         ))}
       </div>
 
@@ -537,7 +537,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
           return (
-            <Card key={i}>
+            <CardBasic key={i}>
               <div className="grid gap-4 sm:grid-cols-4">
                 <div className="sm:col-span-1">
                   <Select
@@ -656,7 +656,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   })}
                 </div>
               </div>
-            </Card>
+            </CardBasic>
           );
         })}
       </div>
@@ -794,7 +794,7 @@ function LabelCombobox({
 
 function ReplyTrackerActionSection() {
   return (
-    <Card>
+    <CardBasic>
       <div className="space-y-4">
         <div>
           <TypographyH3>Reply Zero Tracker</TypographyH3>
@@ -819,6 +819,6 @@ function ReplyTrackerActionSection() {
           </p>
         </div>
       </div>
-    </Card>
+    </CardBasic>
   );
 }

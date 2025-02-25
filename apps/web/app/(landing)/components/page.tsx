@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
-import { Card } from "@/components/Card";
+import { CardBasic } from "@/components/ui/card";
 import { Container } from "@/components/Container";
 import {
   PageHeading,
@@ -53,7 +53,7 @@ export default function Components() {
 
         <div className="space-y-6">
           <div className="underline">Card</div>
-          <Card>This is a card.</Card>
+          <CardBasic>This is a basic card.</CardBasic>
         </div>
 
         <div className="space-y-6">

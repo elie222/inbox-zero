@@ -7,7 +7,7 @@ import { FilterIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/Card";
+import { CardBasic } from "@/components/ui/card";
 import type {
   StatsByWeekResponse,
   StatsByWeekParams,
@@ -57,7 +57,7 @@ export function DetailedStats(props: {
       {data && (
         <div>
           <div className="mt-2">
-            <Card>
+            <CardBasic>
               <div className="flex items-center justify-between">
                 <Title>Detailed Analytics</Title>
                 <div className="flex space-x-2">
@@ -159,7 +159,7 @@ export function DetailedStats(props: {
                 categories={["Sent"]}
                 colors={["blue"]}
               />
-            </Card>
+            </CardBasic>
           </div>
         </div>
       )}

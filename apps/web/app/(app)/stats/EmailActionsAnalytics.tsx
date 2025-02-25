@@ -4,8 +4,8 @@ import useSWR from "swr";
 import { BarChart, Title } from "@tremor/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/Card";
 import type { StatsByWeekResponse } from "@/app/api/user/stats/tinybird/route";
+import { CardBasic } from "@/components/ui/card";
 
 export function EmailActionsAnalytics() {
   const { data, isLoading, error } = useSWR<
@@ -22,7 +22,7 @@ export function EmailActionsAnalytics() {
       {data && (
         <div>
           <div className="mt-2">
-            <Card>
+            <CardBasic>
               <Title>
                 How many emails you've archived and deleted with Inbox Zero
               </Title>
@@ -34,7 +34,7 @@ export function EmailActionsAnalytics() {
                 categories={["Archived", "Deleted"]}
                 colors={["lime", "pink"]}
               />
-            </Card>
+            </CardBasic>
           </div>
         </div>
       )}

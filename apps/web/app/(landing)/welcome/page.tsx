@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { Card } from "@/components/Card";
 import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { env } from "@/env";
@@ -11,6 +10,7 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 import { UTMs } from "@/app/(landing)/welcome/utms";
 import { SignUpEvent } from "@/app/(landing)/welcome/sign-up-event";
+import { CardBasic } from "@/components/ui/card";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -47,7 +47,7 @@ export default async function WelcomePage({
     <div className="flex flex-col justify-center px-6 py-20 text-gray-900">
       <SquaresPattern />
 
-      <Card className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
+      <CardBasic className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         <div className="flex flex-col text-center">
           <PageHeading>Welcome to Inbox Zero</PageHeading>
           <TypographyP className="mt-2">Let{"'"}s get you set up!</TypographyP>
@@ -57,7 +57,7 @@ export default async function WelcomePage({
             </Suspense>
           </div>
         </div>
-      </Card>
+      </CardBasic>
       <LoadStats loadBefore showToast={false} />
       {!user.utms && (
         <Suspense>

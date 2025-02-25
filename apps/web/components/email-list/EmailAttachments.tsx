@@ -1,8 +1,8 @@
-import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { DownloadIcon } from "lucide-react";
 import type { ThreadMessage } from "@/components/email-list/types";
+import { CardBasic } from "@/components/ui/card";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   return (
@@ -18,7 +18,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
         const url = `/api/google/messages/attachment?${searchParams.toString()}`;
 
         return (
-          <Card key={attachment.filename} className="p-4">
+          <CardBasic key={attachment.filename} className="p-4">
             <div className="text-muted-foreground">{attachment.filename}</div>
             <div className="mt-4 flex items-center justify-between">
               <div className="text-muted-foreground">
@@ -33,7 +33,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                 </Link>
               </Button>
             </div>
-          </Card>
+          </CardBasic>
         );
       })}
     </div>

@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card } from "@/components/Card";
+import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TagsIcon, ArchiveIcon, ZapIcon } from "lucide-react";
 
@@ -27,18 +27,18 @@ export function SmartCategoriesOnboarding() {
         </DialogHeader>
 
         <div className="grid gap-2 sm:gap-4">
-          <Card className="flex items-center">
+          <CardBasic className="flex items-center">
             <TagsIcon className="mr-3 h-5 w-5" />
             Auto-categorize who emails you
-          </Card>
-          <Card className="flex items-center">
+          </CardBasic>
+          <CardBasic className="flex items-center">
             <ArchiveIcon className="mr-3 h-5 w-5" />
             Bulk archive by category
-          </Card>
-          <Card className="flex items-center">
+          </CardBasic>
+          <CardBasic className="flex items-center">
             <ZapIcon className="mr-3 h-5 w-5" />
             Use categories to optimize AI automation
-          </Card>
+          </CardBasic>
         </div>
         <div>
           <Button className="w-full" onClick={onClose}>

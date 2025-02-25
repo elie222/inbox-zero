@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/Card";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { Header } from "@/app/(landing)/home/Header";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { HeroSubtitle, HeroText } from "@/app/(landing)/home/Hero";
+import { CardBasic } from "@/components/ui/card";
 
 export const metadata: Metadata = {
   title: "Open Source Friends | Inbox Zero",
@@ -42,7 +42,7 @@ export default async function OSSFriendsPage() {
         <div className="mt-20 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {data.data?.map((friend) => {
             return (
-              <Card key={friend.name}>
+              <CardBasic key={friend.name}>
                 <TypographyH3>
                   <Link href={friend.href}>{friend.name}</Link>
                 </TypographyH3>
@@ -56,7 +56,7 @@ export default async function OSSFriendsPage() {
                     </Link>
                   </Button>
                 </div>
-              </Card>
+              </CardBasic>
             );
           })}
         </div>

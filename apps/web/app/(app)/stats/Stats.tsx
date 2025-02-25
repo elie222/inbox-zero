@@ -14,7 +14,7 @@ import { LoadProgress } from "@/app/(app)/stats/LoadProgress";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { EmailActionsAnalytics } from "@/app/(app)/stats/EmailActionsAnalytics";
 import { BulkUnsubscribeSummary } from "@/app/(app)/bulk-unsubscribe/BulkUnsubscribeSummary";
-import { Card } from "@/components/Card";
+import { CardBasic } from "@/components/ui/card";
 import { Title } from "@tremor/react";
 import { TopBar } from "@/components/TopBar";
 // import { Insights } from "@/app/(app)/stats/Insights";
@@ -104,14 +104,14 @@ export function Stats() {
       </div>
 
       <div className="mt-4 px-4">
-        <Card>
+        <CardBasic>
           <Title>
             How many emailers you've handled with Inbox Zero bulk unsubscribe
           </Title>
           <div className="mt-2">
             <BulkUnsubscribeSummary />
           </div>
-        </Card>
+        </CardBasic>
       </div>
 
       <div className="mt-4 px-4">

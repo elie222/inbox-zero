@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card } from "@/components/Card";
+import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ListChecksIcon, ReplyIcon, SlidersIcon } from "lucide-react";
 import { YouTubeVideo } from "@/components/YouTubeVideo";
@@ -47,18 +47,18 @@ export function AutomationOnboarding({
         />
 
         <div className="grid gap-2 text-sm">
-          <Card className="flex items-center">
+          <CardBasic className="flex items-center">
             <ListChecksIcon className="mr-3 size-5" />
             Create rules to handle different types of emails
-          </Card>
-          <Card className="flex items-center">
+          </CardBasic>
+          <CardBasic className="flex items-center">
             <ReplyIcon className="mr-3 size-5" />
             Automate responses and actions
-          </Card>
-          <Card className="flex items-center">
+          </CardBasic>
+          <CardBasic className="flex items-center">
             <SlidersIcon className="mr-3 size-5" />
             Refine your assistant's behavior over time
-          </Card>
+          </CardBasic>
         </div>
         <div>
           <Button

@@ -2,7 +2,6 @@
 
 import { ArchiveIcon, Layers3Icon, BarChartBigIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/Card";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useOnboarding } from "@/components/OnboardingModal";
+import { CardBasic } from "@/components/ui/card";
 
 export function StatsOnboarding() {
   const { isOpen, setIsOpen, onClose } = useOnboarding("Stats");
@@ -27,18 +27,18 @@ export function StatsOnboarding() {
         </DialogHeader>
 
         <div className="grid gap-2 sm:gap-4">
-          <Card className="flex items-center">
+          <CardBasic className="flex items-center">
             <BarChartBigIcon className="mr-3 h-5 w-5" />
             Visualise your data
-          </Card>
-          <Card className="flex items-center">
+          </CardBasic>
+          <CardBasic className="flex items-center">
             <Layers3Icon className="mr-3 h-5 w-5" />
             Understand what{`'`}s filling up your inbox
-          </Card>
-          <Card className="flex items-center">
+          </CardBasic>
+          <CardBasic className="flex items-center">
             <ArchiveIcon className="mr-3 h-5 w-5" />
             Unsubscribe and bulk archive
-          </Card>
+          </CardBasic>
         </div>
         <div>
           <Button className="w-full" onClick={onClose}>
