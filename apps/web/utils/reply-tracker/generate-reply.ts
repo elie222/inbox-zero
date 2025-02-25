@@ -9,17 +9,29 @@ import { getAiUserByEmail } from "@/utils/user/get";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
-export async function generateDraft(
-  userEmail: string,
-  gmail: gmail_v1.Gmail,
-  message: ParsedMessage,
-) {
+export async function generateDraft({
+  userId,
+  userEmail,
+  gmail,
+  message,
+}: {
+  userId: string;
+  userEmail: string;
+  gmail: gmail_v1.Gmail;
+  message: ParsedMessage;
+}) {
   const logger = createScopedLogger("generate-reply").with({
     email: userEmail,
+    userId,
     messageId: message.id,
     threadId: message.threadId,
   });
+
+  const replyTrackingRule = await getReplyTrackingRule(userId);
+
+  if (!replyTrackingRule?.draftReplies) return;
 
   logger.info("Generating draft");
 
@@ -29,7 +41,11 @@ export async function generateDraft(
   const messages = await getThreadMessages(message.threadId, gmail);
 
   // 1. Draft with AI
-  const result = await generateContent(user, messages);
+  const result = await generateContent(
+    user,
+    messages,
+    replyTrackingRule.draftRepliesInstructions,
+  );
 
   logger.info("Draft generated", { result });
 
@@ -39,9 +55,10 @@ export async function generateDraft(
   logger.info("Draft created");
 }
 
-export async function generateContent(
+async function generateContent(
   user: UserEmailWithAI,
   threadMessages: ParsedMessage[],
+  instructions: string | null,
 ) {
   const lastMessage = threadMessages.at(-1);
 
@@ -62,7 +79,11 @@ export async function generateContent(
     }),
   }));
 
-  const text = await aiGenerateReply({ messages, user });
+  const text = await aiGenerateReply({
+    messages,
+    user,
+    instructions,
+  });
 
   await saveReply({
     userId: user.id,

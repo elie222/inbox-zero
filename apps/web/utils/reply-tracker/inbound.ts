@@ -75,7 +75,12 @@ export async function markNeedsReply(
     awaitingReplyLabelId,
   );
   const newLabelPromise = labelNeedsReply(gmail, messageId, needsReplyLabelId);
-  const draftPromise = generateDraft(email, gmail, message);
+  const draftPromise = generateDraft({
+    userId,
+    userEmail: email,
+    gmail,
+    message,
+  });
 
   const [dbResult, removeLabelResult, newLabelResult] =
     await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);

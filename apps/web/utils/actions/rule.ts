@@ -265,34 +265,18 @@ export const updateRuleSettingsAction = withActionInstrumentation(
     const { data: body, error } = updateRuleSettingsBody.safeParse(options);
     if (error) return { error: error.message };
 
-    const currentRule = await prisma.rule.findUnique({
-      where: { id: body.id, userId: session.user.id },
-      include: { actions: true, categoryFilters: true, group: true },
-    });
-    if (!currentRule) return { error: "Rule not found" };
-
-    const updatedRule = await prisma.rule.update({
+    await prisma.rule.update({
       where: { id: body.id, userId: session.user.id },
       data: {
         instructions: body.instructions,
-        // autoDraftReply: body.autoDraftReply,
-        // draftReplyInstructions: body.draftReplyInstructions,
+        draftReplies: body.draftReplies,
+        draftRepliesInstructions: body.draftRepliesInstructions,
       },
-      include: { actions: true, categoryFilters: true, group: true },
     });
-
-    // Update prompt file since instructions changed
-    await updatePromptFileOnRuleUpdated(
-      session.user.id,
-      currentRule,
-      updatedRule,
-    );
 
     revalidatePath(`/automation/rule/${body.id}`);
     revalidatePath("/automation");
     revalidatePath("/reply-zero");
-
-    return { rule: updatedRule };
   },
 );
 
