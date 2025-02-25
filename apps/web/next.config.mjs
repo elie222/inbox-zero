@@ -212,8 +212,8 @@ const nextConfig = {
               "worker-src 'self' blob:",
               // For API calls, SWR, external services
               "connect-src 'self' https:",
-              // Add frame-src for Google Tag Manager
-              "frame-src 'self' https://*.googletagmanager.com",
+              // iframes
+              "frame-src 'self' https:",
               // Prevent embedding in iframes
               "frame-ancestors 'none'",
             ].join("; "),
