@@ -124,6 +124,8 @@ The required environment variables:
 - `NEXTAUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
 - `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
+- `GOOGLE_ENCRYPT_SECRET` -- Secret key for encrypting OAuth tokens (try using `openssl rand -hex 32` for a secure key)
+- `GOOGLE_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
 - `TINYBIRD_TOKEN` -- (optional) Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region). You can also decide to disabled Tinybird and then the analytics and bulk unsubscribe features will be disabled. Set `NEXT_PUBLIC_DISABLE_TINYBIRD=true` if you decide to disable Tinybird.

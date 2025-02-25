@@ -44,7 +44,7 @@ export async function getThreads(query: ThreadsQuery) {
     await getThreadsWithNextPageToken({
       gmail,
       q: getQuery(),
-      labelIds: getLabelIds(query.type),
+      labelIds: query.labelId ? [query.labelId] : getLabelIds(query.type),
       maxResults: query.limit || 50,
       pageToken: query.nextPageToken || undefined,
     });

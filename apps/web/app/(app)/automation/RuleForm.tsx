@@ -84,7 +84,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   });
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
-  const { userLabels, data: gmailLabelsData, isLoading, mutate } = useLabels();
+  const { userLabels, isLoading, mutate } = useLabels();
   const {
     categories,
     isLoading: categoriesLoading,
@@ -99,7 +99,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       // create labels that don't exist
       for (const action of data.actions) {
         if (action.type === ActionType.LABEL) {
-          const hasLabel = gmailLabelsData?.labels?.some(
+          const hasLabel = userLabels?.some(
             (label) => label.name === action.label,
           );
           if (!hasLabel && action.label?.value && !action.label?.ai) {
@@ -151,7 +151,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         }
       }
     },
-    [gmailLabelsData?.labels, router, posthog],
+    [userLabels, router, posthog],
   );
 
   const conditions = watch("conditions");
